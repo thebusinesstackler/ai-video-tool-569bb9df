@@ -39,7 +39,7 @@ export async function createKieVideo(params: KieVideoParams): Promise<string> {
       imageUrls: params.imageUrls || [],
       model: params.model || 'veo3',
       aspectRatio: params.aspectRatio || '16:9',
-      seeds: params.seeds || Math.floor(Math.random() * 999999),
+      seeds: params.seeds || Math.floor(Math.random() * 90000) + 10000,
       enableFallback: params.enableFallback !== undefined ? params.enableFallback : true,
       watermark: params.watermark || ''
     }),
