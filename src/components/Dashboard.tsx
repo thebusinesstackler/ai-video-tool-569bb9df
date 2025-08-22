@@ -11,6 +11,7 @@ import {
   SparklesIcon,
   BarChart3Icon
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import heroImage from '@/assets/hero-image.jpg';
 
 const stats = [
@@ -99,24 +100,26 @@ export const Dashboard = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {quickActions.map((action, index) => (
-          <Card key={action.name} className="glass hover:shadow-ai hover:scale-105 transition-all duration-300 cursor-pointer group" style={{ animationDelay: `${index * 150}ms` }}>
-            <CardHeader>
-              <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mb-4 group-hover:animate-glow">
-                <action.icon className="w-6 h-6 text-primary-foreground" />
-              </div>
-              <CardTitle className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-                {action.name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                {action.description}
-              </p>
-              <Button variant={action.variant} className="w-full">
-                Get Started
-              </Button>
-            </CardContent>
-          </Card>
+          <Link key={action.name} to={action.href}>
+            <Card className="glass hover:shadow-ai hover:scale-105 transition-all duration-300 cursor-pointer group" style={{ animationDelay: `${index * 150}ms` }}>
+              <CardHeader>
+                <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mb-4 group-hover:animate-glow">
+                  <action.icon className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                  {action.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  {action.description}
+                </p>
+                <Button variant={action.variant} className="w-full">
+                  Get Started
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
