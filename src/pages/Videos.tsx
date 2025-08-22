@@ -242,7 +242,12 @@ const Videos = () => {
 
   const pollSegmentStatus = async (taskId: string, projectId: string, segmentId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke(`kie-video?action=status&taskId=${taskId}`);
+      const { data, error } = await supabase.functions.invoke('kie-video', {
+        body: {
+          action: 'status',
+          taskId: taskId
+        }
+      });
 
       if (error) {
         console.error('Status check error:', error);

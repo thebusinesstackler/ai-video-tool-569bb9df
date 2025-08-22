@@ -44,11 +44,12 @@ serve(async (req) => {
       );
     }
 
-    const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'create';
+    // Parse request body to get action and parameters
+    const body = await req.json();
+    const action = body.action || 'create';
 
     if (action === 'create') {
-      const params: KieVideoParams = await req.json();
+      const params: KieVideoParams = body;
       console.log('Creating video with params:', params);
 
       const response = await fetch('https://api.kie.ai/api/v1/veo/generate', {
@@ -89,7 +90,7 @@ serve(async (req) => {
       );
 
     } else if (action === 'status') {
-      const taskId = url.searchParams.get('taskId');
+      const taskId = body.taskId;
       
       if (!taskId) {
         return new Response(
@@ -154,7 +155,7 @@ serve(async (req) => {
 
     } else {
       return new Response(
-        JSON.stringify({ error: 'Invalid action. Use ?action=create or ?action=status' }), 
+        JSON.stringify({ error: 'Invalid action. Use action: "create" or action: "status"' }), 
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
