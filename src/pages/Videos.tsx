@@ -16,21 +16,35 @@ import {
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
-  PlusIcon
+  PlusIcon,
+  LinkIcon,
+  GridIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+
+interface VideoSegment {
+  id: string;
+  sceneNumber: number;
+  timeRange: string;
+  description: string;
+  dialogue: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  jobId?: string;
+  outputUrl?: string;
+}
 
 interface VideoProject {
   id: string;
   title: string;
   script: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  jobId?: string;
-  outputUrl?: string;
+  segments: VideoSegment[];
   aspectRatio: string;
   createdAt: string;
+  totalDuration: number;
+  isStitched?: boolean;
+  stitchedUrl?: string;
 }
 
 const Videos = () => {
@@ -64,6 +78,51 @@ const Videos = () => {
     setProjects(newProjects);
   };
 
+  const parseScriptIntoSegments = (script: string): VideoSegment[] => {
+    const segments: VideoSegment[] = [];
+    const sceneRegex = /Scene (\d+) \((\d+:\d+)–(\d+:\d+)\) — ([^]*?)(?=Scene \d+|\n[A-Z][^:]*:|$)/gi;
+    
+    let match;
+    let sceneNumber = 1;
+    
+    while ((match = sceneRegex.exec(script)) !== null) {
+      const [, sceneNum, startTime, endTime, content] = match;
+      const lines = content.trim().split('\n');
+      const description = lines[0] || '';
+      const dialogue = lines.find(line => line.startsWith('Speaker:'))?.replace('Speaker:', '').trim() || '';
+      
+      segments.push({
+        id: `${Date.now()}-${sceneNumber}`,
+        sceneNumber: parseInt(sceneNum) || sceneNumber,
+        timeRange: `${startTime}–${endTime}`,
+        description: description,
+        dialogue: dialogue,
+        status: 'pending',
+        progress: 0
+      });
+      
+      sceneNumber++;
+    }
+    
+    // Fallback: if no scenes found, create segments from paragraphs
+    if (segments.length === 0) {
+      const paragraphs = script.split('\n\n').filter(p => p.trim());
+      paragraphs.forEach((paragraph, index) => {
+        segments.push({
+          id: `${Date.now()}-${index + 1}`,
+          sceneNumber: index + 1,
+          timeRange: `${index * 5}s–${(index + 1) * 5}s`,
+          description: `Segment ${index + 1}`,
+          dialogue: paragraph.trim(),
+          status: 'pending',
+          progress: 0
+        });
+      });
+    }
+    
+    return segments;
+  };
+
   const handleCreateVideo = async () => {
     if (!formData.script.trim() || !formData.title.trim()) {
       toast({
@@ -76,48 +135,75 @@ const Videos = () => {
 
     setIsCreating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('kie-video', {
-        body: {
-          prompt: `Create a video based on this script: ${formData.script}`,
-          aspectRatio: formData.aspectRatio as '16:9' | '9:16',
-          model: 'veo3',
-          enableFallback: true
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to create video');
-      }
-
-      if (!data || !data.taskId) {
-        throw new Error('No task ID received from the server');
-      }
-
-      const taskId = data.taskId;
-
+      const segments = parseScriptIntoSegments(formData.script);
+      
       const newProject: VideoProject = {
         id: Date.now().toString(),
         title: formData.title,
         script: formData.script,
-        status: 'pending',
-        progress: 0,
-        jobId: taskId,
+        segments: segments,
         aspectRatio: formData.aspectRatio,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        totalDuration: formData.duration
       };
 
       const updatedProjects = [newProject, ...projects];
       saveProjects(updatedProjects);
       
+      // Create videos for each segment
+      for (const segment of segments) {
+        try {
+          const { data, error } = await supabase.functions.invoke('kie-video', {
+            body: {
+              prompt: `Scene: ${segment.description}. Dialogue: "${segment.dialogue}". Create a video showing: ${segment.description}`,
+              aspectRatio: formData.aspectRatio as '16:9' | '9:16',
+              model: 'veo3',
+              enableFallback: true
+            }
+          });
+
+          if (!error && data?.taskId) {
+            // Update segment with job ID
+            setProjects(prev => prev.map(p => 
+              p.id === newProject.id 
+                ? {
+                    ...p,
+                    segments: p.segments.map(s => 
+                      s.id === segment.id 
+                        ? { ...s, jobId: data.taskId, status: 'processing' }
+                        : s
+                    )
+                  }
+                : p
+            ));
+            
+            // Start polling for this segment
+            pollSegmentStatus(data.taskId, newProject.id, segment.id);
+          }
+        } catch (segmentError) {
+          console.error(`Error creating segment ${segment.id}:`, segmentError);
+          // Mark segment as failed
+          setProjects(prev => prev.map(p => 
+            p.id === newProject.id 
+              ? {
+                  ...p,
+                  segments: p.segments.map(s => 
+                    s.id === segment.id 
+                      ? { ...s, status: 'failed' }
+                      : s
+                  )
+                }
+              : p
+          ));
+        }
+      }
+      
       setFormData({ title: '', script: '', aspectRatio: '16:9', style: 'default', duration: 60 });
       
       toast({
         title: "Video Creation Started",
-        description: "Your video is being generated. This may take a few minutes.",
+        description: `Creating ${segments.length} video segments. This may take several minutes.`,
       });
-
-      // Start polling for updates
-      pollVideoStatus(taskId, newProject.id);
       
     } catch (error) {
       console.error('Video creation error:', error);
@@ -131,7 +217,7 @@ const Videos = () => {
     }
   };
 
-  const pollVideoStatus = async (taskId: string, projectId: string) => {
+  const pollSegmentStatus = async (taskId: string, projectId: string, segmentId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke(`kie-video?action=status&taskId=${taskId}`);
 
@@ -144,27 +230,62 @@ const Videos = () => {
       
       setProjects(prev => prev.map(p => 
         p.id === projectId 
-          ? { ...p, status: job.status, progress: job.progress || 0, outputUrl: job.videoUrl }
+          ? {
+              ...p,
+              segments: p.segments.map(s => 
+                s.id === segmentId 
+                  ? { ...s, status: job.status, progress: job.progress || 0, outputUrl: job.videoUrl }
+                  : s
+              )
+            }
           : p
       ));
 
       if (job.status === 'processing' || job.status === 'pending') {
-        setTimeout(() => pollVideoStatus(taskId, projectId), 5000);
+        setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 5000);
       } else if (job.status === 'completed') {
-        toast({
-          title: "Video Ready",
-          description: "Your video has been generated successfully!",
+        // Check if all segments are completed
+        setProjects(prev => {
+          const project = prev.find(p => p.id === projectId);
+          if (project) {
+            const allCompleted = project.segments.every(s => 
+              s.id === segmentId ? job.status === 'completed' : s.status === 'completed'
+            );
+            if (allCompleted) {
+              toast({
+                title: "All Video Segments Ready",
+                description: "All segments have been generated. You can now review and stitch them together!",
+              });
+            }
+          }
+          return prev;
         });
       } else if (job.status === 'failed') {
         toast({
-          title: "Video Failed",
-          description: "Video generation failed. Please try again.",
+          title: "Segment Failed",
+          description: `Video segment generation failed.`,
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Polling error:', error);
     }
+  };
+
+  const getProjectStatus = (project: VideoProject) => {
+    if (project.segments.length === 0) return 'pending';
+    
+    const statuses = project.segments.map(s => s.status);
+    if (statuses.every(s => s === 'completed')) return 'completed';
+    if (statuses.some(s => s === 'failed')) return 'failed';
+    if (statuses.some(s => s === 'processing')) return 'processing';
+    return 'pending';
+  };
+
+  const getProjectProgress = (project: VideoProject) => {
+    if (project.segments.length === 0) return 0;
+    const totalProgress = project.segments.reduce((sum, s) => sum + s.progress, 0);
+    return Math.round(totalProgress / project.segments.length);
   };
 
   // API keys are now handled server-side, no configuration needed
@@ -260,58 +381,123 @@ const Videos = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {projects.map((project) => (
-                  <div key={project.id} className="p-4 border border-border rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-foreground">{project.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {project.aspectRatio} • {new Date(project.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={
-                          project.status === 'completed' ? 'default' :
-                          project.status === 'processing' ? 'secondary' :
-                          project.status === 'failed' ? 'destructive' : 'outline'
-                        }>
-                          {project.status === 'completed' && <CheckCircleIcon className="w-3 h-3 mr-1" />}
-                          {project.status === 'processing' && <RefreshCwIcon className="w-3 h-3 mr-1 animate-spin" />}
-                          {project.status === 'failed' && <XCircleIcon className="w-3 h-3 mr-1" />}
-                          {project.status === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
-                          {project.status}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {project.status === 'processing' && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Progress</span>
-                          <span className="text-foreground">{project.progress}%</span>
+                {projects.map((project) => {
+                  const projectStatus = getProjectStatus(project);
+                  const projectProgress = getProjectProgress(project);
+                  const allCompleted = project.segments.every(s => s.status === 'completed');
+                  
+                  return (
+                    <div key={project.id} className="p-4 border border-border rounded-lg space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-foreground">{project.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {project.aspectRatio} • {project.segments.length} segments • {new Date(project.createdAt).toLocaleDateString()}
+                          </p>
                         </div>
-                        <Progress value={project.progress} className="w-full" />
+                        <div className="flex items-center gap-2">
+                          <Badge variant={
+                            projectStatus === 'completed' ? 'default' :
+                            projectStatus === 'processing' ? 'secondary' :
+                            projectStatus === 'failed' ? 'destructive' : 'outline'
+                          }>
+                            {projectStatus === 'completed' && <CheckCircleIcon className="w-3 h-3 mr-1" />}
+                            {projectStatus === 'processing' && <RefreshCwIcon className="w-3 h-3 mr-1 animate-spin" />}
+                            {projectStatus === 'failed' && <XCircleIcon className="w-3 h-3 mr-1" />}
+                            {projectStatus === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
+                            {projectStatus}
+                          </Badge>
+                        </div>
                       </div>
-                    )}
 
-                    {project.status === 'completed' && project.outputUrl && (
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={project.outputUrl} target="_blank" rel="noopener noreferrer">
-                            <PlayIcon className="w-4 h-4 mr-2" />
-                            Watch Video
-                          </a>
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={project.outputUrl} download>
-                            <DownloadIcon className="w-4 h-4 mr-2" />
-                            Download
-                          </a>
-                        </Button>
+                      {projectStatus === 'processing' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Overall Progress</span>
+                            <span className="text-foreground">{projectProgress}%</span>
+                          </div>
+                          <Progress value={projectProgress} className="w-full" />
+                        </div>
+                      )}
+
+                      {/* Segments Grid */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <GridIcon className="w-4 h-4" />
+                          Video Segments
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {project.segments.map((segment) => (
+                            <div key={segment.id} className="p-3 bg-muted/50 rounded-lg space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">Scene {segment.sceneNumber}</span>
+                                <Badge 
+                                  variant={
+                                    segment.status === 'completed' ? 'default' :
+                                    segment.status === 'processing' ? 'secondary' :
+                                    segment.status === 'failed' ? 'destructive' : 'outline'
+                                  }
+                                >
+                                  {segment.status}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{segment.timeRange}</p>
+                              <p className="text-xs">{segment.dialogue}</p>
+                              
+                              {segment.status === 'processing' && (
+                                <Progress value={segment.progress} className="w-full h-1" />
+                              )}
+                              
+                              {segment.status === 'completed' && segment.outputUrl && (
+                                <div className="flex gap-1">
+                                  <Button variant="outline" size="sm" asChild>
+                                    <a href={segment.outputUrl} target="_blank" rel="noopener noreferrer">
+                                      <PlayIcon className="w-3 h-3 mr-1" />
+                                      Watch
+                                    </a>
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Stitching Options */}
+                      {allCompleted && !project.isStitched && (
+                        <div className="border-t border-border pt-3">
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" className="flex-1">
+                              <LinkIcon className="w-4 h-4 mr-2" />
+                              Stitch Videos Together
+                            </Button>
+                            <Button variant="outline">Review All</Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {project.isStitched && project.stitchedUrl && (
+                        <div className="border-t border-border pt-3">
+                          <p className="text-sm text-muted-foreground mb-2">Final stitched video:</p>
+                          <div className="flex gap-2">
+                            <Button variant="outline" asChild>
+                              <a href={project.stitchedUrl} target="_blank" rel="noopener noreferrer">
+                                <PlayIcon className="w-4 h-4 mr-2" />
+                                Watch Final Video
+                              </a>
+                            </Button>
+                            <Button variant="outline" asChild>
+                              <a href={project.stitchedUrl} download>
+                                <DownloadIcon className="w-4 h-4 mr-2" />
+                                Download
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
