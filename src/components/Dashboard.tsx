@@ -37,6 +37,13 @@ const quickActions = [
     href: '/scripts'
   },
   { 
+    name: 'Create Character', 
+    description: 'Design AI avatars for your video productions',
+    icon: UsersIcon, 
+    variant: 'glass' as const,
+    href: '/characters'
+  },
+  { 
     name: 'Create Video', 
     description: 'Transform scripts into engaging videos with VEO3',
     icon: PlayIcon, 
