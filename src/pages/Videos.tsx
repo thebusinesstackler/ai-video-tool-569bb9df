@@ -19,8 +19,7 @@ import {
   PlusIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { createKieVideo, getKieVideoJob, isKieConfigured } from '@/lib/kie';
-import { KieApiKeyManager } from '@/components/KieApiKeyManager';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VideoProject {
   id: string;
@@ -37,7 +36,7 @@ interface VideoProject {
 const Videos = () => {
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [isCreating, setIsCreating] = useState(false);
-  const [apiConfigured, setApiConfigured] = useState(false);
+  const [apiConfigured, setApiConfigured] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     script: '',
@@ -48,22 +47,9 @@ const Videos = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    setApiConfigured(isKieConfigured());
+    // API is always configured since we use server-side keys
+    setApiConfigured(true);
     loadProjects();
-    
-    const handleStorageChange = () => {
-      setApiConfigured(isKieConfigured());
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(() => {
-      setApiConfigured(isKieConfigured());
-    }, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
   }, []);
 
   const loadProjects = () => {
@@ -90,12 +76,24 @@ const Videos = () => {
 
     setIsCreating(true);
     try {
-      const taskId = await createKieVideo({
-        prompt: `Create a video based on this script: ${formData.script}`,
-        aspectRatio: formData.aspectRatio as '16:9' | '9:16',
-        model: 'veo3',
-        enableFallback: true
+      const { data, error } = await supabase.functions.invoke('kie-video', {
+        body: {
+          prompt: `Create a video based on this script: ${formData.script}`,
+          aspectRatio: formData.aspectRatio as '16:9' | '9:16',
+          model: 'veo3',
+          enableFallback: true
+        }
       });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to create video');
+      }
+
+      if (!data || !data.taskId) {
+        throw new Error('No task ID received from the server');
+      }
+
+      const taskId = data.taskId;
 
       const newProject: VideoProject = {
         id: Date.now().toString(),
@@ -135,7 +133,14 @@ const Videos = () => {
 
   const pollVideoStatus = async (taskId: string, projectId: string) => {
     try {
-      const job = await getKieVideoJob(taskId);
+      const { data, error } = await supabase.functions.invoke(`kie-video?action=status&taskId=${taskId}`);
+
+      if (error) {
+        console.error('Status check error:', error);
+        return;
+      }
+
+      const job = data;
       
       setProjects(prev => prev.map(p => 
         p.id === projectId 
@@ -162,28 +167,7 @@ const Videos = () => {
     }
   };
 
-  if (!apiConfigured) {
-    return (
-      <Layout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Video Production</h1>
-            <p className="text-muted-foreground">
-              Create AI-powered videos with Kie.ai technology.
-            </p>
-          </div>
-          <div className="text-center p-8">
-            <VideoIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-2xl font-bold text-foreground mb-2">Kie.ai Configuration Required</h2>
-            <p className="text-muted-foreground mb-6">
-              To generate AI-powered videos, you need to configure your Kie.ai API key.
-            </p>
-          </div>
-          <KieApiKeyManager />
-        </div>
-      </Layout>
-    );
-  }
+  // API keys are now handled server-side, no configuration needed
 
   return (
     <Layout>

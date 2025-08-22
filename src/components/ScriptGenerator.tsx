@@ -19,10 +19,8 @@ import {
   MicIcon,
   PlayIcon
 } from 'lucide-react';
-import { generateScript, isOpenAIConfigured } from '@/lib/openai';
-import { kieTTSNotSupported, isKieConfigured } from '@/lib/kie';
-import { useToast } from '@/components/ui/use-toast';
-import { ApiKeyManager } from '@/components/ApiKeyManager';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScriptParams {
   topic: string;
@@ -45,35 +43,19 @@ export const ScriptGenerator = () => {
   
   const [generatedScript, setGeneratedScript] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [apiConfigured, setApiConfigured] = useState(false);
-  const [kieConfigured, setKieConfigured] = useState(false);
+  const [apiConfigured, setApiConfigured] = useState(true);
+  const [kieConfigured, setKieConfigured] = useState(true);
   const [isNarrating, setIsNarrating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string>('');
   const [isNarrationDialogOpen, setIsNarrationDialogOpen] = useState(false);
   const { toast } = useToast();
 
+  // API keys are now securely handled server-side via Supabase edge functions
   React.useEffect(() => {
-    setApiConfigured(isOpenAIConfigured());
-    setKieConfigured(isKieConfigured());
-    
-    // Listen for localStorage changes to update configuration status
-    const handleStorageChange = () => {
-      setApiConfigured(isOpenAIConfigured());
-      setKieConfigured(isKieConfigured());
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    // Also listen for manual changes within the same tab
-    const interval = setInterval(() => {
-      setApiConfigured(isOpenAIConfigured());
-      setKieConfigured(isKieConfigured());
-    }, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
+    // API is always configured since we use server-side keys
+    setApiConfigured(true);
+    setKieConfigured(true);
   }, []);
 
   const handleGenerate = async () => {
@@ -88,17 +70,36 @@ export const ScriptGenerator = () => {
 
     setIsGenerating(true);
     try {
-      const script = await generateScript(params);
-      setGeneratedScript(script);
+      const { data, error } = await supabase.functions.invoke('generate-script', {
+        body: {
+          topic: params.topic,
+          duration: parseInt(params.duration),
+          style: params.style,
+          audience: params.audience,
+          tone: params.tone,
+          callToAction: params.callToAction
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to generate script');
+      }
+
+      if (!data || !data.script) {
+        throw new Error('No script content received from the server');
+      }
+      
+      setGeneratedScript(data.script);
       toast({
         title: "Script Generated",
         description: "Your AI-powered video script is ready!",
       });
     } catch (error) {
       console.error('Script generation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate script. Please try again.';
       toast({
         title: "Generation Failed", 
-        description: "Failed to generate script. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -134,8 +135,8 @@ export const ScriptGenerator = () => {
         voiceId = character?.kieVoiceId || 'default';
       }
 
-      // Kie.ai doesn't support TTS, so throw informative error
-      throw kieTTSNotSupported();
+      // Kie.ai doesn't support TTS
+      throw new Error('Kie.ai does not support TTS. Use ElevenLabs or OpenAI TTS instead.');
     } catch (error) {
       console.error('Narration error:', error);
       toast({
@@ -181,21 +182,7 @@ export const ScriptGenerator = () => {
     });
   };
 
-  // Show API configuration if not set up
-  if (!apiConfigured) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center p-8">
-          <SparklesIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">API Configuration Required</h2>
-          <p className="text-muted-foreground mb-6">
-            To generate AI-powered scripts, you need to configure your OpenAI API key.
-          </p>
-        </div>
-        <ApiKeyManager />
-      </div>
-    );
-  }
+  // API keys are now handled server-side, no configuration needed
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
