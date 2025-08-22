@@ -16,7 +16,7 @@ const navigationItems = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Content Analysis', href: '/analysis', icon: BarChart3Icon },
   { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
-  { name: 'Video Production', href: '/production', icon: VideoIcon },
+  { name: 'Videos', href: '/videos', icon: VideoIcon },
   { name: 'Characters', href: '/characters', icon: UsersIcon },
   { name: 'Projects', href: '/projects', icon: PlayCircleIcon },
   { name: 'Settings', href: '/settings', icon: SettingsIcon },

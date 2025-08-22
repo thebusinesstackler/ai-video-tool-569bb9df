@@ -25,6 +25,7 @@ interface Character {
   description: string;
   appearance: string;
   voiceType: string;
+  kieVoiceId?: string;
   personality: string;
   avatar?: string;
   createdAt: string;
@@ -50,6 +51,7 @@ export const CharacterManager = () => {
     description: '',
     appearance: '',
     voiceType: 'professional-female',
+    kieVoiceId: '',
     personality: 'professional'
   });
   const { toast } = useToast();
@@ -94,6 +96,7 @@ export const CharacterManager = () => {
       description: '',
       appearance: '',
       voiceType: 'professional-female',
+      kieVoiceId: '',
       personality: 'professional'
     });
     setIsCreateDialogOpen(false);
@@ -138,6 +141,7 @@ export const CharacterManager = () => {
       description: character.description,
       appearance: character.appearance,
       voiceType: character.voiceType,
+      kieVoiceId: character.kieVoiceId || '',
       personality: character.personality
     });
     setEditingCharacter(character);
@@ -149,6 +153,7 @@ export const CharacterManager = () => {
       description: '',
       appearance: '',
       voiceType: 'professional-female',
+      kieVoiceId: '',
       personality: 'professional'
     });
     setEditingCharacter(null);
@@ -230,6 +235,16 @@ export const CharacterManager = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="kie-voice-id">Kie.ai Voice ID (Optional)</Label>
+                <Input
+                  id="kie-voice-id"
+                  placeholder="e.g., voice_123..."
+                  value={formData.kieVoiceId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, kieVoiceId: e.target.value }))}
+                />
               </div>
               
               <div className="space-y-2">

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   SparklesIcon, 
   ClockIcon, 
@@ -14,9 +15,12 @@ import {
   WandIcon,
   CopyIcon,
   DownloadIcon,
-  RefreshCwIcon
+  RefreshCwIcon,
+  MicIcon,
+  PlayIcon
 } from 'lucide-react';
 import { generateScript, isOpenAIConfigured } from '@/lib/openai';
+import { kieTTS, isKieConfigured } from '@/lib/kie';
 import { useToast } from '@/components/ui/use-toast';
 import { ApiKeyManager } from '@/components/ApiKeyManager';
 
@@ -42,20 +46,28 @@ export const ScriptGenerator = () => {
   const [generatedScript, setGeneratedScript] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [apiConfigured, setApiConfigured] = useState(false);
+  const [kieConfigured, setKieConfigured] = useState(false);
+  const [isNarrating, setIsNarrating] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<string>('');
+  const [isNarrationDialogOpen, setIsNarrationDialogOpen] = useState(false);
   const { toast } = useToast();
 
   React.useEffect(() => {
     setApiConfigured(isOpenAIConfigured());
+    setKieConfigured(isKieConfigured());
     
     // Listen for localStorage changes to update configuration status
     const handleStorageChange = () => {
       setApiConfigured(isOpenAIConfigured());
+      setKieConfigured(isKieConfigured());
     };
     
     window.addEventListener('storage', handleStorageChange);
     // Also listen for manual changes within the same tab
     const interval = setInterval(() => {
       setApiConfigured(isOpenAIConfigured());
+      setKieConfigured(isKieConfigured());
     }, 1000);
     
     return () => {
@@ -99,6 +111,68 @@ export const ScriptGenerator = () => {
     toast({
       title: "Copied",
       description: "Script copied to clipboard!",
+    });
+  };
+
+  const handleNarrate = async () => {
+    if (!generatedScript.trim()) {
+      toast({
+        title: "No Script",
+        description: "Generate a script first before creating narration.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsNarrating(true);
+    try {
+      // Get character voice ID if selected
+      let voiceId = 'default';
+      if (selectedCharacter) {
+        const characters = JSON.parse(localStorage.getItem('ai_video_characters') || '[]');
+        const character = characters.find((c: any) => c.id === selectedCharacter);
+        voiceId = character?.kieVoiceId || 'default';
+      }
+
+      const audioBlob = await kieTTS({
+        text: generatedScript,
+        voiceId,
+        format: 'mp3'
+      });
+      
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      setIsNarrationDialogOpen(false);
+      
+      toast({
+        title: "Narration Ready",
+        description: "Your script has been converted to speech!",
+      });
+    } catch (error) {
+      console.error('Narration error:', error);
+      toast({
+        title: "Narration Failed",
+        description: error instanceof Error ? error.message : "Failed to create narration.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsNarrating(false);
+    }
+  };
+
+  const handleDownloadAudio = () => {
+    if (!audioUrl) return;
+    
+    const a = document.createElement('a');
+    a.href = audioUrl;
+    a.download = `narration-${Date.now()}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    toast({
+      title: "Downloaded",
+      description: "Audio narration downloaded successfully!",
     });
   };
 
@@ -276,6 +350,51 @@ export const ScriptGenerator = () => {
                 <Button variant="ghost" size="sm" onClick={handleDownloadScript}>
                   <DownloadIcon className="w-4 h-4" />
                 </Button>
+                {kieConfigured && (
+                  <Dialog open={isNarrationDialogOpen} onOpenChange={setIsNarrationDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MicIcon className="w-4 h-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create Narration</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Select Character (Optional)</Label>
+                          <Select value={selectedCharacter} onValueChange={setSelectedCharacter}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choose a character or use default voice" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Default Voice</SelectItem>
+                              {JSON.parse(localStorage.getItem('ai_video_characters') || '[]').map((char: any) => (
+                                <SelectItem key={char.id} value={char.id}>
+                                  {char.name} {char.kieVoiceId ? `(${char.kieVoiceId})` : '(Default)'}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button onClick={handleNarrate} disabled={isNarrating} className="w-full">
+                          {isNarrating ? (
+                            <>
+                              <RefreshCwIcon className="w-4 h-4 animate-spin mr-2" />
+                              Creating Narration...
+                            </>
+                          ) : (
+                            <>
+                              <MicIcon className="w-4 h-4 mr-2" />
+                              Create Narration
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             )}
           </div>
@@ -289,6 +408,22 @@ export const ScriptGenerator = () => {
                 className="min-h-[400px] font-mono text-sm"
                 placeholder="Your generated script will appear here..."
               />
+              
+              {audioUrl && (
+                <div className="space-y-2 p-4 bg-accent/10 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Generated Narration</Label>
+                    <Button variant="outline" size="sm" onClick={handleDownloadAudio}>
+                      <DownloadIcon className="w-4 h-4 mr-2" />
+                      Download MP3
+                    </Button>
+                  </div>
+                  <audio controls className="w-full">
+                    <source src={audioUrl} type="audio/mp3" />
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              )}
               <Separator />
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">Style: {params.style}</Badge>

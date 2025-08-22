@@ -1,6 +1,7 @@
 import React from 'react';
 import { Layout } from '@/components/Layout';
 import { ApiKeyManager } from '@/components/ApiKeyManager';
+import { KieApiKeyManager } from '@/components/KieApiKeyManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SettingsIcon } from 'lucide-react';
 
@@ -17,6 +18,8 @@ const Settings = () => {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ApiKeyManager />
+          
+          <KieApiKeyManager />
           
           <Card className="glass">
             <CardHeader>
