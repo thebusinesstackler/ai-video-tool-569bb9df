@@ -20,7 +20,7 @@ import {
   PlayIcon
 } from 'lucide-react';
 import { generateScript, isOpenAIConfigured } from '@/lib/openai';
-import { kieTTS, isKieConfigured } from '@/lib/kie';
+import { kieTTSNotSupported, isKieConfigured } from '@/lib/kie';
 import { useToast } from '@/components/ui/use-toast';
 import { ApiKeyManager } from '@/components/ApiKeyManager';
 
@@ -134,20 +134,8 @@ export const ScriptGenerator = () => {
         voiceId = character?.kieVoiceId || 'default';
       }
 
-      const audioBlob = await kieTTS({
-        text: generatedScript,
-        voiceId,
-        format: 'mp3'
-      });
-      
-      const url = URL.createObjectURL(audioBlob);
-      setAudioUrl(url);
-      setIsNarrationDialogOpen(false);
-      
-      toast({
-        title: "Narration Ready",
-        description: "Your script has been converted to speech!",
-      });
+      // Kie.ai doesn't support TTS, so throw informative error
+      throw kieTTSNotSupported();
     } catch (error) {
       console.error('Narration error:', error);
       toast({

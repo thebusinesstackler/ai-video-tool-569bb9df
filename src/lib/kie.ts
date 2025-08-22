@@ -1,57 +1,24 @@
-interface KieTTSParams {
-  text: string;
-  voiceId?: string;
-  model?: string;
-  speed?: number;
-  format?: 'mp3' | 'wav';
-}
-
 interface KieVideoParams {
-  script: string;
-  audioUrl?: string;
-  style?: string;
-  aspectRatio?: '16:9' | '9:16' | '1:1';
-  duration?: number;
-  model?: string;
-  seed?: number;
+  prompt: string;
+  imageUrls?: string[];
+  model?: 'veo3' | 'veo3-fast';
+  aspectRatio?: '16:9' | '9:16';
+  seeds?: number;
+  enableFallback?: boolean;
+  watermark?: string;
 }
 
 interface KieVideoJob {
-  id: string;
+  taskId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress?: number;
-  outputUrl?: string;
+  videoUrl?: string;
   error?: string;
 }
 
-export async function kieTTS(params: KieTTSParams): Promise<Blob> {
-  const apiKey = localStorage.getItem('kie_api_key');
-  
-  if (!apiKey) {
-    throw new Error('Kie.ai API key not configured');
-  }
-
-  const response = await fetch('https://api.kie.ai/v1/tts', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      text: params.text,
-      voice_id: params.voiceId || 'default',
-      model: params.model || 'standard',
-      speed: params.speed || 1.0,
-      format: params.format || 'mp3'
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Kie.ai TTS failed: ${error}`);
-  }
-
-  return await response.blob();
+// Note: Kie.ai doesn't provide TTS - use ElevenLabs or OpenAI for TTS
+export function kieTTSNotSupported(): Error {
+  return new Error('Kie.ai does not support TTS. Use ElevenLabs or OpenAI TTS instead.');
 }
 
 export async function createKieVideo(params: KieVideoParams): Promise<string> {
@@ -61,20 +28,20 @@ export async function createKieVideo(params: KieVideoParams): Promise<string> {
     throw new Error('Kie.ai API key not configured');
   }
 
-  const response = await fetch('https://api.kie.ai/v1/video/create', {
+  const response = await fetch('https://api.kie.ai/api/v1/veo/generate', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      script: params.script,
-      audio_url: params.audioUrl,
-      style: params.style || 'default',
-      aspect_ratio: params.aspectRatio || '16:9',
-      duration: params.duration || 60,
-      model: params.model || 'standard',
-      seed: params.seed
+      prompt: params.prompt,
+      imageUrls: params.imageUrls || [],
+      model: params.model || 'veo3',
+      aspectRatio: params.aspectRatio || '16:9',
+      seeds: params.seeds || Math.floor(Math.random() * 999999),
+      enableFallback: params.enableFallback !== undefined ? params.enableFallback : true,
+      watermark: params.watermark || ''
     }),
   });
 
@@ -84,17 +51,22 @@ export async function createKieVideo(params: KieVideoParams): Promise<string> {
   }
 
   const data = await response.json();
-  return data.job_id;
+  
+  if (data.code !== 200) {
+    throw new Error(`Kie.ai API error: ${data.msg || 'Unknown error'}`);
+  }
+  
+  return data.data.taskId;
 }
 
-export async function getKieVideoJob(jobId: string): Promise<KieVideoJob> {
+export async function getKieVideoJob(taskId: string): Promise<KieVideoJob> {
   const apiKey = localStorage.getItem('kie_api_key');
   
   if (!apiKey) {
     throw new Error('Kie.ai API key not configured');
   }
 
-  const response = await fetch(`https://api.kie.ai/v1/video/job/${jobId}`, {
+  const response = await fetch(`https://api.kie.ai/api/v1/veo/fetch/${taskId}`, {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
     },
@@ -105,12 +77,42 @@ export async function getKieVideoJob(jobId: string): Promise<KieVideoJob> {
   }
 
   const data = await response.json();
+  
+  if (data.code !== 200) {
+    throw new Error(`Kie.ai API error: ${data.msg || 'Unknown error'}`);
+  }
+
+  const taskData = data.data;
+  let status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
+  
+  // Map Kie.ai status to our status
+  switch (taskData.status) {
+    case 'pending':
+    case 'in-queue':
+      status = 'pending';
+      break;
+    case 'in-progress':
+    case 'processing':
+      status = 'processing';
+      break;
+    case 'completed':
+    case 'succeeded':
+      status = 'completed';
+      break;
+    case 'failed':
+    case 'error':
+      status = 'failed';
+      break;
+    default:
+      status = 'pending';
+  }
+
   return {
-    id: data.job_id,
-    status: data.status,
-    progress: data.progress,
-    outputUrl: data.output_url,
-    error: data.error
+    taskId: taskData.taskId || taskId,
+    status,
+    progress: taskData.progress || 0,
+    videoUrl: taskData.videoUrl,
+    error: taskData.error
   };
 }
 

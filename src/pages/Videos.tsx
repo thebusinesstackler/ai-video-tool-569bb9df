@@ -90,10 +90,11 @@ const Videos = () => {
 
     setIsCreating(true);
     try {
-      const jobId = await createKieVideo({
-        script: formData.script,
-        aspectRatio: formData.aspectRatio as '16:9' | '9:16' | '1:1',
-        duration: formData.duration
+      const taskId = await createKieVideo({
+        prompt: `Create a video based on this script: ${formData.script}`,
+        aspectRatio: formData.aspectRatio as '16:9' | '9:16',
+        model: 'veo3',
+        enableFallback: true
       });
 
       const newProject: VideoProject = {
@@ -102,7 +103,7 @@ const Videos = () => {
         script: formData.script,
         status: 'pending',
         progress: 0,
-        jobId,
+        jobId: taskId,
         aspectRatio: formData.aspectRatio,
         createdAt: new Date().toISOString()
       };
@@ -118,7 +119,7 @@ const Videos = () => {
       });
 
       // Start polling for updates
-      pollVideoStatus(jobId, newProject.id);
+      pollVideoStatus(taskId, newProject.id);
       
     } catch (error) {
       console.error('Video creation error:', error);
@@ -132,18 +133,18 @@ const Videos = () => {
     }
   };
 
-  const pollVideoStatus = async (jobId: string, projectId: string) => {
+  const pollVideoStatus = async (taskId: string, projectId: string) => {
     try {
-      const job = await getKieVideoJob(jobId);
+      const job = await getKieVideoJob(taskId);
       
       setProjects(prev => prev.map(p => 
         p.id === projectId 
-          ? { ...p, status: job.status, progress: job.progress || 0, outputUrl: job.outputUrl }
+          ? { ...p, status: job.status, progress: job.progress || 0, outputUrl: job.videoUrl }
           : p
       ));
 
-      if (job.status === 'processing') {
-        setTimeout(() => pollVideoStatus(jobId, projectId), 3000);
+      if (job.status === 'processing' || job.status === 'pending') {
+        setTimeout(() => pollVideoStatus(taskId, projectId), 5000);
       } else if (job.status === 'completed') {
         toast({
           title: "Video Ready",
