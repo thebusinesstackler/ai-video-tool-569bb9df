@@ -316,6 +316,65 @@ const Videos = () => {
     return Math.round(totalProgress / project.segments.length);
   };
 
+  const refreshSegmentStatus = async (project: VideoProject, segment: VideoSegment) => {
+    if (!segment.jobId) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('kie-video', {
+        body: {
+          action: 'status',
+          taskId: segment.jobId
+        }
+      });
+
+      if (error) {
+        console.error('Status refresh error:', error);
+        toast({
+          title: "Refresh Failed",
+          description: "Failed to check video status",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const job = data;
+      console.log('Status refresh result:', job);
+      
+      setProjects(prev => prev.map(p => 
+        p.id === project.id 
+          ? {
+              ...p,
+              segments: p.segments.map(s => 
+                s.id === segment.id 
+                  ? { ...s, status: job.status, progress: job.progress || 0, outputUrl: job.videoUrl }
+                  : s
+              )
+            }
+          : p
+      ));
+
+      if (job.status === 'completed') {
+        toast({
+          title: "Video Ready!",
+          description: "Video has been generated successfully.",
+        });
+      } else if (job.status === 'failed') {
+        toast({
+          title: "Video Failed",
+          description: "Video generation failed.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh video status",
+        variant: "destructive"
+      });
+    }
+  };
+
   // API keys are now handled server-side, no configuration needed
 
   return (
@@ -476,16 +535,27 @@ const Videos = () => {
                                 <Progress value={segment.progress} className="w-full h-1" />
                               )}
                               
-                              {segment.status === 'completed' && segment.outputUrl && (
-                                <div className="flex gap-1">
+                              <div className="flex gap-1">
+                                {segment.status === 'completed' && segment.outputUrl && (
                                   <Button variant="outline" size="sm" asChild>
                                     <a href={segment.outputUrl} target="_blank" rel="noopener noreferrer">
                                       <PlayIcon className="w-3 h-3 mr-1" />
                                       Watch
                                     </a>
                                   </Button>
-                                </div>
-                              )}
+                                )}
+                                
+                                {segment.jobId && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => refreshSegmentStatus(project, segment)}
+                                  >
+                                    <RefreshCwIcon className="w-3 h-3 mr-1" />
+                                    Refresh
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
