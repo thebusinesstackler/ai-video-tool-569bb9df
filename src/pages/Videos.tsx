@@ -69,7 +69,30 @@ const Videos = () => {
   const loadProjects = () => {
     const stored = localStorage.getItem('kie_video_projects');
     if (stored) {
-      setProjects(JSON.parse(stored));
+      const parsedProjects = JSON.parse(stored);
+      // Migrate old projects to new structure
+      const migratedProjects = parsedProjects.map((project: any) => {
+        if (!project.segments) {
+          // This is an old project, convert it to new structure
+          return {
+            ...project,
+            segments: project.status ? [{
+              id: `${project.id}-segment-1`,
+              sceneNumber: 1,
+              timeRange: '0:00–0:15',
+              description: 'Legacy video',
+              dialogue: project.script || '',
+              status: project.status,
+              progress: project.progress || 0,
+              jobId: project.jobId,
+              outputUrl: project.outputUrl
+            }] : [],
+            totalDuration: 15
+          };
+        }
+        return project;
+      });
+      setProjects(migratedProjects);
     }
   };
 
@@ -273,7 +296,7 @@ const Videos = () => {
   };
 
   const getProjectStatus = (project: VideoProject) => {
-    if (project.segments.length === 0) return 'pending';
+    if (!project.segments || project.segments.length === 0) return 'pending';
     
     const statuses = project.segments.map(s => s.status);
     if (statuses.every(s => s === 'completed')) return 'completed';
@@ -283,7 +306,7 @@ const Videos = () => {
   };
 
   const getProjectProgress = (project: VideoProject) => {
-    if (project.segments.length === 0) return 0;
+    if (!project.segments || project.segments.length === 0) return 0;
     const totalProgress = project.segments.reduce((sum, s) => sum + s.progress, 0);
     return Math.round(totalProgress / project.segments.length);
   };
@@ -384,7 +407,7 @@ const Videos = () => {
                 {projects.map((project) => {
                   const projectStatus = getProjectStatus(project);
                   const projectProgress = getProjectProgress(project);
-                  const allCompleted = project.segments.every(s => s.status === 'completed');
+                  const allCompleted = project.segments && project.segments.every(s => s.status === 'completed');
                   
                   return (
                     <div key={project.id} className="p-4 border border-border rounded-lg space-y-4">
@@ -392,7 +415,7 @@ const Videos = () => {
                         <div>
                           <h3 className="font-semibold text-foreground">{project.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {project.aspectRatio} • {project.segments.length} segments • {new Date(project.createdAt).toLocaleDateString()}
+                            {project.aspectRatio} • {project.segments?.length || 0} segments • {new Date(project.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -427,7 +450,7 @@ const Videos = () => {
                           Video Segments
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {project.segments.map((segment) => (
+                          {(project.segments || []).map((segment) => (
                             <div key={segment.id} className="p-3 bg-muted/50 rounded-lg space-y-2">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">Scene {segment.sceneNumber}</span>
