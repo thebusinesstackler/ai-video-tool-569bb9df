@@ -66,7 +66,7 @@ export async function getKieVideoJob(taskId: string): Promise<KieVideoJob> {
     throw new Error('Kie.ai API key not configured');
   }
 
-  const response = await fetch(`https://api.kie.ai/api/v1/veo/fetch/${taskId}`, {
+  const response = await fetch(`https://api.kie.ai/api/v1/veo/record-info?taskId=${taskId}`, {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
     },
@@ -85,34 +85,24 @@ export async function getKieVideoJob(taskId: string): Promise<KieVideoJob> {
   const taskData = data.data;
   let status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
   
-  // Map Kie.ai status to our status
-  switch (taskData.status) {
-    case 'pending':
-    case 'in-queue':
-      status = 'pending';
-      break;
-    case 'in-progress':
-    case 'processing':
-      status = 'processing';
-      break;
-    case 'completed':
-    case 'succeeded':
-      status = 'completed';
-      break;
-    case 'failed':
-    case 'error':
-      status = 'failed';
-      break;
-    default:
-      status = 'pending';
+  // Map Kie.ai successFlag to our status
+  if (taskData.successFlag === 1) {
+    status = 'completed';
+  } else if (taskData.successFlag === 2 || taskData.successFlag === 3) {
+    status = 'failed';
+  } else {
+    status = 'processing'; // successFlag 0 means generating
   }
+
+  // Get video URL from response.resultUrls
+  const videoUrl = taskData.response?.resultUrls?.[0];
 
   return {
     taskId: taskData.taskId || taskId,
     status,
-    progress: taskData.progress || 0,
-    videoUrl: taskData.videoUrl,
-    error: taskData.error
+    progress: status === 'completed' ? 100 : status === 'processing' ? 50 : 0,
+    videoUrl: videoUrl,
+    error: taskData.errorMessage || undefined
   };
 }
 
