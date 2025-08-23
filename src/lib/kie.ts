@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 interface KieVideoParams {
   prompt: string;
   imageUrls?: string[];
@@ -16,9 +18,21 @@ interface KieVideoJob {
   error?: string;
 }
 
-// Note: Kie.ai doesn't provide TTS - use ElevenLabs or OpenAI for TTS
-export function kieTTSNotSupported(): Error {
-  return new Error('Kie.ai does not support TTS. Use ElevenLabs or OpenAI TTS instead.');
+// OpenAI TTS integration for consistent voice across segments
+export async function generateConsistentVoice(text: string, voice: string = 'alloy'): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('openai-tts', {
+    body: {
+      text,
+      voice,
+      model: 'tts-1'
+    }
+  });
+
+  if (error) {
+    throw new Error(`TTS generation failed: ${error.message}`);
+  }
+
+  return data.audioUrl;
 }
 
 export async function createKieVideo(params: KieVideoParams): Promise<string> {

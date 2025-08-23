@@ -48,6 +48,10 @@ interface VideoProject {
   stitchedUrl?: string;
   stitchedSegments?: string[];
   characterId?: string;
+  voiceSettings?: {
+    voice: string;
+    audioUrl?: string;
+  };
   consistencySettings?: {
     lockSeed?: boolean;
     globalSeed?: number;
@@ -68,7 +72,8 @@ const Videos = () => {
     duration: 60,
     characterId: 'none',
     lockSeed: false,
-    styleConsistency: 'high' as 'high' | 'medium' | 'low'
+    styleConsistency: 'high' as 'high' | 'medium' | 'low',
+    voice: 'alloy'
   });
   const [characters, setCharacters] = useState<any[]>([]);
   const { toast } = useToast();
@@ -238,6 +243,30 @@ const Videos = () => {
       const segments = parseScriptIntoSegments(formData.script);
       const globalSeed = formData.lockSeed ? Math.floor(Math.random() * 90000) + 10000 : undefined;
       
+      // Generate consistent voice audio for all segments
+      const fullScript = segments.map(s => s.dialogue).join(' ');
+      let consistentAudioUrl: string | undefined;
+      
+      try {
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('openai-tts', {
+          body: {
+            text: fullScript,
+            voice: formData.voice,
+            model: 'tts-1'
+          }
+        });
+
+        if (ttsError) {
+          console.warn('TTS generation failed, proceeding without voice:', ttsError);
+        } else {
+          // Create audio URL from base64
+          const audioBlob = new Blob([Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0))], { type: 'audio/mp3' });
+          consistentAudioUrl = URL.createObjectURL(audioBlob);
+        }
+      } catch (voiceError) {
+        console.warn('Voice generation failed, proceeding without audio:', voiceError);
+      }
+      
       const newProject: VideoProject = {
         id: Date.now().toString(),
         title: formData.title,
@@ -247,6 +276,10 @@ const Videos = () => {
         createdAt: new Date().toISOString(),
         totalDuration: formData.duration,
         characterId: formData.characterId === 'none' ? undefined : formData.characterId,
+        voiceSettings: consistentAudioUrl ? {
+          voice: formData.voice,
+          audioUrl: consistentAudioUrl
+        } : undefined,
         consistencySettings: {
           lockSeed: formData.lockSeed,
           globalSeed: globalSeed,
@@ -380,7 +413,8 @@ Create a cinematic video that captures both the visual elements and the message/
         duration: 60, 
         characterId: 'none', 
         lockSeed: false, 
-        styleConsistency: 'high' 
+        styleConsistency: 'high',
+        voice: 'alloy'
       });
       
       toast({
@@ -861,6 +895,27 @@ Create a cinematic video that captures both the visual elements and the message/
                 </div>
               </div>
             )}
+
+            {/* Voice Selection */}
+            <div className="space-y-2">
+              <Label>Voice for Narration</Label>
+              <Select value={formData.voice} onValueChange={(value) => setFormData(prev => ({ ...prev, voice: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="alloy">Alloy (Balanced, neutral)</SelectItem>
+                  <SelectItem value="echo">Echo (Male, clear)</SelectItem>
+                  <SelectItem value="fable">Fable (British, warm)</SelectItem>
+                  <SelectItem value="onyx">Onyx (Male, deep)</SelectItem>
+                  <SelectItem value="nova">Nova (Female, energetic)</SelectItem>
+                  <SelectItem value="shimmer">Shimmer (Female, soft)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This voice will be used consistently across all video segments
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Label>Script</Label>

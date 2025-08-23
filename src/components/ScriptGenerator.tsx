@@ -135,8 +135,23 @@ export const ScriptGenerator = () => {
         voiceId = character?.kieVoiceId || 'default';
       }
 
-      // Kie.ai doesn't support TTS
-      throw new Error('Kie.ai does not support TTS. Use ElevenLabs or OpenAI TTS instead.');
+      // Generate audio using OpenAI TTS for consistent voice
+      const { data, error } = await supabase.functions.invoke('openai-tts', {
+        body: {
+          text: generatedScript,
+          voice: voiceId === 'default' ? 'alloy' : voiceId,
+          model: 'tts-1'
+        }
+      });
+
+      if (error) {
+        throw new Error(`Voice generation failed: ${error.message}`);
+      }
+
+      // Create audio URL from base64
+      const audioBlob = new Blob([Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0))], { type: 'audio/mp3' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      setAudioUrl(audioUrl);
     } catch (error) {
       console.error('Narration error:', error);
       toast({
