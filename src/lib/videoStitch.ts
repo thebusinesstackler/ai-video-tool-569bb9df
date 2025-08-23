@@ -41,9 +41,11 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
       };
 
       const sources = [
-        { label: 'jsdelivr-dist', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/' },
-        { label: 'unpkg-dist', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/' },
-        { label: 'cdnjs-umd', base: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/' },
+        { label: 'jsdelivr-root-0.12.6', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/' },
+        { label: 'jsdelivr-root-0.12.10', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/' },
+        { label: 'unpkg-root-0.12.6', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/' },
+        { label: 'unpkg-root-latest', base: 'https://unpkg.com/@ffmpeg/core@latest/' },
+        { label: 'cdnjs-umd-0.12.10', base: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/' },
       ] as const;
 
       let coreURL: string | undefined;
