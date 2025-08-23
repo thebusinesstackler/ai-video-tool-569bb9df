@@ -3,7 +3,7 @@
 // If concat copy fails, we surface an error with guidance.
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile } from '@ffmpeg/util';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 export async function stitchVideos(urls: string[], onProgress?: (percent: number) => void): Promise<Blob> {
   if (!urls || urls.length === 0) throw new Error('No video URLs provided');
@@ -29,7 +29,18 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     });
 
     console.log('Loading FFmpeg...');
-    await ffmpeg.load();
+    // Explicitly load core/worker/wasm via blob URLs to avoid CORS/worker path issues
+    const coreBase = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/';
+    const coreURL = await toBlobURL(`${coreBase}ffmpeg-core.js`, 'text/javascript');
+    const wasmURL = await toBlobURL(`${coreBase}ffmpeg-core.wasm`, 'application/wasm');
+    const workerURL = await toBlobURL(`${coreBase}ffmpeg-core.worker.js`, 'text/javascript');
+
+    const loadPromise = ffmpeg.load({ coreURL, wasmURL, workerURL });
+    // Guard against silent hangs while loading
+    const loadTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('FFmpeg load timeout (60s)')), 60000)
+    );
+    await Promise.race([loadPromise, loadTimeout]);
     console.log('FFmpeg loaded successfully');
 
     // Write all parts to the FS
