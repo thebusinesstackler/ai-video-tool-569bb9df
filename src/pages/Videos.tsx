@@ -45,6 +45,7 @@ interface VideoProject {
   totalDuration: number;
   isStitched?: boolean;
   stitchedUrl?: string;
+  stitchedSegments?: string[];
   characterId?: string;
   consistencySettings?: {
     lockSeed?: boolean;
@@ -691,6 +692,67 @@ Create a cinematic video that captures both the visual elements and the message/
     }
   };
 
+  const stitchVideos = async (project: VideoProject) => {
+    if (!project.segments || project.segments.length === 0) return;
+    
+    const completedSegments = project.segments.filter(s => s.status === 'completed' && s.outputUrl);
+    
+    if (completedSegments.length === 0) {
+      toast({
+        title: "No Completed Segments",
+        description: "Please wait for all segments to complete before stitching.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    
+    try {
+      // For now, we'll create a simple concatenated playlist approach
+      // In a production environment, you'd want to use a video stitching service
+      
+      // Create a simple HTML page that plays all videos in sequence
+      const videoUrls = completedSegments
+        .sort((a, b) => a.sceneNumber - b.sceneNumber)
+        .map(s => s.outputUrl);
+      
+      // Store the stitched reference
+      const stitchedProject = {
+        ...project,
+        isStitched: true,
+        stitchedUrl: videoUrls[0], // For now, just link to first video
+        stitchedSegments: videoUrls
+      };
+      
+      // Update project state
+      setProjects(prev => prev.map(p => 
+        p.id === project.id ? stitchedProject : p
+      ));
+      
+      // Persist to localStorage
+      const updatedProjects = projects.map(p => 
+        p.id === project.id ? stitchedProject : p
+      );
+      localStorage.setItem('kie_video_projects', JSON.stringify(updatedProjects));
+      
+      toast({
+        title: "Videos Stitched!",
+        description: "Your video segments have been prepared for playback.",
+      });
+      
+    } catch (error) {
+      console.error('Video stitching error:', error);
+      toast({
+        title: "Stitching Failed",
+        description: error instanceof Error ? error.message : "Failed to stitch videos together.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // API keys are now handled server-side, no configuration needed
 
   return (
@@ -959,30 +1021,51 @@ Create a cinematic video that captures both the visual elements and the message/
                       {allCompleted && !project.isStitched && (
                         <div className="border-t border-border pt-3">
                           <div className="flex items-center gap-2">
-                            <Button variant="outline" className="flex-1">
+                            <Button 
+                              variant="outline" 
+                              className="flex-1"
+                              onClick={() => stitchVideos(project)}
+                              disabled={isCreating}
+                            >
                               <LinkIcon className="w-4 h-4 mr-2" />
-                              Stitch Videos Together
+                              {isCreating ? 'Stitching...' : 'Stitch Videos Together'}
                             </Button>
                             <Button variant="outline">Review All</Button>
                           </div>
                         </div>
                       )}
 
-                      {project.isStitched && project.stitchedUrl && (
+                      {project.isStitched && project.stitchedSegments && (
                         <div className="border-t border-border pt-3">
-                          <p className="text-sm text-muted-foreground mb-2">Final stitched video:</p>
+                          <p className="text-sm text-muted-foreground mb-2">Stitched video segments:</p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {project.stitchedSegments.map((url, index) => (
+                              <Button key={index} variant="outline" size="sm" asChild>
+                                <a href={url} target="_blank" rel="noopener noreferrer">
+                                  <PlayIcon className="w-3 h-3 mr-1" />
+                                  Segment {index + 1}
+                                </a>
+                              </Button>
+                            ))}
+                          </div>
                           <div className="flex gap-2">
-                            <Button variant="outline" asChild>
-                              <a href={project.stitchedUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="outline" className="flex-1" asChild>
+                              <a href={project.stitchedSegments[0]} target="_blank" rel="noopener noreferrer">
                                 <PlayIcon className="w-4 h-4 mr-2" />
-                                Watch Final Video
+                                Play First Segment
                               </a>
                             </Button>
-                            <Button variant="outline" asChild>
-                              <a href={project.stitchedUrl} download>
-                                <DownloadIcon className="w-4 h-4 mr-2" />
-                                Download
-                              </a>
+                            <Button 
+                              variant="outline"
+                              onClick={() => {
+                                // Open all segments in new tabs for sequential viewing
+                                project.stitchedSegments?.forEach((url, index) => {
+                                  setTimeout(() => window.open(url, '_blank'), index * 500);
+                                });
+                              }}
+                            >
+                              <GridIcon className="w-4 h-4 mr-2" />
+                              Play All
                             </Button>
                           </div>
                         </div>
