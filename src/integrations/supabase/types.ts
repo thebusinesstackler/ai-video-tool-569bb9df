@@ -14,7 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      characters: {
+        Row: {
+          appearance_image: string | null
+          created_at: string
+          description: string | null
+          id: string
+          kie_voice_id: string | null
+          name: string
+          personality: string | null
+          updated_at: string
+          user_id: string | null
+          voice_type: string | null
+        }
+        Insert: {
+          appearance_image?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kie_voice_id?: string | null
+          name: string
+          personality?: string | null
+          updated_at?: string
+          user_id?: string | null
+          voice_type?: string | null
+        }
+        Update: {
+          appearance_image?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kie_voice_id?: string | null
+          name?: string
+          personality?: string | null
+          updated_at?: string
+          user_id?: string | null
+          voice_type?: string | null
+        }
+        Relationships: []
+      }
+      video_projects: {
+        Row: {
+          aspect_ratio: string | null
+          character_id: string | null
+          created_at: string
+          final_video_object_url: string | null
+          final_video_url: string | null
+          id: string
+          lock_seed: boolean | null
+          reference_image: string | null
+          script: string
+          seed_value: string | null
+          segments: Json | null
+          title: string
+          updated_at: string
+          use_character_consistency: boolean | null
+          user_id: string | null
+          voice_type: string | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          character_id?: string | null
+          created_at?: string
+          final_video_object_url?: string | null
+          final_video_url?: string | null
+          id?: string
+          lock_seed?: boolean | null
+          reference_image?: string | null
+          script: string
+          seed_value?: string | null
+          segments?: Json | null
+          title: string
+          updated_at?: string
+          use_character_consistency?: boolean | null
+          user_id?: string | null
+          voice_type?: string | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          character_id?: string | null
+          created_at?: string
+          final_video_object_url?: string | null
+          final_video_url?: string | null
+          id?: string
+          lock_seed?: boolean | null
+          reference_image?: string | null
+          script?: string
+          seed_value?: string | null
+          segments?: Json | null
+          title?: string
+          updated_at?: string
+          use_character_consistency?: boolean | null
+          user_id?: string | null
+          voice_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_projects_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
