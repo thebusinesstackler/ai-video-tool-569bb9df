@@ -66,6 +66,17 @@ const Videos = () => {
     loadProjects();
   }, []);
 
+  useEffect(() => {
+    // Resume polling for pending/processing segments on page load
+    projects.forEach(project => {
+      project.segments?.forEach(segment => {
+        if ((segment.status === 'pending' || segment.status === 'processing') && segment.jobId) {
+          pollSegmentStatus(segment.jobId, project.id, segment.id);
+        }
+      });
+    });
+  }, [projects.length]); // Only run when projects are first loaded
+
   const loadProjects = () => {
     const stored = localStorage.getItem('kie_video_projects');
     if (stored) {
@@ -103,28 +114,73 @@ const Videos = () => {
 
   const parseScriptIntoSegments = (script: string): VideoSegment[] => {
     const segments: VideoSegment[] = [];
-    const sceneRegex = /Scene (\d+) \((\d+:\d+)–(\d+:\d+)\) — ([^]*?)(?=Scene \d+|\n[A-Z][^:]*:|$)/gi;
     
-    let match;
-    let sceneNumber = 1;
+    // Split the script into scene blocks
+    const sceneBlocks = script.split(/(?=Scene \d+)/i).filter(block => block.trim());
     
-    while ((match = sceneRegex.exec(script)) !== null) {
-      const [, sceneNum, startTime, endTime, content] = match;
-      const lines = content.trim().split('\n');
-      const description = lines[0] || '';
-      const dialogue = lines.find(line => line.startsWith('Speaker:'))?.replace('Speaker:', '').trim() || '';
+    for (let i = 0; i < sceneBlocks.length; i++) {
+      const block = sceneBlocks[i].trim();
+      if (!block) continue;
+      
+      // Extract scene header
+      const sceneHeaderMatch = block.match(/Scene (\d+) \(([^)]+)\)/i);
+      if (!sceneHeaderMatch) continue;
+      
+      const [, sceneNum, timeRange] = sceneHeaderMatch;
+      
+      // Extract content sections
+      const lines = block.split('\n').map(line => line.trim()).filter(line => line);
+      
+      let visuals = '';
+      let toneMotion = '';
+      let dialogue = '';
+      
+      // Parse different sections
+      for (let j = 0; j < lines.length; j++) {
+        const line = lines[j];
+        
+        if (line.toLowerCase().startsWith('visuals:')) {
+          // Collect all visuals content (may span multiple lines)
+          visuals = line.replace(/^visuals:\s*/i, '');
+          j++;
+          while (j < lines.length && !lines[j].match(/^(tone|line):/i)) {
+            visuals += ' ' + lines[j];
+            j++;
+          }
+          j--; // Back up one since the loop will increment
+        } else if (line.toLowerCase().startsWith('tone')) {
+          // Collect tone & motion content
+          toneMotion = line.replace(/^tone[^:]*:\s*/i, '');
+          j++;
+          while (j < lines.length && !lines[j].match(/^line:/i)) {
+            toneMotion += ' ' + lines[j];
+            j++;
+          }
+          j--; // Back up one since the loop will increment
+        } else if (line.toLowerCase().startsWith('line:')) {
+          // Collect dialogue content
+          dialogue = line.replace(/^line:\s*/i, '');
+          j++;
+          while (j < lines.length && !lines[j].match(/^(scene|visuals|tone|line):/i)) {
+            dialogue += ' ' + lines[j];
+            j++;
+          }
+          j--; // Back up one since the loop will increment
+        }
+      }
+      
+      // Clean up dialogue (remove quotes)
+      dialogue = dialogue.replace(/^["']|["']$/g, '').trim();
       
       segments.push({
-        id: `${Date.now()}-${sceneNumber}`,
-        sceneNumber: parseInt(sceneNum) || sceneNumber,
-        timeRange: `${startTime}–${endTime}`,
-        description: description,
-        dialogue: dialogue,
+        id: `${Date.now()}-${i}`,
+        sceneNumber: parseInt(sceneNum) || (i + 1),
+        timeRange: timeRange,
+        description: visuals.trim() || `Scene ${sceneNum}`,
+        dialogue: dialogue.trim() || toneMotion.trim(),
         status: 'pending',
         progress: 0
       });
-      
-      sceneNumber++;
     }
     
     // Fallback: if no scenes found, create segments from paragraphs
@@ -173,51 +229,94 @@ const Videos = () => {
       const updatedProjects = [newProject, ...projects];
       saveProjects(updatedProjects);
       
-      // Create videos for each segment
-      for (const segment of segments) {
+      // Create videos for each segment with delays to avoid overwhelming the API
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        
+        // Add delay between requests (except for the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
         try {
+          // Create enhanced prompt with all scene information
+          const enhancedPrompt = `
+Scene ${segment.sceneNumber} (${segment.timeRange}):
+
+Visual Description: ${segment.description}
+
+Dialogue/Content: "${segment.dialogue}"
+
+Create a cinematic video that captures both the visual elements and the message/dialogue described above. Focus on engaging cinematography that matches the scene's requirements.
+          `.trim();
+
+          console.log(`Creating video for segment ${segment.sceneNumber}:`, enhancedPrompt);
+
           const { data, error } = await supabase.functions.invoke('kie-video', {
             body: {
-              prompt: `Scene: ${segment.description}. Dialogue: "${segment.dialogue}". Create a video showing: ${segment.description}`,
+              action: 'create',
+              prompt: enhancedPrompt,
               aspectRatio: formData.aspectRatio as '16:9' | '9:16',
               model: 'veo3',
               enableFallback: true
             }
           });
 
-          if (!error && data?.taskId) {
-            // Update segment with job ID
-            setProjects(prev => prev.map(p => 
-              p.id === newProject.id 
-                ? {
-                    ...p,
-                    segments: p.segments.map(s => 
-                      s.id === segment.id 
-                        ? { ...s, jobId: data.taskId, status: 'processing' }
-                        : s
-                    )
-                  }
-                : p
-            ));
+          if (error) {
+            console.error(`API error for segment ${segment.id}:`, error);
+            throw new Error(error.message || 'Failed to create video');
+          }
+
+          if (data?.taskId) {
+            // Update segment with job ID and persist to localStorage
+            const updatedProjects = [...projects];
+            const projectIndex = updatedProjects.findIndex(p => p.id === newProject.id);
+            if (projectIndex !== -1) {
+              updatedProjects[projectIndex] = {
+                ...updatedProjects[projectIndex],
+                segments: updatedProjects[projectIndex].segments.map(s => 
+                  s.id === segment.id 
+                    ? { ...s, jobId: data.taskId, status: 'processing' as const }
+                    : s
+                )
+              };
+              saveProjects(updatedProjects);
+              setProjects(updatedProjects);
+            }
             
             // Start polling for this segment
-            pollSegmentStatus(data.taskId, newProject.id, segment.id);
+            setTimeout(() => {
+              pollSegmentStatus(data.taskId, newProject.id, segment.id);
+            }, 5000); // Start polling after 5 seconds
+            
+            console.log(`Video creation started for segment ${segment.sceneNumber}, taskId: ${data.taskId}`);
+          } else {
+            throw new Error('No taskId returned from video creation');
           }
         } catch (segmentError) {
-          console.error(`Error creating segment ${segment.id}:`, segmentError);
-          // Mark segment as failed
-          setProjects(prev => prev.map(p => 
-            p.id === newProject.id 
-              ? {
-                  ...p,
-                  segments: p.segments.map(s => 
-                    s.id === segment.id 
-                      ? { ...s, status: 'failed' }
-                      : s
-                  )
-                }
-              : p
-          ));
+          console.error(`Error creating segment ${segment.sceneNumber}:`, segmentError);
+          
+          // Mark segment as failed and persist
+          const updatedProjects = [...projects];
+          const projectIndex = updatedProjects.findIndex(p => p.id === newProject.id);
+          if (projectIndex !== -1) {
+            updatedProjects[projectIndex] = {
+              ...updatedProjects[projectIndex],
+              segments: updatedProjects[projectIndex].segments.map(s => 
+                s.id === segment.id 
+                  ? { ...s, status: 'failed' as const }
+                  : s
+              )
+            };
+            saveProjects(updatedProjects);
+            setProjects(updatedProjects);
+          }
+          
+          toast({
+            title: `Segment ${segment.sceneNumber} Failed`,
+            description: segmentError instanceof Error ? segmentError.message : "Failed to create video segment",
+            variant: "destructive"
+          });
         }
       }
       
@@ -251,26 +350,43 @@ const Videos = () => {
 
       if (error) {
         console.error('Status check error:', error);
+        // Retry after longer delay on error
+        setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 10000);
         return;
       }
 
       const job = data;
+      console.log(`Status update for ${taskId}:`, job);
       
-      setProjects(prev => prev.map(p => 
-        p.id === projectId 
-          ? {
-              ...p,
-              segments: p.segments.map(s => 
-                s.id === segmentId 
-                  ? { ...s, status: job.status, progress: job.progress || 0, outputUrl: job.videoUrl }
-                  : s
-              )
-            }
-          : p
-      ));
+      // Update project and persist to localStorage
+      setProjects(prev => {
+        const updated = prev.map(p => 
+          p.id === projectId 
+            ? {
+                ...p,
+                segments: p.segments.map(s => 
+                  s.id === segmentId 
+                    ? { 
+                        ...s, 
+                        status: job.status as 'pending' | 'processing' | 'completed' | 'failed', 
+                        progress: job.progress || 0, 
+                        outputUrl: job.videoUrl 
+                      }
+                    : s
+                )
+              }
+            : p
+        );
+        
+        // Persist the updated projects
+        localStorage.setItem('kie_video_projects', JSON.stringify(updated));
+        return updated;
+      });
 
       if (job.status === 'processing' || job.status === 'pending') {
-        setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 5000);
+        // Continue polling with exponential backoff
+        const delay = job.status === 'pending' ? 10000 : 5000;
+        setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), delay);
       } else if (job.status === 'completed') {
         // Check if all segments are completed
         setProjects(prev => {
@@ -284,6 +400,11 @@ const Videos = () => {
                 title: "All Video Segments Ready",
                 description: "All segments have been generated. You can now review and stitch them together!",
               });
+            } else {
+              toast({
+                title: "Video Segment Ready",
+                description: `Segment ${project.segments.find(s => s.id === segmentId)?.sceneNumber} has been completed!`,
+              });
             }
           }
           return prev;
@@ -291,12 +412,14 @@ const Videos = () => {
       } else if (job.status === 'failed') {
         toast({
           title: "Segment Failed",
-          description: `Video segment generation failed.`,
+          description: job.error || `Video segment generation failed.`,
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Polling error:', error);
+      // Retry after longer delay on network error
+      setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 15000);
     }
   };
 
@@ -346,7 +469,12 @@ const Videos = () => {
               ...p,
               segments: p.segments.map(s => 
                 s.id === segment.id 
-                  ? { ...s, status: job.status, progress: job.progress || 0, outputUrl: job.videoUrl }
+                  ? { 
+                      ...s, 
+                      status: job.status as 'pending' | 'processing' | 'completed' | 'failed', 
+                      progress: job.progress || 0, 
+                      outputUrl: job.videoUrl 
+                    }
                   : s
               )
             }
@@ -372,6 +500,29 @@ const Videos = () => {
         description: "Failed to refresh video status",
         variant: "destructive"
       });
+    }
+  };
+
+  const refreshAllSegments = async (project: VideoProject) => {
+    const pendingSegments = project.segments?.filter(s => s.jobId && (s.status === 'pending' || s.status === 'processing')) || [];
+    
+    if (pendingSegments.length === 0) {
+      toast({
+        title: "No Segments to Refresh",
+        description: "All segments are either completed or don't have job IDs.",
+      });
+      return;
+    }
+
+    toast({
+      title: "Refreshing All Segments",
+      description: `Checking status of ${pendingSegments.length} segments...`,
+    });
+
+    for (const segment of pendingSegments) {
+      await refreshSegmentStatus(project, segment);
+      // Small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   };
 
@@ -482,19 +633,29 @@ const Videos = () => {
                             {project.aspectRatio} • {project.segments?.length || 0} segments • {new Date(project.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={
-                            projectStatus === 'completed' ? 'default' :
-                            projectStatus === 'processing' ? 'secondary' :
-                            projectStatus === 'failed' ? 'destructive' : 'outline'
-                          }>
-                            {projectStatus === 'completed' && <CheckCircleIcon className="w-3 h-3 mr-1" />}
-                            {projectStatus === 'processing' && <RefreshCwIcon className="w-3 h-3 mr-1 animate-spin" />}
-                            {projectStatus === 'failed' && <XCircleIcon className="w-3 h-3 mr-1" />}
-                            {projectStatus === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
-                            {projectStatus}
-                          </Badge>
-                        </div>
+                         <div className="flex items-center gap-2">
+                           <Badge variant={
+                             projectStatus === 'completed' ? 'default' :
+                             projectStatus === 'processing' ? 'secondary' :
+                             projectStatus === 'failed' ? 'destructive' : 'outline'
+                           }>
+                             {projectStatus === 'completed' && <CheckCircleIcon className="w-3 h-3 mr-1" />}
+                             {projectStatus === 'processing' && <RefreshCwIcon className="w-3 h-3 mr-1 animate-spin" />}
+                             {projectStatus === 'failed' && <XCircleIcon className="w-3 h-3 mr-1" />}
+                             {projectStatus === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
+                             {projectStatus}
+                           </Badge>
+                           {(projectStatus === 'processing' || projectStatus === 'pending') && (
+                             <Button 
+                               variant="outline" 
+                               size="sm" 
+                               onClick={() => refreshAllSegments(project)}
+                             >
+                               <RefreshCwIcon className="w-3 h-3 mr-1" />
+                               Refresh All
+                             </Button>
+                           )}
+                         </div>
                       </div>
 
                       {projectStatus === 'processing' && (
