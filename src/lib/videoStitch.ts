@@ -31,18 +31,46 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Loading FFmpeg...');
     
     try {
-      // Explicitly load core/worker/wasm via blob URLs to avoid CORS/worker path issues
-      const coreBase = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/';
-      console.log('Fetching FFmpeg core files from:', coreBase);
-      
-      console.log('Fetching ffmpeg-core.js...');
-      const coreURL = await toBlobURL(`${coreBase}ffmpeg-core.js`, 'text/javascript');
-      console.log('Core JS loaded, fetching wasm...');
-      
-      const wasmURL = await toBlobURL(`${coreBase}ffmpeg-core.wasm`, 'application/wasm');
-      console.log('WASM loaded, fetching worker...');
-      
-      const workerURL = await toBlobURL(`${coreBase}ffmpeg-core.worker.js`, 'text/javascript');
+      // Try multiple sources: local -> jsDelivr -> unpkg -> cdnjs (multiple layouts)
+      const sources = [
+        { label: 'local', base: '/ffmpeg/', layout: 'root' },
+        { label: 'jsdelivr-dist', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/', layout: 'dist' },
+        { label: 'unpkg-dist', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/', layout: 'dist' },
+        { label: 'jsdelivr-root', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/', layout: 'root' },
+        { label: 'unpkg-root', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/', layout: 'root' },
+        { label: 'cdnjs-umd', base: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/', layout: 'root' },
+        { label: 'cdnjs-esm', base: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/esm/', layout: 'root' },
+      ] as const;
+
+      let coreURL: string | undefined;
+      let wasmURL: string | undefined;
+      let workerURL: string | undefined;
+      let lastError: unknown;
+
+      for (const src of sources) {
+        try {
+          console.log(`Attempting FFmpeg core from ${src.label}: ${src.base}`);
+          const jsPath = `${src.base}ffmpeg-core.js`;
+          const wasmPath = `${src.base}ffmpeg-core.wasm`;
+          const workerPath = `${src.base}ffmpeg-core.worker.js`;
+
+          // Prepare blob URLs for each file
+          const c = await toBlobURL(jsPath, 'text/javascript');
+          const w = await toBlobURL(wasmPath, 'application/wasm');
+          const wk = await toBlobURL(workerPath, 'text/javascript');
+          coreURL = c; wasmURL = w; workerURL = wk;
+          console.log(`FFmpeg core files prepared from ${src.label}`);
+          break;
+        } catch (e) {
+          lastError = e;
+          console.warn(`Source ${src.label} failed:`, e);
+        }
+      }
+
+      if (!coreURL || !wasmURL || !workerURL) {
+        throw new Error(`Could not prepare FFmpeg core files from any source. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+      }
+
       console.log('All FFmpeg files fetched, initializing...');
 
       const loadPromise = ffmpeg.load({ coreURL, wasmURL, workerURL });
