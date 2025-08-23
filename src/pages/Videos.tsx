@@ -64,7 +64,7 @@ const Videos = () => {
     aspectRatio: '16:9',
     style: 'default',
     duration: 60,
-    characterId: '',
+    characterId: 'none',
     lockSeed: false,
     styleConsistency: 'high' as 'high' | 'medium' | 'low'
   });
@@ -244,7 +244,7 @@ const Videos = () => {
         aspectRatio: formData.aspectRatio,
         createdAt: new Date().toISOString(),
         totalDuration: formData.duration,
-        characterId: formData.characterId || undefined,
+        characterId: formData.characterId === 'none' ? undefined : formData.characterId,
         consistencySettings: {
           lockSeed: formData.lockSeed,
           globalSeed: globalSeed,
@@ -376,7 +376,7 @@ Create a cinematic video that captures both the visual elements and the message/
         aspectRatio: '16:9', 
         style: 'default', 
         duration: 60, 
-        characterId: '', 
+        characterId: 'none', 
         lockSeed: false, 
         styleConsistency: 'high' 
       });
@@ -740,12 +740,12 @@ Create a cinematic video that captures both the visual elements and the message/
             {/* Character Selection */}
             <div className="space-y-2">
               <Label>Character (Optional)</Label>
-              <Select value={formData.characterId} onValueChange={(value) => setFormData(prev => ({ ...prev, characterId: value }))}>
+              <Select value={formData.characterId} onValueChange={(value) => setFormData(prev => ({ ...prev, characterId: value === 'none' ? '' : value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a character for consistency" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Character</SelectItem>
+                  <SelectItem value="none">No Character</SelectItem>
                   {characters.map(character => (
                     <SelectItem key={character.id} value={character.id}>
                       {character.name}
@@ -761,7 +761,7 @@ Create a cinematic video that captures both the visual elements and the message/
             </div>
 
             {/* Consistency Controls */}
-            {formData.characterId && (
+            {formData.characterId && formData.characterId !== 'none' && (
               <div className="space-y-4 p-3 border border-border rounded-lg bg-muted/30">
                 <h4 className="text-sm font-medium text-foreground">Consistency Controls</h4>
                 
