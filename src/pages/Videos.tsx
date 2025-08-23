@@ -45,6 +45,13 @@ interface VideoProject {
   totalDuration: number;
   isStitched?: boolean;
   stitchedUrl?: string;
+  characterId?: string;
+  consistencySettings?: {
+    lockSeed?: boolean;
+    globalSeed?: number;
+    referenceImageUrls?: string[];
+    styleConsistency?: 'high' | 'medium' | 'low';
+  };
 }
 
 const Videos = () => {
@@ -56,15 +63,27 @@ const Videos = () => {
     script: '',
     aspectRatio: '16:9',
     style: 'default',
-    duration: 60
+    duration: 60,
+    characterId: '',
+    lockSeed: false,
+    styleConsistency: 'high' as 'high' | 'medium' | 'low'
   });
+  const [characters, setCharacters] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     // API is always configured since we use server-side keys
     setApiConfigured(true);
     loadProjects();
+    loadCharacters();
   }, []);
+
+  const loadCharacters = () => {
+    const stored = localStorage.getItem('ai_video_characters');
+    if (stored) {
+      setCharacters(JSON.parse(stored));
+    }
+  };
 
   useEffect(() => {
     // Resume polling for pending/processing segments on page load
@@ -215,6 +234,7 @@ const Videos = () => {
     setIsCreating(true);
     try {
       const segments = parseScriptIntoSegments(formData.script);
+      const globalSeed = formData.lockSeed ? Math.floor(Math.random() * 90000) + 10000 : undefined;
       
       const newProject: VideoProject = {
         id: Date.now().toString(),
@@ -223,7 +243,13 @@ const Videos = () => {
         segments: segments,
         aspectRatio: formData.aspectRatio,
         createdAt: new Date().toISOString(),
-        totalDuration: formData.duration
+        totalDuration: formData.duration,
+        characterId: formData.characterId || undefined,
+        consistencySettings: {
+          lockSeed: formData.lockSeed,
+          globalSeed: globalSeed,
+          styleConsistency: formData.styleConsistency
+        }
       };
 
       const updatedProjects = [newProject, ...projects];
@@ -239,16 +265,38 @@ const Videos = () => {
         }
         
         try {
-          // Create enhanced prompt with all scene information
-          const enhancedPrompt = `
-Scene ${segment.sceneNumber} (${segment.timeRange}):
+          // Get selected character for consistency
+          const selectedCharacter = newProject.characterId 
+            ? characters.find(c => c.id === newProject.characterId)
+            : null;
+
+          // Create enhanced prompt with character bible and consistency rules
+          const characterBible = selectedCharacter ? `
+CHARACTER BIBLE:
+- Name: ${selectedCharacter.name}
+- Appearance: ${selectedCharacter.appearance}
+- Personality: ${selectedCharacter.personality}
+- Voice Style: ${selectedCharacter.voiceType}
+${selectedCharacter.description ? `- Background: ${selectedCharacter.description}` : ''}
+
+CONSISTENCY RULES:
+- Keep the character's appearance identical across all scenes
+- Maintain consistent lighting and visual style
+- Use the same character model and features throughout
+- Ensure facial features, hair, clothing style remain constant
+- Apply consistent cinematographic style
+
+` : '';
+
+          const enhancedPrompt = `${characterBible}Scene ${segment.sceneNumber} (${segment.timeRange}):
 
 Visual Description: ${segment.description}
 
 Dialogue/Content: "${segment.dialogue}"
 
-Create a cinematic video that captures both the visual elements and the message/dialogue described above. Focus on engaging cinematography that matches the scene's requirements.
-          `.trim();
+${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.appearance}` : ''}
+
+Create a cinematic video that captures both the visual elements and the message/dialogue described above. ${selectedCharacter ? 'Ensure the character appears consistently as described in the character bible above.' : ''} Focus on engaging cinematography that matches the scene's requirements.`.trim();
 
           console.log(`Creating video for segment ${segment.sceneNumber}:`, enhancedPrompt);
 
@@ -258,7 +306,9 @@ Create a cinematic video that captures both the visual elements and the message/
               prompt: enhancedPrompt,
               aspectRatio: formData.aspectRatio as '16:9' | '9:16',
               model: 'veo3',
-              enableFallback: true
+              enableFallback: true,
+              seeds: newProject.consistencySettings?.lockSeed ? newProject.consistencySettings.globalSeed : undefined,
+              characterId: newProject.characterId
             }
           });
 
@@ -320,7 +370,16 @@ Create a cinematic video that captures both the visual elements and the message/
         }
       }
       
-      setFormData({ title: '', script: '', aspectRatio: '16:9', style: 'default', duration: 60 });
+      setFormData({ 
+        title: '', 
+        script: '', 
+        aspectRatio: '16:9', 
+        style: 'default', 
+        duration: 60, 
+        characterId: '', 
+        lockSeed: false, 
+        styleConsistency: 'high' 
+      });
       
       toast({
         title: "Video Creation Started",
@@ -526,6 +585,112 @@ Create a cinematic video that captures both the visual elements and the message/
     }
   };
 
+  const retryFailedSegments = async (project: VideoProject) => {
+    const failedSegments = project.segments?.filter(s => s.status === 'failed') || [];
+    
+    if (failedSegments.length === 0) {
+      toast({
+        title: "No Failed Segments",
+        description: "All segments have completed successfully.",
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    toast({
+      title: "Retrying Failed Segments",
+      description: `Retrying ${failedSegments.length} failed segments...`,
+    });
+
+    try {
+      for (let i = 0; i < failedSegments.length; i++) {
+        const segment = failedSegments[i];
+        
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+        try {
+          const selectedCharacter = project.characterId 
+            ? characters.find(c => c.id === project.characterId)
+            : null;
+
+          const characterBible = selectedCharacter ? `
+CHARACTER BIBLE:
+- Name: ${selectedCharacter.name}
+- Appearance: ${selectedCharacter.appearance}
+- Personality: ${selectedCharacter.personality}
+- Voice Style: ${selectedCharacter.voiceType}
+${selectedCharacter.description ? `- Background: ${selectedCharacter.description}` : ''}
+
+CONSISTENCY RULES:
+- Keep the character's appearance identical across all scenes
+- Maintain consistent lighting and visual style
+- Use the same character model and features throughout
+- Ensure facial features, hair, clothing style remain constant
+- Apply consistent cinematographic style
+
+` : '';
+
+          const enhancedPrompt = `${characterBible}Scene ${segment.sceneNumber} (${segment.timeRange}):
+
+Visual Description: ${segment.description}
+
+Dialogue/Content: "${segment.dialogue}"
+
+${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.appearance}` : ''}
+
+Create a cinematic video that captures both the visual elements and the message/dialogue described above. ${selectedCharacter ? 'Ensure the character appears consistently as described in the character bible above.' : ''} Focus on engaging cinematography that matches the scene's requirements.`.trim();
+
+          const { data, error } = await supabase.functions.invoke('kie-video', {
+            body: {
+              action: 'create',
+              prompt: enhancedPrompt,
+              aspectRatio: project.aspectRatio as '16:9' | '9:16',
+              model: 'veo3',
+              enableFallback: true,
+              seeds: project.consistencySettings?.lockSeed ? project.consistencySettings.globalSeed : undefined,
+              characterId: project.characterId
+            }
+          });
+
+          if (error) {
+            console.error(`API error for segment ${segment.id}:`, error);
+            throw new Error(error.message || 'Failed to retry video segment');
+          }
+
+          if (data?.taskId) {
+            setProjects(prev => prev.map(p => 
+              p.id === project.id 
+                ? {
+                    ...p,
+                    segments: p.segments.map(s => 
+                      s.id === segment.id 
+                        ? { ...s, jobId: data.taskId, status: 'processing' as const }
+                        : s
+                    )
+                  }
+                : p
+            ));
+            
+            setTimeout(() => {
+              pollSegmentStatus(data.taskId, project.id, segment.id);
+            }, 5000);
+          }
+        } catch (segmentError) {
+          console.error(`Error retrying segment ${segment.sceneNumber}:`, segmentError);
+          toast({
+            title: `Retry Failed: Scene ${segment.sceneNumber}`,
+            description: segmentError instanceof Error ? segmentError.message : "Failed to retry video segment",
+            variant: "destructive"
+          });
+        }
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // API keys are now handled server-side, no configuration needed
 
   return (
@@ -571,6 +736,63 @@ Create a cinematic video that captures both the visual elements and the message/
                 </Select>
               </div>
             </div>
+
+            {/* Character Selection */}
+            <div className="space-y-2">
+              <Label>Character (Optional)</Label>
+              <Select value={formData.characterId} onValueChange={(value) => setFormData(prev => ({ ...prev, characterId: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a character for consistency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Character</SelectItem>
+                  {characters.map(character => (
+                    <SelectItem key={character.id} value={character.id}>
+                      {character.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {characters.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Visit the Characters page to create AI avatars for consistent video generation.
+                </p>
+              )}
+            </div>
+
+            {/* Consistency Controls */}
+            {formData.characterId && (
+              <div className="space-y-4 p-3 border border-border rounded-lg bg-muted/30">
+                <h4 className="text-sm font-medium text-foreground">Consistency Controls</h4>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm">Lock Seed</Label>
+                    <p className="text-xs text-muted-foreground">Use the same random seed for all segments</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.lockSeed}
+                    onChange={(e) => setFormData(prev => ({ ...prev, lockSeed: e.target.checked }))}
+                    className="rounded"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Style Consistency</Label>
+                  <Select value={formData.styleConsistency} onValueChange={(value) => setFormData(prev => ({ ...prev, styleConsistency: value as 'high' | 'medium' | 'low' }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High (Strictest matching)</SelectItem>
+                      <SelectItem value="medium">Medium (Balanced)</SelectItem>
+                      <SelectItem value="low">Low (More variation)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Script</Label>
@@ -645,16 +867,27 @@ Create a cinematic video that captures both the visual elements and the message/
                              {projectStatus === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
                              {projectStatus}
                            </Badge>
-                           {(projectStatus === 'processing' || projectStatus === 'pending') && (
-                             <Button 
-                               variant="outline" 
-                               size="sm" 
-                               onClick={() => refreshAllSegments(project)}
-                             >
-                               <RefreshCwIcon className="w-3 h-3 mr-1" />
-                               Refresh All
-                             </Button>
-                           )}
+                            {(projectStatus === 'processing' || projectStatus === 'pending') && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => refreshAllSegments(project)}
+                              >
+                                <RefreshCwIcon className="w-3 h-3 mr-1" />
+                                Refresh All
+                              </Button>
+                            )}
+                            {projectStatus === 'failed' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => retryFailedSegments(project)}
+                                disabled={isCreating}
+                              >
+                                <RefreshCwIcon className="w-3 h-3 mr-1" />
+                                Retry Failed
+                              </Button>
+                            )}
                          </div>
                       </div>
 

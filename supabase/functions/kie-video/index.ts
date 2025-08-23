@@ -14,6 +14,7 @@ interface KieVideoParams {
   seeds?: number;
   enableFallback?: boolean;
   watermark?: string;
+  characterId?: string;
 }
 
 interface KieVideoJob {
