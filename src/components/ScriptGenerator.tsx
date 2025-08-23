@@ -130,9 +130,14 @@ export const ScriptGenerator = () => {
       // Get character voice ID if selected
       let voiceId = 'default';
       if (selectedCharacter) {
-        const characters = JSON.parse(localStorage.getItem('ai_video_characters') || '[]');
-        const character = characters.find((c: any) => c.id === selectedCharacter);
-        voiceId = character?.kieVoiceId || 'default';
+        const { data: characters } = await supabase
+          .from('characters')
+          .select('kie_voice_id')
+          .eq('id', selectedCharacter);
+        
+        if (characters && characters.length > 0) {
+          voiceId = characters[0].kie_voice_id || 'default';
+        }
       }
 
       // Generate audio using OpenAI TTS for consistent voice
@@ -197,7 +202,21 @@ export const ScriptGenerator = () => {
     });
   };
 
-  // API keys are now handled server-side, no configuration needed
+  // Load characters from database
+  const [characters, setCharacters] = React.useState<any[]>([]);
+  
+  React.useEffect(() => {
+    const loadCharacters = async () => {
+      const { data } = await supabase
+        .from('characters')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      setCharacters(data || []);
+    };
+    
+    loadCharacters();
+  }, []);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -360,9 +379,9 @@ export const ScriptGenerator = () => {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="">Default Voice</SelectItem>
-                              {JSON.parse(localStorage.getItem('ai_video_characters') || '[]').map((char: any) => (
+                              {characters.map((char: any) => (
                                 <SelectItem key={char.id} value={char.id}>
-                                  {char.name} {char.kieVoiceId ? `(${char.kieVoiceId})` : '(Default)'}
+                                  {char.name} {char.kie_voice_id ? `(${char.kie_voice_id})` : '(Default)'}
                                 </SelectItem>
                               ))}
                             </SelectContent>

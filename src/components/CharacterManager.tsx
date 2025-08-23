@@ -20,6 +20,7 @@ import {
   UploadIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Character {
   id: string;
@@ -63,19 +64,81 @@ export const CharacterManager = () => {
     loadCharacters();
   }, []);
 
-  const loadCharacters = () => {
-    const stored = localStorage.getItem('ai_video_characters');
-    if (stored) {
-      setCharacters(JSON.parse(stored));
+  const loadCharacters = async () => {
+    try {
+      // First try to load from localStorage for migration
+      const stored = localStorage.getItem('ai_video_characters');
+      if (stored) {
+        const localCharacters = JSON.parse(stored);
+        // Migrate to database if we have local data
+        if (localCharacters.length > 0) {
+          await migrateCharactersToDatabase(localCharacters);
+        }
+        // Clear localStorage after migration
+        localStorage.removeItem('ai_video_characters');
+      }
+
+      // Load from database
+      const { data, error } = await supabase
+        .from('characters')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading characters:', error);
+        toast({
+          title: "Error Loading Characters",
+          description: "Please check if you're logged in and try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Transform database data to component format
+      const transformedCharacters = (data || []).map((char: any) => ({
+        id: char.id,
+        name: char.name,
+        description: char.description || '',
+        appearanceImage: char.appearance_image || '',
+        voiceType: char.voice_type || 'professional-female',
+        kieVoiceId: char.kie_voice_id || '',
+        personality: char.personality || 'professional',
+        createdAt: char.created_at
+      }));
+
+      setCharacters(transformedCharacters);
+    } catch (error) {
+      console.error('Error loading characters:', error);
     }
   };
 
-  const saveCharacters = (newCharacters: Character[]) => {
-    localStorage.setItem('ai_video_characters', JSON.stringify(newCharacters));
-    setCharacters(newCharacters);
+  const migrateCharactersToDatabase = async (localCharacters: Character[]) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const { error } = await supabase
+        .from('characters')
+        .insert(localCharacters.map(char => ({
+          id: char.id,
+          user_id: user.user.id,
+          name: char.name,
+          description: char.description,
+          appearance_image: char.appearanceImage,
+          voice_type: char.voiceType,
+          kie_voice_id: char.kieVoiceId,
+          personality: char.personality
+        })));
+
+      if (error) {
+        console.error('Migration error:', error);
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+    }
   };
 
-  const handleCreateCharacter = () => {
+  const handleCreateCharacter = async () => {
     if (!formData.name.trim()) {
       toast({
         title: "Name Required",
@@ -85,58 +148,173 @@ export const CharacterManager = () => {
       return;
     }
 
-    const newCharacter: Character = {
-      id: Date.now().toString(),
-      ...formData,
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      
+      if (!user.user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to create characters.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    const updatedCharacters = [...characters, newCharacter];
-    saveCharacters(updatedCharacters);
-    
-    setFormData({
-      name: '',
-      description: '',
-      appearanceImage: '',
-      voiceType: 'professional-female',
-      kieVoiceId: '',
-      personality: 'professional'
-    });
-    setImagePreview('');
-    setIsCreateDialogOpen(false);
-    
-    toast({
-      title: "Character Created",
-      description: `${newCharacter.name} has been added to your character library.`
-    });
+      const { data, error } = await supabase
+        .from('characters')
+        .insert({
+          user_id: user.user.id,
+          name: formData.name,
+          description: formData.description,
+          appearance_image: imagePreview,
+          voice_type: formData.voiceType,
+          kie_voice_id: formData.kieVoiceId,
+          personality: formData.personality,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error Creating Character",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const newCharacter: Character = {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        appearanceImage: data.appearance_image,
+        voiceType: data.voice_type,
+        kieVoiceId: data.kie_voice_id,
+        personality: data.personality,
+        createdAt: data.created_at,
+      };
+
+      setCharacters(prev => [newCharacter, ...prev]);
+
+      setIsCreateDialogOpen(false);
+      setFormData({
+        name: '',
+        description: '',
+        appearanceImage: '',
+        voiceType: 'professional-female',
+        kieVoiceId: '',
+        personality: 'professional'
+      });
+      setImagePreview('');
+      
+      toast({
+        title: "Character Created",
+        description: `${newCharacter.name} has been created successfully.`,
+      });
+    } catch (error) {
+      console.error('Error creating character:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create character.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleUpdateCharacter = () => {
-    if (!editingCharacter || !formData.name.trim()) return;
+  const handleUpdateCharacter = async () => {
+    if (!editingCharacter) return;
 
-    const updatedCharacters = characters.map(char =>
-      char.id === editingCharacter.id
-        ? { ...char, ...formData }
-        : char
-    );
-    
-    saveCharacters(updatedCharacters);
-    setEditingCharacter(null);
-    
-    toast({
-      title: "Character Updated",
-      description: "Character has been updated successfully."
-    });
+    try {
+      const { error } = await supabase
+        .from('characters')
+        .update({
+          name: formData.name,
+          description: formData.description,
+          appearance_image: imagePreview || editingCharacter.appearanceImage,
+          voice_type: formData.voiceType,
+          kie_voice_id: formData.kieVoiceId,
+          personality: formData.personality,
+        })
+        .eq('id', editingCharacter.id);
+
+      if (error) {
+        toast({
+          title: "Error Updating Character",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const updatedCharacter: Character = {
+        ...editingCharacter,
+        name: formData.name,
+        description: formData.description,
+        appearanceImage: imagePreview || editingCharacter.appearanceImage,
+        voiceType: formData.voiceType,
+        kieVoiceId: formData.kieVoiceId,
+        personality: formData.personality,
+      };
+
+      setCharacters(prev => prev.map(char =>
+        char.id === editingCharacter.id ? updatedCharacter : char
+      ));
+
+      setEditingCharacter(null);
+      setFormData({
+        name: '',
+        description: '',
+        appearanceImage: '',
+        voiceType: 'professional-female',
+        kieVoiceId: '',
+        personality: 'professional'
+      });
+      setImagePreview('');
+      
+      toast({
+        title: "Character Updated",
+        description: `${updatedCharacter.name} has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error updating character:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update character.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteCharacter = (id: string) => {
-    const updatedCharacters = characters.filter(char => char.id !== id);
-    saveCharacters(updatedCharacters);
-    
-    toast({
-      title: "Character Deleted",
-      description: "Character has been removed from your library."
-    });
+  const handleDeleteCharacter = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('characters')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        toast({
+          title: "Error Deleting Character",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setCharacters(prev => prev.filter(char => char.id !== id));
+      
+      toast({
+        title: "Character Deleted",
+        description: "Character has been deleted successfully.",
+      });
+    } catch (error) {
+      console.error('Error deleting character:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete character.",
+        variant: "destructive"
+      });
+    }
   };
 
   const openEditDialog = (character: Character) => {
@@ -367,7 +545,7 @@ export const CharacterManager = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={character.avatar} />
+                      <AvatarImage src={character.appearanceImage} />
                       <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                         {character.name.charAt(0)}
                       </AvatarFallback>

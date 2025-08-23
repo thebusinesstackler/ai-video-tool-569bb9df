@@ -89,10 +89,32 @@ const Videos = () => {
     loadCharacters();
   }, []);
 
-  const loadCharacters = () => {
-    const stored = localStorage.getItem('ai_video_characters');
-    if (stored) {
-      setCharacters(JSON.parse(stored));
+  const loadCharacters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('characters')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading characters:', error);
+        return;
+      }
+
+      // Transform database data to component format
+      const transformedCharacters = (data || []).map((char: any) => ({
+        id: char.id,
+        name: char.name,
+        description: char.description || '',
+        appearanceImage: char.appearance_image || '',
+        voiceType: char.voice_type || 'professional-female',
+        kieVoiceId: char.kie_voice_id || '',
+        personality: char.personality || 'professional',
+      }));
+
+      setCharacters(transformedCharacters);
+    } catch (error) {
+      console.error('Error loading characters:', error);
     }
   };
 
@@ -137,9 +159,9 @@ const Videos = () => {
     }
   };
 
-  const saveProjects = (newProjects: VideoProject[]) => {
-    localStorage.setItem('kie_video_projects', JSON.stringify(newProjects));
+  const saveProjects = async (newProjects: VideoProject[]) => {
     setProjects(newProjects);
+    // Database updates are handled individually by each operation
   };
 
   const parseScriptIntoSegments = (script: string): VideoSegment[] => {
