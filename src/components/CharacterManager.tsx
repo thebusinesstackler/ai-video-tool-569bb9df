@@ -15,7 +15,9 @@ import {
   TrashIcon,
   SparklesIcon,
   VolumeXIcon,
-  PlayIcon
+  PlayIcon,
+  ImageIcon,
+  UploadIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -23,7 +25,7 @@ interface Character {
   id: string;
   name: string;
   description: string;
-  appearance: string;
+  appearanceImage?: string; // Base64 image data
   voiceType: string;
   kieVoiceId?: string;
   personality: string;
@@ -49,11 +51,12 @@ export const CharacterManager = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    appearance: '',
+    appearanceImage: '',
     voiceType: 'professional-female',
     kieVoiceId: '',
     personality: 'professional'
   });
+  const [imagePreview, setImagePreview] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,11 +97,12 @@ export const CharacterManager = () => {
     setFormData({
       name: '',
       description: '',
-      appearance: '',
+      appearanceImage: '',
       voiceType: 'professional-female',
       kieVoiceId: '',
       personality: 'professional'
     });
+    setImagePreview('');
     setIsCreateDialogOpen(false);
     
     toast({
@@ -139,11 +143,12 @@ export const CharacterManager = () => {
     setFormData({
       name: character.name,
       description: character.description,
-      appearance: character.appearance,
+      appearanceImage: character.appearanceImage || '',
       voiceType: character.voiceType,
       kieVoiceId: character.kieVoiceId || '',
       personality: character.personality
     });
+    setImagePreview(character.appearanceImage || '');
     setEditingCharacter(character);
   };
 
@@ -151,12 +156,40 @@ export const CharacterManager = () => {
     setFormData({
       name: '',
       description: '',
-      appearance: '',
+      appearanceImage: '',
       voiceType: 'professional-female',
       kieVoiceId: '',
       personality: 'professional'
     });
+    setImagePreview('');
     setEditingCharacter(null);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File Too Large",
+          description: "Please select an image smaller than 5MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64String = event.target?.result as string;
+        setFormData(prev => ({ ...prev, appearanceImage: base64String }));
+        setImagePreview(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, appearanceImage: '' }));
+    setImagePreview('');
   };
 
   return (
@@ -211,14 +244,45 @@ export const CharacterManager = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="char-appearance">Appearance</Label>
-                <Textarea
-                  id="char-appearance"
-                  placeholder="Describe the character's physical appearance, clothing style, age..."
-                  value={formData.appearance}
-                  onChange={(e) => setFormData(prev => ({ ...prev, appearance: e.target.value }))}
-                  className="min-h-[60px]"
-                />
+                <Label htmlFor="char-appearance">Character Image</Label>
+                <div className="space-y-3">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img 
+                        src={imagePreview} 
+                        alt="Character preview" 
+                        className="w-full h-32 object-cover rounded-md border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={removeImage}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-border rounded-md p-6 text-center">
+                      <ImageIcon className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground mb-2">Upload a character image</p>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <Label htmlFor="image-upload" className="cursor-pointer">
+                        <Button type="button" variant="outline" size="sm">
+                          <UploadIcon className="w-4 h-4 mr-2" />
+                          Choose Image
+                        </Button>
+                      </Label>
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="space-y-2">
@@ -341,12 +405,14 @@ export const CharacterManager = () => {
                   </p>
                 )}
                 
-                {character.appearance && (
+                {character.appearanceImage && (
                   <div>
-                    <p className="text-xs font-medium text-foreground mb-1">Appearance:</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {character.appearance}
-                    </p>
+                    <p className="text-xs font-medium text-foreground mb-1">Character Image:</p>
+                    <img 
+                      src={character.appearanceImage} 
+                      alt={`${character.name} appearance`}
+                      className="w-full h-24 object-cover rounded-md border"
+                    />
                   </div>
                 )}
                 
