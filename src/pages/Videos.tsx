@@ -18,9 +18,12 @@ import {
   XCircleIcon,
   PlusIcon,
   LinkIcon,
-  GridIcon
+  GridIcon,
+  InfoIcon,
+  Dices
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos as stitchVideosLib } from '@/lib/videoStitch';
 
@@ -72,6 +75,7 @@ const Videos = () => {
     duration: 60,
     characterId: 'none',
     lockSeed: false,
+    customSeed: '',
     styleConsistency: 'high' as 'high' | 'medium' | 'low',
     voice: 'alloy'
   });
@@ -241,7 +245,10 @@ const Videos = () => {
     setIsCreating(true);
     try {
       const segments = parseScriptIntoSegments(formData.script);
-      const globalSeed = formData.lockSeed ? Math.floor(Math.random() * 90000) + 10000 : undefined;
+      // Use custom seed if provided, otherwise generate random seed when lock is enabled
+      const globalSeed = formData.lockSeed 
+        ? (formData.customSeed ? parseInt(formData.customSeed) : Math.floor(Math.random() * 90000) + 10000)
+        : undefined;
       
       // Generate consistent voice audio for all segments
       const fullScript = segments.map(s => s.dialogue).join(' ');
@@ -283,6 +290,11 @@ const Videos = () => {
         consistencySettings: {
           lockSeed: formData.lockSeed,
           globalSeed: globalSeed,
+          referenceImageUrls: formData.characterId && formData.characterId !== 'none'
+            ? (characters.find(c => c.id === formData.characterId)?.appearanceImage 
+              ? [characters.find(c => c.id === formData.characterId)!.appearanceImage] 
+              : [])
+            : [],
           styleConsistency: formData.styleConsistency
         }
       };
@@ -305,11 +317,16 @@ const Videos = () => {
             ? characters.find(c => c.id === newProject.characterId)
             : null;
 
+          // Prepare reference images from character
+          const referenceImageUrls = selectedCharacter?.appearanceImage 
+            ? [selectedCharacter.appearanceImage] 
+            : [];
+
           // Create enhanced prompt with character bible and consistency rules
           const characterBible = selectedCharacter ? `
 CHARACTER BIBLE:
 - Name: ${selectedCharacter.name}
-- Appearance: ${selectedCharacter.appearance}
+- Appearance: ${selectedCharacter.description || 'As shown in reference image'}
 - Personality: ${selectedCharacter.personality}
 - Voice Style: ${selectedCharacter.voiceType}
 ${selectedCharacter.description ? `- Background: ${selectedCharacter.description}` : ''}
@@ -320,6 +337,7 @@ CONSISTENCY RULES:
 - Use the same character model and features throughout
 - Ensure facial features, hair, clothing style remain constant
 - Apply consistent cinematographic style
+${selectedCharacter.appearanceImage ? '- Use the provided reference image to maintain character appearance' : ''}
 
 ` : '';
 
@@ -329,7 +347,7 @@ Visual Description: ${segment.description}
 
 Dialogue/Content: "${segment.dialogue}"
 
-${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.appearance}` : ''}
+${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.description || 'As shown in reference image'}` : ''}
 
 Create a cinematic video that captures both the visual elements and the message/dialogue described above. ${selectedCharacter ? 'Ensure the character appears consistently as described in the character bible above.' : ''} Focus on engaging cinematography that matches the scene's requirements.`.trim();
 
@@ -343,6 +361,7 @@ Create a cinematic video that captures both the visual elements and the message/
               model: 'veo3',
               enableFallback: true,
               seeds: newProject.consistencySettings?.lockSeed ? newProject.consistencySettings.globalSeed : undefined,
+              referenceImageUrls: referenceImageUrls,
               characterId: newProject.characterId
             }
           });
@@ -413,6 +432,7 @@ Create a cinematic video that captures both the visual elements and the message/
         duration: 60, 
         characterId: 'none', 
         lockSeed: false, 
+        customSeed: '',
         styleConsistency: 'high',
         voice: 'alloy'
       });
@@ -498,7 +518,7 @@ Create a cinematic video that captures both the visual elements and the message/
             } else {
               toast({
                 title: "Video Segment Ready",
-                description: `Segment ${project.segments.find(s => s.id === segmentId)?.sceneNumber} has been completed!`,
+                description: `Scene ${project.segments.find(s => s.id === segmentId)?.sceneNumber} has been completed successfully!`,
               });
             }
           }
@@ -506,31 +526,38 @@ Create a cinematic video that captures both the visual elements and the message/
         });
       } else if (job.status === 'failed') {
         toast({
-          title: "Segment Failed",
-          description: job.error || `Video segment generation failed.`,
+          title: "Video Segment Failed",
+          description: job.error || "Video generation failed. You can try refreshing or retrying the segment.",
           variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Polling error:', error);
-      // Retry after longer delay on network error
+      // Retry after delay on polling error
       setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 15000);
     }
   };
 
-  const getProjectStatus = (project: VideoProject) => {
+  const getProjectStatus = (project: VideoProject): string => {
     if (!project.segments || project.segments.length === 0) return 'pending';
     
     const statuses = project.segments.map(s => s.status);
+    
     if (statuses.every(s => s === 'completed')) return 'completed';
     if (statuses.some(s => s === 'failed')) return 'failed';
     if (statuses.some(s => s === 'processing')) return 'processing';
     return 'pending';
   };
 
-  const getProjectProgress = (project: VideoProject) => {
+  const getProjectProgress = (project: VideoProject): number => {
     if (!project.segments || project.segments.length === 0) return 0;
-    const totalProgress = project.segments.reduce((sum, s) => sum + s.progress, 0);
+    
+    const totalProgress = project.segments.reduce((sum, segment) => {
+      if (segment.status === 'completed') return sum + 100;
+      if (segment.status === 'processing') return sum + (segment.progress || 0);
+      return sum;
+    }, 0);
+    
     return Math.round(totalProgress / project.segments.length);
   };
 
@@ -546,115 +573,100 @@ Create a cinematic video that captures both the visual elements and the message/
       });
 
       if (error) {
-        console.error('Status refresh error:', error);
         toast({
-          title: "Refresh Failed",
-          description: "Failed to check video status",
+          title: "Status Check Failed",
+          description: error.message || "Failed to check segment status",
           variant: "destructive"
         });
         return;
       }
 
-      const job = data;
-      console.log('Status refresh result:', job);
-      
-      setProjects(prev => prev.map(p => 
-        p.id === project.id 
-          ? {
-              ...p,
-              segments: p.segments.map(s => 
-                s.id === segment.id 
-                  ? { 
-                      ...s, 
-                      status: job.status as 'pending' | 'processing' | 'completed' | 'failed', 
-                      progress: job.progress || 0, 
-                      outputUrl: job.videoUrl 
-                    }
-                  : s
-              )
-            }
-          : p
-      ));
+      // Update the segment status
+      setProjects(prev => {
+        const updated = prev.map(p => 
+          p.id === project.id 
+            ? {
+                ...p,
+                segments: p.segments.map(s => 
+                  s.id === segment.id 
+                    ? { 
+                        ...s, 
+                        status: data.status as 'pending' | 'processing' | 'completed' | 'failed', 
+                        progress: data.progress || 0, 
+                        outputUrl: data.videoUrl 
+                      }
+                    : s
+                )
+              }
+            : p
+        );
+        
+        // Persist the updated projects
+        localStorage.setItem('kie_video_projects', JSON.stringify(updated));
+        return updated;
+      });
 
-      if (job.status === 'completed') {
-        toast({
-          title: "Video Ready!",
-          description: "Video has been generated successfully.",
-        });
-      } else if (job.status === 'failed') {
-        toast({
-          title: "Video Failed",
-          description: "Video generation failed.",
-          variant: "destructive"
-        });
+      toast({
+        title: "Status Updated",
+        description: `Scene ${segment.sceneNumber} status: ${data.status}`,
+      });
+
+      // Resume polling if still processing
+      if (data.status === 'processing' || data.status === 'pending') {
+        setTimeout(() => {
+          pollSegmentStatus(segment.jobId!, project.id, segment.id);
+        }, 5000);
       }
     } catch (error) {
-      console.error('Refresh error:', error);
+      console.error('Error refreshing segment status:', error);
       toast({
-        title: "Refresh Failed",
-        description: "Failed to refresh video status",
+        title: "Status Check Failed",
+        description: "Failed to refresh segment status",
         variant: "destructive"
       });
     }
   };
 
   const refreshAllSegments = async (project: VideoProject) => {
-    const pendingSegments = project.segments?.filter(s => s.jobId && (s.status === 'pending' || s.status === 'processing')) || [];
+    const segmentsWithJobs = project.segments.filter(s => s.jobId);
     
-    if (pendingSegments.length === 0) {
-      toast({
-        title: "No Segments to Refresh",
-        description: "All segments are either completed or don't have job IDs.",
-      });
-      return;
-    }
-
-    toast({
-      title: "Refreshing All Segments",
-      description: `Checking status of ${pendingSegments.length} segments...`,
-    });
-
-    for (const segment of pendingSegments) {
+    for (const segment of segmentsWithJobs) {
       await refreshSegmentStatus(project, segment);
       // Small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   };
 
   const retryFailedSegments = async (project: VideoProject) => {
-    const failedSegments = project.segments?.filter(s => s.status === 'failed') || [];
+    const failedSegments = project.segments.filter(s => s.status === 'failed');
     
     if (failedSegments.length === 0) {
       toast({
         title: "No Failed Segments",
-        description: "All segments have completed successfully.",
+        description: "All segments are either completed or in progress.",
       });
       return;
     }
 
     setIsCreating(true);
-    toast({
-      title: "Retrying Failed Segments",
-      description: `Retrying ${failedSegments.length} failed segments...`,
-    });
+    
+    for (const segment of failedSegments) {
+      try {
+        // Get selected character for consistency
+        const selectedCharacter = project.characterId 
+          ? characters.find(c => c.id === project.characterId)
+          : null;
 
-    try {
-      for (let i = 0; i < failedSegments.length; i++) {
-        const segment = failedSegments[i];
-        
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        
-        try {
-          const selectedCharacter = project.characterId 
-            ? characters.find(c => c.id === project.characterId)
-            : null;
+        // Prepare reference images from character
+        const referenceImageUrls = selectedCharacter?.appearanceImage 
+          ? [selectedCharacter.appearanceImage] 
+          : [];
 
-          const characterBible = selectedCharacter ? `
+        // Create enhanced prompt with character bible and consistency rules
+        const characterBible = selectedCharacter ? `
 CHARACTER BIBLE:
 - Name: ${selectedCharacter.name}
-- Appearance: ${selectedCharacter.appearance}
+- Appearance: ${selectedCharacter.description || 'As shown in reference image'}
 - Personality: ${selectedCharacter.personality}
 - Voice Style: ${selectedCharacter.voiceType}
 ${selectedCharacter.description ? `- Background: ${selectedCharacter.description}` : ''}
@@ -665,66 +677,67 @@ CONSISTENCY RULES:
 - Use the same character model and features throughout
 - Ensure facial features, hair, clothing style remain constant
 - Apply consistent cinematographic style
+${selectedCharacter.appearanceImage ? '- Use the provided reference image to maintain character appearance' : ''}
 
 ` : '';
 
-          const enhancedPrompt = `${characterBible}Scene ${segment.sceneNumber} (${segment.timeRange}):
+        const enhancedPrompt = `${characterBible}Scene ${segment.sceneNumber} (${segment.timeRange}):
 
 Visual Description: ${segment.description}
 
 Dialogue/Content: "${segment.dialogue}"
 
-${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.appearance}` : ''}
+${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.description || 'As shown in reference image'}` : ''}
 
 Create a cinematic video that captures both the visual elements and the message/dialogue described above. ${selectedCharacter ? 'Ensure the character appears consistently as described in the character bible above.' : ''} Focus on engaging cinematography that matches the scene's requirements.`.trim();
 
-          const { data, error } = await supabase.functions.invoke('kie-video', {
-            body: {
-              action: 'create',
-              prompt: enhancedPrompt,
-              aspectRatio: project.aspectRatio as '16:9' | '9:16',
-              model: 'veo3',
-              enableFallback: true,
-              seeds: project.consistencySettings?.lockSeed ? project.consistencySettings.globalSeed : undefined,
-              characterId: project.characterId
-            }
-          });
-
-          if (error) {
-            console.error(`API error for segment ${segment.id}:`, error);
-            throw new Error(error.message || 'Failed to retry video segment');
+        const { data, error } = await supabase.functions.invoke('kie-video', {
+          body: {
+            action: 'create',
+            prompt: enhancedPrompt,
+            aspectRatio: project.aspectRatio as '16:9' | '9:16',
+            model: 'veo3',
+            enableFallback: true,
+            seeds: project.consistencySettings?.lockSeed ? project.consistencySettings.globalSeed : undefined,
+            referenceImageUrls: referenceImageUrls,
+            characterId: project.characterId
           }
+        });
 
-          if (data?.taskId) {
-            setProjects(prev => prev.map(p => 
-              p.id === project.id 
-                ? {
-                    ...p,
-                    segments: p.segments.map(s => 
-                      s.id === segment.id 
-                        ? { ...s, jobId: data.taskId, status: 'processing' as const }
-                        : s
-                    )
-                  }
-                : p
-            ));
-            
-            setTimeout(() => {
-              pollSegmentStatus(data.taskId, project.id, segment.id);
-            }, 5000);
-          }
-        } catch (segmentError) {
-          console.error(`Error retrying segment ${segment.sceneNumber}:`, segmentError);
-          toast({
-            title: `Retry Failed: Scene ${segment.sceneNumber}`,
-            description: segmentError instanceof Error ? segmentError.message : "Failed to retry video segment",
-            variant: "destructive"
-          });
+        if (error) {
+          console.error(`API error for segment ${segment.id}:`, error);
+          throw new Error(error.message || 'Failed to retry video segment');
         }
+
+        if (data?.taskId) {
+          setProjects(prev => prev.map(p => 
+            p.id === project.id 
+              ? {
+                  ...p,
+                  segments: p.segments.map(s => 
+                    s.id === segment.id 
+                      ? { ...s, jobId: data.taskId, status: 'processing' as const }
+                      : s
+                  )
+                }
+              : p
+          ));
+          
+          setTimeout(() => {
+            pollSegmentStatus(data.taskId, project.id, segment.id);
+          }, 5000);
+        }
+      } catch (segmentError) {
+        console.error(`Error retrying segment ${segment.sceneNumber}:`, segmentError);
+        toast({
+          title: `Retry Failed: Scene ${segment.sceneNumber}`,
+          description: segmentError instanceof Error ? segmentError.message : "Failed to retry video segment",
+          variant: "destructive"
+        });
       }
-    } finally {
-      setIsCreating(false);
     }
+    
+    setIsCreating(false);
   };
 
   const stitchVideos = async (project: VideoProject) => {
@@ -867,18 +880,65 @@ Create a cinematic video that captures both the visual elements and the message/
               <div className="space-y-4 p-3 border border-border rounded-lg bg-muted/30">
                 <h4 className="text-sm font-medium text-foreground">Consistency Controls</h4>
                 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-sm">Lock Seed</Label>
-                    <p className="text-xs text-muted-foreground">Use the same random seed for all segments</p>
+                <TooltipProvider>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm">Lock Seed</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="max-w-xs space-y-2">
+                            <p className="font-medium">Lock Seed ensures visual consistency</p>
+                            <p className="text-xs">When enabled with a character image, all video segments will use the same random seed and reference image, creating consistent visual style and character appearance across scenes.</p>
+                            <p className="text-xs font-medium">Turn ON when: You want identical character appearance</p>
+                            <p className="text-xs font-medium">Turn OFF when: You want more visual variety</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formData.lockSeed}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lockSeed: e.target.checked }))}
+                      className="rounded"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={formData.lockSeed}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lockSeed: e.target.checked }))}
-                    className="rounded"
-                  />
-                </div>
+                </TooltipProvider>
+
+                {formData.lockSeed && (
+                  <div className="space-y-2 p-2 bg-background/50 rounded border border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Dices className="w-4 h-4 text-primary" />
+                      <Label className="text-sm">Seed Value (Optional)</Label>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Auto-generated if empty"
+                        value={formData.customSeed}
+                        onChange={(e) => setFormData(prev => ({ ...prev, customSeed: e.target.value }))}
+                        className="flex-1"
+                        min="10000"
+                        max="99999"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          customSeed: (Math.floor(Math.random() * 90000) + 10000).toString() 
+                        }))}
+                      >
+                        <Dices className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Same seed = identical visual style. Leave empty for auto-generation.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Style Consistency</Label>
@@ -976,6 +1036,11 @@ Create a cinematic video that captures both the visual elements and the message/
                           <h3 className="font-semibold text-foreground">{project.title}</h3>
                           <p className="text-sm text-muted-foreground">
                             {project.aspectRatio} • {project.segments?.length || 0} segments • {new Date(project.createdAt).toLocaleDateString()}
+                            {project.consistencySettings?.lockSeed && (
+                              <span className="ml-2">
+                                • Seed: {project.consistencySettings.globalSeed}
+                              </span>
+                            )}
                           </p>
                         </div>
                          <div className="flex items-center gap-2">
