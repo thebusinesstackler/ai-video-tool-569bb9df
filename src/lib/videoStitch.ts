@@ -31,39 +31,58 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Loading FFmpeg...');
     
     try {
-      // Simplified approach: let FFmpeg handle its own loading with defaults
-      console.log('Attempting simplified FFmpeg load...');
-      
-      const loadPromise = ffmpeg.load();
-      // Reduce timeout to 30s to catch hangs faster
-      const loadTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('FFmpeg load timeout (30s)')), 30000)
-      );
-      
-      await Promise.race([loadPromise, loadTimeout]);
-      console.log('FFmpeg loaded successfully with default settings');
-    } catch (error) {
-      console.error('Default FFmpeg load failed, trying fallback...', error);
-      
-      // Fallback: try with explicit config but shorter timeout
-      try {
-        console.log('Trying fallback FFmpeg load with explicit URLs...');
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/';
-        
-        const coreURL = await toBlobURL(`${baseURL}ffmpeg-core.js`, 'text/javascript');
-        const wasmURL = await toBlobURL(`${baseURL}ffmpeg-core.wasm`, 'application/wasm');
-        
-        const fallbackPromise = ffmpeg.load({ coreURL, wasmURL });
-        const fallbackTimeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Fallback load timeout (15s)')), 15000)
-        );
-        
-        await Promise.race([fallbackPromise, fallbackTimeout]);
-        console.log('FFmpeg loaded successfully with fallback method');
-      } catch (fallbackError) {
-        console.error('All FFmpeg loading methods failed:', fallbackError);
-        throw new Error(`FFmpeg loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Robust loader: probe multiple CDNs, prefetch core assets, then load
+      const makeBlobURL = async (url: string, type: string) => {
+        console.log(`Prefetching ${url} ...`);
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+        const blob = await res.blob();
+        return URL.createObjectURL(new Blob([blob], { type }));
+      };
+
+      const sources = [
+        { label: 'jsdelivr-dist', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/' },
+        { label: 'unpkg-dist', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/' },
+        { label: 'cdnjs-umd', base: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/' },
+      ] as const;
+
+      let coreURL: string | undefined;
+      let wasmURL: string | undefined;
+      let workerURL: string | undefined;
+      let lastError: unknown;
+
+      for (const src of sources) {
+        try {
+          console.log(`Trying FFmpeg core from ${src.label}: ${src.base}`);
+          const jsPath = `${src.base}ffmpeg-core.js`;
+          const wasmPath = `${src.base}ffmpeg-core.wasm`;
+          const workerPath = `${src.base}ffmpeg-core.worker.js`;
+
+          const c = await makeBlobURL(jsPath, 'text/javascript');
+          const w = await makeBlobURL(wasmPath, 'application/wasm');
+          const wk = await makeBlobURL(workerPath, 'text/javascript');
+          coreURL = c; wasmURL = w; workerURL = wk;
+          console.log(`Prepared blob URLs from ${src.label}`);
+          break;
+        } catch (e) {
+          lastError = e;
+          console.warn(`Source ${src.label} failed:`, e);
+        }
       }
+
+      if (!coreURL || !wasmURL || !workerURL) {
+        throw new Error(`Could not fetch FFmpeg core files from any source. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+      }
+
+      const loadPromise = ffmpeg.load({ coreURL, wasmURL, workerURL });
+      const loadTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('FFmpeg load timeout (20s)')), 20000)
+      );
+      await Promise.race([loadPromise, loadTimeout]);
+      console.log('FFmpeg loaded successfully');
+    } catch (error) {
+      console.error('Failed to load FFmpeg:', error);
+      throw new Error(`FFmpeg loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Write all parts to the FS
