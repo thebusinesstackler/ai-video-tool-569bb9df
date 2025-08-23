@@ -31,58 +31,39 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Loading FFmpeg...');
     
     try {
-      // Try multiple sources: local -> jsDelivr -> unpkg -> cdnjs (multiple layouts)
-      const sources = [
-        { label: 'local', base: '/ffmpeg/', layout: 'root' },
-        { label: 'jsdelivr-dist', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/', layout: 'dist' },
-        { label: 'unpkg-dist', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/', layout: 'dist' },
-        { label: 'jsdelivr-root', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/', layout: 'root' },
-        { label: 'unpkg-root', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/', layout: 'root' },
-        { label: 'cdnjs-umd', base: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/', layout: 'root' },
-        { label: 'cdnjs-esm', base: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/esm/', layout: 'root' },
-      ] as const;
-
-      let coreURL: string | undefined;
-      let wasmURL: string | undefined;
-      let workerURL: string | undefined;
-      let lastError: unknown;
-
-      for (const src of sources) {
-        try {
-          console.log(`Attempting FFmpeg core from ${src.label}: ${src.base}`);
-          const jsPath = `${src.base}ffmpeg-core.js`;
-          const wasmPath = `${src.base}ffmpeg-core.wasm`;
-          const workerPath = `${src.base}ffmpeg-core.worker.js`;
-
-          // Prepare blob URLs for each file
-          const c = await toBlobURL(jsPath, 'text/javascript');
-          const w = await toBlobURL(wasmPath, 'application/wasm');
-          const wk = await toBlobURL(workerPath, 'text/javascript');
-          coreURL = c; wasmURL = w; workerURL = wk;
-          console.log(`FFmpeg core files prepared from ${src.label}`);
-          break;
-        } catch (e) {
-          lastError = e;
-          console.warn(`Source ${src.label} failed:`, e);
-        }
-      }
-
-      if (!coreURL || !wasmURL || !workerURL) {
-        throw new Error(`Could not prepare FFmpeg core files from any source. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
-      }
-
-      console.log('All FFmpeg files fetched, initializing...');
-
-      const loadPromise = ffmpeg.load({ coreURL, wasmURL, workerURL });
-      // Guard against silent hangs while loading
+      // Simplified approach: let FFmpeg handle its own loading with defaults
+      console.log('Attempting simplified FFmpeg load...');
+      
+      const loadPromise = ffmpeg.load();
+      // Reduce timeout to 30s to catch hangs faster
       const loadTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('FFmpeg load timeout (60s)')), 60000)
+        setTimeout(() => reject(new Error('FFmpeg load timeout (30s)')), 30000)
       );
+      
       await Promise.race([loadPromise, loadTimeout]);
-      console.log('FFmpeg loaded successfully');
+      console.log('FFmpeg loaded successfully with default settings');
     } catch (error) {
-      console.error('Failed to load FFmpeg:', error);
-      throw new Error(`FFmpeg loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Default FFmpeg load failed, trying fallback...', error);
+      
+      // Fallback: try with explicit config but shorter timeout
+      try {
+        console.log('Trying fallback FFmpeg load with explicit URLs...');
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/';
+        
+        const coreURL = await toBlobURL(`${baseURL}ffmpeg-core.js`, 'text/javascript');
+        const wasmURL = await toBlobURL(`${baseURL}ffmpeg-core.wasm`, 'application/wasm');
+        
+        const fallbackPromise = ffmpeg.load({ coreURL, wasmURL });
+        const fallbackTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Fallback load timeout (15s)')), 15000)
+        );
+        
+        await Promise.race([fallbackPromise, fallbackTimeout]);
+        console.log('FFmpeg loaded successfully with fallback method');
+      } catch (fallbackError) {
+        console.error('All FFmpeg loading methods failed:', fallbackError);
+        throw new Error(`FFmpeg loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
 
     // Write all parts to the FS
