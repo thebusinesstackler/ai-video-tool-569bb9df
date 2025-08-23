@@ -7,40 +7,81 @@ import { fetchFile } from '@ffmpeg/util';
 
 export async function stitchVideos(urls: string[], onProgress?: (percent: number) => void): Promise<Blob> {
   if (!urls || urls.length === 0) throw new Error('No video URLs provided');
+  if (urls.length === 1) {
+    // If only one video, just return it as-is
+    const response = await fetch(urls[0]);
+    return await response.blob();
+  }
 
+  console.log('Starting video stitching for URLs:', urls);
+  
   const ffmpeg = new FFmpeg();
   try {
+    // Add progress tracking
     ffmpeg.on('progress', ({ progress }) => {
+      console.log('FFmpeg progress:', progress);
       if (onProgress) onProgress(Math.round((progress || 0) * 100));
     });
 
+    // Add logging for debugging
+    ffmpeg.on('log', ({ message }) => {
+      console.log('FFmpeg log:', message);
+    });
+
+    console.log('Loading FFmpeg...');
     await ffmpeg.load();
+    console.log('FFmpeg loaded successfully');
 
     // Write all parts to the FS
     const partNames: string[] = [];
+    console.log('Downloading and writing video files...');
+    
     for (let i = 0; i < urls.length; i++) {
       const name = `part${i}.mp4`;
-      const data = await fetchFile(urls[i]);
-      await ffmpeg.writeFile(name, data);
-      partNames.push(name);
+      console.log(`Downloading ${urls[i]} as ${name}`);
+      
+      try {
+        const data = await fetchFile(urls[i]);
+        await ffmpeg.writeFile(name, data);
+        partNames.push(name);
+        console.log(`Successfully wrote ${name}, size: ${data.length} bytes`);
+      } catch (error) {
+        console.error(`Failed to download/write ${urls[i]}:`, error);
+        throw new Error(`Failed to download video segment ${i + 1}: ${error}`);
+      }
     }
 
     // Create concat list file
     const concatList = partNames.map((n) => `file '${n}'`).join('\n');
+    console.log('Concat list:', concatList);
     await ffmpeg.writeFile('concat.txt', new TextEncoder().encode(concatList));
 
     // Try stream copy first (fast, no re-encode)
+    console.log('Attempting video concatenation with stream copy...');
     try {
       await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
+      console.log('Stream copy concatenation successful');
     } catch (copyErr) {
-      // If copy fails, try a generic re-mux (still avoids full transcode where possible)
-      // Note: ffmpeg.wasm has limited codec support; if this fails, we inform the user.
-      await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-movflags', 'faststart', 'output.mp4']);
+      console.log('Stream copy failed, trying re-encode...', copyErr);
+      // If copy fails, try a generic re-mux
+      await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c:v', 'libx264', '-c:a', 'aac', '-movflags', 'faststart', 'output.mp4']);
+      console.log('Re-encode concatenation successful');
     }
 
+    console.log('Reading output file...');
     const out = (await ffmpeg.readFile('output.mp4')) as Uint8Array;
-    return new Blob([out], { type: 'video/mp4' });
-  } finally {
-    // No explicit dispose API; FS is ephemeral per instance
+    console.log('Output file size:', out.length, 'bytes');
+    
+    if (out.length === 0) {
+      throw new Error('Output video file is empty - concatenation may have failed');
+    }
+    
+    const blob = new Blob([out], { type: 'video/mp4' });
+    console.log('Successfully created stitched video blob, size:', blob.size);
+    return blob;
+    
+  } catch (error) {
+    console.error('FFmpeg stitching failed:', error);
+    throw new Error(`Video stitching failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or contact support if the issue persists.`);
   }
 }

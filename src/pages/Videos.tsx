@@ -710,16 +710,23 @@ Create a cinematic video that captures both the visual elements and the message/
     }
 
     setIsCreating(true);
-    toast({ title: 'Stitching Started', description: 'Combining segments into a single video...' });
+    toast({ 
+      title: 'Stitching Started', 
+      description: `Combining ${completedSegments.length} segments into a single video...` 
+    });
     
     try {
       const urls = completedSegments.map(s => s.outputUrl!) as string[];
-      const blob = await stitchVideosLib(urls, (p) => {
-        // Optional: could surface progress in UI later
-        console.log('Stitch progress:', p, '%');
+      console.log('Stitching videos in order:', urls);
+      
+      const blob = await stitchVideosLib(urls, (progress) => {
+        console.log('Stitch progress:', progress, '%');
+        // You could add progress UI here if needed
       });
 
+      console.log('Stitching completed, creating object URL...');
       const objectUrl = URL.createObjectURL(blob);
+      console.log('Object URL created:', objectUrl);
 
       // Update project with final stitched URL
       const stitchedProject: VideoProject = {
@@ -731,11 +738,15 @@ Create a cinematic video that captures both the visual elements and the message/
 
       setProjects(prev => prev.map(p => (p.id === project.id ? stitchedProject : p)));
 
-      // Persist other fields; stitchedUrl (blob URL) won't survive reloads, that's OK
+      // Persist to localStorage (note: objectUrl won't survive page reloads)
       const updatedProjects = projects.map(p => (p.id === project.id ? stitchedProject : p));
       localStorage.setItem('kie_video_projects', JSON.stringify(updatedProjects));
 
-      toast({ title: 'Videos Stitched!', description: 'Your final video is ready to play or download.' });
+      toast({ 
+        title: 'Videos Successfully Stitched!', 
+        description: `Combined ${completedSegments.length} segments into one video. Click "Watch Final Video" to view the result.` 
+      });
+      
     } catch (error) {
       console.error('Video stitching error:', error);
       toast({
