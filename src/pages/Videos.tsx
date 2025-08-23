@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { stitchVideos as stitchVideosLib } from '@/lib/videoStitch';
 
 interface VideoSegment {
   id: string;
@@ -695,58 +696,52 @@ Create a cinematic video that captures both the visual elements and the message/
   const stitchVideos = async (project: VideoProject) => {
     if (!project.segments || project.segments.length === 0) return;
     
-    const completedSegments = project.segments.filter(s => s.status === 'completed' && s.outputUrl);
+    const completedSegments = project.segments
+      .filter(s => s.status === 'completed' && s.outputUrl)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
     
-    if (completedSegments.length === 0) {
+    if (completedSegments.length < 2) {
       toast({
-        title: "No Completed Segments",
-        description: "Please wait for all segments to complete before stitching.",
+        title: "Need Multiple Segments",
+        description: "Please wait until at least two segments are completed to stitch.",
         variant: "destructive"
       });
       return;
     }
 
     setIsCreating(true);
+    toast({ title: 'Stitching Started', description: 'Combining segments into a single video...' });
     
     try {
-      // For now, we'll create a simple concatenated playlist approach
-      // In a production environment, you'd want to use a video stitching service
-      
-      // Create a simple HTML page that plays all videos in sequence
-      const videoUrls = completedSegments
-        .sort((a, b) => a.sceneNumber - b.sceneNumber)
-        .map(s => s.outputUrl);
-      
-      // Store the stitched reference
-      const stitchedProject = {
+      const urls = completedSegments.map(s => s.outputUrl!) as string[];
+      const blob = await stitchVideosLib(urls, (p) => {
+        // Optional: could surface progress in UI later
+        console.log('Stitch progress:', p, '%');
+      });
+
+      const objectUrl = URL.createObjectURL(blob);
+
+      // Update project with final stitched URL
+      const stitchedProject: VideoProject = {
         ...project,
         isStitched: true,
-        stitchedUrl: videoUrls[0], // For now, just link to first video
-        stitchedSegments: videoUrls
+        stitchedUrl: objectUrl,
+        stitchedSegments: urls
       };
-      
-      // Update project state
-      setProjects(prev => prev.map(p => 
-        p.id === project.id ? stitchedProject : p
-      ));
-      
-      // Persist to localStorage
-      const updatedProjects = projects.map(p => 
-        p.id === project.id ? stitchedProject : p
-      );
+
+      setProjects(prev => prev.map(p => (p.id === project.id ? stitchedProject : p)));
+
+      // Persist other fields; stitchedUrl (blob URL) won't survive reloads, that's OK
+      const updatedProjects = projects.map(p => (p.id === project.id ? stitchedProject : p));
       localStorage.setItem('kie_video_projects', JSON.stringify(updatedProjects));
-      
-      toast({
-        title: "Videos Stitched!",
-        description: "Your video segments have been prepared for playback.",
-      });
-      
+
+      toast({ title: 'Videos Stitched!', description: 'Your final video is ready to play or download.' });
     } catch (error) {
       console.error('Video stitching error:', error);
       toast({
-        title: "Stitching Failed",
-        description: error instanceof Error ? error.message : "Failed to stitch videos together.",
-        variant: "destructive"
+        title: 'Stitching Failed',
+        description: error instanceof Error ? error.message : 'Failed to stitch videos together.',
+        variant: 'destructive'
       });
     } finally {
       setIsCreating(false);
@@ -1031,6 +1026,27 @@ Create a cinematic video that captures both the visual elements and the message/
                               {isCreating ? 'Stitching...' : 'Stitch Videos Together'}
                             </Button>
                             <Button variant="outline">Review All</Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Final Stitched Video */}
+                      {project.isStitched && project.stitchedUrl && (
+                        <div className="border-t border-border pt-3">
+                          <p className="text-sm text-muted-foreground mb-2">Final stitched video:</p>
+                          <div className="flex gap-2">
+                            <Button variant="outline" asChild>
+                              <a href={project.stitchedUrl} target="_blank" rel="noopener noreferrer">
+                                <PlayIcon className="w-4 h-4 mr-2" />
+                                Watch Final Video
+                              </a>
+                            </Button>
+                            <Button variant="outline" asChild>
+                              <a href={project.stitchedUrl} download>
+                                <DownloadIcon className="w-4 h-4 mr-2" />
+                                Download
+                              </a>
+                            </Button>
                           </div>
                         </div>
                       )}
