@@ -23,6 +23,7 @@ export type Database = {
           kie_voice_id: string | null
           name: string
           personality: string | null
+          reference_images: string[] | null
           updated_at: string
           user_id: string | null
           voice_type: string | null
@@ -35,6 +36,7 @@ export type Database = {
           kie_voice_id?: string | null
           name: string
           personality?: string | null
+          reference_images?: string[] | null
           updated_at?: string
           user_id?: string | null
           voice_type?: string | null
@@ -47,6 +49,7 @@ export type Database = {
           kie_voice_id?: string | null
           name?: string
           personality?: string | null
+          reference_images?: string[] | null
           updated_at?: string
           user_id?: string | null
           voice_type?: string | null

@@ -26,7 +26,8 @@ interface Character {
   id: string;
   name: string;
   description: string;
-  appearanceImage?: string; // Base64 image data
+  appearanceImage?: string; // Base64 image data (deprecated, kept for backwards compatibility)
+  referenceImages: string[]; // Array of Base64 image data
   voiceType: string;
   kieVoiceId?: string;
   personality: string;
@@ -52,12 +53,12 @@ export const CharacterManager = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    appearanceImage: '',
+    referenceImages: [] as string[],
     voiceType: 'professional-female',
     kieVoiceId: '',
     personality: 'professional'
   });
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -100,6 +101,7 @@ export const CharacterManager = () => {
         name: char.name,
         description: char.description || '',
         appearanceImage: char.appearance_image || '',
+        referenceImages: char.reference_images || [],
         voiceType: char.voice_type || 'professional-female',
         kieVoiceId: char.kie_voice_id || '',
         personality: char.personality || 'professional',
@@ -166,7 +168,7 @@ export const CharacterManager = () => {
           user_id: user.user.id,
           name: formData.name,
           description: formData.description,
-          appearance_image: imagePreview,
+          reference_images: formData.referenceImages,
           voice_type: formData.voiceType,
           kie_voice_id: formData.kieVoiceId,
           personality: formData.personality,
@@ -188,6 +190,7 @@ export const CharacterManager = () => {
         name: data.name,
         description: data.description,
         appearanceImage: data.appearance_image,
+        referenceImages: data.reference_images || [],
         voiceType: data.voice_type,
         kieVoiceId: data.kie_voice_id,
         personality: data.personality,
@@ -200,12 +203,12 @@ export const CharacterManager = () => {
       setFormData({
         name: '',
         description: '',
-        appearanceImage: '',
+        referenceImages: [],
         voiceType: 'professional-female',
         kieVoiceId: '',
         personality: 'professional'
       });
-      setImagePreview('');
+      setImagePreviews([]);
       
       toast({
         title: "Character Created",
@@ -230,7 +233,7 @@ export const CharacterManager = () => {
         .update({
           name: formData.name,
           description: formData.description,
-          appearance_image: imagePreview || editingCharacter.appearanceImage,
+          reference_images: formData.referenceImages,
           voice_type: formData.voiceType,
           kie_voice_id: formData.kieVoiceId,
           personality: formData.personality,
@@ -250,7 +253,7 @@ export const CharacterManager = () => {
         ...editingCharacter,
         name: formData.name,
         description: formData.description,
-        appearanceImage: imagePreview || editingCharacter.appearanceImage,
+        referenceImages: formData.referenceImages,
         voiceType: formData.voiceType,
         kieVoiceId: formData.kieVoiceId,
         personality: formData.personality,
@@ -264,12 +267,12 @@ export const CharacterManager = () => {
       setFormData({
         name: '',
         description: '',
-        appearanceImage: '',
+        referenceImages: [],
         voiceType: 'professional-female',
         kieVoiceId: '',
         personality: 'professional'
       });
-      setImagePreview('');
+      setImagePreviews([]);
       
       toast({
         title: "Character Updated",
@@ -321,12 +324,12 @@ export const CharacterManager = () => {
     setFormData({
       name: character.name,
       description: character.description,
-      appearanceImage: character.appearanceImage || '',
+      referenceImages: character.referenceImages || [],
       voiceType: character.voiceType,
       kieVoiceId: character.kieVoiceId || '',
       personality: character.personality
     });
-    setImagePreview(character.appearanceImage || '');
+    setImagePreviews(character.referenceImages || []);
     setEditingCharacter(character);
   };
 
@@ -334,22 +337,24 @@ export const CharacterManager = () => {
     setFormData({
       name: '',
       description: '',
-      appearanceImage: '',
+      referenceImages: [],
       voiceType: 'professional-female',
       kieVoiceId: '',
       personality: 'professional'
     });
-    setImagePreview('');
+    setImagePreviews([]);
     setEditingCharacter(null);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    files.forEach(file => {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
         toast({
           title: "File Too Large",
-          description: "Please select an image smaller than 5MB.",
+          description: `${file.name} is larger than 5MB. Please select a smaller image.`,
           variant: "destructive"
         });
         return;
@@ -358,16 +363,22 @@ export const CharacterManager = () => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64String = event.target?.result as string;
-        setFormData(prev => ({ ...prev, appearanceImage: base64String }));
-        setImagePreview(base64String);
+        setFormData(prev => ({ 
+          ...prev, 
+          referenceImages: [...prev.referenceImages, base64String] 
+        }));
+        setImagePreviews(prev => [...prev, base64String]);
       };
       reader.readAsDataURL(file);
-    }
+    });
   };
 
-  const removeImage = () => {
-    setFormData(prev => ({ ...prev, appearanceImage: '' }));
-    setImagePreview('');
+  const removeImage = (index: number) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      referenceImages: prev.referenceImages.filter((_, i) => i !== index) 
+    }));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -422,45 +433,55 @@ export const CharacterManager = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="char-appearance">Character Image</Label>
+                <Label htmlFor="char-appearance">Character Images</Label>
                 <div className="space-y-3">
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img 
-                        src={imagePreview} 
-                        alt="Character preview" 
-                        className="w-full h-32 object-cover rounded-md border"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={removeImage}
-                      >
-                        Remove
-                      </Button>
+                  {imagePreviews.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {imagePreviews.map((image, index) => (
+                        <div key={index} className="relative">
+                          <img 
+                            src={image} 
+                            alt={`Character preview ${index + 1}`} 
+                            className="w-full h-24 object-cover rounded-md border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-1 right-1 h-6 w-6 p-0"
+                            onClick={() => removeImage(index)}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="border-2 border-dashed border-border rounded-md p-6 text-center">
-                      <ImageIcon className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground mb-2">Upload a character image</p>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="image-upload"
-                      />
-                      <Label 
-                        htmlFor="image-upload" 
-                        className="cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
-                      >
-                        <UploadIcon className="w-4 h-4 mr-2" />
-                        Choose Image
-                      </Label>
-                    </div>
-                  )}
+                  ) : null}
+                  
+                  <div className="border-2 border-dashed border-border rounded-md p-6 text-center">
+                    <ImageIcon className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {imagePreviews.length > 0 ? 'Add more character images' : 'Upload character images'}
+                    </p>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <Label 
+                      htmlFor="image-upload" 
+                      className="cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                    >
+                      <UploadIcon className="w-4 h-4 mr-2" />
+                      Choose Images
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Multiple images help with character consistency
+                    </p>
+                  </div>
                 </div>
               </div>
               
@@ -584,7 +605,28 @@ export const CharacterManager = () => {
                   </p>
                 )}
                 
-                {character.appearanceImage && (
+                {(character.referenceImages && character.referenceImages.length > 0) ? (
+                  <div>
+                    <p className="text-xs font-medium text-foreground mb-2">Reference Images:</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {character.referenceImages.slice(0, 4).map((image, index) => (
+                        <img 
+                          key={index}
+                          src={image} 
+                          alt={`${character.name} reference ${index + 1}`}
+                          className="w-full h-16 object-cover rounded-md border"
+                        />
+                      ))}
+                      {character.referenceImages.length > 4 && (
+                        <div className="w-full h-16 bg-muted rounded-md border flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">
+                            +{character.referenceImages.length - 4} more
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : character.appearanceImage ? (
                   <div>
                     <p className="text-xs font-medium text-foreground mb-1">Character Image:</p>
                     <img 
@@ -593,7 +635,7 @@ export const CharacterManager = () => {
                       className="w-full h-24 object-cover rounded-md border"
                     />
                   </div>
-                )}
+                ) : null}
                 
                 <div className="flex items-center justify-between pt-2">
                   <Badge variant="outline" className="text-xs">
