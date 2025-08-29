@@ -17,6 +17,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetPassword = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/auth?reset=true`;
+    const redirectUrl = `${window.location.origin}/auth`;
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
@@ -117,6 +118,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({
+      password: password,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    toast({
+      title: "Password Updated",
+      description: "Your password has been successfully updated.",
+    });
+  };
+
   const value = {
     user,
     session,
@@ -125,6 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     resetPassword,
+    updatePassword,
   };
 
   return (

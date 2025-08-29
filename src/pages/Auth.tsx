@@ -7,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, LogIn, UserPlus, SparklesIcon, Mail } from 'lucide-react';
+import { Loader2, LogIn, UserPlus, SparklesIcon, Mail, Lock } from 'lucide-react';
 
 const Auth = () => {
-  const { user, signIn, signUp, resetPassword } = useAuth();
+  const { user, signIn, signUp, resetPassword, updatePassword } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
@@ -22,7 +22,8 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { toast } = useToast();
   
-  const isPasswordReset = searchParams.get('reset') === 'true';
+  // Check if this is a password reset flow (has access_token in URL)
+  const isPasswordReset = searchParams.has('access_token') && searchParams.has('type');
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -111,6 +112,111 @@ const Auth = () => {
     }
     setIsLoading(false);
   };
+
+  const handlePasswordUpdate = async () => {
+    if (!newPassword) {
+      toast({
+        title: "Missing Password",
+        description: "Please enter a new password.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Password Too Short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords Don't Match",
+        description: "Please make sure both passwords match.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await updatePassword(newPassword);
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "Password Update Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+    setIsLoading(false);
+  };
+
+  // If this is a password reset, show the password update form
+  if (isPasswordReset) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
+        <div className="w-full max-w-md p-6">
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow">
+              <SparklesIcon className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <h1 className="font-bold text-2xl gradient-text">VideoAI Pro</h1>
+          </div>
+
+          <Card className="glass border-border">
+            <CardHeader>
+              <CardTitle className="text-center">Set New Password</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button
+                  onClick={handlePasswordUpdate}
+                  disabled={isLoading}
+                  className="w-full"
+                  variant="ai"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      Update Password
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
