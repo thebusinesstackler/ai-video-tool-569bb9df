@@ -88,14 +88,37 @@ serve(async (req) => {
     const data = await response.json();
     console.log('OpenAI response received successfully');
     
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid response format from OpenAI API');
+    // Normalize content across possible response shapes
+    let generatedScript: string | undefined;
+    try {
+      const message = data?.choices?.[0]?.message;
+      if (typeof message?.content === 'string') {
+        generatedScript = message.content;
+      } else if (Array.isArray(message?.content)) {
+        generatedScript = message.content
+          .map((part: any) => {
+            if (typeof part === 'string') return part;
+            if (typeof part?.text === 'string') return part.text;
+            if (typeof part?.content === 'string') return part.content;
+            return '';
+          })
+          .join('')
+          .trim();
+      }
+    } catch (e) {
+      console.warn('Failed to normalize OpenAI content', e);
     }
 
-    const generatedScript = data.choices[0].message.content;
+    if (!generatedScript || typeof generatedScript !== 'string' || !generatedScript.trim()) {
+      console.error('No usable script content in OpenAI response:', JSON.stringify(data, null, 2));
+      return new Response(
+        JSON.stringify({ error: 'No script content generated' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
-      JSON.stringify({ script: generatedScript }), 
+      JSON.stringify({ script: generatedScript.trim() }), 
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
