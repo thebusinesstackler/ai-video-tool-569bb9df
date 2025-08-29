@@ -34,6 +34,7 @@ export const Navigation = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
+      window.location.href = '/auth';
     } catch (error: any) {
       toast({
         title: "Sign Out Failed",

@@ -117,66 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
-  const { toast } = useToast();
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both email and password.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await signIn(email, password);
-    } catch (error: any) {
-      toast({
-        title: "Sign In Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-    setIsLoading(false);
-  };
-
-  const handleSignUp = async () => {
-    if (!email || !password) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both email and password.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (password.length < 6) {
-      toast({
-        title: "Password Too Short",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await signUp(email, password);
-    } catch (error: any) {
-      toast({
-        title: "Sign Up Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-    setIsLoading(false);
-  };
 
   if (loading) {
     return (
@@ -186,15 +127,10 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     );
   }
 
-  // Temporarily bypass authentication for development
-  // TODO: Re-enable authentication by uncommenting the user check below
-  // if (!user) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
-  //       ... login form ...
-  //     </div>
-  //   );
-  // }
+  if (!user) {
+    window.location.href = '/auth';
+    return null;
+  }
 
   return <>{children}</>;
 };

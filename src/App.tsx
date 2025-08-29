@@ -9,6 +9,7 @@ import Scripts from "./pages/Scripts";
 import Characters from "./pages/Characters";
 import Videos from "./pages/Videos";
 import Settings from "./pages/Settings";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,19 +20,38 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <AuthGate>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/scripts" element={<Scripts />} />
-              <Route path="/characters" element={<Characters />} />
-              <Route path="/videos" element={<Videos />} />
-              <Route path="/settings" element={<Settings />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthGate>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={
+              <AuthGate>
+                <Index />
+              </AuthGate>
+            } />
+            <Route path="/scripts" element={
+              <AuthGate>
+                <Scripts />
+              </AuthGate>
+            } />
+            <Route path="/characters" element={
+              <AuthGate>
+                <Characters />
+              </AuthGate>
+            } />
+            <Route path="/videos" element={
+              <AuthGate>
+                <Videos />
+              </AuthGate>
+            } />
+            <Route path="/settings" element={
+              <AuthGate>
+                <Settings />
+              </AuthGate>
+            } />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
