@@ -8,9 +8,13 @@ import {
   SettingsIcon,
   HomeIcon,
   SparklesIcon,
-  PlayCircleIcon
+  PlayCircleIcon,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/AuthProvider';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const navigationItems = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -24,6 +28,20 @@ const navigationItems = [
 
 export const Navigation = () => {
   const location = useLocation();
+  const { signOut } = useAuth();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error: any) {
+      toast({
+        title: "Sign Out Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <nav className="fixed left-0 top-0 h-full w-64 glass border-r border-border z-50">
@@ -81,6 +99,18 @@ export const Navigation = () => {
               <div className="bg-gradient-primary h-2 rounded-full w-[49%] animate-glow"></div>
             </div>
           </div>
+        </div>
+
+        {/* Sign Out Button */}
+        <div className="mt-6">
+          <Button
+            onClick={handleSignOut}
+            variant="ghost"
+            className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </Button>
         </div>
       </div>
     </nav>
