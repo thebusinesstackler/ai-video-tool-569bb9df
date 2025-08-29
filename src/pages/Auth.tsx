@@ -1,21 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, LogIn, UserPlus, SparklesIcon } from 'lucide-react';
+import { Loader2, LogIn, UserPlus, SparklesIcon, Mail } from 'lucide-react';
 
 const Auth = () => {
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn, signUp, resetPassword } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { toast } = useToast();
+  
+  const isPasswordReset = searchParams.get('reset') === 'true';
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -80,6 +87,31 @@ const Auth = () => {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async () => {
+    if (!resetEmail) {
+      toast({
+        title: "Missing Email",
+        description: "Please enter your email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await resetPassword(resetEmail);
+      setShowForgotPassword(false);
+      setResetEmail('');
+    } catch (error: any) {
+      toast({
+        title: "Password Reset Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+    setIsLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
       <div className="w-full max-w-md p-6">
@@ -93,76 +125,127 @@ const Auth = () => {
 
         <Card className="glass border-border">
           <CardHeader>
-            <CardTitle className="text-center">Welcome</CardTitle>
+            <CardTitle className="text-center">
+              {showForgotPassword ? "Reset Password" : "Welcome"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-              
+            {showForgotPassword ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="reset-email">Email</Label>
                   <Input
-                    id="email"
+                    id="reset-email"
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
                     placeholder="Enter your email"
                     disabled={isLoading}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    disabled={isLoading}
-                  />
-                </div>
+                <Button
+                  onClick={handleForgotPassword}
+                  disabled={isLoading}
+                  className="w-full"
+                  variant="ai"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send Reset Email
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => setShowForgotPassword(false)}
+                  variant="ghost"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  Back to Sign In
+                </Button>
               </div>
+            ) : (
+              <>
+                <Tabs defaultValue="signin" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="signin">Sign In</TabsTrigger>
+                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  </TabsList>
+              
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
 
-              <TabsContent value="signin" className="mt-6">
-                <Button
-                  onClick={handleSignIn}
-                  disabled={isLoading}
-                  className="w-full"
-                  variant="ai"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <LogIn className="w-4 h-4" />
-                      Sign In
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
+                  <TabsContent value="signin" className="mt-6 space-y-4">
+                    <Button
+                      onClick={handleSignIn}
+                      disabled={isLoading}
+                      className="w-full"
+                      variant="ai"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <LogIn className="w-4 h-4" />
+                          Sign In
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => setShowForgotPassword(true)}
+                      variant="ghost"
+                      className="w-full text-sm"
+                      disabled={isLoading}
+                    >
+                      Forgot your password?
+                    </Button>
+                  </TabsContent>
 
-              <TabsContent value="signup" className="mt-6">
-                <Button
-                  onClick={handleSignUp}
-                  disabled={isLoading}
-                  className="w-full"
-                  variant="ai"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      Create Account
-                    </>
-                  )}
-                </Button>
-              </TabsContent>
-            </Tabs>
+                  <TabsContent value="signup" className="mt-6">
+                    <Button
+                      onClick={handleSignUp}
+                      disabled={isLoading}
+                      className="w-full"
+                      variant="ai"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Create Account
+                        </>
+                      )}
+                    </Button>
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
