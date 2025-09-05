@@ -80,6 +80,19 @@ serve(async (req) => {
       console.log('Kie.ai create response:', data);
       
       if (data.code !== 200) {
+        // Handle specific error cases
+        if (data.code === 402 && data.msg && data.msg.includes('insufficient')) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Insufficient Kie.ai credits', 
+              details: 'Your Kie.ai account does not have enough credits. Please top up your account at https://kie.ai and try again.' 
+            }), 
+            {
+              status: 402,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
         throw new Error(`Kie.ai API error: ${data.msg || 'Unknown error'}`);
       }
       
