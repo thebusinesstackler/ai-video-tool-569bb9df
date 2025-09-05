@@ -9,7 +9,7 @@ const corsHeaders = {
 interface KieVideoParams {
   prompt: string;
   imageUrls?: string[];
-  model?: 'veo3' | 'veo3-fast';
+  model?: 'veo3' | 'veo3-fast' | 'nano-banana';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -62,7 +62,7 @@ serve(async (req) => {
         body: JSON.stringify({
           prompt: params.prompt,
           imageUrls: params.imageUrls || [],
-          model: params.model || 'veo3',
+          model: params.model || 'nano-banana',
           aspectRatio: params.aspectRatio || '16:9',
           seeds: params.seeds || Math.floor(Math.random() * 90000) + 10000,
           enableFallback: params.enableFallback !== undefined ? params.enableFallback : true,
