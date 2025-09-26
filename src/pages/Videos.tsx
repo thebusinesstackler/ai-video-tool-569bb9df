@@ -77,7 +77,9 @@ const Videos = () => {
     lockSeed: false,
     customSeed: '',
     styleConsistency: 'high' as 'high' | 'medium' | 'low',
-    voice: 'alloy'
+    voice: 'alloy',
+    segmentDuration: '15' as '15' | '30' | 'custom',
+    customSegmentDuration: 15
   });
   const [characters, setCharacters] = useState<any[]>([]);
   const { toast } = useToast();
@@ -456,7 +458,9 @@ Create a cinematic video that captures both the visual elements and the message/
         lockSeed: false, 
         customSeed: '',
         styleConsistency: 'high',
-        voice: 'alloy'
+        voice: 'alloy',
+        segmentDuration: '15' as '15' | '30' | 'custom',
+        customSegmentDuration: 15
       });
       
       toast({
@@ -977,6 +981,59 @@ Create a cinematic video that captures both the visual elements and the message/
                 </div>
               </div>
             )}
+
+            {/* Segment Duration Controls */}
+            <div className="space-y-4 p-3 border border-border rounded-lg bg-muted/30">
+              <h4 className="text-sm font-medium text-foreground">Segment Duration Settings</h4>
+              
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Segment Length</Label>
+                  <Select 
+                    value={formData.segmentDuration} 
+                    onValueChange={(value) => setFormData(prev => ({ 
+                      ...prev, 
+                      segmentDuration: value as '15' | '30' | 'custom' 
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 seconds (Quick clips)</SelectItem>
+                      <SelectItem value="30">30 seconds (Standard clips)</SelectItem>
+                      <SelectItem value="custom">Custom duration</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.segmentDuration === 'custom' && (
+                  <div className="space-y-2">
+                    <Label>Custom Duration (seconds)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={formData.customSegmentDuration}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          customSegmentDuration: Math.max(5, Math.min(120, parseInt(e.target.value) || 15))
+                        }))}
+                        min="5"
+                        max="120"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-muted-foreground">seconds (5-120s)</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>• <strong>15 seconds:</strong> Perfect for social media, quick attention-grabbing content</p>
+                  <p>• <strong>30 seconds:</strong> Ideal for detailed explanations and storytelling</p>
+                  <p>• <strong>Custom:</strong> Set your own duration based on content requirements</p>
+                </div>
+              </div>
+            </div>
 
             {/* Voice Selection */}
             <div className="space-y-2">
