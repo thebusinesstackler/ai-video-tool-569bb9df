@@ -1,1 +1,10 @@
 project_id = "aarnfihphqhwvwwcqgoc"
+
+[functions.generate-script]
+verify_jwt = false
+
+[functions.wavespeed-video]
+verify_jwt = false
+
+[functions.openai-tts]
+verify_jwt = false
