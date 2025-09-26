@@ -23,7 +23,11 @@ import {
   DollarSign,
   ImageIcon,
   VolumeIcon,
-  WandIcon
+  WandIcon,
+  TrashIcon,
+  RotateCcwIcon,
+  StopCircleIcon,
+  AlertTriangleIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -657,6 +661,134 @@ Create a cinematic video that captures both the visual elements and the message/
     document.body.removeChild(link);
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      
+      toast({
+        title: "Project Deleted",
+        description: "Video project has been removed.",
+      });
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete the project.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleResetSegment = async (projectId: string, segmentId: string) => {
+    try {
+      const project = projects.find(p => p.id === projectId);
+      if (!project) return;
+
+      const updatedSegments = project.segments.map(s => 
+        s.id === segmentId 
+          ? { ...s, status: 'pending' as const, progress: 0, jobId: undefined, outputUrl: undefined, error: undefined }
+          : s
+      );
+
+      await supabase
+        .from('projects')
+        .update({ segments: updatedSegments as any })
+        .eq('id', projectId);
+      
+      setProjects(prev => prev.map(p => 
+        p.id === projectId 
+          ? { ...p, segments: updatedSegments }
+          : p
+      ));
+
+      toast({
+        title: "Segment Reset",
+        description: "Video segment has been reset and can be retried.",
+      });
+    } catch (error) {
+      console.error('Error resetting segment:', error);
+      toast({
+        title: "Reset Failed",
+        description: "Failed to reset the segment.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRetryFailedSegments = async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const failedSegments = project.segments.filter(s => s.status === 'failed' || s.status === 'pending');
+    
+    for (const segment of failedSegments) {
+      await handleResetSegment(projectId, segment.id);
+    }
+
+    toast({
+      title: "Segments Reset",
+      description: `${failedSegments.length} segments have been reset for retry.`,
+    });
+  };
+
+  const handleCleanupStuckSegments = async () => {
+    const stuckProjects = projects.filter(project => {
+      const hasStuck = project.segments.some(segment => {
+        const updatedAt = new Date(project.updated_at);
+        const now = new Date();
+        const timeDiff = now.getTime() - updatedAt.getTime();
+        const minutes = timeDiff / (1000 * 60);
+        
+        return (segment.status === 'pending' || segment.status === 'processing') && minutes > 10;
+      });
+      return hasStuck;
+    });
+
+    for (const project of stuckProjects) {
+      const updatedSegments = project.segments.map(segment => {
+        const updatedAt = new Date(project.updated_at);
+        const now = new Date();
+        const timeDiff = now.getTime() - updatedAt.getTime();
+        const minutes = timeDiff / (1000 * 60);
+        
+        if ((segment.status === 'pending' || segment.status === 'processing') && minutes > 10) {
+          return { ...segment, status: 'failed' as const, error: 'Timeout: Segment stuck for too long' };
+        }
+        return segment;
+      });
+
+      await supabase
+        .from('projects')
+        .update({ segments: updatedSegments as any })
+        .eq('id', project.id);
+      
+      setProjects(prev => prev.map(p => 
+        p.id === project.id 
+          ? { ...p, segments: updatedSegments }
+          : p
+      ));
+    }
+
+    if (stuckProjects.length > 0) {
+      toast({
+        title: "Cleanup Complete",
+        description: `${stuckProjects.length} stuck projects have been cleaned up.`,
+      });
+    } else {
+      toast({
+        title: "No Stuck Segments",
+        description: "No segments found that are stuck or timed out.",
+      });
+    }
+  };
+
   const estimatedCost = calculateEstimatedCost();
 
   if (isLoading) {
@@ -946,10 +1078,23 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
         {/* Projects List */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GridIcon className="w-5 h-5" />
-              Your Video Projects
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <GridIcon className="w-5 h-5" />
+                Your Video Projects
+              </CardTitle>
+              {projects.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCleanupStuckSegments}
+                  className="flex items-center gap-2"
+                >
+                  <AlertTriangleIcon className="w-4 h-4" />
+                  Cleanup Stuck Segments
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {projects.length === 0 ? (
@@ -972,6 +1117,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                             {MODEL_NAMES[project.model_type as keyof typeof MODEL_NAMES] || project.model_type} • {project.aspect_ratio} • {project.segments?.length || 0} segments • {new Date(project.created_at).toLocaleDateString()}
                           </p>
                         </div>
+                        <div className="flex items-center gap-2">
                          <Badge variant={
                            projectStatus === 'completed' ? 'default' :
                            projectStatus === 'processing' ? 'secondary' :
@@ -983,6 +1129,29 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                            {projectStatus === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
                            {projectStatus}
                          </Badge>
+                         <div className="flex items-center gap-1">
+                           {(projectStatus === 'failed' || projectStatus === 'pending') && (
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => handleRetryFailedSegments(project.id)}
+                               className="flex items-center gap-1"
+                             >
+                               <RotateCcwIcon className="w-3 h-3" />
+                               Retry
+                             </Button>
+                           )}
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleDeleteProject(project.id)}
+                             className="flex items-center gap-1 text-red-600 hover:text-red-700"
+                           >
+                             <TrashIcon className="w-3 h-3" />
+                             Delete
+                           </Button>
+                         </div>
+                        </div>
                       </div>
 
                       {projectStatus === 'processing' && (
@@ -1025,31 +1194,55 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                               {segment.status === 'processing' && (
                                 <Progress value={segment.progress} className="w-full h-1" />
                               )}
-                              {segment.outputUrl && (
-                                <div className="flex gap-2">
+                              <div className="flex gap-2 flex-wrap">
+                                {segment.outputUrl && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => window.open(segment.outputUrl, '_blank')}
+                                    >
+                                      <PlayIcon className="w-3 h-3 mr-1" />
+                                      Play
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const a = document.createElement('a');
+                                        a.href = segment.outputUrl!;
+                                        a.download = `scene-${segment.sceneNumber}.mp4`;
+                                        a.click();
+                                      }}
+                                    >
+                                      <DownloadIcon className="w-3 h-3 mr-1" />
+                                      Download
+                                    </Button>
+                                  </>
+                                )}
+                                {(segment.status === 'failed' || segment.status === 'pending') && (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => window.open(segment.outputUrl, '_blank')}
+                                    onClick={() => handleResetSegment(project.id, segment.id)}
+                                    className="text-orange-600 hover:text-orange-700"
                                   >
-                                    <PlayIcon className="w-3 h-3 mr-1" />
-                                    Play
+                                    <RotateCcwIcon className="w-3 h-3 mr-1" />
+                                    Reset
                                   </Button>
+                                )}
+                                {(segment.status === 'processing' || segment.status === 'pending') && segment.jobId && (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => {
-                                      const a = document.createElement('a');
-                                      a.href = segment.outputUrl!;
-                                      a.download = `scene-${segment.sceneNumber}.mp4`;
-                                      a.click();
-                                    }}
+                                    onClick={() => handleRefreshSegment(segment.id)}
+                                    className="text-blue-600 hover:text-blue-700"
                                   >
-                                    <DownloadIcon className="w-3 h-3 mr-1" />
-                                    Download
+                                    <RefreshCwIcon className="w-3 h-3 mr-1" />
+                                    Refresh
                                   </Button>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>

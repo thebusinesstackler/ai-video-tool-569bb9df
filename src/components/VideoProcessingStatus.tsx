@@ -10,7 +10,10 @@ import {
   XCircleIcon,
   PlayIcon,
   DownloadIcon,
-  LoaderIcon
+  LoaderIcon,
+  RotateCcwIcon,
+  TrashIcon,
+  StopCircleIcon
 } from 'lucide-react';
 
 interface VideoSegment {
@@ -31,13 +34,17 @@ interface VideoProcessingStatusProps {
   onRefreshSegment: (segmentId: string) => void;
   onPlayVideo: (url: string) => void;
   onDownloadVideo: (url: string, filename: string) => void;
+  onResetSegment?: (segmentId: string) => void;
+  onDeleteProject?: () => void;
 }
 
 export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
   segments,
   onRefreshSegment,
   onPlayVideo,
-  onDownloadVideo
+  onDownloadVideo,
+  onResetSegment,
+  onDeleteProject
 }) => {
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -78,16 +85,29 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Video Processing Status</span>
-          <div className="flex gap-2 text-sm">
-            <Badge variant="outline" className="text-green-600">
-              ✓ {completedCount}
-            </Badge>
-            <Badge variant="outline" className="text-blue-600">
-              ⟳ {processingCount}
-            </Badge>
-            <Badge variant="outline" className="text-red-600">
-              ✗ {failedCount}
-            </Badge>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2 text-sm">
+              <Badge variant="outline" className="text-green-600">
+                ✓ {completedCount}
+              </Badge>
+              <Badge variant="outline" className="text-blue-600">
+                ⟳ {processingCount}
+              </Badge>
+              <Badge variant="outline" className="text-red-600">
+                ✗ {failedCount}
+              </Badge>
+            </div>
+            {onDeleteProject && (
+              <Button
+                variant="outline" 
+                size="sm"
+                onClick={onDeleteProject}
+                className="text-red-600 hover:text-red-700"
+              >
+                <TrashIcon className="w-3 h-3 mr-1" />
+                Delete Project
+              </Button>
+            )}
           </div>
         </CardTitle>
       </CardHeader>
@@ -111,7 +131,7 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
                     {segment.status.toUpperCase()}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {segment.status === 'processing' || segment.status === 'pending' ? (
                     <Button
                       variant="outline"
@@ -121,6 +141,16 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
                       <RefreshCwIcon className="w-3 h-3" />
                     </Button>
                   ) : null}
+                  {(segment.status === 'failed' || segment.status === 'pending') && onResetSegment && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onResetSegment(segment.id)}
+                      className="text-orange-600 hover:text-orange-700"
+                    >
+                      <RotateCcwIcon className="w-3 h-3" />
+                    </Button>
+                  )}
                   {segment.outputUrl && (
                     <>
                       <Button
