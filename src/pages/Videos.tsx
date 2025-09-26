@@ -109,12 +109,48 @@ const Videos = () => {
   const [sourceImage, setSourceImage] = useState<File | null>(null);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
+  const [segmentCountdowns, setSegmentCountdowns] = useState<{[key: string]: number}>({});
   const { toast } = useToast();
 
   useEffect(() => {
     loadProjects();
     loadCharacters();
   }, []);
+
+  // Countdown timer for pending segments
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSegmentCountdowns(prev => {
+        const updated = { ...prev };
+        let hasChanges = false;
+        
+        projects.forEach(project => {
+          project.segments?.forEach(segment => {
+            if (segment.status === 'pending') {
+              // Estimate 2-5 minutes processing time per segment
+              const createdTime = new Date(project.created_at).getTime();
+              const now = Date.now();
+              const elapsedMinutes = (now - createdTime) / (1000 * 60);
+              const estimatedWaitTime = Math.max(0, 3 - elapsedMinutes); // 3 minute average wait
+              const remainingSeconds = Math.floor(estimatedWaitTime * 60);
+              
+              if (remainingSeconds !== prev[segment.id]) {
+                updated[segment.id] = remainingSeconds;
+                hasChanges = true;
+              }
+            } else if (prev[segment.id] !== undefined) {
+              delete updated[segment.id];
+              hasChanges = true;
+            }
+          });
+        });
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [projects]);
 
   const loadProjects = async () => {
     try {
@@ -789,6 +825,19 @@ Create a cinematic video that captures both the visual elements and the message/
     }
   };
 
+  const formatCountdown = (seconds: number): string => {
+    if (seconds <= 0) return "Starting soon...";
+    
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    
+    if (minutes > 0) {
+      return `~${minutes}m ${remainingSeconds}s remaining`;
+    } else {
+      return `~${remainingSeconds}s remaining`;
+    }
+  };
+
   const estimatedCost = calculateEstimatedCost();
 
   if (isLoading) {
@@ -1188,12 +1237,17 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                                    segment.status === 'failed' ? '❌ Failed' : segment.status}
                                 </Badge>
                               </div>
-                              <p className="text-xs text-muted-foreground line-clamp-2">
-                                {segment.dialogue}
-                              </p>
-                              {segment.status === 'processing' && (
-                                <Progress value={segment.progress} className="w-full h-1" />
-                              )}
+                               <p className="text-xs text-muted-foreground line-clamp-2">
+                                 {segment.dialogue}
+                               </p>
+                               {segment.status === 'processing' && (
+                                 <Progress value={segment.progress} className="w-full h-1" />
+                               )}
+                               {segment.status === 'pending' && segmentCountdowns[segment.id] !== undefined && (
+                                 <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                   ⏱️ {formatCountdown(segmentCountdowns[segment.id])}
+                                 </div>
+                               )}
                               <div className="flex gap-2 flex-wrap">
                                 {segment.outputUrl && (
                                   <>
