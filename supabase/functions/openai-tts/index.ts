@@ -48,16 +48,16 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'xi-api-key': elevenLabsApiKey,
       },
-      body: JSON.stringify({
-        text: text.substring(0, 5000), // ElevenLabs has a ~5000 character limit for most plans
-        model_id: model,
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.5,
-          style: 0.0,
-          use_speaker_boost: true
-        }
-      }),
+        body: JSON.stringify({
+          text: text.length > 2500 ? text.substring(0, 2500) : text, // Conservative limit for reliability
+          model_id: model === 'tts-1' ? 'eleven_multilingual_v2' : model, // Handle legacy OpenAI model names
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.5,
+            style: 0.0,
+            use_speaker_boost: true
+          }
+        }),
     });
 
     if (!response.ok) {

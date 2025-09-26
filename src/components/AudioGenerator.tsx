@@ -54,7 +54,7 @@ export const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         body: {
           text: inputText,
           voice: selectedVoice,
-          model: 'tts-1'
+          model: 'eleven_multilingual_v2'
         }
       });
 

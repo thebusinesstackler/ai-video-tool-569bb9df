@@ -412,13 +412,26 @@ Create a cinematic video that captures both the visual elements and the message/
             duration: parseInt(formData.segmentDuration)
           };
 
+          console.log('Creating video segment:', {
+            model: formData.modelType,
+            prompt: enhancedPrompt,
+            aspectRatio: formData.aspectRatio,
+            duration: parseInt(formData.segmentDuration),
+            imageUrl: imageUrl || 'none',
+            audioUrl: audioUrl || 'none'
+          });
+
           if (formData.modelType === 'wan-2.5-i2v' || formData.modelType === 'avatar-omni-human-1.5') {
-            requestBody.imageUrls = [imageUrl];
+            if (imageUrl) {
+              requestBody.imageUrls = [imageUrl];
+            }
             if (audioUrl) {
               requestBody.audioUrl = audioUrl;
             }
           } else if (formData.modelType === 'wan-2.5-a2v') {
-            requestBody.audioUrl = audioUrl;
+            if (audioUrl) {
+              requestBody.audioUrl = audioUrl;
+            }
           } else if (['hunyuan-video', 'vidu', 'veo3', 'seedream-v4'].includes(formData.modelType)) {
             if (imageUrl) {
               requestBody.imageUrls = [imageUrl];
@@ -429,9 +442,13 @@ Create a cinematic video that captures both the visual elements and the message/
             requestBody.seeds = parseInt(formData.customSeed) || Math.floor(Math.random() * 2147483647);
           }
 
+          console.log('Sending request to wavespeed-video:', requestBody);
+
           const { data, error } = await supabase.functions.invoke('wavespeed-video', {
             body: requestBody
           });
+
+          console.log('Wavespeed response:', { data, error });
 
           if (error) {
             console.error(`API error for segment ${segment.id}:`, error);
