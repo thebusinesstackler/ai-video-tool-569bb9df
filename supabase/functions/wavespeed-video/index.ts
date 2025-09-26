@@ -15,6 +15,7 @@ interface WaveSpeedVideoParams {
   enableFallback?: boolean;
   watermark?: string;
   characterId?: string;
+  duration?: number;
 }
 
 interface WaveSpeedVideoJob {
@@ -53,35 +54,46 @@ serve(async (req) => {
       const params: WaveSpeedVideoParams = body;
       console.log('Creating video with WaveSpeed AI params:', params);
 
-      const response = await fetch('https://api.wavespeed.ai/v1/video', {
+      // Convert aspect ratio to size format
+      const size = params.aspectRatio === '9:16' ? '720*1280' : '1280*720';
+      const duration = params.duration || 5; // Default to 5 seconds
+      const seed = params.seeds || Math.floor(Math.random() * 2147483647);
+
+      const requestBody = {
+        prompt: params.prompt,
+        size: size,
+        duration: duration,
+        seed: seed
+      };
+
+      console.log('Sending request to WaveSpeed API with body:', requestBody);
+
+      const response = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p-ultra-fast', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${waveSpeedApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: params.prompt,
-          image_urls: params.imageUrls || [],
-          model: params.model || 'wan-2.2',
-          aspect_ratio: params.aspectRatio || '16:9',
-          seed: params.seeds || Math.floor(Math.random() * 90000) + 10000,
-          enable_fallback: params.enableFallback !== undefined ? params.enableFallback : true,
-          watermark: params.watermark || ''
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('WaveSpeed AI video creation error:', response.status, errorText);
-        throw new Error(`WaveSpeed AI video creation failed: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('WaveSpeed AI create response:', data);
-      
-      if (!data.success) {
-        // Handle specific error cases
-        if (data.error && data.error.includes('insufficient')) {
+        
+        // Handle specific HTTP error codes
+        if (response.status === 401) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid WaveSpeed AI API key', 
+              details: 'Please check your WaveSpeed AI API key configuration in settings.' 
+            }), 
+            {
+              status: 401,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        } else if (response.status === 402) {
           return new Response(
             JSON.stringify({ 
               error: 'Insufficient WaveSpeed AI credits', 
@@ -93,11 +105,22 @@ serve(async (req) => {
             }
           );
         }
-        throw new Error(`WaveSpeed AI API error: ${data.error || 'Unknown error'}`);
+        
+        throw new Error(`WaveSpeed AI video creation failed: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('WaveSpeed AI create response:', data);
+      
+      // Check if the response indicates success
+      if (data.code !== 200 || !data.data) {
+        const errorMessage = data.message || data.error || 'Unknown error occurred';
+        console.error('WaveSpeed AI API error:', errorMessage);
+        throw new Error(`WaveSpeed AI API error: ${errorMessage}`);
       }
       
       return new Response(
-        JSON.stringify({ taskId: data.task_id }), 
+        JSON.stringify({ taskId: data.data.id }), 
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -118,7 +141,7 @@ serve(async (req) => {
 
       console.log('Checking WaveSpeed AI status for taskId:', taskId);
 
-      const response = await fetch(`https://api.wavespeed.ai/v1/video/status/${taskId}`, {
+      const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
         headers: {
           'Authorization': `Bearer ${waveSpeedApiKey}`,
         },
@@ -133,8 +156,11 @@ serve(async (req) => {
       const data = await response.json();
       console.log('WaveSpeed AI status response:', data);
       
-      if (!data.success) {
-        throw new Error(`WaveSpeed AI API error: ${data.error || 'Unknown error'}`);
+      // Check if the response indicates success
+      if (data.code !== 200 || !data.data) {
+        const errorMessage = data.message || data.error || 'Failed to get video status';
+        console.error('WaveSpeed AI status error:', errorMessage);
+        throw new Error(`WaveSpeed AI API error: ${errorMessage}`);
       }
 
       const taskData = data.data;
@@ -145,21 +171,23 @@ serve(async (req) => {
         status = 'completed';
       } else if (taskData.status === 'failed' || taskData.status === 'error') {
         status = 'failed';
-      } else if (taskData.status === 'processing' || taskData.status === 'generating') {
+      } else if (taskData.status === 'processing') {
         status = 'processing';
+      } else if (taskData.status === 'created') {
+        status = 'pending';
       } else {
         status = 'pending';
       }
 
-      // Get video URL from response
-      const videoUrl = taskData.video_url;
+      // Get video URL from response (outputs array contains the generated media URLs)
+      const videoUrl = taskData.outputs && taskData.outputs.length > 0 ? taskData.outputs[0] : undefined;
 
       const jobStatus: WaveSpeedVideoJob = {
-        taskId: taskData.task_id || taskId,
+        taskId: taskData.id || taskId,
         status,
         progress: status === 'completed' ? 100 : status === 'processing' ? 50 : 0,
         videoUrl: videoUrl,
-        error: taskData.error_message || undefined
+        error: taskData.error || undefined
       };
 
       return new Response(
