@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { AudioGenerator } from '@/components/AudioGenerator';
+import { VideoProcessingStatus } from '@/components/VideoProcessingStatus';
 import { 
   VideoIcon, 
   PlayIcon, 
@@ -20,7 +22,8 @@ import {
   GridIcon,
   DollarSign,
   ImageIcon,
-  VolumeIcon
+  VolumeIcon,
+  WandIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,7 +63,11 @@ interface VideoProject {
 
 const MODEL_COSTS = {
   'wan-2.2': 0.1,
+  'wan-2.5-t2v': 0.2,
   'wan-2.5-i2v': 0.5,
+  'wan-2.5-a2v': 0.3,
+  'hunyuan-video': 0.25,
+  'seedream-v4': 0.4,
   'vidu': 0.3,
   'veo3': 0.4,
   'avatar-omni-human-1.5': 0.15 // Per-second pricing
@@ -68,9 +75,13 @@ const MODEL_COSTS = {
 
 const MODEL_NAMES = {
   'wan-2.2': 'Text-to-Video (WAN 2.2)',
+  'wan-2.5-t2v': 'Enhanced Text-to-Video (WAN 2.5)',
   'wan-2.5-i2v': 'Image-to-Video (Alibaba WAN 2.5)',
-  'vidu': 'VIDU Model', 
-  'veo3': 'VEO3 Model',
+  'wan-2.5-a2v': 'Audio-to-Video (Alibaba WAN 2.5)',
+  'hunyuan-video': 'HunyuanVideo (Tencent)',
+  'seedream-v4': 'Seedream V4 (Image-to-Video)',
+  'vidu': 'VIDU (Multimodal)', 
+  'veo3': 'VEO3 (Google)',
   'avatar-omni-human-1.5': 'Talking Avatar (ByteDance Omni Human 1.5)'
 };
 
@@ -90,6 +101,7 @@ const Videos = () => {
     voice: 'alloy',
     segmentDuration: '5'
   });
+  const [showAudioGenerator, setShowAudioGenerator] = useState(false);
   const [sourceImage, setSourceImage] = useState<File | null>(null);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
@@ -288,33 +300,31 @@ const Videos = () => {
       return;
     }
 
-    if (formData.modelType === 'wan-2.5-i2v' && !sourceImage) {
+    // Enhanced validation for all models
+    const needsImage = ['wan-2.5-i2v', 'seedream-v4'].includes(formData.modelType);
+    const needsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v'].includes(formData.modelType);
+    const supportsImage = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3'].includes(formData.modelType);
+    const supportsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'wan-2.5-i2v'].includes(formData.modelType);
+
+    if (needsImage && !sourceImage) {
       toast({
         title: "Image Required",
-        description: "The image-to-video model requires a source image.",
+        description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image.`,
         variant: "destructive"
       });
       return;
     }
 
-    if (formData.modelType === 'avatar-omni-human-1.5') {
-      if (!sourceImage) {
-        toast({
-          title: "Portrait Image Required",
-          description: "The Avatar Omni Human model requires a portrait image to create a talking avatar.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (!sourceAudio) {
-        toast({
-          title: "Audio Required", 
-          description: "The Avatar Omni Human model requires audio to animate the avatar's speech.",
-          variant: "destructive"
-        });
-        return;
-      }
+    if (needsAudio && !sourceAudio) {
+      const modelName = MODEL_NAMES[formData.modelType];
+      toast({
+        title: "Audio Required", 
+        description: formData.modelType === 'avatar-omni-human-1.5' 
+          ? "The Avatar Omni Human model requires audio to animate the avatar's speech."
+          : `The ${modelName} model requires audio input.`,
+        variant: "destructive"
+      });
+      return;
     }
 
     setIsCreating(true);
@@ -402,10 +412,16 @@ Create a cinematic video that captures both the visual elements and the message/
             duration: parseInt(formData.segmentDuration)
           };
 
-          if (formData.modelType === 'wan-2.5-i2v') {
+          if (formData.modelType === 'wan-2.5-i2v' || formData.modelType === 'avatar-omni-human-1.5') {
             requestBody.imageUrls = [imageUrl];
             if (audioUrl) {
               requestBody.audioUrl = audioUrl;
+            }
+          } else if (formData.modelType === 'wan-2.5-a2v') {
+            requestBody.audioUrl = audioUrl;
+          } else if (['hunyuan-video', 'vidu', 'veo3', 'seedream-v4'].includes(formData.modelType)) {
+            if (imageUrl) {
+              requestBody.imageUrls = [imageUrl];
             }
           }
 
@@ -594,6 +610,36 @@ Create a cinematic video that captures both the visual elements and the message/
     }
   };
 
+  // Model capability helpers
+  const needsImage = ['wan-2.5-i2v', 'seedream-v4'].includes(formData.modelType);
+  const needsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v'].includes(formData.modelType);
+  const supportsImage = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3'].includes(formData.modelType);
+  const supportsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'wan-2.5-i2v'].includes(formData.modelType);
+
+  const handleRefreshSegment = (segmentId: string) => {
+    // Find the project and segment
+    for (const project of projects) {
+      const segment = project.segments.find(s => s.id === segmentId);
+      if (segment?.jobId) {
+        pollSegmentStatus(segment.jobId, project.id, segmentId);
+        break;
+      }
+    }
+  };
+
+  const handlePlayVideo = (url: string) => {
+    window.open(url, '_blank');
+  };
+
+  const handleDownloadVideo = (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const estimatedCost = calculateEstimatedCost();
 
   if (isLoading) {
@@ -653,6 +699,99 @@ Create a cinematic video that captures both the visual elements and the message/
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Audio Generator Integration */}
+                {(supportsAudio || showAudioGenerator) && (
+                  <div className="col-span-full">
+                    <div className="flex items-center justify-between mb-4">
+                      <Label>Audio Generation</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAudioGenerator(!showAudioGenerator)}
+                      >
+                        <WandIcon className="w-4 h-4 mr-2" />
+                        {showAudioGenerator ? 'Hide' : 'Show'} Audio Generator
+                      </Button>
+                    </div>
+                    {showAudioGenerator && (
+                      <AudioGenerator
+                        onAudioGenerated={(url, file) => {
+                          setSourceAudio(file);
+                          toast({
+                            title: "Audio Ready",
+                            description: "Generated audio is ready to use in your video.",
+                          });
+                        }}
+                        text={formData.script}
+                        voice={formData.voice}
+                        disabled={isCreating}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Dynamic file uploads based on model capabilities */}
+                {(supportsImage && (needsImage || sourceImage)) && (
+                  <div className="col-span-full">
+                    <Label htmlFor="sourceImage" className="flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4" />
+                      Source Image {needsImage ? '(Required)' : '(Optional)'}
+                    </Label>
+                    {needsImage && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {formData.modelType === 'avatar-omni-human-1.5' 
+                          ? 'Upload a clear portrait photo for the talking avatar' 
+                          : formData.modelType === 'seedream-v4'
+                          ? 'Upload a reference image to enhance the video generation'
+                          : 'Upload an image to convert into video'
+                        }
+                      </p>
+                    )}
+                    <Input
+                      id="sourceImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setSourceImage(e.target.files?.[0] || null)}
+                      className="cursor-pointer"
+                    />
+                    {sourceImage && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Selected: {sourceImage.name}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {(supportsAudio && (needsAudio || sourceAudio)) && (
+                  <div className="col-span-full">
+                    <Label htmlFor="sourceAudio" className="flex items-center gap-2">
+                      <VolumeIcon className="w-4 h-4" />
+                      Source Audio {needsAudio ? '(Required)' : '(Optional)'}
+                    </Label>
+                    {needsAudio && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {formData.modelType === 'avatar-omni-human-1.5' 
+                          ? 'Upload speech audio to animate the avatar\'s lip movements' 
+                          : 'Upload audio to generate video synchronized with the sound'
+                        }
+                      </p>
+                    )}
+                    <Input
+                      id="sourceAudio"
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => setSourceAudio(e.target.files?.[0] || null)}
+                      className="cursor-pointer"
+                    />
+                    {sourceAudio && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Selected: {sourceAudio.name}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {(formData.modelType === 'wan-2.5-i2v' || formData.modelType === 'avatar-omni-human-1.5') && (
                   <>

@@ -10,7 +10,7 @@ interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
   audioUrl?: string;
-  model?: 'wan-2.2' | 'wan-2.5-i2v' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5';
+  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -62,7 +62,16 @@ serve(async (req) => {
       const duration = params.duration || 5;
       const seed = params.seeds || Math.floor(Math.random() * 2147483647);
 
-      if (params.model === 'wan-2.5-i2v') {
+      if (params.model === 'wan-2.5-t2v') {
+        // Enhanced Text-to-Video model (wan-2.5/text-to-video)
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/text-to-video';
+        
+        requestBody = {
+          prompt: params.prompt,
+          duration: duration,
+          seed: seed
+        };
+      } else if (params.model === 'wan-2.5-i2v') {
         // Image-to-Video model (alibaba/wan-2.5/image-to-video)
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
         
@@ -78,6 +87,74 @@ serve(async (req) => {
         // Add audio if provided
         if (params.audioUrl) {
           requestBody.audio = params.audioUrl;
+        }
+      } else if (params.model === 'wan-2.5-a2v') {
+        // Audio-to-Video model
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/audio-to-video';
+        
+        if (!params.audioUrl) {
+          throw new Error('Audio is required for audio-to-video model');
+        }
+
+        requestBody = {
+          audio: params.audioUrl,
+          prompt: params.prompt,
+          duration: duration
+        };
+      } else if (params.model === 'hunyuan-video') {
+        // HunyuanVideo model
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/tencent/hunyuan-video';
+        
+        requestBody = {
+          prompt: params.prompt,
+          duration: duration,
+          seed: seed
+        };
+
+        // Add image if provided for multimodal generation
+        if (params.imageUrls && params.imageUrls.length > 0) {
+          requestBody.image = params.imageUrls[0];
+        }
+      } else if (params.model === 'seedream-v4') {
+        // Seedream V4 model
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/seedream/v4';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Image is required for Seedream V4 model');
+        }
+
+        requestBody = {
+          image: params.imageUrls[0],
+          prompt: params.prompt,
+          duration: duration
+        };
+      } else if (params.model === 'vidu') {
+        // VIDU model
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/vidu/v1';
+        
+        requestBody = {
+          prompt: params.prompt,
+          duration: duration,
+          seed: seed
+        };
+
+        // Add image if provided
+        if (params.imageUrls && params.imageUrls.length > 0) {
+          requestBody.image = params.imageUrls[0];
+        }
+      } else if (params.model === 'veo3') {
+        // VEO3 model
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3';
+        
+        requestBody = {
+          prompt: params.prompt,
+          duration: duration,
+          seed: seed
+        };
+
+        // Add image if provided
+        if (params.imageUrls && params.imageUrls.length > 0) {
+          requestBody.image = params.imageUrls[0];
         }
       } else if (params.model === 'avatar-omni-human-1.5') {
         // ByteDance Avatar Omni Human model
