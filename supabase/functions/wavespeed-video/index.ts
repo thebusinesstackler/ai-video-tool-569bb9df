@@ -59,12 +59,25 @@ serve(async (req) => {
       const duration = params.duration || 5; // Default to 5 seconds
       const seed = params.seeds || Math.floor(Math.random() * 2147483647);
 
-      const requestBody = {
+      const requestBody: {
+        prompt: string;
+        size: string;
+        duration: number;
+        seed: number;
+        negative_prompt?: string;
+      } = {
         prompt: params.prompt,
         size: size,
         duration: duration,
         seed: seed
       };
+
+      // Add negative_prompt if provided
+      if (params.prompt && params.prompt.includes('negative:')) {
+        const parts = params.prompt.split('negative:');
+        requestBody.prompt = parts[0].trim();
+        requestBody.negative_prompt = parts[1]?.trim() || '';
+      }
 
       console.log('Sending request to WaveSpeed API with body:', requestBody);
 
