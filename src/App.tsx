@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,7 +16,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 // Protected Route wrapper
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
