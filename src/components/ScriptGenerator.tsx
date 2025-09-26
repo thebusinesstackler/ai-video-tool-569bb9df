@@ -145,7 +145,7 @@ export const ScriptGenerator = () => {
         body: {
           text: generatedScript,
           voice: voiceId === 'default' ? 'alloy' : voiceId,
-          model: 'tts-1'
+          model: 'eleven_multilingual_v2'
         }
       });
 

@@ -283,7 +283,7 @@ const Videos = () => {
           body: {
             text: fullScript,
             voice: formData.voice,
-            model: 'tts-1'
+            model: 'eleven_multilingual_v2'
           }
         });
 

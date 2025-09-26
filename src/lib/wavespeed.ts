@@ -24,7 +24,7 @@ export async function generateConsistentVoice(text: string, voice: string = 'all
     body: {
       text,
       voice,
-      model: 'tts-1'
+      model: 'eleven_multilingual_v2'
     }
   });
 
