@@ -47,7 +47,7 @@ export const ScriptGenerator = () => {
   const [kieConfigured, setKieConfigured] = useState(true);
   const [isNarrating, setIsNarrating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedCharacter, setSelectedCharacter] = useState<string>('');
+  const [selectedCharacter, setSelectedCharacter] = useState<string>('default');
   const [isNarrationDialogOpen, setIsNarrationDialogOpen] = useState(false);
   const { toast } = useToast();
 
@@ -129,7 +129,7 @@ export const ScriptGenerator = () => {
     try {
       // Get character voice ID if selected
       let voiceId = 'default';
-      if (selectedCharacter) {
+      if (selectedCharacter && selectedCharacter !== 'default') {
         const { data: characters } = await supabase
           .from('characters')
           .select('kie_voice_id')
@@ -378,7 +378,7 @@ export const ScriptGenerator = () => {
                               <SelectValue placeholder="Choose a character or use default voice" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Default Voice</SelectItem>
+                              <SelectItem value="default">Default Voice</SelectItem>
                               {characters.map((char: any) => (
                                 <SelectItem key={char.id} value={char.id}>
                                   {char.name} {char.kie_voice_id ? `(${char.kie_voice_id})` : '(Default)'}
