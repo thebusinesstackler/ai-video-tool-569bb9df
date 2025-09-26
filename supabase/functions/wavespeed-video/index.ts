@@ -10,7 +10,7 @@ interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
   audioUrl?: string;
-  model?: 'wan-2.2' | 'wan-2.5-i2v' | 'vidu' | 'veo3';
+  model?: 'wan-2.2' | 'wan-2.5-i2v' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -79,6 +79,23 @@ serve(async (req) => {
         if (params.audioUrl) {
           requestBody.audio = params.audioUrl;
         }
+      } else if (params.model === 'avatar-omni-human-1.5') {
+        // ByteDance Avatar Omni Human model
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/avatar-omni-human-1.5';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Portrait image is required for Avatar Omni Human model');
+        }
+        
+        if (!params.audioUrl) {
+          throw new Error('Audio is required for Avatar Omni Human model');
+        }
+
+        requestBody = {
+          image: params.imageUrls[0],
+          audio: params.audioUrl,
+          duration: duration
+        };
       } else {
         // Text-to-Video model (default wan-2.2)
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p-ultra-fast';

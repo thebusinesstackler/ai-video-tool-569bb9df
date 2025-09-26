@@ -62,14 +62,16 @@ const MODEL_COSTS = {
   'wan-2.2': 0.1,
   'wan-2.5-i2v': 0.5,
   'vidu': 0.3,
-  'veo3': 0.4
+  'veo3': 0.4,
+  'avatar-omni-human-1.5': 0.15 // Per-second pricing
 };
 
 const MODEL_NAMES = {
   'wan-2.2': 'Text-to-Video (WAN 2.2)',
   'wan-2.5-i2v': 'Image-to-Video (Alibaba WAN 2.5)',
   'vidu': 'VIDU Model', 
-  'veo3': 'VEO3 Model'
+  'veo3': 'VEO3 Model',
+  'avatar-omni-human-1.5': 'Talking Avatar (ByteDance Omni Human 1.5)'
 };
 
 const Videos = () => {
@@ -293,6 +295,26 @@ const Videos = () => {
         variant: "destructive"
       });
       return;
+    }
+
+    if (formData.modelType === 'avatar-omni-human-1.5') {
+      if (!sourceImage) {
+        toast({
+          title: "Portrait Image Required",
+          description: "The Avatar Omni Human model requires a portrait image to create a talking avatar.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!sourceAudio) {
+        toast({
+          title: "Audio Required", 
+          description: "The Avatar Omni Human model requires audio to animate the avatar's speech.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     setIsCreating(true);
@@ -560,8 +582,16 @@ Create a cinematic video that captures both the visual elements and the message/
     if (!formData.script) return 0;
     
     const segments = parseScriptIntoSegments(formData.script);
-    const costPerSegment = MODEL_COSTS[formData.modelType] || 0.1;
-    return segments.length * costPerSegment;
+    const costPerUnit = MODEL_COSTS[formData.modelType] || 0.1;
+    
+    if (formData.modelType === 'avatar-omni-human-1.5') {
+      // Per-second pricing for avatar model
+      const totalDuration = segments.length * parseInt(formData.segmentDuration || '5');
+      return totalDuration * costPerUnit;
+    } else {
+      // Per-segment pricing for other models
+      return segments.length * costPerUnit;
+    }
   };
 
   const estimatedCost = calculateEstimatedCost();
@@ -617,20 +647,25 @@ Create a cinematic video that captures both the visual elements and the message/
                     <SelectContent>
                       {Object.entries(MODEL_NAMES).map(([value, name]) => (
                         <SelectItem key={value} value={value}>
-                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/segment
+                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/{value === 'avatar-omni-human-1.5' ? 'second' : 'segment'}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.modelType === 'wan-2.5-i2v' && (
+                {(formData.modelType === 'wan-2.5-i2v' || formData.modelType === 'avatar-omni-human-1.5') && (
                   <>
                     <div>
                       <Label htmlFor="sourceImage" className="flex items-center gap-2">
                         <ImageIcon className="w-4 h-4" />
-                        Source Image (Required)
+                        {formData.modelType === 'avatar-omni-human-1.5' ? 'Portrait Image (Required)' : 'Source Image (Required)'}
                       </Label>
+                      {formData.modelType === 'avatar-omni-human-1.5' && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Upload a clear portrait/headshot image for creating a talking avatar
+                        </p>
+                      )}
                       <Input
                         id="sourceImage"
                         type="file"
@@ -648,8 +683,13 @@ Create a cinematic video that captures both the visual elements and the message/
                     <div>
                       <Label htmlFor="sourceAudio" className="flex items-center gap-2">
                         <VolumeIcon className="w-4 h-4" />
-                        Audio Track (Optional)
+                        {formData.modelType === 'avatar-omni-human-1.5' ? 'Audio Track (Required)' : 'Audio Track (Optional)'}
                       </Label>
+                      {formData.modelType === 'avatar-omni-human-1.5' && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Upload speech audio to animate the avatar's lip movements
+                        </p>
+                      )}
                       <Input
                         id="sourceAudio"
                         type="file"
@@ -715,7 +755,11 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                       <DollarSign className="w-4 h-4 text-accent-foreground" />
                       <span className="font-medium">Estimated Cost: ${estimatedCost.toFixed(2)}</span>
                       <span className="text-muted-foreground">
-                        ({parseScriptIntoSegments(formData.script).length} segments × ${MODEL_COSTS[formData.modelType]})
+                        {formData.modelType === 'avatar-omni-human-1.5' ? (
+                          `(${parseScriptIntoSegments(formData.script).length * parseInt(formData.segmentDuration || '5')} seconds × $${MODEL_COSTS[formData.modelType]})`
+                        ) : (
+                          `(${parseScriptIntoSegments(formData.script).length} segments × $${MODEL_COSTS[formData.modelType]})`
+                        )}
                       </span>
                     </div>
                   </div>
