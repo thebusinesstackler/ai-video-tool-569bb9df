@@ -53,7 +53,7 @@ serve(async (req) => {
       const params: WaveSpeedVideoParams = body;
       console.log('Creating video with WaveSpeed AI params:', params);
 
-      const response = await fetch('https://api.wavespeed.ai/v1/video/generate', {
+      const response = await fetch('https://api.wavespeed.ai/v1/video', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${waveSpeedApiKey}`,

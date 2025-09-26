@@ -37,6 +37,7 @@ interface VideoSegment {
   progress: number;
   jobId?: string;
   outputUrl?: string;
+  error?: string;
 }
 
 interface VideoProject {
@@ -498,6 +499,18 @@ Create a cinematic video that captures both the visual elements and the message/
 
       const job = data;
       console.log(`Status update for ${taskId}:`, job);
+
+      // Calculate more detailed progress based on status
+      let progressValue = job.progress || 0;
+      if (job.status === 'pending') {
+        progressValue = 5; // Show minimal progress for pending
+      } else if (job.status === 'processing') {
+        progressValue = Math.max(progressValue, 25); // At least 25% when processing
+      } else if (job.status === 'completed') {
+        progressValue = 100;
+      } else if (job.status === 'failed') {
+        progressValue = 0;
+      }
       
       // Update project and persist to localStorage
       setProjects(prev => {
@@ -510,8 +523,9 @@ Create a cinematic video that captures both the visual elements and the message/
                     ? { 
                         ...s, 
                         status: job.status as 'pending' | 'processing' | 'completed' | 'failed', 
-                        progress: job.progress || 0, 
-                        outputUrl: job.videoUrl 
+                        progress: progressValue, 
+                        outputUrl: job.videoUrl || s.outputUrl,
+                        error: job.error || s.error
                       }
                     : s
                 )
@@ -525,35 +539,20 @@ Create a cinematic video that captures both the visual elements and the message/
       });
 
       if (job.status === 'processing' || job.status === 'pending') {
-        // Continue polling with exponential backoff
-        const delay = job.status === 'pending' ? 10000 : 5000;
+        // Continue polling with optimized timing
+        const delay = job.status === 'pending' ? 8000 : 4000; // Faster for processing
         setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), delay);
       } else if (job.status === 'completed') {
-        // Check if all segments are completed
-        setProjects(prev => {
-          const project = prev.find(p => p.id === projectId);
-          if (project) {
-            const allCompleted = project.segments.every(s => 
-              s.id === segmentId ? job.status === 'completed' : s.status === 'completed'
-            );
-            if (allCompleted) {
-              toast({
-                title: "All Video Segments Ready",
-                description: "All segments have been generated. You can now review and stitch them together!",
-              });
-            } else {
-              toast({
-                title: "Video Segment Ready",
-                description: `Scene ${project.segments.find(s => s.id === segmentId)?.sceneNumber} has been completed successfully!`,
-              });
-            }
-          }
-          return prev;
+        // Show success notification
+        toast({
+          title: "🎉 Segment Complete!",
+          description: `Scene is ready to watch.`
         });
       } else if (job.status === 'failed') {
+        // Show failure notification with retry option
         toast({
-          title: "Video Segment Failed",
-          description: job.error || "Video generation failed. You can try refreshing or retrying the segment.",
+          title: "❌ Segment Failed",
+          description: `Scene failed: ${job.error || 'API connection issue'}. Try refreshing or retrying.`,
           variant: "destructive"
         });
       }
@@ -1179,21 +1178,52 @@ Create a cinematic video that captures both the visual elements and the message/
                             <div key={segment.id} className="p-3 bg-muted/50 rounded-lg space-y-2">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">Scene {segment.sceneNumber}</span>
-                                <Badge 
-                                  variant={
-                                    segment.status === 'completed' ? 'default' :
-                                    segment.status === 'processing' ? 'secondary' :
-                                    segment.status === 'failed' ? 'destructive' : 'outline'
-                                  }
-                                >
-                                  {segment.status}
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    variant={
+                                      segment.status === 'completed' ? 'default' :
+                                      segment.status === 'processing' ? 'secondary' :
+                                      segment.status === 'failed' ? 'destructive' : 'outline'
+                                    }
+                                    className={
+                                      segment.status === 'pending' ? 'text-yellow-600' :
+                                      segment.status === 'processing' ? 'text-blue-600' :
+                                      segment.status === 'completed' ? 'text-green-600' :
+                                      segment.status === 'failed' ? 'text-red-600' : ''
+                                    }
+                                  >
+                                    {segment.status === 'pending' ? '⏳ Queued' :
+                                     segment.status === 'processing' ? '🔄 Generating...' :
+                                     segment.status === 'completed' ? '✅ Ready' :
+                                     segment.status === 'failed' ? '❌ Failed' : segment.status}
+                                  </Badge>
+                                  {segment.progress > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {segment.progress}%
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-xs text-muted-foreground">{segment.timeRange}</p>
                               <p className="text-xs">{segment.dialogue}</p>
                               
-                              {segment.status === 'processing' && (
-                                <Progress value={segment.progress} className="w-full h-1" />
+                              {(segment.status === 'processing' || segment.status === 'pending') && (
+                                <div className="space-y-1">
+                                  <Progress value={segment.progress || 0} className="w-full h-2" />
+                                  <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>
+                                      {segment.status === 'pending' ? 'Waiting in queue...' : 
+                                       segment.status === 'processing' ? 'AI generating video...' : ''}
+                                    </span>
+                                    <span>{segment.progress || 0}%</span>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {segment.status === 'failed' && segment.error && (
+                                <div className="bg-red-50 border border-red-200 rounded p-2">
+                                  <p className="text-xs text-red-700">{segment.error}</p>
+                                </div>
                               )}
                               
                               <div className="flex gap-1">
