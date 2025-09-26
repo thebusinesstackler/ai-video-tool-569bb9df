@@ -89,6 +89,18 @@ const MODEL_NAMES = {
   'avatar-omni-human-1.5': 'Talking Avatar (ByteDance Omni Human 1.5)'
 };
 
+const MODEL_DURATIONS = {
+  'wan-2.2': [5, 8], // Limited by API
+  'wan-2.5-t2v': [5, 8, 10], // Supports 10 seconds
+  'wan-2.5-i2v': [5, 8, 10], // Supports 10 seconds
+  'wan-2.5-a2v': [5, 8, 10], // Supports 10 seconds
+  'hunyuan-video': [5, 8], // Conservative default
+  'seedream-v4': [5, 8], // Conservative default
+  'vidu': [5, 8], // Conservative default
+  'veo3': [5, 8], // Conservative default
+  'avatar-omni-human-1.5': [5, 8] // Conservative default
+};
+
 const Videos = () => {
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -106,6 +118,28 @@ const Videos = () => {
     segmentDuration: '5'
   });
   const [showAudioGenerator, setShowAudioGenerator] = useState(false);
+
+  // Get available durations for the selected model
+  const getAvailableDurations = (modelType: keyof typeof MODEL_COSTS): number[] => {
+    return MODEL_DURATIONS[modelType] || [5, 8];
+  };
+
+  // Handle model change and adjust duration if necessary
+  const handleModelChange = (newModel: keyof typeof MODEL_COSTS) => {
+    const availableDurations = getAvailableDurations(newModel);
+    const currentDuration = parseInt(formData.segmentDuration);
+    
+    // If current duration is not available for the new model, select the first available duration
+    const newDuration = availableDurations.includes(currentDuration) 
+      ? formData.segmentDuration 
+      : availableDurations[0].toString();
+    
+    setFormData({
+      ...formData,
+      modelType: newModel,
+      segmentDuration: newDuration
+    });
+  };
   const [sourceImage, setSourceImage] = useState<File | null>(null);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
@@ -884,7 +918,7 @@ Create a cinematic video that captures both the visual elements and the message/
 
                 <div>
                   <Label htmlFor="modelType">AI Model</Label>
-                  <Select value={formData.modelType} onValueChange={(value) => setFormData({...formData, modelType: value as keyof typeof MODEL_COSTS})}>
+                  <Select value={formData.modelType} onValueChange={(value) => handleModelChange(value as keyof typeof MODEL_COSTS)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1063,10 +1097,21 @@ Create a cinematic video that captures both the visual elements and the message/
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="5">5 seconds</SelectItem>
-                      <SelectItem value="8">8 seconds</SelectItem>
+                      {getAvailableDurations(formData.modelType).map((duration) => (
+                        <SelectItem key={duration} value={duration.toString()}>
+                          {duration} seconds
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.modelType === 'wan-2.2' 
+                      ? 'WAN 2.2 is limited to 5 and 8 seconds' 
+                      : getAvailableDurations(formData.modelType).includes(10) 
+                        ? 'This model supports up to 10 seconds'
+                        : 'Available durations for this model'
+                    }
+                  </p>
                 </div>
               </div>
 
