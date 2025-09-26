@@ -9,9 +9,11 @@ import {
   PlayIcon,
   UploadIcon,
   SparklesIcon,
-  BarChart3Icon
+  BarChart3Icon,
+  LogInIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/components/AuthProvider';
 import heroImage from '@/assets/hero-image.jpg';
 
 const stats = [
@@ -53,6 +55,44 @@ const quickActions = [
 ];
 
 export const Dashboard = () => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <div className="space-y-8 animate-slide-in">
+        {/* Welcome Section for Non-Authenticated Users */}
+        <div className="relative overflow-hidden rounded-2xl glass">
+          <div 
+            className="absolute inset-0 bg-cover bg-center opacity-20" 
+            style={{ backgroundImage: `url(${heroImage})` }}
+          />
+          <div className="relative p-8 lg:p-12 text-center">
+            <h1 className="text-4xl lg:text-6xl font-bold mb-6 gradient-text animate-float">
+              AI Video Creator
+            </h1>
+            <p className="text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto">
+              Transform your scripts into professional videos with multiple AI models including the new Alibaba WAN 2.5 image-to-video technology.
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Button asChild variant="hero" size="lg">
+                <Link to="/auth">
+                  <LogInIcon className="w-5 h-5 mr-2" />
+                  Get Started
+                </Link>
+              </Button>
+              <Button asChild variant="glass" size="lg">
+                <Link to="/auth">
+                  <PlayIcon className="w-5 h-5 mr-2" />
+                  Sign In
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-slide-in">
       {/* Hero Section */}

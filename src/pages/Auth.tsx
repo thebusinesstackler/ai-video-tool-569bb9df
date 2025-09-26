@@ -1,359 +1,213 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/components/AuthProvider';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, LogIn, UserPlus, SparklesIcon, Mail, Lock } from 'lucide-react';
+import { useAuth } from '@/components/AuthProvider';
+import { VideoIcon, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+
+const authSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+});
 
 const Auth = () => {
-  const { user, signIn, signUp, resetPassword, updatePassword } = useAuth();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [resetEmail, setResetEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const { signUp, signIn, user } = useAuth();
   const { toast } = useToast();
-  
-  // Check if this is a password reset flow (has access_token in URL)
-  const isPasswordReset = searchParams.has('access_token') && searchParams.has('type');
+  const navigate = useNavigate();
 
-  // Redirect if already authenticated
+  // Redirect authenticated users
   useEffect(() => {
     if (user) {
       navigate('/');
     }
   }, [user, navigate]);
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both email and password.",
-        variant: "destructive"
-      });
-      return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate input
+    try {
+      authSchema.parse({ email, password });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0]?.message || "Please check your input",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
+
     try {
-      await signIn(email, password);
-      navigate('/');
-    } catch (error: any) {
+      let result;
+      if (isSignUp) {
+        result = await signUp(email, password);
+        if (!result.error) {
+          toast({
+            title: "Account Created!",
+            description: "Welcome to AI Video Creator! You can now create amazing videos.",
+          });
+        }
+      } else {
+        result = await signIn(email, password);
+        if (!result.error) {
+          toast({
+            title: "Welcome Back!",
+            description: "Successfully signed in to your account.",
+          });
+        }
+      }
+
+      if (result.error) {
+        let errorMessage = "An error occurred. Please try again.";
+        
+        if (result.error.message?.includes('Invalid login credentials')) {
+          errorMessage = "Invalid email or password. Please check your credentials.";
+        } else if (result.error.message?.includes('User already registered')) {
+          errorMessage = "An account with this email already exists. Try signing in instead.";
+          setIsSignUp(false);
+        } else if (result.error.message?.includes('Email not confirmed')) {
+          errorMessage = "Please check your email and click the confirmation link.";
+        } else if (result.error.message) {
+          errorMessage = result.error.message;
+        }
+
+        toast({
+          title: isSignUp ? "Sign Up Failed" : "Sign In Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
       toast({
-        title: "Sign In Failed",
-        description: error.message,
-        variant: "destructive"
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
-
-  const handleSignUp = async () => {
-    if (!email || !password) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both email and password.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (password.length < 6) {
-      toast({
-        title: "Password Too Short",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await signUp(email, password);
-    } catch (error: any) {
-      toast({
-        title: "Sign Up Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-    setIsLoading(false);
-  };
-
-  const handleForgotPassword = async () => {
-    if (!resetEmail) {
-      toast({
-        title: "Missing Email",
-        description: "Please enter your email address.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await resetPassword(resetEmail);
-      setShowForgotPassword(false);
-      setResetEmail('');
-    } catch (error: any) {
-      toast({
-        title: "Password Reset Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-    setIsLoading(false);
-  };
-
-  const handlePasswordUpdate = async () => {
-    if (!newPassword) {
-      toast({
-        title: "Missing Password",
-        description: "Please enter a new password.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      toast({
-        title: "Password Too Short",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Passwords Don't Match",
-        description: "Please make sure both passwords match.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await updatePassword(newPassword);
-      navigate('/');
-    } catch (error: any) {
-      toast({
-        title: "Password Update Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-    setIsLoading(false);
-  };
-
-  // If this is a password reset, show the password update form
-  if (isPasswordReset) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
-        <div className="w-full max-w-md p-6">
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow">
-              <SparklesIcon className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <h1 className="font-bold text-2xl gradient-text">VideoAI Pro</h1>
-          </div>
-
-          <Card className="glass border-border">
-            <CardHeader>
-              <CardTitle className="text-center">Set New Password</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button
-                  onClick={handlePasswordUpdate}
-                  disabled={isLoading}
-                  className="w-full"
-                  variant="ai"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4" />
-                      Update Password
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
-      <div className="w-full max-w-md p-6">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow">
-            <SparklesIcon className="w-7 h-7 text-primary-foreground" />
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        {/* Logo/Header */}
+        <div className="text-center space-y-2">
+          <div className="flex justify-center">
+            <div className="p-3 bg-primary rounded-full">
+              <VideoIcon className="w-8 h-8 text-primary-foreground" />
+            </div>
           </div>
-          <h1 className="font-bold text-2xl gradient-text">VideoAI Pro</h1>
+          <h1 className="text-3xl font-bold text-foreground">AI Video Creator</h1>
+          <p className="text-muted-foreground">
+            {isSignUp ? 'Create your account to get started' : 'Sign in to your account'}
+          </p>
         </div>
 
-        <Card className="glass border-border">
+        {/* Auth Form */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-center">
-              {showForgotPassword ? "Reset Password" : "Welcome"}
+            <CardTitle className="text-center flex items-center justify-center gap-2">
+              {isSignUp ? (
+                <>
+                  <UserPlus className="w-5 h-5" />
+                  Create Account
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {showForgotPassword ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reset-email">Email</Label>
-                  <Input
-                    id="reset-email"
-                    type="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button
-                  onClick={handleForgotPassword}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  required
                   disabled={isLoading}
-                  className="w-full"
-                  variant="ai"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4" />
-                      Send Reset Email
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setShowForgotPassword(false)}
-                  variant="ghost"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  Back to Sign In
-                </Button>
+                />
               </div>
-            ) : (
-              <>
-                <Tabs defaultValue="signin" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="signin">Sign In</TabsTrigger>
-                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                  </TabsList>
-              
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your email"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
 
-                  <TabsContent value="signin" className="mt-6 space-y-4">
-                    <Button
-                      onClick={handleSignIn}
-                      disabled={isLoading}
-                      className="w-full"
-                      variant="ai"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <LogIn className="w-4 h-4" />
-                          Sign In
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => setShowForgotPassword(true)}
-                      variant="ghost"
-                      className="w-full text-sm"
-                      disabled={isLoading}
-                    >
-                      Forgot your password?
-                    </Button>
-                  </TabsContent>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center gap-2">
+                  <Lock className="w-4 h-4" />
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  disabled={isLoading}
+                  minLength={6}
+                />
+                {isSignUp && (
+                  <p className="text-xs text-muted-foreground">
+                    Password must be at least 6 characters long
+                  </p>
+                )}
+              </div>
 
-                  <TabsContent value="signup" className="mt-6">
-                    <Button
-                      onClick={handleSignUp}
-                      disabled={isLoading}
-                      className="w-full"
-                      variant="ai"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <UserPlus className="w-4 h-4" />
-                          Create Account
-                        </>
-                      )}
-                    </Button>
-                  </TabsContent>
-                </Tabs>
-              </>
-            )}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading || !email || !password}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                    {isSignUp ? 'Creating Account...' : 'Signing In...'}
+                  </>
+                ) : (
+                  isSignUp ? 'Create Account' : 'Sign In'
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm text-primary hover:underline disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isSignUp
+                  ? 'Already have an account? Sign in'
+                  : "Don't have an account? Sign up"}
+              </button>
+            </div>
           </CardContent>
         </Card>
+
+        <div className="text-center text-sm text-muted-foreground">
+          <p>Transform your scripts into professional videos with AI</p>
+        </div>
       </div>
     </div>
   );
