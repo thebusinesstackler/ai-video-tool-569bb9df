@@ -183,16 +183,39 @@ const Videos = () => {
   const parseScriptIntoSegments = (script: string): VideoSegment[] => {
     const segments: VideoSegment[] = [];
     
-    // Split the script into scene blocks
-    const sceneBlocks = script.split(/(?=Scene \d+)/i).filter(block => block.trim());
+    // Split the script into scene blocks - more flexible patterns
+    let sceneBlocks = script.split(/(?=Scene \d+)/i).filter(block => block.trim());
+    
+    // If no "Scene X" format found, try alternative patterns
+    if (sceneBlocks.length <= 1) {
+      // Try splitting by numbers followed by periods or colons
+      sceneBlocks = script.split(/(?=^\d+[\.\:]\s)/m).filter(block => block.trim());
+    }
+    
+    // If still no blocks found, treat the entire script as one scene
+    if (sceneBlocks.length <= 1 && script.trim()) {
+      sceneBlocks = [script.trim()];
+    }
     
     for (let i = 0; i < sceneBlocks.length; i++) {
       const block = sceneBlocks[i].trim();
       if (!block) continue;
       
-      // Extract scene header
-      const sceneHeaderMatch = block.match(/Scene (\d+) \(([^)]+)\)/i);
-      if (!sceneHeaderMatch) continue;
+      // Extract scene header - more flexible patterns
+      let sceneHeaderMatch = block.match(/Scene (\d+) \(([^)]+)\)/i);
+      
+      // Try alternative patterns
+      if (!sceneHeaderMatch) {
+        sceneHeaderMatch = block.match(/Scene (\d+)[\:\-\s]*(.{0,20})/i);
+      }
+      if (!sceneHeaderMatch) {
+        sceneHeaderMatch = block.match(/(\d+)[\.\:\)\-\s]+(.{0,20})/);
+      }
+      
+      // If no pattern found, create a default scene
+      if (!sceneHeaderMatch) {
+        sceneHeaderMatch = [`Scene ${i + 1}`, `${i + 1}`, `0:${String(i * 15).padStart(2, '0')}-0:${String((i + 1) * 15).padStart(2, '0')}`];
+      }
       
       const [, sceneNum, timeRange] = sceneHeaderMatch;
       
@@ -227,15 +250,21 @@ const Videos = () => {
       
       // If no structured format found, treat the whole block as dialogue
       if (!visuals && !dialogue) {
-        dialogue = block.replace(/Scene \d+ \([^)]+\):?\s*/i, '').trim();
+        // Remove various scene header patterns from the beginning
+        dialogue = block
+          .replace(/^Scene \d+ \([^)]+\):?\s*/i, '')
+          .replace(/^Scene \d+[\:\-\s]*/i, '')
+          .replace(/^\d+[\.\:\)\-\s]+/i, '')
+          .trim();
       }
       
-      const description = visuals.trim() || `Scene ${sceneNum} visuals`;
-      const finalDialogue = dialogue.trim() || `Scene ${sceneNum} content`;
+      const sceneNumber = parseInt(sceneNum, 10) || (i + 1);
+      const description = visuals.trim() || `Scene ${sceneNumber} visuals`;
+      const finalDialogue = dialogue.trim() || block.trim() || `Scene ${sceneNumber} content`;
       
       segments.push({
         id: `segment-${Date.now()}-${i}`,
-        sceneNumber: parseInt(sceneNum, 10),
+        sceneNumber: sceneNumber,
         timeRange: timeRange,
         description: description,
         dialogue: finalDialogue,
@@ -287,7 +316,14 @@ const Videos = () => {
       const segments = parseScriptIntoSegments(formData.script);
       
       if (segments.length === 0) {
-        throw new Error('No valid scenes found in script. Please format your script with Scene headers like "Scene 1 (0:00-0:15):"');
+        throw new Error(`No valid scenes found in script. Please format your script with one of these formats:
+
+Format 1: Scene 1 (0:00-0:15): [description]
+Format 2: Scene 1: [description]  
+Format 3: 1. [description]
+Format 4: 1: [description]
+
+Or simply write your content and it will be treated as one scene.`);
       }
 
       // Create project in database with proper type casting
