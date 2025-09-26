@@ -42,12 +42,13 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    // Get the LOVABLE_API_KEY from environment (automatically provided)
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not found in environment');
+    if (!apiKey) {
+      console.error('LOVABLE_API_KEY not found in environment');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }), 
+        JSON.stringify({ error: 'AI service unavailable' }), 
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -60,57 +61,47 @@ serve(async (req) => {
 
     const prompt = createScriptPrompt(params);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call the Lovable AI Gateway
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'openai/gpt-5-mini',
         messages: [
           { 
             role: 'system', 
-            content: 'You are a professional video script writer. Create engaging, well-structured scripts that capture attention and deliver value to the audience.' 
+            content: 'You are a professional video script writer. Create engaging, well-structured scripts that capture attention and deliver value to the audience. Format scripts with clear scene breaks and include visual descriptions.' 
           },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 2000,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      console.error('Lovable AI Gateway error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('OpenAI response received successfully');
+    console.log('AI Gateway response received successfully');
     
-    // Normalize content across possible response shapes
-    let generatedScript: string | undefined;
-    try {
-      const message = data?.choices?.[0]?.message;
-      if (typeof message?.content === 'string') {
-        generatedScript = message.content;
-      } else if (Array.isArray(message?.content)) {
-        generatedScript = message.content
-          .map((part: any) => {
-            if (typeof part === 'string') return part;
-            if (typeof part?.text === 'string') return part.text;
-            if (typeof part?.content === 'string') return part.content;
-            return '';
-          })
-          .join('')
-          .trim();
-      }
-    } catch (e) {
-      console.warn('Failed to normalize OpenAI content', e);
-    }
+    // Extract the generated script
+    const generatedScript = data?.choices?.[0]?.message?.content;
 
     if (!generatedScript || typeof generatedScript !== 'string' || !generatedScript.trim()) {
-      console.error('No usable script content in OpenAI response:', JSON.stringify(data, null, 2));
+      console.error('No usable script content in AI response:', JSON.stringify(data, null, 2));
       return new Response(
         JSON.stringify({ error: 'No script content generated' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -127,7 +118,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in generate-script function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), 
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error occurred' }), 
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
