@@ -189,7 +189,6 @@ export const CharacterManager = () => {
         id: data.id,
         name: data.name,
         description: data.description,
-        appearanceImage: data.appearance_image,
         referenceImages: data.reference_images || [],
         voiceType: data.voice_type,
         kieVoiceId: data.kie_voice_id,

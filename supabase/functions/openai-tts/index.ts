@@ -6,6 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Map common voice names to ElevenLabs voice IDs
+const voiceMapping: Record<string, string> = {
+  'alloy': '9BWtsMINqrJLrRacOk9x', // Aria
+  'echo': 'CwhRBWXzGAHq8TQ4Fs17', // Roger  
+  'fable': 'EXAVITQu4vr4xnSDxMaL', // Sarah
+  'onyx': 'JBFqnCBsd6RMkjVDRZzb', // George
+  'nova': 'XB0fDUnXU5powFXDhCwa', // Charlotte
+  'shimmer': 'pFZP5JQG7iQjIQuC4Bku', // Lily
+  'default': '9BWtsMINqrJLrRacOk9x', // Aria
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -13,38 +24,46 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'alloy', model = 'tts-1' } = await req.json();
+    const { text, voice = 'alloy', model = 'eleven_multilingual_v2' } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    const elevenLabsApiKey = Deno.env.get('ELEVENLABS_API_KEY');
+    if (!elevenLabsApiKey) {
+      throw new Error('ElevenLabs API key not configured');
     }
 
-    console.log('Generating TTS for text length:', text.length, 'voice:', voice);
+    // Get the ElevenLabs voice ID
+    const voiceId = voiceMapping[voice] || voice; // Allow direct voice ID or mapped voice name
+    
+    console.log('Generating TTS for text length:', text.length, 'voice:', voice, 'voiceId:', voiceId);
 
-    // Generate speech from text using OpenAI TTS
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    // Generate speech from text using ElevenLabs TTS
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Accept': 'audio/mpeg',
         'Content-Type': 'application/json',
+        'xi-api-key': elevenLabsApiKey,
       },
       body: JSON.stringify({
-        model,
-        input: text.substring(0, 4096), // OpenAI TTS has a 4096 character limit
-        voice,
-        response_format: 'mp3',
+        text: text.substring(0, 5000), // ElevenLabs has a ~5000 character limit for most plans
+        model_id: model,
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5,
+          style: 0.0,
+          use_speaker_boost: true
+        }
       }),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error('OpenAI TTS error:', error);
-      throw new Error(error.error?.message || 'Failed to generate speech');
+      const errorText = await response.text();
+      console.error('ElevenLabs TTS error:', response.status, errorText);
+      throw new Error(`ElevenLabs API error: ${response.status} ${errorText}`);
     }
 
     // Convert audio buffer to base64
