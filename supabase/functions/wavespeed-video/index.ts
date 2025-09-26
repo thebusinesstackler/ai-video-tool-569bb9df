@@ -6,10 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface KieVideoParams {
+interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
-  model?: 'veo3' | 'veo3-fast' | 'nano-banana';
+  model?: 'wan-2.2' | 'vidu' | 'veo3';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -17,7 +17,7 @@ interface KieVideoParams {
   characterId?: string;
 }
 
-interface KieVideoJob {
+interface WaveSpeedVideoJob {
   taskId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress?: number;
@@ -32,12 +32,12 @@ serve(async (req) => {
   }
 
   try {
-    const kieApiKey = Deno.env.get('KIE_API_KEY');
+    const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     
-    if (!kieApiKey) {
-      console.error('Kie.ai API key not found in environment');
+    if (!waveSpeedApiKey) {
+      console.error('WaveSpeed AI API key not found in environment');
       return new Response(
-        JSON.stringify({ error: 'Kie.ai API key not configured' }), 
+        JSON.stringify({ error: 'WaveSpeed AI API key not configured' }), 
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -50,42 +50,42 @@ serve(async (req) => {
     const action = body.action || 'create';
 
     if (action === 'create') {
-      const params: KieVideoParams = body;
-      console.log('Creating video with params:', params);
+      const params: WaveSpeedVideoParams = body;
+      console.log('Creating video with WaveSpeed AI params:', params);
 
-      const response = await fetch('https://api.kie.ai/api/v1/veo/generate', {
+      const response = await fetch('https://api.wavespeed.ai/v1/video/generate', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${kieApiKey}`,
+          'Authorization': `Bearer ${waveSpeedApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           prompt: params.prompt,
-          imageUrls: params.imageUrls || [],
-          model: params.model || 'nano-banana',
-          aspectRatio: params.aspectRatio || '16:9',
-          seeds: params.seeds || Math.floor(Math.random() * 90000) + 10000,
-          enableFallback: params.enableFallback !== undefined ? params.enableFallback : true,
+          image_urls: params.imageUrls || [],
+          model: params.model || 'wan-2.2',
+          aspect_ratio: params.aspectRatio || '16:9',
+          seed: params.seeds || Math.floor(Math.random() * 90000) + 10000,
+          enable_fallback: params.enableFallback !== undefined ? params.enableFallback : true,
           watermark: params.watermark || ''
         }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Kie.ai video creation error:', response.status, errorText);
-        throw new Error(`Kie.ai video creation failed: ${errorText}`);
+        console.error('WaveSpeed AI video creation error:', response.status, errorText);
+        throw new Error(`WaveSpeed AI video creation failed: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Kie.ai create response:', data);
+      console.log('WaveSpeed AI create response:', data);
       
-      if (data.code !== 200) {
+      if (!data.success) {
         // Handle specific error cases
-        if (data.code === 402 && data.msg && data.msg.includes('insufficient')) {
+        if (data.error && data.error.includes('insufficient')) {
           return new Response(
             JSON.stringify({ 
-              error: 'Insufficient Kie.ai credits', 
-              details: 'Your Kie.ai account does not have enough credits. Please top up your account at https://kie.ai and try again.' 
+              error: 'Insufficient WaveSpeed AI credits', 
+              details: 'Your WaveSpeed AI account does not have enough credits. Please top up your account and try again.' 
             }), 
             {
               status: 402,
@@ -93,11 +93,11 @@ serve(async (req) => {
             }
           );
         }
-        throw new Error(`Kie.ai API error: ${data.msg || 'Unknown error'}`);
+        throw new Error(`WaveSpeed AI API error: ${data.error || 'Unknown error'}`);
       }
       
       return new Response(
-        JSON.stringify({ taskId: data.data.taskId }), 
+        JSON.stringify({ taskId: data.task_id }), 
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -116,48 +116,50 @@ serve(async (req) => {
         );
       }
 
-      console.log('Checking status for taskId:', taskId);
+      console.log('Checking WaveSpeed AI status for taskId:', taskId);
 
-      const response = await fetch(`https://api.kie.ai/api/v1/veo/record-info?taskId=${taskId}`, {
+      const response = await fetch(`https://api.wavespeed.ai/v1/video/status/${taskId}`, {
         headers: {
-          'Authorization': `Bearer ${kieApiKey}`,
+          'Authorization': `Bearer ${waveSpeedApiKey}`,
         },
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Kie.ai status check error:', response.status, errorText);
+        console.error('WaveSpeed AI status check error:', response.status, errorText);
         throw new Error('Failed to get video job status');
       }
 
       const data = await response.json();
-      console.log('Kie.ai status response:', data);
+      console.log('WaveSpeed AI status response:', data);
       
-      if (data.code !== 200) {
-        throw new Error(`Kie.ai API error: ${data.msg || 'Unknown error'}`);
+      if (!data.success) {
+        throw new Error(`WaveSpeed AI API error: ${data.error || 'Unknown error'}`);
       }
 
       const taskData = data.data;
       let status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
       
-      // Map Kie.ai successFlag to our status
-      if (taskData.successFlag === 1) {
+      // Map WaveSpeed AI status to our status
+      if (taskData.status === 'completed') {
         status = 'completed';
-      } else if (taskData.successFlag === 2 || taskData.successFlag === 3) {
+      } else if (taskData.status === 'failed' || taskData.status === 'error') {
         status = 'failed';
+      } else if (taskData.status === 'processing' || taskData.status === 'generating') {
+        status = 'processing';
       } else {
-        status = 'processing'; // successFlag 0 means generating
+        status = 'pending';
       }
 
-      // Get video URL from response.resultUrls
-      const videoUrl = taskData.response?.resultUrls?.[0];
+      // Get video URL from response
+      const videoUrl = taskData.video_url;
 
-      const jobStatus: KieVideoJob = {
-        taskId: taskData.taskId || taskId,
+      const jobStatus: WaveSpeedVideoJob = {
+        taskId: taskData.task_id || taskId,
         status,
         progress: status === 'completed' ? 100 : status === 'processing' ? 50 : 0,
         videoUrl: videoUrl,
-        error: taskData.errorMessage || undefined
+        error: taskData.error_message || undefined
       };
 
       return new Response(
@@ -178,9 +180,9 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error in kie-video function:', error);
+    console.error('Error in wavespeed-video function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }), 
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), 
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

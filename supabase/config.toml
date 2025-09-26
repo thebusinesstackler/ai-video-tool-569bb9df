@@ -1,7 +1,1 @@
-project_id = "asxzygexhwekvwyxjeqq"
-
-[functions.generate-script]
-verify_jwt = false
-
-[functions.kie-video]
-verify_jwt = false
+project_id = "aarnfihphqhwvwwcqgoc"

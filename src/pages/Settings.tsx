@@ -36,7 +36,7 @@ const Settings = () => {
                   <h4 className="font-medium text-foreground">Configured Services:</h4>
                   <ul className="space-y-1 text-muted-foreground">
                     <li>• OpenAI API (Script Generation)</li>
-                    <li>• Kie.ai API (Video Creation)</li>
+                    <li>• WaveSpeed AI API (Video Creation)</li>
                   </ul>
                 </div>
               </div>
@@ -56,7 +56,7 @@ const Settings = () => {
                   <h4 className="font-medium text-foreground">Supabase Edge Functions:</h4>
                   <ul className="space-y-1 text-muted-foreground">
                     <li>• generate-script (OpenAI integration)</li>
-                    <li>• kie-video (Video generation & status)</li>
+                    <li>• wavespeed-video (Video generation & status)</li>
                   </ul>
                 </div>
                 

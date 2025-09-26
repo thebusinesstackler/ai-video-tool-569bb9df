@@ -375,15 +375,15 @@ Create a cinematic video that captures both the visual elements and the message/
 
           console.log(`Creating video for segment ${segment.sceneNumber}:`, enhancedPrompt);
 
-          const { data, error } = await supabase.functions.invoke('kie-video', {
+          const { data, error } = await supabase.functions.invoke('wavespeed-video', {
             body: {
               action: 'create',
               prompt: enhancedPrompt,
               aspectRatio: formData.aspectRatio as '16:9' | '9:16',
-              model: 'veo3',
+              model: 'wan-2.2',
               enableFallback: true,
               seeds: newProject.consistencySettings?.lockSeed ? newProject.consistencySettings.globalSeed : undefined,
-              referenceImageUrls: referenceImageUrls,
+              imageUrls: referenceImageUrls,
               characterId: newProject.characterId
             }
           });
@@ -478,7 +478,7 @@ Create a cinematic video that captures both the visual elements and the message/
 
   const pollSegmentStatus = async (taskId: string, projectId: string, segmentId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('kie-video', {
+      const { data, error } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'status',
           taskId: taskId
