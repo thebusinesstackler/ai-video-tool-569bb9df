@@ -9,7 +9,8 @@ const corsHeaders = {
 interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
-  model?: 'wan-2.2' | 'vidu' | 'veo3';
+  audioUrl?: string;
+  model?: 'wan-2.2' | 'wan-2.5-i2v' | 'vidu' | 'veo3';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -54,34 +55,55 @@ serve(async (req) => {
       const params: WaveSpeedVideoParams = body;
       console.log('Creating video with WaveSpeed AI params:', params);
 
-      // Convert aspect ratio to size format
-      const size = params.aspectRatio === '9:16' ? '720*1280' : '1280*720';
-      const duration = params.duration || 5; // Default to 5 seconds
+      // Determine API endpoint and request body based on model
+      let apiEndpoint: string;
+      let requestBody: any;
+      
+      const duration = params.duration || 5;
       const seed = params.seeds || Math.floor(Math.random() * 2147483647);
 
-      const requestBody: {
-        prompt: string;
-        size: string;
-        duration: number;
-        seed: number;
-        negative_prompt?: string;
-      } = {
-        prompt: params.prompt,
-        size: size,
-        duration: duration,
-        seed: seed
-      };
+      if (params.model === 'wan-2.5-i2v') {
+        // Image-to-Video model (alibaba/wan-2.5/image-to-video)
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Image is required for image-to-video model');
+        }
 
-      // Add negative_prompt if provided
-      if (params.prompt && params.prompt.includes('negative:')) {
-        const parts = params.prompt.split('negative:');
-        requestBody.prompt = parts[0].trim();
-        requestBody.negative_prompt = parts[1]?.trim() || '';
+        requestBody = {
+          image: params.imageUrls[0],
+          prompt: params.prompt
+        };
+
+        // Add audio if provided
+        if (params.audioUrl) {
+          requestBody.audio = params.audioUrl;
+        }
+      } else {
+        // Text-to-Video model (default wan-2.2)
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p-ultra-fast';
+        
+        const size = params.aspectRatio === '9:16' ? '720*1280' : '1280*720';
+        
+        requestBody = {
+          prompt: params.prompt,
+          size: size,
+          duration: duration,
+          seed: seed
+        };
+
+        // Add negative_prompt if provided
+        if (params.prompt && params.prompt.includes('negative:')) {
+          const parts = params.prompt.split('negative:');
+          requestBody.prompt = parts[0].trim();
+          requestBody.negative_prompt = parts[1]?.trim() || '';
+        }
       }
 
-      console.log('Sending request to WaveSpeed API with body:', requestBody);
+      console.log('Sending request to WaveSpeed API:', apiEndpoint);
+      console.log('Request body:', requestBody);
 
-      const response = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p-ultra-fast', {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${waveSpeedApiKey}`,

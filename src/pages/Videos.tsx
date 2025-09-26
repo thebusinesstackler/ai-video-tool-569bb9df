@@ -17,15 +17,13 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   PlusIcon,
-  LinkIcon,
   GridIcon,
-  InfoIcon,
-  Dices
+  DollarSign,
+  ImageIcon,
+  VolumeIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
-import { stitchVideos as stitchVideosLib } from '@/lib/videoStitch';
 
 interface VideoSegment {
   id: string;
@@ -44,53 +42,105 @@ interface VideoProject {
   id: string;
   title: string;
   script: string;
+  model_type: string;
   segments: VideoSegment[];
-  aspectRatio: string;
-  createdAt: string;
-  totalDuration: number;
-  isStitched?: boolean;
-  stitchedUrl?: string;
-  stitchedSegments?: string[];
-  characterId?: string;
-  voiceSettings?: {
-    voice: string;
-    audioUrl?: string;
-  };
-  consistencySettings?: {
-    lockSeed?: boolean;
-    globalSeed?: number;
-    referenceImageUrls?: string[];
-    styleConsistency?: 'high' | 'medium' | 'low';
-  };
+  aspect_ratio: string;
+  created_at: string;
+  updated_at: string;
+  total_duration: number;
+  is_stitched: boolean;
+  stitched_url?: string;
+  character_id?: string;
+  voice_settings: any;
+  consistency_settings: any;
+  source_image_url?: string;
+  source_audio_url?: string;
+  user_id: string;
 }
+
+const MODEL_COSTS = {
+  'wan-2.2': 0.1,
+  'wan-2.5-i2v': 0.5,
+  'vidu': 0.3,
+  'veo3': 0.4
+};
+
+const MODEL_NAMES = {
+  'wan-2.2': 'Text-to-Video (WAN 2.2)',
+  'wan-2.5-i2v': 'Image-to-Video (Alibaba WAN 2.5)',
+  'vidu': 'VIDU Model', 
+  'veo3': 'VEO3 Model'
+};
 
 const Videos = () => {
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [isCreating, setIsCreating] = useState(false);
-  const [apiConfigured, setApiConfigured] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     script: '',
+    modelType: 'wan-2.2' as keyof typeof MODEL_COSTS,
     aspectRatio: '16:9',
-    style: 'default',
     duration: 60,
     characterId: 'none',
     lockSeed: false,
     customSeed: '',
-    styleConsistency: 'high' as 'high' | 'medium' | 'low',
     voice: 'alloy',
-    segmentDuration: '15' as '15' | '30' | 'custom',
-    customSegmentDuration: 15
+    segmentDuration: '5'
   });
+  const [sourceImage, setSourceImage] = useState<File | null>(null);
+  const [sourceAudio, setSourceAudio] = useState<File | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    // API is always configured since we use server-side keys
-    setApiConfigured(true);
     loadProjects();
     loadCharacters();
   }, []);
+
+  const loadProjects = async () => {
+    try {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to view your projects.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading projects:', error);
+        toast({
+          title: "Error Loading Projects",
+          description: "Failed to load your video projects.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Transform database data to match VideoProject interface
+      const transformedProjects: VideoProject[] = (data || []).map((project: any) => ({
+        ...project,
+        segments: Array.isArray(project.segments) ? project.segments as VideoSegment[] : []
+      }));
+
+      setProjects(transformedProjects);
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadCharacters = async () => {
     try {
@@ -104,67 +154,30 @@ const Videos = () => {
         return;
       }
 
-      // Transform database data to component format
-      const transformedCharacters = (data || []).map((char: any) => ({
-        id: char.id,
-        name: char.name,
-        description: char.description || '',
-        appearanceImage: char.appearance_image || '',
-        voiceType: char.voice_type || 'professional-female',
-        kieVoiceId: char.kie_voice_id || '',
-        personality: char.personality || 'professional',
-      }));
-
-      setCharacters(transformedCharacters);
+      setCharacters(data || []);
     } catch (error) {
       console.error('Error loading characters:', error);
     }
   };
 
-  useEffect(() => {
-    // Resume polling for pending/processing segments on page load
-    projects.forEach(project => {
-      project.segments?.forEach(segment => {
-        if ((segment.status === 'pending' || segment.status === 'processing') && segment.jobId) {
-          pollSegmentStatus(segment.jobId, project.id, segment.id);
-        }
-      });
-    });
-  }, [projects.length]); // Only run when projects are first loaded
+  const uploadFile = async (file: File, path: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Authentication required');
 
-  const loadProjects = () => {
-    const stored = localStorage.getItem('kie_video_projects');
-    if (stored) {
-      const parsedProjects = JSON.parse(stored);
-      // Migrate old projects to new structure
-      const migratedProjects = parsedProjects.map((project: any) => {
-        if (!project.segments) {
-          // This is an old project, convert it to new structure
-          return {
-            ...project,
-            segments: project.status ? [{
-              id: `${project.id}-segment-1`,
-              sceneNumber: 1,
-              timeRange: '0:00–0:15',
-              description: 'Legacy video',
-              dialogue: project.script || '',
-              status: project.status,
-              progress: project.progress || 0,
-              jobId: project.jobId,
-              outputUrl: project.outputUrl
-            }] : [],
-            totalDuration: 15
-          };
-        }
-        return project;
-      });
-      setProjects(migratedProjects);
-    }
-  };
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/${path}/${Date.now()}.${fileExt}`;
 
-  const saveProjects = async (newProjects: VideoProject[]) => {
-    setProjects(newProjects);
-    // Database updates are handled individually by each operation
+    const { data, error } = await supabase.storage
+      .from('project-files')
+      .upload(fileName, file);
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('project-files')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
   };
 
   const parseScriptIntoSegments = (script: string): VideoSegment[] => {
@@ -187,7 +200,6 @@ const Videos = () => {
       const lines = block.split('\n').map(line => line.trim()).filter(line => line);
       
       let visuals = '';
-      let toneMotion = '';
       let dialogue = '';
       
       // Parse different sections
@@ -195,62 +207,40 @@ const Videos = () => {
         const line = lines[j];
         
         if (line.toLowerCase().startsWith('visuals:')) {
-          // Collect all visuals content (may span multiple lines)
           visuals = line.replace(/^visuals:\s*/i, '');
           j++;
-          while (j < lines.length && !lines[j].match(/^(tone|line):/i)) {
-            visuals += ' ' + lines[j];
+          while (j < lines.length && !lines[j].toLowerCase().match(/^(dialogue|content):/)) {
+            visuals += '\n' + lines[j];
             j++;
           }
           j--; // Back up one since the loop will increment
-        } else if (line.toLowerCase().startsWith('tone')) {
-          // Collect tone & motion content
-          toneMotion = line.replace(/^tone[^:]*:\s*/i, '');
+        } else if (line.toLowerCase().startsWith('dialogue:') || line.toLowerCase().startsWith('content:')) {
+          dialogue = line.replace(/^(dialogue|content):\s*/i, '');
           j++;
-          while (j < lines.length && !lines[j].match(/^line:/i)) {
-            toneMotion += ' ' + lines[j];
-            j++;
-          }
-          j--; // Back up one since the loop will increment
-        } else if (line.toLowerCase().startsWith('line:')) {
-          // Collect dialogue content
-          dialogue = line.replace(/^line:\s*/i, '');
-          j++;
-          while (j < lines.length && !lines[j].match(/^(scene|visuals|tone|line):/i)) {
-            dialogue += ' ' + lines[j];
+          while (j < lines.length && !lines[j].toLowerCase().match(/^visuals:/)) {
+            dialogue += '\n' + lines[j];
             j++;
           }
           j--; // Back up one since the loop will increment
         }
       }
       
-      // Clean up dialogue (remove quotes)
-      dialogue = dialogue.replace(/^["']|["']$/g, '').trim();
+      // If no structured format found, treat the whole block as dialogue
+      if (!visuals && !dialogue) {
+        dialogue = block.replace(/Scene \d+ \([^)]+\):?\s*/i, '').trim();
+      }
+      
+      const description = visuals.trim() || `Scene ${sceneNum} visuals`;
+      const finalDialogue = dialogue.trim() || `Scene ${sceneNum} content`;
       
       segments.push({
-        id: `${Date.now()}-${i}`,
-        sceneNumber: parseInt(sceneNum) || (i + 1),
+        id: `segment-${Date.now()}-${i}`,
+        sceneNumber: parseInt(sceneNum, 10),
         timeRange: timeRange,
-        description: visuals.trim() || `Scene ${sceneNum}`,
-        dialogue: dialogue.trim() || toneMotion.trim(),
+        description: description,
+        dialogue: finalDialogue,
         status: 'pending',
         progress: 0
-      });
-    }
-    
-    // Fallback: if no scenes found, create segments from paragraphs
-    if (segments.length === 0) {
-      const paragraphs = script.split('\n\n').filter(p => p.trim());
-      paragraphs.forEach((paragraph, index) => {
-        segments.push({
-          id: `${Date.now()}-${index + 1}`,
-          sceneNumber: index + 1,
-          timeRange: `${index * 5}s–${(index + 1) * 5}s`,
-          description: `Segment ${index + 1}`,
-          dialogue: paragraph.trim(),
-          status: 'pending',
-          progress: 0
-        });
       });
     }
     
@@ -258,7 +248,7 @@ const Videos = () => {
   };
 
   const handleCreateVideo = async () => {
-    if (!formData.script.trim() || !formData.title.trim()) {
+    if (!formData.title.trim() || !formData.script.trim()) {
       toast({
         title: "Missing Information",
         description: "Please provide both a title and script.",
@@ -267,180 +257,142 @@ const Videos = () => {
       return;
     }
 
-    setIsCreating(true);
-    try {
-      const segments = parseScriptIntoSegments(formData.script);
-      // Use custom seed if provided, otherwise generate random seed when lock is enabled
-      const globalSeed = formData.lockSeed 
-        ? (formData.customSeed ? parseInt(formData.customSeed) : Math.floor(Math.random() * 90000) + 10000)
-        : undefined;
-      
-      // Generate consistent voice audio for all segments
-      const fullScript = segments.map(s => s.dialogue).join(' ');
-      let consistentAudioUrl: string | undefined;
-      
-      try {
-        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('openai-tts', {
-          body: {
-            text: fullScript,
-            voice: formData.voice,
-            model: 'eleven_multilingual_v2'
-          }
-        });
+    if (formData.modelType === 'wan-2.5-i2v' && !sourceImage) {
+      toast({
+        title: "Image Required",
+        description: "The image-to-video model requires a source image.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-        if (ttsError) {
-          console.warn('TTS generation failed, proceeding without voice:', ttsError);
-        } else {
-          // Create audio URL from base64
-          const audioBlob = new Blob([Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0))], { type: 'audio/mp3' });
-          consistentAudioUrl = URL.createObjectURL(audioBlob);
-        }
-      } catch (voiceError) {
-        console.warn('Voice generation failed, proceeding without audio:', voiceError);
+    setIsCreating(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Authentication required');
+
+      let imageUrl = '';
+      let audioUrl = '';
+
+      // Upload files if provided
+      if (sourceImage) {
+        imageUrl = await uploadFile(sourceImage, 'images');
       }
+
+      if (sourceAudio) {
+        audioUrl = await uploadFile(sourceAudio, 'audio');
+      }
+
+      const segments = parseScriptIntoSegments(formData.script);
       
-      const newProject: VideoProject = {
-        id: Date.now().toString(),
-        title: formData.title,
-        script: formData.script,
-        segments: segments,
-        aspectRatio: formData.aspectRatio,
-        createdAt: new Date().toISOString(),
-        totalDuration: formData.duration,
-        characterId: formData.characterId === 'none' ? undefined : formData.characterId,
-        voiceSettings: consistentAudioUrl ? {
-          voice: formData.voice,
-          audioUrl: consistentAudioUrl
-        } : undefined,
-        consistencySettings: {
-          lockSeed: formData.lockSeed,
-          globalSeed: globalSeed,
-          referenceImageUrls: formData.characterId && formData.characterId !== 'none'
-            ? (characters.find(c => c.id === formData.characterId)?.appearanceImage 
-              ? [characters.find(c => c.id === formData.characterId)!.appearanceImage] 
-              : [])
-            : [],
-          styleConsistency: formData.styleConsistency
-        }
+      if (segments.length === 0) {
+        throw new Error('No valid scenes found in script. Please format your script with Scene headers like "Scene 1 (0:00-0:15):"');
+      }
+
+      // Create project in database with proper type casting
+      const { data: newProject, error } = await supabase
+        .from('projects')
+        .insert({
+          title: formData.title,
+          script: formData.script,
+          model_type: formData.modelType,
+          segments: segments as any,
+          aspect_ratio: formData.aspectRatio,
+          total_duration: formData.duration,
+          is_stitched: false,
+          character_id: formData.characterId !== 'none' ? formData.characterId : null,
+          voice_settings: { voice: formData.voice, audioUrl: audioUrl } as any,
+          consistency_settings: { 
+            lockSeed: formData.lockSeed,
+            globalSeed: formData.lockSeed ? (parseInt(formData.customSeed) || Math.floor(Math.random() * 2147483647)) : undefined
+          } as any,
+          source_image_url: imageUrl || null,
+          source_audio_url: audioUrl || null,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Transform and add to local state
+      const transformedProject: VideoProject = {
+        ...newProject,
+        segments: segments
       };
 
-      const updatedProjects = [newProject, ...projects];
-      saveProjects(updatedProjects);
-      
-      // Create videos for each segment with delays to avoid overwhelming the API
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
-        
-        // Add delay between requests (except for the first one)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        
+      setProjects(prev => [transformedProject, ...prev]);
+
+      // Create video segments
+      for (const segment of segments) {
         try {
-          // Get selected character for consistency
-          const selectedCharacter = newProject.characterId 
-            ? characters.find(c => c.id === newProject.characterId)
-            : null;
-
-          // Prepare reference images from character
-          const referenceImageUrls = selectedCharacter?.appearanceImage 
-            ? [selectedCharacter.appearanceImage] 
-            : [];
-
-          // Create enhanced prompt with character bible and consistency rules
-          const characterBible = selectedCharacter ? `
-CHARACTER BIBLE:
-- Name: ${selectedCharacter.name}
-- Appearance: ${selectedCharacter.description || 'As shown in reference image'}
-- Personality: ${selectedCharacter.personality}
-- Voice Style: ${selectedCharacter.voiceType}
-${selectedCharacter.description ? `- Background: ${selectedCharacter.description}` : ''}
-
-CONSISTENCY RULES:
-- Keep the character's appearance identical across all scenes
-- Maintain consistent lighting and visual style
-- Use the same character model and features throughout
-- Ensure facial features, hair, clothing style remain constant
-- Apply consistent cinematographic style
-${selectedCharacter.appearanceImage ? '- Use the provided reference image to maintain character appearance' : ''}
-
-` : '';
-
-          const enhancedPrompt = `${characterBible}Scene ${segment.sceneNumber} (${segment.timeRange}):
+          const enhancedPrompt = `Scene ${segment.sceneNumber} (${segment.timeRange}):
 
 Visual Description: ${segment.description}
 
 Dialogue/Content: "${segment.dialogue}"
 
-${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.description || 'As shown in reference image'}` : ''}
+Create a cinematic video that captures both the visual elements and the message/dialogue described above. Focus on engaging cinematography that matches the scene's requirements.`.trim();
 
-Create a cinematic video that captures both the visual elements and the message/dialogue described above. ${selectedCharacter ? 'Ensure the character appears consistently as described in the character bible above.' : ''} Focus on engaging cinematography that matches the scene's requirements.`.trim();
+          const requestBody: any = {
+            action: 'create',
+            prompt: enhancedPrompt,
+            aspectRatio: formData.aspectRatio as '16:9' | '9:16',
+            model: formData.modelType,
+            enableFallback: true,
+            duration: parseInt(formData.segmentDuration)
+          };
 
-          console.log(`Creating video for segment ${segment.sceneNumber}:`, enhancedPrompt);
+          if (formData.modelType === 'wan-2.5-i2v') {
+            requestBody.imageUrls = [imageUrl];
+            if (audioUrl) {
+              requestBody.audioUrl = audioUrl;
+            }
+          }
+
+          if (formData.lockSeed) {
+            requestBody.seeds = parseInt(formData.customSeed) || Math.floor(Math.random() * 2147483647);
+          }
 
           const { data, error } = await supabase.functions.invoke('wavespeed-video', {
-            body: {
-              action: 'create',
-              prompt: enhancedPrompt,
-              aspectRatio: formData.aspectRatio as '16:9' | '9:16',
-              model: 'wan-2.2',
-              enableFallback: true,
-              seeds: newProject.consistencySettings?.lockSeed ? newProject.consistencySettings.globalSeed : undefined,
-              imageUrls: referenceImageUrls,
-              characterId: newProject.characterId,
-              duration: 5
-            }
+            body: requestBody
           });
 
           if (error) {
             console.error(`API error for segment ${segment.id}:`, error);
-            throw new Error(error.message || 'Failed to create video');
+            throw new Error(error.message || 'Failed to create video segment');
           }
 
           if (data?.taskId) {
-            // Update segment with job ID and persist to localStorage
-            const updatedProjects = [...projects];
-            const projectIndex = updatedProjects.findIndex(p => p.id === newProject.id);
-            if (projectIndex !== -1) {
-              updatedProjects[projectIndex] = {
-                ...updatedProjects[projectIndex],
-                segments: updatedProjects[projectIndex].segments.map(s => 
-                  s.id === segment.id 
-                    ? { ...s, jobId: data.taskId, status: 'processing' as const }
-                    : s
-                )
-              };
-              saveProjects(updatedProjects);
-              setProjects(updatedProjects);
-            }
+            // Update segment with job ID in database
+            const updatedSegments = segments.map(s => 
+              s.id === segment.id 
+                ? { ...s, jobId: data.taskId, status: 'processing' as const }
+                : s
+            );
+
+            await supabase
+              .from('projects')
+              .update({ segments: updatedSegments as any })
+              .eq('id', newProject.id);
+            
+            // Update local state
+            setProjects(prev => prev.map(p => 
+              p.id === newProject.id 
+                ? { ...p, segments: updatedSegments }
+                : p
+            ));
             
             // Start polling for this segment
             setTimeout(() => {
               pollSegmentStatus(data.taskId, newProject.id, segment.id);
-            }, 5000); // Start polling after 5 seconds
+            }, 5000);
             
             console.log(`Video creation started for segment ${segment.sceneNumber}, taskId: ${data.taskId}`);
-          } else {
-            throw new Error('No taskId returned from video creation');
           }
         } catch (segmentError) {
           console.error(`Error creating segment ${segment.sceneNumber}:`, segmentError);
-          
-          // Mark segment as failed and persist
-          const updatedProjects = [...projects];
-          const projectIndex = updatedProjects.findIndex(p => p.id === newProject.id);
-          if (projectIndex !== -1) {
-            updatedProjects[projectIndex] = {
-              ...updatedProjects[projectIndex],
-              segments: updatedProjects[projectIndex].segments.map(s => 
-                s.id === segment.id 
-                  ? { ...s, status: 'failed' as const }
-                  : s
-              )
-            };
-            saveProjects(updatedProjects);
-            setProjects(updatedProjects);
-          }
           
           toast({
             title: `Segment ${segment.sceneNumber} Failed`,
@@ -453,17 +405,17 @@ Create a cinematic video that captures both the visual elements and the message/
       setFormData({ 
         title: '', 
         script: '', 
+        modelType: 'wan-2.2',
         aspectRatio: '16:9', 
-        style: 'default', 
         duration: 60, 
         characterId: 'none', 
         lockSeed: false, 
         customSeed: '',
-        styleConsistency: 'high',
         voice: 'alloy',
-        segmentDuration: '15' as '15' | '30' | 'custom',
-        customSegmentDuration: 15
+        segmentDuration: '5'
       });
+      setSourceImage(null);
+      setSourceAudio(null);
       
       toast({
         title: "Video Creation Started",
@@ -493,594 +445,262 @@ Create a cinematic video that captures both the visual elements and the message/
 
       if (error) {
         console.error('Status check error:', error);
-        // Retry after longer delay on error
         setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 10000);
         return;
       }
 
-      const job = data;
-      console.log(`Status update for ${taskId}:`, job);
+      console.log(`Status update for ${taskId}:`, data);
 
-      // Calculate more detailed progress based on status
-      let progressValue = job.progress || 0;
-      if (job.status === 'pending') {
-        progressValue = 5; // Show minimal progress for pending
-      } else if (job.status === 'processing') {
-        progressValue = Math.max(progressValue, 25); // At least 25% when processing
-      } else if (job.status === 'completed') {
-        progressValue = 100;
-      } else if (job.status === 'failed') {
-        progressValue = 0;
-      }
-      
-      // Update project and persist to localStorage
-      setProjects(prev => {
-        const updated = prev.map(p => 
-          p.id === projectId 
-            ? {
-                ...p,
-                segments: p.segments.map(s => 
-                  s.id === segmentId 
-                    ? { 
-                        ...s, 
-                        status: job.status as 'pending' | 'processing' | 'completed' | 'failed', 
-                        progress: progressValue, 
-                        outputUrl: job.videoUrl || s.outputUrl,
-                        error: job.error || s.error
-                      }
-                    : s
-                )
+      // Update project in database and local state
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        const updatedSegments = project.segments.map(s => 
+          s.id === segmentId 
+            ? { 
+                ...s, 
+                status: data.status as 'pending' | 'processing' | 'completed' | 'failed', 
+                progress: data.progress || 0, 
+                outputUrl: data.videoUrl 
               }
-            : p
+            : s
         );
-        
-        // Persist the updated projects
-        localStorage.setItem('kie_video_projects', JSON.stringify(updated));
-        return updated;
-      });
 
-      if (job.status === 'processing' || job.status === 'pending') {
-        // Continue polling with optimized timing
-        const delay = job.status === 'pending' ? 8000 : 4000; // Faster for processing
-        setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), delay);
-      } else if (job.status === 'completed') {
-        // Show success notification
+        await supabase
+          .from('projects')
+          .update({ segments: updatedSegments as any })
+          .eq('id', projectId);
+        
+        // Update local state
+        setProjects(prev => prev.map(p => 
+          p.id === projectId 
+            ? { ...p, segments: updatedSegments }
+            : p
+        ));
+      }
+
+      // Continue polling if still processing
+      if (data.status === 'processing' || data.status === 'pending') {
+        setTimeout(() => {
+          pollSegmentStatus(taskId, projectId, segmentId);
+        }, 5000);
+      } else if (data.status === 'completed') {
         toast({
-          title: "🎉 Segment Complete!",
-          description: `Scene is ready to watch.`
+          title: "Segment Completed",
+          description: `Video segment is ready!`,
         });
-      } else if (job.status === 'failed') {
-        // Show failure notification with retry option
+      } else if (data.status === 'failed') {
         toast({
-          title: "❌ Segment Failed",
-          description: `Scene failed: ${job.error || 'API connection issue'}. Try refreshing or retrying.`,
+          title: "Segment Failed", 
+          description: data.error || "Video generation failed",
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error('Polling error:', error);
-      // Retry after delay on polling error
-      setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 15000);
+      console.error('Error polling status:', error);
+      setTimeout(() => pollSegmentStatus(taskId, projectId, segmentId), 10000);
     }
   };
 
-  const getProjectStatus = (project: VideoProject): string => {
+  const getProjectStatus = (project: VideoProject): 'pending' | 'processing' | 'completed' | 'failed' => {
     if (!project.segments || project.segments.length === 0) return 'pending';
     
     const statuses = project.segments.map(s => s.status);
     
     if (statuses.every(s => s === 'completed')) return 'completed';
-    if (statuses.some(s => s === 'failed')) return 'failed';
     if (statuses.some(s => s === 'processing')) return 'processing';
+    if (statuses.some(s => s === 'failed')) return 'failed';
+    
     return 'pending';
   };
 
   const getProjectProgress = (project: VideoProject): number => {
     if (!project.segments || project.segments.length === 0) return 0;
     
-    const totalProgress = project.segments.reduce((sum, segment) => {
-      if (segment.status === 'completed') return sum + 100;
-      if (segment.status === 'processing') return sum + (segment.progress || 0);
-      return sum;
-    }, 0);
-    
+    const totalProgress = project.segments.reduce((sum, segment) => sum + segment.progress, 0);
     return Math.round(totalProgress / project.segments.length);
   };
 
-  const refreshSegmentStatus = async (project: VideoProject, segment: VideoSegment) => {
-    if (!segment.jobId) return;
+  const calculateEstimatedCost = () => {
+    if (!formData.script) return 0;
     
-    try {
-      const { data, error } = await supabase.functions.invoke('kie-video', {
-        body: {
-          action: 'status',
-          taskId: segment.jobId
-        }
-      });
-
-      if (error) {
-        toast({
-          title: "Status Check Failed",
-          description: error.message || "Failed to check segment status",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Update the segment status
-      setProjects(prev => {
-        const updated = prev.map(p => 
-          p.id === project.id 
-            ? {
-                ...p,
-                segments: p.segments.map(s => 
-                  s.id === segment.id 
-                    ? { 
-                        ...s, 
-                        status: data.status as 'pending' | 'processing' | 'completed' | 'failed', 
-                        progress: data.progress || 0, 
-                        outputUrl: data.videoUrl 
-                      }
-                    : s
-                )
-              }
-            : p
-        );
-        
-        // Persist the updated projects
-        localStorage.setItem('kie_video_projects', JSON.stringify(updated));
-        return updated;
-      });
-
-      toast({
-        title: "Status Updated",
-        description: `Scene ${segment.sceneNumber} status: ${data.status}`,
-      });
-
-      // Resume polling if still processing
-      if (data.status === 'processing' || data.status === 'pending') {
-        setTimeout(() => {
-          pollSegmentStatus(segment.jobId!, project.id, segment.id);
-        }, 5000);
-      }
-    } catch (error) {
-      console.error('Error refreshing segment status:', error);
-      toast({
-        title: "Status Check Failed",
-        description: "Failed to refresh segment status",
-        variant: "destructive"
-      });
-    }
+    const segments = parseScriptIntoSegments(formData.script);
+    const costPerSegment = MODEL_COSTS[formData.modelType] || 0.1;
+    return segments.length * costPerSegment;
   };
 
-  const refreshAllSegments = async (project: VideoProject) => {
-    const segmentsWithJobs = project.segments.filter(s => s.jobId);
-    
-    for (const segment of segmentsWithJobs) {
-      await refreshSegmentStatus(project, segment);
-      // Small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  };
+  const estimatedCost = calculateEstimatedCost();
 
-  const retryFailedSegments = async (project: VideoProject) => {
-    const failedSegments = project.segments.filter(s => s.status === 'failed');
-    
-    if (failedSegments.length === 0) {
-      toast({
-        title: "No Failed Segments",
-        description: "All segments are either completed or in progress.",
-      });
-      return;
-    }
-
-    setIsCreating(true);
-    
-    for (const segment of failedSegments) {
-      try {
-        // Get selected character for consistency
-        const selectedCharacter = project.characterId 
-          ? characters.find(c => c.id === project.characterId)
-          : null;
-
-        // Prepare reference images from character
-        const referenceImageUrls = selectedCharacter?.appearanceImage 
-          ? [selectedCharacter.appearanceImage] 
-          : [];
-
-        // Create enhanced prompt with character bible and consistency rules
-        const characterBible = selectedCharacter ? `
-CHARACTER BIBLE:
-- Name: ${selectedCharacter.name}
-- Appearance: ${selectedCharacter.description || 'As shown in reference image'}
-- Personality: ${selectedCharacter.personality}
-- Voice Style: ${selectedCharacter.voiceType}
-${selectedCharacter.description ? `- Background: ${selectedCharacter.description}` : ''}
-
-CONSISTENCY RULES:
-- Keep the character's appearance identical across all scenes
-- Maintain consistent lighting and visual style
-- Use the same character model and features throughout
-- Ensure facial features, hair, clothing style remain constant
-- Apply consistent cinematographic style
-${selectedCharacter.appearanceImage ? '- Use the provided reference image to maintain character appearance' : ''}
-
-` : '';
-
-        const enhancedPrompt = `${characterBible}Scene ${segment.sceneNumber} (${segment.timeRange}):
-
-Visual Description: ${segment.description}
-
-Dialogue/Content: "${segment.dialogue}"
-
-${selectedCharacter ? `Featured Character: ${selectedCharacter.name} - ${selectedCharacter.description || 'As shown in reference image'}` : ''}
-
-Create a cinematic video that captures both the visual elements and the message/dialogue described above. ${selectedCharacter ? 'Ensure the character appears consistently as described in the character bible above.' : ''} Focus on engaging cinematography that matches the scene's requirements.`.trim();
-
-        const { data, error } = await supabase.functions.invoke('kie-video', {
-          body: {
-            action: 'create',
-            prompt: enhancedPrompt,
-            aspectRatio: project.aspectRatio as '16:9' | '9:16',
-            model: 'veo3',
-            enableFallback: true,
-            seeds: project.consistencySettings?.lockSeed ? project.consistencySettings.globalSeed : undefined,
-            referenceImageUrls: referenceImageUrls,
-            characterId: project.characterId
-          }
-        });
-
-        if (error) {
-          console.error(`API error for segment ${segment.id}:`, error);
-          throw new Error(error.message || 'Failed to retry video segment');
-        }
-
-        if (data?.taskId) {
-          setProjects(prev => prev.map(p => 
-            p.id === project.id 
-              ? {
-                  ...p,
-                  segments: p.segments.map(s => 
-                    s.id === segment.id 
-                      ? { ...s, jobId: data.taskId, status: 'processing' as const }
-                      : s
-                  )
-                }
-              : p
-          ));
-          
-          setTimeout(() => {
-            pollSegmentStatus(data.taskId, project.id, segment.id);
-          }, 5000);
-        }
-      } catch (segmentError) {
-        console.error(`Error retrying segment ${segment.sceneNumber}:`, segmentError);
-        toast({
-          title: `Retry Failed: Scene ${segment.sceneNumber}`,
-          description: segmentError instanceof Error ? segmentError.message : "Failed to retry video segment",
-          variant: "destructive"
-        });
-      }
-    }
-    
-    setIsCreating(false);
-  };
-
-  const stitchVideos = async (project: VideoProject) => {
-    if (!project.segments || project.segments.length === 0) return;
-    
-    const completedSegments = project.segments
-      .filter(s => s.status === 'completed' && s.outputUrl)
-      .sort((a, b) => a.sceneNumber - b.sceneNumber);
-    
-    if (completedSegments.length < 2) {
-      toast({
-        title: "Need Multiple Segments",
-        description: "Please wait until at least two segments are completed to stitch.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsCreating(true);
-    toast({ 
-      title: 'Stitching Started', 
-      description: `Combining ${completedSegments.length} segments into a single video...` 
-    });
-    
-    try {
-      const urls = completedSegments.map(s => s.outputUrl!) as string[];
-      console.log('Stitching videos in order:', urls);
-      
-      const blob = await stitchVideosLib(urls, (progress) => {
-        console.log('Stitch progress:', progress, '%');
-        // You could add progress UI here if needed
-      });
-
-      console.log('Stitching completed, creating object URL...');
-      const objectUrl = URL.createObjectURL(blob);
-      console.log('Object URL created:', objectUrl);
-
-      // Update project with final stitched URL
-      const stitchedProject: VideoProject = {
-        ...project,
-        isStitched: true,
-        stitchedUrl: objectUrl,
-        stitchedSegments: urls
-      };
-
-      setProjects(prev => prev.map(p => (p.id === project.id ? stitchedProject : p)));
-
-      // Persist to localStorage (note: objectUrl won't survive page reloads)
-      const updatedProjects = projects.map(p => (p.id === project.id ? stitchedProject : p));
-      localStorage.setItem('kie_video_projects', JSON.stringify(updatedProjects));
-
-      toast({ 
-        title: 'Videos Successfully Stitched!', 
-        description: `Combined ${completedSegments.length} segments into one video. Click "Watch Final Video" to view the result.` 
-      });
-      
-    } catch (error) {
-      console.error('Video stitching error:', error);
-      toast({
-        title: 'Stitching Failed',
-        description: error instanceof Error ? error.message : 'Failed to stitch videos together.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  // API keys are now handled server-side, no configuration needed
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <RefreshCwIcon className="w-8 h-8 animate-spin" />
+            <span className="ml-2">Loading projects...</span>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Video Production</h1>
-          <p className="text-muted-foreground">
-            Create AI-powered videos from your scripts using Kie.ai technology.
-          </p>
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-foreground">AI Video Creator</h1>
+          <p className="text-muted-foreground">Transform your scripts into professional videos with multiple AI models</p>
         </div>
 
-        {/* Create New Video */}
-        <Card className="glass">
+        {/* Creation Form */}
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <PlusIcon className="w-5 h-5 text-primary" />
-              Create New Video
+            <CardTitle className="flex items-center gap-2">
+              <PlusIcon className="w-5 h-5" />
+              Create New Video Project
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Project Title</Label>
-                <Input
-                  placeholder="My Amazing Video"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Aspect Ratio</Label>
-                <Select value={formData.aspectRatio} onValueChange={(value) => setFormData(prev => ({ ...prev, aspectRatio: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-                    <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-                    <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Project Title</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    placeholder="My Amazing Video"
+                  />
+                </div>
 
-            {/* Character Selection */}
-            <div className="space-y-2">
-              <Label>Character (Optional)</Label>
-              <Select value={formData.characterId} onValueChange={(value) => setFormData(prev => ({ ...prev, characterId: value === 'none' ? '' : value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a character for consistency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Character</SelectItem>
-                  {characters.map(character => (
-                    <SelectItem key={character.id} value={character.id}>
-                      {character.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {characters.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Visit the Characters page to create AI avatars for consistent video generation.
-                </p>
-              )}
-            </div>
-
-            {/* Consistency Controls */}
-            {formData.characterId && formData.characterId !== 'none' && (
-              <div className="space-y-4 p-3 border border-border rounded-lg bg-muted/30">
-                <h4 className="text-sm font-medium text-foreground">Consistency Controls</h4>
-                
-                <TooltipProvider>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm">Lock Seed</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <InfoIcon className="w-4 h-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="max-w-xs space-y-2">
-                            <p className="font-medium">Lock Seed ensures visual consistency</p>
-                            <p className="text-xs">When enabled with a character image, all video segments will use the same random seed and reference image, creating consistent visual style and character appearance across scenes.</p>
-                            <p className="text-xs font-medium">Turn ON when: You want identical character appearance</p>
-                            <p className="text-xs font-medium">Turn OFF when: You want more visual variety</p>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={formData.lockSeed}
-                      onChange={(e) => setFormData(prev => ({ ...prev, lockSeed: e.target.checked }))}
-                      className="rounded"
-                    />
-                  </div>
-                </TooltipProvider>
-
-                {formData.lockSeed && (
-                  <div className="space-y-2 p-2 bg-background/50 rounded border border-border/50">
-                    <div className="flex items-center gap-2">
-                      <Dices className="w-4 h-4 text-primary" />
-                      <Label className="text-sm">Seed Value (Optional)</Label>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Auto-generated if empty"
-                        value={formData.customSeed}
-                        onChange={(e) => setFormData(prev => ({ ...prev, customSeed: e.target.value }))}
-                        className="flex-1"
-                        min="10000"
-                        max="99999"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setFormData(prev => ({ 
-                          ...prev, 
-                          customSeed: (Math.floor(Math.random() * 90000) + 10000).toString() 
-                        }))}
-                      >
-                        <Dices className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Same seed = identical visual style. Leave empty for auto-generation.
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label>Style Consistency</Label>
-                  <Select value={formData.styleConsistency} onValueChange={(value) => setFormData(prev => ({ ...prev, styleConsistency: value as 'high' | 'medium' | 'low' }))}>
+                <div>
+                  <Label htmlFor="modelType">AI Model</Label>
+                  <Select value={formData.modelType} onValueChange={(value) => setFormData({...formData, modelType: value as keyof typeof MODEL_COSTS})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="high">High (Strictest matching)</SelectItem>
-                      <SelectItem value="medium">Medium (Balanced)</SelectItem>
-                      <SelectItem value="low">Low (More variation)</SelectItem>
+                      {Object.entries(MODEL_NAMES).map(([value, name]) => (
+                        <SelectItem key={value} value={value}>
+                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/segment
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            )}
 
-            {/* Segment Duration Controls */}
-            <div className="space-y-4 p-3 border border-border rounded-lg bg-muted/30">
-              <h4 className="text-sm font-medium text-foreground">Segment Duration Settings</h4>
-              
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label>Segment Length</Label>
-                  <Select 
-                    value={formData.segmentDuration} 
-                    onValueChange={(value) => setFormData(prev => ({ 
-                      ...prev, 
-                      segmentDuration: value as '15' | '30' | 'custom' 
-                    }))}
-                  >
+                {formData.modelType === 'wan-2.5-i2v' && (
+                  <>
+                    <div>
+                      <Label htmlFor="sourceImage" className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4" />
+                        Source Image (Required)
+                      </Label>
+                      <Input
+                        id="sourceImage"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setSourceImage(e.target.files?.[0] || null)}
+                        className="cursor-pointer"
+                      />
+                      {sourceImage && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Selected: {sourceImage.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="sourceAudio" className="flex items-center gap-2">
+                        <VolumeIcon className="w-4 h-4" />
+                        Audio Track (Optional)
+                      </Label>
+                      <Input
+                        id="sourceAudio"
+                        type="file"
+                        accept="audio/*"
+                        onChange={(e) => setSourceAudio(e.target.files?.[0] || null)}
+                        className="cursor-pointer"
+                      />
+                      {sourceAudio && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Selected: {sourceAudio.name}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <Label htmlFor="aspectRatio">Aspect Ratio</Label>
+                  <Select value={formData.aspectRatio} onValueChange={(value) => setFormData({...formData, aspectRatio: value})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="15">15 seconds (Quick clips)</SelectItem>
-                      <SelectItem value="30">30 seconds (Standard clips)</SelectItem>
-                      <SelectItem value="custom">Custom duration</SelectItem>
+                      <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                      <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.segmentDuration === 'custom' && (
-                  <div className="space-y-2">
-                    <Label>Custom Duration (seconds)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={formData.customSegmentDuration}
-                        onChange={(e) => setFormData(prev => ({ 
-                          ...prev, 
-                          customSegmentDuration: Math.max(5, Math.min(120, parseInt(e.target.value) || 15))
-                        }))}
-                        min="5"
-                        max="120"
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground">seconds (5-120s)</span>
+                <div>
+                  <Label htmlFor="segmentDuration">Segment Duration (seconds)</Label>
+                  <Select value={formData.segmentDuration} onValueChange={(value) => setFormData({...formData, segmentDuration: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 seconds</SelectItem>
+                      <SelectItem value="10">10 seconds</SelectItem>
+                      <SelectItem value="15">15 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="script">Video Script</Label>
+                  <Textarea
+                    id="script"
+                    value={formData.script}
+                    onChange={(e) => setFormData({...formData, script: e.target.value})}
+                    placeholder="Scene 1 (0:00–0:15):
+Visuals: A confident woman in her 40s stands on a stage with a microphone...
+Dialogue: Good evening everyone. Tonight, I want to share the power of clinical studies..."
+                    rows={8}
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                {estimatedCost > 0 && (
+                  <div className="p-3 bg-accent rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <DollarSign className="w-4 h-4 text-accent-foreground" />
+                      <span className="font-medium">Estimated Cost: ${estimatedCost.toFixed(2)}</span>
+                      <span className="text-muted-foreground">
+                        ({parseScriptIntoSegments(formData.script).length} segments × ${MODEL_COSTS[formData.modelType]})
+                      </span>
                     </div>
                   </div>
                 )}
-
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p>• <strong>15 seconds:</strong> Perfect for social media, quick attention-grabbing content</p>
-                  <p>• <strong>30 seconds:</strong> Ideal for detailed explanations and storytelling</p>
-                  <p>• <strong>Custom:</strong> Set your own duration based on content requirements</p>
-                </div>
               </div>
             </div>
 
-            {/* Voice Selection */}
-            <div className="space-y-2">
-              <Label>Voice for Narration</Label>
-              <Select value={formData.voice} onValueChange={(value) => setFormData(prev => ({ ...prev, voice: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="alloy">Alloy (Balanced, neutral)</SelectItem>
-                  <SelectItem value="echo">Echo (Male, clear)</SelectItem>
-                  <SelectItem value="fable">Fable (British, warm)</SelectItem>
-                  <SelectItem value="onyx">Onyx (Male, deep)</SelectItem>
-                  <SelectItem value="nova">Nova (Female, energetic)</SelectItem>
-                  <SelectItem value="shimmer">Shimmer (Female, soft)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                This voice will be used consistently across all video segments
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Script</Label>
-              <Textarea
-                placeholder="Enter your video script here..."
-                value={formData.script}
-                onChange={(e) => setFormData(prev => ({ ...prev, script: e.target.value }))}
-                className="min-h-[120px]"
-              />
-            </div>
-
-            <Button 
-              onClick={handleCreateVideo} 
-              disabled={isCreating}
+            <Button
+              onClick={handleCreateVideo}
+              disabled={isCreating || !formData.title.trim() || !formData.script.trim()}
               className="w-full"
-              variant="hero"
             >
               {isCreating ? (
                 <>
-                  <RefreshCwIcon className="w-4 h-4 animate-spin" />
+                  <RefreshCwIcon className="w-4 h-4 mr-2 animate-spin" />
                   Creating Video...
                 </>
               ) : (
                 <>
-                  <VideoIcon className="w-4 h-4" />
-                  Create Video
+                  <VideoIcon className="w-4 h-4 mr-2" />
+                  Create Video Project
                 </>
               )}
             </Button>
@@ -1088,11 +708,11 @@ Create a cinematic video that captures both the visual elements and the message/
         </Card>
 
         {/* Projects List */}
-        <Card className="glass">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <VideoIcon className="w-5 h-5 text-primary" />
-              Video Projects
+            <CardTitle className="flex items-center gap-2">
+              <GridIcon className="w-5 h-5" />
+              Your Video Projects
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1106,7 +726,6 @@ Create a cinematic video that captures both the visual elements and the message/
                 {projects.map((project) => {
                   const projectStatus = getProjectStatus(project);
                   const projectProgress = getProjectProgress(project);
-                  const allCompleted = project.segments && project.segments.every(s => s.status === 'completed');
                   
                   return (
                     <div key={project.id} className="p-4 border border-border rounded-lg space-y-4">
@@ -1114,48 +733,20 @@ Create a cinematic video that captures both the visual elements and the message/
                         <div>
                           <h3 className="font-semibold text-foreground">{project.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {project.aspectRatio} • {project.segments?.length || 0} segments • {new Date(project.createdAt).toLocaleDateString()}
-                            {project.consistencySettings?.lockSeed && (
-                              <span className="ml-2">
-                                • Seed: {project.consistencySettings.globalSeed}
-                              </span>
-                            )}
+                            {MODEL_NAMES[project.model_type as keyof typeof MODEL_NAMES] || project.model_type} • {project.aspect_ratio} • {project.segments?.length || 0} segments • {new Date(project.created_at).toLocaleDateString()}
                           </p>
                         </div>
-                         <div className="flex items-center gap-2">
-                           <Badge variant={
-                             projectStatus === 'completed' ? 'default' :
-                             projectStatus === 'processing' ? 'secondary' :
-                             projectStatus === 'failed' ? 'destructive' : 'outline'
-                           }>
-                             {projectStatus === 'completed' && <CheckCircleIcon className="w-3 h-3 mr-1" />}
-                             {projectStatus === 'processing' && <RefreshCwIcon className="w-3 h-3 mr-1 animate-spin" />}
-                             {projectStatus === 'failed' && <XCircleIcon className="w-3 h-3 mr-1" />}
-                             {projectStatus === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
-                             {projectStatus}
-                           </Badge>
-                            {(projectStatus === 'processing' || projectStatus === 'pending') && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => refreshAllSegments(project)}
-                              >
-                                <RefreshCwIcon className="w-3 h-3 mr-1" />
-                                Refresh All
-                              </Button>
-                            )}
-                            {projectStatus === 'failed' && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => retryFailedSegments(project)}
-                                disabled={isCreating}
-                              >
-                                <RefreshCwIcon className="w-3 h-3 mr-1" />
-                                Retry Failed
-                              </Button>
-                            )}
-                         </div>
+                         <Badge variant={
+                           projectStatus === 'completed' ? 'default' :
+                           projectStatus === 'processing' ? 'secondary' :
+                           projectStatus === 'failed' ? 'destructive' : 'outline'
+                         }>
+                           {projectStatus === 'completed' && <CheckCircleIcon className="w-3 h-3 mr-1" />}
+                           {projectStatus === 'processing' && <RefreshCwIcon className="w-3 h-3 mr-1 animate-spin" />}
+                           {projectStatus === 'failed' && <XCircleIcon className="w-3 h-3 mr-1" />}
+                           {projectStatus === 'pending' && <ClockIcon className="w-3 h-3 mr-1" />}
+                           {projectStatus}
+                         </Badge>
                       </div>
 
                       {projectStatus === 'processing' && (
@@ -1179,162 +770,54 @@ Create a cinematic video that captures both the visual elements and the message/
                             <div key={segment.id} className="p-3 bg-muted/50 rounded-lg space-y-2">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">Scene {segment.sceneNumber}</span>
-                                <div className="flex items-center gap-2">
-                                   <Badge 
-                                     variant={
-                                       segment.status === 'completed' ? 'default' :
-                                       segment.status === 'processing' ? 'secondary' :
-                                       segment.status === 'failed' ? 'destructive' : 'outline'
-                                     }
-                                     className={
-                                       segment.status === 'pending' ? 'text-yellow-700 border-yellow-500' :
-                                       segment.status === 'processing' ? 'text-blue-700 border-blue-500' :
-                                       segment.status === 'completed' ? 'text-green-700 border-green-500' :
-                                       segment.status === 'failed' ? 'text-red-700 border-red-500' : ''
-                                     }
-                                   >
-                                     {segment.status === 'pending' ? '⏳ Queued' :
-                                      segment.status === 'processing' ? '🎬 Generating' :
-                                      segment.status === 'completed' ? '✅ Ready' :
-                                      segment.status === 'failed' ? '❌ Failed' : segment.status}
-                                   </Badge>
-                                  {segment.progress > 0 && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {segment.progress}%
-                                    </span>
-                                  )}
-                                </div>
+                                <Badge 
+                                  variant={
+                                    segment.status === 'completed' ? 'default' :
+                                    segment.status === 'processing' ? 'secondary' :
+                                    segment.status === 'failed' ? 'destructive' : 'outline'
+                                  }
+                                >
+                                  {segment.status === 'pending' ? '⏳ Queued' :
+                                   segment.status === 'processing' ? '🎬 Generating' :
+                                   segment.status === 'completed' ? '✅ Ready' :
+                                   segment.status === 'failed' ? '❌ Failed' : segment.status}
+                                </Badge>
                               </div>
-                              <p className="text-xs text-muted-foreground">{segment.timeRange}</p>
-                              <p className="text-xs">{segment.dialogue}</p>
-                              
-                              {(segment.status === 'processing' || segment.status === 'pending') && (
-                                 <div className="space-y-1">
-                                   <Progress value={segment.progress || 0} className="w-full h-2" />
-                                   <div className="flex justify-between text-xs text-muted-foreground">
-                                     <span>
-                                       {segment.status === 'pending' ? 'Queued for processing...' : 
-                                        segment.status === 'processing' ? 'AI generating video...' : ''}
-                                     </span>
-                                     <span>{segment.progress || 0}%</span>
-                                   </div>
-                                   <div className="text-xs text-muted-foreground">
-                                     {segment.status === 'pending' && 'Your request is in the queue and will start processing shortly.'}
-                                     {segment.status === 'processing' && 'Video is being generated by AI. This usually takes 1-2 minutes.'}
-                                   </div>
-                                 </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {segment.dialogue}
+                              </p>
+                              {segment.status === 'processing' && (
+                                <Progress value={segment.progress} className="w-full h-1" />
                               )}
-                              
-                               {segment.status === 'failed' && segment.error && (
-                                 <div className="bg-red-50 border border-red-200 rounded p-2">
-                                   <p className="text-xs text-red-700 font-medium">Error Details:</p>
-                                   <p className="text-xs text-red-600 mt-1">{segment.error}</p>
-                                   <p className="text-xs text-muted-foreground mt-1">
-                                     Try refreshing the segment or check your API configuration.
-                                   </p>
-                                 </div>
-                               )}
-                              
-                              <div className="flex gap-1">
-                                {segment.status === 'completed' && segment.outputUrl && (
-                                  <Button variant="outline" size="sm" asChild>
-                                    <a href={segment.outputUrl} target="_blank" rel="noopener noreferrer">
-                                      <PlayIcon className="w-3 h-3 mr-1" />
-                                      Watch
-                                    </a>
-                                  </Button>
-                                )}
-                                
-                                {segment.jobId && (
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={() => refreshSegmentStatus(project, segment)}
+                              {segment.outputUrl && (
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => window.open(segment.outputUrl, '_blank')}
                                   >
-                                    <RefreshCwIcon className="w-3 h-3 mr-1" />
-                                    Refresh
+                                    <PlayIcon className="w-3 h-3 mr-1" />
+                                    Play
                                   </Button>
-                                )}
-                              </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const a = document.createElement('a');
+                                      a.href = segment.outputUrl!;
+                                      a.download = `scene-${segment.sceneNumber}.mp4`;
+                                      a.click();
+                                    }}
+                                  >
+                                    <DownloadIcon className="w-3 h-3 mr-1" />
+                                    Download
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
                       </div>
-
-                      {/* Stitching Options */}
-                      {allCompleted && !project.isStitched && (
-                        <div className="border-t border-border pt-3">
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              variant="outline" 
-                              className="flex-1"
-                              onClick={() => stitchVideos(project)}
-                              disabled={isCreating}
-                            >
-                              <LinkIcon className="w-4 h-4 mr-2" />
-                              {isCreating ? 'Stitching...' : 'Stitch Videos Together'}
-                            </Button>
-                            <Button variant="outline">Review All</Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Final Stitched Video */}
-                      {project.isStitched && project.stitchedUrl && (
-                        <div className="border-t border-border pt-3">
-                          <p className="text-sm text-muted-foreground mb-2">Final stitched video:</p>
-                          <div className="flex gap-2">
-                            <Button variant="outline" asChild>
-                              <a href={project.stitchedUrl} target="_blank" rel="noopener noreferrer">
-                                <PlayIcon className="w-4 h-4 mr-2" />
-                                Watch Final Video
-                              </a>
-                            </Button>
-                            <Button variant="outline" asChild>
-                              <a href={project.stitchedUrl} download>
-                                <DownloadIcon className="w-4 h-4 mr-2" />
-                                Download
-                              </a>
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {project.isStitched && project.stitchedSegments && (
-                        <div className="border-t border-border pt-3">
-                          <p className="text-sm text-muted-foreground mb-2">Stitched video segments:</p>
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {project.stitchedSegments.map((url, index) => (
-                              <Button key={index} variant="outline" size="sm" asChild>
-                                <a href={url} target="_blank" rel="noopener noreferrer">
-                                  <PlayIcon className="w-3 h-3 mr-1" />
-                                  Segment {index + 1}
-                                </a>
-                              </Button>
-                            ))}
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" className="flex-1" asChild>
-                              <a href={project.stitchedSegments[0]} target="_blank" rel="noopener noreferrer">
-                                <PlayIcon className="w-4 h-4 mr-2" />
-                                Play First Segment
-                              </a>
-                            </Button>
-                            <Button 
-                              variant="outline"
-                              onClick={() => {
-                                // Open all segments in new tabs for sequential viewing
-                                project.stitchedSegments?.forEach((url, index) => {
-                                  setTimeout(() => window.open(url, '_blank'), index * 500);
-                                });
-                              }}
-                            >
-                              <GridIcon className="w-4 h-4 mr-2" />
-                              Play All
-                            </Button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })}

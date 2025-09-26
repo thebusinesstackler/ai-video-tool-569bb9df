@@ -53,6 +53,66 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          aspect_ratio: string
+          character_id: string | null
+          consistency_settings: Json | null
+          created_at: string
+          id: string
+          is_stitched: boolean | null
+          model_type: string
+          script: string | null
+          segments: Json | null
+          source_audio_url: string | null
+          source_image_url: string | null
+          stitched_url: string | null
+          title: string
+          total_duration: number | null
+          updated_at: string
+          user_id: string
+          voice_settings: Json | null
+        }
+        Insert: {
+          aspect_ratio?: string
+          character_id?: string | null
+          consistency_settings?: Json | null
+          created_at?: string
+          id?: string
+          is_stitched?: boolean | null
+          model_type?: string
+          script?: string | null
+          segments?: Json | null
+          source_audio_url?: string | null
+          source_image_url?: string | null
+          stitched_url?: string | null
+          title: string
+          total_duration?: number | null
+          updated_at?: string
+          user_id: string
+          voice_settings?: Json | null
+        }
+        Update: {
+          aspect_ratio?: string
+          character_id?: string | null
+          consistency_settings?: Json | null
+          created_at?: string
+          id?: string
+          is_stitched?: boolean | null
+          model_type?: string
+          script?: string | null
+          segments?: Json | null
+          source_audio_url?: string | null
+          source_image_url?: string | null
+          stitched_url?: string | null
+          title?: string
+          total_duration?: number | null
+          updated_at?: string
+          user_id?: string
+          voice_settings?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
