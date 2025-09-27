@@ -79,9 +79,13 @@ serve(async (req) => {
           throw new Error('Image is required for image-to-video model');
         }
 
+        // Map aspectRatio to resolution (defaulting to 720p)
+        const resolution = "720p";
+
         requestBody = {
           image: params.imageUrls[0],
-          prompt: params.prompt
+          prompt: params.prompt,
+          resolution: resolution
         };
 
         // Add audio if provided
