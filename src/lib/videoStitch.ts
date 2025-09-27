@@ -113,16 +113,77 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Concat list:', concatList);
     await ffmpeg.writeFile('concat.txt', new TextEncoder().encode(concatList));
 
-    // Try stream copy first (fast, no re-encode)
-    console.log('Attempting video concatenation with stream copy...');
+    // Create smooth transitions between clips
+    console.log('Creating video with smooth transitions...');
     try {
-      await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
-      console.log('Stream copy concatenation successful');
-    } catch (copyErr) {
-      console.log('Stream copy failed, trying re-encode...', copyErr);
-      // If copy fails, try a generic re-mux
-      await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c:v', 'libx264', '-c:a', 'aac', '-movflags', 'faststart', 'output.mp4']);
-      console.log('Re-encode concatenation successful');
+      if (partNames.length === 1) {
+        // Single video, just copy
+        await ffmpeg.exec(['-i', partNames[0], '-c', 'copy', 'output.mp4']);
+        console.log('Single video copy successful');
+      } else {
+        // Multiple videos with fade transitions
+        const transitionDuration = 0.5; // 500ms fade transition
+        
+        // Build complex filter for crossfade transitions
+        let filterComplex = '';
+        let inputs = '';
+        
+        // Add all inputs
+        for (let i = 0; i < partNames.length; i++) {
+          inputs += `-i ${partNames[i]} `;
+        }
+        
+        if (partNames.length === 2) {
+          // Simple crossfade for 2 videos
+          filterComplex = `[0:v][1:v]xfade=transition=fade:duration=${transitionDuration}:offset=14.5[vout];[0:a][1:a]acrossfade=d=${transitionDuration}[aout]`;
+        } else {
+          // Complex crossfade chain for multiple videos
+          let videoFilter = '';
+          let audioFilter = '';
+          
+          // Create crossfade chain
+          for (let i = 0; i < partNames.length - 1; i++) {
+            if (i === 0) {
+              videoFilter += `[0:v][1:v]xfade=transition=fade:duration=${transitionDuration}:offset=14.5[v01];`;
+              audioFilter += `[0:a][1:a]acrossfade=d=${transitionDuration}[a01];`;
+            } else if (i === partNames.length - 2) {
+              videoFilter += `[v0${i}][${i + 1}:v]xfade=transition=fade:duration=${transitionDuration}:offset=${14.5 + i * 15}[vout];`;
+              audioFilter += `[a0${i}][${i + 1}:a]acrossfade=d=${transitionDuration}[aout]`;
+            } else {
+              videoFilter += `[v0${i}][${i + 1}:v]xfade=transition=fade:duration=${transitionDuration}:offset=${14.5 + i * 15}[v0${i + 1}];`;
+              audioFilter += `[a0${i}][${i + 1}:a]acrossfade=d=${transitionDuration}[a0${i + 1}];`;
+            }
+          }
+          
+          filterComplex = videoFilter + audioFilter;
+        }
+        
+        console.log('Filter complex:', filterComplex);
+        
+        const ffmpegArgs = inputs.trim().split(' ').concat([
+          '-filter_complex', filterComplex,
+          '-map', '[vout]',
+          '-map', '[aout]',
+          '-c:v', 'libx264',
+          '-c:a', 'aac',
+          '-movflags', 'faststart',
+          'output.mp4'
+        ]);
+        
+        await ffmpeg.exec(ffmpegArgs);
+        console.log('Transition-enhanced concatenation successful');
+      }
+    } catch (transitionErr) {
+      console.log('Transition method failed, falling back to simple concat...', transitionErr);
+      // Fallback to simple concatenation without transitions
+      try {
+        await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
+        console.log('Fallback concatenation successful');
+      } catch (fallbackErr) {
+        console.log('Copy method failed, trying re-encode...', fallbackErr);
+        await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c:v', 'libx264', '-c:a', 'aac', '-movflags', 'faststart', 'output.mp4']);
+        console.log('Re-encode concatenation successful');
+      }
     }
 
     console.log('Reading output file...');
