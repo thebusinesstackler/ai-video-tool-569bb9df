@@ -563,6 +563,20 @@ Create a cinematic video that captures both the visual elements and the message/
             if (audioUrl) {
               requestBody.audioUrl = audioUrl;
             }
+          } else if (formData.modelType === 'infinitetalk' || formData.modelType === 'wan-animate') {
+            // Both InfiniteTalk and WAN Animate require image and audio
+            if (imageUrl) {
+              requestBody.imageUrls = [imageUrl];
+            }
+            if (audioUrl) {
+              requestBody.audioUrl = audioUrl;
+            }
+          } else if (formData.modelType === 'video-face-swap') {
+            // Video Face Swap requires both video and face image
+            if (imageUrl) {
+              requestBody.imageUrls = [imageUrl];
+            }
+            // Note: Video URL handling will be added when video upload is implemented
           } else if (['hunyuan-video', 'vidu', 'veo3', 'seedream-v4'].includes(formData.modelType)) {
             if (selectedCharacter && selectedCharacter !== 'upload-new') {
               // Use character image
