@@ -10,7 +10,8 @@ interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
   audioUrl?: string;
-  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate';
+  videoUrl?: string;
+  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -213,6 +214,25 @@ serve(async (req) => {
           audio: params.audioUrl,
           prompt: params.prompt,
           duration: duration
+        };
+      } else if (params.model === 'video-face-swap') {
+        // Video Face Swap model for driving video + face swap
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/video-face-swap';
+        
+        if (!params.videoUrl) {
+          throw new Error('Driving video is required for Video Face Swap model');
+        }
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Face image is required for Video Face Swap model');
+        }
+
+        requestBody = {
+          video: params.videoUrl,
+          face_image: params.imageUrls[0],
+          target_gender: 'all',
+          target_index: 0,
+          max_duration: duration || 0
         };
       } else {
         // Text-to-Video model (default wan-2.2)

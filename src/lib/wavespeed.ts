@@ -4,7 +4,8 @@ interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
   audioUrl?: string;
-  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate';
+  videoUrl?: string;
+  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;

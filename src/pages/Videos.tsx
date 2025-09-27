@@ -77,7 +77,8 @@ const MODEL_COSTS = {
   'veo3': 0.4,
   'avatar-omni-human-1.5': 0.15, // Per-second pricing
   'infinitetalk': 0.25, // Per-second pricing for lip sync
-  'wan-animate': 0.20 // Per-second pricing for WAN Animate
+  'wan-animate': 0.20, // Per-second pricing for WAN Animate
+  'video-face-swap': 0.05 // Per-5-second pricing for driving video
 };
 
 const MODEL_NAMES = {
@@ -91,7 +92,8 @@ const MODEL_NAMES = {
   'veo3': 'VEO3 (Google)',
   'avatar-omni-human-1.5': '🎤 Talking Avatar with Lip Sync (ByteDance)',
   'infinitetalk': '🗣️ InfiniteTalk - AI Voiceover + Lip Sync',
-  'wan-animate': '🎬 WAN Animate - Character Animation with Lip Sync'
+  'wan-animate': '🎬 WAN Animate - Character Animation with Lip Sync',
+  'video-face-swap': '🎭 Video Face Swap - Upload Driving Video + Face'
 };
 
 const MODEL_DURATIONS = {
@@ -105,7 +107,8 @@ const MODEL_DURATIONS = {
   'veo3': [5, 8], // Conservative default
   'avatar-omni-human-1.5': [5, 8, 10], // Lip sync model
   'infinitetalk': [5, 8, 10, 15], // Extended durations for conversations
-  'wan-animate': [5, 8, 10] // Character animation
+  'wan-animate': [5, 8, 10], // Character animation
+  'video-face-swap': [5, 10, 15, 30, 60] // Supports longer videos up to 10 minutes
 };
 
 const Videos = () => {
@@ -150,6 +153,7 @@ const Videos = () => {
   const [sourceImage, setSourceImage] = useState<File | null>(null);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
+  const [sourceVideo, setSourceVideo] = useState<File | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string>('');
   const [segmentCountdowns, setSegmentCountdowns] = useState<{[key: string]: number}>({});
   const { toast } = useToast();
@@ -409,10 +413,20 @@ const Videos = () => {
     }
 
     // Enhanced validation for all models
-    const needsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
+    const needsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate', 'video-face-swap'].includes(formData.modelType);
     const needsAudioValidation = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
-    const supportsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
+    const needsVideoValidation = ['video-face-swap'].includes(formData.modelType);
+    const supportsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate', 'video-face-swap'].includes(formData.modelType);
     const supportsAudioValidation = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'wan-2.5-i2v', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
+
+    if (needsVideoValidation && !sourceVideo) {
+      toast({
+        title: "Driving Video Required",
+        description: `The ${MODEL_NAMES[formData.modelType]} model requires a driving video.`,
+        variant: "destructive"
+      });
+      return;
+    }
 
     if (needsImageValidation && !sourceImage && (!selectedCharacter || selectedCharacter === 'upload-new')) {
       toast({
@@ -680,6 +694,7 @@ Create a cinematic video that captures both the visual elements and the message/
       });
       setSourceImage(null);
       setSourceAudio(null);
+      setSourceVideo(null);
       
       toast({
         title: "Video Creation Started",
@@ -1066,13 +1081,15 @@ Create a cinematic video that captures both the visual elements and the message/
                        formData.modelType === 'vidu' ||
                        formData.modelType === 'veo3' ||
                        formData.modelType === 'infinitetalk' ||
-                       formData.modelType === 'wan-animate';
+                       formData.modelType === 'wan-animate' ||
+                       formData.modelType === 'video-face-swap';
   
   const needsImage = formData.modelType === 'wan-2.5-i2v' || 
                     formData.modelType === 'avatar-omni-human-1.5' || 
                     formData.modelType === 'seedream-v4' ||
                     formData.modelType === 'infinitetalk' ||
-                    formData.modelType === 'wan-animate';
+                    formData.modelType === 'wan-animate' ||
+                    formData.modelType === 'video-face-swap';
   
   const supportsAudio = formData.modelType === 'wan-2.5-a2v' || 
                        formData.modelType === 'avatar-omni-human-1.5' ||
@@ -1084,6 +1101,9 @@ Create a cinematic video that captures both the visual elements and the message/
                     formData.modelType === 'wan-2.5-a2v' ||
                     formData.modelType === 'infinitetalk' ||
                     formData.modelType === 'wan-animate';
+
+  const supportsVideo = formData.modelType === 'video-face-swap';
+  const needsVideo = formData.modelType === 'video-face-swap';
   
   const hasLipSync = formData.modelType === 'avatar-omni-human-1.5' ||
                     formData.modelType === 'infinitetalk' ||
@@ -1137,6 +1157,7 @@ Create a cinematic video that captures both the visual elements and the message/
                     });
                     setSourceImage(null);
                     setSourceAudio(null);
+                    setSourceVideo(null);
                   }}
                 >
                   New Project
@@ -1166,7 +1187,7 @@ Create a cinematic video that captures both the visual elements and the message/
                     <SelectContent>
                       {Object.entries(MODEL_NAMES).map(([value, name]) => (
                         <SelectItem key={value} value={value}>
-                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/{['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(value) ? 'second' : 'segment'}
+                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/{['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(value) ? 'second' : value === 'video-face-swap' ? '5-second' : 'segment'}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1174,6 +1195,11 @@ Create a cinematic video that captures both the visual elements and the message/
                   {hasLipSync && (
                     <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1">
                       🎤 This model generates voiceover with synchronized lip movements
+                    </p>
+                  )}
+                  {needsVideo && (
+                    <p className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded mt-1">
+                      🎭 Upload a driving video + face image to create face-swapped content
                     </p>
                   )}
                 </div>
@@ -1274,6 +1300,8 @@ Create a cinematic video that captures both the visual elements and the message/
                           ? 'Upload a clear portrait photo for the talking avatar' 
                           : formData.modelType === 'infinitetalk' || formData.modelType === 'wan-animate'
                           ? 'Upload a character portrait for lip sync animation'
+                          : formData.modelType === 'video-face-swap'
+                          ? 'Upload the face image you want to swap into the driving video'
                           : formData.modelType === 'seedream-v4'
                           ? 'Upload a reference image to enhance the video generation'
                           : 'Upload an image to convert into video'
@@ -1443,8 +1471,10 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                       <DollarSign className="w-4 h-4 text-accent-foreground" />
                       <span className="font-medium">Estimated Cost: ${estimatedCost.toFixed(2)}</span>
                       <span className="text-muted-foreground">
-                       {['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType) ? (
+                        {['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType) ? (
                           `(${parseScriptIntoSegments(formData.script).length * parseInt(formData.segmentDuration || '5')} seconds × $${MODEL_COSTS[formData.modelType]})`
+                        ) : formData.modelType === 'video-face-swap' ? (
+                          `(${parseScriptIntoSegments(formData.script).length * Math.ceil(parseInt(formData.segmentDuration || '5') / 5)} units × $${MODEL_COSTS[formData.modelType]} per 5s)`
                         ) : (
                           `(${parseScriptIntoSegments(formData.script).length} segments × $${MODEL_COSTS[formData.modelType]})`
                         )}
