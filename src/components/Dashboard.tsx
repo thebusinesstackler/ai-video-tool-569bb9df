@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -14,22 +14,16 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 import heroImage from '@/assets/hero-image.jpg';
-
-const stats = [
-  { name: 'Videos Created', value: '2,547', change: '+12%', icon: VideoIcon },
-  { name: 'Scripts Generated', value: '3,142', change: '+8%', icon: FileTextIcon },
-  { name: 'Characters Active', value: '24', change: '+3%', icon: UsersIcon },
-  { name: 'Engagement Rate', value: '94.2%', change: '+5.1%', icon: TrendingUpIcon },
-];
 
 const quickActions = [
   { 
-    name: 'Analyze Content', 
-    description: 'Upload videos to analyze patterns and successful elements',
-    icon: BarChart3Icon, 
-    variant: 'glass' as const,
-    href: '/analysis'
+    name: 'Create Video', 
+    description: 'Transform scripts into engaging videos with AI',
+    icon: VideoIcon, 
+    variant: 'hero' as const,
+    href: '/projects'
   },
   { 
     name: 'Generate Script', 
@@ -45,17 +39,87 @@ const quickActions = [
     variant: 'glass' as const,
     href: '/characters'
   },
-  { 
-    name: 'Create Video', 
-    description: 'Transform scripts into engaging videos with VEO3',
-    icon: PlayIcon, 
-    variant: 'hero' as const,
-    href: '/production'
-  },
 ];
+
+interface ProjectStats {
+  videosCount: number;
+  charactersCount: number;
+  recentProjects: Array<{
+    id: string;
+    title: string;
+    created_at: string;
+    model_type: string;
+  }>;
+}
 
 export const Dashboard = () => {
   const { user } = useAuth();
+  const [stats, setStats] = useState<ProjectStats>({
+    videosCount: 0,
+    charactersCount: 0,
+    recentProjects: []
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadStats();
+    }
+  }, [user]);
+
+  const loadStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      if (!currentUser) return;
+
+      // Fetch projects count
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, title, created_at, model_type')
+        .eq('user_id', currentUser.id);
+
+      // Fetch characters count
+      const { data: characters, error: charactersError } = await supabase
+        .from('characters')
+        .select('id')
+        .eq('user_id', currentUser.id);
+
+      if (projectsError) {
+        console.error('Error loading projects:', projectsError);
+      }
+
+      if (charactersError) {
+        console.error('Error loading characters:', charactersError);
+      }
+
+      const recentProjects = (projects || [])
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3);
+
+      setStats({
+        videosCount: projects?.length || 0,
+        charactersCount: characters?.length || 0,
+        recentProjects
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
 
   if (!user) {
     return (
@@ -125,23 +189,57 @@ export const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={stat.name} className="glass hover:shadow-glow transition-all duration-300" style={{ animationDelay: `${index * 100}ms` }}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.name}
-              </CardTitle>
-              <stat.icon className="h-5 w-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-              <p className="text-xs text-primary mt-1">
-                {stat.change} from last month
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="glass hover:shadow-glow transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Videos Created
+            </CardTitle>
+            <VideoIcon className="h-5 w-5 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {isLoadingStats ? '...' : stats.videosCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total projects
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass hover:shadow-glow transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Characters Created
+            </CardTitle>
+            <UsersIcon className="h-5 w-5 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {isLoadingStats ? '...' : stats.charactersCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              AI avatars ready
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass hover:shadow-glow transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Recent Activity
+            </CardTitle>
+            <TrendingUpIcon className="h-5 w-5 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {isLoadingStats ? '...' : stats.recentProjects.length > 0 ? 'Active' : 'Ready'}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.recentProjects.length > 0 ? 'Creating content' : 'Start creating'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Quick Actions */}
@@ -174,44 +272,39 @@ export const Dashboard = () => {
       <Card className="glass">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold text-foreground">Recent Activity</CardTitle>
-            <Button variant="ghost">View All</Button>
+            <CardTitle className="text-xl font-semibold text-foreground">Recent Projects</CardTitle>
+            <Button asChild variant="ghost">
+              <Link to="/projects">View All</Link>
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              { 
-                action: 'Video "Social Media Strategy" completed', 
-                time: '2 minutes ago',
-                type: 'video'
-              },
-              { 
-                action: 'Script generated for "Product Launch"', 
-                time: '15 minutes ago',
-                type: 'script'
-              },
-              { 
-                action: 'Character "Business Executive" added', 
-                time: '1 hour ago',
-                type: 'character'
-              },
-              { 
-                action: 'Content analysis for 5 videos completed', 
-                time: '2 hours ago',
-                type: 'analysis'
-              }
-            ].map((activity, index) => (
-              <div key={index} className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent/5 transition-colors">
-                <div className="w-8 h-8 bg-gradient-accent rounded-full flex items-center justify-center">
-                  <SparklesIcon className="w-4 h-4 text-primary" />
+            {isLoadingStats ? (
+              <div className="text-center text-muted-foreground">Loading...</div>
+            ) : stats.recentProjects.length > 0 ? (
+              stats.recentProjects.map((project) => (
+                <div key={project.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent/5 transition-colors">
+                  <div className="w-8 h-8 bg-gradient-accent rounded-full flex items-center justify-center">
+                    <VideoIcon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground">{project.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatTimeAgo(project.created_at)} • {project.model_type}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-foreground">{activity.action}</p>
-                  <p className="text-xs text-muted-foreground">{activity.time}</p>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <VideoIcon className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground">No projects yet</p>
+                <Button asChild className="mt-4" variant="outline">
+                  <Link to="/projects">Create Your First Video</Link>
+                </Button>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
