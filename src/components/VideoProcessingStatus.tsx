@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import { 
   RefreshCwIcon, 
   ClockIcon, 
@@ -26,6 +27,7 @@ interface VideoSegment {
   progress: number;
   jobId?: string;
   outputUrl?: string;
+  localVideoUrl?: string;
   error?: string;
 }
 
@@ -151,19 +153,22 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
                       <RotateCcwIcon className="w-3 h-3" />
                     </Button>
                   )}
-                  {segment.outputUrl && (
+                  {(segment.outputUrl || segment.localVideoUrl) && (
                     <>
+                      {/* Use VideoPlayer for inline viewing */}
+                      <VideoPlayer
+                        videoUrl={segment.localVideoUrl || segment.outputUrl!}
+                        title={`Scene ${segment.sceneNumber} - ${segment.description}`}
+                        trigger={
+                          <Button variant="outline" size="sm">
+                            <PlayIcon className="w-3 h-3" />
+                          </Button>
+                        }
+                      />
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onPlayVideo(segment.outputUrl!)}
-                      >
-                        <PlayIcon className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onDownloadVideo(segment.outputUrl!, `scene-${segment.sceneNumber}.mp4`)}
+                        onClick={() => onDownloadVideo(segment.localVideoUrl || segment.outputUrl!, `scene-${segment.sceneNumber}.mp4`)}
                       >
                         <DownloadIcon className="w-3 h-3" />
                       </Button>

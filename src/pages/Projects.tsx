@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { VideoProcessingStatus } from '@/components/VideoProcessingStatus';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import { 
   VideoIcon, 
   PlayIcon, 
@@ -32,6 +33,7 @@ interface VideoSegment {
   progress: number;
   jobId?: string;
   outputUrl?: string;
+  localVideoUrl?: string;
   error?: string;
 }
 
@@ -231,8 +233,31 @@ const Projects = () => {
     }
   };
 
-  const handlePlayVideo = (url: string) => {
+  const handlePlayVideo = async (url: string, title: string = 'Video') => {
+    // If it's a local storage URL, create signed URL for access
+    if (url.includes('supabase.co') && url.includes('project-files')) {
+      try {
+        const pathParts = url.split('/').slice(-3);
+        const filePath = pathParts.join('/');
+        
+        const { data, error } = await supabase.storage
+          .from('project-files')
+          .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+        if (error) throw error;
+        
+        if (data?.signedUrl) {
+          // Open video player modal with signed URL
+          return data.signedUrl;
+        }
+      } catch (error) {
+        console.error('Error creating signed URL:', error);
+      }
+    }
+    
+    // For external URLs or if signed URL creation failed, open in new tab
     window.open(url, '_blank');
+    return url;
   };
 
   const handleDownloadVideo = (url: string, filename: string) => {

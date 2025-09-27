@@ -42,6 +42,7 @@ interface VideoSegment {
   progress: number;
   jobId?: string;
   outputUrl?: string;
+  localVideoUrl?: string;
   error?: string;
 }
 
@@ -654,6 +655,10 @@ Create a cinematic video that captures both the visual elements and the message/
           pollSegmentStatus(taskId, projectId, segmentId);
         }, 5000);
       } else if (data.status === 'completed') {
+        // Download and store the video locally when completed
+        if (data.videoUrl) {
+          downloadAndStoreVideo(data.videoUrl, projectId, segmentId);
+        }
         toast({
           title: "Segment Completed",
           description: `Video segment is ready!`,
@@ -723,8 +728,76 @@ Create a cinematic video that captures both the visual elements and the message/
     }
   };
 
+  const downloadAndStoreVideo = async (videoUrl: string, projectId: string, segmentId: string) => {
+    try {
+      // Download the video from external URL
+      const response = await fetch(videoUrl);
+      if (!response.ok) throw new Error('Failed to download video');
+      
+      const videoBlob = await response.blob();
+      const fileName = `videos/${projectId}/${segmentId}-${Date.now()}.mp4`;
+      
+      // Upload to Supabase storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('project-files')
+        .upload(fileName, videoBlob, {
+          contentType: 'video/mp4',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL (even though bucket is private, we'll access it with auth)
+      const { data: { publicUrl } } = supabase.storage
+        .from('project-files')
+        .getPublicUrl(fileName);
+
+      // Update the project with local storage URL
+      setProjects(prev => {
+        const updatedProjects = prev.map(project => {
+          if (project.id === projectId) {
+            const updatedSegments = project.segments.map(segment => 
+              segment.id === segmentId 
+                ? { ...segment, localVideoUrl: publicUrl }
+                : segment
+            );
+            
+            // Update database
+            supabase
+              .from('projects')
+              .update({ segments: updatedSegments as any })
+              .eq('id', projectId);
+            
+            return { ...project, segments: updatedSegments };
+          }
+          return project;
+        });
+        return updatedProjects;
+      });
+
+      console.log('Video stored locally:', publicUrl);
+    } catch (error) {
+      console.error('Error storing video locally:', error);
+    }
+  };
+
   const handlePlayVideo = (url: string) => {
-    window.open(url, '_blank');
+    // Check if it's a local storage URL, if so create signed URL for access
+    if (url.includes('supabase')) {
+      // Create signed URL for private bucket access
+      supabase.storage
+        .from('project-files')
+        .createSignedUrl(url.split('/').slice(-3).join('/'), 3600) // 1 hour expiry
+        .then(({ data }) => {
+          if (data?.signedUrl) {
+            window.open(data.signedUrl, '_blank');
+          } else {
+            window.open(url, '_blank');
+          }
+        });
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   const handleDownloadVideo = (url: string, filename: string) => {
