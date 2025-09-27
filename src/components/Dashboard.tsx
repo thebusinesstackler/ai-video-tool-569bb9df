@@ -61,9 +61,20 @@ export const Dashboard = () => {
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
+  // Force component re-render to clear any cached errors
+  const componentKey = `dashboard-${Date.now()}`;
+
   useEffect(() => {
     if (user) {
       loadStats();
+    } else {
+      // Reset stats when user logs out
+      setStats({
+        videosCount: 0,
+        charactersCount: 0,
+        recentProjects: []
+      });
+      setIsLoadingStats(false);
     }
   }, [user]);
 
@@ -158,7 +169,7 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-8 animate-slide-in">
+    <div key={componentKey} className="space-y-8 animate-slide-in">{/* Force re-render */}
       {/* Hero Section */}
       <div className="relative overflow-hidden rounded-2xl glass">
         <div 
