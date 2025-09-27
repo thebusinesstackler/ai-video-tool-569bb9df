@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
-  model?: 'wan-2.2' | 'vidu' | 'veo3';
+  audioUrl?: string;
+  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
   watermark?: string;
+  characterId?: string;
+  duration?: number;
 }
 
 interface WaveSpeedVideoJob {

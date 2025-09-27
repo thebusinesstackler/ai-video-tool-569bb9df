@@ -10,7 +10,7 @@ interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
   audioUrl?: string;
-  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5';
+  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -177,6 +177,41 @@ serve(async (req) => {
         requestBody = {
           image: params.imageUrls[0],
           audio: params.audioUrl,
+          duration: duration
+        };
+      } else if (params.model === 'infinitetalk') {
+        // InfiniteTalk model for AI voiceover with lip sync
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Portrait image is required for InfiniteTalk model');
+        }
+        
+        if (!params.audioUrl) {
+          throw new Error('Audio is required for InfiniteTalk model');
+        }
+
+        requestBody = {
+          image: params.imageUrls[0],
+          audio: params.audioUrl,
+          duration: duration
+        };
+      } else if (params.model === 'wan-animate') {
+        // WAN Animate model for character animation with lip sync
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-animate';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Character image is required for WAN Animate model');
+        }
+        
+        if (!params.audioUrl) {
+          throw new Error('Audio is required for WAN Animate model');
+        }
+
+        requestBody = {
+          image: params.imageUrls[0],
+          audio: params.audioUrl,
+          prompt: params.prompt,
           duration: duration
         };
       } else {

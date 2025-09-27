@@ -75,7 +75,9 @@ const MODEL_COSTS = {
   'seedream-v4': 0.4,
   'vidu': 0.3,
   'veo3': 0.4,
-  'avatar-omni-human-1.5': 0.15 // Per-second pricing
+  'avatar-omni-human-1.5': 0.15, // Per-second pricing
+  'infinitetalk': 0.25, // Per-second pricing for lip sync
+  'wan-animate': 0.20 // Per-second pricing for WAN Animate
 };
 
 const MODEL_NAMES = {
@@ -87,7 +89,9 @@ const MODEL_NAMES = {
   'seedream-v4': 'Seedream V4 (Image-to-Video)',
   'vidu': 'VIDU (Multimodal)', 
   'veo3': 'VEO3 (Google)',
-  'avatar-omni-human-1.5': 'Talking Avatar (ByteDance Omni Human 1.5)'
+  'avatar-omni-human-1.5': '🎤 Talking Avatar with Lip Sync (ByteDance)',
+  'infinitetalk': '🗣️ InfiniteTalk - AI Voiceover + Lip Sync',
+  'wan-animate': '🎬 WAN Animate - Character Animation with Lip Sync'
 };
 
 const MODEL_DURATIONS = {
@@ -99,7 +103,9 @@ const MODEL_DURATIONS = {
   'seedream-v4': [5, 8], // Conservative default
   'vidu': [5, 8], // Conservative default
   'veo3': [5, 8], // Conservative default
-  'avatar-omni-human-1.5': [5, 8] // Conservative default
+  'avatar-omni-human-1.5': [5, 8, 10], // Lip sync model
+  'infinitetalk': [5, 8, 10, 15], // Extended durations for conversations
+  'wan-animate': [5, 8, 10] // Character animation
 };
 
 const Videos = () => {
@@ -144,6 +150,7 @@ const Videos = () => {
   const [sourceImage, setSourceImage] = useState<File | null>(null);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
+  const [selectedCharacter, setSelectedCharacter] = useState<string>('');
   const [segmentCountdowns, setSegmentCountdowns] = useState<{[key: string]: number}>({});
   const { toast } = useToast();
 
@@ -402,12 +409,21 @@ const Videos = () => {
     }
 
     // Enhanced validation for all models
-    const needsImage = ['wan-2.5-i2v', 'seedream-v4'].includes(formData.modelType);
-    const needsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v'].includes(formData.modelType);
-    const supportsImage = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3'].includes(formData.modelType);
-    const supportsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'wan-2.5-i2v'].includes(formData.modelType);
+    const needsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
+    const needsAudioValidation = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
+    const supportsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
+    const supportsAudioValidation = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'wan-2.5-i2v', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
 
-    if (needsImage && !sourceImage) {
+    if (needsImageValidation && !sourceImage && (!selectedCharacter || selectedCharacter === 'upload-new')) {
+      toast({
+        title: "Image Required",
+        description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image or character selection.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (needsAudioValidation && !sourceAudio) {
       toast({
         title: "Image Required",
         description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image.`,
@@ -534,7 +550,13 @@ Create a cinematic video that captures both the visual elements and the message/
               requestBody.audioUrl = audioUrl;
             }
           } else if (['hunyuan-video', 'vidu', 'veo3', 'seedream-v4'].includes(formData.modelType)) {
-            if (imageUrl) {
+            if (selectedCharacter && selectedCharacter !== 'upload-new') {
+              // Use character image
+              const character = characters.find(c => c.id === selectedCharacter);
+              if (character?.reference_images?.[0]) {
+                requestBody.imageUrls = [character.reference_images[0]];
+              }
+            } else if (imageUrl) {
               requestBody.imageUrls = [imageUrl];
             }
           }
@@ -787,12 +809,6 @@ Create a cinematic video that captures both the visual elements and the message/
     }
   };
 
-  // Model capability helpers
-  const needsImage = ['wan-2.5-i2v', 'seedream-v4'].includes(formData.modelType);
-  const needsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v'].includes(formData.modelType);
-  const supportsImage = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3'].includes(formData.modelType);
-  const supportsAudio = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'wan-2.5-i2v'].includes(formData.modelType);
-
   const handleRefreshSegment = (segmentId: string) => {
     // Find the project and segment
     for (const project of projects) {
@@ -1042,6 +1058,37 @@ Create a cinematic video that captures both the visual elements and the message/
 
   const estimatedCost = calculateEstimatedCost();
 
+  // Model capability helpers
+  const supportsImage = formData.modelType === 'wan-2.5-i2v' || 
+                       formData.modelType === 'avatar-omni-human-1.5' || 
+                       formData.modelType === 'seedream-v4' ||
+                       formData.modelType === 'hunyuan-video' ||
+                       formData.modelType === 'vidu' ||
+                       formData.modelType === 'veo3' ||
+                       formData.modelType === 'infinitetalk' ||
+                       formData.modelType === 'wan-animate';
+  
+  const needsImage = formData.modelType === 'wan-2.5-i2v' || 
+                    formData.modelType === 'avatar-omni-human-1.5' || 
+                    formData.modelType === 'seedream-v4' ||
+                    formData.modelType === 'infinitetalk' ||
+                    formData.modelType === 'wan-animate';
+  
+  const supportsAudio = formData.modelType === 'wan-2.5-a2v' || 
+                       formData.modelType === 'avatar-omni-human-1.5' ||
+                       formData.modelType === 'wan-2.5-i2v' ||
+                       formData.modelType === 'infinitetalk' ||
+                       formData.modelType === 'wan-animate';
+  
+  const needsAudio = formData.modelType === 'avatar-omni-human-1.5' || 
+                    formData.modelType === 'wan-2.5-a2v' ||
+                    formData.modelType === 'infinitetalk' ||
+                    formData.modelType === 'wan-animate';
+  
+  const hasLipSync = formData.modelType === 'avatar-omni-human-1.5' ||
+                    formData.modelType === 'infinitetalk' ||
+                    formData.modelType === 'wan-animate';
+
   if (isLoading) {
     return (
       <Layout>
@@ -1119,12 +1166,66 @@ Create a cinematic video that captures both the visual elements and the message/
                     <SelectContent>
                       {Object.entries(MODEL_NAMES).map(([value, name]) => (
                         <SelectItem key={value} value={value}>
-                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/{value === 'avatar-omni-human-1.5' ? 'second' : 'segment'}
+                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/{['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(value) ? 'second' : 'segment'}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {hasLipSync && (
+                    <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1">
+                      🎤 This model generates voiceover with synchronized lip movements
+                    </p>
+                  )}
                 </div>
+
+                {/* Character Selection - Show when model needs images */}
+                {needsImage && characters.length > 0 && (
+                  <div>
+                    <Label htmlFor="character">Use Character Image</Label>
+                    <Select value={selectedCharacter} onValueChange={(value) => {
+                      setSelectedCharacter(value);
+                      if (value && value !== 'upload-new') {
+                        const character = characters.find(c => c.id === value);
+                        if (character?.reference_images?.[0]) {
+                          // Convert character image URL to a File-like object for consistency
+                          const imageUrl = character.reference_images[0];
+                          setFormData(prev => ({...prev, characterId: value}));
+                          // Clear any previously uploaded file since we're using character image
+                          setSourceImage(null);
+                        }
+                      } else if (value === 'upload-new') {
+                        setFormData(prev => ({...prev, characterId: ''}));
+                      }
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a character or upload new image" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="upload-new">
+                          📁 Upload New Image
+                        </SelectItem>
+                        {characters.map((character) => (
+                          <SelectItem key={character.id} value={character.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">👤</span>
+                              <div>
+                                <div className="font-medium">{character.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {character.reference_images?.length || 0} images available
+                                </div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedCharacter && selectedCharacter !== 'upload-new' && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm">
+                        ✅ Using character image from {characters.find(c => c.id === selectedCharacter)?.name}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Audio Generator Integration */}
                 {(supportsAudio || showAudioGenerator) && (
@@ -1161,7 +1262,7 @@ Create a cinematic video that captures both the visual elements and the message/
                 )}
 
                 {/* Dynamic file uploads based on model capabilities */}
-                {(supportsImage && (needsImage || sourceImage)) && (
+                {(supportsImage && (needsImage || sourceImage) && (selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0)) && (
                   <div className="col-span-full">
                     <Label htmlFor="sourceImage" className="flex items-center gap-2">
                       <ImageIcon className="w-4 h-4" />
@@ -1171,6 +1272,8 @@ Create a cinematic video that captures both the visual elements and the message/
                       <p className="text-xs text-muted-foreground mb-2">
                         {formData.modelType === 'avatar-omni-human-1.5' 
                           ? 'Upload a clear portrait photo for the talking avatar' 
+                          : formData.modelType === 'infinitetalk' || formData.modelType === 'wan-animate'
+                          ? 'Upload a character portrait for lip sync animation'
                           : formData.modelType === 'seedream-v4'
                           ? 'Upload a reference image to enhance the video generation'
                           : 'Upload an image to convert into video'
@@ -1181,7 +1284,12 @@ Create a cinematic video that captures both the visual elements and the message/
                       id="sourceImage"
                       type="file"
                       accept="image/*"
-                      onChange={(e) => setSourceImage(e.target.files?.[0] || null)}
+                      onChange={(e) => {
+                        setSourceImage(e.target.files?.[0] || null);
+                        // Clear character selection when uploading new image
+                        setSelectedCharacter('upload-new');
+                        setFormData(prev => ({...prev, characterId: ''}));
+                      }}
                       className="cursor-pointer"
                     />
                     {sourceImage && (
@@ -1203,6 +1311,8 @@ Create a cinematic video that captures both the visual elements and the message/
                       <p className="text-xs text-muted-foreground mb-2">
                         {formData.modelType === 'avatar-omni-human-1.5' 
                           ? 'Upload speech audio to animate the avatar\'s lip movements' 
+                          : formData.modelType === 'infinitetalk' || formData.modelType === 'wan-animate'
+                          ? 'Upload speech audio for AI voiceover with perfect lip synchronization'
                           : 'Upload audio to generate video synchronized with the sound'
                         }
                       </p>
@@ -1252,12 +1362,12 @@ Create a cinematic video that captures both the visual elements and the message/
                       <Label htmlFor="sourceAudio" className="flex items-center gap-2">
                         <VolumeIcon className="w-4 h-4" />
                         {formData.modelType === 'avatar-omni-human-1.5' ? 'Audio Track (Required)' : 'Audio Track (Optional)'}
-                      </Label>
-                      {formData.modelType === 'avatar-omni-human-1.5' && (
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Upload speech audio to animate the avatar's lip movements
-                        </p>
-                      )}
+                       </Label>
+                         {hasLipSync && (
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Upload speech audio to animate with perfect lip synchronization
+                          </p>
+                        )}
                       <Input
                         id="sourceAudio"
                         type="file"
@@ -1333,7 +1443,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                       <DollarSign className="w-4 h-4 text-accent-foreground" />
                       <span className="font-medium">Estimated Cost: ${estimatedCost.toFixed(2)}</span>
                       <span className="text-muted-foreground">
-                        {formData.modelType === 'avatar-omni-human-1.5' ? (
+                       {['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType) ? (
                           `(${parseScriptIntoSegments(formData.script).length * parseInt(formData.segmentDuration || '5')} seconds × $${MODEL_COSTS[formData.modelType]})`
                         ) : (
                           `(${parseScriptIntoSegments(formData.script).length} segments × $${MODEL_COSTS[formData.modelType]})`
