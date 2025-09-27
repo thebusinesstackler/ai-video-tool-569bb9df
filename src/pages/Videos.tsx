@@ -730,12 +730,16 @@ Create a cinematic video that captures both the visual elements and the message/
 
   const downloadAndStoreVideo = async (videoUrl: string, projectId: string, segmentId: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
       // Download the video from external URL
       const response = await fetch(videoUrl);
       if (!response.ok) throw new Error('Failed to download video');
       
       const videoBlob = await response.blob();
-      const fileName = `videos/${projectId}/${segmentId}-${Date.now()}.mp4`;
+      // Use user ID as the first folder level for RLS policy matching
+      const fileName = `${user.id}/videos/${projectId}/${segmentId}-${Date.now()}.mp4`;
       
       // Upload to Supabase storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -747,7 +751,7 @@ Create a cinematic video that captures both the visual elements and the message/
 
       if (uploadError) throw uploadError;
 
-      // Get the public URL (even though bucket is private, we'll access it with auth)
+      // Get the public URL (we'll create signed URLs when needed for viewing)
       const { data: { publicUrl } } = supabase.storage
         .from('project-files')
         .getPublicUrl(fileName);
@@ -775,9 +779,19 @@ Create a cinematic video that captures both the visual elements and the message/
         return updatedProjects;
       });
 
+      toast({
+        title: "Video Stored Locally",
+        description: "Video has been saved to your storage and is ready for viewing!",
+      });
+
       console.log('Video stored locally:', publicUrl);
     } catch (error) {
       console.error('Error storing video locally:', error);
+      toast({
+        title: "Storage Failed",
+        description: "Failed to store video locally, but external URL is still available.",
+        variant: "destructive"
+      });
     }
   };
 
