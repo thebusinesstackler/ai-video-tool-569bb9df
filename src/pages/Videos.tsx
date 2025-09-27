@@ -616,9 +616,11 @@ Create a cinematic video that captures both the visual elements and the message/
 
       console.log(`Status update for ${taskId}:`, data);
 
-      // Update project in database and local state
-      const project = projects.find(p => p.id === projectId);
-      if (project) {
+      // Get fresh project data to avoid stale closure issues
+      setProjects(prev => {
+        const project = prev.find(p => p.id === projectId);
+        if (!project) return prev;
+
         const updatedSegments = project.segments.map(s => 
           s.id === segmentId 
             ? { 
@@ -630,18 +632,21 @@ Create a cinematic video that captures both the visual elements and the message/
             : s
         );
 
-        await supabase
+        // Update database
+        supabase
           .from('projects')
           .update({ segments: updatedSegments as any })
-          .eq('id', projectId);
+          .eq('id', projectId)
+          .then(({ error }) => {
+            if (error) console.error('Database update error:', error);
+          });
         
-        // Update local state
-        setProjects(prev => prev.map(p => 
+        return prev.map(p => 
           p.id === projectId 
             ? { ...p, segments: updatedSegments }
             : p
-        ));
-      }
+        );
+      });
 
       // Continue polling if still processing
       if (data.status === 'processing' || data.status === 'pending') {
