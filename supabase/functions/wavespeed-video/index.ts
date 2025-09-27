@@ -79,9 +79,12 @@ serve(async (req) => {
           throw new Error('Image is required for image-to-video model');
         }
 
+        const resolution = params.aspectRatio === '9:16' ? '720x1280' : '1280x720';
+
         requestBody = {
           image: params.imageUrls[0],
-          prompt: params.prompt
+          prompt: params.prompt,
+          resolution: resolution
         };
 
         // Add audio if provided
