@@ -187,6 +187,32 @@ const Videos = () => {
     return () => clearInterval(interval);
   }, [projects]);
 
+  // Load project data into form when editing
+  const loadProjectIntoForm = (project: VideoProject) => {
+    setFormData({
+      title: project.title,
+      script: project.script,
+      modelType: project.model_type as keyof typeof MODEL_COSTS,
+      aspectRatio: project.aspect_ratio,
+      duration: project.total_duration,
+      characterId: project.character_id || 'none',
+      lockSeed: project.consistency_settings?.lockSeed || false,
+      customSeed: project.consistency_settings?.customSeed || '',
+      voice: project.voice_settings?.voice || 'alloy',
+      segmentDuration: project.segments?.[0]?.timeRange?.includes('0:10') ? '10' : 
+                       project.segments?.[0]?.timeRange?.includes('0:08') ? '8' : '5'
+    });
+    
+    // Set source files if they exist
+    if (project.source_image_url) {
+      // Note: We can't recreate File objects from URLs, but we can show the URL exists
+      console.log('Project has source image:', project.source_image_url);
+    }
+    if (project.source_audio_url) {
+      console.log('Project has source audio:', project.source_audio_url);
+    }
+  };
+
   const loadProjects = async () => {
     try {
       setIsLoading(true);
@@ -1040,9 +1066,35 @@ Create a cinematic video that captures both the visual elements and the message/
         {/* Creation Form */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PlusIcon className="w-5 h-5" />
-              Create New Video Project
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PlusIcon className="w-5 h-5" />
+                {formData.title ? `Edit: ${formData.title}` : 'Create New Video Project'}
+              </div>
+              {formData.title && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFormData({
+                      title: '',
+                      script: '',
+                      modelType: 'wan-2.2',
+                      aspectRatio: '16:9',
+                      duration: 60,
+                      characterId: 'none',
+                      lockSeed: false,
+                      customSeed: '',
+                      voice: 'alloy',
+                      segmentDuration: '5'
+                    });
+                    setSourceImage(null);
+                    setSourceAudio(null);
+                  }}
+                >
+                  New Project
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1356,8 +1408,15 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => loadProjectIntoForm(project)}
+                          >
+                            Edit
+                          </Button>
                          <Badge variant={
-                           projectStatus === 'completed' ? 'default' :
+                            projectStatus === 'completed' ? 'default' :
                            projectStatus === 'processing' ? 'secondary' :
                            projectStatus === 'failed' ? 'destructive' : 'outline'
                          }>

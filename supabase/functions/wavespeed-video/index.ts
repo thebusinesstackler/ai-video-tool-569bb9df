@@ -93,17 +93,19 @@ serve(async (req) => {
           requestBody.audio = params.audioUrl;
         }
       } else if (params.model === 'wan-2.5-a2v') {
-        // Audio-to-Video model
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/audio-to-video';
+        // Audio-to-Video model - try both possible endpoints
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/text-to-video';
         
         if (!params.audioUrl) {
           throw new Error('Audio is required for audio-to-video model');
         }
 
+        // For audio-to-video, we'll use the text-to-video endpoint but with audio
         requestBody = {
-          audio: params.audioUrl,
           prompt: params.prompt,
-          duration: duration
+          duration: duration,
+          seed: seed,
+          audio: params.audioUrl
         };
       } else if (params.model === 'hunyuan-video') {
         // HunyuanVideo model
@@ -237,6 +239,42 @@ serve(async (req) => {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           );
+        }
+        
+        // For model not found errors, try fallback to basic text-to-video
+        if (errorText.includes('product not found') || errorText.includes('model not found')) {
+          console.log('Model not found, trying fallback to wan-2.2...');
+          
+          const fallbackEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p-ultra-fast';
+          const fallbackBody = {
+            prompt: params.prompt,
+            size: params.aspectRatio === '9:16' ? '720*1280' : '1280*720',
+            duration: duration,
+            seed: seed
+          };
+          
+          const fallbackResponse = await fetch(fallbackEndpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${waveSpeedApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(fallbackBody),
+          });
+          
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            console.log('Fallback model successful:', fallbackData);
+            
+            if (fallbackData.code === 200 && fallbackData.data) {
+              return new Response(
+                JSON.stringify({ taskId: fallbackData.data.id }), 
+                {
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                }
+              );
+            }
+          }
         }
         
         throw new Error(`WaveSpeed AI video creation failed: ${errorText}`);
