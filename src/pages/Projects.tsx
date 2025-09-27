@@ -17,11 +17,14 @@ import {
   GridIcon,
   CalendarIcon,
   TrashIcon,
-  ExternalLinkIcon
+  ExternalLinkIcon,
+  SquareStackIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
+import { stitchVideos } from '@/lib/videoStitch';
+import { Progress } from '@/components/ui/progress';
 
 interface VideoSegment {
   id: string;
@@ -72,6 +75,8 @@ const MODEL_NAMES = {
 const Projects = () => {
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [stitchingProgress, setStitchingProgress] = useState<{[key: string]: number}>({});
+  const [isStitching, setIsStitching] = useState<{[key: string]: boolean}>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -269,6 +274,100 @@ const Projects = () => {
     document.body.removeChild(link);
   };
 
+  const handleStitchVideo = async (project: VideoProject) => {
+    if (!project.segments || project.segments.length === 0) return;
+    
+    const completedSegments = project.segments
+      .filter(s => s.status === 'completed' && s.outputUrl)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    
+    if (completedSegments.length === 0) {
+      toast({
+        title: "No Completed Segments",
+        description: "There are no completed video segments to stitch together.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (completedSegments.length < project.segments.length) {
+      toast({
+        title: "Incomplete Project",
+        description: `Only ${completedSegments.length} of ${project.segments.length} segments are completed.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsStitching(prev => ({ ...prev, [project.id]: true }));
+      setStitchingProgress(prev => ({ ...prev, [project.id]: 0 }));
+
+      toast({
+        title: "Stitching Started",
+        description: "Combining video segments into final video...",
+      });
+
+      const videoUrls = completedSegments.map(s => s.outputUrl!);
+      
+      const stitchedBlob = await stitchVideos(videoUrls, (progress) => {
+        setStitchingProgress(prev => ({ ...prev, [project.id]: progress }));
+      });
+
+      // Upload stitched video to Supabase storage
+      const fileName = `stitched/${project.id}_final_video.mp4`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('project-files')
+        .upload(fileName, stitchedBlob, {
+          contentType: 'video/mp4',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('project-files')
+        .getPublicUrl(fileName);
+
+      // Update project with stitched video URL
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({
+          is_stitched: true,
+          stitched_url: urlData.publicUrl
+        })
+        .eq('id', project.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setProjects(prev => prev.map(p => 
+        p.id === project.id 
+          ? { ...p, is_stitched: true, stitched_url: urlData.publicUrl }
+          : p
+      ));
+
+      toast({
+        title: "Video Stitched Successfully",
+        description: "Your complete video is ready for download!",
+      });
+
+      // Automatically download the stitched video
+      handleDownloadVideo(urlData.publicUrl, `${project.title}_complete.mp4`);
+
+    } catch (error) {
+      console.error('Error stitching video:', error);
+      toast({
+        title: "Stitching Failed",
+        description: error instanceof Error ? error.message : "Failed to stitch video segments.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsStitching(prev => ({ ...prev, [project.id]: false }));
+      setStitchingProgress(prev => ({ ...prev, [project.id]: 0 }));
+    }
+  };
+
   const handleDeleteProject = async (projectId: string) => {
     try {
       const { error } = await supabase
@@ -441,17 +540,83 @@ const Projects = () => {
                           </span>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteProject(project.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {/* Stitch Video Button */}
+                        {status === 'completed' && !project.is_stitched && (
+                          <Button
+                            onClick={() => handleStitchVideo(project)}
+                            disabled={isStitching[project.id]}
+                            className="gap-2"
+                            size="sm"
+                          >
+                            <SquareStackIcon className="w-4 h-4" />
+                            {isStitching[project.id] ? 'Stitching...' : 'Stitch Video'}
+                          </Button>
+                        )}
+                        
+                        {/* Download Stitched Video */}
+                        {project.is_stitched && project.stitched_url && (
+                          <Button
+                            onClick={() => handleDownloadVideo(project.stitched_url!, `${project.title}_complete.mp4`)}
+                            className="gap-2"
+                            size="sm"
+                            variant="outline"
+                          >
+                            <DownloadIcon className="w-4 h-4" />
+                            Download Complete Video
+                          </Button>
+                        )}
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteProject(project.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {/* Stitching Progress */}
+                    {isStitching[project.id] && (
+                      <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                            Stitching video segments...
+                          </span>
+                          <span className="text-sm text-blue-600 dark:text-blue-400">
+                            {stitchingProgress[project.id] || 0}%
+                          </span>
+                        </div>
+                        <Progress value={stitchingProgress[project.id] || 0} className="h-2" />
+                      </div>
+                    )}
+
+                    {/* Stitched Video Complete */}
+                    {project.is_stitched && (
+                      <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                            <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                              Complete video ready!
+                            </span>
+                          </div>
+                          <Button
+                            onClick={() => project.stitched_url && handlePlayVideo(project.stitched_url, `${project.title} - Complete Video`)}
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                          >
+                            <PlayIcon className="w-3 h-3" />
+                            Play Complete Video
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     {project.segments && project.segments.length > 0 ? (
                       <VideoProcessingStatus
                         segments={project.segments}
