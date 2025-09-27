@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Scripts from "./pages/Scripts";
 import Characters from "./pages/Characters";
 import Videos from "./pages/Videos";
+import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
             <Route path="/characters" element={<ProtectedRoute><Characters /></ProtectedRoute>} />
             <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
+            <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
