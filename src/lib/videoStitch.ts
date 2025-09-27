@@ -69,7 +69,7 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
 
       const loadPromise = ffmpeg.load({ coreURL, wasmURL });
       const loadTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('FFmpeg load timeout (20s)')), 20000)
+        setTimeout(() => reject(new Error('FFmpeg load timeout (60s)')), 60000)
       );
       await Promise.race([loadPromise, loadTimeout]);
       console.log('FFmpeg loaded successfully');
