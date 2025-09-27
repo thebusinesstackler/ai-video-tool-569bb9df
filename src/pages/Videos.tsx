@@ -519,6 +519,56 @@ Create a cinematic video that captures both the visual elements and the message/
 
           console.log('Sending request to wavespeed-video:', requestBody);
 
+          // Create signed URLs for private storage files if needed
+          if (requestBody.imageUrls && requestBody.imageUrls.length > 0) {
+            const signedImageUrls = [];
+            for (const imageUrl of requestBody.imageUrls) {
+              if (imageUrl.includes('supabase.co') && imageUrl.includes('project-files')) {
+                try {
+                  // Extract the file path from the URL
+                  const urlParts = imageUrl.split('/storage/v1/object/public/project-files/');
+                  if (urlParts.length > 1) {
+                    const filePath = urlParts[1];
+                    const { data: signedData, error: signedError } = await supabase.storage
+                      .from('project-files')
+                      .createSignedUrl(filePath, 7200); // 2 hours expiry
+                    
+                    if (signedError) throw signedError;
+                    signedImageUrls.push(signedData.signedUrl);
+                  } else {
+                    signedImageUrls.push(imageUrl);
+                  }
+                } catch (error) {
+                  console.error('Error creating signed image URL:', error);
+                  signedImageUrls.push(imageUrl);
+                }
+              } else {
+                signedImageUrls.push(imageUrl);
+              }
+            }
+            requestBody.imageUrls = signedImageUrls;
+          }
+
+          // Create signed URL for audio if needed
+          if (requestBody.audioUrl && requestBody.audioUrl.includes('supabase.co') && requestBody.audioUrl.includes('project-files')) {
+            try {
+              const urlParts = requestBody.audioUrl.split('/storage/v1/object/public/project-files/');
+              if (urlParts.length > 1) {
+                const filePath = urlParts[1];
+                const { data: signedData, error: signedError } = await supabase.storage
+                  .from('project-files')
+                  .createSignedUrl(filePath, 7200); // 2 hours expiry
+                
+                if (signedError) throw signedError;
+                requestBody.audioUrl = signedData.signedUrl;
+              }
+            } catch (error) {
+              console.error('Error creating signed audio URL:', error);
+            }
+          }
+
+          console.log('Sending request to wavespeed-video with signed URLs:', requestBody);
+
           const { data, error } = await supabase.functions.invoke('wavespeed-video', {
             body: requestBody
           });
