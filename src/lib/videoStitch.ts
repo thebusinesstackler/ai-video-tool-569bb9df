@@ -31,25 +31,16 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Loading FFmpeg...');
     
     try {
-      // Robust loader: probe multiple CDNs, prefetch core assets, then load
-      const makeBlobURL = async (url: string, type: string) => {
-        console.log(`Prefetching ${url} ...`);
-        const res = await fetch(url, { mode: 'cors' });
-        if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-        const blob = await res.blob();
-        return URL.createObjectURL(new Blob([blob], { type }));
-      };
-
+      // FFmpeg 0.12.6+ uses toBlobURL from @ffmpeg/util 
       const sources = [
-        { label: 'jsdelivr-dist-0.12.6', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.6/dist/' },
-        { label: 'unpkg-dist-0.12.6', base: 'https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/' },
         { label: 'jsdelivr-umd-0.12.6', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/' },
         { label: 'unpkg-umd-0.12.6', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/' },
+        { label: 'jsdelivr-esm-0.12.6', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/' },
+        { label: 'unpkg-esm-0.12.6', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/' },
       ] as const;
 
       let coreURL: string | undefined;
       let wasmURL: string | undefined;
-      let workerURL: string | undefined;
       let lastError: unknown;
 
       for (const src of sources) {
@@ -57,12 +48,13 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
           console.log(`Trying FFmpeg core from ${src.label}: ${src.base}`);
           const jsPath = `${src.base}ffmpeg-core.js`;
           const wasmPath = `${src.base}ffmpeg-core.wasm`;
-          const workerPath = `${src.base}ffmpeg-core.worker.js`;
 
-          const c = await makeBlobURL(jsPath, 'text/javascript');
-          const w = await makeBlobURL(wasmPath, 'application/wasm');
-          const wk = await makeBlobURL(workerPath, 'text/javascript');
-          coreURL = c; wasmURL = w; workerURL = wk;
+          // Use toBlobURL from @ffmpeg/util for proper loading
+          const corePromise = toBlobURL(jsPath, 'text/javascript');
+          const wasmPromise = toBlobURL(wasmPath, 'application/wasm');
+          
+          const [c, w] = await Promise.all([corePromise, wasmPromise]);
+          coreURL = c; wasmURL = w;
           console.log(`Prepared blob URLs from ${src.label}`);
           break;
         } catch (e) {
@@ -71,11 +63,11 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
         }
       }
 
-      if (!coreURL || !wasmURL || !workerURL) {
+      if (!coreURL || !wasmURL) {
         throw new Error(`Could not fetch FFmpeg core files from any source. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
       }
 
-      const loadPromise = ffmpeg.load({ coreURL, wasmURL, workerURL });
+      const loadPromise = ffmpeg.load({ coreURL, wasmURL });
       const loadTimeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('FFmpeg load timeout (20s)')), 20000)
       );
