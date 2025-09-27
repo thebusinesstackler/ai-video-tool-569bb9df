@@ -103,21 +103,54 @@ export async function getWaveSpeedVideoJob(taskId: string): Promise<WaveSpeedVid
   const taskData = data.data;
   let status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
   
-  // Map WaveSpeed AI status to our status
-  if (taskData.status === 'completed') {
+  // Map WaveSpeed AI status to our status with expanded intermediate states
+  console.log('WaveSpeed AI task status:', taskData.status);
+  
+  if (taskData.status === 'completed' || taskData.status === 'succeeded') {
     status = 'completed';
-  } else if (taskData.status === 'failed' || taskData.status === 'error') {
+  } else if (taskData.status === 'failed' || taskData.status === 'error' || taskData.status === 'cancelled') {
     status = 'failed';
-  } else if (taskData.status === 'processing' || taskData.status === 'generating') {
+  } else if (
+    taskData.status === 'processing' || 
+    taskData.status === 'generating' ||
+    taskData.status === 'starting' ||
+    taskData.status === 'queued' ||
+    taskData.status === 'initializing' ||
+    taskData.status === 'in_progress' ||
+    taskData.status === 'running'
+  ) {
     status = 'processing';
   } else {
     status = 'pending';
   }
 
+  // Calculate progress based on specific status
+  let progress = 0;
+  if (status === 'completed') {
+    progress = 100;
+  } else if (status === 'processing') {
+    // More granular progress based on specific status
+    switch (taskData.status) {
+      case 'queued':
+      case 'starting':
+      case 'initializing':
+        progress = 25;
+        break;
+      case 'processing':
+      case 'generating':
+      case 'in_progress':
+      case 'running':
+        progress = 75;
+        break;
+      default:
+        progress = 50;
+    }
+  }
+
   return {
     taskId: taskData.task_id || taskId,
     status,
-    progress: status === 'completed' ? 100 : status === 'processing' ? 50 : 0,
+    progress,
     videoUrl: taskData.video_url,
     error: taskData.error_message || undefined
   };
