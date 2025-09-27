@@ -84,12 +84,12 @@ const MODEL_COSTS = {
 const MODEL_NAMES = {
   'wan-2.2': 'Text-to-Video (WAN 2.2)',
   'wan-2.5-t2v': 'Enhanced Text-to-Video (WAN 2.5)',
-  'wan-2.5-i2v': 'Image-to-Video (Alibaba WAN 2.5)',
+  'wan-2.5-i2v': 'Image-to-Video (Alibaba WAN 2.5) - Requires Image + Prompt',
   'wan-2.5-a2v': 'Audio-to-Video (Alibaba WAN 2.5)',
-  'hunyuan-video': 'HunyuanVideo (Tencent)',
-  'seedream-v4': 'Seedream V4 (Image-to-Video)',
-  'vidu': 'VIDU (Multimodal)', 
-  'veo3': 'VEO3 (Google)',
+  'hunyuan-video': 'HunyuanVideo (Tencent) - Prompt Based',
+  'seedream-v4': 'Seedream V4 (Image-to-Video) - Requires Image + Prompt',
+  'vidu': 'VIDU (Multimodal) - Prompt Based', 
+  'veo3': 'VEO3 (Google) - Prompt Based',
   'avatar-omni-human-1.5': '🎤 Talking Avatar with Lip Sync (ByteDance)',
   'infinitetalk': '🗣️ InfiniteTalk - AI Voiceover + Lip Sync',
   'wan-animate': '🎬 WAN Animate - Character Animation with Lip Sync',
@@ -1123,6 +1123,20 @@ Create a cinematic video that captures both the visual elements and the message/
                     formData.modelType === 'infinitetalk' ||
                     formData.modelType === 'wan-animate';
 
+  // Determine if this model uses prompts vs scripts
+  const usesPrompt = formData.modelType === 'wan-2.5-i2v' || 
+                     formData.modelType === 'seedream-v4' ||
+                     formData.modelType === 'hunyuan-video' ||
+                     formData.modelType === 'vidu' ||
+                     formData.modelType === 'veo3';
+                     
+  const scriptFieldLabel = usesPrompt ? "Prompt" : "Video Script";
+  const scriptPlaceholder = usesPrompt 
+    ? `A confident woman in her 40s stands on a stage with a microphone. The background shows a large LED screen with abstract visuals. She smiles and begins speaking to the audience: "Good evening everyone. Tonight, I want to share three powerful lessons about leadership and innovation." Her lip movements match her voice, and she uses expressive hand gestures while speaking.`
+    : `Scene 1 (0:00–0:15):
+Visuals: A confident woman in her 40s stands on a stage with a microphone...
+Dialogue: Good evening everyone. Tonight, I want to share the power of clinical studies...`;
+
   if (isLoading) {
     return (
       <Layout>
@@ -1466,14 +1480,17 @@ Create a cinematic video that captures both the visual elements and the message/
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="script">Video Script</Label>
+                  <Label htmlFor="script">{scriptFieldLabel}</Label>
+                  {usesPrompt && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Describe the video scene you want to generate in detail. Focus on visuals, actions, and dialogue.
+                    </p>
+                  )}
                   <Textarea
                     id="script"
                     value={formData.script}
                     onChange={(e) => setFormData({...formData, script: e.target.value})}
-                    placeholder="Scene 1 (0:00–0:15):
-Visuals: A confident woman in her 40s stands on a stage with a microphone...
-Dialogue: Good evening everyone. Tonight, I want to share the power of clinical studies..."
+                    placeholder={scriptPlaceholder}
                     rows={8}
                     className="font-mono text-sm"
                   />
