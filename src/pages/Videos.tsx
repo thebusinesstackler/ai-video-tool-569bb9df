@@ -1093,9 +1093,11 @@ Create a cinematic video that captures both the visual elements and the message/
                       <AudioGenerator
                         onAudioGenerated={(url, file) => {
                           setSourceAudio(file);
+                          // Auto-hide the generator after successful generation
+                          setShowAudioGenerator(false);
                           toast({
-                            title: "Audio Ready",
-                            description: "Generated audio is ready to use in your video.",
+                            title: "Audio Generated & Applied",
+                            description: `Generated audio "${file.name}" has been automatically applied to your project.`,
                           });
                         }}
                         text={formData.script}
@@ -1143,6 +1145,7 @@ Create a cinematic video that captures both the visual elements and the message/
                     <Label htmlFor="sourceAudio" className="flex items-center gap-2">
                       <VolumeIcon className="w-4 h-4" />
                       Source Audio {needsAudio ? '(Required)' : '(Optional)'}
+                      {sourceAudio && <Badge variant="secondary" className="ml-2">Auto-filled</Badge>}
                     </Label>
                     {needsAudio && (
                       <p className="text-xs text-muted-foreground mb-2">
