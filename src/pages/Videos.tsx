@@ -165,10 +165,13 @@ const Videos = () => {
   const [sourceVideo, setSourceVideo] = useState<File | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string>('');
   const [segmentCountdowns, setSegmentCountdowns] = useState<{[key: string]: number}>({});
+  const [savedScripts, setSavedScripts] = useState<any[]>([]);
+  const [selectedScript, setSelectedScript] = useState<string>('');
 
   useEffect(() => {
     loadProjects();
     loadCharacters();
+    loadSavedScripts();
   }, []);
 
   // Countdown timer for pending segments
@@ -291,6 +294,56 @@ const Videos = () => {
       setCharacters(data || []);
     } catch (error) {
       console.error('Error loading characters:', error);
+    }
+  };
+
+  const loadSavedScripts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('scripts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading scripts:', error);
+        return;
+      }
+
+      setSavedScripts(data || []);
+    } catch (error) {
+      console.error('Error loading scripts:', error);
+    }
+  };
+
+  const handleLoadScript = (scriptId: string) => {
+    const script = savedScripts.find(s => s.id === scriptId);
+    if (!script) return;
+
+    setFormData(prev => ({
+      ...prev,
+      title: script.title,
+      script: script.content,
+      duration: script.duration || 60
+    }));
+
+    // Load segments if available
+    if (script.segments && Array.isArray(script.segments) && script.segments.length > 0) {
+      setScriptSegments(script.segments);
+      setCurrentSegmentIndex(0);
+      
+      toast({
+        title: "Script Loaded",
+        description: `Loaded "${script.title}" with ${script.segments.length} segments.`,
+      });
+    } else {
+      toast({
+        title: "Script Loaded",
+        description: `Loaded "${script.title}".`,
+      });
     }
   };
 
@@ -1295,6 +1348,37 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     placeholder="My Amazing Video"
                   />
                 </div>
+
+                {savedScripts.length > 0 && (
+                  <div>
+                    <Label htmlFor="savedScript">Load Saved Script</Label>
+                    <Select value={selectedScript} onValueChange={(value) => {
+                      setSelectedScript(value);
+                      if (value) {
+                        handleLoadScript(value);
+                      }
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a saved script..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {savedScripts.map((script) => (
+                          <SelectItem key={script.id} value={script.id}>
+                            <div className="flex items-center gap-2">
+                              <SparklesIcon className="w-4 h-4 text-primary" />
+                              <div>
+                                <div className="font-medium">{script.title}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {script.duration}s • {script.style} • {new Date(script.created_at).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="modelType">AI Model</Label>

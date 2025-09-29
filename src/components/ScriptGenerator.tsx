@@ -92,9 +92,35 @@ export const ScriptGenerator = () => {
         throw new Error('No script content received from the server');
       }
       
-      setGeneratedScript(data.script);
+      const scriptContent = data.script;
+      setGeneratedScript(scriptContent);
+
+      // Save script to database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const duration = parseInt(params.duration);
+        const segments = splitScriptIntoSegments(scriptContent, duration);
+        
+        const { error: saveError } = await supabase
+          .from('scripts')
+          .insert({
+            user_id: user.id,
+            title: params.topic.substring(0, 100),
+            content: scriptContent,
+            duration: duration,
+            style: params.style,
+            audience: params.audience,
+            tone: params.tone,
+            segments: segments
+          });
+
+        if (saveError) {
+          console.error('Error saving script:', saveError);
+        }
+      }
+      
       toast({
-        title: "Script Generated",
+        title: "Script Generated & Saved",
         description: "Your AI-powered video script is ready!",
       });
     } catch (error) {

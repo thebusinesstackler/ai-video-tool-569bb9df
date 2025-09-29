@@ -113,6 +113,48 @@ export type Database = {
         }
         Relationships: []
       }
+      scripts: {
+        Row: {
+          audience: string | null
+          content: string
+          created_at: string
+          duration: number
+          id: string
+          segments: Json | null
+          style: string | null
+          title: string
+          tone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audience?: string | null
+          content: string
+          created_at?: string
+          duration: number
+          id?: string
+          segments?: Json | null
+          style?: string | null
+          title: string
+          tone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audience?: string | null
+          content?: string
+          created_at?: string
+          duration?: number
+          id?: string
+          segments?: Json | null
+          style?: string | null
+          title?: string
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
