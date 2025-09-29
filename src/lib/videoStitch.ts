@@ -31,45 +31,22 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Loading FFmpeg...');
     
     try {
-      // FFmpeg 0.12.6+ uses toBlobURL from @ffmpeg/util 
-      const sources = [
-        { label: 'jsdelivr-umd-0.12.6', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/' },
-        { label: 'unpkg-umd-0.12.6', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/' },
-        { label: 'jsdelivr-esm-0.12.6', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/' },
-        { label: 'unpkg-esm-0.12.6', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/' },
-      ] as const;
+      // For Vite users, we MUST use ESM build instead of UMD
+      // Using the latest stable version 0.12.10
+      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+      
+      console.log(`Loading FFmpeg core from: ${baseURL}`);
+      
+      // toBlobURL is used to bypass CORS issues
+      const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+      const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+      
+      console.log('Blob URLs prepared, loading FFmpeg...');
 
-      let coreURL: string | undefined;
-      let wasmURL: string | undefined;
-      let lastError: unknown;
-
-      for (const src of sources) {
-        try {
-          console.log(`Trying FFmpeg core from ${src.label}: ${src.base}`);
-          const jsPath = `${src.base}ffmpeg-core.js`;
-          const wasmPath = `${src.base}ffmpeg-core.wasm`;
-
-          // Use toBlobURL from @ffmpeg/util for proper loading
-          const corePromise = toBlobURL(jsPath, 'text/javascript');
-          const wasmPromise = toBlobURL(wasmPath, 'application/wasm');
-          
-          const [c, w] = await Promise.all([corePromise, wasmPromise]);
-          coreURL = c; wasmURL = w;
-          console.log(`Prepared blob URLs from ${src.label}`);
-          break;
-        } catch (e) {
-          lastError = e;
-          console.warn(`Source ${src.label} failed:`, e);
-        }
-      }
-
-      if (!coreURL || !wasmURL) {
-        throw new Error(`Could not fetch FFmpeg core files from any source. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
-      }
-
+      // Load with a reasonable timeout
       const loadPromise = ffmpeg.load({ coreURL, wasmURL });
       const loadTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('FFmpeg load timeout (60s)')), 60000)
+        setTimeout(() => reject(new Error('FFmpeg load timeout (30s)')), 30000)
       );
       await Promise.race([loadPromise, loadTimeout]);
       console.log('FFmpeg loaded successfully');
