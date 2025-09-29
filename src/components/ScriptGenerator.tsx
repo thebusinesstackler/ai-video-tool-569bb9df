@@ -305,6 +305,23 @@ export const ScriptGenerator = () => {
     return segments;
   };
 
+  const handleTestScene = (scene: any) => {
+    // Navigate to videos page with just this one scene for testing
+    navigate('/videos', { 
+      state: { 
+        testScene: {
+          sceneNumber: scene.sceneNumber,
+          description: scene.description,
+          duration: parseInt(params.secondsPerScene)
+        }
+      }
+    });
+    
+    toast({
+      title: "Test Scene Ready",
+      description: `Testing scene ${scene.sceneNumber} generation.`,
+    });
+  };
   const handleCreateVideo = () => {
     if (!generatedScript.trim()) {
       toast({
@@ -604,22 +621,44 @@ export const ScriptGenerator = () => {
               
               {activeTab === 'scenes' && (
                 <div className="space-y-2">
-                  <Label>Scene-by-Scene Preview (editable)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Scene-by-Scene Preview (editable)</Label>
+                    <Badge variant="secondary">{scenePreview.length} scenes</Badge>
+                  </div>
                   <div className="space-y-3 max-h-[400px] overflow-y-auto p-2">
                     {scenePreview.length > 0 ? (
                       scenePreview.map((scene, index) => (
                         <Card key={scene.id} className="p-3">
-                          <div className="flex items-start gap-3">
-                            <Badge variant="outline" className="mt-1 shrink-0">Scene {scene.sceneNumber}</Badge>
-                            <Textarea
-                              value={scene.description}
-                              onChange={(e) => {
-                                const updated = [...scenePreview];
-                                updated[index].description = e.target.value;
-                                setScenePreview(updated);
-                              }}
-                              className="min-h-[60px] text-sm flex-1"
-                            />
+                          <div className="space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 flex-1">
+                                <Badge variant="outline" className="mt-1 shrink-0">Scene {scene.sceneNumber}</Badge>
+                                <Textarea
+                                  value={scene.description}
+                                  onChange={(e) => {
+                                    const updated = [...scenePreview];
+                                    updated[index].description = e.target.value;
+                                    setScenePreview(updated);
+                                  }}
+                                  className="min-h-[60px] text-sm flex-1"
+                                  placeholder="Describe the visual scene..."
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 pt-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleTestScene(scene)}
+                                className="text-xs"
+                              >
+                                <PlayIcon className="w-3 h-3 mr-1" />
+                                Test Generate
+                              </Button>
+                              <span className="text-xs text-muted-foreground">
+                                {params.secondsPerScene}s duration
+                              </span>
+                            </div>
                           </div>
                         </Card>
                       ))

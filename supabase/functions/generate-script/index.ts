@@ -62,9 +62,16 @@ CLEAN SCRIPT FORMAT (for video generation):
 - NO scene numbers
 - NO labels like "Visual:", "Audio:", "Narrator:", etc.
 - NO text on screen instructions
+- NO logos, graphics, or overlay instructions (like "logo appears", "text displays", "phone number shown")
+- NO dialogue instructions (like "person says" or "narrator speaks")
+- ONLY physical actions, character descriptions, settings, and visual elements
 - Just pure visual descriptions suitable for AI video generation
 - Each scene on a NEW LINE
 - Each scene = ${params.secondsPerScene} seconds of action/description
+- If someone needs to speak, describe their mouth movements and expressions, NOT what they say
+
+CRITICAL FOR CLEAN SCRIPT:
+The clean version is ONLY for generating the video visuals. Any text, logos, phone numbers, or spoken words will be added during video editing, NOT during video generation. Describe ONLY what the camera sees - people, actions, environments, expressions.
 
 Make it suitable for ${params.style} style video content with ${params.secondsPerScene}-second scene constraints.`;
 }

@@ -369,6 +369,23 @@ const Videos = () => {
         description: `Ready to create ${segments.length} video segments.`,
       });
     }
+    
+    // Handle test scene from script generator
+    if (location.state?.testScene) {
+      const { sceneNumber, description, duration } = location.state.testScene;
+      
+      setFormData(prev => ({
+        ...prev,
+        title: `Test Scene ${sceneNumber}`,
+        script: description,
+        segmentDuration: duration.toString()
+      }));
+      
+      toast({
+        title: "Test Scene Ready",
+        description: `Scene ${sceneNumber} loaded for testing. Adjust settings and generate.`,
+      });
+    }
   }, [location.state]);
 
   const handleGenerateAllSegments = async () => {
