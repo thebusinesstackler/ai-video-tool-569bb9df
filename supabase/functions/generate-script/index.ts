@@ -16,7 +16,7 @@ interface ScriptParams {
 }
 
 function createScriptPrompt(params: ScriptParams): string {
-  return `Create a video script with the following requirements:
+  return `Create TWO versions of a video script with the following requirements:
 
 Topic: ${params.topic}
 Duration: ${params.duration} seconds
@@ -25,14 +25,35 @@ Target Audience: ${params.audience}
 Tone: ${params.tone}
 Call to Action: ${params.callToAction}
 
-Please create an engaging video script that:
+IMPORTANT: Return your response in this EXACT JSON format:
+{
+  "detailedScript": "the full script with timestamps, scene numbers, visual directions, text on screen instructions, etc.",
+  "cleanScript": "the same script but ONLY scene descriptions for video generation - no timestamps, no scene numbers, no 'Visual:', no text on screen instructions, just pure scene descriptions with character details (age, appearance, actions)"
+}
+
+Requirements for BOTH versions:
 1. Hooks the viewer in the first 3 seconds
 2. Maintains engagement throughout
 3. Delivers clear, valuable content
 4. Includes natural transitions
 5. Ends with the specified call to action
 
-Format the script with clear scene descriptions and dialogue. Make it suitable for ${params.style} style video content.`;
+DETAILED SCRIPT FORMAT (for reference/editing):
+- Include timestamps like "00:00-00:10"
+- Include scene numbers
+- Include "Visual:" and "Audio/Narration:" labels
+- Include text on screen instructions
+- Include all production notes
+
+CLEAN SCRIPT FORMAT (for video generation):
+- ONLY scene descriptions with character details (e.g., "A 35-year-old professional woman in business attire walks confidently into a modern office")
+- NO timestamps
+- NO scene numbers
+- NO labels like "Visual:", "Audio:", "Narrator:", etc.
+- NO text on screen instructions
+- Just pure visual descriptions suitable for AI video generation
+
+Make it suitable for ${params.style} style video content.`;
 }
 
 serve(async (req) => {
@@ -73,7 +94,7 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: 'You are a professional video script writer. Create engaging, well-structured scripts that capture attention and deliver value to the audience. Format scripts with clear scene breaks and include visual descriptions.' 
+            content: 'You are a professional video script writer. CRITICAL: You MUST return a valid JSON object with exactly two keys: "detailedScript" and "cleanScript". The detailedScript should have timestamps, scene numbers, visual/audio labels, and all production notes. The cleanScript should ONLY have pure scene descriptions with character details (age, appearance, actions) - absolutely NO timestamps, NO scene numbers, NO labels, NO text on screen instructions. Just visual descriptions suitable for AI video generation.' 
           },
           { role: 'user', content: prompt }
         ],
@@ -108,8 +129,34 @@ serve(async (req) => {
       );
     }
 
+    // Try to parse JSON response for two versions
+    let detailedScript = generatedScript.trim();
+    let cleanScript = generatedScript.trim();
+    
+    try {
+      // Extract JSON from markdown code blocks if present
+      let jsonContent = generatedScript.trim();
+      const jsonMatch = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[1];
+      }
+      
+      const parsed = JSON.parse(jsonContent);
+      if (parsed.detailedScript && parsed.cleanScript) {
+        detailedScript = parsed.detailedScript;
+        cleanScript = parsed.cleanScript;
+      }
+    } catch (e) {
+      console.log('Could not parse JSON response, using raw content:', e);
+      // If parsing fails, use the raw content for both
+    }
+
     return new Response(
-      JSON.stringify({ script: generatedScript.trim() }), 
+      JSON.stringify({ 
+        script: detailedScript,
+        detailedScript: detailedScript,
+        cleanScript: cleanScript
+      }), 
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }

@@ -44,6 +44,9 @@ export const ScriptGenerator = () => {
   });
   
   const [generatedScript, setGeneratedScript] = useState('');
+  const [cleanScript, setCleanScript] = useState('');
+  const [scenePreview, setScenePreview] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'detailed' | 'clean' | 'scenes'>('detailed');
   const [isGenerating, setIsGenerating] = useState(false);
   const [apiConfigured, setApiConfigured] = useState(true);
   const [kieConfigured, setKieConfigured] = useState(true);
@@ -92,21 +95,28 @@ export const ScriptGenerator = () => {
         throw new Error('No script content received from the server');
       }
       
-      const scriptContent = data.script;
-      setGeneratedScript(scriptContent);
+      const detailedScriptContent = data.detailedScript || data.script;
+      const cleanScriptContent = data.cleanScript || data.script;
+      
+      setGeneratedScript(detailedScriptContent);
+      setCleanScript(cleanScriptContent);
+      
+      // Parse clean script into scene previews
+      const scenes = parseScriptIntoScenes(cleanScriptContent);
+      setScenePreview(scenes);
 
       // Save script to database
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const duration = parseInt(params.duration);
-        const segments = splitScriptIntoSegments(scriptContent, duration);
+        const segments = splitScriptIntoSegments(detailedScriptContent, duration);
         
         const { error: saveError } = await supabase
           .from('scripts')
           .insert({
             user_id: user.id,
             title: params.topic.substring(0, 100),
-            content: scriptContent,
+            content: detailedScriptContent,
             duration: duration,
             style: params.style,
             audience: params.audience,
@@ -247,6 +257,24 @@ export const ScriptGenerator = () => {
     loadCharacters();
   }, []);
 
+  // Function to parse clean script into scene previews
+  const parseScriptIntoScenes = (script: string) => {
+    const lines = script.split('\n').filter(line => line.trim());
+    const scenes: any[] = [];
+    
+    lines.forEach((line, index) => {
+      if (line.trim()) {
+        scenes.push({
+          id: `scene-${index}`,
+          sceneNumber: index + 1,
+          description: line.trim()
+        });
+      }
+    });
+    
+    return scenes;
+  };
+
   // Function to split script into segments based on duration
   const splitScriptIntoSegments = (script: string, totalDuration: number) => {
     const segmentDuration = Math.min(15, totalDuration); // Max 15 seconds per segment
@@ -329,19 +357,17 @@ export const ScriptGenerator = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="duration">Duration</Label>
-              <Select value={params.duration} onValueChange={(value) => setParams(prev => ({ ...prev, duration: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 seconds</SelectItem>
-                  <SelectItem value="30">30 seconds</SelectItem>
-                  <SelectItem value="60">60 seconds</SelectItem>
-                  <SelectItem value="90">90 seconds</SelectItem>
-                  <SelectItem value="120">2 minutes</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="duration">Duration (seconds)</Label>
+              <Input
+                id="duration"
+                type="number"
+                min="5"
+                max="300"
+                value={params.duration}
+                onChange={(e) => setParams(prev => ({ ...prev, duration: e.target.value }))}
+                placeholder="e.g., 8, 30, 60"
+              />
+              <p className="text-xs text-muted-foreground">Enter any duration between 5-300 seconds</p>
             </div>
 
             <div className="space-y-2">
@@ -498,12 +524,95 @@ export const ScriptGenerator = () => {
         <CardContent>
           {generatedScript ? (
             <div className="space-y-4">
-              <Textarea
-                value={generatedScript}
-                onChange={(e) => setGeneratedScript(e.target.value)}
-                className="min-h-[400px] font-mono text-sm"
-                placeholder="Your generated script will appear here..."
-              />
+              {/* Tabs for detailed vs clean script */}
+              <div className="border-b border-border">
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setActiveTab('detailed')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'detailed' 
+                        ? 'border-primary text-primary' 
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Detailed Script
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('clean')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'clean' 
+                        ? 'border-primary text-primary' 
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Clean Version
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('scenes')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'scenes' 
+                        ? 'border-primary text-primary' 
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Scene Preview ({scenePreview.length})
+                  </button>
+                </div>
+              </div>
+              
+              {activeTab === 'detailed' && (
+                <div className="space-y-2">
+                  <Label>Detailed Script (with timestamps & production notes)</Label>
+                  <Textarea
+                    value={generatedScript}
+                    onChange={(e) => setGeneratedScript(e.target.value)}
+                    className="min-h-[300px] font-mono text-sm"
+                    placeholder="Your generated script will appear here..."
+                  />
+                </div>
+              )}
+              
+              {activeTab === 'clean' && (
+                <div className="space-y-2">
+                  <Label>Clean Version (for video generation)</Label>
+                  <Textarea
+                    value={cleanScript}
+                    onChange={(e) => setCleanScript(e.target.value)}
+                    className="min-h-[300px] font-mono text-sm"
+                    placeholder="Clean script for video generation..."
+                  />
+                </div>
+              )}
+              
+              {activeTab === 'scenes' && (
+                <div className="space-y-2">
+                  <Label>Scene-by-Scene Preview (editable)</Label>
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto p-2">
+                    {scenePreview.length > 0 ? (
+                      scenePreview.map((scene, index) => (
+                        <Card key={scene.id} className="p-3">
+                          <div className="flex items-start gap-3">
+                            <Badge variant="outline" className="mt-1 shrink-0">Scene {scene.sceneNumber}</Badge>
+                            <Textarea
+                              value={scene.description}
+                              onChange={(e) => {
+                                const updated = [...scenePreview];
+                                updated[index].description = e.target.value;
+                                setScenePreview(updated);
+                              }}
+                              className="min-h-[60px] text-sm flex-1"
+                            />
+                          </div>
+                        </Card>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-sm text-center py-8">
+                        No scenes to preview yet. Generate a script first.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               
               {audioUrl && (
                 <div className="space-y-2 p-4 bg-accent/10 rounded-lg">
