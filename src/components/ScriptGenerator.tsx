@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 interface ScriptParams {
   topic: string;
   duration: string;
+  secondsPerScene: string;
   style: string;
   audience: string;
   tone: string;
@@ -37,6 +38,7 @@ export const ScriptGenerator = () => {
   const [params, setParams] = useState<ScriptParams>({
     topic: '',
     duration: '60',
+    secondsPerScene: '10',
     style: 'educational',
     audience: 'general',
     tone: 'professional',
@@ -80,6 +82,7 @@ export const ScriptGenerator = () => {
         body: {
           topic: params.topic,
           duration: parseInt(params.duration),
+          secondsPerScene: parseInt(params.secondsPerScene),
           style: params.style,
           audience: params.audience,
           tone: params.tone,
@@ -355,9 +358,9 @@ export const ScriptGenerator = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="duration">Duration (seconds)</Label>
+              <Label htmlFor="duration">Total Duration (seconds)</Label>
               <Input
                 id="duration"
                 type="number"
@@ -365,9 +368,24 @@ export const ScriptGenerator = () => {
                 max="300"
                 value={params.duration}
                 onChange={(e) => setParams(prev => ({ ...prev, duration: e.target.value }))}
-                placeholder="e.g., 8, 30, 60"
+                placeholder="e.g., 30, 60"
               />
-              <p className="text-xs text-muted-foreground">Enter any duration between 5-300 seconds</p>
+              <p className="text-xs text-muted-foreground">5-300 seconds</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="secondsPerScene">Seconds Per Scene</Label>
+              <Select value={params.secondsPerScene} onValueChange={(value) => setParams(prev => ({ ...prev, secondsPerScene: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 seconds (fast cuts)</SelectItem>
+                  <SelectItem value="10">10 seconds (balanced)</SelectItem>
+                  <SelectItem value="15">15 seconds (detailed)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Based on your model</p>
             </div>
 
             <div className="space-y-2">

@@ -9,6 +9,7 @@ const corsHeaders = {
 interface ScriptParams {
   topic: string;
   duration: number;
+  secondsPerScene: number;
   style: string;
   audience: string;
   tone: string;
@@ -16,34 +17,44 @@ interface ScriptParams {
 }
 
 function createScriptPrompt(params: ScriptParams): string {
+  const numScenes = Math.ceil(params.duration / params.secondsPerScene);
+  
   return `Create TWO versions of a video script with the following requirements:
 
 Topic: ${params.topic}
-Duration: ${params.duration} seconds
+Total Duration: ${params.duration} seconds
+Seconds Per Scene: ${params.secondsPerScene} seconds (approximately ${numScenes} scenes total)
 Style: ${params.style}
 Target Audience: ${params.audience}
 Tone: ${params.tone}
 Call to Action: ${params.callToAction}
 
+CRITICAL SCENE TIMING CONSTRAINT:
+- Each scene MUST be exactly ${params.secondsPerScene} seconds long
+- You need to create approximately ${numScenes} scenes to fill ${params.duration} seconds total
+- Each scene description should be appropriate for a ${params.secondsPerScene}-second video clip
+
 IMPORTANT: Return your response in this EXACT JSON format:
 {
-  "detailedScript": "the full script with timestamps, scene numbers, visual directions, text on screen instructions, etc.",
-  "cleanScript": "the same script but ONLY scene descriptions for video generation - no timestamps, no scene numbers, no 'Visual:', no text on screen instructions, just pure scene descriptions with character details (age, appearance, actions)"
+  "detailedScript": "the full script with timestamps (e.g., 0:00-0:${params.secondsPerScene.toString().padStart(2, '0')}), scene numbers, visual directions, text on screen instructions, etc.",
+  "cleanScript": "the same script but ONLY scene descriptions for video generation - no timestamps, no scene numbers, no 'Visual:', no text on screen instructions, just pure scene descriptions with character details (age, appearance, actions). Each scene should be on a new line."
 }
 
 Requirements for BOTH versions:
-1. Hooks the viewer in the first 3 seconds
-2. Maintains engagement throughout
-3. Delivers clear, valuable content
-4. Includes natural transitions
-5. Ends with the specified call to action
+1. Hooks the viewer in the first ${params.secondsPerScene} seconds
+2. Each scene is exactly ${params.secondsPerScene} seconds
+3. Maintains engagement throughout
+4. Delivers clear, valuable content
+5. Includes natural transitions between scenes
+6. Ends with the specified call to action
 
 DETAILED SCRIPT FORMAT (for reference/editing):
-- Include timestamps like "00:00-00:10"
-- Include scene numbers
+- Include timestamps like "00:00-00:${params.secondsPerScene.toString().padStart(2, '0')}" for each scene
+- Include scene numbers (Scene 1, Scene 2, etc.)
 - Include "Visual:" and "Audio/Narration:" labels
 - Include text on screen instructions
 - Include all production notes
+- Each scene = ${params.secondsPerScene} seconds
 
 CLEAN SCRIPT FORMAT (for video generation):
 - ONLY scene descriptions with character details (e.g., "A 35-year-old professional woman in business attire walks confidently into a modern office")
@@ -52,8 +63,10 @@ CLEAN SCRIPT FORMAT (for video generation):
 - NO labels like "Visual:", "Audio:", "Narrator:", etc.
 - NO text on screen instructions
 - Just pure visual descriptions suitable for AI video generation
+- Each scene on a NEW LINE
+- Each scene = ${params.secondsPerScene} seconds of action/description
 
-Make it suitable for ${params.style} style video content.`;
+Make it suitable for ${params.style} style video content with ${params.secondsPerScene}-second scene constraints.`;
 }
 
 serve(async (req) => {
