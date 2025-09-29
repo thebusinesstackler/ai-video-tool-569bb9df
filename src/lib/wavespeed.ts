@@ -1,11 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 
-interface WaveSpeedVideoParams {
+export interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap';
+  model?: 'wan-2.2' | 'wan-2.5-t2v' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -14,7 +14,7 @@ interface WaveSpeedVideoParams {
   duration?: number;
 }
 
-interface WaveSpeedVideoJob {
+export interface WaveSpeedVideoJob {
   taskId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress?: number;
@@ -22,21 +22,11 @@ interface WaveSpeedVideoJob {
   error?: string;
 }
 
-// OpenAI TTS integration for consistent voice across segments
+// DEPRECATED: ElevenLabs TTS removed - VEO3 Fast and other models now have built-in audio generation
+// This function is kept for backwards compatibility but should not be used
 export async function generateConsistentVoice(text: string, voice: string = 'alloy'): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('openai-tts', {
-    body: {
-      text,
-      voice,
-      model: 'eleven_multilingual_v2'
-    }
-  });
-
-  if (error) {
-    throw new Error(`TTS generation failed: ${error.message}`);
-  }
-
-  return data.audioUrl;
+  console.warn('generateConsistentVoice is deprecated. Use VEO3 Fast or other models with built-in audio.');
+  throw new Error('ElevenLabs TTS has been removed. Please use VEO3 Fast or other models with native audio generation.');
 }
 
 export async function createWaveSpeedVideo(params: WaveSpeedVideoParams): Promise<string> {

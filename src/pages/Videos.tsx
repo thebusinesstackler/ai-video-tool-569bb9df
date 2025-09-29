@@ -79,6 +79,7 @@ const MODEL_COSTS = {
   'seedream-v4': 0.4,
   'vidu': 0.3,
   'veo3': 0.4,
+  'veo3-fast': 0.25, // Per-second pricing with built-in audio
   'avatar-omni-human-1.5': 0.15, // Per-second pricing
   'infinitetalk': 0.25, // Per-second pricing for lip sync
   'wan-animate': 0.20, // Per-second pricing for WAN Animate
@@ -94,6 +95,7 @@ const MODEL_NAMES = {
   'seedream-v4': 'Seedream V4 (Image-to-Video) - Requires Image + Prompt',
   'vidu': 'VIDU (Multimodal) - Prompt Based', 
   'veo3': 'VEO3 (Google) - Prompt Based',
+  'veo3-fast': '⚡ VEO3 Fast (Google) - With Built-in Audio Generation',
   'avatar-omni-human-1.5': '🎤 Talking Avatar with Lip Sync (ByteDance)',
   'infinitetalk': '🗣️ InfiniteTalk - AI Voiceover + Lip Sync',
   'wan-animate': '🎬 WAN Animate - Character Animation with Lip Sync',
@@ -109,6 +111,7 @@ const MODEL_DURATIONS = {
   'seedream-v4': [5, 8], // Conservative default
   'vidu': [5, 8], // Conservative default
   'veo3': [5, 8], // Conservative default
+  'veo3-fast': [5, 8, 10], // VEO3 Fast with built-in audio
   'avatar-omni-human-1.5': [5, 8, 10], // Lip sync model
   'infinitetalk': [5, 8, 10, 15], // Extended durations for conversations
   'wan-animate': [5, 8, 10], // Character animation
@@ -589,7 +592,7 @@ const Videos = () => {
     const needsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate', 'video-face-swap'].includes(formData.modelType);
     const needsAudioValidation = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
     const needsVideoValidation = ['video-face-swap'].includes(formData.modelType);
-    const supportsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate', 'video-face-swap'].includes(formData.modelType);
+    const supportsImageValidation = ['wan-2.5-i2v', 'seedream-v4', 'hunyuan-video', 'vidu', 'veo3', 'veo3-fast', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate', 'video-face-swap'].includes(formData.modelType);
     const supportsAudioValidation = ['avatar-omni-human-1.5', 'wan-2.5-a2v', 'wan-2.5-i2v', 'infinitetalk', 'wan-animate'].includes(formData.modelType);
 
     if (needsVideoValidation && !sourceVideo) {
@@ -619,7 +622,8 @@ const Videos = () => {
       return;
     }
 
-    if (needsAudio && !sourceAudio) {
+    // Note: needsAudio should be needsAudioValidation - fixing this check
+    if (needsAudioValidation && !sourceAudio) {
       const modelName = MODEL_NAMES[formData.modelType];
       toast({
         title: "Audio Required", 
@@ -750,7 +754,7 @@ Create a cinematic video that captures both the visual elements and the message/
               requestBody.imageUrls = [imageUrl];
             }
             // Note: Video URL handling will be added when video upload is implemented
-          } else if (['hunyuan-video', 'vidu', 'veo3', 'seedream-v4'].includes(formData.modelType)) {
+          } else if (['hunyuan-video', 'vidu', 'veo3', 'veo3-fast', 'seedream-v4'].includes(formData.modelType)) {
             if (selectedCharacter && selectedCharacter !== 'upload-new') {
               // Use character image
               const character = characters.find(c => c.id === selectedCharacter);
