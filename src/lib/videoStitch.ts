@@ -31,13 +31,13 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Loading FFmpeg...');
     
     try {
-      // Use single-threaded version for better compatibility
-      // Multi-threaded version requires SharedArrayBuffer which needs special headers
-      const baseURL = 'https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/esm';
+      // Using @ffmpeg/core (single-threaded) from jsdelivr
+      // This doesn't require SharedArrayBuffer/special headers
+      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
       
-      console.log(`Loading FFmpeg core (single-threaded) from: ${baseURL}`);
+      console.log(`Loading FFmpeg core from: ${baseURL}`);
       
-      // Load FFmpeg without timeout - let it take the time it needs
+      // Load FFmpeg without timeout
       await ffmpeg.load({
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
