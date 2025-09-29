@@ -31,24 +31,18 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Loading FFmpeg...');
     
     try {
-      // For Vite users, we MUST use ESM build instead of UMD
-      // Using the latest stable version 0.12.10
-      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+      // Use single-threaded version for better compatibility
+      // Multi-threaded version requires SharedArrayBuffer which needs special headers
+      const baseURL = 'https://unpkg.com/@ffmpeg/core-st@0.12.6/dist/esm';
       
-      console.log(`Loading FFmpeg core from: ${baseURL}`);
+      console.log(`Loading FFmpeg core (single-threaded) from: ${baseURL}`);
       
-      // toBlobURL is used to bypass CORS issues
-      const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
-      const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+      // Load FFmpeg without timeout - let it take the time it needs
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
       
-      console.log('Blob URLs prepared, loading FFmpeg...');
-
-      // Load with a reasonable timeout
-      const loadPromise = ffmpeg.load({ coreURL, wasmURL });
-      const loadTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('FFmpeg load timeout (30s)')), 30000)
-      );
-      await Promise.race([loadPromise, loadTimeout]);
       console.log('FFmpeg loaded successfully');
     } catch (error) {
       console.error('Failed to load FFmpeg:', error);
