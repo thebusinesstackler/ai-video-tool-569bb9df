@@ -17,10 +17,12 @@ import {
   DownloadIcon,
   RefreshCwIcon,
   MicIcon,
-  PlayIcon
+  PlayIcon,
+  VideoIcon
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface ScriptParams {
   topic: string;
@@ -50,6 +52,7 @@ export const ScriptGenerator = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<string>('default');
   const [isNarrationDialogOpen, setIsNarrationDialogOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // API keys are now securely handled server-side via Supabase edge functions
   React.useEffect(() => {
@@ -217,6 +220,64 @@ export const ScriptGenerator = () => {
     
     loadCharacters();
   }, []);
+
+  // Function to split script into segments based on duration
+  const splitScriptIntoSegments = (script: string, totalDuration: number) => {
+    const segmentDuration = Math.min(15, totalDuration); // Max 15 seconds per segment
+    const numSegments = Math.ceil(totalDuration / segmentDuration);
+    
+    // Split script by paragraphs or sentences
+    const paragraphs = script.split('\n\n').filter(p => p.trim());
+    const segmentsPerParagraph = Math.ceil(paragraphs.length / numSegments);
+    
+    const segments = [];
+    for (let i = 0; i < numSegments; i++) {
+      const startIndex = i * segmentsPerParagraph;
+      const endIndex = Math.min(startIndex + segmentsPerParagraph, paragraphs.length);
+      const segmentText = paragraphs.slice(startIndex, endIndex).join('\n\n');
+      
+      if (segmentText.trim()) {
+        segments.push({
+          segment: i + 1,
+          duration: segmentDuration,
+          script: segmentText.trim()
+        });
+      }
+    }
+    
+    return segments;
+  };
+
+  const handleCreateVideo = () => {
+    if (!generatedScript.trim()) {
+      toast({
+        title: "No Script",
+        description: "Generate a script first before creating videos.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const duration = parseInt(params.duration);
+    const segments = splitScriptIntoSegments(generatedScript, duration);
+    
+    // Navigate to videos page with script data
+    navigate('/videos', { 
+      state: { 
+        scriptData: {
+          originalScript: generatedScript,
+          segments: segments,
+          params: params,
+          audioUrl: audioUrl
+        }
+      }
+    });
+    
+    toast({
+      title: "Script Ready",
+      description: `Navigating to video creation with ${segments.length} segments.`,
+    });
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -434,10 +495,21 @@ export const ScriptGenerator = () => {
                 </div>
               )}
               <Separator />
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">Style: {params.style}</Badge>
-                <Badge variant="outline">Audience: {params.audience}</Badge>
-                <Badge variant="outline">Tone: {params.tone}</Badge>
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">Style: {params.style}</Badge>
+                  <Badge variant="outline">Audience: {params.audience}</Badge>
+                  <Badge variant="outline">Tone: {params.tone}</Badge>
+                </div>
+                
+                <Button 
+                  onClick={handleCreateVideo}
+                  className="w-full"
+                  variant="default"
+                >
+                  <VideoIcon className="w-4 h-4 mr-2" />
+                  Create Video from Script
+                </Button>
               </div>
             </div>
           ) : (

@@ -27,10 +27,14 @@ import {
   TrashIcon,
   RotateCcwIcon,
   StopCircleIcon,
-  AlertTriangleIcon
+  AlertTriangleIcon,
+  SparklesIcon,
+  Loader2,
+  Zap
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from 'react-router-dom';
 
 interface VideoSegment {
   id: string;
@@ -128,6 +132,11 @@ const Videos = () => {
     segmentDuration: '5'
   });
   const [showAudioGenerator, setShowAudioGenerator] = useState(false);
+  const [scriptSegments, setScriptSegments] = useState<any[]>([]);
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
+  const [isCreatingMultipleVideos, setIsCreatingMultipleVideos] = useState(false);
+  const { toast } = useToast();
+  const location = useLocation();
 
   // Get available durations for the selected model
   const getAvailableDurations = (modelType: keyof typeof MODEL_COSTS): number[] => {
@@ -156,7 +165,6 @@ const Videos = () => {
   const [sourceVideo, setSourceVideo] = useState<File | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string>('');
   const [segmentCountdowns, setSegmentCountdowns] = useState<{[key: string]: number}>({});
-  const { toast } = useToast();
 
   useEffect(() => {
     loadProjects();
@@ -283,6 +291,88 @@ const Videos = () => {
       setCharacters(data || []);
     } catch (error) {
       console.error('Error loading characters:', error);
+    }
+  };
+
+  // Handle incoming script data from script generator
+  useEffect(() => {
+    if (location.state?.scriptData) {
+      const { segments, params, audioUrl } = location.state.scriptData;
+      setScriptSegments(segments);
+      setCurrentSegmentIndex(0);
+      
+      // Pre-fill form with first segment
+      if (segments.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          title: `${params.topic} - Segment 1`,
+          script: segments[0].script,
+          voice: 'alloy' // Default voice
+        }));
+      }
+      
+      toast({
+        title: "Script Loaded",
+        description: `Ready to create ${segments.length} video segments.`,
+      });
+    }
+  }, [location.state]);
+
+  const handleGenerateAllSegments = async () => {
+    if (scriptSegments.length === 0 || isCreatingMultipleVideos) return;
+    
+    setIsCreatingMultipleVideos(true);
+    
+    try {
+      for (let i = currentSegmentIndex; i < scriptSegments.length; i++) {
+        const segment = scriptSegments[i];
+        
+        // Create a project for this segment
+        const segmentTitle = `${formData.title.split(' - Segment')[0]} - Segment ${i + 1}`;
+        
+        // Update form data for this segment
+        setFormData(prev => ({
+          ...prev,
+          title: segmentTitle,
+          script: segment.script
+        }));
+        
+        // Create the video with the updated form data
+        await handleCreateVideo();
+        
+        toast({
+          title: `Segment ${i + 1} Created`,
+          description: `Processing segment ${i + 1} of ${scriptSegments.length}`,
+        });
+
+        // Small delay between requests
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      // Reset everything
+      setScriptSegments([]);
+      setCurrentSegmentIndex(0);
+      setFormData(prev => ({
+        ...prev,
+        title: '',
+        script: ''
+      }));
+      
+      loadProjects();
+      
+      toast({
+        title: "All Segments Created",
+        description: "All video segments have been created successfully.",
+      });
+    } catch (error) {
+      console.error('Error generating all segments:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate all segments.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingMultipleVideos(false);
     }
   };
 
@@ -1479,6 +1569,44 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
               </div>
 
               <div className="space-y-4">
+                {/* Script Segments Info */}
+                {scriptSegments.length > 0 && (
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <SparklesIcon className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">Script Segments</span>
+                      </div>
+                      <Badge variant="secondary">
+                        {currentSegmentIndex + 1} of {scriptSegments.length}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Creating video segments from your generated script.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleGenerateAllSegments}
+                        disabled={isCreatingMultipleVideos}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        {isCreatingMultipleVideos ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            Creating All...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-3 h-3 mr-1" />
+                            Generate All Segments
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="script">{scriptFieldLabel}</Label>
                   {usesPrompt && (
