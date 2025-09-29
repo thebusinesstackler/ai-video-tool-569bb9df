@@ -527,16 +527,25 @@ const Videos = () => {
           .trim();
       }
       
+      // Clean up the dialogue/description to remove timestamps and formatting
+      const cleanDialogue = (dialogue.trim() || block.trim() || `Scene ${i + 1} content`)
+        .replace(/\(\d+:\d+[-–—]\d+:\d+\)/g, '') // Remove (0:00-0:10) patterns
+        .replace(/\d+:\d+[-–—]\d+:\d+/g, '') // Remove 0:00-0:10 patterns
+        .replace(/[-–—]{2,}/g, '') // Remove long dashes
+        .replace(/Scene \d+\s*[\(\[]?[^\)\]]*[\)\]]?\s*:?\s*/gi, '') // Remove Scene X markers
+        .replace(/^\s*\d+[\.\:\)\-]\s*/gm, '') // Remove leading numbers with punctuation
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+      
       const sceneNumber = parseInt(sceneNum, 10) || (i + 1);
       const description = visuals.trim() || `Scene ${sceneNumber} visuals`;
-      const finalDialogue = dialogue.trim() || block.trim() || `Scene ${sceneNumber} content`;
       
       segments.push({
         id: `segment-${Date.now()}-${i}`,
         sceneNumber: sceneNumber,
         timeRange: timeRange,
         description: description,
-        dialogue: finalDialogue,
+        dialogue: cleanDialogue,
         status: 'pending',
         progress: 0
       });
