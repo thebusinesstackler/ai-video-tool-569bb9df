@@ -1608,7 +1608,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                   </div>
                 )}
 
-                {(formData.modelType === 'wan-2.5-i2v' || formData.modelType === 'avatar-omni-human-1.5') && (
+                {(formData.modelType === 'wan-2.5-i2v' || formData.modelType === 'avatar-omni-human-1.5') && (selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0) && (
                   <>
                     <div>
                       <Label htmlFor="sourceImage" className="flex items-center gap-2">
@@ -1624,7 +1624,10 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                         id="sourceImage"
                         type="file"
                         accept="image/*"
-                        onChange={(e) => setSourceImage(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                          setSourceImage(e.target.files?.[0] || null);
+                          setSelectedCharacter('upload-new');
+                        }}
                         className="cursor-pointer"
                       />
                       {sourceImage && (
