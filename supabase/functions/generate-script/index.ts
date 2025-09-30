@@ -14,12 +14,46 @@ interface ScriptParams {
   audience: string;
   tone: string;
   callToAction: string;
+  characterId?: string;
 }
 
-function createScriptPrompt(params: ScriptParams): string {
+interface Character {
+  id: string;
+  name: string;
+  description: string | null;
+  personality: string | null;
+  reference_images: string[] | null;
+}
+
+function createScriptPrompt(params: ScriptParams, character?: Character): string {
   const numScenes = Math.ceil(params.duration / params.secondsPerScene);
   
-  return `Create TWO versions of a video script with the following requirements:
+  let characterContext = "";
+  if (character) {
+    characterContext = `
+
+FEATURED CHARACTER:
+- Name: ${character.name}
+- Physical Description: ${character.description || "Not specified - create appropriate visual details based on the character's name and personality"}
+- Personality: ${character.personality || "Professional and engaging"}
+${character.reference_images?.[0] ? `- Reference Image Available: Yes (ensure visual consistency across scenes)` : ""}
+
+CRITICAL CHARACTER REQUIREMENTS:
+1. Feature "${character.name}" as the main presenter/actor in EVERY scene
+2. Use their personality to guide dialogue style, expressions, and mannerisms
+3. In the CLEAN SCRIPT, provide HIGHLY DETAILED visual descriptions of ${character.name}:
+   - Physical appearance (age range, hair color/style, facial features, build)
+   - Clothing style and colors appropriate to the video context
+   - Facial expressions and body language that match their personality
+   - Specific actions they perform in each ${params.secondsPerScene}-second scene
+   - Environment and how they interact with it
+4. Make descriptions detailed enough for AI video generation to create consistent visuals of ${character.name}
+5. Each scene must showcase ${character.name} performing meaningful actions within ${params.secondsPerScene} seconds
+6. Describe mouth movements and expressions when they would be speaking (but don't include the actual dialogue)
+`;
+  }
+
+  return `Create TWO versions of a video script with the following requirements:${characterContext}
 
 Topic: ${params.topic}
 Total Duration: ${params.duration} seconds
@@ -57,19 +91,22 @@ DETAILED SCRIPT FORMAT (for reference/editing):
 - Each scene = ${params.secondsPerScene} seconds
 
 CLEAN SCRIPT FORMAT (for video generation):
-- ONLY scene descriptions with character details (e.g., "A 35-year-old professional woman in business attire walks confidently into a modern office")
+${character ? `- Feature ${character.name} in EVERY scene with EXTENSIVE visual details` : '- Include character details (e.g., "A 35-year-old professional woman in business attire walks confidently into a modern office")'}
+- HIGHLY DETAILED scene descriptions optimized for ${params.secondsPerScene}-second AI video generation
 - NO timestamps
 - NO scene numbers
 - NO labels like "Visual:", "Audio:", "Narrator:", etc.
 - NO text on screen instructions
 - NO logos, graphics, or overlay instructions (like "logo appears", "text displays", "phone number shown")
 - NO dialogue instructions (like "person says" or "narrator speaks")
-- ONLY physical actions, character descriptions, settings, and visual elements
+- ONLY physical actions, detailed character descriptions, settings, and visual elements
+${character ? `- For ${character.name}: describe appearance (age, hair, clothing, facial features), expressions, body language, specific actions` : ''}
 - Just pure visual descriptions suitable for AI video generation
 - Each scene on a NEW LINE
-- Each scene = ${params.secondsPerScene} seconds of action/description
+- Each scene = ${params.secondsPerScene} seconds of meaningful action/description
 - If someone needs to speak, describe their mouth movements and expressions, NOT what they say
 - DO NOT include any text that would appear on screen or be spoken
+${character ? `- Ensure ${character.name}'s visual description remains consistent across ALL scenes` : ''}
 
 CRITICAL FOR CLEAN SCRIPT:
 The clean version is ONLY for generating the video visuals. Any text, logos, phone numbers, or spoken words will be added during video editing, NOT during video generation. Describe ONLY what the camera sees - people, actions, environments, expressions. Never include dialogue or text overlays in scene descriptions.
@@ -98,10 +135,40 @@ serve(async (req) => {
       );
     }
 
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
     const params: ScriptParams = await req.json();
     console.log('Generating script with params:', params);
 
-    const prompt = createScriptPrompt(params);
+    // Fetch character details if characterId is provided
+    let character: Character | undefined;
+    if (params.characterId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const characterResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/characters?id=eq.${params.characterId}&select=*`,
+          {
+            headers: {
+              'apikey': SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+          }
+        );
+        
+        if (characterResponse.ok) {
+          const characters = await characterResponse.json();
+          if (characters && characters.length > 0) {
+            character = characters[0];
+            console.log('Fetched character for script generation:', character?.name);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching character:', error);
+        // Continue without character if fetch fails
+      }
+    }
+
+    const prompt = createScriptPrompt(params, character);
 
     // Call the Lovable AI Gateway
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -115,7 +182,7 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: 'You are a professional video script writer. CRITICAL: You MUST return a valid JSON object with exactly two keys: "detailedScript" and "cleanScript". The detailedScript should have timestamps, scene numbers, visual/audio labels, and all production notes. The cleanScript should ONLY have pure scene descriptions with character details (age, appearance, actions) - absolutely NO timestamps, NO scene numbers, NO labels, NO text on screen instructions. Just visual descriptions suitable for AI video generation.' 
+            content: `You are a professional video script writer specializing in AI video generation. CRITICAL: You MUST return a valid JSON object with exactly two keys: "detailedScript" and "cleanScript". The detailedScript should have timestamps, scene numbers, visual/audio labels, and all production notes. The cleanScript should ONLY have HIGHLY DETAILED scene descriptions with extensive character details (age, appearance, clothing, expressions, actions) optimized for ${params.secondsPerScene}-second AI video generation - absolutely NO timestamps, NO scene numbers, NO labels, NO text on screen instructions, NO dialogue. Just pure visual descriptions suitable for AI video generation${character ? ` featuring ${character.name} with consistent visual details across all scenes` : ''}.` 
           },
           { role: 'user', content: prompt }
         ],

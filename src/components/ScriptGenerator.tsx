@@ -32,6 +32,7 @@ interface ScriptParams {
   audience: string;
   tone: string;
   callToAction: string;
+  characterId?: string;
 }
 
 export const ScriptGenerator = () => {
@@ -42,7 +43,8 @@ export const ScriptGenerator = () => {
     style: 'educational',
     audience: 'general',
     tone: 'professional',
-    callToAction: ''
+    callToAction: '',
+    characterId: ''
   });
   
   const [generatedScript, setGeneratedScript] = useState('');
@@ -86,7 +88,8 @@ export const ScriptGenerator = () => {
           style: params.style,
           audience: params.audience,
           tone: params.tone,
-          callToAction: params.callToAction
+          callToAction: params.callToAction,
+          characterId: params.characterId || undefined
         }
       });
 
@@ -373,6 +376,26 @@ export const ScriptGenerator = () => {
               onChange={(e) => setParams(prev => ({ ...prev, topic: e.target.value }))}
               className="min-h-[100px]"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="character">Character (Optional)</Label>
+            <Select value={params.characterId} onValueChange={(value) => setParams(prev => ({ ...prev, characterId: value }))}>
+              <SelectTrigger id="character">
+                <SelectValue placeholder="No character (generic script)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No character (generic script)</SelectItem>
+                {characters.map((character) => (
+                  <SelectItem key={character.id} value={character.id}>
+                    {character.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Select a character to write scripts specifically for them with detailed scene descriptions optimized for 10-second segments.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
