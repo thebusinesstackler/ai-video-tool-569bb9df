@@ -69,9 +69,10 @@ CLEAN SCRIPT FORMAT (for video generation):
 - Each scene on a NEW LINE
 - Each scene = ${params.secondsPerScene} seconds of action/description
 - If someone needs to speak, describe their mouth movements and expressions, NOT what they say
+- DO NOT include any text that would appear on screen or be spoken
 
 CRITICAL FOR CLEAN SCRIPT:
-The clean version is ONLY for generating the video visuals. Any text, logos, phone numbers, or spoken words will be added during video editing, NOT during video generation. Describe ONLY what the camera sees - people, actions, environments, expressions.
+The clean version is ONLY for generating the video visuals. Any text, logos, phone numbers, or spoken words will be added during video editing, NOT during video generation. Describe ONLY what the camera sees - people, actions, environments, expressions. Never include dialogue or text overlays in scene descriptions.
 
 Make it suitable for ${params.style} style video content with ${params.secondsPerScene}-second scene constraints.`;
 }

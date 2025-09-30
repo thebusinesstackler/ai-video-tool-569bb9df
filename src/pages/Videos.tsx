@@ -700,16 +700,28 @@ Or simply write your content and it will be treated as one scene.`);
 
       setProjects(prev => [transformedProject, ...prev]);
 
+      // Helper function to identify models with built-in audio generation
+      const hasBuiltInAudio = (model: string) => {
+        return ['alibaba/wan-2.5/text-to-video', 'veo3-fast', 'avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(model);
+      };
+
       // Create video segments
       for (const segment of segments) {
         try {
-          const enhancedPrompt = `Scene ${segment.sceneNumber} (${segment.timeRange}):
-
-Visual Description: ${segment.description}
-
-Dialogue/Content: "${segment.dialogue}"
-
-Create a cinematic video that captures both the visual elements and the message/dialogue described above. Focus on engaging cinematography that matches the scene's requirements.`.trim();
+          // Generate prompt based on model capabilities
+          let enhancedPrompt = '';
+          
+          if (hasBuiltInAudio(formData.modelType)) {
+            // For models with built-in audio: include voice instructions
+            if (segment.dialogue?.trim()) {
+              enhancedPrompt = `${segment.description}. A person says: "${segment.dialogue.trim()}"`;
+            } else {
+              enhancedPrompt = segment.description;
+            }
+          } else {
+            // For models without built-in audio: ONLY visual description (no dialogue to prevent text overlay)
+            enhancedPrompt = segment.description;
+          }
 
           const requestBody: any = {
             action: 'create',
