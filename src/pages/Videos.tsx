@@ -607,7 +607,7 @@ const Videos = () => {
     if (needsImageValidation && !sourceImage && (!selectedCharacter || selectedCharacter === 'upload-new')) {
       toast({
         title: "Image Required",
-        description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image or character selection.`,
+        description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image. Please upload an image or select a character.`,
         variant: "destructive"
       });
       return;
@@ -615,8 +615,8 @@ const Videos = () => {
 
     if (needsAudioValidation && !sourceAudio) {
       toast({
-        title: "Image Required",
-        description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image.`,
+        title: "Audio Required",
+        description: `The ${MODEL_NAMES[formData.modelType]} model requires an audio file.`,
         variant: "destructive"
       });
       return;
@@ -754,8 +754,14 @@ Or simply write your content and it will be treated as one scene.`);
             }
           } else if (formData.modelType === 'infinitetalk' || formData.modelType === 'wan-animate') {
             // Both InfiniteTalk and WAN Animate require image and audio
+            // Priority: uploaded image > character image
             if (imageUrl) {
               requestBody.imageUrls = [imageUrl];
+            } else if (selectedCharacter && selectedCharacter !== 'upload-new') {
+              const character = characters.find(c => c.id === selectedCharacter);
+              if (character?.reference_images?.[0]) {
+                requestBody.imageUrls = [character.reference_images[0]];
+              }
             }
             if (audioUrl) {
               requestBody.audioUrl = audioUrl;
