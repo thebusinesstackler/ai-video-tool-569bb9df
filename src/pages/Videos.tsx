@@ -72,7 +72,7 @@ interface VideoProject {
 
 const MODEL_COSTS = {
   'wan-2.2': 0.1,
-  'wan-2.5-t2v': 0.2,
+  'alibaba/wan-2.5/text-to-video': 0.2,
   'wan-2.5-i2v': 0.5,
   'wan-2.5-a2v': 0.3,
   'hunyuan-video': 0.25,
@@ -88,7 +88,7 @@ const MODEL_COSTS = {
 
 const MODEL_NAMES = {
   'wan-2.2': 'Text-to-Video (WAN 2.2)',
-  'wan-2.5-t2v': 'Enhanced Text-to-Video (WAN 2.5)',
+  'alibaba/wan-2.5/text-to-video': '🎵 Alibaba WAN 2.5 - Text-to-Video with Built-in Audio',
   'wan-2.5-i2v': 'Image-to-Video (Alibaba WAN 2.5) - Requires Image + Prompt',
   'wan-2.5-a2v': 'Audio-to-Video (Alibaba WAN 2.5)',
   'hunyuan-video': 'HunyuanVideo (Tencent) - Prompt Based',
@@ -104,7 +104,7 @@ const MODEL_NAMES = {
 
 const MODEL_DURATIONS = {
   'wan-2.2': [5, 8], // Limited by API
-  'wan-2.5-t2v': [5, 8, 10], // Supports 10 seconds
+  'alibaba/wan-2.5/text-to-video': [5, 10], // Supports 5 and 10 seconds
   'wan-2.5-i2v': [5, 8, 10], // Supports 10 seconds
   'wan-2.5-a2v': [5, 8, 10], // Supports 10 seconds
   'hunyuan-video': [5, 8], // Conservative default
