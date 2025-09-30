@@ -71,51 +71,18 @@ interface VideoProject {
 }
 
 const MODEL_COSTS = {
-  'wan-2.2': 0.1,
-  'alibaba/wan-2.5/text-to-video': 0.2,
-  'wan-2.5-i2v': 0.5,
-  'wan-2.5-a2v': 0.3,
-  'hunyuan-video': 0.25,
-  'seedream-v4': 0.4,
-  'vidu': 0.3,
-  'veo3': 0.4,
-  'veo3-fast': 0.25, // Per-second pricing with built-in audio
-  'avatar-omni-human-1.5': 0.15, // Per-second pricing
-  'infinitetalk': 0.25, // Per-second pricing for lip sync
-  'wan-animate': 0.20, // Per-second pricing for WAN Animate
-  'video-face-swap': 0.05 // Per-5-second pricing for driving video
+  'wan-2.5-i2v': {
+    5: 0.05,  // 5 seconds = $0.05
+    10: 1.00  // 10 seconds = $1.00
+  }
 };
 
 const MODEL_NAMES = {
-  'wan-2.2': 'Text-to-Video (WAN 2.2)',
-  'alibaba/wan-2.5/text-to-video': '🎵 Alibaba WAN 2.5 - Text-to-Video with Built-in Audio',
-  'wan-2.5-i2v': 'Image-to-Video (Alibaba WAN 2.5) - Requires Image + Prompt',
-  'wan-2.5-a2v': 'Audio-to-Video (Alibaba WAN 2.5)',
-  'hunyuan-video': 'HunyuanVideo (Tencent) - Prompt Based',
-  'seedream-v4': 'Seedream V4 (Image-to-Video) - Requires Image + Prompt',
-  'vidu': 'VIDU (Multimodal) - Prompt Based', 
-  'veo3': 'VEO3 (Google) - Prompt Based',
-  'veo3-fast': '⚡ VEO3 Fast (Google) - With Built-in Audio Generation',
-  'avatar-omni-human-1.5': '🎤 Talking Avatar with Lip Sync (ByteDance)',
-  'infinitetalk': '🗣️ InfiniteTalk - AI Voiceover + Lip Sync',
-  'wan-animate': '🎬 WAN Animate - Character Animation with Lip Sync',
-  'video-face-swap': '🎭 Video Face Swap - Upload Driving Video + Face'
+  'wan-2.5-i2v': '🎬 Alibaba WAN 2.5 - Image-to-Video'
 };
 
 const MODEL_DURATIONS = {
-  'wan-2.2': [5, 8], // Limited by API
-  'alibaba/wan-2.5/text-to-video': [5, 10], // Supports 5 and 10 seconds
-  'wan-2.5-i2v': [5, 8, 10], // Supports 10 seconds
-  'wan-2.5-a2v': [5, 8, 10], // Supports 10 seconds
-  'hunyuan-video': [5, 8], // Conservative default
-  'seedream-v4': [5, 8], // Conservative default
-  'vidu': [5, 8], // Conservative default
-  'veo3': [5, 8], // Conservative default
-  'veo3-fast': [5, 8, 10], // VEO3 Fast with built-in audio
-  'avatar-omni-human-1.5': [5, 8, 10], // Lip sync model
-  'infinitetalk': [5, 8, 10, 15], // Extended durations for conversations
-  'wan-animate': [5, 8, 10], // Character animation
-  'video-face-swap': [5, 10, 15, 30, 60] // Supports longer videos up to 10 minutes
+  'wan-2.5-i2v': [5, 10] // Only 5 and 10 seconds
 };
 
 const Videos = () => {
@@ -125,7 +92,7 @@ const Videos = () => {
   const [formData, setFormData] = useState({
     title: '',
     script: '',
-    modelType: 'wan-2.2' as keyof typeof MODEL_COSTS,
+    modelType: 'wan-2.5-i2v' as keyof typeof MODEL_COSTS,
     aspectRatio: '16:9',
     duration: 60,
     characterId: 'none',
@@ -622,18 +589,8 @@ const Videos = () => {
       return;
     }
 
-    // Note: needsAudio should be needsAudioValidation - fixing this check
-    if (needsAudioValidation && !sourceAudio) {
-      const modelName = MODEL_NAMES[formData.modelType];
-      toast({
-        title: "Audio Required", 
-        description: formData.modelType === 'avatar-omni-human-1.5' 
-          ? "The Avatar Omni Human model requires audio to animate the avatar's speech."
-          : `The ${modelName} model requires audio input.`,
-        variant: "destructive"
-      });
-      return;
-    }
+    // wan-2.5-i2v model does not require audio (it's optional)
+    // Audio validation removed since we only use image-to-video model
 
     setIsCreating(true);
     
@@ -892,7 +849,7 @@ Or simply write your content and it will be treated as one scene.`);
       setFormData({ 
         title: '', 
         script: '', 
-        modelType: 'wan-2.2',
+        modelType: 'wan-2.5-i2v',
         aspectRatio: '16:9', 
         duration: 60, 
         characterId: 'none', 
@@ -1021,16 +978,10 @@ Or simply write your content and it will be treated as one scene.`);
     if (!formData.script) return 0;
     
     const segments = parseScriptIntoSegments(formData.script);
-    const costPerUnit = MODEL_COSTS[formData.modelType] || 0.1;
+    const duration = parseInt(formData.segmentDuration || '5');
+    const costPerDuration = MODEL_COSTS[formData.modelType][duration as 5 | 10];
     
-    if (formData.modelType === 'avatar-omni-human-1.5') {
-      // Per-second pricing for avatar model
-      const totalDuration = segments.length * parseInt(formData.segmentDuration || '5');
-      return totalDuration * costPerUnit;
-    } else {
-      // Per-segment pricing for other models
-      return segments.length * costPerUnit;
-    }
+    return segments.length * costPerDuration;
   };
 
   const handleRefreshSegment = (segmentId: string) => {
@@ -1282,48 +1233,15 @@ Or simply write your content and it will be treated as one scene.`);
 
   const estimatedCost = calculateEstimatedCost();
 
-  // Model capability helpers
-  const supportsImage = formData.modelType === 'wan-2.5-i2v' || 
-                       formData.modelType === 'avatar-omni-human-1.5' || 
-                       formData.modelType === 'seedream-v4' ||
-                       formData.modelType === 'hunyuan-video' ||
-                       formData.modelType === 'vidu' ||
-                       formData.modelType === 'veo3' ||
-                       formData.modelType === 'infinitetalk' ||
-                       formData.modelType === 'wan-animate' ||
-                       formData.modelType === 'video-face-swap';
-  
-  const needsImage = formData.modelType === 'wan-2.5-i2v' || 
-                    formData.modelType === 'avatar-omni-human-1.5' || 
-                    formData.modelType === 'seedream-v4' ||
-                    formData.modelType === 'infinitetalk' ||
-                    formData.modelType === 'wan-animate' ||
-                    formData.modelType === 'video-face-swap';
-  
-  const supportsAudio = formData.modelType === 'wan-2.5-a2v' || 
-                       formData.modelType === 'avatar-omni-human-1.5' ||
-                       formData.modelType === 'wan-2.5-i2v' ||
-                       formData.modelType === 'infinitetalk' ||
-                       formData.modelType === 'wan-animate';
-  
-  const needsAudio = formData.modelType === 'avatar-omni-human-1.5' || 
-                    formData.modelType === 'wan-2.5-a2v' ||
-                    formData.modelType === 'infinitetalk' ||
-                    formData.modelType === 'wan-animate';
-
-  const supportsVideo = formData.modelType === 'video-face-swap';
-  const needsVideo = formData.modelType === 'video-face-swap';
-  
-  const hasLipSync = formData.modelType === 'avatar-omni-human-1.5' ||
-                    formData.modelType === 'infinitetalk' ||
-                    formData.modelType === 'wan-animate';
-
-  // Determine if this model uses prompts vs scripts
-  const usesPrompt = formData.modelType === 'wan-2.5-i2v' || 
-                     formData.modelType === 'seedream-v4' ||
-                     formData.modelType === 'hunyuan-video' ||
-                     formData.modelType === 'vidu' ||
-                     formData.modelType === 'veo3';
+  // Model capability helpers - wan-2.5-i2v is an image-to-video model
+  const supportsImage = true;  // Always true for image-to-video
+  const needsImage = true;     // Image is required for this model
+  const supportsAudio = true;  // Audio is optional
+  const needsAudio = false;    // Audio is not required
+  const supportsVideo = false; // No video input support
+  const needsVideo = false;    // No video input required
+  const hasLipSync = false;    // No lip sync feature
+  const usesPrompt = true;     // wan-2.5-i2v uses prompt-based generation
                      
   const scriptFieldLabel = usesPrompt ? "Prompt" : "Video Script";
   const scriptPlaceholder = usesPrompt 
@@ -1369,7 +1287,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     setFormData({
                       title: '',
                       script: '',
-                      modelType: 'wan-2.2',
+                      modelType: 'wan-2.5-i2v',
                       aspectRatio: '16:9',
                       duration: 60,
                       characterId: 'none',
@@ -1441,21 +1359,14 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     <SelectContent>
                       {Object.entries(MODEL_NAMES).map(([value, name]) => (
                         <SelectItem key={value} value={value}>
-                          {name} - ${MODEL_COSTS[value as keyof typeof MODEL_COSTS]}/{['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(value) ? 'second' : value === 'video-face-swap' ? '5-second' : 'segment'}
+                          {name} - 5s: $0.05 | 10s: $1.00
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {hasLipSync && (
-                    <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1">
-                      🎤 This model generates voiceover with synchronized lip movements
-                    </p>
-                  )}
-                  {needsVideo && (
-                    <p className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded mt-1">
-                      🎭 Upload a driving video + face image to create face-swapped content
-                    </p>
-                  )}
+                  <p className="text-xs text-primary/80 bg-primary/10 px-2 py-1 rounded mt-1">
+                    ✨ Image-to-Video: Upload a character image + add prompt to generate video
+                  </p>
                 </div>
 
                 {/* Character Selection - Show when model needs images */}
@@ -1550,16 +1461,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     </Label>
                     {needsImage && (
                       <p className="text-xs text-muted-foreground mb-2">
-                        {formData.modelType === 'avatar-omni-human-1.5' 
-                          ? 'Upload a clear portrait photo for the talking avatar' 
-                          : formData.modelType === 'infinitetalk' || formData.modelType === 'wan-animate'
-                          ? 'Upload a character portrait for lip sync animation'
-                          : formData.modelType === 'video-face-swap'
-                          ? 'Upload the face image you want to swap into the driving video'
-                          : formData.modelType === 'seedream-v4'
-                          ? 'Upload a reference image to enhance the video generation'
-                          : 'Upload an image to convert into video'
-                        }
+                        Upload an image to convert into video
                       </p>
                     )}
                     <Input
@@ -1591,12 +1493,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     </Label>
                     {needsAudio && (
                       <p className="text-xs text-muted-foreground mb-2">
-                        {formData.modelType === 'avatar-omni-human-1.5' 
-                          ? 'Upload speech audio to animate the avatar\'s lip movements' 
-                          : formData.modelType === 'infinitetalk' || formData.modelType === 'wan-animate'
-                          ? 'Upload speech audio for AI voiceover with perfect lip synchronization'
-                          : 'Upload audio to generate video synchronized with the sound'
-                        }
+                        Upload audio to generate video synchronized with the sound
                       </p>
                     )}
                     <Input
@@ -1614,18 +1511,13 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                   </div>
                 )}
 
-                {(formData.modelType === 'wan-2.5-i2v' || formData.modelType === 'avatar-omni-human-1.5') && (selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0) && (
+                {(selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0) && (
                   <>
                     <div>
                       <Label htmlFor="sourceImage" className="flex items-center gap-2">
                         <ImageIcon className="w-4 h-4" />
-                        {formData.modelType === 'avatar-omni-human-1.5' ? 'Portrait Image (Required)' : 'Source Image (Required)'}
+                        Source Image (Required)
                       </Label>
-                      {formData.modelType === 'avatar-omni-human-1.5' && (
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Upload a clear portrait/headshot image for creating a talking avatar
-                        </p>
-                      )}
                       <Input
                         id="sourceImage"
                         type="file"
@@ -1646,13 +1538,8 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     <div>
                       <Label htmlFor="sourceAudio" className="flex items-center gap-2">
                         <VolumeIcon className="w-4 h-4" />
-                        {formData.modelType === 'avatar-omni-human-1.5' ? 'Audio Track (Required)' : 'Audio Track (Optional)'}
+                        Audio Track (Optional)
                        </Label>
-                         {hasLipSync && (
-                          <p className="text-xs text-muted-foreground mb-2">
-                            Upload speech audio to animate with perfect lip synchronization
-                          </p>
-                        )}
                       <Input
                         id="sourceAudio"
                         type="file"
@@ -1697,12 +1584,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formData.modelType === 'wan-2.2' 
-                      ? 'WAN 2.2 is limited to 5 and 8 seconds' 
-                      : getAvailableDurations(formData.modelType).includes(10) 
-                        ? 'This model supports up to 10 seconds'
-                        : 'Available durations for this model'
-                    }
+                    Choose between 5 seconds ($0.05) or 10 seconds ($1.00)
                   </p>
                 </div>
               </div>
@@ -1769,13 +1651,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                       <DollarSign className="w-4 h-4 text-accent-foreground" />
                       <span className="font-medium">Estimated Cost: ${estimatedCost.toFixed(2)}</span>
                       <span className="text-muted-foreground">
-                        {['avatar-omni-human-1.5', 'infinitetalk', 'wan-animate'].includes(formData.modelType) ? (
-                          `(${parseScriptIntoSegments(formData.script).length * parseInt(formData.segmentDuration || '5')} seconds × $${MODEL_COSTS[formData.modelType]})`
-                        ) : formData.modelType === 'video-face-swap' ? (
-                          `(${parseScriptIntoSegments(formData.script).length * Math.ceil(parseInt(formData.segmentDuration || '5') / 5)} units × $${MODEL_COSTS[formData.modelType]} per 5s)`
-                        ) : (
-                          `(${parseScriptIntoSegments(formData.script).length} segments × $${MODEL_COSTS[formData.modelType]})`
-                        )}
+                        ({parseScriptIntoSegments(formData.script).length} segments × ${MODEL_COSTS[formData.modelType][parseInt(formData.segmentDuration) as 5 | 10]}/segment)
                       </span>
                     </div>
                   </div>
