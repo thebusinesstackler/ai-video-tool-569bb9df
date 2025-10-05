@@ -44,7 +44,7 @@ export const ScriptGenerator = () => {
     audience: 'general',
     tone: 'professional',
     callToAction: '',
-    characterId: ''
+    characterId: 'none'
   });
   
   const [generatedScript, setGeneratedScript] = useState('');
@@ -81,16 +81,16 @@ export const ScriptGenerator = () => {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-script', {
-        body: {
-          topic: params.topic,
-          duration: parseInt(params.duration),
-          secondsPerScene: parseInt(params.secondsPerScene),
-          style: params.style,
-          audience: params.audience,
-          tone: params.tone,
-          callToAction: params.callToAction,
-          characterId: params.characterId || undefined
-        }
+          body: {
+            topic: params.topic,
+            duration: parseInt(params.duration),
+            secondsPerScene: parseInt(params.secondsPerScene),
+            style: params.style,
+            audience: params.audience,
+            tone: params.tone,
+            callToAction: params.callToAction,
+            characterId: params.characterId === 'none' ? undefined : params.characterId
+          }
       });
 
       if (error) {
@@ -380,7 +380,7 @@ export const ScriptGenerator = () => {
 
           <div className="space-y-2">
             <Label htmlFor="character">Character (Optional)</Label>
-            <Select value={params.characterId || 'none'} onValueChange={(value) => setParams(prev => ({ ...prev, characterId: value === 'none' ? '' : value }))}>
+            <Select value={params.characterId} onValueChange={(value) => setParams(prev => ({ ...prev, characterId: value }))}>
               <SelectTrigger id="character">
                 <SelectValue placeholder="No character (generic script)" />
               </SelectTrigger>
