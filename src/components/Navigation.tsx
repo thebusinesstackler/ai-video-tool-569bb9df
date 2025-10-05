@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   VideoIcon, 
@@ -16,6 +16,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { supabase } from '@/integrations/supabase/client';
 
 const navigationItems = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -29,8 +30,41 @@ const navigationItems = [
 
 export const Navigation = () => {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { toast } = useToast();
+  const [videosCount, setVideosCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadUsageStats();
+    }
+  }, [user]);
+
+  const loadUsageStats = async () => {
+    try {
+      setIsLoading(true);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      if (!currentUser) return;
+
+      const { data: projects, error } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id', currentUser.id);
+
+      if (error) {
+        console.error('Error loading usage stats:', error);
+        return;
+      }
+
+      setVideosCount(projects?.length || 0);
+    } catch (error) {
+      console.error('Error loading usage stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -93,15 +127,20 @@ export const Navigation = () => {
         </div>
 
         {/* Usage Stats */}
-        <div className="mt-8 p-4 glass rounded-lg">
+        <div className="mt-8 p-4 bg-card border border-border rounded-lg shadow-sm">
           <h3 className="text-sm font-semibold text-foreground mb-3">Monthly Usage</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Videos Generated</span>
-              <span className="text-primary font-semibold">247/500</span>
+              <span className="text-primary font-semibold">
+                {isLoading ? '...' : `${videosCount}/500`}
+              </span>
             </div>
             <div className="w-full bg-secondary rounded-full h-2">
-              <div className="bg-gradient-primary h-2 rounded-full w-[49%] animate-glow"></div>
+              <div 
+                className="bg-gradient-primary h-2 rounded-full animate-glow transition-all duration-300" 
+                style={{ width: `${Math.min((videosCount / 500) * 100, 100)}%` }}
+              ></div>
             </div>
           </div>
         </div>
