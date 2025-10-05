@@ -380,12 +380,12 @@ export const ScriptGenerator = () => {
 
           <div className="space-y-2">
             <Label htmlFor="character">Character (Optional)</Label>
-            <Select value={params.characterId} onValueChange={(value) => setParams(prev => ({ ...prev, characterId: value }))}>
+            <Select value={params.characterId || 'none'} onValueChange={(value) => setParams(prev => ({ ...prev, characterId: value === 'none' ? '' : value }))}>
               <SelectTrigger id="character">
                 <SelectValue placeholder="No character (generic script)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No character (generic script)</SelectItem>
+                <SelectItem value="none">No character (generic script)</SelectItem>
                 {characters.map((character) => (
                   <SelectItem key={character.id} value={character.id}>
                     {character.name}
