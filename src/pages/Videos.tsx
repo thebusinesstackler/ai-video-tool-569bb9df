@@ -251,19 +251,36 @@ const Videos = () => {
 
   const loadCharacters = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No user logged in, skipping character load');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('characters')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error loading characters:', error);
+        toast({
+          title: "Error Loading Characters",
+          description: "Failed to load characters. Please try again.",
+          variant: "destructive"
+        });
         return;
       }
 
       setCharacters(data || []);
     } catch (error) {
       console.error('Error loading characters:', error);
+      toast({
+        title: "Error Loading Characters",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
     }
   };
 

@@ -79,17 +79,28 @@ export const CharacterManager = () => {
         localStorage.removeItem('ai_video_characters');
       }
 
-      // Load from database
+      // Load from database - get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to view your characters.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from('characters')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error loading characters:', error);
         toast({
           title: "Error Loading Characters",
-          description: "Please check if you're logged in and try again.",
+          description: "Failed to load characters. Please try again.",
           variant: "destructive"
         });
         return;
