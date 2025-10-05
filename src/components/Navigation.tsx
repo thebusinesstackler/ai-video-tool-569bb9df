@@ -46,7 +46,7 @@ export const Navigation = () => {
   };
 
   return (
-    <nav className="fixed left-0 top-0 h-full w-64 glass border-r border-border z-50">
+    <nav className="fixed left-0 top-0 h-full w-64 bg-[hsl(222_47%_6%)] border-r border-[hsl(222_47%_12%)] z-50 backdrop-blur-xl">
       <div className="p-6">
         {/* Logo */}
         <div className="flex items-center justify-between mb-8">

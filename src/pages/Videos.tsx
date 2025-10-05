@@ -1282,14 +1282,17 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-foreground">AI Video Creator</h1>
-          <p className="text-muted-foreground">Transform your scripts into professional videos with multiple AI models</p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-4xl font-bold gradient-text mb-2">AI Video Creator</h1>
+          <p className="text-muted-foreground">
+            Generate stunning videos using Alibaba WAN 2.5 image-to-video AI model
+          </p>
         </div>
 
         {/* Creation Form */}
-        <Card>
+        <Card className="glass">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">

@@ -415,9 +415,9 @@ const Projects = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto px-6 py-8 ml-64">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-bold gradient-text mb-2">Video Projects</h1>
             <p className="text-muted-foreground">
@@ -433,7 +433,7 @@ const Projects = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
