@@ -8,68 +8,61 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* AI Video Platform - Premium Dark Theme */
-    --background: 222 47% 4%;
-    --foreground: 213 31% 91%;
+    /* AI Video Platform - Light Theme */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
 
-    --card: 222 47% 6%;
-    --card-foreground: 213 31% 91%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 222 47% 6%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
     /* Purple/Blue AI Brand Colors */
     --primary: 261 73% 62%;
-    --primary-foreground: 213 31% 91%;
+    --primary-foreground: 0 0% 100%;
     --primary-glow: 261 73% 72%;
 
-    --secondary: 222 47% 8%;
-    --secondary-foreground: 213 31% 91%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 222 47% 8%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
     --accent: 261 73% 62%;
-    --accent-foreground: 213 31% 91%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 213 31% 91%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 222 47% 12%;
-    --input: 222 47% 8%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
     --ring: 261 73% 62%;
 
     /* AI Platform Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(261 73% 62%) 0%, hsl(250 100% 67%) 50%, hsl(261 73% 72%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(222 47% 8%) 0%, hsl(222 47% 12%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(220 14% 96%) 0%, hsl(220 13% 91%) 100%);
     --gradient-accent: linear-gradient(135deg, hsl(261 73% 62% / 0.1) 0%, hsl(250 100% 67% / 0.05) 100%);
     
     /* Glassmorphism Effects */
-    --glass-bg: hsl(222 47% 6% / 0.8);
+    --glass-bg: hsl(0 0% 100% / 0.8);
     --glass-border: hsl(261 73% 62% / 0.2);
     --glass-shadow: 0 8px 32px hsl(261 73% 62% / 0.1);
 
     /* Advanced Shadows */
     --shadow-ai: 0 20px 40px -12px hsl(261 73% 62% / 0.25);
-    --shadow-card: 0 8px 24px -6px hsl(222 47% 2% / 0.3);
+    --shadow-card: 0 8px 24px -6px hsl(220 13% 91% / 0.3);
     --shadow-glow: 0 0 20px hsl(261 73% 72% / 0.3);
 
     --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -121,8 +114,15 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    background: linear-gradient(135deg, hsl(222 47% 4%) 0%, hsl(222 47% 6%) 100%);
     min-height: 100vh;
+  }
+
+  body.light {
+    background: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(220 14% 96%) 100%);
+  }
+
+  body.dark {
+    background: linear-gradient(135deg, hsl(222 47% 4%) 0%, hsl(222 47% 6%) 100%);
   }
 
   /* AI Platform Animations */

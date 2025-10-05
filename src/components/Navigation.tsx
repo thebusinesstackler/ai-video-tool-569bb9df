@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const navigationItems = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -48,11 +49,14 @@ export const Navigation = () => {
     <nav className="fixed left-0 top-0 h-full w-64 glass border-r border-border z-50">
       <div className="p-6">
         {/* Logo */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow">
-            <SparklesIcon className="w-6 h-6 text-primary-foreground" />
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow">
+              <SparklesIcon className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <h1 className="font-bold text-xl gradient-text">VideoAI Pro</h1>
           </div>
-          <h1 className="font-bold text-xl gradient-text">VideoAI Pro</h1>
+          <ThemeToggle />
         </div>
 
         {/* Navigation Items */}
