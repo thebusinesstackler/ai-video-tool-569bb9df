@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface WaveSpeedVideoParams {
   prompt: string;
+  negativePrompt?: string;
   imageUrls?: string[];
   audioUrl?: string;
   videoUrl?: string;
@@ -12,6 +13,7 @@ export interface WaveSpeedVideoParams {
   watermark?: string;
   characterId?: string;
   duration?: number;
+  resolution?: '480p' | '720p' | '1080p';
 }
 
 export interface WaveSpeedVideoJob {

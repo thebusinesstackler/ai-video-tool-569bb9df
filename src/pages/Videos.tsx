@@ -72,8 +72,10 @@ interface VideoProject {
 
 const MODEL_COSTS = {
   'wan-2.5-i2v': {
-    5: 0.05,  // 5 seconds = $0.05
-    10: 1.00  // 10 seconds = $1.00
+    '480p-5': 0.25,   // 480p @ 5s = $0.25
+    '480p-10': 0.50,  // 480p @ 10s = $0.50
+    '1080p-5': 0.75,  // 1080p @ 5s = $0.75
+    '1080p-10': 1.50  // 1080p @ 10s = $1.50
   }
 };
 
@@ -82,7 +84,11 @@ const MODEL_NAMES = {
 };
 
 const MODEL_DURATIONS = {
-  'wan-2.5-i2v': [5, 10] // Only 5 and 10 seconds
+  'wan-2.5-i2v': [5, 10] // 5 and 10 seconds
+};
+
+const MODEL_RESOLUTIONS = {
+  'wan-2.5-i2v': ['480p', '1080p']
 };
 
 const Videos = () => {
@@ -92,6 +98,7 @@ const Videos = () => {
   const [formData, setFormData] = useState({
     title: '',
     script: '',
+    negativePrompt: '',
     modelType: 'wan-2.5-i2v' as keyof typeof MODEL_COSTS,
     aspectRatio: '16:9',
     duration: 60,
@@ -99,7 +106,8 @@ const Videos = () => {
     lockSeed: false,
     customSeed: '',
     voice: 'alloy',
-    segmentDuration: '5'
+    segmentDuration: '5',
+    resolution: '480p'
   });
   const [showAudioGenerator, setShowAudioGenerator] = useState(false);
   const [scriptSegments, setScriptSegments] = useState<any[]>([]);
@@ -123,10 +131,14 @@ const Videos = () => {
       ? formData.segmentDuration 
       : availableDurations[0].toString();
     
+    // Reset resolution to first available option
+    const availableResolutions = MODEL_RESOLUTIONS[newModel] || ['480p'];
+    
     setFormData({
       ...formData,
       modelType: newModel,
-      segmentDuration: newDuration
+      segmentDuration: newDuration,
+      resolution: availableResolutions[0]
     });
   };
   const [sourceImage, setSourceImage] = useState<File | null>(null);
@@ -184,6 +196,7 @@ const Videos = () => {
     setFormData({
       title: project.title,
       script: project.script,
+      negativePrompt: '',
       modelType: project.model_type as keyof typeof MODEL_COSTS,
       aspectRatio: project.aspect_ratio,
       duration: project.total_duration,
@@ -192,7 +205,8 @@ const Videos = () => {
       customSeed: project.consistency_settings?.customSeed || '',
       voice: project.voice_settings?.voice || 'alloy',
       segmentDuration: project.segments?.[0]?.timeRange?.includes('0:10') ? '10' : 
-                       project.segments?.[0]?.timeRange?.includes('0:08') ? '8' : '5'
+                       project.segments?.[0]?.timeRange?.includes('0:08') ? '8' : '5',
+      resolution: '480p'
     });
     
     // Set source files if they exist
@@ -700,10 +714,12 @@ Or simply write your content and it will be treated as one scene.`);
           const requestBody: any = {
             action: 'create',
             prompt: enhancedPrompt,
+            negativePrompt: formData.negativePrompt || undefined,
             aspectRatio: formData.aspectRatio as '16:9' | '9:16',
             model: formData.modelType,
             enableFallback: true,
-            duration: parseInt(formData.segmentDuration)
+            duration: parseInt(formData.segmentDuration),
+            resolution: formData.resolution
           };
 
           console.log('Creating video segment:', {
@@ -865,7 +881,8 @@ Or simply write your content and it will be treated as one scene.`);
       
       setFormData({ 
         title: '', 
-        script: '', 
+        script: '',
+        negativePrompt: '',
         modelType: 'wan-2.5-i2v',
         aspectRatio: '16:9', 
         duration: 60, 
@@ -873,7 +890,8 @@ Or simply write your content and it will be treated as one scene.`);
         lockSeed: false, 
         customSeed: '',
         voice: 'alloy',
-        segmentDuration: '5'
+        segmentDuration: '5',
+        resolution: '480p'
       });
       setSourceImage(null);
       setSourceAudio(null);
@@ -996,9 +1014,11 @@ Or simply write your content and it will be treated as one scene.`);
     
     const segments = parseScriptIntoSegments(formData.script);
     const duration = parseInt(formData.segmentDuration || '5');
-    const costPerDuration = MODEL_COSTS[formData.modelType][duration as 5 | 10];
+    const resolution = formData.resolution || '480p';
+    const costKey = `${resolution}-${duration}` as keyof typeof MODEL_COSTS['wan-2.5-i2v'];
+    const costPerSegment = MODEL_COSTS[formData.modelType][costKey] || 0;
     
-    return segments.length * costPerDuration;
+    return segments.length * costPerSegment;
   };
 
   const handleRefreshSegment = (segmentId: string) => {
@@ -1307,6 +1327,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     setFormData({
                       title: '',
                       script: '',
+                      negativePrompt: '',
                       modelType: 'wan-2.5-i2v',
                       aspectRatio: '16:9',
                       duration: 60,
@@ -1314,7 +1335,8 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                       lockSeed: false,
                       customSeed: '',
                       voice: 'alloy',
-                      segmentDuration: '5'
+                      segmentDuration: '5',
+                      resolution: '480p'
                     });
                     setSourceImage(null);
                     setSourceAudio(null);
@@ -1379,7 +1401,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     <SelectContent>
                       {Object.entries(MODEL_NAMES).map(([value, name]) => (
                         <SelectItem key={value} value={value}>
-                          {name} - 5s: $0.05 | 10s: $1.00
+                          {name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1438,39 +1460,6 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                   </div>
                 )}
 
-                {/* Audio Generator Integration */}
-                {(supportsAudio || showAudioGenerator) && (
-                  <div className="col-span-full">
-                    <div className="flex items-center justify-between mb-4">
-                      <Label>Audio Generation</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowAudioGenerator(!showAudioGenerator)}
-                      >
-                        <WandIcon className="w-4 h-4 mr-2" />
-                        {showAudioGenerator ? 'Hide' : 'Show'} Audio Generator
-                      </Button>
-                    </div>
-                    {showAudioGenerator && (
-                      <AudioGenerator
-                        onAudioGenerated={(url, file) => {
-                          setSourceAudio(file);
-                          // Auto-hide the generator after successful generation
-                          setShowAudioGenerator(false);
-                          toast({
-                            title: "Audio Generated & Applied",
-                            description: `Generated audio "${file.name}" has been automatically applied to your project.`,
-                          });
-                        }}
-                        text={formData.script}
-                        voice={formData.voice}
-                        disabled={isCreating}
-                      />
-                    )}
-                  </div>
-                )}
 
                 {/* Dynamic file uploads based on model capabilities */}
                 {(supportsImage && (needsImage || sourceImage) && (selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0)) && (
@@ -1590,7 +1579,23 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                 </div>
 
                 <div>
-                  <Label htmlFor="segmentDuration">Segment Duration (seconds)</Label>
+                  <Label htmlFor="resolution">Resolution</Label>
+                  <Select value={formData.resolution} onValueChange={(value) => setFormData({...formData, resolution: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(MODEL_RESOLUTIONS[formData.modelType] || ['480p']).map((res) => (
+                        <SelectItem key={res} value={res}>
+                          {res}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="segmentDuration">Duration</Label>
                   <Select value={formData.segmentDuration} onValueChange={(value) => setFormData({...formData, segmentDuration: value})}>
                     <SelectTrigger>
                       <SelectValue />
@@ -1604,7 +1609,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Choose between 5 seconds ($0.05) or 10 seconds ($1.00)
+                    Cost: ${MODEL_COSTS[formData.modelType][`${formData.resolution}-${formData.segmentDuration}` as keyof typeof MODEL_COSTS['wan-2.5-i2v']]} per segment
                   </p>
                 </div>
               </div>
@@ -1665,13 +1670,28 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Describe what you don't want to see in the video
+                  </p>
+                  <Textarea
+                    id="negativePrompt"
+                    value={formData.negativePrompt}
+                    onChange={(e) => setFormData({...formData, negativePrompt: e.target.value})}
+                    placeholder="blurry, low quality, distorted faces, watermark..."
+                    rows={3}
+                    className="font-mono text-sm"
+                  />
+                </div>
+
                 {estimatedCost > 0 && (
                   <div className="p-3 bg-accent rounded-lg">
                     <div className="flex items-center gap-2 text-sm">
                       <DollarSign className="w-4 h-4 text-accent-foreground" />
                       <span className="font-medium">Estimated Cost: ${estimatedCost.toFixed(2)}</span>
                       <span className="text-muted-foreground">
-                        ({parseScriptIntoSegments(formData.script).length} segments × ${MODEL_COSTS[formData.modelType][parseInt(formData.segmentDuration) as 5 | 10]}/segment)
+                        ({parseScriptIntoSegments(formData.script).length} segments × ${MODEL_COSTS[formData.modelType][`${formData.resolution}-${formData.segmentDuration}` as keyof typeof MODEL_COSTS['wan-2.5-i2v']]}/segment at {formData.resolution})
                       </span>
                     </div>
                   </div>
