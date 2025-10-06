@@ -1312,8 +1312,8 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
         </div>
 
         {/* Creation Form */}
-        <Card className="glass">
-          <CardHeader>
+        <Card className="border-2 shadow-lg">
+          <CardHeader className="border-b bg-gradient-to-r from-primary/5 to-transparent">
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <PlusIcon className="w-5 h-5" />
@@ -1348,29 +1348,35 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardContent className="space-y-8 p-6">
+            {/* Basic Settings Section */}
+            <div className="bg-muted/30 rounded-lg p-6 border-2 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                <VideoIcon className="w-5 h-5 text-primary" />
+                Basic Settings
+              </h3>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="title">Project Title</Label>
+                  <Label htmlFor="title" className="text-sm font-medium">Project Title</Label>
                   <Input
                     id="title"
                     value={formData.title}
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
                     placeholder="My Amazing Video"
+                    className="mt-1.5"
                   />
                 </div>
 
                 {savedScripts.length > 0 && (
                   <div>
-                    <Label htmlFor="savedScript">Load Saved Script</Label>
+                    <Label htmlFor="savedScript" className="text-sm font-medium">Load Saved Script</Label>
                     <Select value={selectedScript} onValueChange={(value) => {
                       setSelectedScript(value);
                       if (value) {
                         handleLoadScript(value);
                       }
                     }}>
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1.5">
                         <SelectValue placeholder="Choose a saved script..." />
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
@@ -1393,9 +1399,9 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                 )}
 
                 <div>
-                  <Label htmlFor="modelType">AI Model</Label>
+                  <Label htmlFor="modelType" className="text-sm font-medium">AI Model</Label>
                   <Select value={formData.modelType} onValueChange={(value) => handleModelChange(value as keyof typeof MODEL_COSTS)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1.5">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1406,7 +1412,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-primary/80 bg-primary/10 px-2 py-1 rounded mt-1">
+                  <p className="text-xs text-primary/80 bg-primary/10 px-3 py-2 rounded-md mt-2">
                     ✨ Image-to-Video: Upload a character image + add prompt to generate video
                   </p>
                 </div>
@@ -1414,7 +1420,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                 {/* Character Selection - Show when model needs images */}
                 {needsImage && characters.length > 0 && (
                   <div>
-                    <Label htmlFor="character">Use Character Image</Label>
+                    <Label htmlFor="character" className="text-sm font-medium">Use Character Image</Label>
                     <Select value={selectedCharacter} onValueChange={(value) => {
                       setSelectedCharacter(value);
                       if (value && value !== 'upload-new') {
@@ -1430,7 +1436,7 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                         setFormData(prev => ({...prev, characterId: ''}));
                       }
                     }}>
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1.5">
                         <SelectValue placeholder="Choose a character or upload new image" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1453,77 +1459,28 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                       </SelectContent>
                     </Select>
                     {selectedCharacter && selectedCharacter !== 'upload-new' && (
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm">
+                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-950/30 border-2 border-green-200 dark:border-green-800 rounded-lg text-sm">
                         ✅ Using character image from {characters.find(c => c.id === selectedCharacter)?.name}
                       </div>
                     )}
                   </div>
                 )}
+              </div>
+            </div>
 
+            {/* Media Upload Section */}
+            <div className="bg-muted/30 rounded-lg p-6 border-2 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                <ImageIcon className="w-5 h-5 text-primary" />
+                Media Files
+              </h3>
+              <div className="space-y-4">
 
-                {/* Dynamic file uploads based on model capabilities */}
-                {(supportsImage && (needsImage || sourceImage) && (selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0)) && (
-                  <div className="col-span-full">
-                    <Label htmlFor="sourceImage" className="flex items-center gap-2">
-                      <ImageIcon className="w-4 h-4" />
-                      Source Image {needsImage ? '(Required)' : '(Optional)'}
-                    </Label>
-                    {needsImage && (
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Upload an image to convert into video
-                      </p>
-                    )}
-                    <Input
-                      id="sourceImage"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        setSourceImage(e.target.files?.[0] || null);
-                        // Clear character selection when uploading new image
-                        setSelectedCharacter('upload-new');
-                        setFormData(prev => ({...prev, characterId: ''}));
-                      }}
-                      className="cursor-pointer"
-                    />
-                    {sourceImage && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Selected: {sourceImage.name}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {(supportsAudio && (needsAudio || sourceAudio)) && (
-                  <div className="col-span-full">
-                    <Label htmlFor="sourceAudio" className="flex items-center gap-2">
-                      <VolumeIcon className="w-4 h-4" />
-                      Source Audio {needsAudio ? '(Required)' : '(Optional)'}
-                      {sourceAudio && <Badge variant="secondary" className="ml-2">Auto-filled</Badge>}
-                    </Label>
-                    {needsAudio && (
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Upload audio to generate video synchronized with the sound
-                      </p>
-                    )}
-                    <Input
-                      id="sourceAudio"
-                      type="file"
-                      accept="audio/*"
-                      onChange={(e) => setSourceAudio(e.target.files?.[0] || null)}
-                      className="cursor-pointer"
-                    />
-                    {sourceAudio && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Selected: {sourceAudio.name}
-                      </p>
-                    )}
-                  </div>
-                )}
 
                 {(selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0) && (
                   <>
                     <div>
-                      <Label htmlFor="sourceImage" className="flex items-center gap-2">
+                      <Label htmlFor="sourceImage" className="flex items-center gap-2 text-sm font-medium">
                         <ImageIcon className="w-4 h-4" />
                         Source Image (Required)
                       </Label>
@@ -1535,17 +1492,18 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                           setSourceImage(e.target.files?.[0] || null);
                           setSelectedCharacter('upload-new');
                         }}
-                        className="cursor-pointer"
+                        className="cursor-pointer mt-1.5"
                       />
                       {sourceImage && (
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-sm text-green-600 dark:text-green-400 mt-2 flex items-center gap-1">
+                          <CheckCircleIcon className="w-4 h-4" />
                           Selected: {sourceImage.name}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <Label htmlFor="sourceAudio" className="flex items-center gap-2">
+                      <Label htmlFor="sourceAudio" className="flex items-center gap-2 text-sm font-medium">
                         <VolumeIcon className="w-4 h-4" />
                         Audio Track (Optional)
                        </Label>
@@ -1554,21 +1512,32 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                         type="file"
                         accept="audio/*"
                         onChange={(e) => setSourceAudio(e.target.files?.[0] || null)}
-                        className="cursor-pointer"
+                        className="cursor-pointer mt-1.5"
                       />
                       {sourceAudio && (
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-sm text-green-600 dark:text-green-400 mt-2 flex items-center gap-1">
+                          <CheckCircleIcon className="w-4 h-4" />
                           Selected: {sourceAudio.name}
                         </p>
                       )}
                     </div>
                   </>
                 )}
+              </div>
+            </div>
+
+            {/* Video Settings Section */}
+            <div className="bg-muted/30 rounded-lg p-6 border-2 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                <WandIcon className="w-5 h-5 text-primary" />
+                Video Settings
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                 <div>
-                  <Label htmlFor="aspectRatio">Aspect Ratio</Label>
+                  <Label htmlFor="aspectRatio" className="text-sm font-medium">Aspect Ratio</Label>
                   <Select value={formData.aspectRatio} onValueChange={(value) => setFormData({...formData, aspectRatio: value})}>
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1.5">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1579,9 +1548,9 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                 </div>
 
                 <div>
-                  <Label htmlFor="resolution">Resolution</Label>
+                  <Label htmlFor="resolution" className="text-sm font-medium">Resolution</Label>
                   <Select value={formData.resolution} onValueChange={(value) => setFormData({...formData, resolution: value})}>
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1.5">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1594,40 +1563,44 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="segmentDuration">Duration</Label>
+                <div className="md:col-span-2">
+                  <Label htmlFor="segmentDuration" className="text-sm font-medium">Duration</Label>
                   <Select value={formData.segmentDuration} onValueChange={(value) => setFormData({...formData, segmentDuration: value})}>
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1.5">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {getAvailableDurations(formData.modelType).map((duration) => (
                         <SelectItem key={duration} value={duration.toString()}>
-                          {duration} seconds
+                          {duration} seconds - ${MODEL_COSTS[formData.modelType][`${formData.resolution}-${duration}` as keyof typeof MODEL_COSTS['wan-2.5-i2v']]} per segment
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Cost: ${MODEL_COSTS[formData.modelType][`${formData.resolution}-${formData.segmentDuration}` as keyof typeof MODEL_COSTS['wan-2.5-i2v']]} per segment
-                  </p>
                 </div>
               </div>
+            </div>
 
+            {/* Prompt Section */}
+            <div className="bg-muted/30 rounded-lg p-6 border-2 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                <SparklesIcon className="w-5 h-5 text-primary" />
+                Prompts
+              </h3>
               <div className="space-y-4">
                 {/* Script Segments Info */}
                 {scriptSegments.length > 0 && (
-                  <div className="p-3 bg-primary/10 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
+                  <div className="p-4 bg-primary/10 rounded-lg border-2 border-primary/20">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <SparklesIcon className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-medium">Script Segments</span>
+                        <SparklesIcon className="w-5 h-5 text-primary" />
+                        <span className="text-sm font-semibold">Script Segments</span>
                       </div>
-                      <Badge variant="secondary">
+                      <Badge variant="secondary" className="text-sm">
                         {currentSegmentIndex + 1} of {scriptSegments.length}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2">
+                    <p className="text-xs text-muted-foreground mb-3">
                       Creating video segments from your generated script.
                     </p>
                     <div className="flex gap-2">
@@ -1654,9 +1627,9 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                 )}
 
                 <div>
-                  <Label htmlFor="script">{scriptFieldLabel}</Label>
+                  <Label htmlFor="script" className="text-sm font-medium">{scriptFieldLabel}</Label>
                   {usesPrompt && (
-                    <p className="text-xs text-muted-foreground mb-2">
+                    <p className="text-xs text-muted-foreground mb-2 mt-1">
                       Describe the video scene you want to generate in detail. Focus on visuals, actions, and dialogue.
                     </p>
                   )}
@@ -1666,13 +1639,13 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     onChange={(e) => setFormData({...formData, script: e.target.value})}
                     placeholder={scriptPlaceholder}
                     rows={8}
-                    className="font-mono text-sm"
+                    className="font-mono text-sm mt-1.5"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <Label htmlFor="negativePrompt" className="text-sm font-medium">Negative Prompt (Optional)</Label>
+                  <p className="text-xs text-muted-foreground mb-2 mt-1">
                     Describe what you don't want to see in the video
                   </p>
                   <Textarea
@@ -1681,37 +1654,41 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                     onChange={(e) => setFormData({...formData, negativePrompt: e.target.value})}
                     placeholder="blurry, low quality, distorted faces, watermark..."
                     rows={3}
-                    className="font-mono text-sm"
+                    className="font-mono text-sm mt-1.5"
                   />
                 </div>
-
-                {estimatedCost > 0 && (
-                  <div className="p-3 bg-accent rounded-lg">
-                    <div className="flex items-center gap-2 text-sm">
-                      <DollarSign className="w-4 h-4 text-accent-foreground" />
-                      <span className="font-medium">Estimated Cost: ${estimatedCost.toFixed(2)}</span>
-                      <span className="text-muted-foreground">
-                        ({parseScriptIntoSegments(formData.script).length} segments × ${MODEL_COSTS[formData.modelType][`${formData.resolution}-${formData.segmentDuration}` as keyof typeof MODEL_COSTS['wan-2.5-i2v']]}/segment at {formData.resolution})
-                      </span>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
+
+            {/* Cost Estimate */}
+            {estimatedCost > 0 && (
+              <div className="bg-gradient-to-r from-accent/50 to-accent/30 rounded-lg p-5 border-2 border-accent">
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-6 h-6 text-accent-foreground" />
+                  <div>
+                    <div className="font-semibold text-lg">Estimated Cost: ${estimatedCost.toFixed(2)}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {parseScriptIntoSegments(formData.script).length} segments × ${MODEL_COSTS[formData.modelType][`${formData.resolution}-${formData.segmentDuration}` as keyof typeof MODEL_COSTS['wan-2.5-i2v']]}/segment at {formData.resolution}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Button
               onClick={handleCreateVideo}
               disabled={isCreating || !formData.title.trim() || !formData.script.trim()}
-              className="w-full"
+              className="w-full h-12 text-base font-semibold"
+              size="lg"
             >
               {isCreating ? (
                 <>
-                  <RefreshCwIcon className="w-4 h-4 mr-2 animate-spin" />
+                  <RefreshCwIcon className="w-5 h-5 mr-2 animate-spin" />
                   Creating Video...
                 </>
               ) : (
                 <>
-                  <VideoIcon className="w-4 h-4 mr-2" />
+                  <VideoIcon className="w-5 h-5 mr-2" />
                   Create Video Project
                 </>
               )}
