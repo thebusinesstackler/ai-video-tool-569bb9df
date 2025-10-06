@@ -149,6 +149,8 @@ const Videos = () => {
   const [segmentCountdowns, setSegmentCountdowns] = useState<{[key: string]: number}>({});
   const [savedScripts, setSavedScripts] = useState<any[]>([]);
   const [selectedScript, setSelectedScript] = useState<string>('');
+  const [currentProjectImageUrl, setCurrentProjectImageUrl] = useState<string>('');
+  const [currentProjectAudioUrl, setCurrentProjectAudioUrl] = useState<string>('');
 
   useEffect(() => {
     loadProjects();
@@ -211,10 +213,11 @@ const Videos = () => {
     
     // Set source files if they exist
     if (project.source_image_url) {
-      // Note: We can't recreate File objects from URLs, but we can show the URL exists
+      setCurrentProjectImageUrl(project.source_image_url);
       console.log('Project has source image:', project.source_image_url);
     }
     if (project.source_audio_url) {
+      setCurrentProjectAudioUrl(project.source_audio_url);
       console.log('Project has source audio:', project.source_audio_url);
     }
   };
@@ -602,7 +605,7 @@ const Videos = () => {
       return;
     }
 
-    if (needsImageValidation && !sourceImage && (!selectedCharacter || selectedCharacter === 'upload-new')) {
+    if (needsImageValidation && !sourceImage && !currentProjectImageUrl && (!selectedCharacter || selectedCharacter === 'upload-new')) {
       toast({
         title: "Image Required",
         description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image. Please upload an image or select a character.`,
@@ -629,10 +632,10 @@ const Videos = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Authentication required');
 
-      let imageUrl = '';
-      let audioUrl = '';
+      let imageUrl = currentProjectImageUrl; // Use existing URL if available
+      let audioUrl = currentProjectAudioUrl; // Use existing URL if available
 
-      // Upload files if provided
+      // Upload files if new ones are provided
       if (sourceImage) {
         imageUrl = await uploadFile(sourceImage, 'images');
       }
