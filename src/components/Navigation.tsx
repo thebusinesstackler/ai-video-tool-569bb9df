@@ -69,8 +69,16 @@ export const Navigation = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      window.location.href = '/auth';
+      toast({
+        title: "Signed Out",
+        description: "You have been successfully signed out."
+      });
+      // Small delay to ensure sign out completes
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
     } catch (error: any) {
+      console.error('Sign out error:', error);
       toast({
         title: "Sign Out Failed",
         description: error.message,

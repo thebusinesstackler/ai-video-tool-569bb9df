@@ -165,7 +165,7 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
       throw new Error('Output video file is empty - concatenation may have failed');
     }
     
-    const blob = new Blob([out], { type: 'video/mp4' });
+    const blob = new Blob([new Uint8Array(out.buffer as ArrayBuffer)], { type: 'video/mp4' });
     console.log('Successfully created stitched video blob, size:', blob.size);
     return blob;
     
