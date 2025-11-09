@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import MovieSceneCreator from "./pages/MovieSceneCreator";
 import Scripts from "./pages/Scripts";
 import Characters from "./pages/Characters";
 import Videos from "./pages/Videos";
@@ -41,6 +42,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/movie-scene-creator" element={<ProtectedRoute><MovieSceneCreator /></ProtectedRoute>} />
             <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
             <Route path="/characters" element={<ProtectedRoute><Characters /></ProtectedRoute>} />
             <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
