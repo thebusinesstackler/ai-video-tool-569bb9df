@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { stitchVideos } from '@/lib/videoStitch';
 
 const SAMPLE_MOVIES = [
   {
@@ -81,6 +83,9 @@ const MovieSceneCreator = () => {
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [isLoadDialogOpen, setIsLoadDialogOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isStitching, setIsStitching] = useState(false);
+  const [stitchProgress, setStitchProgress] = useState(0);
+  const [stitchedVideoUrl, setStitchedVideoUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -419,6 +424,7 @@ const MovieSceneCreator = () => {
       setMovieIdea(data.movie_idea);
       setOutline(data.outline || '');
       setScenes((data.scenes as any) || []); // Cast from Json to MovieScene[]
+      setStitchedVideoUrl((data as any).stitched_video_url || null);
 
       setIsLoadDialogOpen(false);
       toast({
@@ -458,6 +464,7 @@ const MovieSceneCreator = () => {
         setMovieIdea('');
         setOutline('');
         setScenes([]);
+        setStitchedVideoUrl(null);
       }
     } catch (error: any) {
       console.error('Error deleting project:', error);
@@ -475,10 +482,85 @@ const MovieSceneCreator = () => {
     setMovieIdea('');
     setOutline('');
     setScenes([]);
+    setStitchedVideoUrl(null);
     toast({
       title: "New Project",
       description: "Started a new movie project.",
     });
+  };
+
+  const stitchAllVideos = async () => {
+    // Check if all scenes have generated videos
+    const videosToStitch = scenes
+      .filter(scene => scene.generatedVideo)
+      .map(scene => scene.generatedVideo as string);
+
+    if (videosToStitch.length === 0) {
+      toast({
+        title: "No Videos to Stitch",
+        description: "Please generate videos for at least one scene first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (videosToStitch.length < scenes.length) {
+      toast({
+        title: "Warning",
+        description: `Only ${videosToStitch.length} of ${scenes.length} scenes have videos. Missing scenes will be skipped.`,
+      });
+    }
+
+    setIsStitching(true);
+    setStitchProgress(0);
+
+    try {
+      toast({
+        title: "Stitching Videos",
+        description: "Combining all scene videos into a complete movie. This may take a few minutes...",
+      });
+
+      // Stitch videos using FFmpeg
+      const stitchedBlob = await stitchVideos(videosToStitch, (progress) => {
+        setStitchProgress(progress);
+      });
+
+      // Create a URL for the stitched video
+      const url = URL.createObjectURL(stitchedBlob);
+      setStitchedVideoUrl(url);
+
+      // Update the current project with stitched video URL if it's saved
+      if (currentProjectId) {
+        const projectData = {
+          stitched_video_url: url,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+          .from('movie_projects')
+          .update(projectData)
+          .eq('id', currentProjectId);
+
+        if (error) {
+          console.error('Error updating stitched video URL:', error);
+        }
+      }
+
+      toast({
+        title: "Video Stitched!",
+        description: `Successfully combined ${videosToStitch.length} scene videos into a complete movie.`,
+      });
+    } catch (error: any) {
+      console.error('Error stitching videos:', error);
+      toast({
+        title: "Stitching Failed",
+        description: error.message || "Failed to stitch videos. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsStitching(false);
+      setStitchProgress(0);
+    }
   };
 
   return (
@@ -692,7 +774,85 @@ const MovieSceneCreator = () => {
         {/* Generated Scenes */}
         {scenes.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-foreground">Generated Scenes</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-foreground">Generated Scenes</h2>
+              {scenes.some(s => s.generatedVideo) && (
+                <Button
+                  onClick={stitchAllVideos}
+                  disabled={isStitching}
+                  size="lg"
+                  className="gap-2"
+                >
+                  {isStitching ? (
+                    <>
+                      <Sparkles className="w-5 h-5 animate-spin" />
+                      Stitching {stitchProgress}%...
+                    </>
+                  ) : (
+                    <>
+                      <Video className="w-5 h-5" />
+                      Stitch All Videos into Movie
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {isStitching && (
+              <Card className="bg-gradient-accent border-primary/20">
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <Sparkles className="w-6 h-6 text-primary animate-spin" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground">Stitching Videos</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Combining all scene videos into a complete movie...
+                        </p>
+                      </div>
+                    </div>
+                    <Progress value={stitchProgress} className="h-2" />
+                    <p className="text-sm text-center text-muted-foreground">{stitchProgress}% complete</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {stitchedVideoUrl && (
+              <Card className="bg-gradient-accent border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Video className="w-5 h-5 text-primary" />
+                    Complete Movie
+                  </CardTitle>
+                  <CardDescription>
+                    All {scenes.filter(s => s.generatedVideo).length} scene videos stitched together
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <video 
+                    src={stitchedVideoUrl} 
+                    controls
+                    className="w-full rounded-lg border border-border"
+                  />
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      onClick={() => {
+                        const a = document.createElement('a');
+                        a.href = stitchedVideoUrl;
+                        a.download = `${projectTitle || 'movie'}.mp4`;
+                        a.click();
+                      }}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Download Movie
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid gap-4">
               {scenes.map((scene) => (
                 <Card key={scene.sceneNumber}>
