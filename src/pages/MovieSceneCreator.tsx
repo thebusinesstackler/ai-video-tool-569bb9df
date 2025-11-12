@@ -53,6 +53,8 @@ interface MovieScene {
   dialogue: string | null;
   imagePrompt: string;
   generatedImage?: string;
+  generatedVideo?: string;
+  videoTaskId?: string;
 }
 
 const MovieSceneCreator = () => {
@@ -62,6 +64,7 @@ const MovieSceneCreator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingScenes, setIsGeneratingScenes] = useState(false);
   const [generatingImageFor, setGeneratingImageFor] = useState<number | null>(null);
+  const [generatingVideoFor, setGeneratingVideoFor] = useState<number | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState('');
   const [savedProjects, setSavedProjects] = useState<any[]>([]);
@@ -190,6 +193,115 @@ const MovieSceneCreator = () => {
       });
     } finally {
       setGeneratingImageFor(null);
+    }
+  };
+
+  const generateLipSyncVideo = async (sceneNumber: number) => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!scene?.generatedImage) {
+      toast({
+        title: "Image Required",
+        description: "Please generate the scene image first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setGeneratingVideoFor(sceneNumber);
+    try {
+      // Generate audio from dialogue or description
+      const textForAudio = scene.dialogue || scene.description;
+      
+      toast({
+        title: "Generating Audio",
+        description: "Creating voiceover for the scene...",
+      });
+
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: textForAudio, voice: 'alloy' }
+      });
+
+      if (ttsError) throw ttsError;
+
+      // Convert base64 audio to blob URL
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0))],
+        { type: 'audio/mpeg' }
+      );
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      toast({
+        title: "Generating Video",
+        description: "Creating lip-synced video with WaveSpeed AI...",
+      });
+
+      // Generate video with lip sync
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          params: {
+            model: 'lipsync',
+            imageUrl: scene.generatedImage,
+            audioUrl: audioUrl,
+            prompt: `Lip sync animation for: ${scene.title}`
+          }
+        }
+      });
+
+      if (videoError) throw videoError;
+
+      // Update scene with task ID
+      setScenes(prevScenes => 
+        prevScenes.map(s => 
+          s.sceneNumber === sceneNumber 
+            ? { ...s, videoTaskId: videoData.taskId }
+            : s
+        )
+      );
+
+      // Poll for video completion
+      const checkStatus = async () => {
+        const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+          body: {
+            action: 'status',
+            taskId: videoData.taskId
+          }
+        });
+
+        if (statusError) throw statusError;
+
+        if (statusData.status === 'completed' && statusData.videoUrl) {
+          setScenes(prevScenes => 
+            prevScenes.map(s => 
+              s.sceneNumber === sceneNumber 
+                ? { ...s, generatedVideo: statusData.videoUrl }
+                : s
+            )
+          );
+          setGeneratingVideoFor(null);
+          
+          toast({
+            title: "Video Generated!",
+            description: `Scene ${sceneNumber} lip-sync video is ready.`,
+          });
+        } else if (statusData.status === 'failed') {
+          throw new Error('Video generation failed');
+        } else {
+          // Continue polling
+          setTimeout(checkStatus, 3000);
+        }
+      };
+
+      setTimeout(checkStatus, 3000);
+
+    } catch (error: any) {
+      console.error('Error generating video:', error);
+      toast({
+        title: "Video Generation Failed",
+        description: error.message || "Failed to generate video. Please try again.",
+        variant: "destructive"
+      });
+      setGeneratingVideoFor(null);
     }
   };
 
@@ -605,13 +717,45 @@ const MovieSceneCreator = () => {
                     </div>
 
                     {scene.generatedImage ? (
-                      <div>
-                        <Label className="text-sm font-semibold">Generated Image</Label>
-                        <img 
-                          src={scene.generatedImage} 
-                          alt={`Scene ${scene.sceneNumber}: ${scene.title}`}
-                          className="mt-2 w-full rounded-lg border border-border"
-                        />
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-sm font-semibold">Generated Image</Label>
+                          <img 
+                            src={scene.generatedImage} 
+                            alt={`Scene ${scene.sceneNumber}: ${scene.title}`}
+                            className="mt-2 w-full rounded-lg border border-border"
+                          />
+                        </div>
+                        
+                        {scene.generatedVideo ? (
+                          <div>
+                            <Label className="text-sm font-semibold">Generated Lip Sync Video</Label>
+                            <video 
+                              src={scene.generatedVideo} 
+                              controls
+                              className="mt-2 w-full rounded-lg border border-border"
+                            />
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => generateLipSyncVideo(scene.sceneNumber)}
+                            disabled={generatingVideoFor === scene.sceneNumber}
+                            className="w-full"
+                            variant="secondary"
+                          >
+                            {generatingVideoFor === scene.sceneNumber ? (
+                              <>
+                                <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                                Generating Lip Sync Video...
+                              </>
+                            ) : (
+                              <>
+                                <Film className="w-4 h-4 mr-2" />
+                                Generate Lip Sync Video
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <Button

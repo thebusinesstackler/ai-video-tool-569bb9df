@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.generate-script]
 verify_jwt = false
 
+[functions.text-to-speech]
+verify_jwt = false
+
 [functions.wavespeed-video]
 verify_jwt = false
 
