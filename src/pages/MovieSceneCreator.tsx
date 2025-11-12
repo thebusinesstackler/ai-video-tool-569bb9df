@@ -55,7 +55,17 @@ interface MovieScene {
   generatedImage?: string;
   generatedVideo?: string;
   videoTaskId?: string;
+  selectedVoice?: string;
 }
+
+const VOICE_OPTIONS = [
+  { id: 'alloy', name: 'Aria (Neutral)', description: 'Balanced, professional voice' },
+  { id: 'echo', name: 'Roger (Male)', description: 'Mature, authoritative male' },
+  { id: 'fable', name: 'Sarah (Female)', description: 'Warm, friendly female' },
+  { id: 'onyx', name: 'George (Deep Male)', description: 'Deep, commanding voice' },
+  { id: 'nova', name: 'Charlotte (Young Female)', description: 'Bright, energetic voice' },
+  { id: 'shimmer', name: 'Lily (Soft Female)', description: 'Gentle, soothing voice' },
+];
 
 const MovieSceneCreator = () => {
   const [movieIdea, setMovieIdea] = useState('');
@@ -196,6 +206,16 @@ const MovieSceneCreator = () => {
     }
   };
 
+  const updateSceneVoice = (sceneNumber: number, voice: string) => {
+    setScenes(prevScenes => 
+      prevScenes.map(s => 
+        s.sceneNumber === sceneNumber 
+          ? { ...s, selectedVoice: voice }
+          : s
+      )
+    );
+  };
+
   const generateLipSyncVideo = async (sceneNumber: number) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     if (!scene?.generatedImage) {
@@ -211,6 +231,7 @@ const MovieSceneCreator = () => {
     try {
       // Generate audio from dialogue or description
       const textForAudio = scene.dialogue || scene.description;
+      const selectedVoice = scene.selectedVoice || 'alloy';
       
       toast({
         title: "Generating Audio",
@@ -218,7 +239,7 @@ const MovieSceneCreator = () => {
       });
 
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: textForAudio, voice: 'alloy' }
+        body: { text: textForAudio, voice: selectedVoice }
       });
 
       if (ttsError) throw ttsError;
@@ -737,24 +758,56 @@ const MovieSceneCreator = () => {
                             />
                           </div>
                         ) : (
-                          <Button
-                            onClick={() => generateLipSyncVideo(scene.sceneNumber)}
-                            disabled={generatingVideoFor === scene.sceneNumber}
-                            className="w-full"
-                            variant="secondary"
-                          >
-                            {generatingVideoFor === scene.sceneNumber ? (
-                              <>
-                                <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                                Generating Lip Sync Video...
-                              </>
-                            ) : (
-                              <>
-                                <Film className="w-4 h-4 mr-2" />
-                                Generate Lip Sync Video
-                              </>
-                            )}
-                          </Button>
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <Label htmlFor={`voice-${scene.sceneNumber}`} className="text-sm font-semibold">
+                                Voice Character
+                              </Label>
+                              <Select
+                                value={scene.selectedVoice || 'alloy'}
+                                onValueChange={(voice) => updateSceneVoice(scene.sceneNumber, voice)}
+                              >
+                                <SelectTrigger 
+                                  id={`voice-${scene.sceneNumber}`}
+                                  className="bg-background border-border"
+                                >
+                                  <SelectValue placeholder="Select a voice" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-background border-border z-50">
+                                  {VOICE_OPTIONS.map((voice) => (
+                                    <SelectItem 
+                                      key={voice.id} 
+                                      value={voice.id}
+                                      className="bg-background hover:bg-accent focus:bg-accent"
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{voice.name}</span>
+                                        <span className="text-xs text-muted-foreground">{voice.description}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button
+                              onClick={() => generateLipSyncVideo(scene.sceneNumber)}
+                              disabled={generatingVideoFor === scene.sceneNumber}
+                              className="w-full"
+                              variant="secondary"
+                            >
+                              {generatingVideoFor === scene.sceneNumber ? (
+                                <>
+                                  <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                                  Generating Lip Sync Video...
+                                </>
+                              ) : (
+                                <>
+                                  <Film className="w-4 h-4 mr-2" />
+                                  Generate Lip Sync Video
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         )}
                       </div>
                     ) : (
