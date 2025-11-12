@@ -59,6 +59,7 @@ interface MovieScene {
   generatedVideo?: string;
   videoTaskId?: string;
   selectedVoice?: string;
+  selectedCameraAngle?: string;
 }
 
 const VOICE_OPTIONS = [
@@ -68,6 +69,19 @@ const VOICE_OPTIONS = [
   { id: 'onyx', name: 'George (Deep Male)', description: 'Deep, commanding voice' },
   { id: 'nova', name: 'Charlotte (Young Female)', description: 'Bright, energetic voice' },
   { id: 'shimmer', name: 'Lily (Soft Female)', description: 'Gentle, soothing voice' },
+];
+
+const CAMERA_ANGLES = [
+  { id: 'eye-level', name: 'Eye Level', description: 'Standard neutral perspective' },
+  { id: 'low-angle', name: 'Low Angle', description: 'Camera looks up, subject appears powerful' },
+  { id: 'high-angle', name: 'High Angle', description: 'Camera looks down, subject appears vulnerable' },
+  { id: 'birds-eye', name: 'Bird\'s Eye View', description: 'Directly overhead, dramatic perspective' },
+  { id: 'dutch-angle', name: 'Dutch Angle', description: 'Tilted camera, creates tension and unease' },
+  { id: 'over-shoulder', name: 'Over-the-Shoulder', description: 'View from behind character' },
+  { id: 'pov', name: 'POV Shot', description: 'Character\'s point of view' },
+  { id: 'close-up', name: 'Close-Up', description: 'Tight shot on subject, emotional detail' },
+  { id: 'wide-shot', name: 'Wide Shot', description: 'Full scene establishing shot' },
+  { id: 'medium-shot', name: 'Medium Shot', description: 'Waist-up framing, balanced' },
 ];
 
 const MovieSceneCreator = () => {
@@ -188,10 +202,21 @@ const MovieSceneCreator = () => {
   };
 
   const generateSceneImage = async (sceneNumber: number, imagePrompt: string) => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    
+    // Enhance prompt with camera angle if selected
+    let enhancedPrompt = imagePrompt;
+    if (scene?.selectedCameraAngle && scene.selectedCameraAngle !== 'eye-level') {
+      const cameraAngle = CAMERA_ANGLES.find(a => a.id === scene.selectedCameraAngle);
+      if (cameraAngle) {
+        enhancedPrompt = `${imagePrompt}. Shot with ${cameraAngle.name.toLowerCase()}, ${cameraAngle.description.toLowerCase()}`;
+      }
+    }
+    
     setGeneratingImageFor(sceneNumber);
     try {
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt: imagePrompt }
+        body: { prompt: enhancedPrompt }
       });
 
       if (error) throw error;
@@ -226,6 +251,16 @@ const MovieSceneCreator = () => {
       prevScenes.map(s => 
         s.sceneNumber === sceneNumber 
           ? { ...s, selectedVoice: voice }
+          : s
+      )
+    );
+  };
+
+  const updateSceneCameraAngle = (sceneNumber: number, angle: string) => {
+    setScenes(prevScenes => 
+      prevScenes.map(s => 
+        s.sceneNumber === sceneNumber 
+          ? { ...s, selectedCameraAngle: angle }
           : s
       )
     );
@@ -1000,10 +1035,41 @@ const MovieSceneCreator = () => {
                       <Label className="text-sm font-semibold">Image Generation Prompt</Label>
                       <Textarea
                         value={scene.imagePrompt}
-                        readOnly
+                        onChange={(e) => updateSceneText(scene.sceneNumber, 'imagePrompt', e.target.value)}
                         rows={3}
-                        className="mt-1 bg-muted/50 resize-none"
+                        className="mt-1 resize-none"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`camera-${scene.sceneNumber}`} className="text-sm font-semibold">
+                        Camera Angle
+                      </Label>
+                      <Select
+                        value={scene.selectedCameraAngle || 'eye-level'}
+                        onValueChange={(angle) => updateSceneCameraAngle(scene.sceneNumber, angle)}
+                      >
+                        <SelectTrigger 
+                          id={`camera-${scene.sceneNumber}`}
+                          className="bg-background border-border"
+                        >
+                          <SelectValue placeholder="Select camera angle" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border-border z-50">
+                          {CAMERA_ANGLES.map((angle) => (
+                            <SelectItem 
+                              key={angle.id} 
+                              value={angle.id}
+                              className="bg-background hover:bg-accent focus:bg-accent"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{angle.name}</span>
+                                <span className="text-xs text-muted-foreground">{angle.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {scene.generatedImage ? (
