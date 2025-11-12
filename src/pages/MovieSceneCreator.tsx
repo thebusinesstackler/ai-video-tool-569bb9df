@@ -50,6 +50,7 @@ interface MovieScene {
   description: string;
   dialogue: string | null;
   imagePrompt: string;
+  generatedImage?: string;
 }
 
 const MovieSceneCreator = () => {
@@ -58,6 +59,7 @@ const MovieSceneCreator = () => {
   const [scenes, setScenes] = useState<MovieScene[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingScenes, setIsGeneratingScenes] = useState(false);
+  const [generatingImageFor, setGeneratingImageFor] = useState<number | null>(null);
   const { toast } = useToast();
 
   const generateOutline = async () => {
@@ -127,6 +129,40 @@ const MovieSceneCreator = () => {
       });
     } finally {
       setIsGeneratingScenes(false);
+    }
+  };
+
+  const generateSceneImage = async (sceneNumber: number, imagePrompt: string) => {
+    setGeneratingImageFor(sceneNumber);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt: imagePrompt }
+      });
+
+      if (error) throw error;
+
+      // Update the scene with the generated image
+      setScenes(prevScenes => 
+        prevScenes.map(scene => 
+          scene.sceneNumber === sceneNumber 
+            ? { ...scene, generatedImage: data.imageUrl }
+            : scene
+        )
+      );
+
+      toast({
+        title: "Image Generated!",
+        description: `Scene ${sceneNumber} image created successfully.`,
+      });
+    } catch (error: any) {
+      console.error('Error generating image:', error);
+      toast({
+        title: "Image Generation Failed",
+        description: error.message || "Failed to generate image. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingImageFor(null);
     }
   };
 
@@ -285,6 +321,36 @@ const MovieSceneCreator = () => {
                         className="mt-1 bg-muted/50 resize-none"
                       />
                     </div>
+
+                    {scene.generatedImage ? (
+                      <div>
+                        <Label className="text-sm font-semibold">Generated Image</Label>
+                        <img 
+                          src={scene.generatedImage} 
+                          alt={`Scene ${scene.sceneNumber}: ${scene.title}`}
+                          className="mt-2 w-full rounded-lg border border-border"
+                        />
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => generateSceneImage(scene.sceneNumber, scene.imagePrompt)}
+                        disabled={generatingImageFor === scene.sceneNumber}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        {generatingImageFor === scene.sceneNumber ? (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                            Generating Image...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Generate Scene Image
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ))}
