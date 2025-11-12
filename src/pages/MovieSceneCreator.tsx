@@ -244,27 +244,20 @@ const MovieSceneCreator = () => {
 
       if (ttsError) throw ttsError;
 
-      // Convert base64 audio to blob URL
-      const audioBlob = new Blob(
-        [Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0))],
-        { type: 'audio/mpeg' }
-      );
-      const audioUrl = URL.createObjectURL(audioBlob);
-
       toast({
         title: "Generating Video",
         description: "Creating lip-synced video with WaveSpeed AI...",
       });
 
-      // Generate video with lip sync
+      // Generate video with lip sync using InfiniteTalk model
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
           params: {
-            model: 'lipsync',
-            imageUrl: scene.generatedImage,
-            audioUrl: audioUrl,
-            prompt: `Lip sync animation for: ${scene.title}`
+            model: 'infinitetalk',
+            imageUrls: [scene.generatedImage],
+            audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
+            duration: 5
           }
         }
       });
