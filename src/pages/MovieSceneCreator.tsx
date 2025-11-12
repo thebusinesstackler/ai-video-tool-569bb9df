@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
@@ -477,6 +477,42 @@ const MovieSceneCreator = () => {
           : s
       )
     );
+  };
+
+  const generateDialogue = async (sceneNumber: number) => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!scene) return;
+
+    try {
+      toast({
+        title: "Generating Dialogue",
+        description: "Creating character dialogue for this scene..."
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-scene-dialogue', {
+        body: {
+          sceneDescription: scene.description,
+          tone: 'natural'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.dialogue) {
+        updateSceneText(sceneNumber, 'dialogue', data.dialogue);
+        toast({
+          title: "Dialogue Generated!",
+          description: "AI-generated dialogue has been added to the scene."
+        });
+      }
+    } catch (error) {
+      console.error('Error generating dialogue:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate dialogue. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const generateLipSyncVideo = async (sceneNumber: number) => {
@@ -1223,10 +1259,21 @@ const MovieSceneCreator = () => {
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-semibold">
-                        Dialogue / Words to Say
-                        <span className="text-xs text-muted-foreground font-normal ml-2">(Used for lip sync generation)</span>
-                      </Label>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label className="text-sm font-semibold">
+                          Dialogue / Words to Say
+                          <span className="text-xs text-muted-foreground font-normal ml-2">(Used for lip sync generation)</span>
+                        </Label>
+                        <Button
+                          onClick={() => generateDialogue(scene.sceneNumber)}
+                          variant="outline"
+                          size="sm"
+                          className="h-7"
+                        >
+                          <Wand2 className="w-3 h-3 mr-1" />
+                          Generate Dialogue
+                        </Button>
+                      </div>
                       <Textarea
                         value={scene.dialogue || ''}
                         onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
