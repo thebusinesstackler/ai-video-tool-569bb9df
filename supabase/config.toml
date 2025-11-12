@@ -1,6 +1,9 @@
-project_id = "aarnfihphqhwvwwcqgoc"
+project_id = "aarnfihphqhwvwcqgoc"
 
 [functions.generate-movie-outline]
+verify_jwt = false
+
+[functions.generate-movie-scenes]
 verify_jwt = false
 
 [functions.generate-script]

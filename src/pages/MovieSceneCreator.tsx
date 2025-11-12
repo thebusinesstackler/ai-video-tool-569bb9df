@@ -42,10 +42,22 @@ const SAMPLE_MOVIES = [
   }
 ];
 
+interface MovieScene {
+  sceneNumber: number;
+  title: string;
+  location: string;
+  timeOfDay: string;
+  description: string;
+  dialogue: string | null;
+  imagePrompt: string;
+}
+
 const MovieSceneCreator = () => {
   const [movieIdea, setMovieIdea] = useState('');
   const [outline, setOutline] = useState('');
+  const [scenes, setScenes] = useState<MovieScene[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingScenes, setIsGeneratingScenes] = useState(false);
   const { toast } = useToast();
 
   const generateOutline = async () => {
@@ -83,7 +95,7 @@ const MovieSceneCreator = () => {
     }
   };
 
-  const generateScenes = () => {
+  const generateScenes = async () => {
     if (!outline.trim()) {
       toast({
         title: "No Outline",
@@ -93,10 +105,29 @@ const MovieSceneCreator = () => {
       return;
     }
 
-    toast({
-      title: "Coming Soon",
-      description: "Scene generation will be available soon!",
-    });
+    setIsGeneratingScenes(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-movie-scenes', {
+        body: { outline }
+      });
+
+      if (error) throw error;
+
+      setScenes(data.scenes);
+      toast({
+        title: "Scenes Generated!",
+        description: `Created ${data.scenes.length} cinematic scenes with image prompts.`,
+      });
+    } catch (error: any) {
+      console.error('Error generating scenes:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate scenes. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingScenes(false);
+    }
   };
 
   return (
@@ -196,16 +227,70 @@ const MovieSceneCreator = () => {
               </div>
               <Button
                 onClick={generateScenes}
-                disabled={!outline.trim()}
+                disabled={!outline.trim() || isGeneratingScenes}
                 className="w-full"
                 variant="secondary"
               >
-                <ChevronRight className="w-4 h-4 mr-2" />
-                Generate Scenes from Outline
+                {isGeneratingScenes ? (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                    Generating Scenes...
+                  </>
+                ) : (
+                  <>
+                    <ChevronRight className="w-4 h-4 mr-2" />
+                    Generate Scenes from Outline
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
         </div>
+
+        {/* Generated Scenes */}
+        {scenes.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground">Generated Scenes</h2>
+            <div className="grid gap-4">
+              {scenes.map((scene) => (
+                <Card key={scene.sceneNumber}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Film className="w-5 h-5 text-primary" />
+                      Scene {scene.sceneNumber}: {scene.title}
+                    </CardTitle>
+                    <CardDescription>
+                      {scene.location} • {scene.timeOfDay}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-sm font-semibold">Description</Label>
+                      <p className="text-sm text-muted-foreground mt-1">{scene.description}</p>
+                    </div>
+                    
+                    {scene.dialogue && (
+                      <div>
+                        <Label className="text-sm font-semibold">Dialogue</Label>
+                        <p className="text-sm text-muted-foreground mt-1 italic">{scene.dialogue}</p>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <Label className="text-sm font-semibold">Image Generation Prompt</Label>
+                      <Textarea
+                        value={scene.imagePrompt}
+                        readOnly
+                        rows={3}
+                        className="mt-1 bg-muted/50 resize-none"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Info Card */}
         <Card className="bg-gradient-accent border-primary/20">
@@ -219,8 +304,8 @@ const MovieSceneCreator = () => {
                 <ol className="text-sm text-muted-foreground space-y-2">
                   <li><strong>1. Describe Your Movie:</strong> Write about your plot, characters, genre, and setting.</li>
                   <li><strong>2. Generate Outline:</strong> AI creates a structured outline with acts, sequences, and key scenes.</li>
-                  <li><strong>3. Create Scenes:</strong> Transform outline beats into detailed scenes ready for video generation.</li>
-                  <li><strong>4. Generate Videos:</strong> Use each scene with keyframe technology to bring your movie to life.</li>
+                  <li><strong>3. Create Scenes:</strong> Transform outline beats into detailed scenes with image prompts.</li>
+                  <li><strong>4. Generate Videos:</strong> Use each scene with the image prompts to bring your movie to life.</li>
                 </ol>
               </div>
             </div>
