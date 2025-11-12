@@ -1222,17 +1222,19 @@ const MovieSceneCreator = () => {
                       />
                     </div>
                     
-                    {scene.dialogue && (
-                      <div>
-                        <Label className="text-sm font-semibold">Dialogue</Label>
-                        <Textarea
-                          value={scene.dialogue}
-                          onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
-                          rows={2}
-                          className="mt-1 resize-none italic"
-                        />
-                      </div>
-                    )}
+                    <div>
+                      <Label className="text-sm font-semibold">
+                        Dialogue / Words to Say
+                        <span className="text-xs text-muted-foreground font-normal ml-2">(Used for lip sync generation)</span>
+                      </Label>
+                      <Textarea
+                        value={scene.dialogue || ''}
+                        onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
+                        rows={3}
+                        className="mt-1 resize-none italic"
+                        placeholder="Enter the dialogue or words the character will say in this scene..."
+                      />
+                    </div>
                     
                     <div>
                       <Label className="text-sm font-semibold">Image Generation Prompt</Label>
