@@ -253,12 +253,10 @@ const MovieSceneCreator = () => {
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          params: {
-            model: 'infinitetalk',
-            imageUrls: [scene.generatedImage],
-            audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
-            duration: 5
-          }
+          model: 'infinitetalk',
+          imageUrls: [scene.generatedImage],
+          audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
+          duration: 5
         }
       });
 
