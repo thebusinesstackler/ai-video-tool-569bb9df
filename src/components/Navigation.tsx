@@ -10,7 +10,8 @@ import {
   SparklesIcon,
   PlayCircleIcon,
   LogOut,
-  Clapperboard
+  Clapperboard,
+  Film
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
@@ -23,6 +24,7 @@ const navigationItems = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Content Analysis', href: '/analysis', icon: BarChart3Icon },
   { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard },
+  { name: 'Movies', href: '/movies', icon: Film },
   { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
   { name: 'Videos', href: '/videos', icon: VideoIcon },
   { name: 'Characters', href: '/characters', icon: UsersIcon },
