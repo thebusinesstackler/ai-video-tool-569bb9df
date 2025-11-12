@@ -4,9 +4,43 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Film, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+
+const SAMPLE_MOVIES = [
+  {
+    value: 'sci-fi-thriller',
+    label: 'Sci-Fi Thriller',
+    description: 'A sci-fi thriller about a detective who discovers she\'s living in a simulated reality. She must navigate between the real world and the simulation to uncover who trapped humanity in this digital prison and why. As she gets closer to the truth, she realizes the architect of this world is someone she once trusted.'
+  },
+  {
+    value: 'romantic-comedy',
+    label: 'Romantic Comedy',
+    description: 'A romantic comedy about two rival wedding planners who are forced to work together on the biggest wedding of the year. Despite their constant bickering and completely different approaches to love and romance, they slowly realize they might be perfect for each other. But their pride and past heartbreaks keep getting in the way.'
+  },
+  {
+    value: 'fantasy-adventure',
+    label: 'Fantasy Adventure',
+    description: 'A fantasy adventure following a young librarian who discovers a magical book that transports her to different fictional worlds. To return home, she must collect enchanted artifacts from classic stories while being pursued by a dark sorcerer who wants to use the book to rewrite reality itself. Along the way, she teams up with characters from beloved tales.'
+  },
+  {
+    value: 'horror-mystery',
+    label: 'Horror Mystery',
+    description: 'A horror mystery about a group of friends who return to their abandoned childhood summer camp 20 years after a tragic incident. As they try to uncover what really happened that night, they realize they\'re not alone. Something sinister still lurks in the woods, and it knows their darkest secrets. One by one, they must confront their past or become its next victims.'
+  },
+  {
+    value: 'action-heist',
+    label: 'Action Heist',
+    description: 'An action heist film about a retired master thief who is forced out of retirement for one last job: stealing a priceless artifact from the most secure vault in the world. She assembles a diverse crew of specialists, but discovers the artifact holds the key to preventing a global catastrophe. Now it\'s not just about the score—it\'s about saving millions of lives.'
+  },
+  {
+    value: 'drama-biopic',
+    label: 'Historical Drama',
+    description: 'A historical drama chronicling the rise of a pioneering female scientist in the 1950s who fights against institutional sexism to prove her groundbreaking theory. As she races against time and rival researchers, she must choose between her career ambitions and her personal life, while her discovery could change humanity\'s understanding of the universe forever.'
+  }
+];
 
 const MovieSceneCreator = () => {
   const [movieIdea, setMovieIdea] = useState('');
@@ -89,13 +123,31 @@ const MovieSceneCreator = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="sample-movies">Quick Start Samples</Label>
+                <Select onValueChange={(value) => {
+                  const sample = SAMPLE_MOVIES.find(m => m.value === value);
+                  if (sample) setMovieIdea(sample.description);
+                }}>
+                  <SelectTrigger id="sample-movies">
+                    <SelectValue placeholder="Choose a sample movie idea..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SAMPLE_MOVIES.map((movie) => (
+                      <SelectItem key={movie.value} value={movie.value}>
+                        {movie.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="movie-idea">Movie Description</Label>
                 <Textarea
                   id="movie-idea"
-                  placeholder="Example: A sci-fi thriller about a detective who discovers she's living in a simulated reality. She must navigate between the real world and the simulation to uncover who trapped humanity in this digital prison..."
+                  placeholder="Choose a sample above or write your own movie idea..."
                   value={movieIdea}
                   onChange={(e) => setMovieIdea(e.target.value)}
-                  rows={12}
+                  rows={10}
                   className="resize-none"
                 />
               </div>
