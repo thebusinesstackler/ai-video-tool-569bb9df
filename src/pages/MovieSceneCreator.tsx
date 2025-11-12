@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,7 @@ const VOICE_OPTIONS = [
 ];
 
 const MovieSceneCreator = () => {
+  const [searchParams] = useSearchParams();
   const [movieIdea, setMovieIdea] = useState('');
   const [outline, setOutline] = useState('');
   const [scenes, setScenes] = useState<MovieScene[]>([]);
@@ -106,6 +108,14 @@ const MovieSceneCreator = () => {
       loadSavedProjects();
     }
   }, [userId]);
+
+  // Load project from URL parameter if present
+  useEffect(() => {
+    const projectId = searchParams.get('projectId');
+    if (projectId && userId) {
+      loadProject(projectId);
+    }
+  }, [searchParams, userId]);
 
   const generateOutline = async () => {
     if (!movieIdea.trim()) {
