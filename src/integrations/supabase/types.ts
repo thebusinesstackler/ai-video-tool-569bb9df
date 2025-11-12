@@ -53,6 +53,39 @@ export type Database = {
         }
         Relationships: []
       }
+      movie_projects: {
+        Row: {
+          created_at: string
+          id: string
+          movie_idea: string
+          outline: string | null
+          scenes: Json | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_idea: string
+          outline?: string | null
+          scenes?: Json | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_idea?: string
+          outline?: string | null
+          scenes?: Json | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           aspect_ratio: string

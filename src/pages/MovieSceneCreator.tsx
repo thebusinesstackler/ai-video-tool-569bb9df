@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sparkles, Film, ChevronRight } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -60,7 +62,32 @@ const MovieSceneCreator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingScenes, setIsGeneratingScenes] = useState(false);
   const [generatingImageFor, setGeneratingImageFor] = useState<number | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [projectTitle, setProjectTitle] = useState('');
+  const [savedProjects, setSavedProjects] = useState<any[]>([]);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [isLoadDialogOpen, setIsLoadDialogOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check if user is authenticated
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserId(session?.user?.id || null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadSavedProjects();
+    }
+  }, [userId]);
 
   const generateOutline = async () => {
     if (!movieIdea.trim()) {
@@ -166,14 +193,269 @@ const MovieSceneCreator = () => {
     }
   };
 
+  const loadSavedProjects = async () => {
+    if (!userId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('movie_projects')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      setSavedProjects(data || []);
+    } catch (error: any) {
+      console.error('Error loading projects:', error);
+    }
+  };
+
+  const saveProject = async () => {
+    if (!userId) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to save projects.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!projectTitle.trim()) {
+      toast({
+        title: "Title Required",
+        description: "Please enter a project title.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const projectData = {
+        user_id: userId,
+        title: projectTitle,
+        movie_idea: movieIdea,
+        outline: outline,
+        scenes: scenes as any // Cast to Json type
+      };
+
+      if (currentProjectId) {
+        // Update existing project
+        const { error } = await supabase
+          .from('movie_projects')
+          .update(projectData)
+          .eq('id', currentProjectId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Project Updated!",
+          description: "Your movie project has been saved.",
+        });
+      } else {
+        // Create new project
+        const { data, error } = await supabase
+          .from('movie_projects')
+          .insert([projectData])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setCurrentProjectId(data.id);
+        toast({
+          title: "Project Saved!",
+          description: "Your movie project has been created.",
+        });
+      }
+
+      setIsSaveDialogOpen(false);
+      loadSavedProjects();
+    } catch (error: any) {
+      console.error('Error saving project:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save project. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const loadProject = async (projectId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('movie_projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (error) throw error;
+
+      setCurrentProjectId(data.id);
+      setProjectTitle(data.title);
+      setMovieIdea(data.movie_idea);
+      setOutline(data.outline || '');
+      setScenes((data.scenes as any) || []); // Cast from Json to MovieScene[]
+
+      setIsLoadDialogOpen(false);
+      toast({
+        title: "Project Loaded!",
+        description: `Loaded "${data.title}"`,
+      });
+    } catch (error: any) {
+      console.error('Error loading project:', error);
+      toast({
+        title: "Load Failed",
+        description: error.message || "Failed to load project. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const deleteProject = async (projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('movie_projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Project Deleted",
+        description: "The project has been removed.",
+      });
+
+      loadSavedProjects();
+
+      // Clear current project if it was deleted
+      if (currentProjectId === projectId) {
+        setCurrentProjectId(null);
+        setProjectTitle('');
+        setMovieIdea('');
+        setOutline('');
+        setScenes([]);
+      }
+    } catch (error: any) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete project. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const startNewProject = () => {
+    setCurrentProjectId(null);
+    setProjectTitle('');
+    setMovieIdea('');
+    setOutline('');
+    setScenes([]);
+    toast({
+      title: "New Project",
+      description: "Started a new movie project.",
+    });
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Movie Scene Creator</h1>
-          <p className="text-muted-foreground">
-            Describe your movie idea, get an AI-generated outline, and create scenes for your film.
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Movie Scene Creator</h1>
+            <p className="text-muted-foreground">
+              Describe your movie idea, get an AI-generated outline, and create scenes for your film.
+            </p>
+            {currentProjectId && projectTitle && (
+              <p className="text-sm text-primary mt-1">Currently editing: {projectTitle}</p>
+            )}
+          </div>
+          
+          {userId && (
+            <div className="flex gap-2">
+              <Button onClick={startNewProject} variant="outline" size="sm">
+                <Film className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+              
+              <Dialog open={isLoadDialogOpen} onOpenChange={setIsLoadDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Load Project
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Load Project</DialogTitle>
+                    <DialogDescription>Select a project to continue working on</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-2">
+                    {savedProjects.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">No saved projects yet</p>
+                    ) : (
+                      savedProjects.map((project) => (
+                        <Card key={project.id} className="cursor-pointer hover:bg-accent/50 transition-colors">
+                          <CardContent className="p-4 flex items-center justify-between">
+                            <div className="flex-1" onClick={() => loadProject(project.id)}>
+                              <h3 className="font-semibold">{project.title}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(project.updated_at).toLocaleDateString()} • {project.scenes?.length || 0} scenes
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteProject(project.id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Project
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{currentProjectId ? 'Update' : 'Save'} Project</DialogTitle>
+                    <DialogDescription>
+                      {currentProjectId ? 'Update your movie project' : 'Give your movie project a name'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="project-title">Project Title</Label>
+                      <Input
+                        id="project-title"
+                        placeholder="Enter project title..."
+                        value={projectTitle}
+                        onChange={(e) => setProjectTitle(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={saveProject}>
+                      <Save className="w-4 h-4 mr-2" />
+                      {currentProjectId ? 'Update' : 'Save'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
