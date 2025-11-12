@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { AudioGenerator } from '@/components/AudioGenerator';
 import { VideoProcessingStatus } from '@/components/VideoProcessingStatus';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { ImageGallerySelector } from '@/components/ImageGallerySelector';
 import {
   VideoIcon, 
   PlayIcon, 
@@ -152,6 +153,8 @@ const Videos = () => {
   const [selectedScript, setSelectedScript] = useState<string>('');
   const [currentProjectImageUrl, setCurrentProjectImageUrl] = useState<string>('');
   const [currentProjectAudioUrl, setCurrentProjectAudioUrl] = useState<string>('');
+  const [showImageGallery, setShowImageGallery] = useState(false);
+  const [sourceImageUrl, setSourceImageUrl] = useState<string>('');
 
   useEffect(() => {
     loadProjects();
@@ -606,7 +609,7 @@ const Videos = () => {
       return;
     }
 
-    if (needsImageValidation && !sourceImage && !currentProjectImageUrl && (!selectedCharacter || selectedCharacter === 'upload-new')) {
+    if (needsImageValidation && !sourceImage && !currentProjectImageUrl && !sourceImageUrl && (!selectedCharacter || selectedCharacter === 'upload-new')) {
       toast({
         title: "Image Required",
         description: `The ${MODEL_NAMES[formData.modelType]} model requires a source image. Please upload an image or select a character.`,
@@ -633,7 +636,7 @@ const Videos = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Authentication required');
 
-      let imageUrl = currentProjectImageUrl; // Use existing URL if available
+      let imageUrl = currentProjectImageUrl || sourceImageUrl; // Use existing URL if available
       let audioUrl = currentProjectAudioUrl; // Use existing URL if available
 
       // Upload files if new ones are provided
@@ -1484,25 +1487,52 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                 {(selectedCharacter === 'upload-new' || !selectedCharacter || characters.length === 0) && (
                   <>
                     <div>
-                      <Label htmlFor="sourceImage" className="flex items-center gap-2 text-sm font-medium">
+                      <Label className="flex items-center gap-2 text-sm font-medium mb-2">
                         <ImageIcon className="w-4 h-4" />
                         Source Image (Required)
                       </Label>
-                      <Input
-                        id="sourceImage"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          setSourceImage(e.target.files?.[0] || null);
-                          setSelectedCharacter('upload-new');
-                        }}
-                        className="cursor-pointer mt-1.5"
-                      />
-                      {sourceImage && (
-                        <p className="text-sm text-green-600 dark:text-green-400 mt-2 flex items-center gap-1">
-                          <CheckCircleIcon className="w-4 h-4" />
-                          Selected: {sourceImage.name}
-                        </p>
+                      {!showImageGallery && !sourceImageUrl && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowImageGallery(true)}
+                          className="w-full"
+                        >
+                          Select or Upload Image
+                        </Button>
+                      )}
+                      {sourceImageUrl && (
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <img
+                              src={sourceImageUrl}
+                              alt="Selected source"
+                              className="w-full h-48 object-cover rounded-lg border-2 border-primary"
+                            />
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                setSourceImageUrl('');
+                                setSourceImage(null);
+                              }}
+                              className="absolute top-2 right-2"
+                            >
+                              Change
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {showImageGallery && (
+                        <ImageGallerySelector
+                          onSelectImage={(url) => {
+                            setSourceImageUrl(url);
+                            setShowImageGallery(false);
+                            setSelectedCharacter('upload-new');
+                          }}
+                          selectedImage={sourceImageUrl}
+                        />
                       )}
                     </div>
 

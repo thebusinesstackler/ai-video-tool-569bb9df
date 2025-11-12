@@ -1,21 +1,10 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { VideoPlayer } from '@/components/VideoPlayer';
-import { 
-  RefreshCwIcon, 
-  ClockIcon, 
-  CheckCircleIcon, 
-  XCircleIcon,
-  PlayIcon,
-  DownloadIcon,
-  LoaderIcon,
-  RotateCcwIcon,
-  TrashIcon,
-  StopCircleIcon
-} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle, Clock, XCircle, RefreshCw, RotateCcw, Play, Download, AlertCircle, Loader2, Trash } from 'lucide-react';
+import { VideoPlayer } from './VideoPlayer';
 
 interface VideoSegment {
   id: string;
@@ -51,27 +40,32 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircleIcon className="w-4 h-4 text-green-600" />;
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'failed':
-        return <XCircleIcon className="w-4 h-4 text-red-600" />;
+        return <XCircle className="w-4 h-4 text-red-600" />;
       case 'processing':
-        return <LoaderIcon className="w-4 h-4 text-blue-600 animate-spin" />;
+        return <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />;
       default:
-        return <ClockIcon className="w-4 h-4 text-gray-500" />;
+        return <Clock className="w-4 h-4 text-gray-500" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'text-green-600';
       case 'failed':
-        return 'bg-red-100 text-red-800';
+        return 'text-destructive';
       case 'processing':
-        return 'bg-blue-100 text-blue-800';
+        return 'text-blue-600';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'text-muted-foreground';
     }
+  };
+
+  const isStuck = (segment: VideoSegment) => {
+    if (segment.status !== 'processing') return false;
+    return segment.progress === 75 || segment.progress === 50;
   };
 
   const overallProgress = segments.length > 0 
@@ -106,7 +100,7 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
                 onClick={onDeleteProject}
                 className="text-red-600 hover:text-red-700"
               >
-                <TrashIcon className="w-3 h-3 mr-1" />
+                <Trash className="w-3 h-3 mr-1" />
                 Delete Project
               </Button>
             )}
@@ -132,36 +126,51 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
                   <Badge className={getStatusColor(segment.status)}>
                     {segment.status.toUpperCase()}
                   </Badge>
+                  {isStuck(segment) && (
+                    <Badge variant="destructive" className="gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      May be stuck
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {isStuck(segment) && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => onResetSegment?.(segment.id)}
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      Retry
+                    </Button>
+                  )}
                   {segment.status === 'processing' || segment.status === 'pending' ? (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onRefreshSegment(segment.id)}
                     >
-                      <RefreshCwIcon className="w-3 h-3" />
+                      <RefreshCw className="w-3 h-3" />
                     </Button>
                   ) : null}
-                  {(segment.status === 'failed' || segment.status === 'pending') && onResetSegment && (
+                  {(segment.status === 'failed' || segment.status === 'pending') && onResetSegment && !isStuck(segment) && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onResetSegment(segment.id)}
                       className="text-orange-600 hover:text-orange-700"
                     >
-                      <RotateCcwIcon className="w-3 h-3" />
+                      <RotateCcw className="w-3 h-3" />
                     </Button>
                   )}
                   {(segment.outputUrl || segment.localVideoUrl) && (
                     <>
-                      {/* Use VideoPlayer for inline viewing */}
                       <VideoPlayer
                         videoUrl={segment.localVideoUrl || segment.outputUrl!}
                         title={`Scene ${segment.sceneNumber} - ${segment.description}`}
                         trigger={
                           <Button variant="outline" size="sm">
-                            <PlayIcon className="w-3 h-3" />
+                            <Play className="w-3 h-3" />
                           </Button>
                         }
                       />
@@ -170,7 +179,7 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
                         size="sm"
                         onClick={() => onDownloadVideo(segment.localVideoUrl || segment.outputUrl!, `scene-${segment.sceneNumber}.mp4`)}
                       >
-                        <DownloadIcon className="w-3 h-3" />
+                        <Download className="w-3 h-3" />
                       </Button>
                     </>
                   )}
