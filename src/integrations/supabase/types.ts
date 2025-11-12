@@ -191,6 +191,36 @@ export type Database = {
         }
         Relationships: []
       }
+      visual_presets: {
+        Row: {
+          camera_angle: string
+          created_at: string
+          id: string
+          lighting_style: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          camera_angle: string
+          created_at?: string
+          id?: string
+          lighting_style: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          camera_angle?: string
+          created_at?: string
+          id?: string
+          lighting_style?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

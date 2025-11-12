@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
@@ -60,6 +60,14 @@ interface MovieScene {
   videoTaskId?: string;
   selectedVoice?: string;
   selectedCameraAngle?: string;
+  selectedLighting?: string;
+}
+
+interface VisualPreset {
+  id: string;
+  name: string;
+  camera_angle: string;
+  lighting_style: string;
 }
 
 const VOICE_OPTIONS = [
@@ -84,6 +92,19 @@ const CAMERA_ANGLES = [
   { id: 'medium-shot', name: 'Medium Shot', description: 'Waist-up framing, balanced' },
 ];
 
+const LIGHTING_STYLES = [
+  { id: 'natural', name: 'Natural Light', description: 'Soft, realistic daylight' },
+  { id: 'golden-hour', name: 'Golden Hour', description: 'Warm sunset/sunrise glow' },
+  { id: 'blue-hour', name: 'Blue Hour', description: 'Cool twilight atmosphere' },
+  { id: 'noir', name: 'Film Noir', description: 'High contrast, dramatic shadows' },
+  { id: 'studio', name: 'Studio Lighting', description: 'Professional three-point setup' },
+  { id: 'moonlight', name: 'Moonlight', description: 'Cool, ethereal night lighting' },
+  { id: 'neon', name: 'Neon/Cyberpunk', description: 'Vibrant colored lights' },
+  { id: 'candlelight', name: 'Candlelight', description: 'Warm, flickering ambiance' },
+  { id: 'overcast', name: 'Overcast', description: 'Soft, diffused lighting' },
+  { id: 'harsh', name: 'Harsh Light', description: 'Strong direct lighting, sharp shadows' },
+];
+
 const MovieSceneCreator = () => {
   const [searchParams] = useSearchParams();
   const [movieIdea, setMovieIdea] = useState('');
@@ -102,6 +123,10 @@ const MovieSceneCreator = () => {
   const [isStitching, setIsStitching] = useState(false);
   const [stitchProgress, setStitchProgress] = useState(0);
   const [stitchedVideoUrl, setStitchedVideoUrl] = useState<string | null>(null);
+  const [visualPresets, setVisualPresets] = useState<VisualPreset[]>([]);
+  const [isSavePresetDialogOpen, setIsSavePresetDialogOpen] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [selectedSceneForPreset, setSelectedSceneForPreset] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -120,6 +145,7 @@ const MovieSceneCreator = () => {
   useEffect(() => {
     if (userId) {
       loadSavedProjects();
+      loadVisualPresets();
     }
   }, [userId]);
 
@@ -204,12 +230,20 @@ const MovieSceneCreator = () => {
   const generateSceneImage = async (sceneNumber: number, imagePrompt: string) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     
-    // Enhance prompt with camera angle if selected
+    // Enhance prompt with camera angle and lighting if selected
     let enhancedPrompt = imagePrompt;
+    
     if (scene?.selectedCameraAngle && scene.selectedCameraAngle !== 'eye-level') {
       const cameraAngle = CAMERA_ANGLES.find(a => a.id === scene.selectedCameraAngle);
       if (cameraAngle) {
-        enhancedPrompt = `${imagePrompt}. Shot with ${cameraAngle.name.toLowerCase()}, ${cameraAngle.description.toLowerCase()}`;
+        enhancedPrompt = `${enhancedPrompt}. Shot with ${cameraAngle.name.toLowerCase()}, ${cameraAngle.description.toLowerCase()}`;
+      }
+    }
+    
+    if (scene?.selectedLighting && scene.selectedLighting !== 'natural') {
+      const lighting = LIGHTING_STYLES.find(l => l.id === scene.selectedLighting);
+      if (lighting) {
+        enhancedPrompt = `${enhancedPrompt}. Lit with ${lighting.name.toLowerCase()}, ${lighting.description.toLowerCase()}`;
       }
     }
     
@@ -264,6 +298,137 @@ const MovieSceneCreator = () => {
           : s
       )
     );
+  };
+
+  const updateSceneLighting = (sceneNumber: number, lighting: string) => {
+    setScenes(prevScenes => 
+      prevScenes.map(s => 
+        s.sceneNumber === sceneNumber 
+          ? { ...s, selectedLighting: lighting }
+          : s
+      )
+    );
+  };
+
+  const loadVisualPresets = async () => {
+    if (!userId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('visual_presets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setVisualPresets(data || []);
+    } catch (error: any) {
+      console.error('Error loading visual presets:', error);
+    }
+  };
+
+  const saveVisualPreset = async () => {
+    if (!userId || !selectedSceneForPreset) {
+      toast({
+        title: "Error",
+        description: "Unable to save preset. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!newPresetName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a name for your preset.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const scene = scenes.find(s => s.sceneNumber === selectedSceneForPreset);
+    if (!scene) return;
+
+    try {
+      const { error } = await supabase
+        .from('visual_presets')
+        .insert([{
+          user_id: userId,
+          name: newPresetName,
+          camera_angle: scene.selectedCameraAngle || 'eye-level',
+          lighting_style: scene.selectedLighting || 'natural'
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Preset Saved!",
+        description: `"${newPresetName}" has been saved to your presets.`,
+      });
+
+      setNewPresetName('');
+      setIsSavePresetDialogOpen(false);
+      setSelectedSceneForPreset(null);
+      loadVisualPresets();
+    } catch (error: any) {
+      console.error('Error saving preset:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save preset. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const applyVisualPreset = (sceneNumber: number, presetId: string) => {
+    const preset = visualPresets.find(p => p.id === presetId);
+    if (!preset) return;
+
+    setScenes(prevScenes =>
+      prevScenes.map(s =>
+        s.sceneNumber === sceneNumber
+          ? {
+              ...s,
+              selectedCameraAngle: preset.camera_angle,
+              selectedLighting: preset.lighting_style,
+              // Clear generated content so user regenerates with new settings
+              generatedImage: undefined,
+              generatedVideo: undefined,
+              videoTaskId: undefined,
+            }
+          : s
+      )
+    );
+
+    toast({
+      title: "Preset Applied",
+      description: `Applied "${preset.name}" to Scene ${sceneNumber}. Regenerate the image to see changes.`,
+    });
+  };
+
+  const deleteVisualPreset = async (presetId: string) => {
+    try {
+      const { error } = await supabase
+        .from('visual_presets')
+        .delete()
+        .eq('id', presetId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Preset Deleted",
+        description: "The preset has been removed.",
+      });
+
+      loadVisualPresets();
+    } catch (error: any) {
+      console.error('Error deleting preset:', error);
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete preset.",
+        variant: "destructive"
+      });
+    }
   };
 
   const duplicateScene = (sceneNumber: number) => {
@@ -757,6 +922,44 @@ const MovieSceneCreator = () => {
           )}
         </div>
 
+        <Dialog open={isSavePresetDialogOpen} onOpenChange={setIsSavePresetDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Save Visual Preset</DialogTitle>
+              <DialogDescription>
+                Save the current camera angle and lighting combination as a reusable preset
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="preset-name">Preset Name</Label>
+                <Input
+                  id="preset-name"
+                  placeholder="e.g., Dramatic Low Angle, Golden Hour Portrait..."
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                />
+              </div>
+              {selectedSceneForPreset && (
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-semibold mb-1">Current Settings:</p>
+                  <p>Camera: {CAMERA_ANGLES.find(a => a.id === (scenes.find(s => s.sceneNumber === selectedSceneForPreset)?.selectedCameraAngle || 'eye-level'))?.name}</p>
+                  <p>Lighting: {LIGHTING_STYLES.find(l => l.id === (scenes.find(s => s.sceneNumber === selectedSceneForPreset)?.selectedLighting || 'natural'))?.name}</p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsSavePresetDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveVisualPreset}>
+                <Star className="w-4 h-4 mr-2" />
+                Save Preset
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Movie Idea Input */}
           <Card>
@@ -1070,6 +1273,89 @@ const MovieSceneCreator = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor={`lighting-${scene.sceneNumber}`} className="text-sm font-semibold">
+                        Lighting Style
+                      </Label>
+                      <Select
+                        value={scene.selectedLighting || 'natural'}
+                        onValueChange={(lighting) => updateSceneLighting(scene.sceneNumber, lighting)}
+                      >
+                        <SelectTrigger 
+                          id={`lighting-${scene.sceneNumber}`}
+                          className="bg-background border-border"
+                        >
+                          <SelectValue placeholder="Select lighting style" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border-border z-50">
+                          {LIGHTING_STYLES.map((lighting) => (
+                            <SelectItem 
+                              key={lighting.id} 
+                              value={lighting.id}
+                              className="bg-background hover:bg-accent focus:bg-accent"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{lighting.name}</span>
+                                <span className="text-xs text-muted-foreground">{lighting.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Visual Presets</Label>
+                      <div className="flex gap-2">
+                        <Select
+                          onValueChange={(presetId) => applyVisualPreset(scene.sceneNumber, presetId)}
+                        >
+                          <SelectTrigger className="bg-background border-border flex-1">
+                            <SelectValue placeholder="Apply saved preset..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border-border z-50">
+                            {visualPresets.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">No saved presets</div>
+                            ) : (
+                              visualPresets.map((preset) => (
+                                <SelectItem 
+                                  key={preset.id} 
+                                  value={preset.id}
+                                  className="bg-background hover:bg-accent focus:bg-accent"
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <span>{preset.name}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 ml-2"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteVisualPreset(preset.id);
+                                      }}
+                                    >
+                                      <Trash2 className="w-3 h-3 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={() => {
+                            setSelectedSceneForPreset(scene.sceneNumber);
+                            setIsSavePresetDialogOpen(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          title="Save current settings as preset"
+                        >
+                          <Star className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     {scene.generatedImage ? (
