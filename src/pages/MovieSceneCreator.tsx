@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
@@ -226,6 +226,54 @@ const MovieSceneCreator = () => {
       prevScenes.map(s => 
         s.sceneNumber === sceneNumber 
           ? { ...s, selectedVoice: voice }
+          : s
+      )
+    );
+  };
+
+  const duplicateScene = (sceneNumber: number) => {
+    const sceneToDuplicate = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!sceneToDuplicate) return;
+
+    // Create a copy with a new scene number
+    const maxSceneNumber = Math.max(...scenes.map(s => s.sceneNumber));
+    const duplicatedScene: MovieScene = {
+      ...sceneToDuplicate,
+      sceneNumber: maxSceneNumber + 1,
+      title: `${sceneToDuplicate.title} (Copy)`,
+      // Clear generated content so user can generate fresh variations
+      generatedImage: undefined,
+      generatedVideo: undefined,
+      videoTaskId: undefined,
+    };
+
+    // Add the duplicated scene after the original
+    const originalIndex = scenes.findIndex(s => s.sceneNumber === sceneNumber);
+    const newScenes = [...scenes];
+    newScenes.splice(originalIndex + 1, 0, duplicatedScene);
+
+    setScenes(newScenes);
+    
+    toast({
+      title: "Scene Duplicated",
+      description: `Created a copy of Scene ${sceneNumber}. You can now modify and generate variations.`,
+    });
+  };
+
+  const deleteScene = (sceneNumber: number) => {
+    setScenes(prevScenes => prevScenes.filter(s => s.sceneNumber !== sceneNumber));
+    
+    toast({
+      title: "Scene Deleted",
+      description: `Removed Scene ${sceneNumber} from your project.`,
+    });
+  };
+
+  const updateSceneText = (sceneNumber: number, field: keyof MovieScene, value: string) => {
+    setScenes(prevScenes =>
+      prevScenes.map(s =>
+        s.sceneNumber === sceneNumber
+          ? { ...s, [field]: value }
           : s
       )
     );
@@ -867,24 +915,84 @@ const MovieSceneCreator = () => {
               {scenes.map((scene) => (
                 <Card key={scene.sceneNumber}>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Film className="w-5 h-5 text-primary" />
-                      Scene {scene.sceneNumber}: {scene.title}
-                    </CardTitle>
-                    <CardDescription>
-                      {scene.location} • {scene.timeOfDay}
-                    </CardDescription>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="flex items-center gap-2">
+                          <Film className="w-5 h-5 text-primary" />
+                          Scene {scene.sceneNumber}: {scene.title}
+                        </CardTitle>
+                        <CardDescription>
+                          {scene.location} • {scene.timeOfDay}
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => duplicateScene(scene.sceneNumber)}
+                          variant="ghost"
+                          size="sm"
+                          title="Duplicate scene"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={() => deleteScene(scene.sceneNumber)}
+                          variant="ghost"
+                          size="sm"
+                          title="Delete scene"
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
+                      <Label className="text-sm font-semibold">Title</Label>
+                      <Input
+                        value={scene.title}
+                        onChange={(e) => updateSceneText(scene.sceneNumber, 'title', e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-semibold">Location</Label>
+                        <Input
+                          value={scene.location}
+                          onChange={(e) => updateSceneText(scene.sceneNumber, 'location', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold">Time of Day</Label>
+                        <Input
+                          value={scene.timeOfDay}
+                          onChange={(e) => updateSceneText(scene.sceneNumber, 'timeOfDay', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
                       <Label className="text-sm font-semibold">Description</Label>
-                      <p className="text-sm text-muted-foreground mt-1">{scene.description}</p>
+                      <Textarea
+                        value={scene.description}
+                        onChange={(e) => updateSceneText(scene.sceneNumber, 'description', e.target.value)}
+                        rows={3}
+                        className="mt-1 resize-none"
+                      />
                     </div>
                     
                     {scene.dialogue && (
                       <div>
                         <Label className="text-sm font-semibold">Dialogue</Label>
-                        <p className="text-sm text-muted-foreground mt-1 italic">{scene.dialogue}</p>
+                        <Textarea
+                          value={scene.dialogue}
+                          onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
+                          rows={2}
+                          className="mt-1 resize-none italic"
+                        />
                       </div>
                     )}
                     
