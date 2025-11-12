@@ -10,7 +10,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { AudioGenerator } from '@/components/AudioGenerator';
 import { VideoProcessingStatus } from '@/components/VideoProcessingStatus';
-import { 
+import { VideoPlayer } from '@/components/VideoPlayer';
+import {
   VideoIcon, 
   PlayIcon, 
   DownloadIcon, 
@@ -1830,26 +1831,28 @@ Dialogue: Good evening everyone. Tonight, I want to share the power of clinical 
                                    ⏱️ {formatCountdown(segmentCountdowns[segment.id])}
                                  </div>
                                )}
-                              <div className="flex gap-2 flex-wrap">
-                                {segment.outputUrl && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => window.open(segment.outputUrl, '_blank')}
-                                    >
-                                      <PlayIcon className="w-3 h-3 mr-1" />
-                                      Play
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        const a = document.createElement('a');
-                                        a.href = segment.outputUrl!;
-                                        a.download = `scene-${segment.sceneNumber}.mp4`;
-                                        a.click();
-                                      }}
+                               <div className="flex gap-2 flex-wrap">
+                                 {segment.outputUrl && (
+                                   <>
+                                     <VideoPlayer
+                                       videoUrl={segment.outputUrl}
+                                       title={`Scene ${segment.sceneNumber} - ${project.title}`}
+                                       trigger={
+                                         <Button size="sm" variant="outline">
+                                           <PlayIcon className="w-3 h-3 mr-1" />
+                                           Play
+                                         </Button>
+                                       }
+                                     />
+                                     <Button
+                                       size="sm"
+                                       variant="outline"
+                                       onClick={() => {
+                                         const a = document.createElement('a');
+                                         a.href = segment.outputUrl!;
+                                         a.download = `scene-${segment.sceneNumber}.mp4`;
+                                         a.click();
+                                       }}
                                     >
                                       <DownloadIcon className="w-3 h-3 mr-1" />
                                       Download
