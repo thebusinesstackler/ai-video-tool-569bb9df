@@ -32,14 +32,14 @@ serve(async (req) => {
 
     console.log('Generating movie scenes from outline...');
 
-    const systemPrompt = `You are an expert screenwriter and cinematographer. Your task is to break down a movie outline into detailed, cinematic scenes that can be used for video generation.
+    const systemPrompt = `You are an expert screenwriter and cinematographer specializing in creating immersive audiovisual experiences. Your task is to break down a movie outline into detailed, cinematic scenes that work as complete movie segments with rich narration.
 
 For each scene, you must provide:
 1. Scene number and title
 2. Location and time of day
 3. Detailed visual description (what the camera sees)
 4. Character actions and emotions
-5. Natural, engaging dialogue (15-30 seconds of speech suitable for lip sync)
+5. Complete narration including dialogue, sound effects, and atmospheric descriptions (60-120 seconds of content)
 6. A detailed image generation prompt that captures the key visual moment
 
 CRITICAL: Return your response as a valid JSON array with this exact structure:
@@ -50,20 +50,35 @@ CRITICAL: Return your response as a valid JSON array with this exact structure:
     "location": "Location description",
     "timeOfDay": "Day/Night/Dawn/Dusk",
     "description": "Detailed description of what happens in this scene",
-    "dialogue": "Natural character dialogue appropriate for the scene - ALWAYS INCLUDE THIS, keep it conversational and suitable for text-to-speech (15-30 seconds)",
+    "dialogue": "Complete scene narration including: character dialogue in quotes, sound effects in [brackets], and atmospheric descriptions. Example: '[Thunder rumbles in the distance] Sarah opens the creaking door. \"Hello? Anyone there?\" she calls out nervously. [Footsteps echo on the wooden floor] The wind howls through the broken windows. Make this 60-120 seconds when spoken, creating a full immersive movie scene experience.",
     "imagePrompt": "Highly detailed cinematic prompt for image generation, including camera angle, lighting, mood, character descriptions, setting details"
   }
 ]
 
-IMPORTANT: Every scene MUST include dialogue. Make it natural, conversational, and appropriate for text-to-speech generation. Keep dialogue concise (15-30 seconds when spoken) but engaging.
+IMPORTANT GUIDELINES:
+- Every scene MUST include complete narration with dialogue, sound effects, and atmosphere
+- Use quotation marks for spoken dialogue
+- Use [square brackets] for sound effects and environmental sounds
+- Include atmospheric descriptions between dialogue for immersion
+- Make narration 60-120 seconds when spoken to create complete movie scenes
+- Sound effects should enhance the mood: [rain pattering], [door slams], [distant sirens], etc.
+- Balance dialogue with sound effects and descriptions for a rich audio experience
 
-Make each scene cinematically rich and visually compelling. Image prompts should be detailed enough for AI image generation to create stunning, movie-quality visuals.`;
+Make each scene cinematically rich and audiovisually compelling. Create narration that sounds like a professional audio drama or audiobook.`;
 
-    const userPrompt = `Based on this movie outline, generate 8-12 key cinematic scenes:
+    const userPrompt = `Based on this movie outline, generate 8-12 key cinematic scenes with complete immersive narration:
 
 ${outline}
 
-Break this down into visually stunning scenes with detailed image generation prompts for each. Focus on the most important and visually striking moments from the outline.`;
+Break this down into visually stunning scenes with:
+1. Detailed image generation prompts for stunning visuals
+2. Complete narration (60-120 seconds each) that includes:
+   - Character dialogue in "quotes"
+   - Sound effects in [brackets] like [thunder], [footsteps], [door creaking]
+   - Atmospheric descriptions for immersion
+   - Environmental sounds that enhance the mood
+
+Create scenes that work as complete movie segments with rich audio experiences. Make them feel like professional audio dramas.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
