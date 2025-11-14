@@ -39,10 +39,10 @@ For each scene, you must provide:
 2. Location and time of day
 3. Detailed visual description (what the camera sees)
 4. Character actions and emotions
-5. Complete narration including dialogue, sound effects, and atmospheric descriptions (60-120 seconds of content)
+5. Complete narration for voiceover (60-120 seconds of content)
 6. A detailed image generation prompt that captures the key visual moment
 
-CRITICAL: Return your response as a valid JSON array with this exact structure:
+CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown, no code blocks):
 [
   {
     "sceneNumber": 1,
@@ -50,21 +50,20 @@ CRITICAL: Return your response as a valid JSON array with this exact structure:
     "location": "Location description",
     "timeOfDay": "Day/Night/Dawn/Dusk",
     "description": "Detailed description of what happens in this scene",
-    "dialogue": "Complete scene narration including: character dialogue in quotes, sound effects in [brackets], and atmospheric descriptions. Example: '[Thunder rumbles in the distance] Sarah opens the creaking door. \"Hello? Anyone there?\" she calls out nervously. [Footsteps echo on the wooden floor] The wind howls through the broken windows. Make this 60-120 seconds when spoken, creating a full immersive movie scene experience.",
+    "dialogue": "Complete voiceover narration for the scene. Include spoken dialogue, describe sound effects like thunder rumbling or footsteps echoing, and atmospheric descriptions. Create a rich audio drama experience that is 60-120 seconds when spoken. Use descriptive language rather than special characters or quotes.",
     "imagePrompt": "Highly detailed cinematic prompt for image generation, including camera angle, lighting, mood, character descriptions, setting details"
   }
 ]
 
-IMPORTANT GUIDELINES:
-- Every scene MUST include complete narration with dialogue, sound effects, and atmosphere
-- Use quotation marks for spoken dialogue
-- Use [square brackets] for sound effects and environmental sounds
-- Include atmospheric descriptions between dialogue for immersion
+IMPORTANT FORMATTING RULES:
+- Do NOT use quotation marks within the dialogue field
+- Do NOT use square brackets within the dialogue field
+- Describe sounds and dialogue naturally in plain text
+- Example dialogue format: "Thunder rumbles in the distance. Sarah opens the creaking door and calls out nervously asking if anyone is there. Footsteps echo on the wooden floor as wind howls through the broken windows."
 - Make narration 60-120 seconds when spoken to create complete movie scenes
-- Sound effects should enhance the mood: [rain pattering], [door slams], [distant sirens], etc.
-- Balance dialogue with sound effects and descriptions for a rich audio experience
+- Include character dialogue, sound descriptions, and atmospheric details all in natural flowing text
 
-Make each scene cinematically rich and audiovisually compelling. Create narration that sounds like a professional audio drama or audiobook.`;
+Return ONLY the JSON array, no other text or formatting.`;
 
     const userPrompt = `Based on this movie outline, generate 8-12 key cinematic scenes with complete immersive narration:
 
@@ -72,13 +71,10 @@ ${outline}
 
 Break this down into visually stunning scenes with:
 1. Detailed image generation prompts for stunning visuals
-2. Complete narration (60-120 seconds each) that includes:
-   - Character dialogue in "quotes"
-   - Sound effects in [brackets] like [thunder], [footsteps], [door creaking]
-   - Atmospheric descriptions for immersion
-   - Environmental sounds that enhance the mood
+2. Complete narration (60-120 seconds each) with natural flowing descriptions that include character dialogue, sound descriptions, and atmospheric details
+3. Avoid using quotation marks or special characters within the narration - describe everything in plain descriptive text
 
-Create scenes that work as complete movie segments with rich audio experiences. Make them feel like professional audio dramas.`;
+Return ONLY the JSON array, no markdown formatting or code blocks.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -123,14 +119,33 @@ Create scenes that work as complete movie segments with rich audio experiences. 
       throw new Error('No content generated');
     }
 
+    console.log('Raw AI response length:', generatedContent.length);
+
     // Extract JSON from markdown code blocks if present
     const jsonMatch = generatedContent.match(/```(?:json)?\s*(\[[\s\S]*\])\s*```/);
     if (jsonMatch) {
       generatedContent = jsonMatch[1];
+      console.log('Extracted JSON from code block');
     }
 
+    // Try to find JSON array in the response
+    const arrayMatch = generatedContent.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      generatedContent = arrayMatch[0];
+    }
+
+    console.log('Content to parse (first 500 chars):', generatedContent.substring(0, 500));
+
     // Parse the scenes
-    const scenes = JSON.parse(generatedContent);
+    let scenes;
+    try {
+      scenes = JSON.parse(generatedContent);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Failed content:', generatedContent);
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
+      throw new Error(`Failed to parse AI response: ${errorMessage}`);
+    }
 
     if (!Array.isArray(scenes) || scenes.length === 0) {
       throw new Error('Invalid scenes format');
