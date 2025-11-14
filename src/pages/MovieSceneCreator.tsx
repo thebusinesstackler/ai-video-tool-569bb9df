@@ -71,12 +71,12 @@ interface VisualPreset {
 }
 
 const VOICE_OPTIONS = [
-  { id: 'alloy', name: 'Aria (Neutral)', description: 'Balanced, professional voice' },
-  { id: 'echo', name: 'Roger (Male)', description: 'Mature, authoritative male' },
-  { id: 'fable', name: 'Sarah (Female)', description: 'Warm, friendly female' },
-  { id: 'onyx', name: 'George (Deep Male)', description: 'Deep, commanding voice' },
-  { id: 'nova', name: 'Charlotte (Young Female)', description: 'Bright, energetic voice' },
-  { id: 'shimmer', name: 'Lily (Soft Female)', description: 'Gentle, soothing voice' },
+  { id: 'alloy', name: 'Journey (Neutral)', description: 'Clear, professional female voice' },
+  { id: 'echo', name: 'Andrew (Male)', description: 'Mature, authoritative male voice' },
+  { id: 'fable', name: 'Emma (Friendly)', description: 'Warm, engaging female voice' },
+  { id: 'onyx', name: 'Brian (Deep Male)', description: 'Deep, commanding male voice' },
+  { id: 'nova', name: 'Aria (Young Female)', description: 'Bright, energetic female voice' },
+  { id: 'shimmer', name: 'Joanna (Soft)', description: 'Gentle, soothing female voice' },
 ];
 
 const CAMERA_ANGLES = [
