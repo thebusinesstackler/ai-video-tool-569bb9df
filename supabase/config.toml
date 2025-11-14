@@ -18,5 +18,8 @@ verify_jwt = false
 [functions.wavespeed-video]
 verify_jwt = false
 
+[functions.generate-scene-dialogue]
+verify_jwt = false
+
 [functions.openai-tts]
 verify_jwt = false

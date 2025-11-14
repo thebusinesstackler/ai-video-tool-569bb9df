@@ -545,7 +545,7 @@ const MovieSceneCreator = () => {
 
       toast({
         title: "Generating Video",
-        description: "Creating lip-synced video with WaveSpeed AI...",
+        description: "Creating lip-synced video using Google TTS voice...",
       });
 
       // Generate video with lip sync using InfiniteTalk model
