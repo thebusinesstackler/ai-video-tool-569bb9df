@@ -39,7 +39,7 @@ For each scene, you must provide:
 2. Location and time of day
 3. Detailed visual description (what the camera sees)
 4. Character actions and emotions
-5. Dialogue (if any)
+5. Natural, engaging dialogue (15-30 seconds of speech suitable for lip sync)
 6. A detailed image generation prompt that captures the key visual moment
 
 CRITICAL: Return your response as a valid JSON array with this exact structure:
@@ -50,10 +50,12 @@ CRITICAL: Return your response as a valid JSON array with this exact structure:
     "location": "Location description",
     "timeOfDay": "Day/Night/Dawn/Dusk",
     "description": "Detailed description of what happens in this scene",
-    "dialogue": "Character dialogue if any, or null",
+    "dialogue": "Natural character dialogue appropriate for the scene - ALWAYS INCLUDE THIS, keep it conversational and suitable for text-to-speech (15-30 seconds)",
     "imagePrompt": "Highly detailed cinematic prompt for image generation, including camera angle, lighting, mood, character descriptions, setting details"
   }
 ]
+
+IMPORTANT: Every scene MUST include dialogue. Make it natural, conversational, and appropriate for text-to-speech generation. Keep dialogue concise (15-30 seconds when spoken) but engaging.
 
 Make each scene cinematically rich and visually compelling. Image prompts should be detailed enough for AI image generation to create stunning, movie-quality visuals.`;
 
