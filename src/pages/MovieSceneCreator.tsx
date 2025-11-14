@@ -58,7 +58,6 @@ interface MovieScene {
   generatedImage?: string;
   generatedVideo?: string;
   videoTaskId?: string;
-  selectedVoice?: string;
   selectedCameraAngle?: string;
   selectedLighting?: string;
 }
@@ -69,15 +68,6 @@ interface VisualPreset {
   camera_angle: string;
   lighting_style: string;
 }
-
-const VOICE_OPTIONS = [
-  { id: 'alloy', name: 'Journey (Neutral)', description: 'Clear, professional female voice' },
-  { id: 'echo', name: 'Andrew (Male)', description: 'Mature, authoritative male voice' },
-  { id: 'fable', name: 'Emma (Friendly)', description: 'Warm, engaging female voice' },
-  { id: 'onyx', name: 'Brian (Deep Male)', description: 'Deep, commanding male voice' },
-  { id: 'nova', name: 'Aria (Young Female)', description: 'Bright, energetic female voice' },
-  { id: 'shimmer', name: 'Joanna (Soft)', description: 'Gentle, soothing female voice' },
-];
 
 const CAMERA_ANGLES = [
   { id: 'eye-level', name: 'Eye Level', description: 'Standard neutral perspective' },
@@ -278,16 +268,6 @@ const MovieSceneCreator = () => {
     } finally {
       setGeneratingImageFor(null);
     }
-  };
-
-  const updateSceneVoice = (sceneNumber: number, voice: string) => {
-    setScenes(prevScenes => 
-      prevScenes.map(s => 
-        s.sceneNumber === sceneNumber 
-          ? { ...s, selectedVoice: voice }
-          : s
-      )
-    );
   };
 
   const updateSceneCameraAngle = (sceneNumber: number, angle: string) => {
@@ -528,9 +508,8 @@ const MovieSceneCreator = () => {
 
     setGeneratingVideoFor(sceneNumber);
     try {
-      // Generate audio from dialogue or description
+      // Generate audio from dialogue or description using default Google TTS voice
       const textForAudio = scene.dialogue || scene.description;
-      const selectedVoice = scene.selectedVoice || 'alloy';
       
       toast({
         title: "Generating Audio",
@@ -538,7 +517,7 @@ const MovieSceneCreator = () => {
       });
 
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: textForAudio, voice: selectedVoice }
+        body: { text: textForAudio, voice: 'alloy' }
       });
 
       if (ttsError) throw ttsError;
@@ -1429,36 +1408,6 @@ const MovieSceneCreator = () => {
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            <div className="space-y-2">
-                              <Label htmlFor={`voice-${scene.sceneNumber}`} className="text-sm font-semibold">
-                                Voice Character
-                              </Label>
-                              <Select
-                                value={scene.selectedVoice || 'alloy'}
-                                onValueChange={(voice) => updateSceneVoice(scene.sceneNumber, voice)}
-                              >
-                                <SelectTrigger 
-                                  id={`voice-${scene.sceneNumber}`}
-                                  className="bg-background border-border"
-                                >
-                                  <SelectValue placeholder="Select a voice" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-background border-border z-50">
-                                  {VOICE_OPTIONS.map((voice) => (
-                                    <SelectItem 
-                                      key={voice.id} 
-                                      value={voice.id}
-                                      className="bg-background hover:bg-accent focus:bg-accent"
-                                    >
-                                      <div className="flex flex-col">
-                                        <span className="font-medium">{voice.name}</span>
-                                        <span className="text-xs text-muted-foreground">{voice.description}</span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
                             <Button
                               onClick={() => generateLipSyncVideo(scene.sceneNumber)}
                               disabled={generatingVideoFor === scene.sceneNumber}
