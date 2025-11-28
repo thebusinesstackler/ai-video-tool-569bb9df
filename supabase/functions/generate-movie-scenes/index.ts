@@ -136,13 +136,24 @@ Return ONLY the JSON array, no markdown formatting or code blocks.`;
 
     console.log('Content to parse (first 500 chars):', generatedContent.substring(0, 500));
 
+    // Sanitize the content by removing/escaping control characters
+    const sanitizedContent = generatedContent.replace(/[\u0000-\u001F\u007F-\u009F]/g, (char: string) => {
+      // Replace common control characters with their escaped versions
+      const escapeMap: { [key: string]: string } = {
+        '\n': '\\n',
+        '\r': '\\r',
+        '\t': '\\t',
+      };
+      return escapeMap[char] || '';
+    });
+
     // Parse the scenes
     let scenes;
     try {
-      scenes = JSON.parse(generatedContent);
+      scenes = JSON.parse(sanitizedContent);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      console.error('Failed content:', generatedContent);
+      console.error('Failed content (first 1000 chars):', sanitizedContent.substring(0, 1000));
       const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
       throw new Error(`Failed to parse AI response: ${errorMessage}`);
     }
