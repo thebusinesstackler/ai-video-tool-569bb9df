@@ -410,9 +410,18 @@ const Reels = () => {
       setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
       
       // Step 2: Generate scene images and start video tasks via backend
+      // Pass actual audio durations so WaveSpeed generates correct length videos
+      const scenesWithAudioDurations = project.scenes.map(scene => {
+        const voiceover = voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
+        return {
+          ...scene,
+          audioDuration: voiceover?.duration // Pass actual voiceover duration
+        };
+      });
+      
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
-          scenes: project.scenes,
+          scenes: scenesWithAudioDurations,
           topic: project.topic,
           addCaptions: true,
           useWaveSpeed: true
