@@ -7,11 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { downloadVideo } from '@/lib/reelVideoCreator';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
+import { TemplateSelector } from '@/components/TemplateSelector';
 import { 
   Sparkles, 
   FileText, 
@@ -24,7 +26,9 @@ import {
   Captions,
   History,
   Trash2,
-  Play
+  Play,
+  ChevronDown,
+  Palette
 } from 'lucide-react';
 
 // Speech Recognition types
@@ -77,13 +81,16 @@ interface Scene {
   narration: string;
   visualDescription: string;
   duration: number;
+  isIntro?: boolean;
+  isOutro?: boolean;
+  templateId?: string;
 }
 
 interface GeneratedScene {
   sceneNumber: number;
   text: string;
   imageUrl: string | null;
-  savedImageUrl?: string | null; // Saved to storage
+  savedImageUrl?: string | null;
   startTime: number;
   endTime: number;
 }
@@ -100,7 +107,7 @@ interface ReelProject {
   videoUrl: string | null;
   videoBlobUrl: string | null;
   generatedScenes: GeneratedScene[];
-  videoClips: VideoClip[]; // Individual video clips
+  videoClips: VideoClip[];
   status: 'idle' | 'generating-script' | 'generating-video' | 'rendering-video' | 'complete';
 }
 
@@ -145,6 +152,14 @@ const Reels = () => {
   const [isListening, setIsListening] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
+  
+  // Template state
+  const [selectedIntro, setSelectedIntro] = useState('none');
+  const [selectedOutro, setSelectedOutro] = useState('none');
+  const [introText, setIntroText] = useState('');
+  const [outroText, setOutroText] = useState('');
+  const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
+  
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
@@ -288,7 +303,19 @@ const Reels = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
-        body: { topic, sceneCount, targetDuration }
+        body: { 
+          topic, 
+          sceneCount, 
+          targetDuration,
+          introConfig: selectedIntro !== 'none' ? {
+            introTemplate: selectedIntro,
+            introText: introText
+          } : undefined,
+          outroConfig: selectedOutro !== 'none' ? {
+            outroTemplate: selectedOutro,
+            outroText: outroText
+          } : undefined
+        }
       });
 
       if (error) throw error;
@@ -627,6 +654,11 @@ const Reels = () => {
     setProgress(0);
     setProgressStatus('');
     setVideoError(null);
+    // Reset templates
+    setSelectedIntro('none');
+    setSelectedOutro('none');
+    setIntroText('');
+    setOutroText('');
   };
 
   const handleDownloadVideo = async () => {
@@ -811,6 +843,46 @@ const Reels = () => {
               </CardContent>
             </Card>
 
+            {/* Intro/Outro Templates */}
+            <Collapsible open={templateSectionOpen} onOpenChange={setTemplateSectionOpen}>
+              <Card className="bg-card border-border">
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-5 h-5 text-primary" />
+                        Intro & Outro Templates
+                        {(selectedIntro !== 'none' || selectedOutro !== 'none') && (
+                          <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                            {[selectedIntro !== 'none' && 'Intro', selectedOutro !== 'none' && 'Outro'].filter(Boolean).join(' + ')}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${templateSectionOpen ? 'rotate-180' : ''}`} />
+                    </CardTitle>
+                    <CardDescription>
+                      Add professional intro and outro screens to your reel
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <TemplateSelector
+                      selectedIntro={selectedIntro}
+                      selectedOutro={selectedOutro}
+                      introText={introText}
+                      outroText={outroText}
+                      onIntroChange={setSelectedIntro}
+                      onOutroChange={setSelectedOutro}
+                      onIntroTextChange={setIntroText}
+                      onOutroTextChange={setOutroText}
+                      disabled={isGenerating}
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+
             {/* Generated Scenes */}
             {project.scenes.length > 0 && (
               <Card className="bg-card border-border">
@@ -826,13 +898,20 @@ const Reels = () => {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {project.scenes.map((scene) => (
-                      <Card key={scene.sceneNumber} className="bg-background border-border">
+                      <Card key={scene.sceneNumber} className={`bg-background border-border ${scene.isIntro || scene.isOutro ? 'ring-2 ring-primary/30' : ''}`}>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
-                              {scene.sceneNumber}
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                              scene.isIntro ? 'bg-green-500/20 text-green-500' : 
+                              scene.isOutro ? 'bg-orange-500/20 text-orange-500' : 
+                              'bg-primary/20 text-primary'
+                            }`}>
+                              {scene.isIntro ? 'I' : scene.isOutro ? 'O' : scene.sceneNumber}
                             </span>
-                            Scene {scene.sceneNumber}
+                            {scene.isIntro ? 'Intro' : scene.isOutro ? 'Outro' : `Scene ${scene.sceneNumber}`}
+                            {(scene.isIntro || scene.isOutro) && (
+                              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Template</span>
+                            )}
                             <span className="text-xs text-muted-foreground ml-auto">
                               ~{scene.duration}s
                             </span>

@@ -11,6 +11,9 @@ interface Scene {
   narration: string;
   visualDescription: string;
   duration: number;
+  isIntro?: boolean;
+  isOutro?: boolean;
+  templateId?: string;
 }
 
 // Helper to convert base64 to Uint8Array
@@ -21,6 +24,25 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
+}
+
+// Generate special prompt for intro/outro templates
+function getTemplateImagePrompt(scene: Scene, topic: string): string {
+  if (scene.isIntro) {
+    const basePrompt = scene.visualDescription || 'Modern social media intro card';
+    return `${basePrompt}. Display text: "${scene.narration}". Topic: ${topic}. Style: Bold typography, vibrant colors, vertical 9:16 format, eye-catching social media intro screen. Make the text prominent and readable.`;
+  }
+  
+  if (scene.isOutro) {
+    const basePrompt = scene.visualDescription || 'Social media call-to-action card';
+    return `${basePrompt}. Display text: "${scene.narration}". Style: Engaging CTA design, vertical 9:16 format, social media outro screen with clear call-to-action. Make the text prominent and readable.`;
+  }
+  
+  return `Generate a vibrant, eye-catching image for a social media reel. 
+    Scene: ${scene.visualDescription}
+    Topic: ${topic}
+    Style: Modern, engaging, vertical format (9:16 aspect ratio), suitable for Instagram/TikTok.
+    The image should be visually striking and attention-grabbing.`;
 }
 
 serve(async (req) => {
@@ -62,9 +84,11 @@ serve(async (req) => {
     const savedImageUrls: string[] = [];
     
     for (const scene of scenes as Scene[]) {
-      console.log('Generating image for scene:', scene.sceneNumber);
+      console.log('Generating image for scene:', scene.sceneNumber, 'isIntro:', scene.isIntro, 'isOutro:', scene.isOutro);
       
       try {
+        const imagePrompt = getTemplateImagePrompt(scene, topic);
+        
         const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -76,11 +100,7 @@ serve(async (req) => {
             messages: [
               {
                 role: 'user',
-                content: `Generate a vibrant, eye-catching image for a social media reel. 
-                Scene: ${scene.visualDescription}
-                Topic: ${topic}
-                Style: Modern, engaging, vertical format (9:16 aspect ratio), suitable for Instagram/TikTok.
-                The image should be visually striking and attention-grabbing.`
+                content: imagePrompt
               }
             ],
             modalities: ['image', 'text']
@@ -98,7 +118,8 @@ serve(async (req) => {
               try {
                 const base64Data = imageUrl.split(',')[1];
                 const imageBytes = base64ToUint8Array(base64Data);
-                const fileName = `images/${Date.now()}-scene-${scene.sceneNumber}.png`;
+                const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'scene';
+                const fileName = `images/${Date.now()}-${sceneType}-${scene.sceneNumber}.png`;
                 
                 const { data: uploadData, error: uploadError } = await supabase.storage
                   .from('reels')
@@ -138,7 +159,9 @@ serve(async (req) => {
       text: scene.narration,
       startTime: (scenes as Scene[]).slice(0, index).reduce((acc, s) => acc + s.duration, 0),
       endTime: (scenes as Scene[]).slice(0, index + 1).reduce((acc, s) => acc + s.duration, 0),
-      imageUrl: finalImageUrls[index] || null
+      imageUrl: finalImageUrls[index] || null,
+      isIntro: scene.isIntro || false,
+      isOutro: scene.isOutro || false
     }));
 
     const totalDuration = (scenes as Scene[]).reduce((acc, s) => acc + s.duration, 0);
@@ -153,6 +176,14 @@ serve(async (req) => {
         const scene = (scenes as Scene[])[i];
         const imageUrl = finalImageUrls[i];
         
+        // Create motion prompt - simpler for intro/outro
+        let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style.`;
+        if (scene.isIntro) {
+          motionPrompt = 'Subtle zoom in animation, text reveal effect, attention-grabbing intro motion.';
+        } else if (scene.isOutro) {
+          motionPrompt = 'Gentle zoom out or pulse effect, engaging call-to-action animation.';
+        }
+        
         try {
           // Use WaveSpeed image-to-video API
           const videoResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
@@ -163,7 +194,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               image: imageUrl,
-              prompt: `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style.`,
+              prompt: motionPrompt,
               resolution: "480p",
               duration: Math.min(scene.duration, 8) // WaveSpeed max duration per clip
             }),
