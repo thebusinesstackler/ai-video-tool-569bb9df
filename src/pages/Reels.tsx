@@ -83,8 +83,14 @@ interface GeneratedScene {
   sceneNumber: number;
   text: string;
   imageUrl: string | null;
+  savedImageUrl?: string | null; // Saved to storage
   startTime: number;
   endTime: number;
+}
+
+interface VideoClip {
+  sceneNumber: number;
+  videoUrl: string;
 }
 
 interface ReelProject {
@@ -94,6 +100,7 @@ interface ReelProject {
   videoUrl: string | null;
   videoBlobUrl: string | null;
   generatedScenes: GeneratedScene[];
+  videoClips: VideoClip[]; // Individual video clips
   status: 'idle' | 'generating-script' | 'generating-video' | 'rendering-video' | 'complete';
 }
 
@@ -126,6 +133,7 @@ const Reels = () => {
     videoUrl: null,
     videoBlobUrl: null,
     generatedScenes: [],
+    videoClips: [],
     status: 'idle'
   });
   const [progress, setProgress] = useState(0);
@@ -136,6 +144,7 @@ const Reels = () => {
   const [activeTab, setActiveTab] = useState('create');
   const [isListening, setIsListening] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
@@ -463,6 +472,7 @@ const Reels = () => {
             videoBlobUrl: blobUrl,
             generatedScenes,
             voiceovers,
+            videoClips: sortedVideos,
             status: 'complete'
           }));
 
@@ -513,22 +523,44 @@ const Reels = () => {
         } catch (stitchError: any) {
           console.error('Stitching failed:', stitchError);
           
-          // Fallback: use the first video without stitching
-          const fallbackUrl = sortedVideos[0]?.videoUrl;
-          if (fallbackUrl) {
+          // Fallback: store all video clips so user can view them individually
+          if (sortedVideos.length > 0) {
             setProject(prev => ({
               ...prev,
-              videoUrl: fallbackUrl,
-              videoBlobUrl: fallbackUrl,
+              videoUrl: sortedVideos[0]?.videoUrl,
+              videoBlobUrl: sortedVideos[0]?.videoUrl,
               generatedScenes,
               voiceovers,
+              videoClips: sortedVideos,
               status: 'complete'
             }));
+
+            // Still save to library with the first video URL
+            if (user) {
+              try {
+                const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+
+                await supabase.from('reels').insert([{
+                  user_id: user.id,
+                  topic: project.topic,
+                  video_url: sortedVideos[0]?.videoUrl,
+                  thumbnail_url: thumbnailUrl,
+                  scenes: generatedScenes as unknown as any,
+                  total_duration: totalDuration
+                }]);
+                fetchSavedReels();
+              } catch (saveError) {
+                console.error('Auto-save failed:', saveError);
+              }
+            }
+            
+            setProgress(100);
+            setProgressStatus('Complete (individual clips)');
             
             toast({
-              title: "Partial Success",
-              description: `Stitching failed. Showing first scene only. Error: ${stitchError.message}`,
-              variant: "destructive"
+              title: "Videos Generated",
+              description: `Generated ${sortedVideos.length} video clips. Browser stitching unavailable - use clip navigation below.`,
             });
           } else {
             throw stitchError;
@@ -587,8 +619,10 @@ const Reels = () => {
       videoUrl: null,
       videoBlobUrl: null,
       generatedScenes: [],
+      videoClips: [],
       status: 'idle'
     });
+    setSelectedClipIndex(0);
     setTopic('');
     setProgress(0);
     setProgressStatus('');
@@ -860,13 +894,73 @@ const Reels = () => {
                 <CardContent className="space-y-6">
                   {/* Video player - show rendered video first if available */}
                   {project.videoBlobUrl && (
-                    <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">
-                      <video
-                        src={project.videoBlobUrl}
-                        controls
-                        className="w-full h-full object-contain"
-                        playsInline
-                      />
+                    <div className="space-y-4">
+                      <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">
+                        <video
+                          src={project.videoClips.length > 1 ? project.videoClips[selectedClipIndex]?.videoUrl : project.videoBlobUrl}
+                          controls
+                          className="w-full h-full object-contain"
+                          playsInline
+                          key={selectedClipIndex}
+                        />
+                      </div>
+                      
+                      {/* Clip navigation when multiple clips */}
+                      {project.videoClips.length > 1 && (
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setSelectedClipIndex(Math.max(0, selectedClipIndex - 1))}
+                              disabled={selectedClipIndex === 0}
+                            >
+                              Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground px-3">
+                              Clip {selectedClipIndex + 1} of {project.videoClips.length}
+                            </span>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setSelectedClipIndex(Math.min(project.videoClips.length - 1, selectedClipIndex + 1))}
+                              disabled={selectedClipIndex === project.videoClips.length - 1}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                          
+                          {/* Clip thumbnails */}
+                          <div className="flex gap-2 overflow-x-auto max-w-full pb-2">
+                            {project.videoClips.map((clip, index) => (
+                              <button
+                                key={clip.sceneNumber}
+                                onClick={() => setSelectedClipIndex(index)}
+                                className={`flex-shrink-0 w-16 h-28 rounded-md overflow-hidden border-2 transition-all ${
+                                  index === selectedClipIndex 
+                                    ? 'border-primary ring-2 ring-primary/30' 
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                              >
+                                {project.generatedScenes[index]?.imageUrl ? (
+                                  <img 
+                                    src={project.generatedScenes[index].imageUrl} 
+                                    alt={`Scene ${clip.sceneNumber}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                                    <Play className="w-4 h-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-xs text-white text-center py-0.5">
+                                  {clip.sceneNumber}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
