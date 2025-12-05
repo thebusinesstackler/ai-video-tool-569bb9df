@@ -105,14 +105,16 @@ serve(async (req) => {
       currentTime += videoDuration;
     });
 
-    // Add background audio if provided
+    // Add background audio if provided - with proper fade out at the end
     if (audioUrl) {
+      // Voiceover audio - ends earlier to allow music fade
       elements.push({
         type: 'audio',
         source: audioUrl,
         time: 0,
-        duration: currentTime,
-        audio_fade_out: 1
+        duration: currentTime - 2, // Stop voiceover 2 seconds before end for CTA hold
+        volume: '100%',
+        audio_fade_out: 0.5 // Quick fade to not overlap with music fade
       });
     }
 

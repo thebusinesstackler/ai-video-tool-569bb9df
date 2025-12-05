@@ -238,16 +238,31 @@ EXAMPLE visual description format:
     }
 
     if (hasOutro) {
-      // Add outro scene at the end with consistent visual style
+      // Add outro scene with shorter narration (1-2 seconds)
+      // Then add a silent CTA hold scene for 2 seconds so viewers can see the call-to-action
+      const outroNarration = outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate);
+      
       const outroScene = {
         sceneNumber: scenes.length + 1,
-        narration: outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate),
+        narration: outroNarration,
         visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
-        duration: 3,
+        duration: 2, // Short narration
         isOutro: true,
         templateId: outroConfig.outroTemplate
       };
       scenes.push(outroScene);
+      
+      // Add silent CTA hold scene - same visual, no narration
+      const ctaHoldScene = {
+        sceneNumber: scenes.length + 1,
+        narration: '', // No speech - silent hold
+        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
+        duration: 2, // 2 seconds of silent CTA display
+        isOutro: true,
+        isSilentCTA: true,
+        templateId: outroConfig.outroTemplate
+      };
+      scenes.push(ctaHoldScene);
     }
 
     console.log('Generated scenes:', scenes.length, 'with intro:', hasIntro, 'outro:', hasOutro);
@@ -300,17 +315,18 @@ function getDefaultIntroText(templateId: string, topic: string): string {
 }
 
 function getDefaultOutroText(templateId: string): string {
+  // Short outro narration - the CTA visual will hold for 2 extra seconds with no speech
   switch (templateId) {
     case 'cta-follow':
-      return 'Follow for more secrets like this!';
+      return 'Follow for more!';
     case 'cta-subscribe':
-      return 'Part 2 drops tomorrow - Subscribe now!';
+      return 'Subscribe now!';
     case 'cta-comment':
-      return 'Which one surprised you most? Tell me below!';
+      return 'Comment below!';
     case 'cta-share':
-      return 'Send this to someone who needs it!';
+      return 'Share this!';
     default:
-      return 'Save this for later!';
+      return 'Save this!';
   }
 }
 
