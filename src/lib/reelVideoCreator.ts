@@ -85,20 +85,54 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
       console.log('FFmpeg:', message);
     });
 
-    onProgress?.(5, 'Loading video engine...');
+    onProgress?.(2, 'Loading video engine (this may take a moment)...');
     
-    // Load FFmpeg WASM
+    // Load FFmpeg WASM with timeout
     console.log('Loading FFmpeg WASM...');
     const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
     
-    try {
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    const LOAD_TIMEOUT = 45000; // 45 seconds timeout
+    
+    const loadWithTimeout = async (): Promise<void> => {
+      return new Promise(async (resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Video engine loading timed out. Please refresh the page and try again.'));
+        }, LOAD_TIMEOUT);
+        
+        try {
+          onProgress?.(3, 'Downloading video engine core...');
+          console.log('Fetching FFmpeg core JS...');
+          const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+          
+          onProgress?.(5, 'Downloading video processor (this is ~31MB)...');
+          console.log('Fetching FFmpeg WASM (this may take a while)...');
+          const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+          
+          onProgress?.(10, 'Initializing video engine...');
+          console.log('Loading FFmpeg with fetched URLs...');
+          await ffmpeg.load({
+            coreURL,
+            wasmURL,
+          });
+          
+          clearTimeout(timeoutId);
+          resolve();
+        } catch (error) {
+          clearTimeout(timeoutId);
+          reject(error);
+        }
       });
+    };
+    
+    try {
+      await loadWithTimeout();
     } catch (loadError) {
       console.error('FFmpeg load error:', loadError);
-      throw new Error('Failed to load video engine. Please try again.');
+      const errorMessage = loadError instanceof Error ? loadError.message : 'Unknown error';
+      if (errorMessage.includes('timed out')) {
+        throw new Error(errorMessage);
+      }
+      throw new Error(`Failed to load video engine: ${errorMessage}. Please refresh and try again.`);
     }
     
     console.log('FFmpeg loaded successfully');
