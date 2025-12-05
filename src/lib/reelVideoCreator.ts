@@ -1,5 +1,5 @@
 // Client-side reel video creation using FFmpeg WASM
-// Creates a TikTok-ready MP4 from images with burned-in captions
+// Creates a TikTok-ready MP4 from images with karaoke-style word-by-word captions
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
@@ -18,6 +18,52 @@ interface CreateReelOptions {
   onProgress?: (percent: number, status: string) => void;
 }
 
+// Escape text for FFmpeg drawtext filter
+function escapeDrawtext(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\\\\\')
+    .replace(/'/g, "'\\''")
+    .replace(/:/g, '\\:')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/%/g, '\\%')
+    .replace(/"/g, '\\"');
+}
+
+// Build karaoke-style caption filter
+function buildKaraokeFilter(caption: string, duration: number, width: number, height: number): string {
+  const words = caption.split(/\s+/).filter(w => w.length > 0);
+  if (words.length === 0) {
+    return `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`;
+  }
+  
+  const wordDuration = duration / words.length;
+  const fontSize = 52;
+  const yPos = height - 200;
+  
+  // Start with scaling
+  let filter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`;
+  
+  // Add semi-transparent background for caption area
+  filter += `,drawbox=x=0:y=${yPos - 60}:w=iw:h=180:color=black@0.7:t=fill`;
+  
+  // Show full caption in gray as background
+  const fullCaption = escapeDrawtext(caption);
+  filter += `,drawtext=text='${fullCaption}':fontsize=${fontSize}:fontcolor=white@0.4:x=(w-text_w)/2:y=${yPos}:borderw=2:bordercolor=black@0.3`;
+  
+  // Add highlighted word that changes based on timing
+  // We'll show one word at a time in yellow in the center
+  words.forEach((word, index) => {
+    const startTime = index * wordDuration;
+    const endTime = (index + 1) * wordDuration;
+    const escapedWord = escapeDrawtext(word);
+    
+    filter += `,drawtext=text='${escapedWord}':fontsize=${fontSize + 8}:fontcolor=yellow:x=(w-text_w)/2:y=${yPos - 70}:borderw=3:bordercolor=black:enable='between(t\\,${startTime.toFixed(3)}\\,${endTime.toFixed(3)})'`;
+  });
+  
+  return filter;
+}
+
 export async function createReelVideo(options: CreateReelOptions): Promise<Blob> {
   const { scenes, width = 1080, height = 1920, onProgress } = options;
   
@@ -32,8 +78,7 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
   try {
     // Progress tracking
     ffmpeg.on('progress', ({ progress }) => {
-      const percent = Math.min(95, Math.round((progress || 0) * 80) + 15);
-      onProgress?.(percent, 'Rendering video...');
+      console.log('FFmpeg progress:', progress);
     });
 
     ffmpeg.on('log', ({ message }) => {
@@ -43,28 +88,37 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
     onProgress?.(5, 'Loading video engine...');
     
     // Load FFmpeg WASM
+    console.log('Loading FFmpeg WASM...');
     const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
+    
+    try {
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+    } catch (loadError) {
+      console.error('FFmpeg load error:', loadError);
+      throw new Error('Failed to load video engine. Please try again.');
+    }
     
     console.log('FFmpeg loaded successfully');
-    onProgress?.(10, 'Preparing images...');
+    onProgress?.(15, 'Preparing images...');
 
     // Download and write each scene image
     const imageFiles: string[] = [];
     
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
-      const imageName = `scene${i}.png`;
+      const imageName = `scene${i}.jpg`;
       
-      onProgress?.(10 + (i / scenes.length) * 5, `Loading scene ${i + 1}...`);
+      onProgress?.(15 + (i / scenes.length) * 15, `Loading scene ${i + 1}...`);
       
       try {
-        // Handle base64 images
         let imageData: Uint8Array;
+        
         if (scene.imageUrl.startsWith('data:')) {
+          // Handle base64 images
+          console.log(`Scene ${i + 1}: Processing base64 image...`);
           const base64Data = scene.imageUrl.split(',')[1];
           const binaryString = atob(base64Data);
           const bytes = new Uint8Array(binaryString.length);
@@ -73,7 +127,13 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
           }
           imageData = bytes;
         } else {
+          // Handle URL images
+          console.log(`Scene ${i + 1}: Fetching image from URL...`);
           imageData = await fetchFile(scene.imageUrl);
+        }
+        
+        if (imageData.length < 100) {
+          throw new Error('Image data too small, likely invalid');
         }
         
         await ffmpeg.writeFile(imageName, imageData);
@@ -81,13 +141,13 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
         console.log(`Wrote ${imageName}, size: ${imageData.length} bytes`);
       } catch (error) {
         console.error(`Failed to load scene ${i + 1}:`, error);
-        throw new Error(`Failed to load image for scene ${i + 1}`);
+        throw new Error(`Failed to load image for scene ${i + 1}: ${error}`);
       }
     }
 
-    onProgress?.(15, 'Creating video segments...');
+    onProgress?.(30, 'Creating video segments with captions...');
 
-    // Create video segments for each scene with captions
+    // Create video segments for each scene with karaoke captions
     const segmentFiles: string[] = [];
     
     for (let i = 0; i < scenes.length; i++) {
@@ -95,25 +155,12 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
       const imageName = imageFiles[i];
       const outputName = `segment${i}.mp4`;
       
-      onProgress?.(15 + (i / scenes.length) * 60, `Rendering scene ${i + 1} with caption...`);
+      onProgress?.(30 + (i / scenes.length) * 45, `Rendering scene ${i + 1} with word-by-word captions...`);
+      console.log(`Creating segment ${i + 1}...`);
       
-      // Escape caption text for FFmpeg drawtext filter
-      const escapedCaption = scene.caption
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "'\\''")
-        .replace(/:/g, '\\:')
-        .replace(/\[/g, '\\[')
-        .replace(/\]/g, '\\]')
-        .replace(/\n/g, ' ');
-      
-      // Create video from image with caption overlay
-      // Using drawtext filter for burned-in captions
-      const filterComplex = [
-        // Scale image to target dimensions
-        `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`,
-        // Add caption at bottom with TikTok-style formatting
-        `drawtext=text='${escapedCaption}':fontcolor=white:fontsize=48:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h-200:line_spacing=10`
-      ].join(',');
+      // Build karaoke caption filter
+      const filterComplex = buildKaraokeFilter(scene.caption, scene.duration, width, height);
+      console.log(`Filter length: ${filterComplex.length}`);
 
       try {
         await ffmpeg.exec([
@@ -123,19 +170,81 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
           '-c:v', 'libx264',
           '-t', scene.duration.toString(),
           '-pix_fmt', 'yuv420p',
-          '-r', '30',
+          '-r', '24',
+          '-preset', 'ultrafast',
+          '-crf', '28',
           outputName
         ]);
         
+        // Verify segment was created
+        const segmentData = await ffmpeg.readFile(outputName) as Uint8Array;
+        if (segmentData.length < 1000) {
+          throw new Error('Segment file too small');
+        }
+        console.log(`Created segment ${outputName}, size: ${segmentData.length}`);
         segmentFiles.push(outputName);
-        console.log(`Created segment ${outputName}`);
+        
       } catch (error) {
-        console.error(`Failed to create segment ${i + 1}:`, error);
-        throw new Error(`Failed to render scene ${i + 1}`);
+        console.error(`Karaoke render failed for scene ${i + 1}:`, error);
+        
+        // Fallback: simple static caption
+        console.log('Falling back to simple caption...');
+        const simpleFilter = [
+          `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`,
+          `drawbox=x=0:y=ih-180:w=iw:h=150:color=black@0.7:t=fill`,
+          `drawtext=text='${escapeDrawtext(scene.caption.substring(0, 60))}':fontsize=44:fontcolor=white:x=(w-text_w)/2:y=h-130:borderw=2:bordercolor=black`
+        ].join(',');
+        
+        try {
+          await ffmpeg.exec([
+            '-loop', '1',
+            '-i', imageName,
+            '-vf', simpleFilter,
+            '-c:v', 'libx264',
+            '-t', scene.duration.toString(),
+            '-pix_fmt', 'yuv420p',
+            '-r', '24',
+            '-preset', 'ultrafast',
+            '-crf', '28',
+            outputName
+          ]);
+          
+          const segmentData = await ffmpeg.readFile(outputName) as Uint8Array;
+          if (segmentData.length > 500) {
+            segmentFiles.push(outputName);
+            console.log(`Created simple segment ${outputName}`);
+          } else {
+            // Ultimate fallback: no captions
+            console.log('Falling back to no captions...');
+            const basicFilter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`;
+            
+            await ffmpeg.exec([
+              '-loop', '1',
+              '-i', imageName,
+              '-vf', basicFilter,
+              '-c:v', 'libx264',
+              '-t', scene.duration.toString(),
+              '-pix_fmt', 'yuv420p',
+              '-r', '24',
+              '-preset', 'ultrafast',
+              outputName
+            ]);
+            
+            segmentFiles.push(outputName);
+          }
+        } catch (fallbackError) {
+          console.error('All render attempts failed for scene', i + 1);
+          throw new Error(`Failed to render scene ${i + 1}`);
+        }
       }
     }
 
+    if (segmentFiles.length === 0) {
+      throw new Error('No video segments were created');
+    }
+
     onProgress?.(80, 'Combining scenes...');
+    console.log('Concatenating segments:', segmentFiles);
 
     // Create concat list
     const concatList = segmentFiles.map(f => `file '${f}'`).join('\n');
@@ -152,14 +261,15 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
         'output.mp4'
       ]);
       console.log('Concatenation successful');
-    } catch (error) {
-      console.log('Copy concat failed, trying re-encode:', error);
+    } catch (concatError) {
+      console.log('Copy concat failed, trying re-encode:', concatError);
       await ffmpeg.exec([
         '-f', 'concat',
         '-safe', '0',
         '-i', 'concat.txt',
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
+        '-preset', 'ultrafast',
         '-movflags', 'faststart',
         'output.mp4'
       ]);
@@ -169,9 +279,10 @@ export async function createReelVideo(options: CreateReelOptions): Promise<Blob>
 
     // Read output
     const outputData = await ffmpeg.readFile('output.mp4') as Uint8Array;
+    console.log('Output file size:', outputData.length);
     
-    if (outputData.length === 0) {
-      throw new Error('Output video is empty');
+    if (outputData.length < 1000) {
+      throw new Error('Output video is empty or corrupted');
     }
 
     // Create blob from the output data
