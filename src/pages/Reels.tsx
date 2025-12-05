@@ -1066,46 +1066,73 @@ const Reels = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Total duration summary */}
+                  {project.voiceovers.length > 0 && (
+                    <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <div className="flex items-center gap-2">
+                        <Mic className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">Total Voiceover Duration</span>
+                      </div>
+                      <span className="text-sm font-bold text-primary">
+                        {project.voiceovers.reduce((acc, v) => acc + v.duration, 0).toFixed(1)}s
+                      </span>
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {project.scenes.map((scene) => (
-                      <Card key={scene.sceneNumber} className={`bg-background border-border ${scene.isIntro || scene.isOutro ? 'ring-2 ring-primary/30' : ''}`}>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              scene.isIntro ? 'bg-green-500/20 text-green-500' : 
-                              scene.isOutro ? 'bg-orange-500/20 text-orange-500' : 
-                              'bg-primary/20 text-primary'
-                            }`}>
-                              {scene.isIntro ? 'I' : scene.isOutro ? 'O' : scene.sceneNumber}
-                            </span>
-                            {scene.isIntro ? 'Intro' : scene.isOutro ? 'Outro' : `Scene ${scene.sceneNumber}`}
-                            {(scene.isIntro || scene.isOutro) && (
-                              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Template</span>
-                            )}
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              ~{scene.duration}s
-                            </span>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Narration (Caption)</Label>
-                            <Textarea
-                              value={scene.narration}
-                              onChange={(e) => updateSceneNarration(scene.sceneNumber, e.target.value)}
-                              className="mt-1 text-sm min-h-[80px] bg-card border-border"
-                              disabled={isGenerating}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Visual Description</Label>
-                            <p className="text-xs text-muted-foreground mt-1 p-2 bg-muted/50 rounded">
-                              {scene.visualDescription}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {project.scenes.map((scene) => {
+                      const voiceover = project.voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
+                      const actualDuration = voiceover?.duration;
+                      
+                      return (
+                        <Card key={scene.sceneNumber} className={`bg-background border-border ${scene.isIntro || scene.isOutro ? 'ring-2 ring-primary/30' : ''}`}>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                scene.isIntro ? 'bg-green-500/20 text-green-500' : 
+                                scene.isOutro ? 'bg-orange-500/20 text-orange-500' : 
+                                'bg-primary/20 text-primary'
+                              }`}>
+                                {scene.isIntro ? 'I' : scene.isOutro ? 'O' : scene.sceneNumber}
+                              </span>
+                              {scene.isIntro ? 'Intro' : scene.isOutro ? 'Outro' : `Scene ${scene.sceneNumber}`}
+                              {(scene.isIntro || scene.isOutro) && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Template</span>
+                              )}
+                              <div className="ml-auto flex items-center gap-1.5">
+                                {actualDuration ? (
+                                  <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <Mic className="w-3 h-3" />
+                                    {actualDuration.toFixed(1)}s
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    ~{scene.duration}s
+                                  </span>
+                                )}
+                              </div>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Narration (Caption)</Label>
+                              <Textarea
+                                value={scene.narration}
+                                onChange={(e) => updateSceneNarration(scene.sceneNumber, e.target.value)}
+                                className="mt-1 text-sm min-h-[80px] bg-card border-border"
+                                disabled={isGenerating}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Visual Description</Label>
+                              <p className="text-xs text-muted-foreground mt-1 p-2 bg-muted/50 rounded">
+                                {scene.visualDescription}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
 
                   <div className="flex gap-3 pt-4">
