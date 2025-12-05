@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Volume2, VolumeX, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
-import { KaraokeCaption } from './KaraokeCaption';
+import { Play, Pause, Volume2, VolumeX, ChevronLeft, ChevronRight, Maximize2, Minimize2, Settings2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { KaraokeCaption, CaptionSettings, defaultCaptionSettings } from './KaraokeCaption';
+import { CaptionStyleSelector } from './CaptionStyleSelector';
 
 interface Scene {
   sceneNumber: number;
@@ -24,15 +26,17 @@ interface VideoPlayerWithOverlayProps {
   voiceovers: Voiceover[];
   videoClips: { sceneNumber: number; videoUrl: string }[];
   onClipChange?: (index: number) => void;
+  captionSettings?: CaptionSettings;
+  onCaptionSettingsChange?: (settings: CaptionSettings) => void;
 }
-
-type CaptionAnimation = 'highlight' | 'bounce' | 'fade' | 'typewriter';
 
 export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
   scenes,
   voiceovers,
   videoClips,
-  onClipChange
+  onClipChange,
+  captionSettings: externalSettings,
+  onCaptionSettingsChange
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const nextVideoRef = useRef<HTMLVideoElement>(null);
@@ -43,8 +47,12 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [theaterMode, setTheaterMode] = useState(false);
-  const [captionAnimation, setCaptionAnimation] = useState<CaptionAnimation>('highlight');
+  const [internalCaptionSettings, setInternalCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Use external settings if provided, otherwise use internal
+  const captionSettings = externalSettings ?? internalCaptionSettings;
+  const setCaptionSettings = onCaptionSettingsChange ?? setInternalCaptionSettings;
 
   const currentClip = videoClips[currentClipIndex];
   const currentScene = scenes.find(s => s.sceneNumber === currentClip?.sceneNumber) || scenes[currentClipIndex];
@@ -274,21 +282,12 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Caption animation selector */}
-      <div className="flex items-center justify-center gap-2 flex-wrap">
-        <span className="text-xs text-muted-foreground">Caption Style:</span>
-        {(['highlight', 'bounce', 'fade', 'typewriter'] as CaptionAnimation[]).map((style) => (
-          <Button
-            key={style}
-            variant={captionAnimation === style ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs h-7 px-2"
-            onClick={() => setCaptionAnimation(style)}
-          >
-            {style.charAt(0).toUpperCase() + style.slice(1)}
-          </Button>
-        ))}
-      </div>
+      {/* Caption style selector */}
+      <CaptionStyleSelector
+        settings={captionSettings}
+        onChange={setCaptionSettings}
+        compact={true}
+      />
 
       {/* Video container with overlay */}
       <div className={`aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl relative group transition-opacity duration-300 ${
@@ -322,7 +321,7 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
         )}
 
         {/* Karaoke Caption overlay */}
-        {currentScene && (
+        {currentScene && captionSettings.enabled && (
           <div className="absolute bottom-16 left-2 right-2 pointer-events-none animate-fade-in">
             <KaraokeCaption
               text={currentScene.text}
@@ -330,7 +329,8 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
               duration={audioDuration}
               isIntro={currentScene.isIntro}
               isOutro={currentScene.isOutro}
-              animationStyle={captionAnimation}
+              style={captionSettings.style}
+              background={captionSettings.background}
             />
           </div>
         )}
