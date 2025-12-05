@@ -46,7 +46,13 @@ serve(async (req) => {
     const introDuration = introConfig?.introTemplate && introConfig.introTemplate !== 'none' ? 3 : 0;
     const outroDuration = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none' ? 3 : 0;
     const contentDuration = targetDuration - introDuration - outroDuration;
-    const sceneDuration = Math.round(contentDuration / sceneCount);
+    
+    // Calculate scene duration - max 8 seconds per scene (WaveSpeed limit)
+    const maxSceneDuration = 8;
+    const sceneDuration = Math.min(Math.round(contentDuration / sceneCount), maxSceneDuration);
+    
+    // Calculate word count for 8 seconds max (speaking rate ~2.5 words/sec = 20 words max)
+    const maxWordsPerScene = 20;
 
     const systemPrompt = `You are a professional short-form video scriptwriter specializing in engaging Reels and TikTok content. 
 You create punchy, attention-grabbing scripts that are perfect for ${targetDuration}-second videos.
@@ -55,24 +61,26 @@ Your scripts should:
 - Be conversational and authentic
 - Include clear visual directions
 - Be optimized for vertical video format
-- Have natural speaking rhythm for voiceover`;
+- Have natural speaking rhythm for voiceover
+- CRITICAL: Keep each scene's narration to ${maxWordsPerScene} words or less (about ${sceneDuration} seconds when spoken)`;
 
     const userPrompt = `Create ${sceneCount} scene scripts for a ${contentDuration}-second Reel about: "${topic}"
 
-Each scene should be approximately ${sceneDuration} seconds when spoken aloud.
+IMPORTANT: Each scene's narration MUST be ${maxWordsPerScene} words or LESS. This is critical for video timing.
+Each scene should be approximately ${sceneDuration} seconds when spoken aloud at a normal pace.
 
 Return ONLY a valid JSON array with exactly ${sceneCount} scenes in this format:
 [
   {
     "sceneNumber": 1,
-    "narration": "The exact words to be spoken as voiceover (${Math.round(sceneDuration * 2)}-${Math.round(sceneDuration * 3)} words)",
+    "narration": "The exact words to be spoken as voiceover (MAX ${maxWordsPerScene} words, keep it punchy!)",
     "visualDescription": "Brief description of what should appear on screen",
     "duration": ${sceneDuration}
   }
 ]
 
 Make the first scene a strong hook. Make the last scene a clear conclusion.
-The narration should flow naturally when spoken and be engaging for social media.`;
+Keep narrations SHORT and PUNCHY - maximum ${maxWordsPerScene} words each!`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

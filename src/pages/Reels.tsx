@@ -1110,10 +1110,17 @@ const Reels = () => {
                               )}
                               <div className="ml-auto flex items-center gap-1.5">
                                 {actualDuration ? (
-                                  <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                    <Mic className="w-3 h-3" />
-                                    {actualDuration.toFixed(1)}s
-                                  </span>
+                                  actualDuration > 8 ? (
+                                    <span className="text-xs font-medium text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-full flex items-center gap-1" title="Audio exceeds 8s video limit - will carry over to next clip">
+                                      <Mic className="w-3 h-3" />
+                                      {actualDuration.toFixed(1)}s ⚠️
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                      <Mic className="w-3 h-3" />
+                                      {actualDuration.toFixed(1)}s
+                                    </span>
+                                  )
                                 ) : (
                                   <span className="text-xs text-muted-foreground">
                                     ~{scene.duration}s
@@ -1121,10 +1128,20 @@ const Reels = () => {
                                 )}
                               </div>
                             </CardTitle>
+                            {actualDuration && actualDuration > 8 && (
+                              <p className="text-xs text-orange-500 mt-1">
+                                ⚠️ Audio ({actualDuration.toFixed(1)}s) exceeds 8s video limit. Consider shortening.
+                              </p>
+                            )}
                           </CardHeader>
                           <CardContent className="space-y-2">
                             <div>
-                              <Label className="text-xs text-muted-foreground">Narration (Caption)</Label>
+                              <Label className="text-xs text-muted-foreground flex items-center gap-2">
+                                Narration (Caption)
+                                <span className="text-muted-foreground/70">
+                                  {scene.narration.split(/\s+/).filter(w => w).length} words
+                                </span>
+                              </Label>
                               <Textarea
                                 value={scene.narration}
                                 onChange={(e) => updateSceneNarration(scene.sceneNumber, e.target.value)}
