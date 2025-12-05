@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { KaraokeCaption } from './KaraokeCaption';
 
 interface Scene {
   sceneNumber: number;
@@ -25,6 +26,8 @@ interface VideoPlayerWithOverlayProps {
   onClipChange?: (index: number) => void;
 }
 
+type CaptionAnimation = 'highlight' | 'bounce' | 'fade' | 'typewriter';
+
 export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
   scenes,
   voiceovers,
@@ -32,22 +35,77 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
   onClipChange
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const nextVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentClipIndex, setCurrentClipIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [showCaption, setShowCaption] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [theaterMode, setTheaterMode] = useState(false);
+  const [captionAnimation, setCaptionAnimation] = useState<CaptionAnimation>('highlight');
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const currentClip = videoClips[currentClipIndex];
   const currentScene = scenes.find(s => s.sceneNumber === currentClip?.sceneNumber) || scenes[currentClipIndex];
   const currentVoiceover = voiceovers.find(v => v.sceneNumber === currentClip?.sceneNumber) || voiceovers[currentClipIndex];
+  const nextClipData = videoClips[currentClipIndex + 1];
 
-  // Sync audio with video playback
-  const syncAudio = useCallback(() => {
-    if (audioRef.current && videoRef.current) {
-      audioRef.current.currentTime = videoRef.current.currentTime;
+  // Track audio time for karaoke captions
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleLoadedMetadata = () => {
+      setAudioDuration(audio.duration);
+    };
+
+    const handleDurationChange = () => {
+      if (audio.duration && !isNaN(audio.duration)) {
+        setAudioDuration(audio.duration);
+      }
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('durationchange', handleDurationChange);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('durationchange', handleDurationChange);
+    };
+  }, [currentClipIndex]);
+
+  // Preload next video for seamless transitions
+  useEffect(() => {
+    if (nextVideoRef.current && nextClipData) {
+      nextVideoRef.current.src = nextClipData.videoUrl;
+      nextVideoRef.current.load();
     }
-  }, []);
+  }, [nextClipData]);
+
+  // Sync video with audio - loop video if audio is longer
+  useEffect(() => {
+    const video = videoRef.current;
+    const audio = audioRef.current;
+    if (!video || !audio) return;
+
+    const handleVideoEnded = () => {
+      // If audio is still playing, loop the video
+      if (!audio.paused && audio.currentTime < audio.duration - 0.1) {
+        video.currentTime = 0;
+        video.play().catch(console.error);
+      }
+    };
+
+    video.addEventListener('ended', handleVideoEnded);
+    return () => video.removeEventListener('ended', handleVideoEnded);
+  }, [currentClipIndex]);
 
   // Play/pause both video and audio together
   const togglePlay = useCallback(() => {
@@ -73,12 +131,65 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
     setIsMuted(!isMuted);
   }, [isMuted]);
 
-  // Go to next clip
+  // Seamless transition to next clip
+  const transitionToNextClip = useCallback(() => {
+    if (currentClipIndex >= videoClips.length - 1) {
+      setIsPlaying(false);
+      return;
+    }
+
+    setIsTransitioning(true);
+    
+    // Fade out current clip
+    setTimeout(() => {
+      setCurrentClipIndex(prev => prev + 1);
+      onClipChange?.(currentClipIndex + 1);
+      setCurrentTime(0);
+      
+      // Reset and play new clip
+      setTimeout(() => {
+        setIsTransitioning(false);
+        if (videoRef.current && theaterMode) {
+          videoRef.current.play().catch(console.error);
+          if (audioRef.current && !isMuted) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(console.error);
+          }
+        }
+      }, 100);
+    }, theaterMode ? 200 : 0);
+  }, [currentClipIndex, videoClips.length, onClipChange, theaterMode, isMuted]);
+
+  // Handle audio end - advance to next clip
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleAudioEnded = () => {
+      if (theaterMode) {
+        transitionToNextClip();
+      } else {
+        setIsPlaying(false);
+        if (currentClipIndex < videoClips.length - 1) {
+          setTimeout(() => {
+            setCurrentClipIndex(prev => prev + 1);
+            onClipChange?.(currentClipIndex + 1);
+          }, 500);
+        }
+      }
+    };
+
+    audio.addEventListener('ended', handleAudioEnded);
+    return () => audio.removeEventListener('ended', handleAudioEnded);
+  }, [currentClipIndex, videoClips.length, onClipChange, theaterMode, transitionToNextClip]);
+
+  // Go to next clip manually
   const nextClip = useCallback(() => {
     if (currentClipIndex < videoClips.length - 1) {
       setCurrentClipIndex(currentClipIndex + 1);
       onClipChange?.(currentClipIndex + 1);
       setIsPlaying(false);
+      setCurrentTime(0);
     }
   }, [currentClipIndex, videoClips.length, onClipChange]);
 
@@ -88,28 +199,9 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
       setCurrentClipIndex(currentClipIndex - 1);
       onClipChange?.(currentClipIndex - 1);
       setIsPlaying(false);
+      setCurrentTime(0);
     }
   }, [currentClipIndex, onClipChange]);
-
-  // Handle video end - auto advance to next clip
-  const handleVideoEnd = useCallback(() => {
-    setIsPlaying(false);
-    if (currentClipIndex < videoClips.length - 1) {
-      setTimeout(() => {
-        nextClip();
-        // Auto-play next clip
-        setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.play();
-            setIsPlaying(true);
-            if (audioRef.current && !isMuted) {
-              audioRef.current.play().catch(console.error);
-            }
-          }
-        }, 100);
-      }, 500);
-    }
-  }, [currentClipIndex, videoClips.length, nextClip, isMuted]);
 
   // Reset audio when clip changes
   useEffect(() => {
@@ -117,8 +209,15 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    setIsPlaying(false);
-  }, [currentClipIndex]);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+    }
+    setCurrentTime(0);
+    setAudioDuration(0);
+    if (!theaterMode) {
+      setIsPlaying(false);
+    }
+  }, [currentClipIndex, theaterMode]);
 
   // Video event listeners
   useEffect(() => {
@@ -139,16 +238,31 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
 
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
-    video.addEventListener('ended', handleVideoEnd);
-    video.addEventListener('seeked', syncAudio);
 
     return () => {
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
-      video.removeEventListener('ended', handleVideoEnd);
-      video.removeEventListener('seeked', syncAudio);
     };
-  }, [handleVideoEnd, syncAudio, isMuted]);
+  }, [isMuted]);
+
+  // Start theater mode playback
+  const startTheaterMode = useCallback(() => {
+    setTheaterMode(true);
+    setCurrentClipIndex(0);
+    setCurrentTime(0);
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.play().catch(console.error);
+        setIsPlaying(true);
+        if (audioRef.current && !isMuted) {
+          audioRef.current.play().catch(console.error);
+        }
+      }
+    }, 100);
+  }, [isMuted]);
+
+  // Calculate overall progress
+  const overallProgress = ((currentClipIndex + (audioDuration > 0 ? currentTime / audioDuration : 0)) / videoClips.length) * 100;
 
   if (videoClips.length === 0) {
     return (
@@ -160,15 +274,42 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Caption animation selector */}
+      <div className="flex items-center justify-center gap-2 flex-wrap">
+        <span className="text-xs text-muted-foreground">Caption Style:</span>
+        {(['highlight', 'bounce', 'fade', 'typewriter'] as CaptionAnimation[]).map((style) => (
+          <Button
+            key={style}
+            variant={captionAnimation === style ? 'default' : 'outline'}
+            size="sm"
+            className="text-xs h-7 px-2"
+            onClick={() => setCaptionAnimation(style)}
+          >
+            {style.charAt(0).toUpperCase() + style.slice(1)}
+          </Button>
+        ))}
+      </div>
+
       {/* Video container with overlay */}
-      <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl relative group">
+      <div className={`aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl relative group transition-opacity duration-300 ${
+        isTransitioning ? 'opacity-70' : 'opacity-100'
+      }`}>
         {/* Video element */}
         <video
           ref={videoRef}
           src={currentClip?.videoUrl}
           className="w-full h-full object-contain"
           playsInline
+          loop={false}
           onClick={togglePlay}
+        />
+
+        {/* Hidden preload video for next clip */}
+        <video
+          ref={nextVideoRef}
+          className="hidden"
+          preload="auto"
+          muted
         />
 
         {/* Hidden audio element for voiceover */}
@@ -180,50 +321,69 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
           />
         )}
 
-        {/* Caption overlay */}
-        {showCaption && currentScene && (
-          <div className="absolute bottom-16 left-2 right-2 pointer-events-none">
-            <div className={`text-center px-4 py-3 rounded-lg ${
-              currentScene.isIntro || currentScene.isOutro 
-                ? 'bg-primary/90 text-primary-foreground'
-                : 'bg-black/80 text-white'
-            }`}>
-              <p className={`font-bold ${
-                currentScene.isIntro || currentScene.isOutro 
-                  ? 'text-lg' 
-                  : 'text-sm'
-              }`}>
-                {currentScene.text}
-              </p>
-            </div>
+        {/* Karaoke Caption overlay */}
+        {currentScene && (
+          <div className="absolute bottom-16 left-2 right-2 pointer-events-none animate-fade-in">
+            <KaraokeCaption
+              text={currentScene.text}
+              currentTime={currentTime}
+              duration={audioDuration}
+              isIntro={currentScene.isIntro}
+              isOutro={currentScene.isOutro}
+              animationStyle={captionAnimation}
+            />
           </div>
         )}
 
         {/* Play/Pause overlay */}
-        {!isPlaying && (
+        {!isPlaying && !theaterMode && (
           <div 
-            className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer"
+            className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer animate-fade-in"
             onClick={togglePlay}
           >
-            <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center hover:scale-110 transition-transform">
               <Play className="w-8 h-8 text-primary-foreground ml-1" />
             </div>
           </div>
         )}
 
-        {/* Scene indicator badge */}
-        <div className={`absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-bold ${
-          currentScene?.isIntro 
-            ? 'bg-green-500 text-white' 
-            : currentScene?.isOutro 
-              ? 'bg-orange-500 text-white'
-              : 'bg-primary text-primary-foreground'
-        }`}>
-          {currentScene?.isIntro ? 'INTRO' : currentScene?.isOutro ? 'OUTRO' : `Scene ${currentScene?.sceneNumber}`}
-        </div>
+        {/* Scene indicator badge - hidden in theater mode */}
+        {!theaterMode && (
+          <div className={`absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-bold ${
+            currentScene?.isIntro 
+              ? 'bg-green-500 text-white' 
+              : currentScene?.isOutro 
+                ? 'bg-orange-500 text-white'
+                : 'bg-primary text-primary-foreground'
+          }`}>
+            {currentScene?.isIntro ? 'INTRO' : currentScene?.isOutro ? 'OUTRO' : `Scene ${currentScene?.sceneNumber}`}
+          </div>
+        )}
+
+        {/* Theater mode toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-3 right-3 h-8 w-8 text-white bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => theaterMode ? setTheaterMode(false) : startTheaterMode()}
+        >
+          {theaterMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </Button>
+
+        {/* Overall progress bar (theater mode) */}
+        {theaterMode && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
+            <div 
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${overallProgress}%` }}
+            />
+          </div>
+        )}
 
         {/* Controls bar */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={`absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent transition-opacity ${
+          theaterMode ? 'opacity-0 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}>
           <div className="flex items-center justify-between gap-2">
             <Button
               variant="ghost"
@@ -235,7 +395,11 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
             </Button>
             
             <div className="flex-1 text-center text-white text-xs">
-              {currentClipIndex + 1} / {videoClips.length}
+              {theaterMode ? (
+                <span>Scene {currentClipIndex + 1} / {videoClips.length}</span>
+              ) : (
+                <span>{currentClipIndex + 1} / {videoClips.length}</span>
+              )}
             </div>
             
             <Button
@@ -247,11 +411,36 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </Button>
           </div>
+
+          {/* Clip progress bar */}
+          {audioDuration > 0 && (
+            <div className="mt-2 h-1 bg-white/20 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-white transition-all duration-100"
+                style={{ width: `${(currentTime / audioDuration) * 100}%` }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Clip navigation */}
-      {videoClips.length > 1 && (
+      {/* Theater mode button */}
+      {!theaterMode && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={startTheaterMode}
+          >
+            <Maximize2 className="w-4 h-4" />
+            Play All (Theater Mode)
+          </Button>
+        </div>
+      )}
+
+      {/* Clip navigation - hidden in theater mode */}
+      {!theaterMode && videoClips.length > 1 && (
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-center gap-2">
             <Button 
@@ -287,6 +476,7 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
                   onClick={() => {
                     setCurrentClipIndex(index);
                     onClipChange?.(index);
+                    setCurrentTime(0);
                   }}
                   className={`flex-shrink-0 w-14 h-24 rounded-md overflow-hidden border-2 transition-all relative ${
                     index === currentClipIndex 
@@ -323,9 +513,28 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
           {currentVoiceover && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Volume2 className="w-3 h-3" />
-              Voiceover synced with video
+              Karaoke captions synced with voiceover
             </p>
           )}
+        </div>
+      )}
+
+      {/* Exit theater mode */}
+      {theaterMode && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setTheaterMode(false);
+              setIsPlaying(false);
+              videoRef.current?.pause();
+              audioRef.current?.pause();
+            }}
+          >
+            <Minimize2 className="w-4 h-4 mr-2" />
+            Exit Theater Mode
+          </Button>
         </div>
       )}
     </div>
