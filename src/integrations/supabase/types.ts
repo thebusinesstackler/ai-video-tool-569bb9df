@@ -149,6 +149,42 @@ export type Database = {
         }
         Relationships: []
       }
+      reels: {
+        Row: {
+          created_at: string
+          id: string
+          scenes: Json | null
+          thumbnail_url: string | null
+          topic: string
+          total_duration: number | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          scenes?: Json | null
+          thumbnail_url?: string | null
+          topic: string
+          total_duration?: number | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          scenes?: Json | null
+          thumbnail_url?: string | null
+          topic?: string
+          total_duration?: number | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       scripts: {
         Row: {
           audience: string | null

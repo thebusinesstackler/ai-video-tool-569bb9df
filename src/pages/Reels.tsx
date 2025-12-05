@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { createReelVideo, downloadVideo } from '@/lib/reelVideoCreator';
 import { 
   Sparkles, 
@@ -18,7 +19,11 @@ import {
   Download,
   Loader2,
   RefreshCw,
-  Captions
+  Captions,
+  History,
+  Trash2,
+  Play,
+  Save
 } from 'lucide-react';
 
 interface Scene {
@@ -46,6 +51,16 @@ interface ReelProject {
   status: 'idle' | 'generating-script' | 'generating-voiceover' | 'generating-video' | 'rendering-video' | 'complete';
 }
 
+interface SavedReel {
+  id: string;
+  topic: string;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  scenes: GeneratedScene[];
+  total_duration: number;
+  created_at: string;
+}
+
 const VOICE_OPTIONS = [
   { value: 'alloy', label: 'Alloy (Neutral)' },
   { value: 'echo', label: 'Echo (Male)' },
@@ -57,6 +72,7 @@ const VOICE_OPTIONS = [
 
 const Reels = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [topic, setTopic] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('nova');
   const [project, setProject] = useState<ReelProject>({
@@ -71,7 +87,151 @@ const Reels = () => {
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedReels, setSavedReels] = useState<SavedReel[]>([]);
+  const [loadingReels, setLoadingReels] = useState(true);
+  const [activeTab, setActiveTab] = useState('create');
   const videoBlobRef = useRef<Blob | null>(null);
+
+  // Fetch saved reels on mount
+  useEffect(() => {
+    if (user) {
+      fetchSavedReels();
+    }
+  }, [user]);
+
+  const fetchSavedReels = async () => {
+    if (!user) return;
+    
+    setLoadingReels(true);
+    try {
+      const { data, error } = await supabase
+        .from('reels')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Cast the data to our SavedReel type
+      const reels: SavedReel[] = (data || []).map(item => ({
+        id: item.id,
+        topic: item.topic,
+        video_url: item.video_url,
+        thumbnail_url: item.thumbnail_url,
+        scenes: item.scenes as unknown as GeneratedScene[],
+        total_duration: item.total_duration ?? 0,
+        created_at: item.created_at
+      }));
+      
+      setSavedReels(reels);
+    } catch (error) {
+      console.error('Error fetching reels:', error);
+    } finally {
+      setLoadingReels(false);
+    }
+  };
+
+  const saveReel = async () => {
+    if (!user || !videoBlobRef.current) {
+      toast({
+        title: "Cannot Save",
+        description: "No video to save or not logged in.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Upload video to storage
+      const fileName = `${user.id}/${Date.now()}-reel.mp4`;
+      const { error: uploadError } = await supabase.storage
+        .from('reels')
+        .upload(fileName, videoBlobRef.current, {
+          contentType: 'video/mp4'
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('reels')
+        .getPublicUrl(fileName);
+
+      // Get thumbnail from first scene
+      const thumbnailUrl = project.generatedScenes[0]?.imageUrl || null;
+
+      // Calculate total duration
+      const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from('reels')
+        .insert([{
+          user_id: user.id,
+          topic: project.topic,
+          video_url: publicUrl,
+          thumbnail_url: thumbnailUrl,
+          scenes: project.generatedScenes as unknown as any,
+          total_duration: totalDuration
+        }]);
+
+      if (dbError) throw dbError;
+
+      toast({
+        title: "Reel Saved!",
+        description: "Your reel has been saved to your library."
+      });
+
+      // Refresh saved reels list
+      fetchSavedReels();
+    } catch (error: any) {
+      console.error('Error saving reel:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save reel.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteReel = async (reelId: string, videoUrl: string | null) => {
+    if (!user) return;
+
+    try {
+      // Delete from storage if video exists
+      if (videoUrl) {
+        const path = videoUrl.split('/reels/')[1];
+        if (path) {
+          await supabase.storage.from('reels').remove([path]);
+        }
+      }
+
+      // Delete from database
+      const { error } = await supabase
+        .from('reels')
+        .delete()
+        .eq('id', reelId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Reel Deleted",
+        description: "The reel has been removed from your library."
+      });
+
+      setSavedReels(prev => prev.filter(r => r.id !== reelId));
+    } catch (error: any) {
+      console.error('Error deleting reel:', error);
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete reel.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const generateScripts = async () => {
     if (!topic.trim()) {
@@ -335,19 +495,19 @@ const Reels = () => {
           )}
         </div>
 
-        <Tabs defaultValue="reels" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-card border border-border">
-            <TabsTrigger value="reels" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Video className="w-4 h-4 mr-2" />
-              Reels
+              Create Reel
             </TabsTrigger>
-            <TabsTrigger value="stories" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Stories (Coming Soon)
+            <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <History className="w-4 h-4 mr-2" />
+              My Reels ({savedReels.length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="reels" className="space-y-6">
+          <TabsContent value="create" className="space-y-6">
             {/* Progress Bar */}
             {isGenerating && (
               <Card className="bg-card border-border">
@@ -572,13 +732,27 @@ const Reels = () => {
 
                   <div className="flex flex-wrap justify-center gap-3">
                     {project.videoBlobUrl && (
-                      <Button 
-                        onClick={handleDownloadVideo}
-                        className="bg-gradient-primary hover:opacity-90"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download for TikTok
-                      </Button>
+                      <>
+                        <Button 
+                          onClick={handleDownloadVideo}
+                          className="bg-gradient-primary hover:opacity-90"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download for TikTok
+                        </Button>
+                        <Button 
+                          onClick={saveReel}
+                          disabled={isSaving}
+                          variant="secondary"
+                        >
+                          {isSaving ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Save to Library
+                        </Button>
+                      </>
                     )}
                     <Button onClick={resetProject} variant="outline">
                       <RefreshCw className="w-4 h-4 mr-2" />
@@ -590,16 +764,88 @@ const Reels = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="stories">
-            <Card className="bg-card border-border">
-              <CardContent className="pt-6 text-center">
-                <Sparkles className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium">Stories Coming Soon</h3>
-                <p className="text-muted-foreground">
-                  Create vertical story content with transitions and effects.
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value="history" className="space-y-6">
+            {loadingReels ? (
+              <Card className="bg-card border-border">
+                <CardContent className="pt-6 flex justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </CardContent>
+              </Card>
+            ) : savedReels.length === 0 ? (
+              <Card className="bg-card border-border">
+                <CardContent className="pt-6 text-center">
+                  <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium">No Saved Reels</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create and save your first reel to see it here.
+                  </p>
+                  <Button onClick={() => setActiveTab('create')}>
+                    <Video className="w-4 h-4 mr-2" />
+                    Create a Reel
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {savedReels.map((reel) => (
+                  <Card key={reel.id} className="bg-card border-border overflow-hidden">
+                    <div className="aspect-[9/16] bg-black relative">
+                      {reel.video_url ? (
+                        <video
+                          src={reel.video_url}
+                          className="w-full h-full object-contain"
+                          controls
+                          playsInline
+                        />
+                      ) : reel.thumbnail_url ? (
+                        <img
+                          src={reel.thumbnail_url}
+                          alt={reel.topic}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <Video className="w-12 h-12" />
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
+                        <p className="text-white text-sm font-medium line-clamp-2">{reel.topic}</p>
+                        <p className="text-white/70 text-xs mt-1">
+                          {new Date(reel.created_at).toLocaleDateString()} • {reel.total_duration}s
+                        </p>
+                      </div>
+                    </div>
+                    <CardContent className="pt-4">
+                      <div className="flex gap-2">
+                        {reel.video_url && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = reel.video_url!;
+                              link.download = `reel-${reel.topic.slice(0, 20)}.mp4`;
+                              link.click();
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </Button>
+                        )}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteReel(reel.id, reel.video_url)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
