@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,12 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { createReelVideo, downloadVideo } from '@/lib/reelVideoCreator';
 import { 
   Sparkles, 
   FileText, 
   Mic, 
   Video, 
-  Play, 
   Download,
   Loader2,
   RefreshCw,
@@ -42,8 +41,9 @@ interface ReelProject {
   scenes: Scene[];
   voiceovers: { sceneNumber: number; audioUrl: string }[];
   videoUrl: string | null;
+  videoBlobUrl: string | null;
   generatedScenes: GeneratedScene[];
-  status: 'idle' | 'generating-script' | 'generating-voiceover' | 'generating-video' | 'complete';
+  status: 'idle' | 'generating-script' | 'generating-voiceover' | 'generating-video' | 'rendering-video' | 'complete';
 }
 
 const VOICE_OPTIONS = [
@@ -64,12 +64,14 @@ const Reels = () => {
     scenes: [],
     voiceovers: [],
     videoUrl: null,
+    videoBlobUrl: null,
     generatedScenes: [],
     status: 'idle'
   });
   const [progress, setProgress] = useState(0);
+  const [progressStatus, setProgressStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const videoBlobRef = useRef<Blob | null>(null);
 
   const generateScripts = async () => {
     if (!topic.trim()) {
@@ -189,9 +191,11 @@ const Reels = () => {
 
     setIsGenerating(true);
     setProject(prev => ({ ...prev, status: 'generating-video' }));
-    setProgress(65);
+    setProgress(30);
+    setProgressStatus('Generating scene images...');
 
     try {
+      // Step 1: Generate scene images via backend
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: project.scenes,
@@ -203,20 +207,55 @@ const Reels = () => {
 
       if (error) throw error;
 
+      const generatedScenes = data.scenes || [];
+      const scenesWithImages = generatedScenes.filter((s: GeneratedScene) => s.imageUrl);
+      
+      if (scenesWithImages.length === 0) {
+        throw new Error('No scene images were generated');
+      }
+
       setProject(prev => ({
         ...prev,
-        videoUrl: data.videoUrl,
-        generatedScenes: data.scenes || [],
+        generatedScenes,
+      }));
+      setProgress(50);
+      
+      // Step 2: Create video with burned-in captions using FFmpeg
+      setProject(prev => ({ ...prev, status: 'rendering-video' }));
+      setProgressStatus('Rendering video with captions...');
+      
+      const sceneInputs = scenesWithImages.map((scene: GeneratedScene, index: number) => ({
+        sceneNumber: scene.sceneNumber,
+        imageUrl: scene.imageUrl!,
+        caption: scene.text,
+        duration: project.scenes[index]?.duration || 4
+      }));
+
+      const videoBlob = await createReelVideo({
+        scenes: sceneInputs,
+        width: 1080,
+        height: 1920,
+        onProgress: (percent, status) => {
+          setProgress(50 + Math.round(percent * 0.5));
+          setProgressStatus(status);
+        }
+      });
+
+      // Store blob reference and create URL
+      videoBlobRef.current = videoBlob;
+      const videoBlobUrl = URL.createObjectURL(videoBlob);
+
+      setProject(prev => ({
+        ...prev,
+        videoBlobUrl,
         status: 'complete'
       }));
       setProgress(100);
+      setProgressStatus('Complete!');
 
-      const imageCount = data.scenes?.filter((s: GeneratedScene) => s.imageUrl)?.length || 0;
       toast({
-        title: "Reel Generated",
-        description: imageCount > 0 
-          ? `Generated ${imageCount} scene images with captions!`
-          : "Your reel content is ready!"
+        title: "TikTok Reel Ready!",
+        description: `Created ${scenesWithImages.length}-scene video with burned-in captions. Ready to download!`
       });
     } catch (error: any) {
       console.error('Video generation error:', error);
@@ -242,16 +281,30 @@ const Reels = () => {
   };
 
   const resetProject = () => {
+    // Cleanup blob URL
+    if (project.videoBlobUrl) {
+      URL.revokeObjectURL(project.videoBlobUrl);
+    }
+    videoBlobRef.current = null;
+    
     setProject({
       topic: '',
       scenes: [],
       voiceovers: [],
       videoUrl: null,
+      videoBlobUrl: null,
       generatedScenes: [],
       status: 'idle'
     });
     setTopic('');
     setProgress(0);
+    setProgressStatus('');
+  };
+
+  const handleDownloadVideo = () => {
+    if (videoBlobRef.current) {
+      downloadVideo(videoBlobRef.current, `reel-${project.topic.slice(0, 20).replace(/\s+/g, '-')}.mp4`);
+    }
   };
 
   const updateSceneNarration = (sceneNumber: number, narration: string) => {
@@ -304,7 +357,8 @@ const Reels = () => {
                       <span className="text-muted-foreground">
                         {project.status === 'generating-script' && 'Generating scripts...'}
                         {project.status === 'generating-voiceover' && 'Creating voiceovers...'}
-                        {project.status === 'generating-video' && 'Building video with captions...'}
+                        {project.status === 'generating-video' && 'Generating scene images...'}
+                        {project.status === 'rendering-video' && (progressStatus || 'Rendering video with captions...')}
                       </span>
                       <span className="text-primary font-medium">{progress}%</span>
                     </div>
@@ -446,12 +500,12 @@ const Reels = () => {
                       disabled={isGenerating}
                       className="flex-1 bg-gradient-primary hover:opacity-90"
                     >
-                      {isGenerating && project.status === 'generating-video' ? (
+                      {isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video') ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
                         <Video className="w-4 h-4 mr-2" />
                       )}
-                      Generate Video with Captions
+                      Generate TikTok Video
                     </Button>
                   </div>
                 </CardContent>
@@ -459,78 +513,74 @@ const Reels = () => {
             )}
 
             {/* Final Video / Generated Scenes */}
-            {(project.videoUrl || project.generatedScenes.length > 0) && (
+            {(project.videoBlobUrl || project.generatedScenes.length > 0) && (
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Captions className="w-5 h-5 text-primary" />
-                    Your Reel is Ready!
+                    {project.videoBlobUrl ? 'Your TikTok Reel is Ready!' : 'Your Reel is Ready!'}
                   </CardTitle>
                   <CardDescription>
-                    {project.generatedScenes.length} scene images with captions
+                    {project.videoBlobUrl 
+                      ? 'MP4 video with burned-in captions ready for TikTok/Instagram'
+                      : `${project.generatedScenes.length} scene images with captions`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Scene Images Gallery */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {project.generatedScenes.map((scene, index) => (
-                      <div key={scene.sceneNumber} className="relative group">
-                        <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
-                          {scene.imageUrl ? (
-                            <img
-                              src={scene.imageUrl}
-                              alt={`Scene ${scene.sceneNumber}`}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                              No image
-                            </div>
-                          )}
-                          {/* Caption overlay */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                            <p className="text-white text-xs line-clamp-3">{scene.text}</p>
-                          </div>
-                          {/* Scene number badge */}
-                          <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                            {scene.sceneNumber}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Video player if available */}
-                  {project.videoUrl && (
-                    <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden">
+                  {/* Video player - show rendered video first if available */}
+                  {project.videoBlobUrl && (
+                    <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">
                       <video
-                        src={project.videoUrl}
+                        src={project.videoBlobUrl}
                         controls
                         className="w-full h-full object-contain"
+                        playsInline
                       />
                     </div>
                   )}
 
+                  {/* Scene Images Gallery - show only if no video */}
+                  {!project.videoBlobUrl && project.generatedScenes.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {project.generatedScenes.map((scene) => (
+                        <div key={scene.sceneNumber} className="relative group">
+                          <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
+                            {scene.imageUrl ? (
+                              <img
+                                src={scene.imageUrl}
+                                alt={`Scene ${scene.sceneNumber}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                No image
+                              </div>
+                            )}
+                            {/* Caption overlay */}
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                              <p className="text-white text-xs line-clamp-3">{scene.text}</p>
+                            </div>
+                            {/* Scene number badge */}
+                            <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                              {scene.sceneNumber}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap justify-center gap-3">
-                    {project.generatedScenes.some(s => s.imageUrl) && (
+                    {project.videoBlobUrl && (
                       <Button 
-                        variant="outline"
-                        onClick={() => {
-                          // Download first image as example
-                          const firstImage = project.generatedScenes.find(s => s.imageUrl);
-                          if (firstImage?.imageUrl) {
-                            const link = document.createElement('a');
-                            link.href = firstImage.imageUrl;
-                            link.download = `reel-scene-${firstImage.sceneNumber}.png`;
-                            link.click();
-                          }
-                        }}
+                        onClick={handleDownloadVideo}
+                        className="bg-gradient-primary hover:opacity-90"
                       >
                         <Download className="w-4 h-4 mr-2" />
-                        Download Images
+                        Download for TikTok
                       </Button>
                     )}
-                    <Button onClick={resetProject}>
+                    <Button onClick={resetProject} variant="outline">
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Create Another
                     </Button>
