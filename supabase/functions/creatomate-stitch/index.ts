@@ -44,16 +44,17 @@ serve(async (req) => {
     let currentTime = 0;
 
     clips.forEach((clip, index) => {
-      // Use audioDuration if provided (actual voiceover length), otherwise fall back to duration
-      const clipDuration = clip.audioDuration || clip.duration || 5;
-      console.log(`Clip ${index + 1}: using duration ${clipDuration}s (audio: ${clip.audioDuration}, video: ${clip.duration})`);
+      // Use the actual video duration (capped at 8s by WaveSpeed), NOT the audio duration
+      // The merged audio track will continue seamlessly across video clips
+      const videoDuration = Math.min(clip.audioDuration || clip.duration || 5, 8);
+      console.log(`Clip ${index + 1}: video duration ${videoDuration}s (audio was ${clip.audioDuration}s, preset was ${clip.duration}s)`);
       
       // Add video element
       elements.push({
         type: 'video',
         source: clip.url,
         time: currentTime,
-        duration: clipDuration,
+        duration: videoDuration,
         // Add fade transition between clips
         ...(transition === 'fade' && index > 0 ? {
           animations: [{
@@ -78,7 +79,7 @@ serve(async (req) => {
           type: 'text',
           text: clip.caption,
           time: currentTime,
-          duration: clipDuration,
+          duration: videoDuration,
           width: '90%',
           height: '20%',
           x: '50%',
@@ -96,12 +97,12 @@ serve(async (req) => {
           text_align: 'center',
           animations: [
             { type: 'fade', fade: 'in', duration: 0.3 },
-            { type: 'fade', fade: 'out', start: clipDuration - 0.3, duration: 0.3 }
+            { type: 'fade', fade: 'out', start: videoDuration - 0.3, duration: 0.3 }
           ]
         });
       }
 
-      currentTime += clipDuration;
+      currentTime += videoDuration;
     });
 
     // Add background audio if provided
