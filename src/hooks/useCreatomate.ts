@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 interface VideoClip {
   url: string;
   duration: number;
+  audioDuration?: number; // Actual voiceover duration - takes precedence over duration
   caption?: string;
 }
 

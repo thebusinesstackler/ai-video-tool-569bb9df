@@ -15,6 +15,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { downloadVideo } from '@/lib/reelVideoCreator';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { useCreatomate } from '@/hooks/useCreatomate';
+import { getAudioDuration } from '@/lib/audioUtils';
 import { TemplateSelector } from '@/components/TemplateSelector';
 import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
 import { 
@@ -111,7 +112,7 @@ interface VideoClip {
 interface ReelProject {
   topic: string;
   scenes: Scene[];
-  voiceovers: { sceneNumber: number; audioUrl: string }[];
+  voiceovers: { sceneNumber: number; audioUrl: string; duration: number }[];
   videoUrl: string | null;
   videoBlobUrl: string | null;
   generatedScenes: GeneratedScene[];
@@ -373,8 +374,8 @@ const Reels = () => {
     setProgressStatus('Generating voiceovers...');
 
     try {
-      // Step 1: Generate voiceovers for each scene using Google Cloud TTS
-      const voiceovers: { sceneNumber: number; audioUrl: string }[] = [];
+      // Step 1: Generate voiceovers for each scene using Google Cloud TTS and get actual durations
+      const voiceovers: { sceneNumber: number; audioUrl: string; duration: number }[] = [];
       
       for (const scene of project.scenes) {
         try {
@@ -388,11 +389,17 @@ const Reels = () => {
           }
           
           if (ttsData?.audioContent) {
+            const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+            
+            // Get actual audio duration
+            const actualDuration = await getAudioDuration(audioUrl);
+            console.log(`Scene ${scene.sceneNumber} voiceover actual duration: ${actualDuration}s`);
+            
             voiceovers.push({
               sceneNumber: scene.sceneNumber,
-              audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`
+              audioUrl,
+              duration: actualDuration
             });
-            console.log('Generated voiceover for scene', scene.sceneNumber);
           }
         } catch (ttsErr) {
           console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
@@ -492,21 +499,48 @@ const Reels = () => {
         // Choose stitching method
         if (useServerStitching) {
           // Use Creatomate for server-side stitching
+          setProgressStatus('Uploading voiceovers and merging audio...');
+          
+          // Step 4a: Upload and merge voiceover audio for Creatomate
+          let mergedAudioUrl: string | undefined;
+          try {
+            const { data: mergeData, error: mergeError } = await supabase.functions.invoke('merge-audio', {
+              body: {
+                segments: sortedAudios.map(a => ({
+                  audioUrl: a.audioUrl,
+                  duration: a.duration,
+                  sceneNumber: a.sceneNumber
+                })),
+                userId: user?.id || 'anonymous'
+              }
+            });
+            
+            if (!mergeError && mergeData?.audioUrl) {
+              mergedAudioUrl = mergeData.audioUrl;
+              console.log('Merged audio URL:', mergedAudioUrl);
+            } else {
+              console.warn('Audio merge failed, proceeding without audio:', mergeError);
+            }
+          } catch (mergeErr) {
+            console.warn('Audio merge error, proceeding without audio:', mergeErr);
+          }
+          
           setProgressStatus('Rendering with Creatomate (server-side)...');
           
-          // Combine all audio into a single track URL or use first one
-          // For now, we'll pass captions and let Creatomate handle text overlay
-          const clips = sortedVideos.map((v, idx) => ({
-            url: v.videoUrl,
-            duration: project.scenes[idx]?.duration || 5,
-            caption: project.scenes[idx]?.narration || ''
-          }));
+          // Build clips with actual audio durations
+          const clips = sortedVideos.map((v, idx) => {
+            const audioDuration = sortedAudios[idx]?.duration;
+            return {
+              url: v.videoUrl,
+              duration: project.scenes[idx]?.duration || 5,
+              audioDuration: audioDuration, // Actual voiceover duration
+              caption: project.scenes[idx]?.narration || ''
+            };
+          });
           
-          // For audio, we need a publicly accessible URL
-          // Since voiceovers are base64, we'll skip audio for now in Creatomate
-          // and rely on the caption text overlay
           const result = await stitchWithCreatomate({
             clips,
+            audioUrl: mergedAudioUrl,
             transition: 'fade',
             captionStyle: 'bottom'
           });
@@ -517,7 +551,7 @@ const Reels = () => {
               videoUrl: result.videoUrl!,
               videoBlobUrl: result.videoUrl!,
               generatedScenes,
-              voiceovers,
+              voiceovers: sortedAudios,
               videoClips: sortedVideos,
               status: 'complete'
             }));
@@ -529,7 +563,8 @@ const Reels = () => {
             if (user) {
               try {
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+                // Use actual audio durations for total duration
+                const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
                 const scenesWithVideos = generatedScenes.map((scene) => ({
                   ...scene,
@@ -556,7 +591,7 @@ const Reels = () => {
 
             toast({
               title: "Video Generated!",
-              description: `Created ${sortedVideos.length}-scene video with Creatomate and saved to library!`
+              description: `Created ${sortedVideos.length}-scene video with synced audio and saved to library!`
             });
           } else {
             throw new Error(result.error || 'Creatomate rendering failed');
@@ -584,7 +619,7 @@ const Reels = () => {
               videoUrl: blobUrl,
               videoBlobUrl: blobUrl,
               generatedScenes,
-              voiceovers,
+              voiceovers: sortedAudios,
               videoClips: sortedVideos,
               status: 'complete'
             }));
@@ -608,7 +643,7 @@ const Reels = () => {
                 }
                 
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+                const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
                 // Merge video URLs into scenes for saving
                 const scenesWithVideos = generatedScenes.map((scene) => ({
@@ -649,7 +684,7 @@ const Reels = () => {
                 videoUrl: sortedVideos[0]?.videoUrl,
                 videoBlobUrl: sortedVideos[0]?.videoUrl,
                 generatedScenes,
-                voiceovers,
+                voiceovers: sortedAudios,
                 videoClips: sortedVideos,
                 status: 'complete'
               }));
@@ -658,7 +693,7 @@ const Reels = () => {
               if (user) {
                 try {
                   const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                  const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+                  const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
                   // Merge video URLs into scenes for saving
                   const scenesWithVideos = generatedScenes.map((scene) => ({
@@ -697,7 +732,7 @@ const Reels = () => {
         setProject(prev => ({
           ...prev,
           generatedScenes,
-          voiceovers,
+          voiceovers: voiceovers.map(v => ({ ...v, duration: v.duration || 5 })),
           status: 'complete'
         }));
         setProgress(100);
