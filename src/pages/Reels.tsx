@@ -93,7 +93,7 @@ interface ReelProject {
   videoUrl: string | null;
   videoBlobUrl: string | null;
   generatedScenes: GeneratedScene[];
-  status: 'idle' | 'generating-script' | 'generating-voiceover' | 'generating-video' | 'rendering-video' | 'complete';
+  status: 'idle' | 'generating-script' | 'generating-video' | 'rendering-video' | 'complete';
 }
 
 interface SavedReel {
@@ -106,20 +106,18 @@ interface SavedReel {
   created_at: string;
 }
 
-const VOICE_OPTIONS = [
-  { value: 'alloy', label: 'Alloy (Neutral)' },
-  { value: 'echo', label: 'Echo (Male)' },
-  { value: 'fable', label: 'Fable (British)' },
-  { value: 'onyx', label: 'Onyx (Deep Male)' },
-  { value: 'nova', label: 'Nova (Female)' },
-  { value: 'shimmer', label: 'Shimmer (Soft Female)' },
+const DURATION_OPTIONS = [
+  { value: '15', label: '15 seconds', sceneCount: 2 },
+  { value: '30', label: '30 seconds', sceneCount: 3 },
+  { value: '45', label: '45 seconds', sceneCount: 4 },
+  { value: '60', label: '60 seconds', sceneCount: 5 },
 ];
 
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [topic, setTopic] = useState('');
-  const [selectedVoice, setSelectedVoice] = useState('nova');
+  const [selectedDuration, setSelectedDuration] = useState('30');
   const [project, setProject] = useState<ReelProject>({
     topic: '',
     scenes: [],
@@ -274,9 +272,13 @@ const Reels = () => {
     setProject(prev => ({ ...prev, status: 'generating-script', topic }));
     setProgress(10);
 
+    const durationOption = DURATION_OPTIONS.find(d => d.value === selectedDuration);
+    const sceneCount = durationOption?.sceneCount || 3;
+    const targetDuration = parseInt(selectedDuration);
+
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
-        body: { topic, sceneCount: 4 }
+        body: { topic, sceneCount, targetDuration }
       });
 
       if (error) throw error;
@@ -290,74 +292,13 @@ const Reels = () => {
 
       toast({
         title: "Scripts Generated",
-        description: "4 scene scripts have been created for your reel."
+        description: `${sceneCount} scene scripts have been created for your ${selectedDuration}s reel.`
       });
     } catch (error: any) {
       console.error('Script generation error:', error);
       toast({
         title: "Generation Failed",
         description: error.message || "Failed to generate scripts.",
-        variant: "destructive"
-      });
-      setProject(prev => ({ ...prev, status: 'idle' }));
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const generateVoiceovers = async () => {
-    if (project.scenes.length === 0) {
-      toast({
-        title: "No Scripts",
-        description: "Please generate scripts first.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    setProject(prev => ({ ...prev, status: 'generating-voiceover' }));
-    setProgress(30);
-
-    try {
-      const voiceovers: { sceneNumber: number; audioUrl: string }[] = [];
-
-      for (let i = 0; i < project.scenes.length; i++) {
-        const scene = project.scenes[i];
-        setProgress(30 + ((i + 1) / project.scenes.length) * 30);
-
-        const { data, error } = await supabase.functions.invoke('generate-reel-voiceover', {
-          body: { 
-            text: scene.narration,
-            voice: selectedVoice,
-            sceneNumber: scene.sceneNumber
-          }
-        });
-
-        if (error) throw error;
-
-        voiceovers.push({
-          sceneNumber: scene.sceneNumber,
-          audioUrl: data.audioUrl
-        });
-      }
-
-      setProject(prev => ({
-        ...prev,
-        voiceovers,
-        status: 'idle'
-      }));
-      setProgress(60);
-
-      toast({
-        title: "Voiceovers Generated",
-        description: "All scene voiceovers have been created."
-      });
-    } catch (error: any) {
-      console.error('Voiceover generation error:', error);
-      toast({
-        title: "Voiceover Failed",
-        description: error.message || "Failed to generate voiceovers.",
         variant: "destructive"
       });
       setProject(prev => ({ ...prev, status: 'idle' }));
@@ -499,10 +440,7 @@ const Reels = () => {
   const generateAll = async () => {
     await generateScripts();
     if (project.scenes.length > 0) {
-      await generateVoiceovers();
-      if (project.voiceovers.length > 0) {
-        await generateVideo();
-      }
+      await generateVideo();
     }
   };
 
@@ -551,7 +489,7 @@ const Reels = () => {
           <div>
             <h1 className="text-3xl font-bold gradient-text">Reels & Stories</h1>
             <p className="text-muted-foreground mt-1">
-              Create engaging short-form videos with AI-generated scripts, voiceovers, and captions
+              Create engaging short-form videos with AI-generated scripts and captions
             </p>
           </div>
           {project.scenes.length > 0 && (
@@ -583,7 +521,6 @@ const Reels = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
                         {project.status === 'generating-script' && 'Generating scripts...'}
-                        {project.status === 'generating-voiceover' && 'Creating voiceovers...'}
                         {project.status === 'generating-video' && 'Generating scene images...'}
                         {project.status === 'rendering-video' && (progressStatus || 'Rendering video with captions...')}
                       </span>
@@ -628,7 +565,7 @@ const Reels = () => {
                   Create Your Reel
                 </CardTitle>
                 <CardDescription>
-                  Enter a topic and we'll generate 4 scenes with scripts, voiceovers, and captions
+                  Choose a duration and enter a topic to generate scene scripts with captions
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -667,15 +604,15 @@ const Reels = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Voice</Label>
-                    <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isGenerating}>
+                    <Label>Video Duration</Label>
+                    <Select value={selectedDuration} onValueChange={setSelectedDuration} disabled={isGenerating}>
                       <SelectTrigger className="bg-background border-border">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {VOICE_OPTIONS.map(voice => (
-                          <SelectItem key={voice.value} value={voice.value}>
-                            {voice.label}
+                        {DURATION_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label} ({option.sceneCount} scenes)
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -693,7 +630,7 @@ const Reels = () => {
                       ) : (
                         <FileText className="w-4 h-4 mr-2" />
                       )}
-                      Generate 4 Scene Scripts
+                      Generate Scripts
                     </Button>
                   </div>
                 </div>
@@ -709,7 +646,7 @@ const Reels = () => {
                     Scene Scripts
                   </CardTitle>
                   <CardDescription>
-                    Review and edit your 4 scene scripts before generating voiceovers
+                    Review and edit your scene scripts before generating the video
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -729,7 +666,7 @@ const Reels = () => {
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <div>
-                            <Label className="text-xs text-muted-foreground">Narration (Voiceover)</Label>
+                            <Label className="text-xs text-muted-foreground">Narration (Caption)</Label>
                             <Textarea
                               value={scene.narration}
                               onChange={(e) => updateSceneNarration(scene.sceneNumber, e.target.value)}
@@ -743,31 +680,12 @@ const Reels = () => {
                               {scene.visualDescription}
                             </p>
                           </div>
-                          {project.voiceovers.find(v => v.sceneNumber === scene.sceneNumber) && (
-                            <div className="flex items-center gap-2 pt-2">
-                              <Mic className="w-4 h-4 text-green-500" />
-                              <span className="text-xs text-green-500">Voiceover ready</span>
-                            </div>
-                          )}
                         </CardContent>
                       </Card>
                     ))}
                   </div>
 
                   <div className="flex gap-3 pt-4">
-                    <Button
-                      onClick={generateVoiceovers}
-                      disabled={isGenerating}
-                      variant="secondary"
-                      className="flex-1"
-                    >
-                      {isGenerating && project.status === 'generating-voiceover' ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Mic className="w-4 h-4 mr-2" />
-                      )}
-                      Generate Voiceovers
-                    </Button>
                     <Button
                       onClick={generateVideo}
                       disabled={isGenerating}
@@ -778,7 +696,7 @@ const Reels = () => {
                       ) : (
                         <Video className="w-4 h-4 mr-2" />
                       )}
-                      Generate TikTok Video
+                      Generate Video with Captions
                     </Button>
                   </div>
                 </CardContent>
