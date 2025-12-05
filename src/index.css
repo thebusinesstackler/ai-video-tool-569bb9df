@@ -182,4 +182,18 @@ All colors MUST be HSL.
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  /* Caption bounce animation for karaoke */
+  @keyframes caption-bounce {
+    0%, 100% {
+      transform: scale(1.25);
+    }
+    50% {
+      transform: scale(1.35);
+    }
+  }
+
+  .animate-caption-bounce {
+    animation: caption-bounce 0.3s ease-in-out;
+  }
 }
