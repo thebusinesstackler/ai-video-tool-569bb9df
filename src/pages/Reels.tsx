@@ -34,7 +34,8 @@ import {
   ChevronDown,
   Palette,
   Cloud,
-  Monitor
+  Monitor,
+  Layers
 } from 'lucide-react';
 
 // Speech Recognition types
@@ -171,6 +172,7 @@ const Reels = () => {
   
   // Server-side stitching with Creatomate
   const [useServerStitching, setUseServerStitching] = useState(true);
+  const [isManualStitching, setIsManualStitching] = useState(false);
   const { stitchWithCreatomate, isStitching: isCreatomateStitching, progress: creatomateProgress, status: creatomateStatus } = useCreatomate();
   
   const videoBlobRef = useRef<Blob | null>(null);
@@ -877,6 +879,147 @@ const Reels = () => {
     }));
   };
 
+  // Manual stitch videos together
+  const stitchVideos = async () => {
+    if (project.videoClips.length < 2) {
+      toast({
+        title: "Nothing to Stitch",
+        description: "Need at least 2 video clips to stitch together.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsManualStitching(true);
+    setProgress(10);
+    setProgressStatus('Preparing to stitch videos...');
+
+    try {
+      const sortedVideos = [...project.videoClips].sort((a, b) => a.sceneNumber - b.sceneNumber);
+      const sortedAudios = [...project.voiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+      // Merge all audio URLs
+      const audioUrls = sortedAudios.map(a => a.audioUrl);
+      let mergedAudioUrl = audioUrls[0];
+
+      if (audioUrls.length > 1) {
+        setProgressStatus('Merging audio tracks...');
+        setProgress(20);
+        
+        try {
+          const mergeResponse = await supabase.functions.invoke('merge-audio', {
+            body: { audioUrls }
+          });
+          if (mergeResponse.data?.audioUrl) {
+            mergedAudioUrl = mergeResponse.data.audioUrl;
+          }
+        } catch (e) {
+          console.log('Audio merge failed, using first audio');
+        }
+      }
+
+      setProgressStatus('Stitching video clips...');
+      setProgress(40);
+
+      if (useServerStitching) {
+        // Use Creatomate for server-side stitching
+        const clips = sortedVideos.map((clip, index) => {
+          const audio = sortedAudios.find(a => a.sceneNumber === clip.sceneNumber);
+          const scene = project.generatedScenes.find(s => s.sceneNumber === clip.sceneNumber);
+          return {
+            url: clip.videoUrl,
+            duration: audio?.duration || 5,
+            caption: scene?.text || '',
+            audioDuration: audio?.duration
+          };
+        });
+
+        const result = await stitchWithCreatomate({
+          clips,
+          audioUrl: mergedAudioUrl,
+          transition: 'fade',
+          captionStyle: 'bottom'
+        });
+
+        if (result.success && result.videoUrl) {
+          // Save to storage
+          let savedVideoUrl = result.videoUrl;
+          if (user) {
+            try {
+              const videoResponse = await fetch(result.videoUrl);
+              const videoBlob = await videoResponse.blob();
+              const fileName = `videos/${Date.now()}-stitched.mp4`;
+              
+              await supabase.storage.from('reels').upload(fileName, videoBlob, {
+                contentType: 'video/mp4',
+                upsert: true
+              });
+              
+              const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+              savedVideoUrl = publicUrl.publicUrl;
+            } catch (e) {
+              console.error('Failed to save stitched video:', e);
+            }
+          }
+
+          setProject(prev => ({
+            ...prev,
+            videoBlobUrl: savedVideoUrl,
+            videoClips: [], // Clear clips since we have stitched video
+            status: 'complete'
+          }));
+
+          toast({
+            title: "Videos Stitched!",
+            description: "All clips merged into one final video."
+          });
+        } else {
+          throw new Error(result.error || 'Stitching failed');
+        }
+      } else {
+        // Use browser-based stitching with ffmpeg
+        const videoUrls = sortedVideos.map(v => v.videoUrl);
+        
+        const stitchedBlob = await stitchVideosWithAudio({
+          videoUrls,
+          audioUrls: [mergedAudioUrl],
+          onProgress: (percent) => {
+            setProgress(40 + percent * 0.5);
+            setProgressStatus(`Stitching: ${Math.round(percent)}%`);
+          }
+        });
+
+        videoBlobRef.current = stitchedBlob;
+        const blobUrl = URL.createObjectURL(stitchedBlob);
+
+        setProject(prev => ({
+          ...prev,
+          videoBlobUrl: blobUrl,
+          videoClips: [],
+          status: 'complete'
+        }));
+
+        toast({
+          title: "Videos Stitched!",
+          description: "All clips merged into one final video."
+        });
+      }
+
+      setProgress(100);
+      setProgressStatus('Complete!');
+
+    } catch (error: any) {
+      console.error('Stitch error:', error);
+      toast({
+        title: "Stitch Failed",
+        description: error.message || "Failed to stitch videos together.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsManualStitching(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -1298,7 +1441,22 @@ const Reels = () => {
                   )}
 
                   <div className="flex flex-wrap justify-center gap-3">
-                    {project.videoBlobUrl && (
+                    {/* Stitch button - show when we have multiple clips */}
+                    {project.videoClips.length > 1 && (
+                      <Button 
+                        onClick={stitchVideos}
+                        disabled={isManualStitching || isCreatomateStitching}
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+                      >
+                        {isManualStitching || isCreatomateStitching ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Layers className="w-4 h-4 mr-2" />
+                        )}
+                        Stitch All Clips Together
+                      </Button>
+                    )}
+                    {project.videoBlobUrl && project.videoClips.length === 0 && (
                       <Button 
                         onClick={handleDownloadVideo}
                         className="bg-gradient-primary hover:opacity-90"
