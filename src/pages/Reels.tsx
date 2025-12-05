@@ -112,7 +112,7 @@ interface VideoClip {
 interface ReelProject {
   topic: string;
   scenes: Scene[];
-  voiceovers: { sceneNumber: number; audioUrl: string; duration: number }[];
+  voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[];
   videoUrl: string | null;
   videoBlobUrl: string | null;
   generatedScenes: GeneratedScene[];
@@ -375,7 +375,7 @@ const Reels = () => {
 
     try {
       // Step 1: Generate voiceovers for each scene using Google Cloud TTS and get actual durations
-      const voiceovers: { sceneNumber: number; audioUrl: string; duration: number }[] = [];
+      const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = [];
       
       for (const scene of project.scenes) {
         try {
@@ -395,9 +395,36 @@ const Reels = () => {
             const actualDuration = await getAudioDuration(audioUrl);
             console.log(`Scene ${scene.sceneNumber} voiceover actual duration: ${actualDuration}s`);
             
+            // Upload individual voiceover to storage for persistence
+            let storageUrl: string | undefined;
+            if (user) {
+              try {
+                const base64Data = ttsData.audioContent;
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                const fileName = `${user.id}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from('reels')
+                  .upload(fileName, bytes, { contentType: 'audio/mp3' });
+                
+                if (!uploadError && uploadData) {
+                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                  storageUrl = publicUrl.publicUrl;
+                  console.log('Uploaded voiceover to storage:', storageUrl);
+                }
+              } catch (uploadErr) {
+                console.warn('Voiceover upload failed:', uploadErr);
+              }
+            }
+            
             voiceovers.push({
               sceneNumber: scene.sceneNumber,
               audioUrl,
+              storageUrl,
               duration: actualDuration
             });
           }
@@ -575,17 +602,25 @@ const Reels = () => {
                 // Use actual audio durations for total duration
                 const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
-                const scenesWithVideos = generatedScenes.map((scene) => ({
-                  ...scene,
-                  videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
-                }));
+                // Build complete scene data with all URLs (image, video, audio)
+                const scenesWithAllAssets = generatedScenes.map((scene) => {
+                  const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                  const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                  return {
+                    ...scene,
+                    videoUrl: video?.videoUrl || null,
+                    audioUrl: audio?.storageUrl || null, // Use storage URL for persistence
+                    audioDuration: audio?.duration || null
+                  };
+                });
 
                 await supabase.from('reels').insert([{
                   user_id: user.id,
                   topic: project.topic,
                   video_url: result.videoUrl,
+                  audio_url: mergedAudioUrl || null, // Save merged voiceover URL
                   thumbnail_url: thumbnailUrl,
-                  scenes: scenesWithVideos as unknown as any,
+                  scenes: scenesWithAllAssets as unknown as any,
                   total_duration: totalDuration
                 }]);
 
@@ -654,18 +689,24 @@ const Reels = () => {
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
                 const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
-                // Merge video URLs into scenes for saving
-                const scenesWithVideos = generatedScenes.map((scene) => ({
-                  ...scene,
-                  videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
-                }));
+                // Build complete scene data with all URLs
+                const scenesWithAllAssets = generatedScenes.map((scene) => {
+                  const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                  const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                  return {
+                    ...scene,
+                    videoUrl: video?.videoUrl || null,
+                    audioUrl: audio?.storageUrl || null,
+                    audioDuration: audio?.duration || null
+                  };
+                });
 
                 await supabase.from('reels').insert([{
                   user_id: user.id,
                   topic: project.topic,
                   video_url: savedVideoUrl,
                   thumbnail_url: thumbnailUrl,
-                  scenes: scenesWithVideos as unknown as any,
+                  scenes: scenesWithAllAssets as unknown as any,
                   total_duration: totalDuration
                 }]);
 
@@ -698,24 +739,30 @@ const Reels = () => {
                 status: 'complete'
               }));
 
-              // Still save to library with all video URLs
+              // Still save to library with all URLs
               if (user) {
                 try {
                   const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
                   const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
-                  // Merge video URLs into scenes for saving
-                  const scenesWithVideos = generatedScenes.map((scene) => ({
-                    ...scene,
-                    videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
-                  }));
+                  // Build complete scene data with all URLs
+                  const scenesWithAllAssets = generatedScenes.map((scene) => {
+                    const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                    const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                    return {
+                      ...scene,
+                      videoUrl: video?.videoUrl || null,
+                      audioUrl: audio?.storageUrl || null,
+                      audioDuration: audio?.duration || null
+                    };
+                  });
 
                   await supabase.from('reels').insert([{
                     user_id: user.id,
                     topic: project.topic,
                     video_url: sortedVideos[0]?.videoUrl,
                     thumbnail_url: thumbnailUrl,
-                    scenes: scenesWithVideos as unknown as any,
+                    scenes: scenesWithAllAssets as unknown as any,
                     total_duration: totalDuration
                   }]);
                   fetchSavedReels();
