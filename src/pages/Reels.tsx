@@ -15,6 +15,7 @@ import {
   Sparkles, 
   FileText, 
   Mic, 
+  MicOff,
   Video, 
   Download,
   Loader2,
@@ -24,6 +25,51 @@ import {
   Trash2,
   Play
 } from 'lucide-react';
+
+// Speech Recognition types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface ISpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => ISpeechRecognition;
+    webkitSpeechRecognition: new () => ISpeechRecognition;
+  }
+}
 
 interface Scene {
   sceneNumber: number;
@@ -89,7 +135,55 @@ const Reels = () => {
   const [savedReels, setSavedReels] = useState<SavedReel[]>([]);
   const [loadingReels, setLoadingReels] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
+  const [isListening, setIsListening] = useState(false);
   const videoBlobRef = useRef<Blob | null>(null);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+
+  // Speech recognition setup
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast({
+        title: "Not Supported",
+        description: "Speech recognition is not supported in your browser. Try Chrome.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setTopic(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
 
   // Fetch saved reels on mount
   useEffect(() => {
@@ -510,14 +604,35 @@ const Reels = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="topic">Topic / Idea</Label>
-                  <Textarea
-                    id="topic"
-                    placeholder="E.g., 5 productivity tips for remote workers, How to make the perfect coffee, Travel hacks for budget trips..."
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    className="min-h-[100px] bg-background border-border"
-                    disabled={isGenerating}
-                  />
+                  <div className="relative">
+                    <Textarea
+                      id="topic"
+                      placeholder="E.g., 5 productivity tips for remote workers, How to make the perfect coffee, Travel hacks for budget trips..."
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      className="min-h-[100px] bg-background border-border pr-12"
+                      disabled={isGenerating}
+                    />
+                    <Button
+                      type="button"
+                      variant={isListening ? "destructive" : "secondary"}
+                      size="icon"
+                      className="absolute right-2 top-2"
+                      onClick={isListening ? stopListening : startListening}
+                      disabled={isGenerating}
+                    >
+                      {isListening ? (
+                        <MicOff className="w-4 h-4" />
+                      ) : (
+                        <Mic className="w-4 h-4" />
+                      )}
+                    </Button>
+                    {isListening && (
+                      <span className="absolute right-14 top-3 text-xs text-destructive animate-pulse">
+                        Listening...
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
