@@ -22,8 +22,7 @@ import {
   Captions,
   History,
   Trash2,
-  Play,
-  Save
+  Play
 } from 'lucide-react';
 
 interface Scene {
@@ -87,7 +86,6 @@ const Reels = () => {
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [savedReels, setSavedReels] = useState<SavedReel[]>([]);
   const [loadingReels, setLoadingReels] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
@@ -128,72 +126,6 @@ const Reels = () => {
       console.error('Error fetching reels:', error);
     } finally {
       setLoadingReels(false);
-    }
-  };
-
-  const saveReel = async () => {
-    if (!user || !videoBlobRef.current) {
-      toast({
-        title: "Cannot Save",
-        description: "No video to save or not logged in.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      // Upload video to storage
-      const fileName = `${user.id}/${Date.now()}-reel.mp4`;
-      const { error: uploadError } = await supabase.storage
-        .from('reels')
-        .upload(fileName, videoBlobRef.current, {
-          contentType: 'video/mp4'
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('reels')
-        .getPublicUrl(fileName);
-
-      // Get thumbnail from first scene
-      const thumbnailUrl = project.generatedScenes[0]?.imageUrl || null;
-
-      // Calculate total duration
-      const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
-
-      // Save to database
-      const { error: dbError } = await supabase
-        .from('reels')
-        .insert([{
-          user_id: user.id,
-          topic: project.topic,
-          video_url: publicUrl,
-          thumbnail_url: thumbnailUrl,
-          scenes: project.generatedScenes as unknown as any,
-          total_duration: totalDuration
-        }]);
-
-      if (dbError) throw dbError;
-
-      toast({
-        title: "Reel Saved!",
-        description: "Your reel has been saved to your library."
-      });
-
-      // Refresh saved reels list
-      fetchSavedReels();
-    } catch (error: any) {
-      console.error('Error saving reel:', error);
-      toast({
-        title: "Save Failed",
-        description: error.message || "Failed to save reel.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -408,14 +340,50 @@ const Reels = () => {
       setProject(prev => ({
         ...prev,
         videoBlobUrl,
+        generatedScenes, // Ensure generatedScenes is in the final state for saving
         status: 'complete'
       }));
+      setProgress(95);
+      setProgressStatus('Saving to library...');
+
+      // Auto-save to library
+      if (user) {
+        try {
+          const fileName = `${user.id}/${Date.now()}-reel.mp4`;
+          const { error: uploadError } = await supabase.storage
+            .from('reels')
+            .upload(fileName, videoBlob, { contentType: 'video/mp4' });
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('reels')
+              .getPublicUrl(fileName);
+
+            const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+            const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+
+            await supabase.from('reels').insert([{
+              user_id: user.id,
+              topic: project.topic,
+              video_url: publicUrl,
+              thumbnail_url: thumbnailUrl,
+              scenes: generatedScenes as unknown as any,
+              total_duration: totalDuration
+            }]);
+
+            fetchSavedReels();
+          }
+        } catch (saveError) {
+          console.error('Auto-save failed:', saveError);
+        }
+      }
+
       setProgress(100);
       setProgressStatus('Complete!');
 
       toast({
         title: "TikTok Reel Ready!",
-        description: `Created ${scenesWithImages.length}-scene video with burned-in captions. Ready to download!`
+        description: `Created ${scenesWithImages.length}-scene video with captions and saved to library!`
       });
     } catch (error: any) {
       console.error('Video generation error:', error);
@@ -732,27 +700,13 @@ const Reels = () => {
 
                   <div className="flex flex-wrap justify-center gap-3">
                     {project.videoBlobUrl && (
-                      <>
-                        <Button 
-                          onClick={handleDownloadVideo}
-                          className="bg-gradient-primary hover:opacity-90"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download for TikTok
-                        </Button>
-                        <Button 
-                          onClick={saveReel}
-                          disabled={isSaving}
-                          variant="secondary"
-                        >
-                          {isSaving ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Save className="w-4 h-4 mr-2" />
-                          )}
-                          Save to Library
-                        </Button>
-                      </>
+                      <Button 
+                        onClick={handleDownloadVideo}
+                        className="bg-gradient-primary hover:opacity-90"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download for TikTok
+                      </Button>
                     )}
                     <Button onClick={resetProject} variant="outline">
                       <RefreshCw className="w-4 h-4 mr-2" />
