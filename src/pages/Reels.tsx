@@ -380,6 +380,18 @@ const Reels = () => {
       const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = [];
       
       for (const scene of project.scenes) {
+        // Skip silent CTA scenes (no narration needed)
+        if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
+          console.log(`Scene ${scene.sceneNumber} is silent CTA - skipping voiceover`);
+          // Add a placeholder with the scene's duration for timing
+          voiceovers.push({
+            sceneNumber: scene.sceneNumber,
+            audioUrl: '', // No audio
+            duration: scene.duration || 2
+          });
+          continue;
+        }
+        
         try {
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
             body: { text: scene.narration, voice: 'alloy' }

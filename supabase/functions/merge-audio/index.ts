@@ -35,10 +35,16 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Download all audio files and concatenate them
+    // Download all audio files and concatenate them (skip silent/empty segments)
     const audioBuffers: Uint8Array[] = [];
     
     for (const segment of segments.sort((a, b) => a.sceneNumber - b.sceneNumber)) {
+      // Skip empty audio segments (silent CTA scenes)
+      if (!segment.audioUrl || segment.audioUrl === '') {
+        console.log(`Skipping silent segment for scene ${segment.sceneNumber}`);
+        continue;
+      }
+      
       let audioData: Uint8Array;
       
       if (segment.audioUrl.startsWith('data:')) {
