@@ -136,6 +136,7 @@ const Reels = () => {
   const [loadingReels, setLoadingReels] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [isListening, setIsListening] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
@@ -376,6 +377,7 @@ const Reels = () => {
     }
 
     setIsGenerating(true);
+    setVideoError(null);
     setProject(prev => ({ ...prev, status: 'generating-video' }));
     setProgress(30);
     setProgressStatus('Generating scene images...');
@@ -481,9 +483,11 @@ const Reels = () => {
       });
     } catch (error: any) {
       console.error('Video generation error:', error);
+      const errorMessage = error.message || "Failed to generate video.";
+      setVideoError(errorMessage);
       toast({
         title: "Video Generation Failed",
-        description: error.message || "Failed to generate video.",
+        description: errorMessage,
         variant: "destructive"
       });
       setProject(prev => ({ ...prev, status: 'idle' }));
@@ -521,6 +525,7 @@ const Reels = () => {
     setTopic('');
     setProgress(0);
     setProgressStatus('');
+    setVideoError(null);
   };
 
   const handleDownloadVideo = () => {
@@ -585,6 +590,31 @@ const Reels = () => {
                       <span className="text-primary font-medium">{progress}%</span>
                     </div>
                     <Progress value={progress} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Error with Retry Button */}
+            {videoError && !isGenerating && (
+              <Card className="bg-destructive/10 border-destructive/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-destructive font-medium">Video generation failed</p>
+                      <p className="text-sm text-muted-foreground mt-1">{videoError}</p>
+                    </div>
+                    <Button 
+                      onClick={() => {
+                        setVideoError(null);
+                        generateVideo();
+                      }}
+                      variant="outline"
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
