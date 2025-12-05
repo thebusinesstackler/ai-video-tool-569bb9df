@@ -167,10 +167,10 @@ const Reels = () => {
   };
 
   const generateVideo = async () => {
-    if (project.scenes.length === 0 || project.voiceovers.length === 0) {
+    if (project.scenes.length === 0) {
       toast({
-        title: "Missing Content",
-        description: "Please generate scripts and voiceovers first.",
+        title: "Missing Scripts",
+        description: "Please generate scripts first.",
         variant: "destructive"
       });
       return;
@@ -201,7 +201,9 @@ const Reels = () => {
 
       toast({
         title: "Video Generated",
-        description: "Your reel with captions is ready!"
+        description: data.sceneImages?.length > 0 
+          ? `Generated ${data.sceneImages.length} scene images with captions!`
+          : "Your reel content is ready!"
       });
     } catch (error: any) {
       console.error('Video generation error:', error);
@@ -427,7 +429,7 @@ const Reels = () => {
                     </Button>
                     <Button
                       onClick={generateVideo}
-                      disabled={isGenerating || project.voiceovers.length === 0}
+                      disabled={isGenerating}
                       className="flex-1 bg-gradient-primary hover:opacity-90"
                     >
                       {isGenerating && project.status === 'generating-video' ? (
