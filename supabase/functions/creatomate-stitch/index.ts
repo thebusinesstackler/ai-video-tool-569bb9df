@@ -9,11 +9,12 @@ interface VideoClip {
   url: string;
   duration: number;
   caption?: string;
+  audioDuration?: number; // Actual voiceover duration - takes precedence over duration
 }
 
 interface StitchRequest {
   clips: VideoClip[];
-  audioUrl?: string;
+  audioUrl?: string; // Combined voiceover audio URL
   transition?: 'fade' | 'slide' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
 }
@@ -38,12 +39,14 @@ serve(async (req) => {
     console.log(`Starting Creatomate stitch with ${clips.length} clips, audio: ${!!audioUrl}`);
 
     // Build the Creatomate source JSON
-    // Each clip becomes a composition element with duration matching the clip
+    // Each clip becomes a composition element with duration matching the AUDIO duration
     const elements: any[] = [];
     let currentTime = 0;
 
     clips.forEach((clip, index) => {
-      const clipDuration = clip.duration || 5;
+      // Use audioDuration if provided (actual voiceover length), otherwise fall back to duration
+      const clipDuration = clip.audioDuration || clip.duration || 5;
+      console.log(`Clip ${index + 1}: using duration ${clipDuration}s (audio: ${clip.audioDuration}, video: ${clip.duration})`);
       
       // Add video element
       elements.push({
