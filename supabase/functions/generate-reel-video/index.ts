@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +11,16 @@ interface Scene {
   narration: string;
   visualDescription: string;
   duration: number;
+}
+
+// Helper to convert base64 to Uint8Array
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
 }
 
 serve(async (req) => {
@@ -34,13 +45,21 @@ serve(async (req) => {
 
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
+    // Create Supabase client for storage uploads
+    const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY 
+      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+      : null;
+
     // Generate images for each scene using AI
     const sceneImages: string[] = [];
+    const savedImageUrls: string[] = [];
     
     for (const scene of scenes as Scene[]) {
       console.log('Generating image for scene:', scene.sceneNumber);
@@ -73,6 +92,36 @@ serve(async (req) => {
           const imageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
           if (imageUrl) {
             sceneImages.push(imageUrl);
+            
+            // Upload to storage if Supabase is configured
+            if (supabase && imageUrl.startsWith('data:')) {
+              try {
+                const base64Data = imageUrl.split(',')[1];
+                const imageBytes = base64ToUint8Array(base64Data);
+                const fileName = `images/${Date.now()}-scene-${scene.sceneNumber}.png`;
+                
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from('reels')
+                  .upload(fileName, imageBytes, { 
+                    contentType: 'image/png',
+                    upsert: true 
+                  });
+                
+                if (!uploadError && uploadData) {
+                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                  savedImageUrls.push(publicUrl.publicUrl);
+                  console.log('Saved image to storage:', fileName);
+                } else {
+                  console.error('Upload error:', uploadError);
+                  savedImageUrls.push(imageUrl); // Fallback to base64
+                }
+              } catch (uploadErr) {
+                console.error('Storage upload failed:', uploadErr);
+                savedImageUrls.push(imageUrl); // Fallback to base64
+              }
+            } else {
+              savedImageUrls.push(imageUrl);
+            }
           }
         }
       } catch (imgError) {
@@ -80,13 +129,16 @@ serve(async (req) => {
       }
     }
 
+    // Use saved URLs (permanent) or fall back to base64
+    const finalImageUrls = savedImageUrls.length > 0 ? savedImageUrls : sceneImages;
+
     // Build caption data for each scene
     const captionsData = (scenes as Scene[]).map((scene, index) => ({
       sceneNumber: scene.sceneNumber,
       text: scene.narration,
       startTime: (scenes as Scene[]).slice(0, index).reduce((acc, s) => acc + s.duration, 0),
       endTime: (scenes as Scene[]).slice(0, index + 1).reduce((acc, s) => acc + s.duration, 0),
-      imageUrl: sceneImages[index] || null
+      imageUrl: finalImageUrls[index] || null
     }));
 
     const totalDuration = (scenes as Scene[]).reduce((acc, s) => acc + s.duration, 0);
@@ -94,12 +146,12 @@ serve(async (req) => {
     // If WaveSpeed is enabled and API key exists, start video generation tasks
     const videoTasks: { sceneNumber: number; taskId: string }[] = [];
     
-    if (useWaveSpeed && WAVESPEED_API_KEY && sceneImages.length > 0) {
-      console.log('Starting WaveSpeed video generation for', sceneImages.length, 'scenes');
+    if (useWaveSpeed && WAVESPEED_API_KEY && finalImageUrls.length > 0) {
+      console.log('Starting WaveSpeed video generation for', finalImageUrls.length, 'scenes');
       
-      for (let i = 0; i < sceneImages.length; i++) {
+      for (let i = 0; i < finalImageUrls.length; i++) {
         const scene = (scenes as Scene[])[i];
-        const imageUrl = sceneImages[i];
+        const imageUrl = finalImageUrls[i];
         
         try {
           // Use WaveSpeed image-to-video API
@@ -140,7 +192,7 @@ serve(async (req) => {
     const result = {
       videoUrl: null,
       scenes: captionsData,
-      sceneImages,
+      sceneImages: finalImageUrls,
       videoTasks, // Include task IDs for polling
       captions: addCaptions ? captionsData.map(c => ({
         text: c.text,
