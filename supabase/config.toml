@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.openai-tts]
 verify_jwt = false
+
+[functions.generate-reel-script]
+verify_jwt = false
+
+[functions.generate-reel-voiceover]
+verify_jwt = false
+
+[functions.generate-reel-video]
+verify_jwt = false

@@ -11,7 +11,8 @@ import {
   PlayCircleIcon,
   LogOut,
   Clapperboard,
-  Film
+  Film,
+  Smartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
@@ -26,6 +27,7 @@ const navigationItems = [
   { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard },
   { name: 'Movies', href: '/movies', icon: Film },
   { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
+  { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
   { name: 'Videos', href: '/videos', icon: VideoIcon },
   { name: 'Characters', href: '/characters', icon: UsersIcon },
   { name: 'Projects', href: '/projects', icon: PlayCircleIcon },
