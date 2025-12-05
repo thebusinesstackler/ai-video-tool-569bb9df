@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.generate-reel-video]
 verify_jwt = false
+
+[functions.creatomate-stitch]
+verify_jwt = false
+
+[functions.creatomate-status]
+verify_jwt = false
