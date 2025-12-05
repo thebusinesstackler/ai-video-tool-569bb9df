@@ -14,6 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { downloadVideo } from '@/lib/reelVideoCreator';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { TemplateSelector } from '@/components/TemplateSelector';
+import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
 import { 
   Sparkles, 
   FileText, 
@@ -986,73 +987,26 @@ const Reels = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Video player - show rendered video first if available */}
+                  {/* Video player - use overlay component for multiple clips with audio sync */}
                   {project.videoBlobUrl && (
                     <div className="space-y-4">
-                      <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">
-                        <video
-                          src={project.videoClips.length > 1 ? project.videoClips[selectedClipIndex]?.videoUrl : project.videoBlobUrl}
-                          controls
-                          className="w-full h-full object-contain"
-                          playsInline
-                          key={selectedClipIndex}
+                      {project.videoClips.length > 1 ? (
+                        /* Multiple clips - use VideoPlayerWithOverlay for text overlay and audio sync */
+                        <VideoPlayerWithOverlay
+                          scenes={project.generatedScenes}
+                          voiceovers={project.voiceovers}
+                          videoClips={project.videoClips}
+                          onClipChange={setSelectedClipIndex}
                         />
-                      </div>
-                      
-                      {/* Clip navigation when multiple clips */}
-                      {project.videoClips.length > 1 && (
-                        <div className="flex flex-col items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedClipIndex(Math.max(0, selectedClipIndex - 1))}
-                              disabled={selectedClipIndex === 0}
-                            >
-                              Previous
-                            </Button>
-                            <span className="text-sm text-muted-foreground px-3">
-                              Clip {selectedClipIndex + 1} of {project.videoClips.length}
-                            </span>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedClipIndex(Math.min(project.videoClips.length - 1, selectedClipIndex + 1))}
-                              disabled={selectedClipIndex === project.videoClips.length - 1}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                          
-                          {/* Clip thumbnails */}
-                          <div className="flex gap-2 overflow-x-auto max-w-full pb-2">
-                            {project.videoClips.map((clip, index) => (
-                              <button
-                                key={clip.sceneNumber}
-                                onClick={() => setSelectedClipIndex(index)}
-                                className={`flex-shrink-0 w-16 h-28 rounded-md overflow-hidden border-2 transition-all ${
-                                  index === selectedClipIndex 
-                                    ? 'border-primary ring-2 ring-primary/30' 
-                                    : 'border-border hover:border-primary/50'
-                                }`}
-                              >
-                                {project.generatedScenes[index]?.imageUrl ? (
-                                  <img 
-                                    src={project.generatedScenes[index].imageUrl} 
-                                    alt={`Scene ${clip.sceneNumber}`}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full bg-muted flex items-center justify-center">
-                                    <Play className="w-4 h-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-xs text-white text-center py-0.5">
-                                  {clip.sceneNumber}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
+                      ) : (
+                        /* Single stitched video - use regular video player */
+                        <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">
+                          <video
+                            src={project.videoBlobUrl}
+                            controls
+                            className="w-full h-full object-contain"
+                            playsInline
+                          />
                         </div>
                       )}
                     </div>

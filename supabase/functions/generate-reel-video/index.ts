@@ -26,23 +26,25 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-// Generate special prompt for intro/outro templates
+// Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
 function getTemplateImagePrompt(scene: Scene, topic: string): string {
   if (scene.isIntro) {
-    const basePrompt = scene.visualDescription || 'Modern social media intro card';
-    return `${basePrompt}. Display text: "${scene.narration}". Topic: ${topic}. Style: Bold typography, vibrant colors, vertical 9:16 format, eye-catching social media intro screen. Make the text prominent and readable.`;
+    const basePrompt = scene.visualDescription || 'Modern social media intro background';
+    // Don't include text in image - we'll overlay it with HTML
+    return `${basePrompt}. Topic: ${topic}. Style: Clean background design, vibrant colors, vertical 9:16 format, eye-catching social media intro screen. Abstract or thematic background without any text or words. Suitable for text overlay.`;
   }
   
   if (scene.isOutro) {
-    const basePrompt = scene.visualDescription || 'Social media call-to-action card';
-    return `${basePrompt}. Display text: "${scene.narration}". Style: Engaging CTA design, vertical 9:16 format, social media outro screen with clear call-to-action. Make the text prominent and readable.`;
+    const basePrompt = scene.visualDescription || 'Social media call-to-action background';
+    // Don't include text in image - we'll overlay it with HTML
+    return `${basePrompt}. Style: Engaging background design, vertical 9:16 format, social media outro screen. Abstract or thematic background without any text or words. Suitable for text overlay.`;
   }
   
   return `Generate a vibrant, eye-catching image for a social media reel. 
     Scene: ${scene.visualDescription}
     Topic: ${topic}
     Style: Modern, engaging, vertical format (9:16 aspect ratio), suitable for Instagram/TikTok.
-    The image should be visually striking and attention-grabbing.`;
+    The image should be visually striking and attention-grabbing. Do not include any text in the image.`;
 }
 
 serve(async (req) => {
