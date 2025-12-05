@@ -5,13 +5,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+  serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { topic, sceneCount = 4 } = await req.json();
+    const { topic, sceneCount = 4, targetDuration = 30 } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -27,8 +27,10 @@ serve(async (req) => {
 
     console.log('Generating reel script for topic:', topic);
 
+    const sceneDuration = Math.round(targetDuration / sceneCount);
+
     const systemPrompt = `You are a professional short-form video scriptwriter specializing in engaging Reels and TikTok content. 
-You create punchy, attention-grabbing scripts that are perfect for 15-60 second videos.
+You create punchy, attention-grabbing scripts that are perfect for ${targetDuration}-second videos.
 Your scripts should:
 - Hook the viewer in the first 2 seconds
 - Be conversational and authentic
@@ -36,17 +38,17 @@ Your scripts should:
 - Be optimized for vertical video format
 - Have natural speaking rhythm for voiceover`;
 
-    const userPrompt = `Create ${sceneCount} scene scripts for a Reel about: "${topic}"
+    const userPrompt = `Create ${sceneCount} scene scripts for a ${targetDuration}-second Reel about: "${topic}"
 
-Each scene should be 10-15 seconds when spoken aloud.
+Each scene should be approximately ${sceneDuration} seconds when spoken aloud.
 
 Return ONLY a valid JSON array with exactly ${sceneCount} scenes in this format:
 [
   {
     "sceneNumber": 1,
-    "narration": "The exact words to be spoken as voiceover (15-30 words max)",
+    "narration": "The exact words to be spoken as voiceover (${Math.round(sceneDuration * 2)}-${Math.round(sceneDuration * 3)} words)",
     "visualDescription": "Brief description of what should appear on screen",
-    "duration": 12
+    "duration": ${sceneDuration}
   }
 ]
 
