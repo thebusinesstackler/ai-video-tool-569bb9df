@@ -29,11 +29,20 @@ interface Scene {
   duration: number;
 }
 
+interface GeneratedScene {
+  sceneNumber: number;
+  text: string;
+  imageUrl: string | null;
+  startTime: number;
+  endTime: number;
+}
+
 interface ReelProject {
   topic: string;
   scenes: Scene[];
   voiceovers: { sceneNumber: number; audioUrl: string }[];
   videoUrl: string | null;
+  generatedScenes: GeneratedScene[];
   status: 'idle' | 'generating-script' | 'generating-voiceover' | 'generating-video' | 'complete';
 }
 
@@ -55,10 +64,12 @@ const Reels = () => {
     scenes: [],
     voiceovers: [],
     videoUrl: null,
+    generatedScenes: [],
     status: 'idle'
   });
   const [progress, setProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const generateScripts = async () => {
     if (!topic.trim()) {
@@ -195,14 +206,16 @@ const Reels = () => {
       setProject(prev => ({
         ...prev,
         videoUrl: data.videoUrl,
+        generatedScenes: data.scenes || [],
         status: 'complete'
       }));
       setProgress(100);
 
+      const imageCount = data.scenes?.filter((s: GeneratedScene) => s.imageUrl)?.length || 0;
       toast({
-        title: "Video Generated",
-        description: data.sceneImages?.length > 0 
-          ? `Generated ${data.sceneImages.length} scene images with captions!`
+        title: "Reel Generated",
+        description: imageCount > 0 
+          ? `Generated ${imageCount} scene images with captions!`
           : "Your reel content is ready!"
       });
     } catch (error: any) {
@@ -234,6 +247,7 @@ const Reels = () => {
       scenes: [],
       voiceovers: [],
       videoUrl: null,
+      generatedScenes: [],
       status: 'idle'
     });
     setTopic('');
@@ -444,8 +458,8 @@ const Reels = () => {
               </Card>
             )}
 
-            {/* Final Video */}
-            {project.videoUrl && (
+            {/* Final Video / Generated Scenes */}
+            {(project.videoUrl || project.generatedScenes.length > 0) && (
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -453,24 +467,69 @@ const Reels = () => {
                     Your Reel is Ready!
                   </CardTitle>
                   <CardDescription>
-                    Video with synchronized captions and voiceover
+                    {project.generatedScenes.length} scene images with captions
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden">
-                    <video
-                      src={project.videoUrl}
-                      controls
-                      className="w-full h-full object-contain"
-                    />
+                <CardContent className="space-y-6">
+                  {/* Scene Images Gallery */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {project.generatedScenes.map((scene, index) => (
+                      <div key={scene.sceneNumber} className="relative group">
+                        <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
+                          {scene.imageUrl ? (
+                            <img
+                              src={scene.imageUrl}
+                              alt={`Scene ${scene.sceneNumber}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                              No image
+                            </div>
+                          )}
+                          {/* Caption overlay */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                            <p className="text-white text-xs line-clamp-3">{scene.text}</p>
+                          </div>
+                          {/* Scene number badge */}
+                          <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                            {scene.sceneNumber}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-center gap-3">
-                    <Button variant="outline" asChild>
-                      <a href={project.videoUrl} download="reel.mp4">
+
+                  {/* Video player if available */}
+                  {project.videoUrl && (
+                    <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden">
+                      <video
+                        src={project.videoUrl}
+                        controls
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {project.generatedScenes.some(s => s.imageUrl) && (
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          // Download first image as example
+                          const firstImage = project.generatedScenes.find(s => s.imageUrl);
+                          if (firstImage?.imageUrl) {
+                            const link = document.createElement('a');
+                            link.href = firstImage.imageUrl;
+                            link.download = `reel-scene-${firstImage.sceneNumber}.png`;
+                            link.click();
+                          }
+                        }}
+                      >
                         <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </a>
-                    </Button>
+                        Download Images
+                      </Button>
+                    )}
                     <Button onClick={resetProject}>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Create Another
