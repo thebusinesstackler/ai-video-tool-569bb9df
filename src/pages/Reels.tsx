@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { downloadVideo } from '@/lib/reelVideoCreator';
+import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { 
   Sparkles, 
   FileText, 
@@ -320,11 +321,40 @@ const Reels = () => {
     setIsGenerating(true);
     setVideoError(null);
     setProject(prev => ({ ...prev, status: 'generating-video' }));
-    setProgress(10);
-    setProgressStatus('Generating scene images...');
+    setProgress(5);
+    setProgressStatus('Generating voiceovers...');
 
     try {
-      // Step 1: Generate scene images and start video tasks via backend
+      // Step 1: Generate voiceovers for each scene using Google Cloud TTS
+      const voiceovers: { sceneNumber: number; audioUrl: string }[] = [];
+      
+      for (const scene of project.scenes) {
+        try {
+          const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+            body: { text: scene.narration, voice: 'alloy' }
+          });
+          
+          if (ttsError) {
+            console.error('TTS error for scene', scene.sceneNumber, ':', ttsError);
+            continue;
+          }
+          
+          if (ttsData?.audioContent) {
+            voiceovers.push({
+              sceneNumber: scene.sceneNumber,
+              audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`
+            });
+            console.log('Generated voiceover for scene', scene.sceneNumber);
+          }
+        } catch (ttsErr) {
+          console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
+        }
+      }
+      
+      setProgress(15);
+      setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
+      
+      // Step 2: Generate scene images and start video tasks via backend
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: project.scenes,
@@ -347,10 +377,11 @@ const Reels = () => {
       setProject(prev => ({
         ...prev,
         generatedScenes,
+        voiceovers,
       }));
-      setProgress(40);
+      setProgress(30);
 
-      // Step 2: If we have video tasks, poll for completion
+      // Step 3: If we have video tasks, poll for completion
       if (videoTasks.length > 0) {
         setProject(prev => ({ ...prev, status: 'rendering-video' }));
         setProgressStatus(`Generating ${videoTasks.length} video clips with WaveSpeed...`);
@@ -395,7 +426,7 @@ const Reels = () => {
             }
           }
 
-          const progressPercent = 40 + Math.round((completedVideos.length / videoTasks.length) * 50);
+          const progressPercent = 30 + Math.round((completedVideos.length / videoTasks.length) * 40);
           setProgress(progressPercent);
 
           if (completedVideos.length < videoTasks.length) {
@@ -403,16 +434,35 @@ const Reels = () => {
           }
         }
 
-        // All videos completed - use the first one for now (or stitch later)
+        // Step 4: All videos completed - stitch them together with audio
         const sortedVideos = completedVideos.sort((a, b) => a.sceneNumber - b.sceneNumber);
-        const finalVideoUrl = sortedVideos[0]?.videoUrl;
-
-        if (finalVideoUrl) {
+        const sortedAudios = voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        
+        setProgress(75);
+        setProgressStatus('Stitching video clips with voiceover...');
+        
+        try {
+          const videoUrls = sortedVideos.map(v => v.videoUrl);
+          const audioUrls = sortedAudios.map(a => a.audioUrl);
+          
+          console.log('Stitching', videoUrls.length, 'videos with', audioUrls.length, 'audio tracks');
+          
+          const finalBlob = await stitchVideosWithAudio({
+            videoUrls,
+            audioUrls,
+            onProgress: (p) => setProgress(75 + Math.round(p * 0.2))
+          });
+          
+          // Create blob URL for playback
+          const blobUrl = URL.createObjectURL(finalBlob);
+          videoBlobRef.current = finalBlob;
+          
           setProject(prev => ({
             ...prev,
-            videoUrl: finalVideoUrl,
-            videoBlobUrl: finalVideoUrl,
+            videoUrl: blobUrl,
+            videoBlobUrl: blobUrl,
             generatedScenes,
+            voiceovers,
             status: 'complete'
           }));
 
@@ -422,13 +472,25 @@ const Reels = () => {
 
           if (user) {
             try {
+              // Upload the final video to storage
+              const fileName = `${user.id}/${Date.now()}-reel.mp4`;
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('reels')
+                .upload(fileName, finalBlob, { contentType: 'video/mp4' });
+              
+              let savedVideoUrl = blobUrl;
+              if (!uploadError && uploadData) {
+                const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                savedVideoUrl = publicUrl.publicUrl;
+              }
+              
               const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
               const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
 
               await supabase.from('reels').insert([{
                 user_id: user.id,
                 topic: project.topic,
-                video_url: finalVideoUrl,
+                video_url: savedVideoUrl,
                 thumbnail_url: thumbnailUrl,
                 scenes: generatedScenes as unknown as any,
                 total_duration: totalDuration
@@ -445,14 +507,39 @@ const Reels = () => {
 
           toast({
             title: "Video Generated!",
-            description: `Created ${completedVideos.length}-scene video with WaveSpeed and saved to library!`
+            description: `Created ${sortedVideos.length}-scene video with voiceover and saved to library!`
           });
+          
+        } catch (stitchError: any) {
+          console.error('Stitching failed:', stitchError);
+          
+          // Fallback: use the first video without stitching
+          const fallbackUrl = sortedVideos[0]?.videoUrl;
+          if (fallbackUrl) {
+            setProject(prev => ({
+              ...prev,
+              videoUrl: fallbackUrl,
+              videoBlobUrl: fallbackUrl,
+              generatedScenes,
+              voiceovers,
+              status: 'complete'
+            }));
+            
+            toast({
+              title: "Partial Success",
+              description: `Stitching failed. Showing first scene only. Error: ${stitchError.message}`,
+              variant: "destructive"
+            });
+          } else {
+            throw stitchError;
+          }
         }
       } else {
         // Fallback: No video tasks, just show images
         setProject(prev => ({
           ...prev,
           generatedScenes,
+          voiceovers,
           status: 'complete'
         }));
         setProgress(100);
