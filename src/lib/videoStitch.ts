@@ -1,21 +1,25 @@
 // Minimal client-side video stitching using ffmpeg.wasm
-// Keeps things simple: concatenates MP4 clips assuming identical codecs (Kie.ai outputs consistent params)
-// If concat copy fails, we surface an error with guidance.
+// Concatenates MP4 clips and optionally adds audio track
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
-export async function stitchVideos(urls: string[], onProgress?: (percent: number) => void): Promise<Blob> {
-  if (!urls || urls.length === 0) throw new Error('No video URLs provided');
-  if (urls.length === 1) {
-    // If only one video, just return it as-is
-    const response = await fetch(urls[0]);
-    return await response.blob();
-  }
+interface StitchOptions {
+  videoUrls: string[];
+  audioUrls?: string[]; // Audio files to concatenate and add as voiceover
+  onProgress?: (percent: number) => void;
+}
 
-  console.log('Starting video stitching for URLs:', urls);
+export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blob> {
+  const { videoUrls, audioUrls = [], onProgress } = options;
+  
+  if (!videoUrls || videoUrls.length === 0) throw new Error('No video URLs provided');
+
+  console.log('Starting video stitching for', videoUrls.length, 'videos and', audioUrls.length, 'audio files');
   
   const ffmpeg = new FFmpeg();
+  let ffmpegLoaded = false;
+  
   try {
     // Add progress tracking
     ffmpeg.on('progress', ({ progress }) => {
@@ -30,131 +34,123 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
 
     console.log('Loading FFmpeg...');
     
-    try {
-      // Using @ffmpeg/core (single-threaded) from jsdelivr
-      // This doesn't require SharedArrayBuffer/special headers
-      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-      
-      console.log(`Loading FFmpeg core from: ${baseURL}`);
-      
-      // Load FFmpeg without timeout
-      await ffmpeg.load({
+    // Using @ffmpeg/core (single-threaded) from jsdelivr
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    
+    console.log(`Loading FFmpeg core from: ${baseURL}`);
+    
+    // Create a timeout promise for loading
+    const loadTimeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('FFmpeg load timeout after 90 seconds')), 90000);
+    });
+    
+    // Race between loading and timeout
+    await Promise.race([
+      ffmpeg.load({
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-      
-      console.log('FFmpeg loaded successfully');
-    } catch (error) {
-      console.error('Failed to load FFmpeg:', error);
-      throw new Error(`FFmpeg loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+      }),
+      loadTimeout
+    ]);
+    
+    ffmpegLoaded = true;
+    console.log('FFmpeg loaded successfully');
 
-    // Write all parts to the FS
-    const partNames: string[] = [];
+    // Write all video parts to the FS
+    const videoPartNames: string[] = [];
     console.log('Downloading and writing video files...');
     
-    for (let i = 0; i < urls.length; i++) {
-      const name = `part${i}.mp4`;
-      console.log(`Downloading video ${i + 1}/${urls.length}: ${urls[i]}`);
+    for (let i = 0; i < videoUrls.length; i++) {
+      const name = `video${i}.mp4`;
+      console.log(`Downloading video ${i + 1}/${videoUrls.length}: ${videoUrls[i]}`);
       
       try {
-        // First test if the URL is accessible
-        console.log(`Testing URL accessibility for ${urls[i]}...`);
-        const testResponse = await fetch(urls[i], { method: 'HEAD' });
-        if (!testResponse.ok) {
-          throw new Error(`Video URL not accessible (${testResponse.status}): ${urls[i]}`);
-        }
-        console.log(`URL accessible, downloading ${name}...`);
-        
-        const data = await fetchFile(urls[i]);
+        const data = await fetchFile(videoUrls[i]);
         await ffmpeg.writeFile(name, data);
-        partNames.push(name);
+        videoPartNames.push(name);
         console.log(`Successfully wrote ${name}, size: ${data.length} bytes`);
       } catch (error) {
-        console.error(`Failed to download/write ${urls[i]}:`, error);
-        if (error instanceof Error && error.message.includes('fetch')) {
-          throw new Error(`Network error downloading video ${i + 1}. The video URL may have expired or be inaccessible: ${error.message}`);
-        }
+        console.error(`Failed to download/write video ${videoUrls[i]}:`, error);
         throw new Error(`Failed to download video segment ${i + 1}: ${error}`);
       }
     }
 
-    // Create concat list file
-    const concatList = partNames.map((n) => `file '${n}'`).join('\n');
-    console.log('Concat list:', concatList);
-    await ffmpeg.writeFile('concat.txt', new TextEncoder().encode(concatList));
-
-    // Create smooth transitions between clips
-    console.log('Creating video with smooth transitions...');
-    try {
-      if (partNames.length === 1) {
-        // Single video, just copy
-        await ffmpeg.exec(['-i', partNames[0], '-c', 'copy', 'output.mp4']);
-        console.log('Single video copy successful');
-      } else {
-        // Multiple videos with fade transitions
-        const transitionDuration = 0.5; // 500ms fade transition
+    // Write audio files if provided
+    const audioPartNames: string[] = [];
+    if (audioUrls.length > 0) {
+      console.log('Downloading and writing audio files...');
+      for (let i = 0; i < audioUrls.length; i++) {
+        const name = `audio${i}.mp3`;
+        console.log(`Downloading audio ${i + 1}/${audioUrls.length}`);
         
-        // Build complex filter for crossfade transitions
-        let filterComplex = '';
-        let inputs = '';
-        
-        // Add all inputs
-        for (let i = 0; i < partNames.length; i++) {
-          inputs += `-i ${partNames[i]} `;
-        }
-        
-        if (partNames.length === 2) {
-          // Simple crossfade for 2 videos
-          filterComplex = `[0:v][1:v]xfade=transition=fade:duration=${transitionDuration}:offset=14.5[vout];[0:a][1:a]acrossfade=d=${transitionDuration}[aout]`;
-        } else {
-          // Complex crossfade chain for multiple videos
-          let videoFilter = '';
-          let audioFilter = '';
-          
-          // Create crossfade chain
-          for (let i = 0; i < partNames.length - 1; i++) {
-            if (i === 0) {
-              videoFilter += `[0:v][1:v]xfade=transition=fade:duration=${transitionDuration}:offset=14.5[v01];`;
-              audioFilter += `[0:a][1:a]acrossfade=d=${transitionDuration}[a01];`;
-            } else if (i === partNames.length - 2) {
-              videoFilter += `[v0${i}][${i + 1}:v]xfade=transition=fade:duration=${transitionDuration}:offset=${14.5 + i * 15}[vout];`;
-              audioFilter += `[a0${i}][${i + 1}:a]acrossfade=d=${transitionDuration}[aout]`;
-            } else {
-              videoFilter += `[v0${i}][${i + 1}:v]xfade=transition=fade:duration=${transitionDuration}:offset=${14.5 + i * 15}[v0${i + 1}];`;
-              audioFilter += `[a0${i}][${i + 1}:a]acrossfade=d=${transitionDuration}[a0${i + 1}];`;
+        try {
+          // Handle base64 data URLs
+          let data: Uint8Array;
+          if (audioUrls[i].startsWith('data:')) {
+            const base64 = audioUrls[i].split(',')[1];
+            const binary = atob(base64);
+            data = new Uint8Array(binary.length);
+            for (let j = 0; j < binary.length; j++) {
+              data[j] = binary.charCodeAt(j);
             }
+          } else {
+            data = await fetchFile(audioUrls[i]);
           }
-          
-          filterComplex = videoFilter + audioFilter;
+          await ffmpeg.writeFile(name, data);
+          audioPartNames.push(name);
+          console.log(`Successfully wrote ${name}, size: ${data.length} bytes`);
+        } catch (error) {
+          console.error(`Failed to download/write audio ${i}:`, error);
+          // Continue without this audio file
         }
-        
-        console.log('Filter complex:', filterComplex);
-        
-        const ffmpegArgs = inputs.trim().split(' ').concat([
-          '-filter_complex', filterComplex,
-          '-map', '[vout]',
-          '-map', '[aout]',
-          '-c:v', 'libx264',
+      }
+    }
+
+    // Step 1: Concatenate videos
+    const videoConcatList = videoPartNames.map((n) => `file '${n}'`).join('\n');
+    console.log('Video concat list:', videoConcatList);
+    await ffmpeg.writeFile('video_concat.txt', new TextEncoder().encode(videoConcatList));
+
+    console.log('Concatenating videos...');
+    await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'video_concat.txt', '-c', 'copy', 'concat_video.mp4']);
+    console.log('Video concatenation successful');
+
+    // Step 2: If we have audio, concatenate and merge
+    if (audioPartNames.length > 0) {
+      // Concatenate audio files
+      const audioConcatList = audioPartNames.map((n) => `file '${n}'`).join('\n');
+      console.log('Audio concat list:', audioConcatList);
+      await ffmpeg.writeFile('audio_concat.txt', new TextEncoder().encode(audioConcatList));
+      
+      console.log('Concatenating audio files...');
+      await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'audio_concat.txt', '-c', 'copy', 'concat_audio.mp3']);
+      console.log('Audio concatenation successful');
+      
+      // Merge video and audio
+      console.log('Merging video with audio...');
+      try {
+        // Try to merge with shortest duration
+        await ffmpeg.exec([
+          '-i', 'concat_video.mp4',
+          '-i', 'concat_audio.mp3',
+          '-c:v', 'copy',
           '-c:a', 'aac',
+          '-map', '0:v:0',
+          '-map', '1:a:0',
+          '-shortest',
           '-movflags', 'faststart',
           'output.mp4'
         ]);
-        
-        await ffmpeg.exec(ffmpegArgs);
-        console.log('Transition-enhanced concatenation successful');
+        console.log('Video-audio merge successful');
+      } catch (mergeErr) {
+        console.log('Merge failed, using video only:', mergeErr);
+        // If merge fails, just use the concatenated video
+        await ffmpeg.exec(['-i', 'concat_video.mp4', '-c', 'copy', 'output.mp4']);
       }
-    } catch (transitionErr) {
-      console.log('Transition method failed, falling back to simple concat...', transitionErr);
-      // Fallback to simple concatenation without transitions
-      try {
-        await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
-        console.log('Fallback concatenation successful');
-      } catch (fallbackErr) {
-        console.log('Copy method failed, trying re-encode...', fallbackErr);
-        await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c:v', 'libx264', '-c:a', 'aac', '-movflags', 'faststart', 'output.mp4']);
-        console.log('Re-encode concatenation successful');
-      }
+    } else {
+      // No audio, just rename the concatenated video
+      console.log('No audio to add, using video only');
+      await ffmpeg.exec(['-i', 'concat_video.mp4', '-c', 'copy', 'output.mp4']);
     }
 
     console.log('Reading output file...');
@@ -162,15 +158,20 @@ export async function stitchVideos(urls: string[], onProgress?: (percent: number
     console.log('Output file size:', out.length, 'bytes');
     
     if (out.length === 0) {
-      throw new Error('Output video file is empty - concatenation may have failed');
+      throw new Error('Output video file is empty - processing may have failed');
     }
     
     const blob = new Blob([new Uint8Array(out.buffer as ArrayBuffer)], { type: 'video/mp4' });
-    console.log('Successfully created stitched video blob, size:', blob.size);
+    console.log('Successfully created final video blob, size:', blob.size);
     return blob;
     
   } catch (error) {
-    console.error('FFmpeg stitching failed:', error);
-    throw new Error(`Video stitching failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or contact support if the issue persists.`);
+    console.error('FFmpeg processing failed:', error);
+    throw new Error(`Video processing failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
   }
+}
+
+// Legacy function for backwards compatibility
+export async function stitchVideos(urls: string[], onProgress?: (percent: number) => void): Promise<Blob> {
+  return stitchVideosWithAudio({ videoUrls: urls, onProgress });
 }
