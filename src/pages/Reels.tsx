@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
-import { createReelVideo, downloadVideo } from '@/lib/reelVideoCreator';
+import { downloadVideo } from '@/lib/reelVideoCreator';
 import { 
   Sparkles, 
   FileText, 
@@ -320,23 +320,24 @@ const Reels = () => {
     setIsGenerating(true);
     setVideoError(null);
     setProject(prev => ({ ...prev, status: 'generating-video' }));
-    setProgress(30);
+    setProgress(10);
     setProgressStatus('Generating scene images...');
 
     try {
-      // Step 1: Generate scene images via backend
+      // Step 1: Generate scene images and start video tasks via backend
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: project.scenes,
-          voiceovers: project.voiceovers,
           topic: project.topic,
-          addCaptions: true
+          addCaptions: true,
+          useWaveSpeed: true
         }
       });
 
       if (error) throw error;
 
       const generatedScenes = data.scenes || [];
+      const videoTasks = data.videoTasks || [];
       const scenesWithImages = generatedScenes.filter((s: GeneratedScene) => s.imageUrl);
       
       if (scenesWithImages.length === 0) {
@@ -347,81 +348,122 @@ const Reels = () => {
         ...prev,
         generatedScenes,
       }));
-      setProgress(50);
-      
-      // Step 2: Create video with burned-in captions using FFmpeg
-      setProject(prev => ({ ...prev, status: 'rendering-video' }));
-      setProgressStatus('Rendering video with captions...');
-      
-      const sceneInputs = scenesWithImages.map((scene: GeneratedScene, index: number) => ({
-        sceneNumber: scene.sceneNumber,
-        imageUrl: scene.imageUrl!,
-        caption: scene.text,
-        duration: project.scenes[index]?.duration || 4
-      }));
+      setProgress(40);
 
-      const videoBlob = await createReelVideo({
-        scenes: sceneInputs,
-        width: 1080,
-        height: 1920,
-        onProgress: (percent, status) => {
-          setProgress(50 + Math.round(percent * 0.5));
-          setProgressStatus(status);
-        }
-      });
+      // Step 2: If we have video tasks, poll for completion
+      if (videoTasks.length > 0) {
+        setProject(prev => ({ ...prev, status: 'rendering-video' }));
+        setProgressStatus(`Generating ${videoTasks.length} video clips with WaveSpeed...`);
 
-      // Store blob reference and create URL
-      videoBlobRef.current = videoBlob;
-      const videoBlobUrl = URL.createObjectURL(videoBlob);
+        const completedVideos: { sceneNumber: number; videoUrl: string }[] = [];
+        const maxPollingTime = 300000; // 5 minutes max
+        const pollInterval = 5000; // 5 seconds between polls
+        const startTime = Date.now();
 
-      setProject(prev => ({
-        ...prev,
-        videoBlobUrl,
-        generatedScenes, // Ensure generatedScenes is in the final state for saving
-        status: 'complete'
-      }));
-      setProgress(95);
-      setProgressStatus('Saving to library...');
-
-      // Auto-save to library
-      if (user) {
-        try {
-          const fileName = `${user.id}/${Date.now()}-reel.mp4`;
-          const { error: uploadError } = await supabase.storage
-            .from('reels')
-            .upload(fileName, videoBlob, { contentType: 'video/mp4' });
-
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('reels')
-              .getPublicUrl(fileName);
-
-            const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-            const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
-
-            await supabase.from('reels').insert([{
-              user_id: user.id,
-              topic: project.topic,
-              video_url: publicUrl,
-              thumbnail_url: thumbnailUrl,
-              scenes: generatedScenes as unknown as any,
-              total_duration: totalDuration
-            }]);
-
-            fetchSavedReels();
+        while (completedVideos.length < videoTasks.length) {
+          if (Date.now() - startTime > maxPollingTime) {
+            throw new Error('Video generation timed out. Please try again.');
           }
-        } catch (saveError) {
-          console.error('Auto-save failed:', saveError);
+
+          for (const task of videoTasks) {
+            // Skip if already completed
+            if (completedVideos.find(v => v.sceneNumber === task.sceneNumber)) continue;
+
+            try {
+              const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+                body: { action: 'status', taskId: task.taskId }
+              });
+
+              if (statusError) {
+                console.error('Status check error:', statusError);
+                continue;
+              }
+
+              console.log(`Task ${task.taskId} status:`, statusData);
+
+              if (statusData.status === 'completed' && statusData.videoUrl) {
+                completedVideos.push({
+                  sceneNumber: task.sceneNumber,
+                  videoUrl: statusData.videoUrl
+                });
+                setProgressStatus(`Generated ${completedVideos.length}/${videoTasks.length} video clips...`);
+              } else if (statusData.status === 'failed') {
+                throw new Error(`Video generation failed for scene ${task.sceneNumber}: ${statusData.error || 'Unknown error'}`);
+              }
+            } catch (pollError) {
+              console.error('Polling error:', pollError);
+            }
+          }
+
+          const progressPercent = 40 + Math.round((completedVideos.length / videoTasks.length) * 50);
+          setProgress(progressPercent);
+
+          if (completedVideos.length < videoTasks.length) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
         }
+
+        // All videos completed - use the first one for now (or stitch later)
+        const sortedVideos = completedVideos.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        const finalVideoUrl = sortedVideos[0]?.videoUrl;
+
+        if (finalVideoUrl) {
+          setProject(prev => ({
+            ...prev,
+            videoUrl: finalVideoUrl,
+            videoBlobUrl: finalVideoUrl,
+            generatedScenes,
+            status: 'complete'
+          }));
+
+          // Auto-save to library
+          setProgress(95);
+          setProgressStatus('Saving to library...');
+
+          if (user) {
+            try {
+              const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+              const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+
+              await supabase.from('reels').insert([{
+                user_id: user.id,
+                topic: project.topic,
+                video_url: finalVideoUrl,
+                thumbnail_url: thumbnailUrl,
+                scenes: generatedScenes as unknown as any,
+                total_duration: totalDuration
+              }]);
+
+              fetchSavedReels();
+            } catch (saveError) {
+              console.error('Auto-save failed:', saveError);
+            }
+          }
+
+          setProgress(100);
+          setProgressStatus('Complete!');
+
+          toast({
+            title: "Video Generated!",
+            description: `Created ${completedVideos.length}-scene video with WaveSpeed and saved to library!`
+          });
+        }
+      } else {
+        // Fallback: No video tasks, just show images
+        setProject(prev => ({
+          ...prev,
+          generatedScenes,
+          status: 'complete'
+        }));
+        setProgress(100);
+        setProgressStatus('Images generated (no video tasks created)');
+
+        toast({
+          title: "Images Generated",
+          description: "Scene images created. Video generation unavailable.",
+          variant: "destructive"
+        });
       }
-
-      setProgress(100);
-      setProgressStatus('Complete!');
-
-      toast({
-        title: "TikTok Reel Ready!",
-        description: `Created ${scenesWithImages.length}-scene video with captions and saved to library!`
-      });
     } catch (error: any) {
       console.error('Video generation error:', error);
       const errorMessage = error.message || "Failed to generate video.";
@@ -466,9 +508,20 @@ const Reels = () => {
     setVideoError(null);
   };
 
-  const handleDownloadVideo = () => {
+  const handleDownloadVideo = async () => {
     if (videoBlobRef.current) {
       downloadVideo(videoBlobRef.current, `reel-${project.topic.slice(0, 20).replace(/\s+/g, '-')}.mp4`);
+    } else if (project.videoBlobUrl && project.videoBlobUrl.startsWith('http')) {
+      // Download from URL (WaveSpeed)
+      try {
+        const response = await fetch(project.videoBlobUrl);
+        const blob = await response.blob();
+        downloadVideo(blob, `reel-${project.topic.slice(0, 20).replace(/\s+/g, '-')}.mp4`);
+      } catch (error) {
+        console.error('Download error:', error);
+        // Fallback: open in new tab
+        window.open(project.videoBlobUrl, '_blank');
+      }
     }
   };
 
