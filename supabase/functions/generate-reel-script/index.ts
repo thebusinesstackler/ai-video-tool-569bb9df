@@ -141,20 +141,70 @@ EXAMPLE visual description format:
 
     console.log('Raw AI response:', content.substring(0, 500));
 
-    // Extract JSON from the response
+    // Extract JSON from the response - try multiple approaches
     let jsonContent = content;
+    
+    // Try to extract from code blocks first
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonContent = jsonMatch[1].trim();
+    } else {
+      // Try to find JSON array directly
+      const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (arrayMatch) {
+        jsonContent = arrayMatch[0];
+      }
     }
 
-    // Clean up the content
+    // Clean up problematic characters that break JSON parsing
+    jsonContent = jsonContent
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ') // Remove control characters
+      .replace(/\r\n/g, '\\n') // Normalize line endings in strings
+      .replace(/\r/g, '\\n')
+      .replace(/\t/g, ' ') // Replace tabs with spaces
+      .replace(/\\/g, '\\\\') // Escape backslashes (but not already escaped ones)
+      .replace(/\\\\\\/g, '\\\\') // Fix over-escaping
+      .replace(/\\\\"/g, '\\"') // Fix quote escaping
+      .replace(/([^\\])"/g, '$1\\"') // This might cause issues, let's be careful
+      .trim();
+
+    // Actually, let's use a safer approach - just clean control chars
+    jsonContent = content;
+    const jsonMatch2 = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch2) {
+      jsonContent = jsonMatch2[1].trim();
+    } else {
+      const arrayMatch2 = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (arrayMatch2) {
+        jsonContent = arrayMatch2[0];
+      }
+    }
+    
+    // Safe cleanup
     jsonContent = jsonContent
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
       .trim();
 
-    // Parse the scenes
-    let scenes = JSON.parse(jsonContent);
+    // Parse the scenes with error handling
+    let scenes;
+    try {
+      scenes = JSON.parse(jsonContent);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Attempted to parse:', jsonContent.substring(0, 500));
+      
+      // Try to fix common JSON issues
+      try {
+        // Remove trailing commas before ] or }
+        let fixedJson = jsonContent
+          .replace(/,\s*([}\]])/g, '$1')
+          .replace(/'/g, '"'); // Replace single quotes with double
+        scenes = JSON.parse(fixedJson);
+      } catch (retryError) {
+        console.error('Retry parse also failed:', retryError);
+        throw new Error('Failed to parse AI response as JSON. Please try again.');
+      }
+    }
 
     if (!Array.isArray(scenes) || scenes.length === 0) {
       throw new Error('Invalid scenes format');
