@@ -5,13 +5,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-  serve(async (req) => {
+interface IntroOutroConfig {
+  introTemplate?: string;
+  introText?: string;
+  outroTemplate?: string;
+  outroText?: string;
+}
+
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { topic, sceneCount = 4, targetDuration = 30 } = await req.json();
+    const { 
+      topic, 
+      sceneCount = 4, 
+      targetDuration = 30,
+      introConfig,
+      outroConfig
+    } = await req.json();
 
     if (!topic) {
       return new Response(
@@ -26,8 +39,14 @@ const corsHeaders = {
     }
 
     console.log('Generating reel script for topic:', topic);
+    console.log('Intro config:', introConfig);
+    console.log('Outro config:', outroConfig);
 
-    const sceneDuration = Math.round(targetDuration / sceneCount);
+    // Calculate scene duration excluding intro/outro
+    const introDuration = introConfig?.introTemplate && introConfig.introTemplate !== 'none' ? 3 : 0;
+    const outroDuration = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none' ? 3 : 0;
+    const contentDuration = targetDuration - introDuration - outroDuration;
+    const sceneDuration = Math.round(contentDuration / sceneCount);
 
     const systemPrompt = `You are a professional short-form video scriptwriter specializing in engaging Reels and TikTok content. 
 You create punchy, attention-grabbing scripts that are perfect for ${targetDuration}-second videos.
@@ -38,7 +57,7 @@ Your scripts should:
 - Be optimized for vertical video format
 - Have natural speaking rhythm for voiceover`;
 
-    const userPrompt = `Create ${sceneCount} scene scripts for a ${targetDuration}-second Reel about: "${topic}"
+    const userPrompt = `Create ${sceneCount} scene scripts for a ${contentDuration}-second Reel about: "${topic}"
 
 Each scene should be approximately ${sceneDuration} seconds when spoken aloud.
 
@@ -52,7 +71,7 @@ Return ONLY a valid JSON array with exactly ${sceneCount} scenes in this format:
   }
 ]
 
-Make the first scene a strong hook. Make the last scene a clear call-to-action or memorable conclusion.
+Make the first scene a strong hook. Make the last scene a clear conclusion.
 The narration should flow naturally when spoken and be engaging for social media.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -111,13 +130,49 @@ The narration should flow naturally when spoken and be engaging for social media
       .trim();
 
     // Parse the scenes
-    const scenes = JSON.parse(jsonContent);
+    let scenes = JSON.parse(jsonContent);
 
     if (!Array.isArray(scenes) || scenes.length === 0) {
       throw new Error('Invalid scenes format');
     }
 
-    console.log('Generated scenes:', scenes.length);
+    // Renumber scenes to account for intro
+    const hasIntro = introConfig?.introTemplate && introConfig.introTemplate !== 'none';
+    const hasOutro = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none';
+
+    if (hasIntro) {
+      // Shift all scene numbers up by 1
+      scenes = scenes.map((scene: any, index: number) => ({
+        ...scene,
+        sceneNumber: index + 2 // Start from 2
+      }));
+
+      // Add intro scene at the beginning
+      const introScene = {
+        sceneNumber: 1,
+        narration: introConfig.introText || getDefaultIntroText(introConfig.introTemplate, topic),
+        visualDescription: getIntroVisualDescription(introConfig.introTemplate, topic),
+        duration: 3,
+        isIntro: true,
+        templateId: introConfig.introTemplate
+      };
+      scenes.unshift(introScene);
+    }
+
+    if (hasOutro) {
+      // Add outro scene at the end
+      const outroScene = {
+        sceneNumber: scenes.length + 1,
+        narration: outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate),
+        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate),
+        duration: 3,
+        isOutro: true,
+        templateId: outroConfig.outroTemplate
+      };
+      scenes.push(outroScene);
+    }
+
+    console.log('Generated scenes:', scenes.length, 'with intro:', hasIntro, 'outro:', hasOutro);
 
     return new Response(
       JSON.stringify({ scenes }),
@@ -132,3 +187,64 @@ The narration should flow naturally when spoken and be engaging for social media
     );
   }
 });
+
+// Helper functions for intro/outro defaults
+function getDefaultIntroText(templateId: string, topic: string): string {
+  switch (templateId) {
+    case 'hook-text':
+      return 'Wait for it...';
+    case 'topic-title':
+      return topic;
+    case 'question-hook':
+      return 'Did you know...?';
+    case 'countdown':
+      return '3 Things You Need to Know';
+    default:
+      return '';
+  }
+}
+
+function getDefaultOutroText(templateId: string): string {
+  switch (templateId) {
+    case 'cta-follow':
+      return 'Follow for more!';
+    case 'cta-subscribe':
+      return 'Subscribe for Part 2!';
+    case 'cta-comment':
+      return 'What do you think? Comment below!';
+    case 'cta-share':
+      return 'Share this with a friend!';
+    default:
+      return '';
+  }
+}
+
+function getIntroVisualDescription(templateId: string, topic: string): string {
+  switch (templateId) {
+    case 'hook-text':
+      return 'Dynamic gradient background with bold kinetic typography, eye-catching colors, modern social media style';
+    case 'topic-title':
+      return `Sleek minimal title card displaying "${topic}" with elegant typography, subtle animated background`;
+    case 'question-hook':
+      return 'Thought-provoking visual with question mark motifs, intriguing atmosphere, curiosity-inducing design';
+    case 'countdown':
+      return 'Energetic countdown animation style, bold numbers, exciting buildup atmosphere, vibrant colors';
+    default:
+      return '';
+  }
+}
+
+function getOutroVisualDescription(templateId: string): string {
+  switch (templateId) {
+    case 'cta-follow':
+      return 'Engaging call-to-action design with follow button imagery, social media icons, arrow pointing, vibrant and friendly';
+    case 'cta-subscribe':
+      return 'Subscribe button animation style, notification bell icon, exciting teaser atmosphere';
+    case 'cta-comment':
+      return 'Interactive comment bubble design, question marks, community engagement vibes, friendly and inviting';
+    case 'cta-share':
+      return 'Share arrow icons, viral growth visualization, spreading network design, energetic and shareable';
+    default:
+      return '';
+  }
+}
