@@ -189,11 +189,12 @@ serve(async (req) => {
         
         try {
           // Use actual audio duration if provided, otherwise fall back to scene duration
-          // WaveSpeed max duration is 8s per clip, so we may need multiple clips for longer audio
+          // WaveSpeed requires integer duration between 3-10 seconds
           const targetDuration = scene.audioDuration || scene.duration;
-          const clipDuration = Math.min(targetDuration, 8);
+          // Round to nearest valid integer (3-10), clamp to range
+          const clipDuration = Math.max(3, Math.min(10, Math.round(targetDuration)));
           
-          console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
+          console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s (integer)`);
           
           // Use WaveSpeed image-to-video API
           const videoResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
