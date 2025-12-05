@@ -8,11 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { downloadVideo } from '@/lib/reelVideoCreator';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
+import { useCreatomate } from '@/hooks/useCreatomate';
 import { TemplateSelector } from '@/components/TemplateSelector';
 import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
 import { 
@@ -29,7 +31,9 @@ import {
   Trash2,
   Play,
   ChevronDown,
-  Palette
+  Palette,
+  Cloud,
+  Monitor
 } from 'lucide-react';
 
 // Speech Recognition types
@@ -163,6 +167,10 @@ const Reels = () => {
   const [introText, setIntroText] = useState('');
   const [outroText, setOutroText] = useState('');
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
+  
+  // Server-side stitching with Creatomate
+  const [useServerStitching, setUseServerStitching] = useState(true);
+  const { stitchWithCreatomate, isStitching: isCreatomateStitching, progress: creatomateProgress, status: creatomateStatus } = useCreatomate();
   
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
@@ -481,105 +489,49 @@ const Reels = () => {
         setProgress(75);
         setProgressStatus('Stitching video clips with voiceover...');
         
-        try {
-          const videoUrls = sortedVideos.map(v => v.videoUrl);
-          const audioUrls = sortedAudios.map(a => a.audioUrl);
+        // Choose stitching method
+        if (useServerStitching) {
+          // Use Creatomate for server-side stitching
+          setProgressStatus('Rendering with Creatomate (server-side)...');
           
-          console.log('Stitching', videoUrls.length, 'videos with', audioUrls.length, 'audio tracks');
-          
-          const finalBlob = await stitchVideosWithAudio({
-            videoUrls,
-            audioUrls,
-            onProgress: (p) => setProgress(75 + Math.round(p * 0.2))
-          });
-          
-          // Create blob URL for playback
-          const blobUrl = URL.createObjectURL(finalBlob);
-          videoBlobRef.current = finalBlob;
-          
-          setProject(prev => ({
-            ...prev,
-            videoUrl: blobUrl,
-            videoBlobUrl: blobUrl,
-            generatedScenes,
-            voiceovers,
-            videoClips: sortedVideos,
-            status: 'complete'
+          // Combine all audio into a single track URL or use first one
+          // For now, we'll pass captions and let Creatomate handle text overlay
+          const clips = sortedVideos.map((v, idx) => ({
+            url: v.videoUrl,
+            duration: project.scenes[idx]?.duration || 5,
+            caption: project.scenes[idx]?.narration || ''
           }));
-
-          // Auto-save to library
-          setProgress(95);
-          setProgressStatus('Saving to library...');
-
-          if (user) {
-            try {
-              // Upload the final video to storage
-              const fileName = `${user.id}/${Date.now()}-reel.mp4`;
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('reels')
-                .upload(fileName, finalBlob, { contentType: 'video/mp4' });
-              
-              let savedVideoUrl = blobUrl;
-              if (!uploadError && uploadData) {
-                const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                savedVideoUrl = publicUrl.publicUrl;
-              }
-              
-              const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-              const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
-
-              // Merge video URLs into scenes for saving
-              const scenesWithVideos = generatedScenes.map((scene, index) => ({
-                ...scene,
-                videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
-              }));
-
-              await supabase.from('reels').insert([{
-                user_id: user.id,
-                topic: project.topic,
-                video_url: savedVideoUrl,
-                thumbnail_url: thumbnailUrl,
-                scenes: scenesWithVideos as unknown as any,
-                total_duration: totalDuration
-              }]);
-
-              fetchSavedReels();
-            } catch (saveError) {
-              console.error('Auto-save failed:', saveError);
-            }
-          }
-
-          setProgress(100);
-          setProgressStatus('Complete!');
-
-          toast({
-            title: "Video Generated!",
-            description: `Created ${sortedVideos.length}-scene video with voiceover and saved to library!`
+          
+          // For audio, we need a publicly accessible URL
+          // Since voiceovers are base64, we'll skip audio for now in Creatomate
+          // and rely on the caption text overlay
+          const result = await stitchWithCreatomate({
+            clips,
+            transition: 'fade',
+            captionStyle: 'bottom'
           });
           
-        } catch (stitchError: any) {
-          console.error('Stitching failed:', stitchError);
-          
-          // Fallback: store all video clips so user can view them individually
-          if (sortedVideos.length > 0) {
+          if (result.success && result.videoUrl) {
             setProject(prev => ({
               ...prev,
-              videoUrl: sortedVideos[0]?.videoUrl,
-              videoBlobUrl: sortedVideos[0]?.videoUrl,
+              videoUrl: result.videoUrl!,
+              videoBlobUrl: result.videoUrl!,
               generatedScenes,
               voiceovers,
               videoClips: sortedVideos,
               status: 'complete'
             }));
 
-            // Still save to library with all video URLs
+            // Auto-save to library
+            setProgress(95);
+            setProgressStatus('Saving to library...');
+
             if (user) {
               try {
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
                 const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
 
-                // Merge video URLs into scenes for saving
-                const scenesWithVideos = generatedScenes.map((scene, index) => ({
+                const scenesWithVideos = generatedScenes.map((scene) => ({
                   ...scene,
                   videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
                 }));
@@ -587,26 +539,157 @@ const Reels = () => {
                 await supabase.from('reels').insert([{
                   user_id: user.id,
                   topic: project.topic,
-                  video_url: sortedVideos[0]?.videoUrl,
+                  video_url: result.videoUrl,
                   thumbnail_url: thumbnailUrl,
                   scenes: scenesWithVideos as unknown as any,
                   total_duration: totalDuration
                 }]);
+
                 fetchSavedReels();
               } catch (saveError) {
                 console.error('Auto-save failed:', saveError);
               }
             }
-            
+
             setProgress(100);
-            setProgressStatus('Complete (individual clips)');
-            
+            setProgressStatus('Complete!');
+
             toast({
-              title: "Videos Generated",
-              description: `Generated ${sortedVideos.length} video clips. Browser stitching unavailable - use clip navigation below.`,
+              title: "Video Generated!",
+              description: `Created ${sortedVideos.length}-scene video with Creatomate and saved to library!`
             });
           } else {
-            throw stitchError;
+            throw new Error(result.error || 'Creatomate rendering failed');
+          }
+        } else {
+          // Use client-side FFmpeg stitching
+          try {
+            const videoUrls = sortedVideos.map(v => v.videoUrl);
+            const audioUrls = sortedAudios.map(a => a.audioUrl);
+            
+            console.log('Stitching', videoUrls.length, 'videos with', audioUrls.length, 'audio tracks');
+            
+            const finalBlob = await stitchVideosWithAudio({
+              videoUrls,
+              audioUrls,
+              onProgress: (p) => setProgress(75 + Math.round(p * 0.2))
+            });
+            
+            // Create blob URL for playback
+            const blobUrl = URL.createObjectURL(finalBlob);
+            videoBlobRef.current = finalBlob;
+            
+            setProject(prev => ({
+              ...prev,
+              videoUrl: blobUrl,
+              videoBlobUrl: blobUrl,
+              generatedScenes,
+              voiceovers,
+              videoClips: sortedVideos,
+              status: 'complete'
+            }));
+
+            // Auto-save to library
+            setProgress(95);
+            setProgressStatus('Saving to library...');
+
+            if (user) {
+              try {
+                // Upload the final video to storage
+                const fileName = `${user.id}/${Date.now()}-reel.mp4`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from('reels')
+                  .upload(fileName, finalBlob, { contentType: 'video/mp4' });
+                
+                let savedVideoUrl = blobUrl;
+                if (!uploadError && uploadData) {
+                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                  savedVideoUrl = publicUrl.publicUrl;
+                }
+                
+                const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+
+                // Merge video URLs into scenes for saving
+                const scenesWithVideos = generatedScenes.map((scene) => ({
+                  ...scene,
+                  videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
+                }));
+
+                await supabase.from('reels').insert([{
+                  user_id: user.id,
+                  topic: project.topic,
+                  video_url: savedVideoUrl,
+                  thumbnail_url: thumbnailUrl,
+                  scenes: scenesWithVideos as unknown as any,
+                  total_duration: totalDuration
+                }]);
+
+                fetchSavedReels();
+              } catch (saveError) {
+                console.error('Auto-save failed:', saveError);
+              }
+            }
+
+            setProgress(100);
+            setProgressStatus('Complete!');
+
+            toast({
+              title: "Video Generated!",
+              description: `Created ${sortedVideos.length}-scene video with voiceover and saved to library!`
+            });
+            
+          } catch (stitchError: any) {
+            console.error('Stitching failed:', stitchError);
+            
+            // Fallback: store all video clips so user can view them individually
+            if (sortedVideos.length > 0) {
+              setProject(prev => ({
+                ...prev,
+                videoUrl: sortedVideos[0]?.videoUrl,
+                videoBlobUrl: sortedVideos[0]?.videoUrl,
+                generatedScenes,
+                voiceovers,
+                videoClips: sortedVideos,
+                status: 'complete'
+              }));
+
+              // Still save to library with all video URLs
+              if (user) {
+                try {
+                  const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                  const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+
+                  // Merge video URLs into scenes for saving
+                  const scenesWithVideos = generatedScenes.map((scene) => ({
+                    ...scene,
+                    videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
+                  }));
+
+                  await supabase.from('reels').insert([{
+                    user_id: user.id,
+                    topic: project.topic,
+                    video_url: sortedVideos[0]?.videoUrl,
+                    thumbnail_url: thumbnailUrl,
+                    scenes: scenesWithVideos as unknown as any,
+                    total_duration: totalDuration
+                  }]);
+                  fetchSavedReels();
+                } catch (saveError) {
+                  console.error('Auto-save failed:', saveError);
+                }
+              }
+              
+              setProgress(100);
+              setProgressStatus('Complete (individual clips)');
+              
+              toast({
+                title: "Videos Generated",
+                description: `Generated ${sortedVideos.length} video clips. Browser stitching unavailable - use clip navigation below.`,
+              });
+            } else {
+              throw stitchError;
+            }
           }
         }
       } else {
@@ -736,19 +819,30 @@ const Reels = () => {
 
           <TabsContent value="create" className="space-y-6">
             {/* Progress Bar */}
-            {isGenerating && (
+            {(isGenerating || isCreatomateStitching) && (
               <Card className="bg-card border-border">
                 <CardContent className="pt-6">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {project.status === 'generating-script' && 'Generating scripts...'}
-                        {project.status === 'generating-video' && 'Generating scene images...'}
-                        {project.status === 'rendering-video' && (progressStatus || 'Rendering video with captions...')}
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        {isCreatomateStitching ? (
+                          <>
+                            <Cloud className="w-4 h-4 text-primary" />
+                            {creatomateStatus || 'Rendering with Creatomate...'}
+                          </>
+                        ) : (
+                          <>
+                            {project.status === 'generating-script' && 'Generating scripts...'}
+                            {project.status === 'generating-video' && 'Generating scene images...'}
+                            {project.status === 'rendering-video' && (progressStatus || 'Rendering video with captions...')}
+                          </>
+                        )}
                       </span>
-                      <span className="text-primary font-medium">{progress}%</span>
+                      <span className="text-primary font-medium">
+                        {isCreatomateStitching ? creatomateProgress : progress}%
+                      </span>
                     </div>
-                    <Progress value={progress} className="h-2" />
+                    <Progress value={isCreatomateStitching ? creatomateProgress : progress} className="h-2" />
                   </div>
                 </CardContent>
               </Card>
@@ -824,7 +918,7 @@ const Reels = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Video Duration</Label>
                     <Select value={selectedDuration} onValueChange={setSelectedDuration} disabled={isGenerating}>
@@ -839,6 +933,31 @@ const Reels = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      Rendering Mode
+                      {useServerStitching ? (
+                        <Cloud className="w-4 h-4 text-primary" />
+                      ) : (
+                        <Monitor className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </Label>
+                    <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-border bg-background">
+                      <span className={`text-sm ${!useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Browser</span>
+                      <Switch
+                        checked={useServerStitching}
+                        onCheckedChange={setUseServerStitching}
+                        disabled={isGenerating}
+                      />
+                      <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {useServerStitching 
+                        ? 'Creatomate: Reliable, with captions baked in' 
+                        : 'FFmpeg in browser: Free, but may timeout'}
+                    </p>
                   </div>
 
                   <div className="flex items-end">
