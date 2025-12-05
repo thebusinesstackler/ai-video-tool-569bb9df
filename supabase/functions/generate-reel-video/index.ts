@@ -11,6 +11,7 @@ interface Scene {
   narration: string;
   visualDescription: string;
   duration: number;
+  audioDuration?: number; // Actual voiceover duration - takes precedence
   isIntro?: boolean;
   isOutro?: boolean;
   templateId?: string;
@@ -187,6 +188,13 @@ serve(async (req) => {
         }
         
         try {
+          // Use actual audio duration if provided, otherwise fall back to scene duration
+          // WaveSpeed max duration is 8s per clip, so we may need multiple clips for longer audio
+          const targetDuration = scene.audioDuration || scene.duration;
+          const clipDuration = Math.min(targetDuration, 8);
+          
+          console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
+          
           // Use WaveSpeed image-to-video API
           const videoResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
             method: 'POST',
@@ -198,7 +206,7 @@ serve(async (req) => {
               image: imageUrl,
               prompt: motionPrompt,
               resolution: "480p",
-              duration: Math.min(scene.duration, 8) // WaveSpeed max duration per clip
+              duration: clipDuration
             }),
           });
 
