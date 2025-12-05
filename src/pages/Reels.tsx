@@ -91,8 +91,11 @@ interface GeneratedScene {
   text: string;
   imageUrl: string | null;
   savedImageUrl?: string | null;
+  videoUrl?: string | null;
   startTime: number;
   endTime: number;
+  isIntro?: boolean;
+  isOutro?: boolean;
 }
 
 interface VideoClip {
@@ -524,12 +527,18 @@ const Reels = () => {
               const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
               const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
 
+              // Merge video URLs into scenes for saving
+              const scenesWithVideos = generatedScenes.map((scene, index) => ({
+                ...scene,
+                videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
+              }));
+
               await supabase.from('reels').insert([{
                 user_id: user.id,
                 topic: project.topic,
                 video_url: savedVideoUrl,
                 thumbnail_url: thumbnailUrl,
-                scenes: generatedScenes as unknown as any,
+                scenes: scenesWithVideos as unknown as any,
                 total_duration: totalDuration
               }]);
 
@@ -562,18 +571,24 @@ const Reels = () => {
               status: 'complete'
             }));
 
-            // Still save to library with the first video URL
+            // Still save to library with all video URLs
             if (user) {
               try {
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
                 const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0);
+
+                // Merge video URLs into scenes for saving
+                const scenesWithVideos = generatedScenes.map((scene, index) => ({
+                  ...scene,
+                  videoUrl: sortedVideos.find(v => v.sceneNumber === scene.sceneNumber)?.videoUrl || null
+                }));
 
                 await supabase.from('reels').insert([{
                   user_id: user.id,
                   topic: project.topic,
                   video_url: sortedVideos[0]?.videoUrl,
                   thumbnail_url: thumbnailUrl,
-                  scenes: generatedScenes as unknown as any,
+                  scenes: scenesWithVideos as unknown as any,
                   total_duration: totalDuration
                 }]);
                 fetchSavedReels();
@@ -1117,63 +1132,107 @@ const Reels = () => {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {savedReels.map((reel) => (
-                  <Card key={reel.id} className="bg-card border-border overflow-hidden">
-                    <div className="aspect-[9/16] bg-black relative">
-                      {reel.video_url ? (
-                        <video
-                          src={reel.video_url}
-                          className="w-full h-full object-contain"
-                          controls
-                          playsInline
-                        />
-                      ) : reel.thumbnail_url ? (
-                        <img
-                          src={reel.thumbnail_url}
-                          alt={reel.topic}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                          <Video className="w-12 h-12" />
+                {savedReels.map((reel) => {
+                  // Get video clips from scenes
+                  const videoClips = reel.scenes?.filter(s => s.videoUrl) || [];
+                  const hasMultipleClips = videoClips.length > 1;
+                  
+                  return (
+                    <Card key={reel.id} className="bg-card border-border overflow-hidden">
+                      <div className="aspect-[9/16] bg-black relative">
+                        {reel.video_url ? (
+                          <video
+                            src={reel.video_url}
+                            className="w-full h-full object-contain"
+                            controls
+                            playsInline
+                          />
+                        ) : reel.thumbnail_url ? (
+                          <img
+                            src={reel.thumbnail_url}
+                            alt={reel.topic}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <Video className="w-12 h-12" />
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
+                          <p className="text-white text-sm font-medium line-clamp-2">{reel.topic}</p>
+                          <p className="text-white/70 text-xs mt-1">
+                            {new Date(reel.created_at).toLocaleDateString()} • {reel.total_duration}s • {reel.scenes?.length || 0} scenes
+                          </p>
+                        </div>
+                        {hasMultipleClips && (
+                          <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                            {videoClips.length} clips
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Scene clips grid */}
+                      {hasMultipleClips && (
+                        <div className="p-3 border-t border-border">
+                          <p className="text-xs text-muted-foreground mb-2">Individual Clips:</p>
+                          <div className="grid grid-cols-5 gap-1">
+                            {reel.scenes?.map((scene, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  if (scene.videoUrl) {
+                                    window.open(scene.videoUrl, '_blank');
+                                  }
+                                }}
+                                className="aspect-square rounded overflow-hidden bg-muted relative group"
+                                disabled={!scene.videoUrl}
+                              >
+                                {scene.imageUrl ? (
+                                  <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-xs">{idx + 1}</div>
+                                )}
+                                {scene.videoUrl && (
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Play className="w-3 h-3 text-white" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
-                        <p className="text-white text-sm font-medium line-clamp-2">{reel.topic}</p>
-                        <p className="text-white/70 text-xs mt-1">
-                          {new Date(reel.created_at).toLocaleDateString()} • {reel.total_duration}s
-                        </p>
-                      </div>
-                    </div>
-                    <CardContent className="pt-4">
-                      <div className="flex gap-2">
-                        {reel.video_url && (
+                      
+                      <CardContent className="pt-4">
+                        <div className="flex gap-2">
+                          {reel.video_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = reel.video_url!;
+                                link.download = `reel-${reel.topic.slice(0, 20)}.mp4`;
+                                link.click();
+                              }}
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </Button>
+                          )}
                           <Button
-                            variant="outline"
+                            variant="destructive"
                             size="sm"
-                            className="flex-1"
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = reel.video_url!;
-                              link.download = `reel-${reel.topic.slice(0, 20)}.mp4`;
-                              link.click();
-                            }}
+                            onClick={() => deleteReel(reel.id, reel.video_url)}
                           >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
+                            <Trash2 className="w-4 h-4" />
                           </Button>
-                        )}
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteReel(reel.id, reel.video_url)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
