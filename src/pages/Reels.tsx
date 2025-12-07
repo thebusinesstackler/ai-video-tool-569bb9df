@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -1421,13 +1422,36 @@ const Reels = () => {
                     </div>
                   )}
 
-                  {/* Scene Images Gallery - show only if no video */}
+                  {/* Scene Images/Videos Gallery - show only if no stitched video */}
                   {!project.videoBlobUrl && project.generatedScenes.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {project.generatedScenes.map((scene) => (
                         <div key={scene.sceneNumber} className="relative group">
                           <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
-                            {scene.imageUrl ? (
+                            {scene.videoUrl ? (
+                              <VideoPlayer
+                                videoUrl={scene.videoUrl}
+                                title={`Scene ${scene.sceneNumber}`}
+                                trigger={
+                                  <div className="relative cursor-pointer w-full h-full">
+                                    {scene.imageUrl ? (
+                                      <img
+                                        src={scene.imageUrl}
+                                        alt={`Scene ${scene.sceneNumber}`}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                        Video
+                                      </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Play className="w-10 h-10 text-white drop-shadow-lg" />
+                                    </div>
+                                  </div>
+                                }
+                              />
+                            ) : scene.imageUrl ? (
                               <img
                                 src={scene.imageUrl}
                                 alt={`Scene ${scene.sceneNumber}`}
@@ -1439,13 +1463,19 @@ const Reels = () => {
                               </div>
                             )}
                             {/* Caption overlay */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pointer-events-none">
                               <p className="text-white text-xs line-clamp-3">{scene.text}</p>
                             </div>
                             {/* Scene number badge */}
-                            <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                            <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold pointer-events-none">
                               {scene.sceneNumber}
                             </div>
+                            {/* Video indicator */}
+                            {scene.videoUrl && (
+                              <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded pointer-events-none">
+                                <Video className="w-3 h-3" />
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1555,27 +1585,28 @@ const Reels = () => {
                           <p className="text-xs text-muted-foreground mb-2">Individual Clips:</p>
                           <div className="grid grid-cols-5 gap-1">
                             {reel.scenes?.map((scene, idx) => (
-                              <button
+                              <VideoPlayer
                                 key={idx}
-                                onClick={() => {
-                                  if (scene.videoUrl) {
-                                    window.open(scene.videoUrl, '_blank');
-                                  }
-                                }}
-                                className="aspect-square rounded overflow-hidden bg-muted relative group"
-                                disabled={!scene.videoUrl}
-                              >
-                                {scene.imageUrl ? (
-                                  <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-xs">{idx + 1}</div>
-                                )}
-                                {scene.videoUrl && (
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Play className="w-3 h-3 text-white" />
-                                  </div>
-                                )}
-                              </button>
+                                videoUrl={scene.videoUrl || ''}
+                                title={`Scene ${idx + 1}`}
+                                trigger={
+                                  <button
+                                    className="aspect-square rounded overflow-hidden bg-muted relative group cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={!scene.videoUrl}
+                                  >
+                                    {scene.imageUrl ? (
+                                      <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-xs">{idx + 1}</div>
+                                    )}
+                                    {scene.videoUrl && (
+                                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Play className="w-3 h-3 text-white" />
+                                      </div>
+                                    )}
+                                  </button>
+                                }
+                              />
                             ))}
                           </div>
                         </div>
