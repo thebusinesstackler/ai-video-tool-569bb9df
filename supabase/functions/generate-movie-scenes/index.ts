@@ -136,30 +136,68 @@ Return ONLY the JSON array, no markdown formatting or code blocks.`;
 
     console.log('Content to parse (first 500 chars):', generatedContent.substring(0, 500));
 
-    // Sanitize the content by removing/escaping control characters
-    const sanitizedContent = generatedContent.replace(/[\u0000-\u001F\u007F-\u009F]/g, (char: string) => {
-      // Replace common control characters with their escaped versions
-      const escapeMap: { [key: string]: string } = {
-        '\n': '\\n',
-        '\r': '\\r',
-        '\t': '\\t',
-      };
-      return escapeMap[char] || '';
-    });
-
-    // Parse the scenes
+    // Parse the scenes with multiple fallback strategies
     let scenes;
+    let lastError;
+    
+    // Try 1: Direct parse (content is already valid JSON)
     try {
-      scenes = JSON.parse(sanitizedContent);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Failed content (first 1000 chars):', sanitizedContent.substring(0, 1000));
-      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
-      throw new Error(`Failed to parse AI response: ${errorMessage}`);
+      scenes = JSON.parse(generatedContent);
+      console.log('Parsed directly');
+    } catch (e1) {
+      lastError = e1;
+      console.log('Direct parse failed, trying cleanup...');
+      
+      // Try 2: Clean up common issues
+      try {
+        let cleaned = generatedContent
+          // Remove any BOM or invisible characters at start
+          .replace(/^\uFEFF/, '')
+          // Fix unescaped newlines inside strings (replace actual newlines with spaces in string values)
+          .trim();
+        
+        scenes = JSON.parse(cleaned);
+        console.log('Parsed after basic cleanup');
+      } catch (e2) {
+        lastError = e2;
+        console.log('Basic cleanup failed, trying aggressive cleanup...');
+        
+        // Try 3: More aggressive cleanup
+        try {
+          // Remove control characters except those that are valid in JSON strings
+          let aggressive = generatedContent
+            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+            .trim();
+          
+          scenes = JSON.parse(aggressive);
+          console.log('Parsed after aggressive cleanup');
+        } catch (e3) {
+          lastError = e3;
+          console.log('Aggressive cleanup failed, trying line-by-line fix...');
+          
+          // Try 4: Fix common JSON issues
+          try {
+            let fixed = generatedContent
+              // Remove trailing commas before ] or }
+              .replace(/,\s*([\]}])/g, '$1')
+              // Fix single quotes to double quotes (careful with apostrophes)
+              .replace(/(?<![a-zA-Z])'([^']*)'(?![a-zA-Z])/g, '"$1"')
+              .trim();
+            
+            scenes = JSON.parse(fixed);
+            console.log('Parsed after fixing common JSON issues');
+          } catch (e4) {
+            console.error('All parse attempts failed');
+            console.error('Last error:', e4);
+            console.error('Content preview:', generatedContent.substring(0, 500));
+            throw new Error(`Failed to parse AI response: ${e4 instanceof Error ? e4.message : 'Unknown error'}`);
+          }
+        }
+      }
     }
 
     if (!Array.isArray(scenes) || scenes.length === 0) {
-      throw new Error('Invalid scenes format');
+      throw new Error('Invalid scenes format - expected non-empty array');
     }
 
     console.log(`Successfully generated ${scenes.length} scenes`);
