@@ -68,16 +68,16 @@ serve(async (req) => {
 
     console.log('Generating TTS with WaveSpeed MiniMax for text length:', text.length);
 
-    // Map voice parameter to WaveSpeed voice_id
+    // Map voice parameter to WaveSpeed English voice_id
     const voiceIdMap: Record<string, string> = {
-      'alloy': 'male-qn-qingse',
-      'echo': 'male-qn-jingying',
-      'fable': 'female-shaonv',
-      'onyx': 'male-qn-badao',
-      'nova': 'female-yujie',
-      'shimmer': 'female-chengshu'
+      'alloy': 'Friendly_Person',
+      'echo': 'Deep_Voice_Man',
+      'fable': 'Inspirational_girl',
+      'onyx': 'Imposing_Manner',
+      'nova': 'Lively_Girl',
+      'shimmer': 'Calm_Woman'
     };
-    const voiceId = voiceIdMap[voice] || 'male-qn-jingying';
+    const voiceId = voiceIdMap[voice] || 'Friendly_Person';
 
     console.log('Using voice_id:', voiceId);
 
@@ -96,6 +96,7 @@ serve(async (req) => {
         pitch: 0,
         emotion: emotion,
         english_normalization: true,
+        language_boost: 'English',
         enable_sync_mode: false
       }),
     });

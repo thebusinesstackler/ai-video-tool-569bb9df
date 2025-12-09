@@ -47,6 +47,9 @@ async function generateWaveSpeedTTS(
   try {
     console.log('Generating TTS with WaveSpeed MiniMax Speech-02...');
     
+    // Use English voice ID
+    const voiceId = 'Friendly_Person';
+    
     const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
       headers: {
@@ -55,11 +58,13 @@ async function generateWaveSpeedTTS(
       },
       body: JSON.stringify({
         text: text,
+        voice_id: voiceId,
         speed: speed,
         volume: 1,
         pitch: 0,
         emotion: emotion,
         english_normalization: true,
+        language_boost: 'English',
         enable_sync_mode: false
       }),
     });
