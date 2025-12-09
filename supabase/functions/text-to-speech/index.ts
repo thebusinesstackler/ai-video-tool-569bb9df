@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -6,74 +5,123 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Poll for WaveSpeed TTS result
+async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempts: number = 60): Promise<string | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('TTS poll error:', response.status);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+
+      const data = await response.json();
+      console.log('TTS poll result:', data.data?.status);
+      
+      if (data.code === 200 && data.data) {
+        if (data.data.status === 'completed' || data.data.status === 'succeeded') {
+          // Audio URL is in outputs array
+          const audioUrl = data.data.outputs?.[0];
+          if (audioUrl) {
+            console.log('TTS completed, audio URL:', audioUrl);
+            return audioUrl;
+          }
+        } else if (data.data.status === 'failed') {
+          console.error('TTS task failed:', data.data.error);
+          return null;
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error('TTS poll error:', error);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  console.error('TTS polling timed out');
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { text, voice = 'alloy' } = await req.json();
+    const { text, voice = 'neutral', speed = 1, emotion = 'neutral' } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    const googleCloudApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
-    if (!googleCloudApiKey) {
-      throw new Error('Google Cloud TTS API key not configured');
+    const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
+    if (!waveSpeedApiKey) {
+      throw new Error('WaveSpeed API key not configured');
     }
 
-    // Map voice names to Google Cloud Neural2 voices
-    const voiceMapping: Record<string, { languageCode: string, name: string }> = {
-      'alloy': { languageCode: 'en-US', name: 'en-US-Neural2-F' },    // Female, neutral, professional
-      'echo': { languageCode: 'en-US', name: 'en-US-Neural2-D' },     // Male, mature, authoritative
-      'fable': { languageCode: 'en-US', name: 'en-US-Neural2-C' },    // Female, warm, friendly
-      'onyx': { languageCode: 'en-US', name: 'en-US-Neural2-A' },     // Male, deep, commanding
-      'nova': { languageCode: 'en-US', name: 'en-US-Neural2-E' },     // Female, young, bright
-      'shimmer': { languageCode: 'en-US', name: 'en-US-Neural2-G' },  // Female, soft, gentle
-    };
+    console.log('Generating TTS with WaveSpeed MiniMax for text length:', text.length);
 
-    const voiceConfig = voiceMapping[voice] || voiceMapping['alloy'];
+    // Start TTS generation with WaveSpeed MiniMax Speech-02-HD
+    const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${waveSpeedApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text.length > 5000 ? text.substring(0, 5000) : text,
+        speed: speed,
+        volume: 1,
+        pitch: 0,
+        emotion: emotion,
+        english_normalization: true,
+        enable_sync_mode: false
+      }),
+    });
+
+    if (!ttsResponse.ok) {
+      const errorText = await ttsResponse.text();
+      console.error('WaveSpeed TTS error:', ttsResponse.status, errorText);
+      throw new Error(`WaveSpeed TTS API error: ${ttsResponse.status}`);
+    }
+
+    const ttsData = await ttsResponse.json();
+    console.log('WaveSpeed TTS response:', ttsData);
+
+    if (ttsData.code !== 200 || !ttsData.data?.id) {
+      throw new Error(`WaveSpeed TTS error: ${ttsData.message || 'Unknown error'}`);
+    }
+
+    // Poll for result
+    const audioUrl = await pollWaveSpeedTTSResult(ttsData.data.id, waveSpeedApiKey);
     
-    console.log('Generating TTS with Google Cloud for text length:', text.length, 'voice:', voice);
-
-    const response = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleCloudApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          input: {
-            text: text.length > 5000 ? text.substring(0, 5000) : text,
-          },
-          voice: {
-            languageCode: voiceConfig.languageCode,
-            name: voiceConfig.name,
-          },
-          audioConfig: {
-            audioEncoding: 'MP3',
-            speakingRate: 1.0,
-            pitch: 0.0,
-          }
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google Cloud TTS error:', response.status, errorText);
-      throw new Error(`Google Cloud TTS API error: ${response.status}`);
+    if (!audioUrl) {
+      throw new Error('TTS generation timed out or failed');
     }
 
-    const data = await response.json();
-    const base64Audio = data.audioContent;
+    // Fetch the audio file and convert to base64
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error('Failed to fetch generated audio');
+    }
 
-    console.log('TTS generation successful with Google Cloud');
+    const audioArrayBuffer = await audioResponse.arrayBuffer();
+    const audioBytes = new Uint8Array(audioArrayBuffer);
+    
+    // Convert to base64
+    const base64Audio = btoa(String.fromCharCode(...audioBytes));
+
+    console.log('TTS generation successful with WaveSpeed MiniMax');
 
     return new Response(
-      JSON.stringify({ audioContent: base64Audio }),
+      JSON.stringify({ audioContent: base64Audio, audioUrl }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },

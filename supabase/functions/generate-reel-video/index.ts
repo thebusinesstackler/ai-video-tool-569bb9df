@@ -25,7 +25,7 @@ interface VoiceoverData {
 }
 
 // Lip sync models require audio input - they do NOT generate voice from text
-// We must generate voiceover audio first via OpenAI TTS, then pass the audio URL
+// We use WaveSpeed MiniMax Speech-02 for TTS, then pass the audio URL to lip sync
 
 // Helper to convert base64 to Uint8Array
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -35,6 +35,97 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
+}
+
+// Generate voiceover using WaveSpeed MiniMax Speech-02
+async function generateWaveSpeedTTS(
+  text: string, 
+  apiKey: string,
+  emotion: string = 'neutral',
+  speed: number = 1
+): Promise<{ audioUrl: string; taskId: string } | null> {
+  try {
+    console.log('Generating TTS with WaveSpeed MiniMax Speech-02...');
+    
+    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text,
+        speed: speed,
+        volume: 1,
+        pitch: 0,
+        emotion: emotion,
+        english_normalization: true,
+        enable_sync_mode: false
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('WaveSpeed TTS error:', response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('WaveSpeed TTS response:', data);
+    
+    if (data.code === 200 && data.data?.id) {
+      return { audioUrl: '', taskId: data.data.id };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('WaveSpeed TTS error:', error);
+    return null;
+  }
+}
+
+// Poll for WaveSpeed TTS result
+async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempts: number = 30): Promise<string | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('TTS poll error:', response.status);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+
+      const data = await response.json();
+      console.log('TTS poll result:', data.data?.status);
+      
+      if (data.code === 200 && data.data) {
+        if (data.data.status === 'completed' || data.data.status === 'succeeded') {
+          // Audio URL is in outputs array
+          const audioUrl = data.data.outputs?.[0];
+          if (audioUrl) {
+            console.log('TTS completed, audio URL:', audioUrl);
+            return audioUrl;
+          }
+        } else if (data.data.status === 'failed') {
+          console.error('TTS task failed');
+          return null;
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error('TTS poll error:', error);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  console.error('TTS polling timed out');
+  return null;
 }
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
@@ -269,57 +360,25 @@ serve(async (req) => {
           // Lip sync models require audio input - generate voiceover if not provided
           let sceneAudioUrl = audioUrl;
           
-          // If no pre-generated audio, generate voiceover now using OpenAI TTS
-          if (!sceneAudioUrl && scene.narration && OPENAI_API_KEY) {
-            console.log(`Scene ${scene.sceneNumber}: Generating voiceover via OpenAI TTS`);
+          // If no pre-generated audio, generate voiceover now using WaveSpeed MiniMax TTS
+          if (!sceneAudioUrl && scene.narration && WAVESPEED_API_KEY) {
+            console.log(`Scene ${scene.sceneNumber}: Generating voiceover via WaveSpeed MiniMax TTS`);
             
             try {
-              const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'tts-1',
-                  input: scene.narration,
-                  voice: voice,
-                  response_format: 'mp3',
-                }),
-              });
-
-              if (ttsResponse.ok) {
-                // Convert audio to base64 and upload to storage
-                const arrayBuffer = await ttsResponse.arrayBuffer();
-                const audioBytes = new Uint8Array(arrayBuffer);
+              // Start TTS generation
+              const ttsResult = await generateWaveSpeedTTS(scene.narration, WAVESPEED_API_KEY, 'neutral', 1);
+              
+              if (ttsResult?.taskId) {
+                // Poll for result
+                const generatedAudioUrl = await pollWaveSpeedTTSResult(ttsResult.taskId, WAVESPEED_API_KEY);
                 
-                if (supabase) {
-                  const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
-                  const { data: audioUpload, error: audioUploadError } = await supabase.storage
-                    .from('reels')
-                    .upload(audioFileName, audioBytes, { 
-                      contentType: 'audio/mp3',
-                      upsert: true 
-                    });
-                  
-                  if (!audioUploadError && audioUpload) {
-                    const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
-                    sceneAudioUrl = audioPublicUrl.publicUrl;
-                    console.log(`Scene ${scene.sceneNumber}: Voiceover saved to storage:`, sceneAudioUrl);
-                  }
+                if (generatedAudioUrl) {
+                  sceneAudioUrl = generatedAudioUrl;
+                  console.log(`Scene ${scene.sceneNumber}: WaveSpeed TTS completed:`, sceneAudioUrl);
                 }
-                
-                // Fallback to base64 data URL if storage fails
-                if (!sceneAudioUrl) {
-                  const base64Audio = btoa(String.fromCharCode(...audioBytes));
-                  sceneAudioUrl = `data:audio/mp3;base64,${base64Audio}`;
-                  console.log(`Scene ${scene.sceneNumber}: Using base64 audio data URL`);
-                }
-              } else {
-                console.error(`Scene ${scene.sceneNumber}: TTS failed:`, await ttsResponse.text());
               }
             } catch (ttsError) {
-              console.error(`Scene ${scene.sceneNumber}: TTS error:`, ttsError);
+              console.error(`Scene ${scene.sceneNumber}: WaveSpeed TTS error:`, ttsError);
             }
           }
           
