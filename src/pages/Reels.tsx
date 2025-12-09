@@ -47,7 +47,9 @@ import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector } from '@/components/VoiceSelector';
+import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
+import { FolderOpen } from 'lucide-react';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -1433,12 +1435,27 @@ const Reels = () => {
                         </Button>
                       </div>
                     ) : (
-                      <div 
-                        className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
-                        onClick={() => portraitInputRef.current?.click()}
-                      >
-                        <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-                        <span className="text-xs text-muted-foreground">Upload Portrait</span>
+                      <div className="flex gap-2">
+                        <div 
+                          className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                          onClick={() => portraitInputRef.current?.click()}
+                        >
+                          <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                          <span className="text-xs text-muted-foreground text-center px-2">Upload New</span>
+                        </div>
+                        <GalleryImagePicker
+                          onSelect={(imageUrl) => {
+                            setPortraitPreview(imageUrl);
+                            setPortraitImage(imageUrl);
+                          }}
+                          title="Select Portrait from Gallery"
+                          trigger={
+                            <div className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+                              <FolderOpen className="w-6 h-6 text-muted-foreground mb-2" />
+                              <span className="text-xs text-muted-foreground text-center px-2">From Gallery</span>
+                            </div>
+                          }
+                        />
                       </div>
                     )}
                     <Input
@@ -1449,7 +1466,7 @@ const Reels = () => {
                       onChange={handlePortraitUpload}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Upload a front-facing portrait for best lip sync results
+                      Upload or select a front-facing portrait for best lip sync results
                     </p>
                   </div>
 
