@@ -3,21 +3,67 @@ import { supabase } from '@/integrations/supabase/client';
 import { getAudioDuration } from '@/lib/audioUtils';
 import { useToast } from '@/hooks/use-toast';
 
+// Helper function to upload base64 image to storage and return public URL
+const uploadImageToStorage = async (
+  base64Url: string,
+  userId: string,
+  sceneNumber: number
+): Promise<string> => {
+  try {
+    // Check if it's a base64 URL
+    if (!base64Url.startsWith('data:')) {
+      return base64Url; // Already a URL
+    }
+
+    // Extract base64 data and mime type
+    const matches = base64Url.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) return base64Url;
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const extension = mimeType.split('/')[1] || 'png';
+
+    // Convert to blob
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const fileName = `${userId}/scene-images/${Date.now()}-scene-${sceneNumber}.${extension}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('reels')
+      .upload(fileName, bytes, { contentType: mimeType });
+
+    if (uploadError) {
+      console.warn('Image upload failed, using base64:', uploadError);
+      return base64Url;
+    }
+
+    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+    return publicUrl.publicUrl;
+  } catch (error) {
+    console.warn('Failed to upload image to storage:', error);
+    return base64Url;
+  }
+};
+
 // Helper function to save image to gallery
 const saveImageToGallery = async (
   imageUrl: string,
   prompt: string,
   sceneNumber: number,
+  userId: string,
   referenceImageUrl?: string,
   transformation?: string
 ) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    // Upload to storage first if it's base64
+    const storageUrl = await uploadImageToStorage(imageUrl, userId, sceneNumber);
 
     await supabase.from('generated_images').insert({
-      user_id: user.id,
-      image_url: imageUrl,
+      user_id: userId,
+      image_url: storageUrl, // Use storage URL instead of base64
       prompt,
       source: 'reel',
       reference_image_url: referenceImageUrl || null,
@@ -219,12 +265,15 @@ export function useScenePreview(): UseScenePreviewResult {
             ));
             
             // Save to gallery
-            await saveImageToGallery(
-              imageData.imageUrl,
-              scene.visualDescription,
-              scene.sceneNumber,
-              activeReference || undefined
-            );
+            if (userId) {
+              await saveImageToGallery(
+                imageData.imageUrl,
+                scene.visualDescription,
+                scene.sceneNumber,
+                userId,
+                activeReference || undefined
+              );
+            }
           } else {
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
@@ -290,8 +339,11 @@ export function useScenePreview(): UseScenePreviewResult {
             : ps
         ));
 
-        // Save to gallery
-        await saveImageToGallery(imageData.imageUrl, visualDescription, sceneNumber);
+        // Save to gallery - get user ID first
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await saveImageToGallery(imageData.imageUrl, visualDescription, sceneNumber, user.id);
+        }
 
         toast({
           title: "Image Regenerated",
@@ -335,13 +387,17 @@ export function useScenePreview(): UseScenePreviewResult {
         ));
 
         // Save to gallery with reference and transformation info
-        await saveImageToGallery(
-          imageData.imageUrl,
-          visualDescription,
-          sceneNumber,
-          refImageUrl,
-          transformation
-        );
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await saveImageToGallery(
+            imageData.imageUrl,
+            visualDescription,
+            sceneNumber,
+            user.id,
+            refImageUrl,
+            transformation
+          );
+        }
 
         toast({
           title: "Image Regenerated with Reference",
