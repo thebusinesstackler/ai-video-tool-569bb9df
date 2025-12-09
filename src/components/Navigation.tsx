@@ -12,7 +12,8 @@ import {
   LogOut,
   Clapperboard,
   Film,
-  Smartphone
+  Smartphone,
+  ImageIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
@@ -28,6 +29,7 @@ const navigationItems = [
   { name: 'Movies', href: '/movies', icon: Film },
   { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
   { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
+  { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
   { name: 'Videos', href: '/videos', icon: VideoIcon },
   { name: 'Characters', href: '/characters', icon: UsersIcon },
   { name: 'Projects', href: '/projects', icon: PlayCircleIcon },

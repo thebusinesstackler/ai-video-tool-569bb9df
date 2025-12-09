@@ -53,6 +53,45 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          project_id: string | null
+          prompt: string | null
+          reference_image_url: string | null
+          scene_number: number | null
+          source: string | null
+          transformation: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          project_id?: string | null
+          prompt?: string | null
+          reference_image_url?: string | null
+          scene_number?: number | null
+          source?: string | null
+          transformation?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          project_id?: string | null
+          prompt?: string | null
+          reference_image_url?: string | null
+          scene_number?: number | null
+          source?: string | null
+          transformation?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       movie_projects: {
         Row: {
           created_at: string
