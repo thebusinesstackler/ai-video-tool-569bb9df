@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.generate-scene-image]
 verify_jwt = false
 
+[functions.edit-scene-image]
+verify_jwt = false
+
 [functions.generate-script]
 verify_jwt = false
 

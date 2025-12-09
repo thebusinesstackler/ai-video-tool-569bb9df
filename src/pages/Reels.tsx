@@ -40,10 +40,12 @@ import {
   User,
   Upload,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Camera
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
+import { FrameCapture } from '@/components/FrameCapture';
 import { Input } from '@/components/ui/input';
 
 // Speech Recognition types
@@ -203,8 +205,13 @@ const Reels = () => {
     isGeneratingPreview, 
     progress: previewProgress, 
     progressStatus: previewProgressStatus,
+    referenceImageUrl,
     generatePreview,
     regenerateSceneImage,
+    regenerateWithReference,
+    setSceneAsReference,
+    setExternalReference,
+    clearReference,
     resetPreview
   } = useScenePreview();
   
@@ -1675,6 +1682,9 @@ const Reels = () => {
                 onCreateVideo={generateVideo}
                 isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
                 disabled={isGenerating}
+                referenceImageUrl={referenceImageUrl}
+                onSetReference={setSceneAsReference}
+                onClearReference={clearReference}
               />
             )}
 
@@ -1698,12 +1708,21 @@ const Reels = () => {
                     <div className="space-y-4">
                       {project.videoClips.length > 1 ? (
                         /* Multiple clips - use VideoPlayerWithOverlay for text overlay and audio sync */
-                        <VideoPlayerWithOverlay
-                          scenes={project.generatedScenes}
-                          voiceovers={project.voiceovers}
-                          videoClips={project.videoClips}
-                          onClipChange={setSelectedClipIndex}
-                        />
+                        <>
+                          <VideoPlayerWithOverlay
+                            scenes={project.generatedScenes}
+                            voiceovers={project.voiceovers}
+                            videoClips={project.videoClips}
+                            onClipChange={setSelectedClipIndex}
+                          />
+                          {/* Frame capture for reference */}
+                          <div className="flex justify-center">
+                            <FrameCapture
+                              videoUrl={project.videoClips[selectedClipIndex]?.videoUrl || ''}
+                              onFrameCaptured={setExternalReference}
+                            />
+                          </div>
+                        </>
                       ) : (
                         /* Single stitched video - use regular video player */
                         <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">

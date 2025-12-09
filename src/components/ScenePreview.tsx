@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2 } from 'lucide-react';
+import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X } from 'lucide-react';
 
 interface PreviewScene {
   sceneNumber: number;
@@ -12,6 +12,7 @@ interface PreviewScene {
   audioDuration: number;
   isGenerating: boolean;
   isRegenerating?: boolean;
+  isReference?: boolean;
 }
 
 interface ScenePreviewProps {
@@ -20,6 +21,9 @@ interface ScenePreviewProps {
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
   disabled?: boolean;
+  referenceImageUrl?: string | null;
+  onSetReference?: (sceneNumber: number) => void;
+  onClearReference?: () => void;
 }
 
 export const ScenePreview: React.FC<ScenePreviewProps> = ({
@@ -27,7 +31,10 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onRegenerateImage,
   onCreateVideo,
   isCreatingVideo,
-  disabled = false
+  disabled = false,
+  referenceImageUrl,
+  onSetReference,
+  onClearReference
 }) => {
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
   const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
@@ -76,11 +83,47 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Reference indicator */}
+        {referenceImageUrl && (
+          <div className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-md overflow-hidden border-2 border-amber-500">
+                <img 
+                  src={referenceImageUrl} 
+                  alt="Reference" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                  Reference Active
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Regenerated scenes will match this character
+                </p>
+              </div>
+            </div>
+            {onClearReference && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onClearReference}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Scene Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {scenes.map((scene) => (
             <div key={scene.sceneNumber} className="relative group">
-              <div className="aspect-[9/16] bg-muted rounded-lg overflow-hidden relative">
+              <div className={`aspect-[9/16] bg-muted rounded-lg overflow-hidden relative ${
+                scene.isReference ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-background' : ''
+              }`}>
                 {scene.isGenerating || scene.isRegenerating ? (
                   <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -105,6 +148,14 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                   {scene.sceneNumber}
                 </div>
 
+                {/* Reference badge */}
+                {scene.isReference && (
+                  <div className="absolute top-2 right-8 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-current" />
+                    Ref
+                  </div>
+                )}
+
                 {/* Duration badge */}
                 {scene.audioDuration > 0 && (
                   <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm text-foreground text-xs px-1.5 py-0.5 rounded">
@@ -128,6 +179,19 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                         ) : (
                           <Volume2 className="w-5 h-5" />
                         )}
+                      </Button>
+                    )}
+                    
+                    {/* Set as reference button */}
+                    {onSetReference && !scene.isReference && (
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="w-10 h-10 rounded-full bg-amber-500/80 hover:bg-amber-500"
+                        onClick={() => onSetReference(scene.sceneNumber)}
+                        title="Use as reference for character consistency"
+                      >
+                        <Star className="w-5 h-5" />
                       </Button>
                     )}
                     
