@@ -5,7 +5,83 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Poll for WaveSpeed TTS result
+// Voice configuration mapping
+interface VoiceConfig {
+  languageCode: string;
+  name: string;
+  ssmlGender: 'MALE' | 'FEMALE';
+}
+
+const GOOGLE_VOICES: Record<string, VoiceConfig> = {
+  // Female voices
+  'en-US-Journey-F': { languageCode: 'en-US', name: 'en-US-Journey-F', ssmlGender: 'FEMALE' },
+  'en-US-Neural2-F': { languageCode: 'en-US', name: 'en-US-Neural2-F', ssmlGender: 'FEMALE' },
+  'en-US-Studio-O': { languageCode: 'en-US', name: 'en-US-Studio-O', ssmlGender: 'FEMALE' },
+  'en-GB-Neural2-F': { languageCode: 'en-GB', name: 'en-GB-Neural2-F', ssmlGender: 'FEMALE' },
+  // Male voices
+  'en-US-Journey-D': { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' },
+  'en-US-Neural2-D': { languageCode: 'en-US', name: 'en-US-Neural2-D', ssmlGender: 'MALE' },
+  'en-US-Studio-Q': { languageCode: 'en-US', name: 'en-US-Studio-Q', ssmlGender: 'MALE' },
+  'en-GB-Neural2-D': { languageCode: 'en-GB', name: 'en-GB-Neural2-D', ssmlGender: 'MALE' },
+};
+
+// Default voice if none specified or not found
+const DEFAULT_VOICE: VoiceConfig = { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' };
+
+// Google Cloud TTS - Primary engine
+async function generateGoogleTTS(
+  text: string, 
+  apiKey: string, 
+  voiceConfig: VoiceConfig,
+  speakingRate: number = 1.0
+): Promise<{ audioContent: string; audioUrl: string } | null> {
+  try {
+    console.log(`Generating TTS with Google Cloud TTS using voice: ${voiceConfig.name}`);
+    
+    const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+        voice: {
+          languageCode: voiceConfig.languageCode,
+          name: voiceConfig.name,
+          ssmlGender: voiceConfig.ssmlGender
+        },
+        audioConfig: {
+          audioEncoding: 'MP3',
+          speakingRate: speakingRate,
+          pitch: 0,
+          effectsProfileId: ['headphone-class-device'] // Better audio quality
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Google TTS error:', response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.audioContent) {
+      console.log('Google Cloud TTS successful with voice:', voiceConfig.name);
+      return {
+        audioContent: data.audioContent,
+        audioUrl: `data:audio/mp3;base64,${data.audioContent}`
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Google TTS error:', error);
+    return null;
+  }
+}
+
+// Poll for WaveSpeed TTS result (fallback)
 async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempts: number = 60): Promise<string | null> {
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -26,7 +102,6 @@ async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempt
       
       if (data.code === 200 && data.data) {
         if (data.data.status === 'completed' || data.data.status === 'succeeded') {
-          // Audio URL is in outputs array
           const audioUrl = data.data.outputs?.[0];
           if (audioUrl) {
             console.log('TTS completed, audio URL:', audioUrl);
@@ -49,49 +124,74 @@ async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempt
   return null;
 }
 
-// Google Cloud TTS fallback
-async function generateGoogleTTS(text: string, apiKey: string): Promise<{ audioContent: string; audioUrl: string } | null> {
+// WaveSpeed TTS fallback
+async function generateWaveSpeedTTS(
+  text: string, 
+  apiKey: string,
+  speed: number = 1
+): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
-    console.log('Falling back to Google Cloud TTS...');
+    console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD');
     
-    const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
+    const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
-        voice: {
-          languageCode: 'en-US',
-          name: 'en-US-Neural2-D', // Male neural voice
-          ssmlGender: 'MALE'
-        },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          speakingRate: 1.0,
-          pitch: 0
-        }
+        text: text.length > 10000 ? text.substring(0, 10000) : text,
+        voice_id: 'English_Trustworth_Man',
+        speed: speed,
+        volume: 1,
+        pitch: 0,
+        emotion: 'neutral',
+        english_normalization: true
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google TTS error:', response.status, errorText);
+    if (!ttsResponse.ok) {
+      const errorText = await ttsResponse.text();
+      console.error('WaveSpeed TTS error:', ttsResponse.status, errorText);
       return null;
     }
 
-    const data = await response.json();
-    if (data.audioContent) {
-      console.log('Google Cloud TTS successful');
-      return {
-        audioContent: data.audioContent,
-        audioUrl: `data:audio/mp3;base64,${data.audioContent}`
-      };
-    }
+    const ttsData = await ttsResponse.json();
     
-    return null;
+    if (ttsData.code !== 200 || !ttsData.data?.id) {
+      console.error('WaveSpeed TTS error:', ttsData.message);
+      return null;
+    }
+
+    // Poll for result
+    const audioUrl = await pollWaveSpeedTTSResult(ttsData.data.id, apiKey);
+    
+    if (!audioUrl) {
+      return null;
+    }
+
+    // Fetch the audio file and convert to base64
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      return null;
+    }
+
+    const audioArrayBuffer = await audioResponse.arrayBuffer();
+    const audioBytes = new Uint8Array(audioArrayBuffer);
+    
+    // Convert to base64 in chunks
+    let binary = '';
+    const chunkSize = 32768;
+    for (let i = 0; i < audioBytes.length; i += chunkSize) {
+      const chunk = audioBytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64Audio = btoa(binary);
+
+    console.log('WaveSpeed TTS generation successful');
+    return { audioContent: base64Audio, audioUrl };
   } catch (error) {
-    console.error('Google TTS error:', error);
+    console.error('WaveSpeed TTS error:', error);
     return null;
   }
 }
@@ -102,147 +202,45 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'neutral', speed = 1, emotion = 'neutral' } = await req.json();
+    const { text, voice = 'en-US-Journey-D', speed = 1 } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
+    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}`);
+
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
+    const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     
-    // Try WaveSpeed first if available
-    if (waveSpeedApiKey) {
-      console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD for text length:', text.length);
-
-      // Use English voice from MiniMax - pick based on desired tone
-      const voiceId = 'English_Trustworth_Man';
-      console.log('Using voice_id:', voiceId);
-
-      try {
-        // Start TTS generation with WaveSpeed MiniMax Speech-02-HD endpoint
-        const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${waveSpeedApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: text.length > 10000 ? text.substring(0, 10000) : text,
-            voice_id: voiceId,
-            speed: speed,
-            volume: 1,
-            pitch: 0,
-            emotion: emotion || 'neutral',
-            english_normalization: true
-          }),
-        });
-
-        if (!ttsResponse.ok) {
-          const errorText = await ttsResponse.text();
-          console.error('WaveSpeed TTS error:', ttsResponse.status, errorText);
-          
-          // Check if it's a credits issue - fallback to Google
-          if (errorText.includes('Insufficient credits') || ttsResponse.status === 400 || ttsResponse.status === 402) {
-            console.log('WaveSpeed credits exhausted, trying Google Cloud TTS fallback...');
-            if (googleApiKey) {
-              const googleResult = await generateGoogleTTS(text, googleApiKey);
-              if (googleResult) {
-                return new Response(
-                  JSON.stringify(googleResult),
-                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                );
-              }
-            }
-          }
-          
-          throw new Error(`WaveSpeed TTS API error: ${ttsResponse.status}. ${errorText.includes('Insufficient credits') ? 'Please top up your WaveSpeed credits or enable VEO3 mode for video generation.' : ''}`);
-        }
-
-        const ttsData = await ttsResponse.json();
-        console.log('WaveSpeed TTS response:', ttsData);
-
-        if (ttsData.code !== 200 || !ttsData.data?.id) {
-          // Check for insufficient credits in response
-          if (ttsData.message?.includes('Insufficient credits')) {
-            console.log('WaveSpeed credits exhausted (from response), trying Google Cloud TTS fallback...');
-            if (googleApiKey) {
-              const googleResult = await generateGoogleTTS(text, googleApiKey);
-              if (googleResult) {
-                return new Response(
-                  JSON.stringify(googleResult),
-                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                );
-              }
-            }
-          }
-          throw new Error(`WaveSpeed TTS error: ${ttsData.message || 'Unknown error'}`);
-        }
-
-        // Poll for result
-        const audioUrl = await pollWaveSpeedTTSResult(ttsData.data.id, waveSpeedApiKey);
-        
-        if (!audioUrl) {
-          throw new Error('TTS generation timed out or failed');
-        }
-
-        // Fetch the audio file and convert to base64
-        const audioResponse = await fetch(audioUrl);
-        if (!audioResponse.ok) {
-          throw new Error('Failed to fetch generated audio');
-        }
-
-        const audioArrayBuffer = await audioResponse.arrayBuffer();
-        const audioBytes = new Uint8Array(audioArrayBuffer);
-        
-        // Convert to base64 in chunks to avoid stack overflow
-        let binary = '';
-        const chunkSize = 32768;
-        for (let i = 0; i < audioBytes.length; i += chunkSize) {
-          const chunk = audioBytes.subarray(i, i + chunkSize);
-          binary += String.fromCharCode.apply(null, Array.from(chunk));
-        }
-        const base64Audio = btoa(binary);
-
-        console.log('TTS generation successful with WaveSpeed MiniMax Speech-02-HD');
-
-        return new Response(
-          JSON.stringify({ audioContent: base64Audio, audioUrl }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (waveSpeedError) {
-        console.error('WaveSpeed TTS failed:', waveSpeedError);
-        
-        // Try Google fallback
-        if (googleApiKey) {
-          console.log('Attempting Google Cloud TTS fallback after WaveSpeed error...');
-          const googleResult = await generateGoogleTTS(text, googleApiKey);
-          if (googleResult) {
-            return new Response(
-              JSON.stringify(googleResult),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-        }
-        
-        throw waveSpeedError;
-      }
-    }
+    // Get voice configuration - use selected voice or default
+    const voiceConfig = GOOGLE_VOICES[voice] || DEFAULT_VOICE;
     
-    // If no WaveSpeed key, try Google directly
+    // Try Google Cloud TTS first (primary engine for natural voices)
     if (googleApiKey) {
-      console.log('Using Google Cloud TTS (no WaveSpeed key configured)');
-      const googleResult = await generateGoogleTTS(text, googleApiKey);
+      const googleResult = await generateGoogleTTS(text, googleApiKey, voiceConfig, speed);
       if (googleResult) {
         return new Response(
           JSON.stringify(googleResult),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error('Google Cloud TTS failed');
+      console.log('Google TTS failed, trying fallback...');
     }
     
-    throw new Error('No TTS API key configured (WaveSpeed or Google Cloud)');
+    // Fallback to WaveSpeed if Google fails
+    if (waveSpeedApiKey) {
+      console.log('Attempting WaveSpeed TTS fallback...');
+      const waveSpeedResult = await generateWaveSpeedTTS(text, waveSpeedApiKey, speed);
+      if (waveSpeedResult) {
+        return new Response(
+          JSON.stringify(waveSpeedResult),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
+    throw new Error('No TTS engine available or all attempts failed');
     
   } catch (error) {
     console.error('TTS error:', error);
