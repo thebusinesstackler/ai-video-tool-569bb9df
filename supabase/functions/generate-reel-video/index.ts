@@ -59,7 +59,7 @@ function calculateTTSSpeed(text: string, targetDurationSeconds: number): number 
   return clampedSpeed;
 }
 
-// Generate voiceover using WaveSpeed MiniMax Speech-02
+// Generate voiceover using WaveSpeed MiniMax Speech-02-HD
 async function generateWaveSpeedTTS(
   text: string, 
   apiKey: string,
@@ -67,16 +67,16 @@ async function generateWaveSpeedTTS(
   targetDuration: number = 8
 ): Promise<{ audioUrl: string; taskId: string } | null> {
   try {
-    console.log('Generating TTS with WaveSpeed English TTS...');
+    console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD...');
     
-    // Use standard English voice
-    const voiceId = 'en-US-AriaNeural';
+    // Use English voice from MiniMax
+    const voiceId = 'English_Trustworth_Man';
     
     // Calculate speed to match target duration
     const speed = calculateTTSSpeed(text, targetDuration);
     
-    // Use WaveSpeed English TTS endpoint instead of MiniMax (which defaults to Chinese)
-    const response = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/tts-english', {
+    // Use WaveSpeed MiniMax Speech-02-HD endpoint
+    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -84,8 +84,12 @@ async function generateWaveSpeedTTS(
       },
       body: JSON.stringify({
         text: text,
-        voice: voiceId,
-        speed: speed
+        voice_id: voiceId,
+        speed: speed,
+        volume: 1,
+        pitch: 0,
+        emotion: emotion,
+        english_normalization: true
       }),
     });
 
