@@ -24,8 +24,8 @@ interface VoiceoverData {
   duration: number;
 }
 
-// Lip sync models that generate voice from text (no separate TTS needed)
-const LIP_SYNC_MODELS_WITH_TTS = ['infinitetalk', 'avatar-omni-human-1.5'];
+// Lip sync models require audio input - they do NOT generate voice from text
+// We must generate voiceover audio first via OpenAI TTS, then pass the audio URL
 
 // Helper to convert base64 to Uint8Array
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -83,7 +83,7 @@ serve(async (req) => {
       lipSyncModel = 'infinitetalk',
       portraitImage = null,
       voiceovers = [],
-      useNativeVoice = true // Use WaveSpeed's built-in voice generation
+      voice = 'nova' // Voice for TTS
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -100,8 +100,10 @@ serve(async (req) => {
     console.log('Enable Lip Sync:', enableLipSync);
     console.log('Lip Sync Model:', lipSyncModel);
     console.log('Portrait Image provided:', !!portraitImage);
-    console.log('Use Native Voice:', useNativeVoice);
+    console.log('Voice:', voice);
     console.log('Voiceovers provided:', voiceovers?.length || 0);
+
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -264,33 +266,81 @@ serve(async (req) => {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
           }
           
-          // Check if this model supports native TTS (text-to-speech)
-          const modelSupportsNativeTTS = LIP_SYNC_MODELS_WITH_TTS.includes(lipSyncModel);
+          // Lip sync models require audio input - generate voiceover if not provided
+          let sceneAudioUrl = audioUrl;
           
-          if (modelSupportsNativeTTS && useNativeVoice && scene.narration) {
-            // Use text input for native voice generation (model generates voice from text)
+          // If no pre-generated audio, generate voiceover now using OpenAI TTS
+          if (!sceneAudioUrl && scene.narration && OPENAI_API_KEY) {
+            console.log(`Scene ${scene.sceneNumber}: Generating voiceover via OpenAI TTS`);
+            
+            try {
+              const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'tts-1',
+                  input: scene.narration,
+                  voice: voice,
+                  response_format: 'mp3',
+                }),
+              });
+
+              if (ttsResponse.ok) {
+                // Convert audio to base64 and upload to storage
+                const arrayBuffer = await ttsResponse.arrayBuffer();
+                const audioBytes = new Uint8Array(arrayBuffer);
+                
+                if (supabase) {
+                  const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
+                  const { data: audioUpload, error: audioUploadError } = await supabase.storage
+                    .from('reels')
+                    .upload(audioFileName, audioBytes, { 
+                      contentType: 'audio/mp3',
+                      upsert: true 
+                    });
+                  
+                  if (!audioUploadError && audioUpload) {
+                    const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
+                    sceneAudioUrl = audioPublicUrl.publicUrl;
+                    console.log(`Scene ${scene.sceneNumber}: Voiceover saved to storage:`, sceneAudioUrl);
+                  }
+                }
+                
+                // Fallback to base64 data URL if storage fails
+                if (!sceneAudioUrl) {
+                  const base64Audio = btoa(String.fromCharCode(...audioBytes));
+                  sceneAudioUrl = `data:audio/mp3;base64,${base64Audio}`;
+                  console.log(`Scene ${scene.sceneNumber}: Using base64 audio data URL`);
+                }
+              } else {
+                console.error(`Scene ${scene.sceneNumber}: TTS failed:`, await ttsResponse.text());
+              }
+            } catch (ttsError) {
+              console.error(`Scene ${scene.sceneNumber}: TTS error:`, ttsError);
+            }
+          }
+          
+          // Now build request with audio
+          if (sceneAudioUrl) {
             requestBody = {
               image: imageUrl,
-              text: scene.narration, // Model generates voice from this text
+              audio: sceneAudioUrl,
               duration: clipDuration
             };
-            console.log(`Scene ${scene.sceneNumber}: Using native voice generation with text`);
-          } else if (audioUrl) {
-            // Use pre-generated audio
-            requestBody = {
-              image: imageUrl,
-              audio: audioUrl,
-              duration: clipDuration
-            };
-            console.log(`Scene ${scene.sceneNumber}: Using pre-generated audio`);
+            console.log(`Scene ${scene.sceneNumber}: Using audio for lip sync`);
           } else {
-            // Fallback to text-based if no audio
+            // No audio available - fall back to regular video
+            console.log(`Scene ${scene.sceneNumber}: No audio available, falling back to image-to-video`);
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
             requestBody = {
               image: imageUrl,
-              text: scene.narration || 'Speaking naturally',
+              prompt: `${scene.visualDescription}. Person speaking, engaging expression.`,
+              resolution: "480p",
               duration: clipDuration
             };
-            console.log(`Scene ${scene.sceneNumber}: Fallback to text-based`);
           }
           
           // Add prompt for wan-animate
