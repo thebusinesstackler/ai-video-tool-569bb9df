@@ -39,10 +39,12 @@ export function useImageGallery(): UseImageGalleryResult {
   const fetchImages = async () => {
     setIsLoading(true);
     try {
+      // Only fetch metadata columns to avoid timeout from large base64 image_url data
       const { data, error } = await supabase
         .from('generated_images')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, user_id, image_url, prompt, source, reference_image_url, transformation, scene_number, project_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50); // Limit results to prevent timeout
 
       if (error) throw error;
       setImages(data || []);
