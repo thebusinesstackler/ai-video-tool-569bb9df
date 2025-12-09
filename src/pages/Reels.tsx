@@ -233,6 +233,12 @@ const Reels = () => {
   const [veo3Model, setVeo3Model] = useState<'veo3' | 'veo3-fast'>('veo3-fast');
   const portraitInputRef = useRef<HTMLInputElement>(null);
   
+  // Pre-generation reference image selection
+  const [preSelectedReference, setPreSelectedReference] = useState<string | null>(null);
+  const [preReferenceTransformation, setPreReferenceTransformation] = useState('');
+  const [characters, setCharacters] = useState<{ id: string; name: string; reference_images: string[] }[]>([]);
+  const referenceInputRef = useRef<HTMLInputElement>(null);
+  
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
@@ -343,10 +349,19 @@ const Reels = () => {
     }
   };
 
-  // Fetch saved reels on mount
+  // Fetch saved reels and characters on mount
   useEffect(() => {
     if (user) {
       fetchSavedReels();
+      // Load characters for reference image picker
+      supabase
+        .from('characters')
+        .select('id, name, reference_images')
+        .then(({ data }) => {
+          if (data) {
+            setCharacters(data.filter(c => c.reference_images && c.reference_images.length > 0));
+          }
+        });
     }
   }, [user]);
 
@@ -1717,9 +1732,127 @@ const Reels = () => {
                     })}
                   </div>
 
+                  {/* Character Reference Selection - Before Preview */}
+                  <Card className="bg-muted/30 border-dashed border-primary/30">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Camera className="w-4 h-4 text-primary" />
+                        Character Reference (Optional)
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Select a reference image to maintain character consistency across all scenes
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {preSelectedReference ? (
+                        <div className="flex items-start gap-4">
+                          <div className="relative">
+                            <img 
+                              src={preSelectedReference} 
+                              alt="Reference" 
+                              className="w-24 h-24 object-cover rounded-lg border-2 border-primary"
+                            />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 w-6 h-6"
+                              onClick={() => {
+                                setPreSelectedReference(null);
+                                setPreReferenceTransformation('');
+                              }}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <Label className="text-xs">Character Transformation (Optional)</Label>
+                            <Input
+                              placeholder="e.g., make them a superhero, wearing a suit..."
+                              value={preReferenceTransformation}
+                              onChange={(e) => setPreReferenceTransformation(e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 flex-wrap">
+                          {/* Upload */}
+                          <div 
+                            className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                            onClick={() => referenceInputRef.current?.click()}
+                          >
+                            <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                            <span className="text-[10px] text-muted-foreground text-center">Upload</span>
+                          </div>
+                          
+                          {/* From Gallery */}
+                          <GalleryImagePicker
+                            onSelect={(imageUrl) => setPreSelectedReference(imageUrl)}
+                            title="Select Reference from Gallery"
+                            trigger={
+                              <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+                                <FolderOpen className="w-5 h-5 text-muted-foreground mb-1" />
+                                <span className="text-[10px] text-muted-foreground text-center">Gallery</span>
+                              </div>
+                            }
+                          />
+                          
+                          {/* From Characters - show character thumbnails if available */}
+                          {characters.length > 0 && (
+                            <div className="flex gap-2">
+                              {characters.slice(0, 3).map((char) => (
+                                char.reference_images?.[0] && (
+                                  <div 
+                                    key={char.id}
+                                    className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 border-border hover:border-primary transition-colors relative group"
+                                    onClick={() => setPreSelectedReference(char.reference_images[0])}
+                                    title={char.name}
+                                  >
+                                    <img 
+                                      src={char.reference_images[0]} 
+                                      alt={char.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                                      <p className="text-[9px] text-white truncate">{char.name}</p>
+                                    </div>
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <Input
+                        ref={referenceInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            setPreSelectedReference(ev.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+
                   <div className="flex gap-3 pt-4">
                     <Button
-                      onClick={() => generatePreview(project.scenes, user?.id, undefined, selectedVoice)}
+                      onClick={() => {
+                        // If pre-selected reference, set it before generating
+                        if (preSelectedReference) {
+                          setExternalReference(preSelectedReference);
+                          if (preReferenceTransformation) {
+                            setCharacterTransformation(preReferenceTransformation);
+                          }
+                        }
+                        generatePreview(project.scenes, user?.id, preSelectedReference || undefined, selectedVoice);
+                      }}
                       disabled={isGenerating || isGeneratingPreview}
                       className="flex-1 bg-gradient-primary hover:opacity-90"
                     >
