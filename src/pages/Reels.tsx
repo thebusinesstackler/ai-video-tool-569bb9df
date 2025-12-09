@@ -43,6 +43,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
+import { useScenePreview } from '@/hooks/useScenePreview';
 import { Input } from '@/components/ui/input';
 
 // Speech Recognition types
@@ -195,6 +196,18 @@ const Reels = () => {
   const [isManualStitching, setIsManualStitching] = useState(false);
   const { stitchWithCreatomate, isStitching: isCreatomateStitching, progress: creatomateProgress, status: creatomateStatus } = useCreatomate();
   
+  // Scene preview hook
+  const { 
+    previewScenes, 
+    voiceovers: previewVoiceovers,
+    isGeneratingPreview, 
+    progress: previewProgress, 
+    progressStatus: previewProgressStatus,
+    generatePreview,
+    regenerateSceneImage,
+    resetPreview
+  } = useScenePreview();
+  
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5' | 'wan-animate'>('infinitetalk');
@@ -207,7 +220,6 @@ const Reels = () => {
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
-  // Speech recognition setup
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast({
@@ -465,12 +477,15 @@ const Reels = () => {
     setProject(prev => ({ ...prev, status: 'generating-video' }));
     setProgress(5);
     
-    
-    // Always generate voiceovers - lip sync models require audio input
-    const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = [];
+    // Use preview voiceovers if they exist, otherwise generate new ones
+    const hasPreviewVoiceovers = previewVoiceovers.length > 0;
+    const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = 
+      hasPreviewVoiceovers ? [...previewVoiceovers] : [];
 
     try {
-      setProgressStatus('Generating voiceovers...');
+      // Skip voiceover generation if we have them from preview
+      if (!hasPreviewVoiceovers) {
+        setProgressStatus('Generating voiceovers...');
       
       // Step 1: Generate voiceovers for each scene using OpenAI TTS and get actual durations
       for (const scene of project.scenes) {
@@ -540,9 +555,16 @@ const Reels = () => {
           console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
         }
       }
+      } // End of if (!hasPreviewVoiceovers)
       
-      setProgress(15);
-      setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
+      // Set progress based on whether we skipped voiceover generation
+      if (hasPreviewVoiceovers) {
+        setProgress(15);
+        setProgressStatus('Using cached voiceovers. Creating images...');
+      } else {
+        setProgress(15);
+        setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
+      }
       
       // Step 2: Generate scene images and start video tasks via backend
       // Pass actual audio durations so WaveSpeed generates correct length videos
@@ -553,6 +575,11 @@ const Reels = () => {
           audioDuration: voiceover?.duration // Pass actual voiceover duration
         };
       });
+      
+      // Pass pre-generated images from preview if available
+      const preGeneratedImages = previewScenes.length > 0 
+        ? previewScenes.map(ps => ({ sceneNumber: ps.sceneNumber, imageUrl: ps.imageUrl }))
+        : undefined;
       
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
@@ -566,11 +593,13 @@ const Reels = () => {
           portraitImage: enableLipSync ? portraitImage : undefined,
           voice: enableLipSync ? selectedVoice : 'nova',
           // Pass voiceover storage URLs for lip sync
-          voiceovers: enableLipSync ? voiceovers.map(v => ({
+          voiceovers: voiceovers.map(v => ({
             sceneNumber: v.sceneNumber,
             audioUrl: v.storageUrl || v.audioUrl,
             duration: v.duration
-          })) : undefined
+          })),
+          // Pass pre-generated images from preview
+          preGeneratedImages
         }
       });
 
@@ -979,6 +1008,8 @@ const Reels = () => {
     setSelectedOutro('none');
     setIntroText('');
     setOutroText('');
+    // Reset preview
+    resetPreview();
   };
 
   const handleDownloadVideo = async () => {
@@ -1599,20 +1630,52 @@ const Reels = () => {
 
                   <div className="flex gap-3 pt-4">
                     <Button
-                      onClick={generateVideo}
-                      disabled={isGenerating}
+                      onClick={() => generatePreview(project.scenes, user?.id)}
+                      disabled={isGenerating || isGeneratingPreview}
                       className="flex-1 bg-gradient-primary hover:opacity-90"
                     >
-                      {isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video') ? (
+                      {isGeneratingPreview ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
-                        <Video className="w-4 h-4 mr-2" />
+                        <ImageIcon className="w-4 h-4 mr-2" />
                       )}
-                      Generate Video with Captions
+                      Generate Preview
                     </Button>
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Preview Progress */}
+            {isGeneratingPreview && (
+              <Card className="bg-card border-border">
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-primary" />
+                        {previewProgressStatus || 'Generating preview...'}
+                      </span>
+                      <span className="text-primary font-medium">{previewProgress}%</span>
+                    </div>
+                    <Progress value={previewProgress} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Scene Preview */}
+            {previewScenes.length > 0 && !project.videoBlobUrl && (
+              <ScenePreview
+                scenes={previewScenes}
+                onRegenerateImage={(sceneNumber) => {
+                  const scene = project.scenes.find(s => s.sceneNumber === sceneNumber);
+                  if (scene) regenerateSceneImage(sceneNumber, scene.visualDescription);
+                }}
+                onCreateVideo={generateVideo}
+                isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
+                disabled={isGenerating}
+              />
             )}
 
             {/* Final Video / Generated Scenes */}

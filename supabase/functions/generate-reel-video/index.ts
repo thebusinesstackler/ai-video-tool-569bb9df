@@ -203,7 +203,8 @@ serve(async (req) => {
       lipSyncModel = 'infinitetalk',
       portraitImage = null,
       voiceovers = [],
-      voice = 'nova' // Voice for TTS
+      voice = 'nova', // Voice for TTS
+      preGeneratedImages = [] // Pre-generated images from preview
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -222,6 +223,7 @@ serve(async (req) => {
     console.log('Portrait Image provided:', !!portraitImage);
     console.log('Voice:', voice);
     console.log('Voiceovers provided:', voiceovers?.length || 0);
+    console.log('Pre-generated images:', preGeneratedImages?.length || 0);
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -247,7 +249,16 @@ serve(async (req) => {
     const useConsistentPortrait = enableLipSync && portraitImage;
     
     for (const scene of scenes as Scene[]) {
-      console.log('Generating image for scene:', scene.sceneNumber, 'isIntro:', scene.isIntro, 'isOutro:', scene.isOutro);
+      console.log('Processing image for scene:', scene.sceneNumber, 'isIntro:', scene.isIntro, 'isOutro:', scene.isOutro);
+      
+      // Check if we have a pre-generated image for this scene
+      const preGenImage = preGeneratedImages?.find((pg: any) => pg.sceneNumber === scene.sceneNumber);
+      if (preGenImage?.imageUrl) {
+        console.log('Using pre-generated image for scene', scene.sceneNumber);
+        sceneImages.push(preGenImage.imageUrl);
+        savedImageUrls.push(preGenImage.imageUrl);
+        continue;
+      }
       
       // For lip sync with consistent portrait, use the uploaded portrait for content scenes
       if (useConsistentPortrait && !scene.isIntro && !scene.isOutro) {
