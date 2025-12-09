@@ -127,68 +127,90 @@ IMPORTANT: Keep the same environment/setting but only change the camera angle an
       }];
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages,
-        modalities: ['image', 'text']
-      }),
-    });
+    // Retry logic for intermittent failures
+    const MAX_RETRIES = 2;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(`Retry attempt ${attempt} of ${MAX_RETRIES}`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Backoff
+        }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your Lovable workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-image-preview',
+            messages,
+            modalities: ['image', 'text']
+          }),
+        });
 
-      throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Lovable AI error:', response.status, errorText);
+          
+          if (response.status === 429) {
+            return new Response(
+              JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          if (response.status === 402) {
+            return new Response(
+              JSON.stringify({ error: 'Payment required. Please add credits to your Lovable workspace.' }),
+              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('AI response structure:', JSON.stringify({
+          hasChoices: !!data.choices,
+          choicesLength: data.choices?.length,
+          hasMessage: !!data.choices?.[0]?.message,
+          hasImages: !!data.choices?.[0]?.message?.images,
+          imagesLength: data.choices?.[0]?.message?.images?.length,
+          messageContent: data.choices?.[0]?.message?.content?.slice?.(0, 200)
+        }));
+
+        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+        if (!imageUrl) {
+          const textContent = data.choices?.[0]?.message?.content;
+          if (textContent) {
+            console.warn('Model returned text instead of image:', textContent.slice(0, 300));
+          }
+          throw new Error('No image generated - retrying...');
+        }
+
+        console.log('Image generated/edited successfully with reference, camera angle:', cameraAngle);
+
+        return new Response(
+          JSON.stringify({ imageUrl }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        console.warn(`Attempt ${attempt + 1} failed:`, lastError.message);
+        
+        if (attempt === MAX_RETRIES) {
+          break; // Exit loop, will throw below
+        }
+      }
     }
 
-    const data = await response.json();
-    console.log('AI response structure:', JSON.stringify({
-      hasChoices: !!data.choices,
-      choicesLength: data.choices?.length,
-      hasMessage: !!data.choices?.[0]?.message,
-      hasImages: !!data.choices?.[0]?.message?.images,
-      imagesLength: data.choices?.[0]?.message?.images?.length,
-      messageContent: data.choices?.[0]?.message?.content?.slice?.(0, 200)
-    }));
-
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-    if (!imageUrl) {
-      console.error('Full AI response:', JSON.stringify(data));
-      // Check if there's a text response explaining why no image was generated
-      const textContent = data.choices?.[0]?.message?.content;
-      if (textContent) {
-        throw new Error(`Image generation failed: ${textContent.slice(0, 200)}`);
-      }
-      throw new Error('No image generated in response. The model may have refused to generate the image.');
-    }
-
-    console.log('Image generated/edited successfully with reference, camera angle:', cameraAngle);
-
-    return new Response(
-      JSON.stringify({ imageUrl }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // All retries exhausted
+    throw lastError || new Error('Failed to generate image after retries');
 
   } catch (error) {
     console.error('Error in edit-scene-image function:', error);
