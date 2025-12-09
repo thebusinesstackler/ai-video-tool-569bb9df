@@ -66,23 +66,27 @@ serve(async (req) => {
       throw new Error('WaveSpeed API key not configured');
     }
 
-    console.log('Generating TTS with WaveSpeed English TTS for text length:', text.length);
+    console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD for text length:', text.length);
 
-    // Use standard English Azure Neural voice
-    const voiceId = 'en-US-AriaNeural';
+    // Use English voice from MiniMax - pick based on desired tone
+    const voiceId = 'English_Trustworth_Man';
     console.log('Using voice_id:', voiceId);
 
-    // Start TTS generation with WaveSpeed English TTS endpoint
-    const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/tts-english', {
+    // Start TTS generation with WaveSpeed MiniMax Speech-02-HD endpoint
+    const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${waveSpeedApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: text.length > 5000 ? text.substring(0, 5000) : text,
-        voice: voiceId,
-        speed: speed
+        text: text.length > 10000 ? text.substring(0, 10000) : text,
+        voice_id: voiceId,
+        speed: speed,
+        volume: 1,
+        pitch: 0,
+        emotion: emotion || 'neutral',
+        english_normalization: true
       }),
     });
 
@@ -124,7 +128,7 @@ serve(async (req) => {
     }
     const base64Audio = btoa(binary);
 
-    console.log('TTS generation successful with WaveSpeed English TTS');
+    console.log('TTS generation successful with WaveSpeed MiniMax Speech-02-HD');
 
     return new Response(
       JSON.stringify({ audioContent: base64Audio, audioUrl }),
