@@ -418,11 +418,21 @@ serve(async (req) => {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
           }
           
-          // Lip sync models require audio input - generate voiceover if not provided
+          // Lip sync models require audio input - use provided audio or generate voiceover
           let sceneAudioUrl = audioUrl;
           
-          // If no pre-generated audio, generate voiceover now using WaveSpeed MiniMax TTS
-          if (!sceneAudioUrl && scene.narration && WAVESPEED_API_KEY) {
+          // Check if we have valid pre-generated audio (storage URL or base64)
+          const hasValidAudio = sceneAudioUrl && 
+            (sceneAudioUrl.startsWith('http') || sceneAudioUrl.startsWith('data:'));
+          
+          console.log(`Scene ${scene.sceneNumber}: Pre-generated audio check:`, {
+            audioUrl: sceneAudioUrl ? sceneAudioUrl.substring(0, 50) + '...' : 'none',
+            hasValidAudio
+          });
+          
+          // ONLY generate WaveSpeed TTS if no pre-generated audio was provided
+          // This prevents double-voice issue when frontend has already generated Google Cloud TTS
+          if (!hasValidAudio && scene.narration && WAVESPEED_API_KEY) {
             console.log(`Scene ${scene.sceneNumber}: Generating voiceover via WaveSpeed MiniMax TTS`);
             
             try {
