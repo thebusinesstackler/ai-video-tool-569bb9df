@@ -46,6 +46,7 @@ import {
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
+import { VoiceSelector } from '@/components/VoiceSelector';
 import { Input } from '@/components/ui/input';
 
 // Speech Recognition types
@@ -1381,72 +1382,11 @@ const Reels = () => {
             </Card>
 
             {/* Voice Selection - Always Visible */}
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Mic className="w-5 h-5 text-primary" />
-                  Narrator Voice
-                </CardTitle>
-                <CardDescription>
-                  Choose a voice that matches your character
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-0">
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Female Voices */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Female Voices</Label>
-                    <div className="space-y-1">
-                      {[
-                        { value: 'nova', label: 'Nova', desc: 'Warm & Friendly' },
-                        { value: 'shimmer', label: 'Shimmer', desc: 'Expressive & Clear' },
-                        { value: 'fable', label: 'Fable', desc: 'British Accent' },
-                      ].map((voice) => (
-                        <button
-                          key={voice.value}
-                          onClick={() => setSelectedVoice(voice.value as typeof selectedVoice)}
-                          disabled={isGenerating}
-                          className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
-                            selectedVoice === voice.value 
-                              ? 'border-primary bg-primary/10 text-foreground' 
-                              : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
-                          } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          <div className="font-medium text-sm">{voice.label}</div>
-                          <div className="text-xs opacity-70">{voice.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Male Voices */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Male Voices</Label>
-                    <div className="space-y-1">
-                      {[
-                        { value: 'onyx', label: 'Onyx', desc: 'Deep & Authoritative' },
-                        { value: 'echo', label: 'Echo', desc: 'Clear & Neutral' },
-                        { value: 'alloy', label: 'Alloy', desc: 'Balanced & Versatile' },
-                      ].map((voice) => (
-                        <button
-                          key={voice.value}
-                          onClick={() => setSelectedVoice(voice.value as typeof selectedVoice)}
-                          disabled={isGenerating}
-                          className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
-                            selectedVoice === voice.value 
-                              ? 'border-primary bg-primary/10 text-foreground' 
-                              : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
-                          } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          <div className="font-medium text-sm">{voice.label}</div>
-                          <div className="text-xs opacity-70">{voice.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <VoiceSelector 
+              selectedVoice={selectedVoice}
+              onVoiceSelect={(v) => setSelectedVoice(v as typeof selectedVoice)}
+              disabled={isGenerating}
+            />
 
             {/* Lip Sync Mode */}
             <Card className="bg-card border-border">
