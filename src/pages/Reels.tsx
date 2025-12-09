@@ -185,6 +185,7 @@ const Reels = () => {
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5' | 'wan-animate'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
+  const [useNativeVoice, setUseNativeVoice] = useState(true); // Use WaveSpeed's built-in voice generation
   const portraitInputRef = useRef<HTMLInputElement>(null);
   
   const videoBlobRef = useRef<Blob | null>(null);
@@ -447,82 +448,103 @@ const Reels = () => {
     setVideoError(null);
     setProject(prev => ({ ...prev, status: 'generating-video' }));
     setProgress(5);
-    setProgressStatus('Generating voiceovers...');
+    
+    // Check if we should use native voice (WaveSpeed generates voice from text)
+    // Skip TTS generation if using lip sync with native voice
+    const shouldGenerateTTS = !(enableLipSync && useNativeVoice && ['infinitetalk', 'avatar-omni-human-1.5'].includes(lipSyncModel));
+    
+    const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = [];
 
     try {
-      // Step 1: Generate voiceovers for each scene using Google Cloud TTS and get actual durations
-      const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = [];
-      
-      for (const scene of project.scenes) {
-        // Skip silent CTA scenes (no narration needed)
-        if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
-          console.log(`Scene ${scene.sceneNumber} is silent CTA - skipping voiceover`);
-          // Add a placeholder with the scene's duration for timing
-          voiceovers.push({
-            sceneNumber: scene.sceneNumber,
-            audioUrl: '', // No audio
-            duration: scene.duration || 2
-          });
-          continue;
-        }
+      if (shouldGenerateTTS) {
+        setProgressStatus('Generating voiceovers...');
         
-        try {
-          const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-            body: { text: scene.narration, voice: 'alloy' }
-          });
-          
-          if (ttsError) {
-            console.error('TTS error for scene', scene.sceneNumber, ':', ttsError);
+        // Step 1: Generate voiceovers for each scene using Google Cloud TTS and get actual durations
+        for (const scene of project.scenes) {
+          // Skip silent CTA scenes (no narration needed)
+          if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
+            console.log(`Scene ${scene.sceneNumber} is silent CTA - skipping voiceover`);
+            // Add a placeholder with the scene's duration for timing
+            voiceovers.push({
+              sceneNumber: scene.sceneNumber,
+              audioUrl: '', // No audio
+              duration: scene.duration || 2
+            });
             continue;
           }
           
-          if (ttsData?.audioContent) {
-            const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+          try {
+            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+              body: { text: scene.narration, voice: 'alloy' }
+            });
             
-            // Get actual audio duration
-            const actualDuration = await getAudioDuration(audioUrl);
-            console.log(`Scene ${scene.sceneNumber} voiceover actual duration: ${actualDuration}s`);
-            
-            // Upload individual voiceover to storage for persistence
-            let storageUrl: string | undefined;
-            if (user) {
-              try {
-                const base64Data = ttsData.audioContent;
-                const binaryString = atob(base64Data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
-                }
-                
-                const fileName = `${user.id}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(fileName, bytes, { contentType: 'audio/mp3' });
-                
-                if (!uploadError && uploadData) {
-                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                  storageUrl = publicUrl.publicUrl;
-                  console.log('Uploaded voiceover to storage:', storageUrl);
-                }
-              } catch (uploadErr) {
-                console.warn('Voiceover upload failed:', uploadErr);
-              }
+            if (ttsError) {
+              console.error('TTS error for scene', scene.sceneNumber, ':', ttsError);
+              continue;
             }
             
-            voiceovers.push({
-              sceneNumber: scene.sceneNumber,
-              audioUrl,
-              storageUrl,
-              duration: actualDuration
-            });
+            if (ttsData?.audioContent) {
+              const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+              
+              // Get actual audio duration
+              const actualDuration = await getAudioDuration(audioUrl);
+              console.log(`Scene ${scene.sceneNumber} voiceover actual duration: ${actualDuration}s`);
+              
+              // Upload individual voiceover to storage for persistence
+              let storageUrl: string | undefined;
+              if (user) {
+                try {
+                  const base64Data = ttsData.audioContent;
+                  const binaryString = atob(base64Data);
+                  const bytes = new Uint8Array(binaryString.length);
+                  for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                  }
+                  
+                  const fileName = `${user.id}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
+                  const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('reels')
+                    .upload(fileName, bytes, { contentType: 'audio/mp3' });
+                  
+                  if (!uploadError && uploadData) {
+                    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                    storageUrl = publicUrl.publicUrl;
+                    console.log('Uploaded voiceover to storage:', storageUrl);
+                  }
+                } catch (uploadErr) {
+                  console.warn('Voiceover upload failed:', uploadErr);
+                }
+              }
+              
+              voiceovers.push({
+                sceneNumber: scene.sceneNumber,
+                audioUrl,
+                storageUrl,
+                duration: actualDuration
+              });
+            }
+          } catch (ttsErr) {
+            console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
           }
-        } catch (ttsErr) {
-          console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
         }
+        
+        setProgress(15);
+        setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
+      } else {
+        // Using native voice - WaveSpeed will generate voice from text
+        console.log('Using native voice generation - skipping separate TTS');
+        setProgressStatus('Using native voice generation. Creating images...');
+        
+        // Create placeholder voiceovers with estimated durations (scene duration)
+        for (const scene of project.scenes) {
+          voiceovers.push({
+            sceneNumber: scene.sceneNumber,
+            audioUrl: '', // No pre-generated audio - WaveSpeed will generate
+            duration: scene.duration || 5
+          });
+        }
+        setProgress(15);
       }
-      
-      setProgress(15);
-      setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
       
       // Step 2: Generate scene images and start video tasks via backend
       // Pass actual audio durations so WaveSpeed generates correct length videos
@@ -544,8 +566,10 @@ const Reels = () => {
           enableLipSync,
           lipSyncModel: enableLipSync ? lipSyncModel : undefined,
           portraitImage: enableLipSync ? portraitImage : undefined,
-          // Pass voiceover storage URLs for lip sync (need audio URL for each scene)
-          voiceovers: enableLipSync ? voiceovers.map(v => ({
+          // Use native voice when lip sync is enabled with compatible model
+          useNativeVoice: enableLipSync && useNativeVoice && ['infinitetalk', 'avatar-omni-human-1.5'].includes(lipSyncModel),
+          // Pass voiceover storage URLs for lip sync (only if not using native voice)
+          voiceovers: (enableLipSync && !useNativeVoice) ? voiceovers.map(v => ({
             sceneNumber: v.sceneNumber,
             audioUrl: v.storageUrl || v.audioUrl,
             duration: v.duration
@@ -1407,11 +1431,29 @@ const Reels = () => {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      {lipSyncModel === 'infinitetalk' && 'Best for realistic talking head videos'}
-                      {lipSyncModel === 'avatar-omni-human-1.5' && 'Full body avatar animation with speech'}
-                      {lipSyncModel === 'wan-animate' && 'Animated character with lip sync'}
+                      {lipSyncModel === 'infinitetalk' && 'Best for realistic talking head videos with native voice'}
+                      {lipSyncModel === 'avatar-omni-human-1.5' && 'Full body avatar animation with native speech'}
+                      {lipSyncModel === 'wan-animate' && 'Animated character with lip sync (requires audio)'}
                     </p>
                   </div>
+
+                  {/* Native Voice Toggle - only for compatible models */}
+                  {['infinitetalk', 'avatar-omni-human-1.5'].includes(lipSyncModel) && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="native-voice" className="text-sm font-medium">Use Native Voice</Label>
+                        <p className="text-xs text-muted-foreground">
+                          WaveSpeed generates matching voice from your script (recommended)
+                        </p>
+                      </div>
+                      <Switch
+                        id="native-voice"
+                        checked={useNativeVoice}
+                        onCheckedChange={setUseNativeVoice}
+                        disabled={isGenerating}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               )}
             </Card>
