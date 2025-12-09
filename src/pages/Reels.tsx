@@ -206,6 +206,8 @@ const Reels = () => {
     progress: previewProgress, 
     progressStatus: previewProgressStatus,
     referenceImageUrl,
+    characterTransformation,
+    setCharacterTransformation,
     generatePreview,
     regenerateSceneImage,
     regenerateWithReference,
@@ -1685,6 +1687,8 @@ const Reels = () => {
                 referenceImageUrl={referenceImageUrl}
                 onSetReference={setSceneAsReference}
                 onClearReference={clearReference}
+                characterTransformation={characterTransformation}
+                onCharacterTransformationChange={setCharacterTransformation}
               />
             )}
 

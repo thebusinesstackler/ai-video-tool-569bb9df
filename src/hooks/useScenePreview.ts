@@ -29,9 +29,11 @@ interface UseScenePreviewResult {
   progress: number;
   progressStatus: string;
   referenceImageUrl: string | null;
+  characterTransformation: string;
+  setCharacterTransformation: (transformation: string) => void;
   generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
-  regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string) => Promise<void>;
+  regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
   setExternalReference: (imageUrl: string) => void;
   clearReference: () => void;
@@ -46,6 +48,7 @@ export function useScenePreview(): UseScenePreviewResult {
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
+  const [characterTransformation, setCharacterTransformation] = useState<string>('');
 
   const generatePreview = async (scenes: Scene[], userId?: string, refImageUrl?: string) => {
     const activeReference = refImageUrl || referenceImageUrl;
@@ -230,7 +233,7 @@ export function useScenePreview(): UseScenePreviewResult {
   const regenerateSceneImage = async (sceneNumber: number, visualDescription: string) => {
     // Use reference if set
     if (referenceImageUrl) {
-      return regenerateWithReference(sceneNumber, visualDescription, referenceImageUrl);
+      return regenerateWithReference(sceneNumber, visualDescription, referenceImageUrl, characterTransformation);
     }
 
     setPreviewScenes(prev => prev.map(ps =>
@@ -271,7 +274,7 @@ export function useScenePreview(): UseScenePreviewResult {
     }
   };
 
-  const regenerateWithReference = async (sceneNumber: number, visualDescription: string, refImageUrl: string) => {
+  const regenerateWithReference = async (sceneNumber: number, visualDescription: string, refImageUrl: string, transformation?: string) => {
     setPreviewScenes(prev => prev.map(ps =>
       ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true } : ps
     ));
@@ -280,7 +283,8 @@ export function useScenePreview(): UseScenePreviewResult {
       const { data: imageData, error: imageError } = await supabase.functions.invoke('edit-scene-image', {
         body: { 
           prompt: `${visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
-          referenceImageUrl: refImageUrl
+          referenceImageUrl: refImageUrl,
+          characterTransformation: transformation || undefined
         }
       });
 
@@ -358,6 +362,7 @@ export function useScenePreview(): UseScenePreviewResult {
     setProgress(0);
     setProgressStatus('');
     setReferenceImageUrl(null);
+    setCharacterTransformation('');
   };
 
   return {
@@ -367,6 +372,8 @@ export function useScenePreview(): UseScenePreviewResult {
     progress,
     progressStatus,
     referenceImageUrl,
+    characterTransformation,
+    setCharacterTransformation,
     generatePreview,
     regenerateSceneImage,
     regenerateWithReference,

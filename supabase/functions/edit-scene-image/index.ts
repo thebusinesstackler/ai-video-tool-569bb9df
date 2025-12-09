@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, referenceImageUrl, characterDescription } = await req.json();
+    const { prompt, referenceImageUrl, characterDescription, characterTransformation } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -29,23 +29,38 @@ serve(async (req) => {
     console.log('Editing/generating image with reference:', {
       hasReferenceImage: !!referenceImageUrl,
       hasCharacterDescription: !!characterDescription,
+      hasCharacterTransformation: !!characterTransformation,
       promptLength: prompt.length
     });
 
     let messages: any[];
     
     if (referenceImageUrl) {
-      // Use multimodal request with reference image for character consistency
+      // Build transformation instruction if provided
+      const transformInstruction = characterTransformation 
+        ? `IMPORTANT CHARACTER TRANSFORMATION: ${characterTransformation}. ` 
+        : '';
+      
       const characterInstruction = characterDescription 
         ? `Character description: ${characterDescription}. ` 
         : '';
       
-      messages = [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Generate a new scene image based on this prompt: ${prompt}
+      // Different prompts based on whether transformation is requested
+      const instructionText = characterTransformation
+        ? `Generate a new scene image based on this prompt: ${prompt}
+
+${transformInstruction}${characterInstruction}
+
+Use the reference image for:
+- Pose and body position
+- Clothing style and overall aesthetic
+- Lighting and composition
+- Scene atmosphere and framing
+
+BUT APPLY THIS TRANSFORMATION: ${characterTransformation}
+
+Keep the scene composition similar but transform the character as specified.`
+        : `Generate a new scene image based on this prompt: ${prompt}
 
 ${characterInstruction}CRITICAL INSTRUCTION: The main character/person in the new image MUST look EXACTLY like the person in the reference image provided. Maintain the same:
 - Facial features (face shape, eyes, nose, mouth)
@@ -54,7 +69,14 @@ ${characterInstruction}CRITICAL INSTRUCTION: The main character/person in the ne
 - Body type and proportions
 - Clothing style if visible
 
-The scene and background should match the prompt, but the character must be visually identical to the reference.`
+The scene and background should match the prompt, but the character must be visually identical to the reference.`;
+
+      messages = [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: instructionText
           },
           {
             type: 'image_url',
