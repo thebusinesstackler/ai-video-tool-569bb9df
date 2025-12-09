@@ -34,6 +34,14 @@ const QUICK_TRANSFORMATIONS = [
   { label: 'Female', value: 'Make this character female' },
   { label: 'Older', value: 'Make this character older, middle-aged' },
   { label: 'Younger', value: 'Make this character younger, early 20s' },
+  { label: 'Asian', value: 'Make this character Asian ethnicity' },
+  { label: 'Black', value: 'Make this character Black/African ethnicity' },
+  { label: 'Hispanic', value: 'Make this character Hispanic/Latino ethnicity' },
+  { label: 'White', value: 'Make this character White/Caucasian ethnicity' },
+  { label: 'Glasses', value: 'Add glasses to this character' },
+  { label: 'Blonde Hair', value: 'Change hair color to blonde' },
+  { label: 'Dark Hair', value: 'Change hair color to dark brown/black' },
+  { label: 'Red Hair', value: 'Change hair color to red/auburn' },
 ];
 
 export const ScenePreview: React.FC<ScenePreviewProps> = ({
