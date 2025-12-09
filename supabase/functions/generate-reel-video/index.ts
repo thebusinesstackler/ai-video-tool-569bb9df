@@ -37,18 +37,41 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
+// Calculate TTS speed to match target duration
+// Normal speech is ~150 words/minute = 2.5 words/second
+// WaveSpeed speed range: 0.5 (slowest) to 2.0 (fastest)
+function calculateTTSSpeed(text: string, targetDurationSeconds: number): number {
+  const words = text.split(/\s+/).filter(w => w.length > 0).length;
+  const normalWordsPerSecond = 2.5;
+  const normalDuration = words / normalWordsPerSecond;
+  
+  // Calculate what speed would stretch/compress to target
+  // speed < 1 = slower (takes more time), speed > 1 = faster
+  const requiredSpeed = normalDuration / targetDurationSeconds;
+  
+  // Clamp to WaveSpeed's valid range (0.5 to 2.0)
+  const clampedSpeed = Math.max(0.5, Math.min(2.0, requiredSpeed));
+  
+  console.log(`TTS speed calc: ${words} words, normal=${normalDuration.toFixed(1)}s, target=${targetDurationSeconds}s, speed=${clampedSpeed.toFixed(2)}`);
+  
+  return clampedSpeed;
+}
+
 // Generate voiceover using WaveSpeed MiniMax Speech-02
 async function generateWaveSpeedTTS(
   text: string, 
   apiKey: string,
   emotion: string = 'neutral',
-  speed: number = 1
+  targetDuration: number = 8
 ): Promise<{ audioUrl: string; taskId: string } | null> {
   try {
     console.log('Generating TTS with WaveSpeed MiniMax Speech-02...');
     
     // Use English voice ID
     const voiceId = 'Friendly_Person';
+    
+    // Calculate speed to match target duration
+    const speed = calculateTTSSpeed(text, targetDuration);
     
     const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
@@ -370,8 +393,9 @@ serve(async (req) => {
             console.log(`Scene ${scene.sceneNumber}: Generating voiceover via WaveSpeed MiniMax TTS`);
             
             try {
-              // Start TTS generation
-              const ttsResult = await generateWaveSpeedTTS(scene.narration, WAVESPEED_API_KEY, 'neutral', 1);
+              // Start TTS generation with target duration from scene
+              const targetDuration = scene.duration || 8;
+              const ttsResult = await generateWaveSpeedTTS(scene.narration, WAVESPEED_API_KEY, 'neutral', targetDuration);
               
               if (ttsResult?.taskId) {
                 // Poll for result
