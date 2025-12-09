@@ -227,6 +227,10 @@ const Reels = () => {
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS
   const [selectedVoice, setSelectedVoice] = useState<'nova' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'shimmer'>('nova');
+  
+  // VEO3 mode - generates video with built-in voice, no separate TTS needed
+  const [enableVeo3Mode, setEnableVeo3Mode] = useState(false);
+  const [veo3Model, setVeo3Model] = useState<'veo3' | 'veo3-fast'>('veo3-fast');
   const portraitInputRef = useRef<HTMLInputElement>(null);
   
   const videoBlobRef = useRef<Blob | null>(null);
@@ -490,13 +494,15 @@ const Reels = () => {
     setProgress(5);
     
     // Use preview voiceovers if they exist, otherwise generate new ones
+    // Skip voiceover generation entirely if VEO3 mode is enabled (VEO3 generates voice from prompt)
     const hasPreviewVoiceovers = previewVoiceovers.length > 0;
+    const skipVoiceGeneration = enableVeo3Mode;
     const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = 
-      hasPreviewVoiceovers ? [...previewVoiceovers] : [];
+      hasPreviewVoiceovers && !skipVoiceGeneration ? [...previewVoiceovers] : [];
 
     try {
-      // Skip voiceover generation if we have them from preview
-      if (!hasPreviewVoiceovers) {
+      // Skip voiceover generation if we have them from preview OR if VEO3 mode is enabled
+      if (!hasPreviewVoiceovers && !skipVoiceGeneration) {
         setProgressStatus('Generating voiceovers...');
       
       // Step 1: Generate voiceovers for each scene using OpenAI TTS and get actual durations
@@ -567,10 +573,13 @@ const Reels = () => {
           console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
         }
       }
-      } // End of if (!hasPreviewVoiceovers)
+      } // End of if (!hasPreviewVoiceovers && !skipVoiceGeneration)
       
       // Set progress based on whether we skipped voiceover generation
-      if (hasPreviewVoiceovers) {
+      if (skipVoiceGeneration) {
+        setProgress(15);
+        setProgressStatus('VEO3 mode: Skipping TTS (voice generated in video). Creating images...');
+      } else if (hasPreviewVoiceovers) {
         setProgress(15);
         setProgressStatus('Using cached voiceovers. Creating images...');
       } else {
@@ -599,13 +608,16 @@ const Reels = () => {
           topic: project.topic,
           addCaptions: true,
           useWaveSpeed: true,
-          // Lip sync configuration
-          enableLipSync,
-          lipSyncModel: enableLipSync ? lipSyncModel : undefined,
-          portraitImage: enableLipSync ? portraitImage : undefined,
-          voice: enableLipSync ? selectedVoice : 'nova',
-          // Pass voiceover storage URLs for lip sync
-          voiceovers: voiceovers.map(v => ({
+          // VEO3 mode - generates video with built-in voice
+          enableVeo3Mode,
+          veo3Model: enableVeo3Mode ? veo3Model : undefined,
+          // Lip sync configuration (disabled when VEO3 is enabled)
+          enableLipSync: enableVeo3Mode ? false : enableLipSync,
+          lipSyncModel: enableLipSync && !enableVeo3Mode ? lipSyncModel : undefined,
+          portraitImage: enableLipSync && !enableVeo3Mode ? portraitImage : undefined,
+          voice: enableLipSync && !enableVeo3Mode ? selectedVoice : 'nova',
+          // Pass voiceover storage URLs for lip sync (skip if VEO3 mode)
+          voiceovers: enableVeo3Mode ? [] : voiceovers.map(v => ({
             sceneNumber: v.sceneNumber,
             audioUrl: v.storageUrl || v.audioUrl,
             duration: v.duration
@@ -1497,6 +1509,69 @@ const Reels = () => {
                       {lipSyncModel === 'infinitetalk' && 'Best for realistic talking head videos with native voice'}
                       {lipSyncModel === 'avatar-omni-human-1.5' && 'Full body avatar animation with native speech'}
                       {lipSyncModel === 'wan-animate' && 'Animated character with lip sync (requires audio)'}
+                    </p>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* VEO3 Mode - Video with Built-in Voice */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    VEO3 Mode
+                    {enableVeo3Mode && (
+                      <span className="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full">
+                        No TTS Cost
+                      </span>
+                    )}
+                  </div>
+                  <Switch
+                    checked={enableVeo3Mode}
+                    onCheckedChange={(checked) => {
+                      setEnableVeo3Mode(checked);
+                      // Disable lip sync when VEO3 is enabled (they're mutually exclusive)
+                      if (checked) setEnableLipSync(false);
+                    }}
+                    disabled={isGenerating}
+                  />
+                </CardTitle>
+                <CardDescription>
+                  Generate video with built-in voice from a single prompt - no separate TTS needed
+                </CardDescription>
+              </CardHeader>
+              {enableVeo3Mode && (
+                <CardContent className="space-y-4 pt-0">
+                  <div className="space-y-2">
+                    <Label>VEO3 Model</Label>
+                    <Select 
+                      value={veo3Model} 
+                      onValueChange={(v) => setVeo3Model(v as typeof veo3Model)}
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="veo3-fast">
+                          VEO3 Fast (Recommended)
+                        </SelectItem>
+                        <SelectItem value="veo3">
+                          VEO3 (Higher Quality)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {veo3Model === 'veo3-fast' && 'Faster generation with built-in audio from your narration prompt'}
+                      {veo3Model === 'veo3' && 'Higher quality video with built-in audio - takes longer'}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      <strong>💡 Cost Saving:</strong> VEO3 generates video + voice together from your scene narration. 
+                      No separate TTS API calls needed!
                     </p>
                   </div>
                 </CardContent>

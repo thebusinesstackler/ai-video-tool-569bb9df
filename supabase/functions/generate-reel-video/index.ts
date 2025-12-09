@@ -204,7 +204,9 @@ serve(async (req) => {
       portraitImage = null,
       voiceovers = [],
       voice = 'nova', // Voice for TTS
-      preGeneratedImages = [] // Pre-generated images from preview
+      preGeneratedImages = [], // Pre-generated images from preview
+      enableVeo3Mode = false, // VEO3 mode - generates video with built-in voice
+      veo3Model = 'veo3-fast' // VEO3 model variant
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -218,6 +220,7 @@ serve(async (req) => {
     console.log('Scenes:', scenes.length);
     console.log('Add captions:', addCaptions);
     console.log('Use WaveSpeed:', useWaveSpeed);
+    console.log('VEO3 Mode:', enableVeo3Mode, 'Model:', veo3Model);
     console.log('Enable Lip Sync:', enableLipSync);
     console.log('Lip Sync Model:', lipSyncModel);
     console.log('Portrait Image provided:', !!portraitImage);
@@ -353,6 +356,7 @@ serve(async (req) => {
     
     if (useWaveSpeed && WAVESPEED_API_KEY && finalImageUrls.length > 0) {
       console.log('Starting WaveSpeed video generation for', finalImageUrls.length, 'scenes');
+      console.log('VEO3 mode:', enableVeo3Mode ? `Yes (${veo3Model})` : 'No');
       console.log('Lip sync mode:', enableLipSync ? `Yes (${lipSyncModel})` : 'No');
       
       for (let i = 0; i < finalImageUrls.length; i++) {
@@ -369,7 +373,7 @@ serve(async (req) => {
         const sceneVoiceover = (voiceovers as VoiceoverData[])?.find(v => v.sceneNumber === scene.sceneNumber);
         const audioUrl = sceneVoiceover?.audioUrl;
         
-        // Determine API endpoint and body based on lip sync mode
+        // Determine API endpoint and body based on mode
         let apiEndpoint: string;
         let requestBody: any;
         
@@ -380,10 +384,32 @@ serve(async (req) => {
         
         console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
         
-        // For lip sync scenes (not intro/outro), use the lip sync model
-        const useLipSyncForScene = enableLipSync && !scene.isIntro && !scene.isOutro && scene.narration;
-        
-        if (useLipSyncForScene) {
+        // VEO3 MODE: Generate video with built-in voice from prompt (no separate TTS needed)
+        if (enableVeo3Mode && !scene.isIntro && !scene.isOutro && scene.narration) {
+          console.log(`Using VEO3 mode (${veo3Model}) for scene ${scene.sceneNumber} - voice generated from prompt`);
+          
+          // VEO3 generates video WITH audio from the prompt itself
+          apiEndpoint = veo3Model === 'veo3' 
+            ? 'https://api.wavespeed.ai/api/v3/google/veo-3'
+            : 'https://api.wavespeed.ai/api/v3/google/veo-3-fast';
+          
+          // Build prompt that includes what the character should SAY
+          // VEO3 will generate the video with the character speaking these words
+          const voicePrompt = `${scene.visualDescription}. The character speaks: "${scene.narration}" with clear speech and natural expression.`;
+          
+          requestBody = {
+            prompt: voicePrompt,
+            duration: clipDuration,
+            seed: Math.floor(Math.random() * 2147483647)
+          };
+          
+          // Add image if available for image-guided generation
+          if (imageUrl && !imageUrl.startsWith('data:')) {
+            requestBody.image = imageUrl;
+          }
+        }
+        // LIP SYNC MODE: For lip sync scenes (not intro/outro), use the lip sync model
+        else if (enableLipSync && !scene.isIntro && !scene.isOutro && scene.narration) {
           // Use lip sync model with native voice or provided audio
           console.log(`Using lip sync model ${lipSyncModel} for scene ${scene.sceneNumber}`);
           
@@ -492,8 +518,9 @@ serve(async (req) => {
             const errorText = await videoResponse.text();
             console.error('WaveSpeed error for scene', scene.sceneNumber, ':', errorText);
             
-            // Fallback to regular image-to-video if lip sync fails
-            if (useLipSyncForScene) {
+            // Fallback to regular image-to-video if VEO3 or lip sync fails
+            const usingSpecialMode = enableVeo3Mode || enableLipSync;
+            if (usingSpecialMode) {
               console.log('Falling back to regular image-to-video for scene', scene.sceneNumber);
               
               const fallbackResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
