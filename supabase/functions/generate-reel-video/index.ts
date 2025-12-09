@@ -11,9 +11,10 @@ interface Scene {
   narration: string;
   visualDescription: string;
   duration: number;
-  audioDuration?: number; // Actual voiceover duration - takes precedence
+  audioDuration?: number;
   isIntro?: boolean;
   isOutro?: boolean;
+  isSilentCTA?: boolean;
   templateId?: string;
 }
 
@@ -22,6 +23,9 @@ interface VoiceoverData {
   audioUrl: string;
   duration: number;
 }
+
+// Lip sync models that generate voice from text (no separate TTS needed)
+const LIP_SYNC_MODELS_WITH_TTS = ['infinitetalk', 'avatar-omni-human-1.5'];
 
 // Helper to convert base64 to Uint8Array
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -78,7 +82,8 @@ serve(async (req) => {
       enableLipSync = false,
       lipSyncModel = 'infinitetalk',
       portraitImage = null,
-      voiceovers = []
+      voiceovers = [],
+      useNativeVoice = true // Use WaveSpeed's built-in voice generation
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -95,6 +100,7 @@ serve(async (req) => {
     console.log('Enable Lip Sync:', enableLipSync);
     console.log('Lip Sync Model:', lipSyncModel);
     console.log('Portrait Image provided:', !!portraitImage);
+    console.log('Use Native Voice:', useNativeVoice);
     console.log('Voiceovers provided:', voiceovers?.length || 0);
 
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
@@ -220,7 +226,13 @@ serve(async (req) => {
         const scene = (scenes as Scene[])[i];
         const imageUrl = finalImageUrls[i];
         
-        // Get voiceover audio URL for this scene (needed for lip sync)
+        // Skip silent CTA scenes entirely - they don't need video generation
+        if (scene.isSilentCTA) {
+          console.log(`Skipping video generation for silent CTA scene ${scene.sceneNumber}`);
+          continue;
+        }
+        
+        // Get voiceover audio URL for this scene (if pre-generated)
         const sceneVoiceover = (voiceovers as VoiceoverData[])?.find(v => v.sceneNumber === scene.sceneNumber);
         const audioUrl = sceneVoiceover?.audioUrl;
         
@@ -235,11 +247,11 @@ serve(async (req) => {
         
         console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
         
-        // Skip intro/outro for lip sync (use regular image-to-video for them)
-        const useLipSyncForScene = enableLipSync && !scene.isIntro && !scene.isOutro && audioUrl;
+        // For lip sync scenes (not intro/outro), use the lip sync model
+        const useLipSyncForScene = enableLipSync && !scene.isIntro && !scene.isOutro && scene.narration;
         
         if (useLipSyncForScene) {
-          // Use lip sync model
+          // Use lip sync model with native voice or provided audio
           console.log(`Using lip sync model ${lipSyncModel} for scene ${scene.sceneNumber}`);
           
           if (lipSyncModel === 'infinitetalk') {
@@ -252,18 +264,41 @@ serve(async (req) => {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
           }
           
-          requestBody = {
-            image: imageUrl,
-            audio: audioUrl,
-            duration: clipDuration
-          };
+          // Check if this model supports native TTS (text-to-speech)
+          const modelSupportsNativeTTS = LIP_SYNC_MODELS_WITH_TTS.includes(lipSyncModel);
+          
+          if (modelSupportsNativeTTS && useNativeVoice && scene.narration) {
+            // Use text input for native voice generation (model generates voice from text)
+            requestBody = {
+              image: imageUrl,
+              text: scene.narration, // Model generates voice from this text
+              duration: clipDuration
+            };
+            console.log(`Scene ${scene.sceneNumber}: Using native voice generation with text`);
+          } else if (audioUrl) {
+            // Use pre-generated audio
+            requestBody = {
+              image: imageUrl,
+              audio: audioUrl,
+              duration: clipDuration
+            };
+            console.log(`Scene ${scene.sceneNumber}: Using pre-generated audio`);
+          } else {
+            // Fallback to text-based if no audio
+            requestBody = {
+              image: imageUrl,
+              text: scene.narration || 'Speaking naturally',
+              duration: clipDuration
+            };
+            console.log(`Scene ${scene.sceneNumber}: Fallback to text-based`);
+          }
           
           // Add prompt for wan-animate
           if (lipSyncModel === 'wan-animate') {
             requestBody.prompt = `${scene.visualDescription}. Speaking naturally, engaging expression.`;
           }
         } else {
-          // Use regular image-to-video model
+          // Use regular image-to-video model for intro/outro
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
           
           let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style.`;
