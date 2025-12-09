@@ -51,18 +51,26 @@ serve(async (req) => {
     const maxSceneDuration = 8;
     const sceneDuration = Math.min(Math.round(contentDuration / sceneCount), maxSceneDuration);
     
-    // Calculate word count for 8 seconds max (speaking rate ~2.5 words/sec = 20 words max)
-    const maxWordsPerScene = 20;
+    // Calculate word count for 8 seconds with slower speech (0.6x speed = ~30 words fills 8s)
+    // This ensures narration fills the entire scene duration
+    const maxWordsPerScene = 30;
+    const minWordsPerScene = 25;
 
-    const systemPrompt = `You are an elite short-form video scriptwriter. You write EXACTLY what the voiceover narrator will say out loud.
+    const systemPrompt = `You are an elite short-form video scriptwriter creating ONE COHESIVE STORY. You write EXACTLY what the voiceover narrator will say out loud.
 
-CRITICAL RULES:
-- The "narration" field contains ONLY the exact words to be spoken aloud by the narrator
-- NO analysis, NO descriptions, NO stage directions, NO parentheticals in narration
-- NO "Here's..." or "Let me explain..." or any meta-commentary
+CRITICAL STORY RULES:
+- ALL scenes MUST tell ONE continuous story about the SAME topic
+- Each scene builds on the previous one - think of it as chapters in a story
+- No scene should repeat what another scene says
+- Scene flow: Hook → Setup → Core content → Resolution/CTA
+- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill the full ${sceneDuration} seconds
+
+NARRATION RULES:
+- The "narration" field contains ONLY the exact words to be spoken aloud
+- NO analysis, NO descriptions, NO stage directions, NO parentheticals
 - Write in first person, conversational, as if speaking directly to the viewer
-- Every word in narration will be converted to speech - make it sound natural when spoken
-- MAX ${maxWordsPerScene} words per scene (~${sceneDuration} seconds when spoken at normal pace)
+- Every word will be spoken slowly - write naturally flowing sentences
+- Use transitional phrases between ideas: "And here's the thing...", "But wait...", "So what does this mean?"
 
 HOOKS THAT WORK:
 - "Stop scrolling..." / "Wait..." / "Did you know..."
@@ -73,13 +81,22 @@ Visual descriptions are separate - be detailed for AI image generation consisten
 
     const userPrompt = `Write ${sceneCount} scenes for a ${contentDuration}-second Reel about: "${topic}"
 
-NARRATION RULES (this is what the voice will SAY):
-- Write EXACTLY what will be spoken out loud - no analysis, no explanations, no meta text
-- Scene 1: Powerful hook that grabs attention immediately
-- Middle scenes: Deliver the main content/value in conversational speech
-- Last scene: Clear takeaway or call-to-action
-- Sound natural when read aloud - test by reading it yourself
-- MAX ${maxWordsPerScene} words per scene
+STORY FLOW (each scene MUST connect to the next):
+- Scene 1 (HOOK): Grab attention with a bold statement or question that makes them stop scrolling
+- Scene 2-${sceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
+- Scene ${sceneCount} (CLOSE): Deliver the payoff, conclusion, or call-to-action
+
+NARRATION REQUIREMENTS:
+- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${sceneDuration} seconds when spoken slowly)
+- Write conversational sentences that flow naturally when spoken
+- Each scene should transition smoothly to the next
+- Use complete thoughts and natural pauses
+
+STORY CONTINUITY EXAMPLE:
+Scene 1: "Stop scrolling because what I'm about to tell you completely changed how I think about Facebook ads..."
+Scene 2: "See, most people spend hours manually testing audiences and creatives, and honestly it's exhausting..."
+Scene 3: "But here's what happened when I let an AI take over all that work for me..."
+Scene 4: "Now my campaigns run twenty-four seven, optimizing themselves while I focus on other things..."
 
 VISUAL RULES:
 - Use ONE consistent visual style across all scenes
@@ -90,21 +107,11 @@ Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "The exact words the narrator will speak aloud",
+    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here - longer, flowing narration that fills the full ${sceneDuration} seconds",
     "visualDescription": "Style: [style]. Subject: [what]. Camera: [angle]. Lighting: [type]. Background: [env]. Colors: [palette]. Mood: [mood].",
     "duration": ${sceneDuration}
   }
-]
-
-GOOD narration examples:
-- "Did you know most people are doing this completely wrong?"
-- "Here's the one thing that changed everything for me"
-- "Stop what you're doing and listen to this"
-
-BAD narration examples (NEVER do this):
-- "In this scene, we introduce the topic..." (meta-commentary)
-- "The viewer sees a person explaining..." (description, not speech)
-- "[Upbeat tone] Welcome to..." (stage directions)`;
+]`;
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {

@@ -38,6 +38,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
 }
 
 // Calculate TTS speed to match target duration
+// With longer narrations (25-30 words), we need slower speech (0.5-0.8x) to fill 8 seconds
 // Normal speech is ~150 words/minute = 2.5 words/second
 // WaveSpeed speed range: 0.5 (slowest) to 2.0 (fastest)
 function calculateTTSSpeed(text: string, targetDurationSeconds: number): number {
@@ -49,8 +50,9 @@ function calculateTTSSpeed(text: string, targetDurationSeconds: number): number 
   // speed < 1 = slower (takes more time), speed > 1 = faster
   const requiredSpeed = normalDuration / targetDurationSeconds;
   
-  // Clamp to WaveSpeed's valid range (0.5 to 2.0)
-  const clampedSpeed = Math.max(0.5, Math.min(2.0, requiredSpeed));
+  // Clamp to 0.5-1.0 range for natural, slower speech that fills the scene
+  // We prefer slower speech (0.5-0.8) to ensure narration fills the full duration
+  const clampedSpeed = Math.max(0.5, Math.min(1.0, requiredSpeed));
   
   console.log(`TTS speed calc: ${words} words, normal=${normalDuration.toFixed(1)}s, target=${targetDurationSeconds}s, speed=${clampedSpeed.toFixed(2)}`);
   
