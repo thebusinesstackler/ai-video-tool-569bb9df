@@ -554,26 +554,36 @@ const Reels = () => {
           
           // Step 4a: Upload and merge voiceover audio for Creatomate
           let mergedAudioUrl: string | undefined;
-          try {
-            const { data: mergeData, error: mergeError } = await supabase.functions.invoke('merge-audio', {
-              body: {
-                segments: sortedAudios.map(a => ({
-                  audioUrl: a.audioUrl,
-                  duration: a.duration,
-                  sceneNumber: a.sceneNumber
-                })),
-                userId: user?.id || 'anonymous'
-              }
-            });
+          
+          // Filter out empty/silent audio segments before merging
+          const audioSegmentsToMerge = sortedAudios
+            .filter(a => a.audioUrl && a.audioUrl.trim() !== '')
+            .map(a => ({
+              audioUrl: a.audioUrl,
+              duration: a.duration,
+              sceneNumber: a.sceneNumber
+            }));
+          
+          if (audioSegmentsToMerge.length === 0) {
+            console.log('No audio segments to merge, skipping audio merge');
+          } else {
+            try {
+              const { data: mergeData, error: mergeError } = await supabase.functions.invoke('merge-audio', {
+                body: {
+                  segments: audioSegmentsToMerge,
+                  userId: user?.id || 'anonymous'
+                }
+              });
             
-            if (!mergeError && mergeData?.audioUrl) {
-              mergedAudioUrl = mergeData.audioUrl;
-              console.log('Merged audio URL:', mergedAudioUrl);
-            } else {
-              console.warn('Audio merge failed, proceeding without audio:', mergeError);
+              if (!mergeError && mergeData?.audioUrl) {
+                mergedAudioUrl = mergeData.audioUrl;
+                console.log('Merged audio URL:', mergedAudioUrl);
+              } else {
+                console.warn('Audio merge failed, proceeding without audio:', mergeError);
+              }
+            } catch (mergeErr) {
+              console.warn('Audio merge error, proceeding without audio:', mergeErr);
             }
-          } catch (mergeErr) {
-            console.warn('Audio merge error, proceeding without audio:', mergeErr);
           }
           
           setProgressStatus('Rendering with Creatomate (server-side)...');
