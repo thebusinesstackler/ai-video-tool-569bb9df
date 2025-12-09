@@ -65,15 +65,16 @@ async function generateWaveSpeedTTS(
   targetDuration: number = 8
 ): Promise<{ audioUrl: string; taskId: string } | null> {
   try {
-    console.log('Generating TTS with WaveSpeed MiniMax Speech-02...');
+    console.log('Generating TTS with WaveSpeed English TTS...');
     
-    // Use English voice ID
-    const voiceId = 'Friendly_Person';
+    // Use standard English voice
+    const voiceId = 'en-US-AriaNeural';
     
     // Calculate speed to match target duration
     const speed = calculateTTSSpeed(text, targetDuration);
     
-    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
+    // Use WaveSpeed English TTS endpoint instead of MiniMax (which defaults to Chinese)
+    const response = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/tts-english', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -81,14 +82,8 @@ async function generateWaveSpeedTTS(
       },
       body: JSON.stringify({
         text: text,
-        voice_id: voiceId,
-        speed: speed,
-        volume: 1,
-        pitch: 0,
-        emotion: emotion,
-        english_normalization: true,
-        language_boost: 'English',
-        enable_sync_mode: false
+        voice: voiceId,
+        speed: speed
       }),
     });
 
