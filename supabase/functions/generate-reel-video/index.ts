@@ -385,28 +385,23 @@ serve(async (req) => {
         console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
         
         // VEO3 MODE: Generate video with built-in voice from prompt (no separate TTS needed)
+        // Uses WaveSpeed text-to-video which generates video from text description
         if (enableVeo3Mode && !scene.isIntro && !scene.isOutro && scene.narration) {
-          console.log(`Using VEO3 mode (${veo3Model}) for scene ${scene.sceneNumber} - voice generated from prompt`);
+          console.log(`Using VEO3/Text-to-Video mode for scene ${scene.sceneNumber} - generating video from prompt`);
           
-          // VEO3 generates video WITH audio from the prompt itself
-          apiEndpoint = veo3Model === 'veo3' 
-            ? 'https://api.wavespeed.ai/api/v3/google/veo-3'
-            : 'https://api.wavespeed.ai/api/v3/google/veo-3-fast';
+          // Use WaveSpeed text-to-video model (WAN 2.5 is reliable and generates good quality)
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/text-to-video';
           
           // Build prompt that includes what the character should SAY
-          // VEO3 will generate the video with the character speaking these words
-          const voicePrompt = `${scene.visualDescription}. The character speaks: "${scene.narration}" with clear speech and natural expression.`;
+          // The model will generate a video depicting the scene with dialogue
+          const voicePrompt = `${scene.visualDescription}. A person speaking the words: "${scene.narration}" with clear speech, natural expression, and engaging delivery. Cinematic quality, vertical 9:16 aspect ratio for social media.`;
           
           requestBody = {
             prompt: voicePrompt,
             duration: clipDuration,
-            seed: Math.floor(Math.random() * 2147483647)
+            seed: Math.floor(Math.random() * 2147483647),
+            resolution: "480p"
           };
-          
-          // Add image if available for image-guided generation
-          if (imageUrl && !imageUrl.startsWith('data:')) {
-            requestBody.image = imageUrl;
-          }
         }
         // LIP SYNC MODE: For lip sync scenes (not intro/outro), use the lip sync model
         else if (enableLipSync && !scene.isIntro && !scene.isOutro && scene.narration) {
