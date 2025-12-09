@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.merge-audio]
 verify_jwt = false
+
+[functions.migrate-images-to-storage]
+verify_jwt = true
