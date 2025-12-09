@@ -540,7 +540,7 @@ const Reels = () => {
         
         try {
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-            body: { text: scene.narration, voice: enableLipSync ? selectedVoice : 'alloy' }
+            body: { text: scene.narration, voice: selectedVoice }
           });
           
           if (ttsError) {
@@ -634,7 +634,7 @@ const Reels = () => {
           enableLipSync: enableVeo3Mode ? false : enableLipSync,
           lipSyncModel: enableLipSync && !enableVeo3Mode ? lipSyncModel : undefined,
           portraitImage: enableLipSync && !enableVeo3Mode ? portraitImage : undefined,
-          voice: enableLipSync && !enableVeo3Mode ? selectedVoice : 'nova',
+          voice: selectedVoice,
           // Pass voiceover storage URLs for lip sync (skip if VEO3 mode)
           voiceovers: enableVeo3Mode ? [] : voiceovers.map(v => ({
             sceneNumber: v.sceneNumber,
