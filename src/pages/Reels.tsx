@@ -1380,6 +1380,74 @@ const Reels = () => {
               </CardContent>
             </Card>
 
+            {/* Voice Selection - Always Visible */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Mic className="w-5 h-5 text-primary" />
+                  Narrator Voice
+                </CardTitle>
+                <CardDescription>
+                  Choose a voice that matches your character
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Female Voices */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Female Voices</Label>
+                    <div className="space-y-1">
+                      {[
+                        { value: 'nova', label: 'Nova', desc: 'Warm & Friendly' },
+                        { value: 'shimmer', label: 'Shimmer', desc: 'Expressive & Clear' },
+                        { value: 'fable', label: 'Fable', desc: 'British Accent' },
+                      ].map((voice) => (
+                        <button
+                          key={voice.value}
+                          onClick={() => setSelectedVoice(voice.value as typeof selectedVoice)}
+                          disabled={isGenerating}
+                          className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
+                            selectedVoice === voice.value 
+                              ? 'border-primary bg-primary/10 text-foreground' 
+                              : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
+                          } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium text-sm">{voice.label}</div>
+                          <div className="text-xs opacity-70">{voice.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Male Voices */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Male Voices</Label>
+                    <div className="space-y-1">
+                      {[
+                        { value: 'onyx', label: 'Onyx', desc: 'Deep & Authoritative' },
+                        { value: 'echo', label: 'Echo', desc: 'Clear & Neutral' },
+                        { value: 'alloy', label: 'Alloy', desc: 'Balanced & Versatile' },
+                      ].map((voice) => (
+                        <button
+                          key={voice.value}
+                          onClick={() => setSelectedVoice(voice.value as typeof selectedVoice)}
+                          disabled={isGenerating}
+                          className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${
+                            selectedVoice === voice.value 
+                              ? 'border-primary bg-primary/10 text-foreground' 
+                              : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
+                          } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium text-sm">{voice.label}</div>
+                          <div className="text-xs opacity-70">{voice.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Lip Sync Mode */}
             <Card className="bg-card border-border">
               <CardHeader>
@@ -1472,26 +1540,6 @@ const Reels = () => {
                       {lipSyncModel === 'infinitetalk' && 'Best for realistic talking head videos with native voice'}
                       {lipSyncModel === 'avatar-omni-human-1.5' && 'Full body avatar animation with native speech'}
                       {lipSyncModel === 'wan-animate' && 'Animated character with lip sync (requires audio)'}
-                    </p>
-                  </div>
-                  {/* Voice Selection for Lip Sync */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Voice Style</Label>
-                    <Select value={selectedVoice} onValueChange={(v) => setSelectedVoice(v as typeof selectedVoice)} disabled={isGenerating}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select voice" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="nova">Nova (Female, Warm)</SelectItem>
-                        <SelectItem value="alloy">Alloy (Neutral)</SelectItem>
-                        <SelectItem value="echo">Echo (Male)</SelectItem>
-                        <SelectItem value="fable">Fable (British)</SelectItem>
-                        <SelectItem value="onyx">Onyx (Male, Deep)</SelectItem>
-                        <SelectItem value="shimmer">Shimmer (Female, Expressive)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Voice will be used for the talking head animation
                     </p>
                   </div>
                 </CardContent>
@@ -1639,7 +1687,7 @@ const Reels = () => {
 
                   <div className="flex gap-3 pt-4">
                     <Button
-                      onClick={() => generatePreview(project.scenes, user?.id)}
+                      onClick={() => generatePreview(project.scenes, user?.id, undefined, selectedVoice)}
                       disabled={isGenerating || isGeneratingPreview}
                       className="flex-1 bg-gradient-primary hover:opacity-90"
                     >
