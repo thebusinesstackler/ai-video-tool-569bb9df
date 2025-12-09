@@ -54,50 +54,57 @@ serve(async (req) => {
     // Calculate word count for 8 seconds max (speaking rate ~2.5 words/sec = 20 words max)
     const maxWordsPerScene = 20;
 
-    const systemPrompt = `You are an elite short-form video scriptwriter and visual director for viral TikTok/Instagram content.
+    const systemPrompt = `You are an elite short-form video scriptwriter. You write EXACTLY what the voiceover narrator will say out loud.
 
-Your scripts MUST:
-- Open with an IRRESISTIBLE hook in scene 1 (question, bold claim, pattern interrupt)
-- Keep narrations punchy: MAX ${maxWordsPerScene} words per scene (~${sceneDuration} seconds spoken)
-- Use conversational, scroll-stopping language
-- End with clear value or CTA
+CRITICAL RULES:
+- The "narration" field contains ONLY the exact words to be spoken aloud by the narrator
+- NO analysis, NO descriptions, NO stage directions, NO parentheticals in narration
+- NO "Here's..." or "Let me explain..." or any meta-commentary
+- Write in first person, conversational, as if speaking directly to the viewer
+- Every word in narration will be converted to speech - make it sound natural when spoken
+- MAX ${maxWordsPerScene} words per scene (~${sceneDuration} seconds when spoken at normal pace)
 
-Your visual descriptions MUST:
-- Maintain PERFECT visual consistency across ALL scenes (same style, lighting, color palette)
-- Describe a SPECIFIC recurring character/presenter if showing people (exact age, gender, ethnicity, hair, clothing)
-- Include: camera angle, lighting style, background environment, mood/atmosphere, color grading
-- Be detailed enough for AI image generation to produce cohesive results
-- Use the SAME visual style keywords across all scenes for consistency
-- Format: "Style: [consistent style]. Subject: [what's shown]. Camera: [angle]. Lighting: [type]. Background: [environment]. Colors: [palette]. Mood: [atmosphere]."`;
+HOOKS THAT WORK:
+- "Stop scrolling..." / "Wait..." / "Did you know..."
+- Bold claims: "This changed my life" / "Nobody tells you this"
+- Questions: "Why does everyone get this wrong?"
 
-    const userPrompt = `Create ${sceneCount} scene scripts for a ${contentDuration}-second viral Reel about: "${topic}"
+Visual descriptions are separate - be detailed for AI image generation consistency.`;
 
-CRITICAL REQUIREMENTS:
+    const userPrompt = `Write ${sceneCount} scenes for a ${contentDuration}-second Reel about: "${topic}"
 
-1. NARRATION (${maxWordsPerScene} words MAX per scene):
-   - Scene 1: MUST start with a powerful hook (question, shocking fact, "Stop scrolling if...", "Nobody talks about...", "The secret to...")
-   - Middle scenes: Deliver value with punchy, memorable lines
-   - Final scene: Strong conclusion or call-to-action
+NARRATION RULES (this is what the voice will SAY):
+- Write EXACTLY what will be spoken out loud - no analysis, no explanations, no meta text
+- Scene 1: Powerful hook that grabs attention immediately
+- Middle scenes: Deliver the main content/value in conversational speech
+- Last scene: Clear takeaway or call-to-action
+- Sound natural when read aloud - test by reading it yourself
+- MAX ${maxWordsPerScene} words per scene
 
-2. VISUAL DESCRIPTIONS (EXTREMELY DETAILED for AI image consistency):
-   - First, decide on ONE visual style that will apply to ALL scenes (e.g., "cinematic 4K, warm golden hour lighting, shallow depth of field, film grain")
-   - If showing a person/character: describe them IDENTICALLY in every scene (e.g., "young Asian woman, 25, long black hair, white blouse, confident expression")
-   - Include for EVERY scene: exact camera angle (close-up/medium/wide), lighting direction, background details, color palette, mood keywords
-   - Use the EXACT same style descriptors across scenes to ensure visual coherence
+VISUAL RULES:
+- Use ONE consistent visual style across all scenes
+- If showing a person, describe them identically each scene
+- Include: camera angle, lighting, background, colors, mood
 
-Return ONLY a valid JSON array with exactly ${sceneCount} scenes:
+Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "Hook line here - MAX ${maxWordsPerScene} words",
-    "visualDescription": "Style: [consistent style across all scenes]. Subject: [detailed description]. Camera: [angle]. Lighting: [type]. Background: [environment]. Colors: [specific palette]. Mood: [atmosphere]. Keywords: [additional AI prompt keywords]",
+    "narration": "The exact words the narrator will speak aloud",
+    "visualDescription": "Style: [style]. Subject: [what]. Camera: [angle]. Lighting: [type]. Background: [env]. Colors: [palette]. Mood: [mood].",
     "duration": ${sceneDuration}
   }
 ]
 
-EXAMPLE visual description format:
-"Style: Cinematic 4K, warm amber tones, soft film grain, professional lighting. Subject: A confident 30-year-old Caucasian man with short brown hair, trimmed beard, wearing a navy blue polo shirt. Camera: Medium close-up, eye level. Lighting: Soft key light from left, natural fill. Background: Modern minimalist home office with plants, blurred bokeh. Colors: Warm amber, cream, navy accents. Mood: Trustworthy, engaging, professional. Keywords: social media talking head, vertical 9:16, ultra realistic."`;
+GOOD narration examples:
+- "Did you know most people are doing this completely wrong?"
+- "Here's the one thing that changed everything for me"
+- "Stop what you're doing and listen to this"
 
+BAD narration examples (NEVER do this):
+- "In this scene, we introduce the topic..." (meta-commentary)
+- "The viewer sees a person explaining..." (description, not speech)
+- "[Upbeat tone] Welcome to..." (stage directions)`;
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
