@@ -12,7 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, referenceImageUrl, characterDescription, characterTransformation } = await req.json();
+    const { 
+      prompt, 
+      referenceImageUrl, 
+      characterDescription, 
+      characterTransformation,
+      cameraAngle,
+      backgroundDescription 
+    } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -30,6 +37,8 @@ serve(async (req) => {
       hasReferenceImage: !!referenceImageUrl,
       hasCharacterDescription: !!characterDescription,
       hasCharacterTransformation: !!characterTransformation,
+      cameraAngle: cameraAngle || 'not specified',
+      hasBackgroundDescription: !!backgroundDescription,
       promptLength: prompt.length
     });
 
@@ -45,11 +54,21 @@ serve(async (req) => {
         ? `Character description: ${characterDescription}. ` 
         : '';
       
+      // Camera angle instruction
+      const cameraInstruction = cameraAngle
+        ? `CAMERA ANGLE: Use a ${cameraAngle} for this shot. `
+        : '';
+      
+      // Background consistency instruction
+      const backgroundInstruction = backgroundDescription
+        ? `BACKGROUND CONSISTENCY (CRITICAL): The background MUST be: ${backgroundDescription}. Keep the EXACT same environment, lighting, and atmosphere as specified. Only change the camera angle and character pose. `
+        : 'BACKGROUND CONSISTENCY: Maintain the same environment and lighting as the reference image. ';
+      
       // Different prompts based on whether transformation is requested
       const instructionText = characterTransformation
         ? `Generate a new scene image based on this prompt: ${prompt}
 
-${transformInstruction}${characterInstruction}
+${transformInstruction}${characterInstruction}${cameraInstruction}
 
 Use the reference image for:
 - Pose and body position
@@ -57,19 +76,26 @@ Use the reference image for:
 - Lighting and composition
 - Scene atmosphere and framing
 
+${backgroundInstruction}
+
 BUT APPLY THIS TRANSFORMATION: ${characterTransformation}
 
 Keep the scene composition similar but transform the character as specified.`
         : `Generate a new scene image based on this prompt: ${prompt}
 
-${characterInstruction}CRITICAL INSTRUCTION: The main character/person in the new image MUST look EXACTLY like the person in the reference image provided. Maintain the same:
+${characterInstruction}${cameraInstruction}${backgroundInstruction}
+
+CRITICAL INSTRUCTION: The main character/person in the new image MUST look EXACTLY like the person in the reference image provided. Maintain the same:
 - Facial features (face shape, eyes, nose, mouth)
 - Hair style and color
 - Skin tone
 - Body type and proportions
 - Clothing style if visible
 
-The scene and background should match the prompt, but the character must be visually identical to the reference.`;
+${cameraAngle ? `Use this SPECIFIC camera angle: ${cameraAngle}` : ''}
+
+The scene background should match the prompt, but the character must be visually identical to the reference.
+IMPORTANT: Keep the same environment/setting but only change the camera angle and pose.`;
 
       messages = [{
         role: 'user',
@@ -87,10 +113,17 @@ The scene and background should match the prompt, but the character must be visu
         ]
       }];
     } else {
-      // Standard text-only request
+      // Standard text-only request with camera angle
+      const cameraNote = cameraAngle 
+        ? ` Use this specific camera angle: ${cameraAngle}.`
+        : '';
+      const backgroundNote = backgroundDescription
+        ? ` The background must be: ${backgroundDescription}.`
+        : '';
+        
       messages = [{
         role: 'user',
-        content: prompt
+        content: prompt + cameraNote + backgroundNote
       }];
     }
 
@@ -135,7 +168,7 @@ The scene and background should match the prompt, but the character must be visu
       throw new Error('No image generated in response');
     }
 
-    console.log('Image generated/edited successfully with reference');
+    console.log('Image generated/edited successfully with reference, camera angle:', cameraAngle);
 
     return new Response(
       JSON.stringify({ imageUrl }),

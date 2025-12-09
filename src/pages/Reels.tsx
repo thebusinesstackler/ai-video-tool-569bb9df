@@ -237,6 +237,8 @@ const Reels = () => {
   const [preSelectedReference, setPreSelectedReference] = useState<string | null>(null);
   const [preReferenceTransformation, setPreReferenceTransformation] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; reference_images: string[] }[]>([]);
+  const [hookStyle, setHookStyle] = useState<string>('auto');
+  const [enableCutScenes, setEnableCutScenes] = useState(false);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   
   const videoBlobRef = useRef<Blob | null>(null);
@@ -456,6 +458,8 @@ const Reels = () => {
           topic, 
           sceneCount, 
           targetDuration,
+          hookStyle,
+          enableCutScenes,
           introConfig: selectedIntro !== 'none' ? {
             introTemplate: selectedIntro,
             introText: introText
@@ -1350,7 +1354,7 @@ const Reels = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label>Video Duration</Label>
                     <Select value={selectedDuration} onValueChange={setSelectedDuration} disabled={isGenerating}>
@@ -1363,6 +1367,26 @@ const Reels = () => {
                             {option.label} ({option.sceneCount} scenes)
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Hook Style</Label>
+                    <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto (Topic-based)</SelectItem>
+                        <SelectItem value="bold_claim">Bold Claim</SelectItem>
+                        <SelectItem value="question">Question</SelectItem>
+                        <SelectItem value="controversy">Controversy</SelectItem>
+                        <SelectItem value="story">Story</SelectItem>
+                        <SelectItem value="secret">Secret Reveal</SelectItem>
+                        <SelectItem value="countdown">Countdown/List</SelectItem>
+                        <SelectItem value="fomo">FOMO</SelectItem>
+                        <SelectItem value="curiosity">Curiosity Gap</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1831,6 +1855,19 @@ const Reels = () => {
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
+                          // Upload to storage for persistence
+                          if (user) {
+                            const fileName = `${user.id}/references/${Date.now()}-ref.${file.type.split('/')[1] || 'jpg'}`;
+                            const { data: uploadData, error: uploadError } = await supabase.storage
+                              .from('reels')
+                              .upload(fileName, file, { contentType: file.type });
+                            if (!uploadError && uploadData) {
+                              const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                              setPreSelectedReference(publicUrl.publicUrl);
+                              return;
+                            }
+                          }
+                          // Fallback to base64
                           const reader = new FileReader();
                           reader.onload = (ev) => {
                             setPreSelectedReference(ev.target?.result as string);
