@@ -53,16 +53,18 @@ const Movies = () => {
   const loadProjects = async () => {
     try {
       setIsLoading(true);
+      // Only fetch metadata columns, not the large scenes JSON
       const { data, error } = await supabase
         .from('movie_projects')
-        .select('*')
+        .select('id, title, movie_idea, outline, created_at, updated_at')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
 
+      // Set projects with empty scenes array initially - will load on demand
       setProjects((data || []).map(p => ({
         ...p,
-        scenes: (p.scenes as any) as MovieScene[]
+        scenes: [] as MovieScene[]
       })));
     } catch (error: any) {
       console.error('Error loading projects:', error);
@@ -101,9 +103,30 @@ const Movies = () => {
     }
   };
 
-  const viewProject = (project: MovieProject) => {
-    setSelectedProject(project);
-    setIsViewDialogOpen(true);
+  const viewProject = async (project: MovieProject) => {
+    try {
+      // Load full project data including scenes
+      const { data, error } = await supabase
+        .from('movie_projects')
+        .select('*')
+        .eq('id', project.id)
+        .single();
+
+      if (error) throw error;
+
+      setSelectedProject({
+        ...data,
+        scenes: (data.scenes as any) as MovieScene[]
+      });
+      setIsViewDialogOpen(true);
+    } catch (error: any) {
+      console.error('Error loading project details:', error);
+      toast({
+        title: "Load Failed",
+        description: "Failed to load project details.",
+        variant: "destructive"
+      });
+    }
   };
 
   const editProject = (projectId: string) => {
@@ -149,9 +172,6 @@ const Movies = () => {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => {
-              const videoCount = getVideoCount(project.scenes);
-              const sceneCount = project.scenes?.length || 0;
-              
               return (
                 <Card key={project.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
@@ -164,16 +184,9 @@ const Movies = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="text-sm space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Scenes:</span>
-                        <span className="font-medium">{sceneCount}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Videos:</span>
-                        <span className="font-medium text-primary">{videoCount}</span>
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {project.movie_idea || 'No description'}
+                    </p>
                     
                     <div className="flex gap-2">
                       <Button
