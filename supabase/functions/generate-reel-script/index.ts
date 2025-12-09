@@ -184,6 +184,7 @@ Return ONLY valid JSON array:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
+        max_tokens: 4096,
       }),
     });
 
