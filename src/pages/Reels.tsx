@@ -36,8 +36,12 @@ import {
   Palette,
   Cloud,
   Monitor,
-  Layers
+  Layers,
+  User,
+  Upload,
+  X
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -176,6 +180,13 @@ const Reels = () => {
   const [isManualStitching, setIsManualStitching] = useState(false);
   const { stitchWithCreatomate, isStitching: isCreatomateStitching, progress: creatomateProgress, status: creatomateStatus } = useCreatomate();
   
+  // Lip sync mode
+  const [enableLipSync, setEnableLipSync] = useState(false);
+  const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5' | 'wan-animate'>('infinitetalk');
+  const [portraitImage, setPortraitImage] = useState<string | null>(null);
+  const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
+  const portraitInputRef = useRef<HTMLInputElement>(null);
+  
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
@@ -222,6 +233,68 @@ const Reels = () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
+    }
+  };
+
+  // Handle portrait image upload for lip sync
+  const handlePortraitUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an image file (JPG, PNG, etc.)",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64Image = event.target?.result as string;
+      setPortraitPreview(base64Image);
+      
+      // Upload to storage for a persistent URL
+      if (user) {
+        try {
+          const base64Data = base64Image.split(',')[1];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          
+          const fileName = `${user.id}/portraits/${Date.now()}-portrait.${file.type.split('/')[1]}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('reels')
+            .upload(fileName, bytes, { contentType: file.type });
+          
+          if (!uploadError && uploadData) {
+            const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+            setPortraitImage(publicUrl.publicUrl);
+            console.log('Uploaded portrait to storage:', publicUrl.publicUrl);
+          } else {
+            // Fall back to base64
+            setPortraitImage(base64Image);
+          }
+        } catch (err) {
+          console.warn('Portrait upload failed, using base64:', err);
+          setPortraitImage(base64Image);
+        }
+      } else {
+        setPortraitImage(base64Image);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePortrait = () => {
+    setPortraitImage(null);
+    setPortraitPreview(null);
+    if (portraitInputRef.current) {
+      portraitInputRef.current.value = '';
     }
   };
 
@@ -466,7 +539,17 @@ const Reels = () => {
           scenes: scenesWithAudioDurations,
           topic: project.topic,
           addCaptions: true,
-          useWaveSpeed: true
+          useWaveSpeed: true,
+          // Lip sync configuration
+          enableLipSync,
+          lipSyncModel: enableLipSync ? lipSyncModel : undefined,
+          portraitImage: enableLipSync ? portraitImage : undefined,
+          // Pass voiceover storage URLs for lip sync (need audio URL for each scene)
+          voiceovers: enableLipSync ? voiceovers.map(v => ({
+            sceneNumber: v.sceneNumber,
+            audioUrl: v.storageUrl || v.audioUrl,
+            duration: v.duration
+          })) : undefined
         }
       });
 
@@ -1233,6 +1316,104 @@ const Reels = () => {
                   </div>
                 </div>
               </CardContent>
+            </Card>
+
+            {/* Lip Sync Mode */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-primary" />
+                    Lip Sync Mode
+                    {enableLipSync && (
+                      <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                        Enabled
+                      </span>
+                    )}
+                  </div>
+                  <Switch
+                    checked={enableLipSync}
+                    onCheckedChange={setEnableLipSync}
+                    disabled={isGenerating}
+                  />
+                </CardTitle>
+                <CardDescription>
+                  Create talking head videos with synchronized lip movements
+                </CardDescription>
+              </CardHeader>
+              {enableLipSync && (
+                <CardContent className="space-y-4 pt-0">
+                  {/* Portrait Upload */}
+                  <div className="space-y-2">
+                    <Label>Character Portrait</Label>
+                    {portraitPreview ? (
+                      <div className="relative inline-block">
+                        <img 
+                          src={portraitPreview} 
+                          alt="Portrait preview" 
+                          className="w-32 h-32 object-cover rounded-lg border border-border"
+                        />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 w-6 h-6"
+                          onClick={removePortrait}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                        onClick={() => portraitInputRef.current?.click()}
+                      >
+                        <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                        <span className="text-xs text-muted-foreground">Upload Portrait</span>
+                      </div>
+                    )}
+                    <Input
+                      ref={portraitInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePortraitUpload}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Upload a front-facing portrait for best lip sync results
+                    </p>
+                  </div>
+
+                  {/* Model Selection */}
+                  <div className="space-y-2">
+                    <Label>Lip Sync Model</Label>
+                    <Select 
+                      value={lipSyncModel} 
+                      onValueChange={(v) => setLipSyncModel(v as typeof lipSyncModel)}
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="infinitetalk">
+                          InfiniteTalk (Recommended)
+                        </SelectItem>
+                        <SelectItem value="avatar-omni-human-1.5">
+                          Avatar Omni Human 1.5
+                        </SelectItem>
+                        <SelectItem value="wan-animate">
+                          WAN Animate (Character)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {lipSyncModel === 'infinitetalk' && 'Best for realistic talking head videos'}
+                      {lipSyncModel === 'avatar-omni-human-1.5' && 'Full body avatar animation with speech'}
+                      {lipSyncModel === 'wan-animate' && 'Animated character with lip sync'}
+                    </p>
+                  </div>
+                </CardContent>
+              )}
             </Card>
 
             {/* Intro/Outro Templates */}
