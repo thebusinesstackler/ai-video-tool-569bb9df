@@ -130,8 +130,14 @@ serve(async (req) => {
     const audioArrayBuffer = await audioResponse.arrayBuffer();
     const audioBytes = new Uint8Array(audioArrayBuffer);
     
-    // Convert to base64
-    const base64Audio = btoa(String.fromCharCode(...audioBytes));
+    // Convert to base64 in chunks to avoid stack overflow
+    let binary = '';
+    const chunkSize = 32768;
+    for (let i = 0; i < audioBytes.length; i += chunkSize) {
+      const chunk = audioBytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64Audio = btoa(binary);
 
     console.log('TTS generation successful with WaveSpeed MiniMax');
 
