@@ -68,6 +68,19 @@ serve(async (req) => {
 
     console.log('Generating TTS with WaveSpeed MiniMax for text length:', text.length);
 
+    // Map voice parameter to WaveSpeed voice_id
+    const voiceIdMap: Record<string, string> = {
+      'alloy': 'male-qn-qingse',
+      'echo': 'male-qn-jingying',
+      'fable': 'female-shaonv',
+      'onyx': 'male-qn-badao',
+      'nova': 'female-yujie',
+      'shimmer': 'female-chengshu'
+    };
+    const voiceId = voiceIdMap[voice] || 'male-qn-jingying';
+
+    console.log('Using voice_id:', voiceId);
+
     // Start TTS generation with WaveSpeed MiniMax Speech-02-HD
     const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
@@ -77,6 +90,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         text: text.length > 5000 ? text.substring(0, 5000) : text,
+        voice_id: voiceId,
         speed: speed,
         volume: 1,
         pitch: 0,
