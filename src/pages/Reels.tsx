@@ -39,8 +39,10 @@ import {
   Layers,
   User,
   Upload,
-  X
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
+import { ScenePreview } from '@/components/ScenePreview';
 import { Input } from '@/components/ui/input';
 
 // Speech Recognition types
@@ -115,6 +117,17 @@ interface VideoClip {
   videoUrl: string;
 }
 
+interface PreviewScene {
+  sceneNumber: number;
+  narration: string;
+  visualDescription: string;
+  imageUrl: string | null;
+  audioUrl: string | null;
+  audioDuration: number;
+  isGenerating: boolean;
+  isRegenerating?: boolean;
+}
+
 interface ReelProject {
   topic: string;
   scenes: Scene[];
@@ -123,7 +136,8 @@ interface ReelProject {
   videoBlobUrl: string | null;
   generatedScenes: GeneratedScene[];
   videoClips: VideoClip[];
-  status: 'idle' | 'generating-script' | 'generating-video' | 'rendering-video' | 'complete';
+  previewScenes: PreviewScene[];
+  status: 'idle' | 'generating-script' | 'generating-preview' | 'preview-ready' | 'generating-video' | 'rendering-video' | 'complete';
 }
 
 interface SavedReel {
@@ -156,6 +170,7 @@ const Reels = () => {
     videoBlobUrl: null,
     generatedScenes: [],
     videoClips: [],
+    previewScenes: [],
     status: 'idle'
   });
   const [progress, setProgress] = useState(0);
@@ -951,6 +966,7 @@ const Reels = () => {
       videoBlobUrl: null,
       generatedScenes: [],
       videoClips: [],
+      previewScenes: [],
       status: 'idle'
     });
     setSelectedClipIndex(0);
