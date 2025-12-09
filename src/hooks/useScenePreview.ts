@@ -12,6 +12,7 @@ export interface PreviewScene {
   audioDuration: number;
   isGenerating: boolean;
   isRegenerating?: boolean;
+  isReference?: boolean;
 }
 
 interface Scene {
@@ -27,8 +28,13 @@ interface UseScenePreviewResult {
   isGeneratingPreview: boolean;
   progress: number;
   progressStatus: string;
-  generatePreview: (scenes: Scene[], userId?: string) => Promise<void>;
+  referenceImageUrl: string | null;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
+  regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string) => Promise<void>;
+  setSceneAsReference: (sceneNumber: number) => void;
+  setExternalReference: (imageUrl: string) => void;
+  clearReference: () => void;
   resetPreview: () => void;
 }
 
@@ -39,8 +45,10 @@ export function useScenePreview(): UseScenePreviewResult {
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
 
-  const generatePreview = async (scenes: Scene[], userId?: string) => {
+  const generatePreview = async (scenes: Scene[], userId?: string, refImageUrl?: string) => {
+    const activeReference = refImageUrl || referenceImageUrl;
     if (scenes.length === 0) return;
 
     setIsGeneratingPreview(true);
@@ -155,9 +163,12 @@ export function useScenePreview(): UseScenePreviewResult {
         const scene = scenes[i];
         
         try {
-          const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
+          // Use edit-scene-image if we have a reference, otherwise use generate-scene-image
+          const functionName = activeReference ? 'edit-scene-image' : 'generate-scene-image';
+          const { data: imageData, error: imageError } = await supabase.functions.invoke(functionName, {
             body: { 
-              prompt: `${scene.visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.` 
+              prompt: `${scene.visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
+              referenceImageUrl: activeReference || undefined
             }
           });
 
@@ -217,6 +228,11 @@ export function useScenePreview(): UseScenePreviewResult {
   };
 
   const regenerateSceneImage = async (sceneNumber: number, visualDescription: string) => {
+    // Use reference if set
+    if (referenceImageUrl) {
+      return regenerateWithReference(sceneNumber, visualDescription, referenceImageUrl);
+    }
+
     setPreviewScenes(prev => prev.map(ps =>
       ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true } : ps
     ));
@@ -255,11 +271,93 @@ export function useScenePreview(): UseScenePreviewResult {
     }
   };
 
+  const regenerateWithReference = async (sceneNumber: number, visualDescription: string, refImageUrl: string) => {
+    setPreviewScenes(prev => prev.map(ps =>
+      ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true } : ps
+    ));
+
+    try {
+      const { data: imageData, error: imageError } = await supabase.functions.invoke('edit-scene-image', {
+        body: { 
+          prompt: `${visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
+          referenceImageUrl: refImageUrl
+        }
+      });
+
+      if (imageError) throw imageError;
+
+      if (imageData?.imageUrl) {
+        setPreviewScenes(prev => prev.map(ps =>
+          ps.sceneNumber === sceneNumber
+            ? { ...ps, imageUrl: imageData.imageUrl, isRegenerating: false }
+            : ps
+        ));
+
+        toast({
+          title: "Image Regenerated with Reference",
+          description: `Scene ${sceneNumber} image has been updated to match the reference.`
+        });
+      }
+    } catch (error: any) {
+      console.error('Image regeneration with reference error:', error);
+      setPreviewScenes(prev => prev.map(ps =>
+        ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: false } : ps
+      ));
+      toast({
+        title: "Regeneration Failed",
+        description: error.message || "Failed to regenerate image with reference.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const setSceneAsReference = (sceneNumber: number) => {
+    const scene = previewScenes.find(ps => ps.sceneNumber === sceneNumber);
+    if (scene?.imageUrl) {
+      setReferenceImageUrl(scene.imageUrl);
+      // Mark this scene as reference
+      setPreviewScenes(prev => prev.map(ps => ({
+        ...ps,
+        isReference: ps.sceneNumber === sceneNumber
+      })));
+      toast({
+        title: "Reference Set",
+        description: `Scene ${sceneNumber} is now the reference for character consistency.`
+      });
+    }
+  };
+
+  const setExternalReference = (imageUrl: string) => {
+    setReferenceImageUrl(imageUrl);
+    // Clear any scene references
+    setPreviewScenes(prev => prev.map(ps => ({
+      ...ps,
+      isReference: false
+    })));
+    toast({
+      title: "External Reference Set",
+      description: "Captured frame is now the reference for character consistency."
+    });
+  };
+
+  const clearReference = () => {
+    setReferenceImageUrl(null);
+    setPreviewScenes(prev => prev.map(ps => ({
+      ...ps,
+      isReference: false
+    })));
+    toast({
+      title: "Reference Cleared",
+      description: "No reference image is set."
+    });
+  };
+
   const resetPreview = () => {
     setPreviewScenes([]);
     setVoiceovers([]);
     setProgress(0);
     setProgressStatus('');
+    setReferenceImageUrl(null);
   };
 
   return {
@@ -268,8 +366,13 @@ export function useScenePreview(): UseScenePreviewResult {
     isGeneratingPreview,
     progress,
     progressStatus,
+    referenceImageUrl,
     generatePreview,
     regenerateSceneImage,
+    regenerateWithReference,
+    setSceneAsReference,
+    setExternalReference,
+    clearReference,
     resetPreview
   };
 }
