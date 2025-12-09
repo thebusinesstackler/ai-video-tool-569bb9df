@@ -162,10 +162,25 @@ IMPORTANT: Keep the same environment/setting but only change the camera angle an
     }
 
     const data = await response.json();
+    console.log('AI response structure:', JSON.stringify({
+      hasChoices: !!data.choices,
+      choicesLength: data.choices?.length,
+      hasMessage: !!data.choices?.[0]?.message,
+      hasImages: !!data.choices?.[0]?.message?.images,
+      imagesLength: data.choices?.[0]?.message?.images?.length,
+      messageContent: data.choices?.[0]?.message?.content?.slice?.(0, 200)
+    }));
+
     const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!imageUrl) {
-      throw new Error('No image generated in response');
+      console.error('Full AI response:', JSON.stringify(data));
+      // Check if there's a text response explaining why no image was generated
+      const textContent = data.choices?.[0]?.message?.content;
+      if (textContent) {
+        throw new Error(`Image generation failed: ${textContent.slice(0, 200)}`);
+      }
+      throw new Error('No image generated in response. The model may have refused to generate the image.');
     }
 
     console.log('Image generated/edited successfully with reference, camera angle:', cameraAngle);
