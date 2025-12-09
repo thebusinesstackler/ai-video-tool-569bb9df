@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users } from 'lucide-react';
 
 interface PreviewScene {
   sceneNumber: number;
@@ -24,7 +25,16 @@ interface ScenePreviewProps {
   referenceImageUrl?: string | null;
   onSetReference?: (sceneNumber: number) => void;
   onClearReference?: () => void;
+  characterTransformation?: string;
+  onCharacterTransformationChange?: (value: string) => void;
 }
+
+const QUICK_TRANSFORMATIONS = [
+  { label: 'Male', value: 'Make this character male' },
+  { label: 'Female', value: 'Make this character female' },
+  { label: 'Older', value: 'Make this character older, middle-aged' },
+  { label: 'Younger', value: 'Make this character younger, early 20s' },
+];
 
 export const ScenePreview: React.FC<ScenePreviewProps> = ({
   scenes,
@@ -34,7 +44,9 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   disabled = false,
   referenceImageUrl,
   onSetReference,
-  onClearReference
+  onClearReference,
+  characterTransformation = '',
+  onCharacterTransformationChange
 }) => {
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
   const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
@@ -83,36 +95,71 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Reference indicator */}
+        {/* Reference indicator with transformation options */}
         {referenceImageUrl && (
-          <div className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-md overflow-hidden border-2 border-amber-500">
-                <img 
-                  src={referenceImageUrl} 
-                  alt="Reference" 
-                  className="w-full h-full object-cover"
-                />
+          <div className="space-y-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-md overflow-hidden border-2 border-amber-500">
+                  <img 
+                    src={referenceImageUrl} 
+                    alt="Reference" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                    Reference Active
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {characterTransformation 
+                      ? `Transforming: ${characterTransformation}` 
+                      : 'Regenerated scenes will match this character'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                  Reference Active
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Regenerated scenes will match this character
-                </p>
-              </div>
+              {onClearReference && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onClearReference}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              )}
             </div>
-            {onClearReference && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={onClearReference}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4 mr-1" />
-                Clear
-              </Button>
+            
+            {/* Character Transformation Input */}
+            {onCharacterTransformationChange && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  Character Transformation (optional)
+                </label>
+                <Input
+                  placeholder="e.g., Make this character male instead of female"
+                  value={characterTransformation}
+                  onChange={(e) => onCharacterTransformationChange(e.target.value)}
+                  className="bg-background/50 text-sm"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_TRANSFORMATIONS.map((t) => (
+                    <Button
+                      key={t.label}
+                      variant={characterTransformation === t.value ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => onCharacterTransformationChange(
+                        characterTransformation === t.value ? '' : t.value
+                      )}
+                    >
+                      {t.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
