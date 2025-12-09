@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 import { VideoIcon, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
 
 const authSchema = z.object({
@@ -50,6 +51,8 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Clear any stale session before attempting auth
+      await supabase.auth.signOut();
       let result;
       if (isSignUp) {
         result = await signUp(email, password);
