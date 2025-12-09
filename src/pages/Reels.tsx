@@ -1409,27 +1409,38 @@ const Reels = () => {
                       />
                       <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {useServerStitching 
-                        ? 'Creatomate: Reliable, with captions baked in' 
-                        : 'FFmpeg in browser: Free, but may timeout'}
-                    </p>
                   </div>
+                </div>
 
-                  <div className="flex items-end">
-                    <Button 
-                      onClick={generateScripts}
-                      disabled={isGenerating || !topic.trim()}
-                      className="w-full bg-gradient-primary hover:opacity-90"
-                    >
-                      {isGenerating && project.status === 'generating-script' ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <FileText className="w-4 h-4 mr-2" />
-                      )}
-                      Generate Scripts
-                    </Button>
+                {/* Cut Scenes Toggle */}
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Layers className="w-4 h-4 text-primary" />
+                    <div>
+                      <Label className="text-sm font-medium">Insert Cut Scenes</Label>
+                      <p className="text-xs text-muted-foreground">Add 1-2s transition scenes for better flow</p>
+                    </div>
                   </div>
+                  <Switch
+                    checked={enableCutScenes}
+                    onCheckedChange={setEnableCutScenes}
+                    disabled={isGenerating}
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <Button 
+                    onClick={generateScripts}
+                    disabled={isGenerating || !topic.trim()}
+                    className="w-full bg-gradient-primary hover:opacity-90"
+                  >
+                    {isGenerating && project.status === 'generating-script' ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="w-4 h-4 mr-2" />
+                    )}
+                    Generate Scripts
+                  </Button>
                 </div>
               </CardContent>
             </Card>
