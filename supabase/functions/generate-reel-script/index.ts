@@ -12,6 +12,32 @@ interface IntroOutroConfig {
   outroText?: string;
 }
 
+// Dynamic hook categories for engaging openings
+const HOOK_CATEGORIES = [
+  { type: 'bold_claim', examples: ['This changed everything for me...', 'Nobody tells you this but...', 'I discovered something insane...'] },
+  { type: 'question', examples: ['Why does everyone get this wrong?', 'Have you ever wondered why...', 'What if I told you...'] },
+  { type: 'controversy', examples: ['Unpopular opinion:', 'Everyone says this but they\'re wrong...', 'I\'m about to break the internet...'] },
+  { type: 'story', examples: ['I was skeptical until...', 'Three months ago I had no idea...', 'Here\'s what happened when...'] },
+  { type: 'secret', examples: ['The secret nobody talks about...', 'I\'m revealing something huge...', 'They don\'t want you to know...'] },
+  { type: 'countdown', examples: ['3 things you NEED to know...', '5 mistakes you\'re making right now...', 'The top 3 reasons why...'] },
+  { type: 'challenge', examples: ['I bet you didn\'t know...', 'Prove me wrong on this...', 'Try this and thank me later...'] },
+  { type: 'fomo', examples: ['You\'re probably making this mistake...', 'If you\'re not doing this, you\'re behind...', 'Everyone else already knows...'] },
+  { type: 'social_proof', examples: ['10 million people learned this...', 'Top creators use this trick...', 'The viral method that...'] },
+  { type: 'curiosity', examples: ['The real reason why...', 'Here\'s the truth about...', 'What they don\'t teach you...'] },
+  { type: 'urgency', examples: ['Before it\'s too late...', 'This is time-sensitive...', 'Watch before they take it down...'] },
+  { type: 'personal', examples: ['My honest experience with...', 'I tested this for 30 days...', 'The thing I wish I knew earlier...'] },
+];
+
+// Camera angle variations for visual interest
+const CAMERA_ANGLES = [
+  { scene: 1, angle: 'close-up, eye-level, direct engagement with viewer', purpose: 'Hook - immediate connection' },
+  { scene: 2, angle: 'medium shot, slightly low angle, confident framing', purpose: 'Setup - establish authority' },
+  { scene: 3, angle: 'wide establishing shot, then cut to close-up detail', purpose: 'Context - show environment' },
+  { scene: 4, angle: 'over-the-shoulder or dynamic 3/4 profile', purpose: 'Body - visual variety' },
+  { scene: 5, angle: 'close-up with subtle push-in motion', purpose: 'Climax - emphasis' },
+  { scene: 6, angle: 'medium shot, direct address, call-to-action framing', purpose: 'CTA - engagement' },
+];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -23,7 +49,9 @@ serve(async (req) => {
       sceneCount = 4, 
       targetDuration = 30,
       introConfig,
-      outroConfig
+      outroConfig,
+      hookStyle,
+      enableCutScenes = false
     } = await req.json();
 
     if (!topic) {
@@ -39,6 +67,8 @@ serve(async (req) => {
     }
 
     console.log('Generating reel script for topic:', topic);
+    console.log('Hook style:', hookStyle || 'auto');
+    console.log('Cut scenes enabled:', enableCutScenes);
     console.log('Intro config:', introConfig);
     console.log('Outro config:', outroConfig);
 
@@ -52,11 +82,26 @@ serve(async (req) => {
     const sceneDuration = Math.min(Math.round(contentDuration / sceneCount), maxSceneDuration);
     
     // Calculate word count for 8 seconds with slower speech (0.6x speed = ~30 words fills 8s)
-    // This ensures narration fills the entire scene duration
     const maxWordsPerScene = 30;
     const minWordsPerScene = 25;
 
-    const systemPrompt = `You are an elite short-form video scriptwriter creating ONE COHESIVE STORY. You write EXACTLY what the voiceover narrator will say out loud.
+    // Generate dynamic hook guidance based on style
+    const hookGuidance = generateHookGuidance(hookStyle, topic);
+    
+    // Generate camera angle instructions
+    const cameraInstructions = generateCameraInstructions(sceneCount);
+    
+    // Cut scene instructions
+    const cutSceneInstructions = enableCutScenes ? `
+CUT SCENE RULES (IMPORTANT):
+- After every 2 main content scenes, insert a 1-2 second "cut scene" 
+- Cut scenes have NO narration (empty string), only visual description
+- Cut scene types: B-roll relevant to topic, quick zoom transition, text emphasis overlay, reaction shot
+- Mark cut scenes with "isCutScene": true
+- Cut scenes should be visually dynamic and add energy
+` : '';
+
+    const systemPrompt = `You are an elite short-form video scriptwriter creating ONE COHESIVE STORY for viral social media content.
 
 CRITICAL STORY RULES:
 - ALL scenes MUST tell ONE continuous story about the SAME topic
@@ -65,6 +110,8 @@ CRITICAL STORY RULES:
 - Scene flow: Hook → Setup → Core content → Resolution/CTA
 - Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill the full ${sceneDuration} seconds
 
+${hookGuidance}
+
 NARRATION RULES:
 - The "narration" field contains ONLY the exact words to be spoken aloud
 - NO analysis, NO descriptions, NO stage directions, NO parentheticals
@@ -72,17 +119,25 @@ NARRATION RULES:
 - Every word will be spoken slowly - write naturally flowing sentences
 - Use transitional phrases between ideas: "And here's the thing...", "But wait...", "So what does this mean?"
 
-HOOKS THAT WORK:
-- "Stop scrolling..." / "Wait..." / "Did you know..."
-- Bold claims: "This changed my life" / "Nobody tells you this"
-- Questions: "Why does everyone get this wrong?"
+${cameraInstructions}
 
-Visual descriptions are separate - be detailed for AI image generation consistency.`;
+BACKGROUND CONSISTENCY (CRITICAL):
+- Use ONE consistent background/environment across ALL scenes
+- Describe the SAME setting, lighting conditions, and atmosphere for every scene
+- Only change camera angle and character pose, NOT the environment
+- Example: If scene 1 is in a modern office, ALL scenes must be in that same modern office
+
+VISUAL CONTINUITY:
+- If showing a person/character, describe them IDENTICALLY in each scene
+- Same clothing, same features, same styling throughout
+- Only camera angle and pose should change between scenes
+
+${cutSceneInstructions}`;
 
     const userPrompt = `Write ${sceneCount} scenes for a ${contentDuration}-second Reel about: "${topic}"
 
 STORY FLOW (each scene MUST connect to the next):
-- Scene 1 (HOOK): Grab attention with a bold statement or question that makes them stop scrolling
+- Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
 - Scene 2-${sceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
 - Scene ${sceneCount} (CLOSE): Deliver the payoff, conclusion, or call-to-action
 
@@ -91,27 +146,32 @@ NARRATION REQUIREMENTS:
 - Write conversational sentences that flow naturally when spoken
 - Each scene should transition smoothly to the next
 - Use complete thoughts and natural pauses
+- IMPORTANT: Scene 1 must use a creative, engaging hook - NOT just "Stop scrolling"
 
-STORY CONTINUITY EXAMPLE:
-Scene 1: "Stop scrolling because what I'm about to tell you completely changed how I think about Facebook ads..."
-Scene 2: "See, most people spend hours manually testing audiences and creatives, and honestly it's exhausting..."
-Scene 3: "But here's what happened when I let an AI take over all that work for me..."
-Scene 4: "Now my campaigns run twenty-four seven, optimizing themselves while I focus on other things..."
+${enableCutScenes ? `
+CUT SCENES:
+- Insert 1-2 cut scenes between main content (marked with isCutScene: true)
+- Cut scenes have empty narration ("") and are 1-2 seconds
+- Use them for B-roll, transitions, or emphasis moments
+` : ''}
 
 VISUAL RULES:
-- Use ONE consistent visual style across all scenes
+- Use ONE consistent visual style AND background across all scenes
 - If showing a person, describe them identically each scene
-- Include: camera angle, lighting, background, colors, mood
+- Camera angle should vary per scene for visual interest:
+${CAMERA_ANGLES.slice(0, sceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
 Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here - longer, flowing narration that fills the full ${sceneDuration} seconds",
-    "visualDescription": "Style: [style]. Subject: [what]. Camera: [angle]. Lighting: [type]. Background: [env]. Colors: [palette]. Mood: [mood].",
-    "duration": ${sceneDuration}
+    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here - engaging hook that's NOT 'stop scrolling'",
+    "visualDescription": "Style: [style]. Subject: [what]. Camera: ${CAMERA_ANGLES[0].angle}. Lighting: [type]. Background: [env - use same for ALL scenes]. Colors: [palette]. Mood: [mood].",
+    "duration": ${sceneDuration},
+    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }
 ]`;
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -155,42 +215,15 @@ Return ONLY valid JSON array:
 
     console.log('Raw AI response:', content.substring(0, 500));
 
-    // Extract JSON from the response - try multiple approaches
+    // Extract JSON from the response
     let jsonContent = content;
-    
-    // Try to extract from code blocks first
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonContent = jsonMatch[1].trim();
     } else {
-      // Try to find JSON array directly
       const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
       if (arrayMatch) {
         jsonContent = arrayMatch[0];
-      }
-    }
-
-    // Clean up problematic characters that break JSON parsing
-    jsonContent = jsonContent
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ') // Remove control characters
-      .replace(/\r\n/g, '\\n') // Normalize line endings in strings
-      .replace(/\r/g, '\\n')
-      .replace(/\t/g, ' ') // Replace tabs with spaces
-      .replace(/\\/g, '\\\\') // Escape backslashes (but not already escaped ones)
-      .replace(/\\\\\\/g, '\\\\') // Fix over-escaping
-      .replace(/\\\\"/g, '\\"') // Fix quote escaping
-      .replace(/([^\\])"/g, '$1\\"') // This might cause issues, let's be careful
-      .trim();
-
-    // Actually, let's use a safer approach - just clean control chars
-    jsonContent = content;
-    const jsonMatch2 = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch2) {
-      jsonContent = jsonMatch2[1].trim();
-    } else {
-      const arrayMatch2 = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (arrayMatch2) {
-        jsonContent = arrayMatch2[0];
       }
     }
     
@@ -207,12 +240,10 @@ Return ONLY valid JSON array:
       console.error('JSON parse error:', parseError);
       console.error('Attempted to parse:', jsonContent.substring(0, 500));
       
-      // Try to fix common JSON issues
       try {
-        // Remove trailing commas before ] or }
         let fixedJson = jsonContent
           .replace(/,\s*([}\]])/g, '$1')
-          .replace(/'/g, '"'); // Replace single quotes with double
+          .replace(/'/g, '"');
         scenes = JSON.parse(fixedJson);
       } catch (retryError) {
         console.error('Retry parse also failed:', retryError);
@@ -226,55 +257,65 @@ Return ONLY valid JSON array:
 
     // Extract visual style from first scene for consistency
     const baseVisualStyle = extractVisualStyle(scenes[0]?.visualDescription || '');
+    const baseBackground = extractBackground(scenes[0]?.visualDescription || '');
     console.log('Base visual style extracted:', baseVisualStyle);
+    console.log('Base background extracted:', baseBackground);
+
+    // Ensure background consistency across all scenes
+    scenes = scenes.map((scene: any, index: number) => {
+      const cameraAngle = CAMERA_ANGLES[index] || CAMERA_ANGLES[CAMERA_ANGLES.length - 1];
+      return {
+        ...scene,
+        visualDescription: ensureBackgroundConsistency(scene.visualDescription, baseBackground, cameraAngle.angle),
+        cameraAngle: scene.cameraAngle || cameraAngle.angle
+      };
+    });
 
     // Renumber scenes to account for intro
     const hasIntro = introConfig?.introTemplate && introConfig.introTemplate !== 'none';
     const hasOutro = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none';
 
     if (hasIntro) {
-      // Shift all scene numbers up by 1
       scenes = scenes.map((scene: any, index: number) => ({
         ...scene,
-        sceneNumber: index + 2 // Start from 2
+        sceneNumber: index + 2
       }));
 
-      // Add intro scene at the beginning with consistent visual style
       const introScene = {
         sceneNumber: 1,
-        narration: introConfig.introText || getDefaultIntroText(introConfig.introTemplate, topic),
+        narration: introConfig.introText || getDefaultIntroText(introConfig.introTemplate, topic, hookStyle),
         visualDescription: getIntroVisualDescription(introConfig.introTemplate, topic, baseVisualStyle),
         duration: 3,
         isIntro: true,
-        templateId: introConfig.introTemplate
+        templateId: introConfig.introTemplate,
+        cameraAngle: 'close-up, direct engagement'
       };
       scenes.unshift(introScene);
     }
 
     if (hasOutro) {
-      // Add outro scene with shorter narration (1-2 seconds)
-      // Then add a silent CTA hold scene for 2 seconds so viewers can see the call-to-action
       const outroNarration = outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate);
       
       const outroScene = {
         sceneNumber: scenes.length + 1,
         narration: outroNarration,
         visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
-        duration: 2, // Short narration
+        duration: 2,
         isOutro: true,
-        templateId: outroConfig.outroTemplate
+        templateId: outroConfig.outroTemplate,
+        cameraAngle: 'medium shot, call-to-action framing'
       };
       scenes.push(outroScene);
       
-      // Add silent CTA hold scene - same visual, no narration
       const ctaHoldScene = {
         sceneNumber: scenes.length + 1,
-        narration: '', // No speech - silent hold
+        narration: '',
         visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
-        duration: 2, // 2 seconds of silent CTA display
+        duration: 2,
         isOutro: true,
         isSilentCTA: true,
-        templateId: outroConfig.outroTemplate
+        templateId: outroConfig.outroTemplate,
+        cameraAngle: 'medium shot, hold on CTA'
       };
       scenes.push(ctaHoldScene);
     }
@@ -295,9 +336,51 @@ Return ONLY valid JSON array:
   }
 });
 
+// Generate hook guidance based on selected style or auto-select
+function generateHookGuidance(hookStyle: string | undefined, topic: string): string {
+  if (!hookStyle || hookStyle === 'auto') {
+    // Auto-select based on topic keywords
+    const topicLower = topic.toLowerCase();
+    if (topicLower.includes('secret') || topicLower.includes('hidden')) {
+      return getHookGuidance('secret');
+    } else if (topicLower.includes('mistake') || topicLower.includes('wrong')) {
+      return getHookGuidance('fomo');
+    } else if (topicLower.includes('why') || topicLower.includes('how')) {
+      return getHookGuidance('question');
+    } else if (topicLower.includes('tips') || topicLower.includes('ways')) {
+      return getHookGuidance('countdown');
+    } else if (topicLower.includes('story') || topicLower.includes('experience')) {
+      return getHookGuidance('story');
+    }
+    // Default to bold claim
+    return getHookGuidance('bold_claim');
+  }
+  return getHookGuidance(hookStyle);
+}
+
+function getHookGuidance(hookType: string): string {
+  const category = HOOK_CATEGORIES.find(c => c.type === hookType) || HOOK_CATEGORIES[0];
+  return `
+HOOK STYLE: ${hookType.toUpperCase().replace('_', ' ')}
+Use this opening style for Scene 1:
+- Examples: "${category.examples.join('", "')}"
+- DO NOT use "Stop scrolling" - be more creative and specific to the topic
+- Make it intriguing, surprising, or emotionally compelling
+- The hook should directly relate to the topic content`;
+}
+
+function generateCameraInstructions(sceneCount: number): string {
+  const angles = CAMERA_ANGLES.slice(0, sceneCount);
+  return `
+CAMERA ANGLE REQUIREMENTS:
+Each scene MUST have a different camera angle for visual variety:
+${angles.map(a => `- Scene ${a.scene}: ${a.angle} (${a.purpose})`).join('\n')}
+
+Include the camera angle in each visualDescription field.`;
+}
+
 // Extract visual style keywords from a description for consistency
 function extractVisualStyle(description: string): string {
-  // Extract common style patterns
   const styleMatch = description.match(/Style:\s*([^.]+)/i);
   const colorsMatch = description.match(/Colors?:\s*([^.]+)/i);
   const moodMatch = description.match(/Mood:\s*([^.]+)/i);
@@ -312,24 +395,53 @@ function extractVisualStyle(description: string): string {
   return parts.length > 0 ? parts.join('. ') : 'Cinematic 4K, vibrant colors, professional lighting, modern social media aesthetic';
 }
 
-// Helper functions for intro/outro defaults - now with stronger hooks
-function getDefaultIntroText(templateId: string, topic: string): string {
+// Extract background from description
+function extractBackground(description: string): string {
+  const bgMatch = description.match(/Background:\s*([^.]+)/i);
+  return bgMatch ? bgMatch[1].trim() : 'modern, clean, professional setting';
+}
+
+// Ensure background consistency across scenes
+function ensureBackgroundConsistency(description: string, baseBackground: string, cameraAngle: string): string {
+  // If description already has a background, check if it matches
+  const bgMatch = description.match(/Background:\s*([^.]+)/i);
+  if (bgMatch) {
+    // Replace with base background for consistency
+    description = description.replace(/Background:\s*[^.]+/i, `Background: ${baseBackground}`);
+  }
+  
+  // Ensure camera angle is included
+  if (!description.toLowerCase().includes('camera:')) {
+    description = description.replace(/\.\s*$/, '') + `. Camera: ${cameraAngle}.`;
+  }
+  
+  return description;
+}
+
+// Helper functions for intro/outro defaults - now with dynamic hooks
+function getDefaultIntroText(templateId: string, topic: string, hookStyle?: string): string {
+  // Use hook style to generate dynamic intro text
+  const topicShort = topic.split(' ').slice(0, 5).join(' ');
+  
   switch (templateId) {
     case 'hook-text':
-      return 'Stop scrolling! This changes everything...';
+      if (hookStyle === 'question') return `Have you ever wondered about ${topicShort}?`;
+      if (hookStyle === 'secret') return `The secret about ${topicShort} that nobody talks about...`;
+      if (hookStyle === 'story') return `Here\'s what happened when I tried ${topicShort}...`;
+      return `This is going to change how you think about ${topicShort}...`;
     case 'topic-title':
-      return `Nobody talks about this: ${topic.split(' ').slice(0, 4).join(' ')}...`;
+      if (hookStyle === 'controversy') return `Unpopular opinion on ${topicShort}...`;
+      return `The truth about ${topicShort}...`;
     case 'question-hook':
-      return 'What if everything you knew was wrong?';
+      return `Why does everyone get ${topicShort} wrong?`;
     case 'countdown':
-      return 'Most people miss these 3 secrets...';
+      return `The top things you need to know about ${topicShort}...`;
     default:
-      return 'You need to see this...';
+      return `You need to see this about ${topicShort}...`;
   }
 }
 
 function getDefaultOutroText(templateId: string): string {
-  // Short outro narration - the CTA visual will hold for 2 extra seconds with no speech
   switch (templateId) {
     case 'cta-follow':
       return 'Follow for more!';
@@ -349,15 +461,15 @@ function getIntroVisualDescription(templateId: string, topic: string, baseStyle:
   
   switch (templateId) {
     case 'hook-text':
-      return `Style: ${commonStyle}. Subject: Bold attention-grabbing text graphic with kinetic typography, dramatic reveal animation. Camera: Front facing, eye level. Lighting: High contrast dramatic lighting with rim light. Background: Dark gradient with subtle animated particles, depth blur. Colors: Electric purple, hot pink, cyan accents on dark background. Mood: Urgent, exciting, must-watch energy. Keywords: social media intro, vertical 9:16, motion graphics, trending TikTok style, no faces, abstract dynamic background.`;
+      return `Style: ${commonStyle}. Subject: Bold attention-grabbing text graphic with kinetic typography, dramatic reveal animation. Camera: close-up, front facing, eye level. Lighting: High contrast dramatic lighting with rim light. Background: Dark gradient with subtle animated particles, depth blur. Colors: Electric purple, hot pink, cyan accents on dark background. Mood: Urgent, exciting, must-watch energy. Keywords: social media intro, vertical 9:16, motion graphics, trending TikTok style, no faces, abstract dynamic background.`;
     case 'topic-title':
-      return `Style: ${commonStyle}. Subject: Elegant title card with topic "${topic}" in premium typography, subtle animation. Camera: Centered frame, slight zoom in motion. Lighting: Soft diffused professional lighting. Background: Clean gradient backdrop with subtle texture, bokeh elements. Colors: Sophisticated palette matching brand, gold accents. Mood: Premium, trustworthy, professional. Keywords: title slide, social media, vertical 9:16, clean design, no faces, modern minimalist.`;
+      return `Style: ${commonStyle}. Subject: Elegant title card with topic "${topic}" in premium typography, subtle animation. Camera: close-up, centered frame, slight zoom in motion. Lighting: Soft diffused professional lighting. Background: Clean gradient backdrop with subtle texture, bokeh elements. Colors: Sophisticated palette matching brand, gold accents. Mood: Premium, trustworthy, professional. Keywords: title slide, social media, vertical 9:16, clean design, no faces, modern minimalist.`;
     case 'question-hook':
-      return `Style: ${commonStyle}. Subject: Intriguing visual with floating question marks, puzzle elements, mystery atmosphere. Camera: Slightly low angle, dynamic. Lighting: Moody atmospheric with highlights. Background: Abstract curious environment, thought-provoking imagery. Colors: Deep blues, purples, with golden highlights. Mood: Mysterious, thought-provoking, curiosity-inducing. Keywords: question hook, vertical 9:16, intrigue, abstract, no faces, conceptual art.`;
+      return `Style: ${commonStyle}. Subject: Intriguing visual with floating question marks, puzzle elements, mystery atmosphere. Camera: medium shot, slightly low angle, dynamic. Lighting: Moody atmospheric with highlights. Background: Abstract curious environment, thought-provoking imagery. Colors: Deep blues, purples, with golden highlights. Mood: Mysterious, thought-provoking, curiosity-inducing. Keywords: question hook, vertical 9:16, intrigue, abstract, no faces, conceptual art.`;
     case 'countdown':
-      return `Style: ${commonStyle}. Subject: Energetic countdown "3" with bold numbers, dynamic motion trails, excitement building. Camera: Dynamic angle with movement. Lighting: High energy, multiple colored lights. Background: Dark with neon accents, particle effects, energy burst. Colors: Neon green, electric blue, hot white highlights. Mood: Energetic, anticipation, excitement. Keywords: countdown, hype intro, vertical 9:16, dynamic, no faces, motion energy.`;
+      return `Style: ${commonStyle}. Subject: Energetic countdown "3" with bold numbers, dynamic motion trails, excitement building. Camera: close-up, dynamic angle with movement. Lighting: High energy, multiple colored lights. Background: Dark with neon accents, particle effects, energy burst. Colors: Neon green, electric blue, hot white highlights. Mood: Energetic, anticipation, excitement. Keywords: countdown, hype intro, vertical 9:16, dynamic, no faces, motion energy.`;
     default:
-      return `Style: ${commonStyle}. Subject: Engaging intro graphic, bold typography, dynamic elements. Camera: Eye level, professional framing. Lighting: Studio quality. Background: Modern gradient with depth. Colors: Vibrant, attention-grabbing. Mood: Professional, engaging. Keywords: social media intro, vertical 9:16, no faces.`;
+      return `Style: ${commonStyle}. Subject: Engaging intro graphic, bold typography, dynamic elements. Camera: close-up, eye level, professional framing. Lighting: Studio quality. Background: Modern gradient with depth. Colors: Vibrant, attention-grabbing. Mood: Professional, engaging. Keywords: social media intro, vertical 9:16, no faces.`;
   }
 }
 
@@ -366,14 +478,14 @@ function getOutroVisualDescription(templateId: string, baseStyle: string): strin
   
   switch (templateId) {
     case 'cta-follow':
-      return `Style: ${commonStyle}. Subject: Animated follow button with glow effects, social media icons, floating hearts and plus signs. Camera: Centered, direct engagement. Lighting: Bright, inviting warmth. Background: Gradient with subtle social media motifs. Colors: Platform reds, pinks, warm tones. Mood: Friendly, welcoming. Keywords: social media outro, vertical 9:16, engagement, no faces, no text.`;
+      return `Style: ${commonStyle}. Subject: Animated follow button with glow effects, social media icons, floating hearts and plus signs. Camera: medium shot, centered, direct engagement. Lighting: Bright, inviting warmth. Background: Gradient with subtle social media motifs. Colors: Platform reds, pinks, warm tones. Mood: Friendly, welcoming. Keywords: social media outro, vertical 9:16, engagement, no faces, no text.`;
     case 'cta-subscribe':
-      return `Style: ${commonStyle}. Subject: Subscribe button animation with notification bell glowing. Camera: Engaging direct frame. Lighting: Exciting, dynamic lighting. Background: Teaser preview atmosphere, countdown elements. Colors: Red button, yellow bell, anticipation colors. Mood: Exciting, cliffhanger. Keywords: YouTube style, vertical 9:16, teaser, no faces, no text.`;
+      return `Style: ${commonStyle}. Subject: Subscribe button animation with notification bell glowing. Camera: close-up, engaging direct frame. Lighting: Exciting, dynamic lighting. Background: Teaser preview atmosphere, countdown elements. Colors: Red button, yellow bell, anticipation colors. Mood: Exciting, cliffhanger. Keywords: YouTube style, vertical 9:16, teaser, no faces, no text.`;
     case 'cta-comment':
-      return `Style: ${commonStyle}. Subject: Comment bubble graphics, interactive chat elements floating. Camera: Inviting, conversational angle. Lighting: Warm, friendly glow. Background: Community discussion vibes, multiple chat bubbles. Colors: Friendly blues, conversation greens. Mood: Conversational, inclusive. Keywords: engagement, vertical 9:16, discussion, no faces, no text.`;
+      return `Style: ${commonStyle}. Subject: Comment bubble graphics, interactive chat elements floating. Camera: medium shot, inviting, conversational angle. Lighting: Warm, friendly glow. Background: Community discussion vibes, multiple chat bubbles. Colors: Friendly blues, conversation greens. Mood: Conversational, inclusive. Keywords: engagement, vertical 9:16, discussion, no faces, no text.`;
     case 'cta-share':
-      return `Style: ${commonStyle}. Subject: Share arrow icons multiplying, viral spread visualization, network expansion graphics. Camera: Dynamic outward motion. Lighting: Energetic, spreading light rays. Background: Network connections, spreading ripples effect. Colors: Viral purples, sharing blues. Mood: Shareable, viral energy. Keywords: viral, vertical 9:16, network effect, no faces, no text.`;
+      return `Style: ${commonStyle}. Subject: Share arrow icons multiplying, viral spread visualization, network expansion graphics. Camera: wide shot, dynamic outward motion. Lighting: Energetic, spreading light rays. Background: Network connections, spreading ripples effect. Colors: Viral purples, sharing blues. Mood: Shareable, viral energy. Keywords: viral, vertical 9:16, network effect, no faces, no text.`;
     default:
-      return `Style: ${commonStyle}. Subject: Engaging graphic with save/bookmark icon. Camera: Direct, clear framing. Lighting: Professional, clear. Background: Clean with subtle branding. Colors: Action-oriented, clear contrast. Mood: Professional. Keywords: outro, vertical 9:16, no faces, no text.`;
+      return `Style: ${commonStyle}. Subject: Eye-catching save/bookmark icon with pulse animation. Camera: close-up, centered frame. Lighting: Warm, inviting glow. Background: Subtle gradient with save iconography. Colors: Warm golden tones, bookmark oranges. Mood: Valuable, must-save content. Keywords: save, bookmark, vertical 9:16, no faces, no text.`;
   }
 }
