@@ -17,6 +17,12 @@ interface Scene {
   templateId?: string;
 }
 
+interface VoiceoverData {
+  sceneNumber: number;
+  audioUrl: string;
+  duration: number;
+}
+
 // Helper to convert base64 to Uint8Array
 function base64ToUint8Array(base64: string): Uint8Array {
   const binaryString = atob(base64);
@@ -28,7 +34,17 @@ function base64ToUint8Array(base64: string): Uint8Array {
 }
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
-function getTemplateImagePrompt(scene: Scene, topic: string): string {
+function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean): string {
+  // For lip sync mode, generate front-facing portrait suitable for talking head
+  if (enableLipSync && !scene.isIntro && !scene.isOutro) {
+    return `Generate a front-facing portrait photo suitable for a talking head video.
+      Scene context: ${scene.visualDescription}
+      Topic: ${topic}
+      Style: Portrait orientation, clear face, well-lit, professional look, direct eye contact with camera.
+      The subject should be centered in frame, neutral or engaging expression.
+      High quality, photorealistic, suitable for lip sync animation.`;
+  }
+
   if (scene.isIntro) {
     const basePrompt = scene.visualDescription || 'Modern social media intro background';
     // Don't include text in image - we'll overlay it with HTML
@@ -54,7 +70,16 @@ serve(async (req) => {
   }
 
   try {
-    const { scenes, topic, addCaptions = true, useWaveSpeed = true } = await req.json();
+    const { 
+      scenes, 
+      topic, 
+      addCaptions = true, 
+      useWaveSpeed = true,
+      enableLipSync = false,
+      lipSyncModel = 'infinitetalk',
+      portraitImage = null,
+      voiceovers = []
+    } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       return new Response(
@@ -67,6 +92,10 @@ serve(async (req) => {
     console.log('Scenes:', scenes.length);
     console.log('Add captions:', addCaptions);
     console.log('Use WaveSpeed:', useWaveSpeed);
+    console.log('Enable Lip Sync:', enableLipSync);
+    console.log('Lip Sync Model:', lipSyncModel);
+    console.log('Portrait Image provided:', !!portraitImage);
+    console.log('Voiceovers provided:', voiceovers?.length || 0);
 
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -86,11 +115,22 @@ serve(async (req) => {
     const sceneImages: string[] = [];
     const savedImageUrls: string[] = [];
     
+    // If lip sync is enabled and portrait is provided, use it for all scenes (except intro/outro)
+    const useConsistentPortrait = enableLipSync && portraitImage;
+    
     for (const scene of scenes as Scene[]) {
       console.log('Generating image for scene:', scene.sceneNumber, 'isIntro:', scene.isIntro, 'isOutro:', scene.isOutro);
       
+      // For lip sync with consistent portrait, use the uploaded portrait for content scenes
+      if (useConsistentPortrait && !scene.isIntro && !scene.isOutro) {
+        console.log('Using provided portrait image for scene', scene.sceneNumber);
+        sceneImages.push(portraitImage);
+        savedImageUrls.push(portraitImage);
+        continue;
+      }
+      
       try {
-        const imagePrompt = getTemplateImagePrompt(scene, topic);
+        const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync);
         
         const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
@@ -174,41 +214,83 @@ serve(async (req) => {
     
     if (useWaveSpeed && WAVESPEED_API_KEY && finalImageUrls.length > 0) {
       console.log('Starting WaveSpeed video generation for', finalImageUrls.length, 'scenes');
+      console.log('Lip sync mode:', enableLipSync ? `Yes (${lipSyncModel})` : 'No');
       
       for (let i = 0; i < finalImageUrls.length; i++) {
         const scene = (scenes as Scene[])[i];
         const imageUrl = finalImageUrls[i];
         
-        // Create motion prompt - simpler for intro/outro
-        let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style.`;
-        if (scene.isIntro) {
-          motionPrompt = 'Subtle zoom in animation, text reveal effect, attention-grabbing intro motion.';
-        } else if (scene.isOutro) {
-          motionPrompt = 'Gentle zoom out or pulse effect, engaging call-to-action animation.';
+        // Get voiceover audio URL for this scene (needed for lip sync)
+        const sceneVoiceover = (voiceovers as VoiceoverData[])?.find(v => v.sceneNumber === scene.sceneNumber);
+        const audioUrl = sceneVoiceover?.audioUrl;
+        
+        // Determine API endpoint and body based on lip sync mode
+        let apiEndpoint: string;
+        let requestBody: any;
+        
+        // Use actual audio duration if provided, otherwise fall back to scene duration
+        const targetDuration = scene.audioDuration || scene.duration;
+        // Round to nearest valid integer (3-10), clamp to range
+        const clipDuration = Math.max(3, Math.min(10, Math.round(targetDuration)));
+        
+        console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
+        
+        // Skip intro/outro for lip sync (use regular image-to-video for them)
+        const useLipSyncForScene = enableLipSync && !scene.isIntro && !scene.isOutro && audioUrl;
+        
+        if (useLipSyncForScene) {
+          // Use lip sync model
+          console.log(`Using lip sync model ${lipSyncModel} for scene ${scene.sceneNumber}`);
+          
+          if (lipSyncModel === 'infinitetalk') {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+          } else if (lipSyncModel === 'avatar-omni-human-1.5') {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/avatar-omni-human-1.5';
+          } else if (lipSyncModel === 'wan-animate') {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-animate';
+          } else {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+          }
+          
+          requestBody = {
+            image: imageUrl,
+            audio: audioUrl,
+            duration: clipDuration
+          };
+          
+          // Add prompt for wan-animate
+          if (lipSyncModel === 'wan-animate') {
+            requestBody.prompt = `${scene.visualDescription}. Speaking naturally, engaging expression.`;
+          }
+        } else {
+          // Use regular image-to-video model
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
+          
+          let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style.`;
+          if (scene.isIntro) {
+            motionPrompt = 'Subtle zoom in animation, text reveal effect, attention-grabbing intro motion.';
+          } else if (scene.isOutro) {
+            motionPrompt = 'Gentle zoom out or pulse effect, engaging call-to-action animation.';
+          }
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: motionPrompt,
+            resolution: "480p",
+            duration: clipDuration
+          };
         }
         
         try {
-          // Use actual audio duration if provided, otherwise fall back to scene duration
-          // WaveSpeed requires integer duration between 3-10 seconds
-          const targetDuration = scene.audioDuration || scene.duration;
-          // Round to nearest valid integer (3-10), clamp to range
-          const clipDuration = Math.max(3, Math.min(10, Math.round(targetDuration)));
+          console.log(`Calling WaveSpeed API for scene ${scene.sceneNumber}:`, apiEndpoint);
           
-          console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s (integer)`);
-          
-          // Use WaveSpeed image-to-video API
-          const videoResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
+          const videoResponse = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              image: imageUrl,
-              prompt: motionPrompt,
-              resolution: "480p",
-              duration: clipDuration
-            }),
+            body: JSON.stringify(requestBody),
           });
 
           if (videoResponse.ok) {
@@ -224,6 +306,35 @@ serve(async (req) => {
           } else {
             const errorText = await videoResponse.text();
             console.error('WaveSpeed error for scene', scene.sceneNumber, ':', errorText);
+            
+            // Fallback to regular image-to-video if lip sync fails
+            if (useLipSyncForScene) {
+              console.log('Falling back to regular image-to-video for scene', scene.sceneNumber);
+              
+              const fallbackResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  image: imageUrl,
+                  prompt: `${scene.visualDescription}. Dynamic motion, cinematic, engaging.`,
+                  resolution: "480p",
+                  duration: clipDuration
+                }),
+              });
+              
+              if (fallbackResponse.ok) {
+                const fallbackData = await fallbackResponse.json();
+                if (fallbackData.code === 200 && fallbackData.data?.id) {
+                  videoTasks.push({
+                    sceneNumber: scene.sceneNumber,
+                    taskId: fallbackData.data.id
+                  });
+                }
+              }
+            }
           }
         } catch (videoError) {
           console.error('Video generation error for scene:', scene.sceneNumber, videoError);
@@ -242,10 +353,11 @@ serve(async (req) => {
         end: c.endTime
       })) : [],
       totalDuration,
-      useWaveSpeed: videoTasks.length > 0
+      useWaveSpeed: videoTasks.length > 0,
+      lipSyncEnabled: enableLipSync
     };
 
-    console.log('Reel generation complete with', videoTasks.length, 'video tasks');
+    console.log('Reel generation complete with', videoTasks.length, 'video tasks, lip sync:', enableLipSync);
 
     return new Response(
       JSON.stringify(result),
