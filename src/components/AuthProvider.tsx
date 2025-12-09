@@ -48,13 +48,27 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Failed to get session:', error);
+        // Still set loading to false so the app doesn't hang
+        setLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+    // Fallback timeout - if auth takes too long, stop loading anyway
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
