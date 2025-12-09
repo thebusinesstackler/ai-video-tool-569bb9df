@@ -3,6 +3,32 @@ import { supabase } from '@/integrations/supabase/client';
 import { getAudioDuration } from '@/lib/audioUtils';
 import { useToast } from '@/hooks/use-toast';
 
+// Helper function to save image to gallery
+const saveImageToGallery = async (
+  imageUrl: string,
+  prompt: string,
+  sceneNumber: number,
+  referenceImageUrl?: string,
+  transformation?: string
+) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('generated_images').insert({
+      user_id: user.id,
+      image_url: imageUrl,
+      prompt,
+      source: 'reel',
+      reference_image_url: referenceImageUrl || null,
+      transformation: transformation || null,
+      scene_number: sceneNumber
+    });
+  } catch (error) {
+    console.warn('Failed to save image to gallery:', error);
+  }
+};
+
 export interface PreviewScene {
   sceneNumber: number;
   narration: string;
@@ -191,6 +217,14 @@ export function useScenePreview(): UseScenePreviewResult {
                 ? { ...ps, imageUrl: imageData.imageUrl, isGenerating: false }
                 : ps
             ));
+            
+            // Save to gallery
+            await saveImageToGallery(
+              imageData.imageUrl,
+              scene.visualDescription,
+              scene.sceneNumber,
+              activeReference || undefined
+            );
           } else {
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
@@ -256,6 +290,9 @@ export function useScenePreview(): UseScenePreviewResult {
             : ps
         ));
 
+        // Save to gallery
+        await saveImageToGallery(imageData.imageUrl, visualDescription, sceneNumber);
+
         toast({
           title: "Image Regenerated",
           description: `Scene ${sceneNumber} image has been updated.`
@@ -296,6 +333,15 @@ export function useScenePreview(): UseScenePreviewResult {
             ? { ...ps, imageUrl: imageData.imageUrl, isRegenerating: false }
             : ps
         ));
+
+        // Save to gallery with reference and transformation info
+        await saveImageToGallery(
+          imageData.imageUrl,
+          visualDescription,
+          sceneNumber,
+          refImageUrl,
+          transformation
+        );
 
         toast({
           title: "Image Regenerated with Reference",
