@@ -304,19 +304,33 @@ const MovieSceneCreator = () => {
     }
   };
 
-  const loadAiTwins = async () => {
+  const loadAiTwins = async (retryCount = 0) => {
     if (!userId) return;
     try {
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('*')
+        .select('id, name, reference_images, voice_cloning_key, description, face_description')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
       
-      if (error) throw error;
+      if (error) {
+        // Retry on timeout errors
+        if (error.code === '57014' && retryCount < 2) {
+          console.log(`AI twins query timed out, retrying (${retryCount + 1}/2)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return loadAiTwins(retryCount + 1);
+        }
+        throw error;
+      }
       setAiTwins((data as AITwin[]) || []);
     } catch (error) {
       console.error('Failed to load AI twins:', error);
+      toast({
+        title: "Failed to load AI Twins",
+        description: "Please refresh the page to try again.",
+        variant: "destructive"
+      });
     }
   };
 
