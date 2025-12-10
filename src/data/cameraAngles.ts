@@ -132,33 +132,33 @@ export const CAMERA_ANGLES: CameraAngle[] = [
     id: 'over-shoulder',
     name: 'Over-the-Shoulder',
     category: 'character',
-    description: 'View from behind one person toward another.',
-    visualExample: 'Over-the-shoulder shot, back of head in foreground, facing subject in focus, conversation setup',
-    promptModifier: 'over-the-shoulder shot, OTS framing, conversational perspective'
+    description: 'View showing back of subject looking at something.',
+    visualExample: 'Back of person visible, looking at scene ahead, shoulder and head from behind',
+    promptModifier: 'shot from behind showing the back of the subject, their shoulder and head visible from behind, looking at something in the distance'
   },
   {
     id: 'two-shot',
     name: 'Two Shot',
     category: 'character',
-    description: 'Two subjects in same frame.',
-    visualExample: 'Two people in frame together, balanced composition, relationship dynamic, dual subject shot',
-    promptModifier: 'two shot, dual subjects, balanced framing'
+    description: 'Subject with their reflection or mirror.',
+    visualExample: 'Person with their mirror reflection, dual subject shot',
+    promptModifier: 'shot with person and their mirror reflection visible, showing subject from two angles'
   },
   {
     id: 'pov-shot',
     name: 'POV Shot',
     category: 'character',
-    description: 'First-person perspective. Viewer sees through character\'s eyes.',
+    description: 'First-person view with hands visible.',
     visualExample: 'First-person view, hands visible at bottom, subjective perspective, immersive viewpoint',
-    promptModifier: 'POV shot, first-person perspective, subjective camera'
+    promptModifier: 'POV shot showing the subject\'s hands reaching forward, first-person perspective'
   },
   {
     id: 'reaction-shot',
     name: 'Reaction Shot',
     category: 'character',
-    description: 'Focus on character\'s reaction to an event.',
+    description: 'Focus on character\'s emotional reaction.',
     visualExample: 'Close-up of surprised face, emotional reaction, expressive features, response captured',
-    promptModifier: 'reaction shot, emotional response, expressive close-up'
+    promptModifier: 'close-up reaction shot showing expressive emotional response, clear facial expression'
   },
   {
     id: 'profile-shot',
@@ -166,7 +166,7 @@ export const CAMERA_ANGLES: CameraAngle[] = [
     category: 'character',
     description: 'Side view of subject. Dramatic silhouette potential.',
     visualExample: 'Side profile view, dramatic lighting, silhouette potential, classic portrait angle',
-    promptModifier: 'profile shot, side view, dramatic silhouette'
+    promptModifier: 'side profile view, subject facing left or right, showing face from the side, dramatic lighting'
   },
   {
     id: 'three-quarter',
@@ -174,7 +174,7 @@ export const CAMERA_ANGLES: CameraAngle[] = [
     category: 'character',
     description: 'Subject turned 45° from camera. Depth and dimension.',
     visualExample: 'Three-quarter angle portrait, 45-degree turn, dimensional depth, classic portraiture',
-    promptModifier: 'three-quarter view, 45-degree angle, dimensional portrait'
+    promptModifier: 'three-quarter view portrait, subject turned 45 degrees from camera, showing depth and dimension'
   },
   
   // Movement Shots
