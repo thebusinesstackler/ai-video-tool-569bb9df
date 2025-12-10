@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,12 +35,39 @@ serve(async (req) => {
       audioContent = audioBase64;
     } else if (audioUrl) {
       console.log('Fetching audio from URL:', audioUrl);
-      const audioResponse = await fetch(audioUrl);
-      if (!audioResponse.ok) {
-        throw new Error('Failed to fetch audio file');
+      
+      // Extract the file path from the URL
+      // URL format: https://{project}.supabase.co/storage/v1/object/public/{bucket}/{path}
+      const urlParts = audioUrl.split('/storage/v1/object/public/');
+      if (urlParts.length === 2) {
+        // It's a Supabase storage URL - use the service role to download
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        
+        const pathParts = urlParts[1].split('/');
+        const bucket = pathParts[0];
+        const filePath = pathParts.slice(1).join('/');
+        
+        console.log(`Downloading from bucket: ${bucket}, path: ${filePath}`);
+        
+        const { data, error } = await supabase.storage.from(bucket).download(filePath);
+        if (error) {
+          console.error('Supabase storage error:', error);
+          throw new Error(`Failed to download audio: ${error.message}`);
+        }
+        
+        const audioBuffer = await data.arrayBuffer();
+        audioContent = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+      } else {
+        // External URL - try direct fetch
+        const audioResponse = await fetch(audioUrl);
+        if (!audioResponse.ok) {
+          throw new Error('Failed to fetch audio file');
+        }
+        const audioBuffer = await audioResponse.arrayBuffer();
+        audioContent = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
       }
-      const audioBuffer = await audioResponse.arrayBuffer();
-      audioContent = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
     } else {
       throw new Error('No audio provided');
     }
