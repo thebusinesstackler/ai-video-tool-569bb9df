@@ -36,8 +36,8 @@ serve(async (req) => {
     if (referenceImageUrl) {
       // Use multi-modal input with reference image for character consistency
       const characterPrompt = characterDescription 
-        ? `Generate a new scene image. IMPORTANT: The character in this reference image must appear in the generated scene with EXACTLY the same appearance, facial features, clothing, and style. Character description: ${characterDescription}. Scene to generate: ${prompt}`
-        : `Generate a new scene image. IMPORTANT: The character in this reference image must appear in the generated scene with EXACTLY the same appearance, facial features, clothing, and style. Scene to generate: ${prompt}`;
+        ? `Generate a photorealistic image. The person in this reference image must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Character: ${characterDescription}. Scene: ${prompt}`
+        : `Generate a photorealistic image. The person in this reference image must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Scene: ${prompt}`;
       
       messageContent = [
         { type: 'text', text: characterPrompt },
@@ -91,10 +91,37 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    console.log('AI response structure:', JSON.stringify({
+      hasChoices: !!data.choices,
+      choicesLength: data.choices?.length,
+      hasMessage: !!data.choices?.[0]?.message,
+      hasImages: !!data.choices?.[0]?.message?.images,
+      imagesLength: data.choices?.[0]?.message?.images?.length,
+      messageContent: typeof data.choices?.[0]?.message?.content
+    }));
+
+    // Try to extract image from the response
+    let imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    // If no image in images array, check if content contains base64 image
+    if (!imageUrl) {
+      const content = data.choices?.[0]?.message?.content;
+      if (typeof content === 'string' && content.startsWith('data:image')) {
+        imageUrl = content;
+      } else if (Array.isArray(content)) {
+        // Content might be an array with image objects
+        const imageItem = content.find((item: any) => 
+          item.type === 'image_url' || item.type === 'image'
+        );
+        if (imageItem?.image_url?.url) {
+          imageUrl = imageItem.image_url.url;
+        }
+      }
+    }
 
     if (!imageUrl) {
-      throw new Error('No image generated in response');
+      console.error('Full AI response:', JSON.stringify(data, null, 2));
+      throw new Error('No image generated in response. The AI may have declined to generate the image or returned text only.');
     }
 
     console.log('Image generated successfully');
