@@ -447,7 +447,7 @@ serve(async (req) => {
             requestBody = {
               image: imageUrl,
               prompt: `${scene.visualDescription}. Person speaking, engaging expression.`,
-              resolution: "480p",
+              resolution: "1080p",
               duration: clipDuration
             };
           }
@@ -470,7 +470,7 @@ serve(async (req) => {
           requestBody = {
             image: imageUrl,
             prompt: motionPrompt,
-            resolution: "480p",
+            resolution: "1080p",
             duration: clipDuration
           };
         }
@@ -526,7 +526,7 @@ serve(async (req) => {
                 body: JSON.stringify({
                   image: imageUrl,
                   prompt: `${scene.visualDescription}. Dynamic motion, cinematic, engaging.`,
-                  resolution: "480p",
+                  resolution: "1080p",
                   duration: clipDuration
                 }),
               });
