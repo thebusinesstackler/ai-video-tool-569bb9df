@@ -13,7 +13,8 @@ import {
   Clapperboard,
   Film,
   Smartphone,
-  ImageIcon
+  ImageIcon,
+  ScanFace
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
@@ -30,6 +31,7 @@ const navigationItems = [
   { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
   { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
   { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
+  { name: 'AI Twin', href: '/ai-twin', icon: ScanFace },
   { name: 'Videos', href: '/videos', icon: VideoIcon },
   { name: 'Characters', href: '/characters', icon: UsersIcon },
   { name: 'Projects', href: '/projects', icon: PlayCircleIcon },

@@ -1,0 +1,93 @@
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Volume2, ImageIcon, Eye } from 'lucide-react';
+
+interface AITwin {
+  id: string;
+  name: string;
+  reference_images: string[];
+  voice_cloning_key: string | null;
+  description: string | null;
+  created_at: string;
+}
+
+interface TwinCardProps {
+  twin: AITwin;
+  onDelete: () => void;
+  onSelect: () => void;
+}
+
+export const TwinCard: React.FC<TwinCardProps> = ({ twin, onDelete, onSelect }) => {
+  const primaryImage = twin.reference_images?.[0];
+  const imageCount = twin.reference_images?.length || 0;
+
+  return (
+    <Card className="group hover:shadow-lg transition-all duration-300 overflow-hidden">
+      <div className="relative aspect-square bg-muted">
+        {primaryImage ? (
+          <img 
+            src={primaryImage} 
+            alt={twin.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <ImageIcon className="w-12 h-12 text-muted-foreground" />
+          </div>
+        )}
+        
+        {/* Overlay with additional images preview */}
+        {imageCount > 1 && (
+          <div className="absolute bottom-2 right-2 flex -space-x-2">
+            {twin.reference_images.slice(1, 4).map((img, idx) => (
+              <img 
+                key={idx}
+                src={img}
+                alt=""
+                className="w-8 h-8 rounded-full border-2 border-background object-cover"
+              />
+            ))}
+            {imageCount > 4 && (
+              <div className="w-8 h-8 rounded-full bg-background/80 border-2 border-background flex items-center justify-center text-xs font-medium">
+                +{imageCount - 4}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <Button size="sm" variant="secondary" onClick={onSelect}>
+            <Eye className="w-4 h-4 mr-1" />
+            View
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onDelete}>
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      <CardContent className="p-4">
+        <h3 className="font-semibold text-lg truncate">{twin.name}</h3>
+        {twin.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+            {twin.description}
+          </p>
+        )}
+        
+        <div className="flex items-center gap-2 mt-3">
+          <Badge variant={twin.voice_cloning_key ? "default" : "secondary"} className="text-xs">
+            <Volume2 className="w-3 h-3 mr-1" />
+            {twin.voice_cloning_key ? "Voice Cloned" : "No Voice"}
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            <ImageIcon className="w-3 h-3 mr-1" />
+            {imageCount} {imageCount === 1 ? 'Image' : 'Images'}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
