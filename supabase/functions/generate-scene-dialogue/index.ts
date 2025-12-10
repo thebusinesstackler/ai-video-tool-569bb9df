@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { sceneDescription, characterName, tone } = await req.json();
+    const { sceneDescription, characterName, tone, location, timeOfDay, sceneTitle } = await req.json();
 
     if (!sceneDescription) {
       throw new Error('Scene description is required');
@@ -24,13 +24,27 @@ serve(async (req) => {
 
     console.log('Generating dialogue for scene:', sceneDescription);
 
-    const prompt = `Based on this movie scene description, generate natural, engaging dialogue that the character would say. The dialogue should be concise and fit well with lip sync video generation (15-30 seconds of speech).
+    const prompt = `You are a professional screenwriter creating dialogue for a movie scene. Write REALISTIC, NATURAL dialogue that:
+- Sounds like how real people actually talk
+- Has natural pauses, reactions, and emotion
+- Fits the scene's mood and context
+- Is concise enough for lip-sync video (15-30 seconds of speech, about 40-80 words)
+- Captures the character's personality and the scene's tension/emotion
+
+Scene Title: ${sceneTitle || 'Untitled Scene'}
+Location: ${location || 'Unknown'}
+Time: ${timeOfDay || 'Day'}
+${characterName ? `Main Character: ${characterName}` : ''}
+${tone ? `Tone/Mood: ${tone}` : ''}
 
 Scene Description: ${sceneDescription}
-${characterName ? `Character Name: ${characterName}` : ''}
-${tone ? `Tone: ${tone}` : ''}
 
-Generate ONLY the dialogue text that the character will speak. Keep it natural, conversational, and appropriate for the scene. Do not include stage directions or character names, just the spoken words.`;
+Write ONLY the spoken dialogue. Include natural speech patterns like:
+- Brief pauses (use "..." for dramatic pauses)
+- Emotional reactions where appropriate
+- Realistic word choices based on the character's personality
+
+Do NOT include character names, stage directions, or action descriptions. Just the words the character speaks.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -43,7 +57,7 @@ Generate ONLY the dialogue text that the character will speak. Keep it natural, 
         messages: [
           {
             role: 'system',
-            content: 'You are a professional screenwriter who creates natural, engaging dialogue for movie scenes. Generate concise, character-appropriate dialogue suitable for lip sync video generation.'
+            content: 'You are an award-winning screenwriter known for authentic, emotionally resonant dialogue. Your dialogue sounds natural, captures character personality, and moves the story forward. You write for film, so dialogue is punchy and purposeful.'
           },
           {
             role: 'user',
@@ -56,6 +70,20 @@ Generate ONLY the dialogue text that the character will speak. Keep it natural, 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'API credits exhausted. Please add credits.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
@@ -65,7 +93,7 @@ Generate ONLY the dialogue text that the character will speak. Keep it natural, 
     console.log('Generated dialogue:', dialogue);
 
     return new Response(
-      JSON.stringify({ dialogue }),
+      JSON.stringify({ dialogue: dialogue.trim() }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

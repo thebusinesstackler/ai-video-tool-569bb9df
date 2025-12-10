@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.pete-ai-chat]
 verify_jwt = false
+
+[functions.analyze-face-description]
+verify_jwt = false

@@ -394,12 +394,16 @@ const MovieSceneCreator = () => {
     try {
       // Pass character description for consistency in scenes
       let characterDescription: string | undefined;
+      let characterName: string | undefined;
+      
       if (selectedTwin) {
         const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
         const pronouns = selectedTwin.gender === 'female' ? 'she/her' : selectedTwin.gender === 'male' ? 'he/him' : 'they/them';
         characterDescription = `${selectedTwin.name} (${genderText}character, pronouns: ${pronouns}): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+        characterName = selectedTwin.name;
       } else if (selectedCharacter) {
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
+        characterName = selectedCharacter.name;
       } else if (selectedGalleryImage?.prompt) {
         characterDescription = `Character based on: ${selectedGalleryImage.prompt}`;
       }
@@ -410,10 +414,50 @@ const MovieSceneCreator = () => {
 
       if (error) throw error;
 
-      setScenes(data.scenes);
+      const generatedScenes = data.scenes as MovieScene[];
+      setScenes(generatedScenes);
+      
       toast({
         title: "Scenes Generated!",
-        description: `Created ${data.scenes.length} cinematic scenes with image prompts.`,
+        description: `Created ${generatedScenes.length} scenes. Generating dialogue...`,
+      });
+
+      // Auto-generate dialogue for each scene
+      const scenesWithDialogue = await Promise.all(
+        generatedScenes.map(async (scene) => {
+          try {
+            const { data: dialogueData, error: dialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+              body: {
+                sceneDescription: scene.description,
+                sceneTitle: scene.title,
+                location: scene.location,
+                timeOfDay: scene.timeOfDay,
+                characterName,
+                tone: scene.title.toLowerCase().includes('tension') || scene.title.toLowerCase().includes('conflict') 
+                  ? 'dramatic' 
+                  : scene.title.toLowerCase().includes('romance') || scene.title.toLowerCase().includes('love')
+                    ? 'romantic'
+                    : 'natural'
+              }
+            });
+
+            if (dialogueError) {
+              console.error(`Failed to generate dialogue for scene ${scene.sceneNumber}:`, dialogueError);
+              return scene;
+            }
+
+            return { ...scene, dialogue: dialogueData.dialogue };
+          } catch (err) {
+            console.error(`Error generating dialogue for scene ${scene.sceneNumber}:`, err);
+            return scene;
+          }
+        })
+      );
+
+      setScenes(scenesWithDialogue);
+      toast({
+        title: "Complete!",
+        description: `Generated ${generatedScenes.length} scenes with dialogue.`,
       });
     } catch (error: any) {
       console.error('Error generating scenes:', error);
