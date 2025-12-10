@@ -19,6 +19,10 @@ import { useCreatomate } from '@/hooks/useCreatomate';
 import { getAudioDuration } from '@/lib/audioUtils';
 import { TemplateSelector } from '@/components/TemplateSelector';
 import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
+import { ReelFeatureSidebar, ReelMode } from '@/components/ReelFeatureSidebar';
+import { VideoUpscaler } from '@/components/VideoUpscaler';
+import { CameraAngleSelector } from '@/components/CameraAngleSelector';
+import { LogoAnimation } from '@/data/reelTemplates';
 import { 
   Sparkles, 
   FileText, 
@@ -42,7 +46,8 @@ import {
   X,
   Image as ImageIcon,
   Camera,
-  Video as VideoIcon
+  Wand2,
+  FolderOpen
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -50,9 +55,6 @@ import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
-import { CameraAngleSelector } from '@/components/CameraAngleSelector';
-import { LogoAnimation } from '@/data/reelTemplates';
-import { FolderOpen } from 'lucide-react';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -274,6 +276,40 @@ const Reels = () => {
   const [selectedCameraAngle, setSelectedCameraAngle] = useState('eye-level');
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [selectedLogoAnimation, setSelectedLogoAnimation] = useState<LogoAnimation>('fade');
+  
+  // Feature sidebar state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeMode, setActiveMode] = useState<ReelMode>('standard');
+  const [featureToggles, setFeatureToggles] = useState({
+    cutScenes: false,
+    upscaler: false,
+    lipSync: false
+  });
+  const [showUpscaler, setShowUpscaler] = useState(false);
+  
+  // Sync feature toggles with existing state
+  const handleFeatureChange = (feature: keyof typeof featureToggles, value: boolean) => {
+    setFeatureToggles(prev => ({ ...prev, [feature]: value }));
+    
+    // Sync with existing state
+    if (feature === 'cutScenes') {
+      setEnableCutScenes(value);
+    } else if (feature === 'lipSync') {
+      setEnableLipSync(value);
+    } else if (feature === 'upscaler') {
+      setShowUpscaler(value);
+    }
+  };
+  
+  // Sync mode changes
+  const handleModeChange = (mode: ReelMode) => {
+    setActiveMode(mode);
+    if (mode === 'podcast') {
+      setIsPodcastMode(true);
+    } else {
+      setIsPodcastMode(false);
+    }
+  };
   
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
@@ -1379,34 +1415,81 @@ const Reels = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold gradient-text">Reels & Stories</h1>
-            <p className="text-muted-foreground mt-1">
-              Create engaging short-form videos with AI-generated scripts and captions
-            </p>
-          </div>
-          {project.scenes.length > 0 && (
-            <Button variant="outline" onClick={resetProject}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Start Over
-            </Button>
-          )}
-        </div>
+      <div className="flex h-full -m-6">
+        {/* Feature Sidebar */}
+        <ReelFeatureSidebar
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+          activeMode={activeMode}
+          onModeChange={handleModeChange}
+          features={featureToggles}
+          onFeatureChange={handleFeatureChange}
+          disabled={isGenerating}
+        />
+        
+        {/* Main Content */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold gradient-text">Reels & Stories</h1>
+                <p className="text-muted-foreground mt-1">
+                  {activeMode === 'podcast' 
+                    ? 'Create long-form audio-focused podcast content'
+                    : activeMode === 'ai-twin'
+                    ? 'Use your AI twin with cloned voice for videos'
+                    : activeMode === 'script-only'
+                    ? 'Generate scripts without video production'
+                    : 'Create engaging short-form videos with AI-generated scripts and captions'
+                  }
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {showUpscaler && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowUpscaler(false)}
+                    size="sm"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Close Upscaler
+                  </Button>
+                )}
+                {project.scenes.length > 0 && (
+                  <Button variant="outline" onClick={resetProject}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Start Over
+                  </Button>
+                )}
+              </div>
+            </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-card border border-border">
-            <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Video className="w-4 h-4 mr-2" />
-              Create Reel
-            </TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <History className="w-4 h-4 mr-2" />
-              My Reels ({savedReels.length})
-            </TabsTrigger>
-          </TabsList>
+            {/* Video Upscaler Panel */}
+            {showUpscaler && (
+              <VideoUpscaler 
+                videoUrl={project.videoBlobUrl}
+                onUpscaleComplete={(url) => {
+                  toast({
+                    title: "Video Upscaled",
+                    description: "Your enhanced video is ready"
+                  });
+                }}
+                disabled={isGenerating}
+              />
+            )}
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="bg-card border border-border">
+                <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Video className="w-4 h-4 mr-2" />
+                  Create Reel
+                </TabsTrigger>
+                <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <History className="w-4 h-4 mr-2" />
+                  My Reels ({savedReels.length})
+                </TabsTrigger>
+              </TabsList>
 
           <TabsContent value="create" className="space-y-6">
             {/* Progress Bar */}
@@ -2561,6 +2644,8 @@ const Reels = () => {
             )}
           </TabsContent>
         </Tabs>
+          </div>
+        </div>
       </div>
     </Layout>
   );
