@@ -136,8 +136,12 @@ const MovieSceneCreator = () => {
   const [isTransferring, setIsTransferring] = useState(false);
   const [peteInputValue, setPeteInputValue] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; description: string | null; reference_images: string[] | null }[]>([]);
+  const [aiTwins, setAiTwins] = useState<AITwin[]>([]);
+  const [galleryImages, setGalleryImages] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<{ id: string; image_url: string; prompt: string | null } | null>(null);
+  const [characterSourceTab, setCharacterSourceTab] = useState<'twins' | 'characters' | 'gallery'>('twins');
   const { toast } = useToast();
 
   // Check for AI Twin from navigation state
@@ -261,6 +265,8 @@ const MovieSceneCreator = () => {
       loadSavedProjects();
       loadVisualPresets();
       loadCharacters();
+      loadAiTwins();
+      loadGalleryImages();
     }
   }, [userId]);
 
@@ -277,6 +283,39 @@ const MovieSceneCreator = () => {
       setCharacters(data || []);
     } catch (error) {
       console.error('Failed to load characters:', error);
+    }
+  };
+
+  const loadAiTwins = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('ai_twins')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setAiTwins((data as AITwin[]) || []);
+    } catch (error) {
+      console.error('Failed to load AI twins:', error);
+    }
+  };
+
+  const loadGalleryImages = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('generated_images')
+        .select('id, image_url, prompt')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      setGalleryImages(data || []);
+    } catch (error) {
+      console.error('Failed to load gallery images:', error);
     }
   };
 
@@ -302,7 +341,7 @@ const MovieSceneCreator = () => {
 
     setIsGenerating(true);
     try {
-      // Build character description from selected character or AI Twin
+      // Build character description from selected AI Twin, character, or gallery image
       let characterDescription: string | undefined;
       
       if (selectedTwin) {
@@ -312,6 +351,10 @@ const MovieSceneCreator = () => {
         characterDescription = `${selectedTwin.name} (${genderText}character, pronouns: ${pronouns}): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
       } else if (selectedCharacter) {
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
+      } else if (selectedGalleryImage) {
+        characterDescription = selectedGalleryImage.prompt 
+          ? `Character based on image: ${selectedGalleryImage.prompt}`
+          : 'Use the reference image to maintain character consistency';
       }
 
       const { data, error } = await supabase.functions.invoke('generate-movie-outline', {
@@ -349,12 +392,16 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingScenes(true);
     try {
-      // Pass AI Twin description with gender for character consistency in scenes
+      // Pass character description for consistency in scenes
       let characterDescription: string | undefined;
       if (selectedTwin) {
         const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
         const pronouns = selectedTwin.gender === 'female' ? 'she/her' : selectedTwin.gender === 'male' ? 'he/him' : 'they/them';
         characterDescription = `${selectedTwin.name} (${genderText}character, pronouns: ${pronouns}): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+      } else if (selectedCharacter) {
+        characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
+      } else if (selectedGalleryImage?.prompt) {
+        characterDescription = `Character based on: ${selectedGalleryImage.prompt}`;
       }
 
       const { data, error } = await supabase.functions.invoke('generate-movie-scenes', {
@@ -402,11 +449,20 @@ const MovieSceneCreator = () => {
     
     setGeneratingImageFor(sceneNumber);
     try {
-      // Pass AI Twin reference image and description for character consistency
-      const referenceImageUrl = selectedTwin?.reference_images?.[0] || undefined;
-      const characterDescription = selectedTwin 
-        ? `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || ''}`
-        : undefined;
+      // Pass reference image and description for character consistency
+      let referenceImageUrl: string | undefined;
+      let characterDescription: string | undefined;
+      
+      if (selectedTwin) {
+        referenceImageUrl = selectedTwin.reference_images?.[0];
+        characterDescription = `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || ''}`;
+      } else if (selectedCharacter?.reference_images?.[0]) {
+        referenceImageUrl = selectedCharacter.reference_images[0];
+        characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || ''}`;
+      } else if (selectedGalleryImage) {
+        referenceImageUrl = selectedGalleryImage.image_url;
+        characterDescription = selectedGalleryImage.prompt || undefined;
+      }
 
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
         body: { 
@@ -1186,66 +1242,213 @@ const MovieSceneCreator = () => {
           </div>
         </div>
 
-        {/* Character Selection */}
-        {userId && characters.length > 0 && (
+        {/* Main Character Selection */}
+        {userId && (
           <Card className="bg-card border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-primary" />
-                  <div>
-                    <Label className="text-sm font-medium">Main Character</Label>
-                    <p className="text-xs text-muted-foreground">Select a character to maintain consistency across scenes</p>
-                  </div>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5 text-primary" />
+                <div>
+                  <CardTitle className="text-base">Main Character</CardTitle>
+                  <CardDescription className="text-xs">Select who will star in your movie</CardDescription>
                 </div>
-                <Select 
-                  value={selectedCharacterId || 'none'} 
-                  onValueChange={(value) => setSelectedCharacterId(value === 'none' ? null : value)}
-                >
-                  <SelectTrigger className="w-[250px] bg-background border-border">
-                    <SelectValue placeholder="No character selected" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border z-50">
-                    <SelectItem value="none">
-                      <span className="text-muted-foreground">No character (AI will create one)</span>
-                    </SelectItem>
-                    {characters.map(char => (
-                      <SelectItem key={char.id} value={char.id}>
-                        <div className="flex items-center gap-2">
-                          {char.reference_images?.[0] ? (
-                            <Avatar className="w-6 h-6">
-                              <AvatarImage src={char.reference_images[0]} alt={char.name} />
-                              <AvatarFallback>{char.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                              <User className="w-3 h-3 text-primary" />
-                            </div>
-                          )}
-                          <span>{char.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
-              
-              {/* Selected Character Preview */}
-              {selectedCharacter && (
-                <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-start gap-3">
-                  {selectedCharacter.reference_images?.[0] && (
-                    <img 
-                      src={selectedCharacter.reference_images[0]} 
-                      alt={selectedCharacter.name}
-                      className="w-16 h-16 rounded-lg object-cover border border-border"
-                    />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Source Tabs */}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={characterSourceTab === 'twins' ? 'default' : 'outline'}
+                  onClick={() => setCharacterSourceTab('twins')}
+                  className="flex-1"
+                >
+                  AI Twins ({aiTwins.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={characterSourceTab === 'characters' ? 'default' : 'outline'}
+                  onClick={() => setCharacterSourceTab('characters')}
+                  className="flex-1"
+                >
+                  Characters ({characters.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={characterSourceTab === 'gallery' ? 'default' : 'outline'}
+                  onClick={() => setCharacterSourceTab('gallery')}
+                  className="flex-1"
+                >
+                  Gallery ({galleryImages.length})
+                </Button>
+              </div>
+
+              {/* AI Twins Tab */}
+              {characterSourceTab === 'twins' && (
+                <div className="space-y-3">
+                  {aiTwins.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No AI Twins yet. Create one in the AI Twin section.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                      {aiTwins.map(twin => (
+                        <div
+                          key={twin.id}
+                          onClick={() => {
+                            setSelectedTwin(twin);
+                            setSelectedCharacterId(null);
+                            setSelectedGalleryImage(null);
+                          }}
+                          className={`cursor-pointer p-2 rounded-lg border transition-all ${
+                            selectedTwin?.id === twin.id 
+                              ? 'border-primary bg-primary/10 ring-2 ring-primary' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {twin.reference_images?.[0] ? (
+                              <img 
+                                src={twin.reference_images[0]} 
+                                alt={twin.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                <User className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{twin.name}</p>
+                              <div className="flex items-center gap-1">
+                                {twin.gender && (
+                                  <Badge variant="outline" className="text-[10px] capitalize px-1 py-0">{twin.gender}</Badge>
+                                )}
+                                {twin.voice_sample_url && (
+                                  <Volume2 className="w-3 h-3 text-primary" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
+                </div>
+              )}
+
+              {/* Characters Tab */}
+              {characterSourceTab === 'characters' && (
+                <div className="space-y-3">
+                  {characters.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No characters yet. Create one in the Characters section.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                      {characters.map(char => (
+                        <div
+                          key={char.id}
+                          onClick={() => {
+                            setSelectedCharacterId(char.id);
+                            setSelectedTwin(null);
+                            setSelectedGalleryImage(null);
+                          }}
+                          className={`cursor-pointer p-2 rounded-lg border transition-all ${
+                            selectedCharacterId === char.id 
+                              ? 'border-primary bg-primary/10 ring-2 ring-primary' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {char.reference_images?.[0] ? (
+                              <img 
+                                src={char.reference_images[0]} 
+                                alt={char.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                <User className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{char.name}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Gallery Tab */}
+              {characterSourceTab === 'gallery' && (
+                <div className="space-y-3">
+                  {galleryImages.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No gallery images yet. Generate some in the Reels or Movies section.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto">
+                      {galleryImages.map(img => (
+                        <div
+                          key={img.id}
+                          onClick={() => {
+                            setSelectedGalleryImage(img);
+                            setSelectedTwin(null);
+                            setSelectedCharacterId(null);
+                          }}
+                          className={`cursor-pointer rounded-lg border overflow-hidden transition-all ${
+                            selectedGalleryImage?.id === img.id 
+                              ? 'border-primary ring-2 ring-primary' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <img 
+                            src={img.image_url} 
+                            alt="Gallery"
+                            className="w-full aspect-square object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Clear Selection */}
+              {(selectedTwin || selectedCharacter || selectedGalleryImage) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedTwin(null);
+                    setSelectedCharacterId(null);
+                    setSelectedGalleryImage(null);
+                  }}
+                  className="w-full text-muted-foreground"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Clear Selection (AI will create character)
+                </Button>
+              )}
+
+              {/* Selected Preview */}
+              {selectedGalleryImage && (
+                <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-start gap-3">
+                  <img 
+                    src={selectedGalleryImage.image_url} 
+                    alt="Selected"
+                    className="w-16 h-16 rounded-lg object-cover border border-border"
+                  />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground">{selectedCharacter.name}</p>
-                    {selectedCharacter.description && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{selectedCharacter.description}</p>
+                    <p className="font-medium text-foreground">Gallery Image</p>
+                    {selectedGalleryImage.prompt && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{selectedGalleryImage.prompt}</p>
                     )}
-                    <p className="text-[10px] text-primary mt-1">This character will appear consistently in all scenes</p>
+                    <p className="text-[10px] text-primary mt-1">This image will be used as character reference</p>
                   </div>
                 </div>
               )}
