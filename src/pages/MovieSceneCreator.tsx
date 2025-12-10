@@ -516,25 +516,26 @@ const MovieSceneCreator = () => {
     
     setGeneratingImageFor(sceneNumber);
     try {
-      // Pass reference image and description for character consistency
-      let referenceImageUrl: string | undefined;
+      // Pass ALL reference images for character consistency
+      let referenceImages: string[] = [];
       let characterDescription: string | undefined;
       
       if (selectedTwin) {
-        referenceImageUrl = selectedTwin.reference_images?.[0];
+        // Use ALL reference images from AI Twin for better consistency
+        referenceImages = selectedTwin.reference_images || [];
         characterDescription = `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || ''}`;
-      } else if (selectedCharacter?.reference_images?.[0]) {
-        referenceImageUrl = selectedCharacter.reference_images[0];
+      } else if (selectedCharacter?.reference_images?.length) {
+        referenceImages = selectedCharacter.reference_images;
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || ''}`;
       } else if (selectedGalleryImage) {
-        referenceImageUrl = selectedGalleryImage.image_url;
+        referenceImages = [selectedGalleryImage.image_url];
         characterDescription = selectedGalleryImage.prompt || undefined;
       }
 
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
         body: { 
           prompt: enhancedPrompt,
-          referenceImageUrl,
+          referenceImages,
           characterDescription
         }
       });
