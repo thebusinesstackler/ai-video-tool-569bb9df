@@ -1546,7 +1546,11 @@ const Reels = () => {
                           variant="destructive"
                           size="icon"
                           className="absolute -top-2 -right-2 w-6 h-6"
-                          onClick={removePortrait}
+                          onClick={() => {
+                            removePortrait();
+                            setCharacterDescription('');
+                            setPreSelectedReference(null);
+                          }}
                         >
                           <X className="w-3 h-3" />
                         </Button>
@@ -1564,6 +1568,9 @@ const Reels = () => {
                           onSelect={(imageUrl) => {
                             setPortraitPreview(imageUrl);
                             setPortraitImage(imageUrl);
+                            // Also set as reference image for script generation
+                            setPreSelectedReference(imageUrl);
+                            analyzeReferenceImage(imageUrl);
                           }}
                           title="Select Portrait from Gallery"
                           trigger={
@@ -1580,10 +1587,49 @@ const Reels = () => {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={handlePortraitUpload}
+                      onChange={(e) => {
+                        handlePortraitUpload(e);
+                        // After upload completes, also analyze for character description
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = async (event) => {
+                            const imageUrl = event.target?.result as string;
+                            setPreSelectedReference(imageUrl);
+                            analyzeReferenceImage(imageUrl);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Upload or select a front-facing portrait for best lip sync results
+                      Upload or select a front-facing portrait for lip sync and character consistency
+                    </p>
+                  </div>
+
+                  {/* Character Description - Auto-detected from portrait */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <User className="w-3 h-3" />
+                      Character Description
+                      {isAnalyzingReference && (
+                        <span className="flex items-center gap-1 text-primary">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="text-[10px]">Detecting...</span>
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      placeholder="e.g., Male entrepreneur, 30s, professional attire"
+                      value={characterDescription}
+                      onChange={(e) => setCharacterDescription(e.target.value)}
+                      className="text-sm"
+                      disabled={isAnalyzingReference}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {portraitPreview 
+                        ? "Auto-detected from portrait. Edit if needed - this ensures scripts describe your character correctly."
+                        : "Describe the person so all generated scripts match their gender, age, and appearance."}
                     </p>
                   </div>
 
@@ -1823,165 +1869,191 @@ const Reels = () => {
                   </div>
 
                   {/* Character Reference Selection - Before Preview */}
-                  <Card className="bg-muted/30 border-dashed border-primary/30">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-primary" />
-                        Character Reference (Optional)
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Select a reference image to maintain character consistency across all scenes
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {preSelectedReference ? (
-                        <div className="flex items-start gap-4">
-                          <div className="relative">
-                            <img 
-                              src={preSelectedReference} 
-                              alt="Reference" 
-                              className="w-24 h-24 object-cover rounded-lg border-2 border-primary"
-                            />
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              className="absolute -top-2 -right-2 w-6 h-6"
-                              onClick={() => {
-                                setPreSelectedReference(null);
-                                setPreReferenceTransformation('');
-                                setCharacterDescription('');
-                              }}
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                          <div className="flex-1 space-y-2">
-                            <Label className="text-xs">Character Transformation (Optional)</Label>
-                            <Input
-                              placeholder="e.g., make them a superhero, wearing a suit..."
-                              value={preReferenceTransformation}
-                              onChange={(e) => setPreReferenceTransformation(e.target.value)}
-                              className="text-sm"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2 flex-wrap">
-                          {/* Upload */}
-                          <div 
-                            className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
-                            onClick={() => referenceInputRef.current?.click()}
-                          >
-                            <Upload className="w-5 h-5 text-muted-foreground mb-1" />
-                            <span className="text-[10px] text-muted-foreground text-center">Upload</span>
-                          </div>
-                          
-                          {/* From Gallery */}
-                          <GalleryImagePicker
-                            onSelect={(imageUrl) => handleReferenceSelected(imageUrl)}
-                            title="Select Reference from Gallery"
-                            trigger={
-                              <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
-                                <FolderOpen className="w-5 h-5 text-muted-foreground mb-1" />
-                                <span className="text-[10px] text-muted-foreground text-center">Gallery</span>
-                              </div>
-                            }
+                  {/* Show simplified version if lip sync portrait is already set */}
+                  {enableLipSync && portraitPreview ? (
+                    <Card className="bg-muted/30 border-dashed border-green-500/30">
+                      <CardContent className="py-4">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={portraitPreview} 
+                            alt="Reference" 
+                            className="w-16 h-16 object-cover rounded-lg border-2 border-green-500"
                           />
-                          
-                          {/* From Characters - show character thumbnails if available */}
-                          {characters.length > 0 && (
-                            <div className="flex gap-2">
-                              {characters.slice(0, 3).map((char) => (
-                                char.reference_images?.[0] && (
-                                  <div 
-                                    key={char.id}
-                                    className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 border-border hover:border-primary transition-colors relative group"
-                                    onClick={() => handleReferenceSelected(char.reference_images[0])}
-                                    title={char.name}
-                                  >
-                                    <img 
-                                      src={char.reference_images[0]} 
-                                      alt={char.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                                      <p className="text-[9px] text-white truncate">{char.name}</p>
-                                    </div>
-                                  </div>
-                                )
-                              ))}
-                            </div>
-                          )}
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
+                              <Camera className="w-4 h-4" />
+                              Character Reference Set
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Using lip sync portrait: {characterDescription || 'Analyzing...'}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                      <Input
-                        ref={referenceInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          // Upload to storage for persistence
-                          if (user) {
-                            const fileName = `${user.id}/references/${Date.now()}-ref.${file.type.split('/')[1] || 'jpg'}`;
-                            const { data: uploadData, error: uploadError } = await supabase.storage
-                              .from('reels')
-                              .upload(fileName, file, { contentType: file.type });
-                            if (!uploadError && uploadData) {
-                              const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                              handleReferenceSelected(publicUrl.publicUrl);
-                              return;
-                            }
-                          }
-                          // Fallback to base64
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            handleReferenceSelected(ev.target?.result as string);
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                      />
-                      
-                      {/* Character Description for Script Generation */}
-                      <div className="space-y-2 pt-2 border-t border-border/50">
-                        <Label className="text-xs flex items-center gap-2">
-                          <User className="w-3 h-3" />
-                          Character Description (for script)
-                          {isAnalyzingReference && (
-                            <span className="flex items-center gap-1 text-primary">
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              <span className="text-[10px]">Detecting...</span>
-                            </span>
-                          )}
-                        </Label>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="bg-muted/30 border-dashed border-primary/30">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Camera className="w-4 h-4 text-primary" />
+                          Character Reference (Optional)
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Select a reference image to maintain character consistency across all scenes
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {preSelectedReference ? (
+                          <div className="flex items-start gap-4">
+                            <div className="relative">
+                              <img 
+                                src={preSelectedReference} 
+                                alt="Reference" 
+                                className="w-24 h-24 object-cover rounded-lg border-2 border-primary"
+                              />
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute -top-2 -right-2 w-6 h-6"
+                                onClick={() => {
+                                  setPreSelectedReference(null);
+                                  setPreReferenceTransformation('');
+                                  setCharacterDescription('');
+                                }}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <Label className="text-xs">Character Transformation (Optional)</Label>
+                              <Input
+                                placeholder="e.g., make them a superhero, wearing a suit..."
+                                value={preReferenceTransformation}
+                                onChange={(e) => setPreReferenceTransformation(e.target.value)}
+                                className="text-sm"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 flex-wrap">
+                            {/* Upload */}
+                            <div 
+                              className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                              onClick={() => referenceInputRef.current?.click()}
+                            >
+                              <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                              <span className="text-[10px] text-muted-foreground text-center">Upload</span>
+                            </div>
+                            
+                            {/* From Gallery */}
+                            <GalleryImagePicker
+                              onSelect={(imageUrl) => handleReferenceSelected(imageUrl)}
+                              title="Select Reference from Gallery"
+                              trigger={
+                                <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+                                  <FolderOpen className="w-5 h-5 text-muted-foreground mb-1" />
+                                  <span className="text-[10px] text-muted-foreground text-center">Gallery</span>
+                                </div>
+                              }
+                            />
+                            
+                            {/* From Characters - show character thumbnails if available */}
+                            {characters.length > 0 && (
+                              <div className="flex gap-2">
+                                {characters.slice(0, 3).map((char) => (
+                                  char.reference_images?.[0] && (
+                                    <div 
+                                      key={char.id}
+                                      className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 border-border hover:border-primary transition-colors relative group"
+                                      onClick={() => handleReferenceSelected(char.reference_images[0])}
+                                      title={char.name}
+                                    >
+                                      <img 
+                                        src={char.reference_images[0]} 
+                                        alt={char.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                                        <p className="text-[9px] text-white truncate">{char.name}</p>
+                                      </div>
+                                    </div>
+                                  )
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <Input
-                          placeholder="e.g., Male entrepreneur, 30s, professional attire"
-                          value={characterDescription}
-                          onChange={(e) => setCharacterDescription(e.target.value)}
-                          className="text-sm"
-                          disabled={isAnalyzingReference}
+                          ref={referenceInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            // Upload to storage for persistence
+                            if (user) {
+                              const fileName = `${user.id}/references/${Date.now()}-ref.${file.type.split('/')[1] || 'jpg'}`;
+                              const { data: uploadData, error: uploadError } = await supabase.storage
+                                .from('reels')
+                                .upload(fileName, file, { contentType: file.type });
+                              if (!uploadError && uploadData) {
+                                const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                                handleReferenceSelected(publicUrl.publicUrl);
+                                return;
+                              }
+                            }
+                            // Fallback to base64
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              handleReferenceSelected(ev.target?.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }}
                         />
-                        <p className="text-[10px] text-muted-foreground">
-                          {preSelectedReference 
-                            ? "Auto-detected from image. Edit if needed to ensure scripts match the character."
-                            : "Describe the person to ensure all generated scripts match their gender, age, and appearance"}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        
+                        {/* Character Description for Script Generation */}
+                        <div className="space-y-2 pt-2 border-t border-border/50">
+                          <Label className="text-xs flex items-center gap-2">
+                            <User className="w-3 h-3" />
+                            Character Description (for script)
+                            {isAnalyzingReference && (
+                              <span className="flex items-center gap-1 text-primary">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span className="text-[10px]">Detecting...</span>
+                              </span>
+                            )}
+                          </Label>
+                          <Input
+                            placeholder="e.g., Male entrepreneur, 30s, professional attire"
+                            value={characterDescription}
+                            onChange={(e) => setCharacterDescription(e.target.value)}
+                            className="text-sm"
+                            disabled={isAnalyzingReference}
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            {preSelectedReference 
+                              ? "Auto-detected from image. Edit if needed to ensure scripts match the character."
+                              : "Describe the person to ensure all generated scripts match their gender, age, and appearance"}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <div className="flex gap-3 pt-4">
                     <Button
                       onClick={() => {
-                        // If pre-selected reference, set it before generating
-                        if (preSelectedReference) {
-                          setExternalReference(preSelectedReference);
+                        // Use portrait image as reference when lip sync is enabled
+                        const referenceToUse = (enableLipSync && portraitImage) ? portraitImage : preSelectedReference;
+                        
+                        if (referenceToUse) {
+                          setExternalReference(referenceToUse);
                           if (preReferenceTransformation) {
                             setCharacterTransformation(preReferenceTransformation);
                           }
                         }
-                        generatePreview(project.scenes, user?.id, preSelectedReference || undefined, selectedVoice);
+                        generatePreview(project.scenes, user?.id, referenceToUse || undefined, selectedVoice);
                       }}
                       disabled={isGenerating || isGeneratingPreview}
                       className="flex-1 bg-gradient-primary hover:opacity-90"
