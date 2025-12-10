@@ -56,3 +56,9 @@ verify_jwt = false
 
 [functions.clone-voice]
 verify_jwt = false
+
+[functions.upscale-video]
+verify_jwt = false
+
+[functions.ai]
+verify_jwt = false
