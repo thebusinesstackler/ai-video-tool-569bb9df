@@ -12,8 +12,9 @@ interface VideoClip {
 interface CreatomateOptions {
   clips: VideoClip[];
   audioUrl?: string;
-  transition?: 'fade' | 'slide' | 'none';
+  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
+  transitionDuration?: number;
 }
 
 interface CreatomateResult {
