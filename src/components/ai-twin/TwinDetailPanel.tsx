@@ -292,12 +292,12 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
 
           {/* Camera Angles Grid */}
           <ScrollArea className="h-72">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pr-4">
+            <div className="grid grid-cols-2 gap-4 pr-4">
               {categoryAngles.map(angle => (
                 <Button
                   key={angle.id}
                   variant="outline"
-                  className="h-24 flex-col items-start justify-start p-3 text-left hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                  className="min-h-32 h-auto flex-col items-start justify-start p-4 text-left overflow-hidden hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
                   disabled={isGenerating}
                   onClick={() => generateTwinImage(angle)}
                 >
