@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -232,31 +231,28 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Category Selector */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Camera Category</label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CAMERA_CATEGORIES.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name} - {cat.description}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Category Tabs */}
+          <div className="flex flex-wrap gap-2">
+            {CAMERA_CATEGORIES.map(cat => (
+              <Button
+                key={cat.id}
+                size="sm"
+                variant={selectedCategory === cat.id ? "default" : "outline"}
+                onClick={() => setSelectedCategory(cat.id)}
+              >
+                {cat.name}
+              </Button>
+            ))}
           </div>
 
           {/* Camera Angles Grid */}
-          <ScrollArea className="h-64">
-            <div className="grid grid-cols-2 gap-2">
+          <ScrollArea className="h-80">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {categoryAngles.map(angle => (
                 <Button
                   key={angle.id}
                   variant="outline"
-                  className="h-auto flex-col items-start p-3 text-left"
+                  className="h-auto flex-col items-start p-3 text-left hover:bg-secondary"
                   disabled={isGenerating}
                   onClick={() => generateTwinImage(angle)}
                 >
