@@ -2439,13 +2439,26 @@ const Reels = () => {
                         // Use portrait image as reference when lip sync is enabled
                         const referenceToUse = (enableLipSync && portraitImage) ? portraitImage : preSelectedReference;
                         
+                        // Get character reference image if a character is selected
+                        const selectedCharacter = selectedCharacterId 
+                          ? characters.find(c => c.id === selectedCharacterId)
+                          : null;
+                        const characterRefImage = selectedCharacter?.reference_images?.[0];
+                        
                         if (referenceToUse) {
                           setExternalReference(referenceToUse);
                           if (preReferenceTransformation) {
                             setCharacterTransformation(preReferenceTransformation);
                           }
                         }
-                        generatePreview(project.scenes, user?.id, referenceToUse || undefined, selectedVoice);
+                        generatePreview(
+                          project.scenes, 
+                          user?.id, 
+                          referenceToUse || undefined, 
+                          selectedVoice,
+                          characterRefImage || undefined,
+                          characterDescription || undefined
+                        );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
                       className="flex-1 bg-gradient-primary hover:opacity-90"

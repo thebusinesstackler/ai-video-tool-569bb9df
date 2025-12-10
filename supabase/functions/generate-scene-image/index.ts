@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, referenceImageUrl, characterDescription } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -27,6 +27,29 @@ serve(async (req) => {
     }
 
     console.log('Generating image with prompt:', prompt);
+    console.log('Reference image:', referenceImageUrl ? 'provided' : 'none');
+    console.log('Character description:', characterDescription || 'none');
+
+    // Build the message content
+    let messageContent: any;
+    
+    if (referenceImageUrl) {
+      // Use multi-modal input with reference image for character consistency
+      const characterPrompt = characterDescription 
+        ? `Generate a new scene image. IMPORTANT: The character in this reference image must appear in the generated scene with EXACTLY the same appearance, facial features, clothing, and style. Character description: ${characterDescription}. Scene to generate: ${prompt}`
+        : `Generate a new scene image. IMPORTANT: The character in this reference image must appear in the generated scene with EXACTLY the same appearance, facial features, clothing, and style. Scene to generate: ${prompt}`;
+      
+      messageContent = [
+        { type: 'text', text: characterPrompt },
+        { type: 'image_url', image_url: { url: referenceImageUrl } }
+      ];
+    } else {
+      // Text-only prompt
+      const enhancedPrompt = characterDescription 
+        ? `${prompt}. Character description for consistency: ${characterDescription}`
+        : prompt;
+      messageContent = enhancedPrompt;
+    }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -39,7 +62,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: messageContent
           }
         ],
         modalities: ['image', 'text']
