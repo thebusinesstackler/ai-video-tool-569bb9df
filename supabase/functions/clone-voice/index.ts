@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,7 +38,6 @@ serve(async (req) => {
       console.log('Fetching audio from URL:', audioUrl);
       
       // Extract the file path from the URL
-      // URL format: https://{project}.supabase.co/storage/v1/object/public/{bucket}/{path}
       const urlParts = audioUrl.split('/storage/v1/object/public/');
       if (urlParts.length === 2) {
         // It's a Supabase storage URL - use the service role to download
@@ -58,7 +58,7 @@ serve(async (req) => {
         }
         
         const audioBuffer = await data.arrayBuffer();
-        audioContent = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+        audioContent = encode(audioBuffer);
       } else {
         // External URL - try direct fetch
         const audioResponse = await fetch(audioUrl);
@@ -66,7 +66,7 @@ serve(async (req) => {
           throw new Error('Failed to fetch audio file');
         }
         const audioBuffer = await audioResponse.arrayBuffer();
-        audioContent = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+        audioContent = encode(audioBuffer);
       }
     } else {
       throw new Error('No audio provided');
