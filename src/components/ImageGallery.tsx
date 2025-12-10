@@ -26,7 +26,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   onSelectImage,
   selectable = false 
 }) => {
-  const { images, isLoading, deleteImage } = useImageGallery();
+  const { images, isLoading, hasMore, loadMore, deleteImage } = useImageGallery();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   const [filterSource, setFilterSource] = useState<string>('all');
@@ -137,6 +137,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                       src={image.image_url}
                       alt={image.prompt || 'Generated image'}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                     
                     {/* Source badge */}
@@ -187,6 +188,26 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   </div>
                 ))}
               </div>
+              
+              {/* Load More Button */}
+              {hasMore && !searchTerm && filterSource === 'all' && (
+                <div className="flex justify-center mt-4 pb-4">
+                  <Button
+                    variant="outline"
+                    onClick={loadMore}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Load More Images'
+                    )}
+                  </Button>
+                </div>
+              )}
             </ScrollArea>
           )}
         </CardContent>
