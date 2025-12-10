@@ -11,7 +11,6 @@ import MovieSceneCreator from "./pages/MovieSceneCreator";
 import Movies from "./pages/Movies";
 import Scripts from "./pages/Scripts";
 import Characters from "./pages/Characters";
-import Videos from "./pages/Videos";
 import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
 import Reels from "./pages/Reels";
@@ -50,7 +49,6 @@ const App = () => (
             <Route path="/movies" element={<ProtectedRoute><Movies /></ProtectedRoute>} />
             <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
             <Route path="/characters" element={<ProtectedRoute><Characters /></ProtectedRoute>} />
-            <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
             <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />

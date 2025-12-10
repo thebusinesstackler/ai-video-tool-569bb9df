@@ -665,6 +665,55 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     }
   };
 
+  // Delete a reference image from the twin
+  const deleteReferenceImage = async (imageUrl: string) => {
+    try {
+      // Remove from local generated images state
+      setGeneratedImages(prev => prev.filter(img => img !== imageUrl));
+
+      // Fetch current images from database
+      const { data: currentTwin } = await supabase
+        .from('ai_twins')
+        .select('reference_images')
+        .eq('id', twin.id)
+        .single();
+
+      const currentImages = currentTwin?.reference_images || [];
+      const updatedImages = currentImages.filter((img: string) => img !== imageUrl);
+
+      // Update the twin's reference images
+      const { error: updateError } = await supabase
+        .from('ai_twins')
+        .update({ reference_images: updatedImages })
+        .eq('id', twin.id);
+
+      if (updateError) throw updateError;
+
+      // Also delete from gallery (generated_images table)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('generated_images')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('image_url', imageUrl);
+      }
+
+      onUpdate();
+      toast({
+        title: 'Image deleted',
+        description: 'Image removed from twin and gallery'
+      });
+    } catch (error: any) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: 'Delete failed',
+        description: error.message || 'Failed to delete image',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Twin Info Header */}
@@ -925,7 +974,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           <CardTitle className="text-sm flex items-center gap-2">
             <ImageIcon className="w-4 h-4" />
             Reference Images ({twin.reference_images?.length || 0})
-            <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation</span>
+            <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation, hover for delete</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -934,18 +983,36 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
               <div 
                 key={idx}
                 className="relative group cursor-pointer"
-                onClick={() => setVariationSourceImage(img)}
               >
                 <img 
                   src={img}
                   alt={`Reference ${idx + 1}`}
                   className="w-full aspect-square object-cover rounded-lg hover:ring-2 hover:ring-primary transition-all"
+                  onClick={() => setVariationSourceImage(img)}
                 />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                  <div className="text-white text-xs text-center px-2">
-                    <Wand2 className="w-4 h-4 mx-auto mb-1" />
-                    Create Variation
-                  </div>
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="w-8 h-8 bg-white/20 hover:bg-white/40 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVariationSourceImage(img);
+                    }}
+                  >
+                    <Wand2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="w-8 h-8 bg-destructive/80 hover:bg-destructive text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteReferenceImage(img);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             ))}
@@ -1043,17 +1110,29 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             <div className="space-y-2">
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
-                Just Generated (click to enlarge)
+                Just Generated (click to enlarge, hover to delete)
               </h4>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {generatedImages.map((img, idx) => (
-                  <img 
-                    key={idx}
-                    src={img}
-                    alt={`Generated ${idx + 1}`}
-                    className="w-20 h-20 object-cover rounded-lg flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                    onClick={() => setPreviewImage(img)}
-                  />
+                  <div key={idx} className="relative group flex-shrink-0">
+                    <img 
+                      src={img}
+                      alt={`Generated ${idx + 1}`}
+                      className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                      onClick={() => setPreviewImage(img)}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute top-1 right-1 w-6 h-6 bg-destructive/80 hover:bg-destructive text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteReferenceImage(img);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>
