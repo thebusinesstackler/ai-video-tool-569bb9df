@@ -7,7 +7,9 @@ import {
   Film,
   User,
   FileText,
-  Sparkles
+  Sparkles,
+  Captions,
+  Music
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -37,6 +39,8 @@ interface ReelFeatureSidebarProps {
     cutScenes: boolean;
     upscaler: boolean;
     lipSync: boolean;
+    captions: boolean;
+    backgroundMusic: boolean;
   };
   onFeatureChange: (feature: keyof ReelFeatureSidebarProps['features'], value: boolean) => void;
   disabled?: boolean;
@@ -70,6 +74,18 @@ const MODES = [
 ];
 
 const FEATURES = [
+  {
+    id: 'captions',
+    label: 'Captions',
+    description: 'Add animated text captions to video',
+    icon: <Captions className="w-4 h-4" />
+  },
+  {
+    id: 'backgroundMusic',
+    label: 'Background Music',
+    description: 'Add ambient music tracks',
+    icon: <Music className="w-4 h-4" />
+  },
   {
     id: 'cutScenes',
     label: 'Cut Scenes',
