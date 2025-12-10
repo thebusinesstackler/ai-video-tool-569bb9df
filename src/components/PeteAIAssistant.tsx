@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Film, Sparkles, Volume2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Mic, MicOff, Film, Sparkles, Volume2, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +54,8 @@ declare global {
 interface PeteAIAssistantProps {
   onMovieIdeaCaptured: (idea: string) => void;
   currentIdea?: string;
+  inputValue?: string;
+  onInputChange?: (value: string) => void;
 }
 
 const PETE_GREETINGS = [
@@ -70,7 +73,9 @@ const PETE_ENCOURAGEMENTS = [
 
 export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
   onMovieIdeaCaptured,
-  currentIdea
+  currentIdea,
+  inputValue = '',
+  onInputChange
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [peteMessage, setPeteMessage] = useState('');
@@ -80,6 +85,11 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const [transcript, setTranscript] = useState('');
   const typeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [localInput, setLocalInput] = useState('');
+
+  // Use controlled or uncontrolled input
+  const textInputValue = onInputChange ? inputValue : localInput;
+  const setTextInputValue = onInputChange || setLocalInput;
 
   // Initialize with a random greeting
   useEffect(() => {
@@ -151,6 +161,21 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
     }
   };
 
+  const handleSubmitIdea = () => {
+    const idea = textInputValue.trim();
+    if (!idea) return;
+    
+    onMovieIdeaCaptured(idea);
+    getPeteResponse(idea);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmitIdea();
+    }
+  };
+
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       typeMessage("Hmm, speech recognition isn't supported in your browser. Try typing your idea instead, or use Chrome!");
@@ -180,6 +205,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
     recognition.onend = () => {
       setIsListening(false);
       if (transcript.trim()) {
+        setTextInputValue(transcript);
         onMovieIdeaCaptured(transcript);
         getPeteResponse(transcript);
       }
@@ -221,7 +247,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
             )}
           </div>
 
-          {/* Pete's Message */}
+          {/* Pete's Message and Input */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="font-bold text-lg text-foreground">Pete AI</h3>
@@ -230,39 +256,52 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
               </span>
             </div>
             
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed mb-4">
               {peteMessage}
               {isTyping && <span className="inline-block w-2 h-4 bg-primary ml-1 animate-pulse" />}
             </p>
 
             {/* Show transcript while listening */}
             {isListening && transcript && (
-              <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border">
                 <p className="text-sm text-foreground italic">"{transcript}"</p>
               </div>
             )}
-          </div>
 
-          {/* Microphone Button */}
-          <div className="flex-shrink-0">
-            <Button
-              onClick={isListening ? stopListening : startListening}
-              size="lg"
-              variant={isListening ? "destructive" : "default"}
-              className={cn(
-                "rounded-full w-14 h-14 p-0 transition-all",
-                isListening && "animate-pulse"
-              )}
-            >
-              {isListening ? (
-                <MicOff className="w-6 h-6" />
-              ) : (
-                <Mic className="w-6 h-6" />
-              )}
-            </Button>
-            <p className="text-xs text-center mt-2 text-muted-foreground">
-              {isListening ? "Tap to stop" : "Tap to speak"}
-            </p>
+            {/* Text Input */}
+            <div className="flex gap-2">
+              <Input
+                value={textInputValue}
+                onChange={(e) => setTextInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your movie idea here..."
+                className="flex-1 bg-background/50 border-border focus:border-primary"
+                disabled={isListening || isThinking}
+              />
+              <Button
+                onClick={handleSubmitIdea}
+                disabled={!textInputValue.trim() || isListening || isThinking}
+                size="icon"
+                className="shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={isListening ? stopListening : startListening}
+                size="icon"
+                variant={isListening ? "destructive" : "outline"}
+                className={cn(
+                  "shrink-0 transition-all",
+                  isListening && "animate-pulse"
+                )}
+              >
+                {isListening ? (
+                  <MicOff className="w-4 h-4" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>

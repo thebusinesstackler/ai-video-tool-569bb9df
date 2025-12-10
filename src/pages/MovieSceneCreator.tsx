@@ -120,11 +120,21 @@ const MovieSceneCreator = () => {
   const [newPresetName, setNewPresetName] = useState('');
   const [selectedSceneForPreset, setSelectedSceneForPreset] = useState<number | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
+  const [peteInputValue, setPeteInputValue] = useState('');
   const { toast } = useToast();
 
   // Handle movie idea from Pete AI
   const handleMovieIdeaCaptured = (idea: string) => {
     setMovieIdea(idea);
+    setPeteInputValue(idea);
+  };
+
+  // Handle quick start sample selection
+  const handleSampleSelect = (sampleValue: string) => {
+    const sample = SAMPLE_MOVIES.find(m => m.value === sampleValue);
+    if (sample) {
+      setPeteInputValue(sample.description);
+    }
   };
 
   // Transfer to Reels & Stories
@@ -996,7 +1006,27 @@ const MovieSceneCreator = () => {
         <PeteAIAssistant 
           onMovieIdeaCaptured={handleMovieIdeaCaptured}
           currentIdea={movieIdea}
+          inputValue={peteInputValue}
+          onInputChange={setPeteInputValue}
         />
+
+        {/* Quick Start Samples */}
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">Quick Start Ideas</p>
+          <div className="flex flex-wrap gap-2">
+            {SAMPLE_MOVIES.map((movie) => (
+              <Button
+                key={movie.value}
+                variant="outline"
+                size="sm"
+                onClick={() => handleSampleSelect(movie.value)}
+                className="text-xs"
+              >
+                {movie.label}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         {/* Project Actions */}
         <div className="flex items-center justify-between">
@@ -1128,50 +1158,30 @@ const MovieSceneCreator = () => {
         </Dialog>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Movie Idea Input */}
+          {/* Current Movie Idea Display */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Film className="w-5 h-5 text-primary" />
-                Your Movie Idea
+                Current Movie Idea
               </CardTitle>
               <CardDescription>
-                Describe what your movie is about - genre, plot, characters, setting, etc.
+                Your movie concept captured from Pete AI
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="sample-movies">Quick Start Samples</Label>
-                <Select onValueChange={(value) => {
-                  const sample = SAMPLE_MOVIES.find(m => m.value === value);
-                  if (sample) setMovieIdea(sample.description);
-                }}>
-                  <SelectTrigger id="sample-movies">
-                    <SelectValue placeholder="Choose a sample movie idea..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SAMPLE_MOVIES.map((movie) => (
-                      <SelectItem key={movie.value} value={movie.value}>
-                        {movie.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="movie-idea">Movie Description</Label>
-                <Textarea
-                  id="movie-idea"
-                  placeholder="Choose a sample above or write your own movie idea..."
-                  value={movieIdea}
-                  onChange={(e) => setMovieIdea(e.target.value)}
-                  rows={10}
-                  className="resize-none"
-                />
+              <div className="min-h-[200px] p-4 bg-muted/50 rounded-lg border border-border">
+                {movieIdea ? (
+                  <p className="text-foreground whitespace-pre-wrap">{movieIdea}</p>
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    Type your movie idea in Pete AI above or click a Quick Start sample to get started...
+                  </p>
+                )}
               </div>
               <Button
                 onClick={generateOutline}
-                disabled={isGenerating}
+                disabled={isGenerating || !movieIdea.trim()}
                 className="w-full"
               >
                 {isGenerating ? (
