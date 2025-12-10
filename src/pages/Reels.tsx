@@ -716,8 +716,16 @@ const Reels = () => {
         }
         
         try {
+          // Check if using cloned voice from AI Twin
+          const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+          const clonedVoiceUrl = selectedTwin?.voice_cloning_key || null;
+          
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-            body: { text: scene.narration, voice: selectedVoice }
+            body: { 
+              text: scene.narration, 
+              voice: clonedVoiceUrl ? undefined : selectedVoice,
+              clonedVoiceUrl 
+            }
           });
           
           if (ttsError) {
@@ -1967,11 +1975,41 @@ const Reels = () => {
             </Card>
 
             {/* Voice Selection - Always Visible */}
-            <VoiceSelector 
-              selectedVoice={selectedVoice}
-              onVoiceSelect={setSelectedVoice}
-              disabled={isGenerating}
-            />
+            {selectedTwinId && aiTwins.find(t => t.id === selectedTwinId)?.voice_cloning_key ? (
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    AI Twin Cloned Voice Active
+                  </CardTitle>
+                  <CardDescription>
+                    Using cloned voice from "{aiTwins.find(t => t.id === selectedTwinId)?.name}"
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedTwinId(null);
+                      setSelectedVoice('en-US-Journey-D');
+                      toast({
+                        title: "Voice Reset",
+                        description: "Switched to standard voice selection",
+                      });
+                    }}
+                  >
+                    Switch to Standard Voice
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <VoiceSelector 
+                selectedVoice={selectedVoice}
+                onVoiceSelect={setSelectedVoice}
+                disabled={isGenerating}
+              />
+            )}
 
             {/* Lip Sync Mode - Expandable */}
             <Collapsible open={lipSyncExpanded} onOpenChange={setLipSyncExpanded}>
@@ -2445,6 +2483,56 @@ const Reels = () => {
                                 </div>
                               }
                             />
+                            
+                            {/* From AI Twins - show twins with voice badge */}
+                            {aiTwins.length > 0 && (
+                              <div className="flex gap-2">
+                                {aiTwins.slice(0, 3).map((twin) => (
+                                  twin.reference_images?.[0] && (
+                                    <div 
+                                      key={twin.id}
+                                      className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 border-border hover:border-primary transition-colors relative group"
+                                      onClick={() => {
+                                        handleReferenceSelected(twin.reference_images[0]);
+                                        setSelectedTwinId(twin.id);
+                                        // Auto-apply cloned voice if available
+                                        if (twin.voice_cloning_key) {
+                                          setSelectedVoice(`clone:${twin.voice_cloning_key}`);
+                                          toast({
+                                            title: `AI Twin "${twin.name}" Selected`,
+                                            description: 'Cloned voice will be used for voiceovers',
+                                          });
+                                        } else {
+                                          toast({
+                                            title: `AI Twin "${twin.name}" Selected`,
+                                            description: 'Reference image applied (no cloned voice)',
+                                          });
+                                        }
+                                        // Apply face description if available
+                                        if (twin.face_description) {
+                                          setCharacterDescription(twin.face_description);
+                                        }
+                                      }}
+                                      title={twin.name}
+                                    >
+                                      <img 
+                                        src={twin.reference_images[0]} 
+                                        alt={twin.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                                        <p className="text-[9px] text-white truncate">{twin.name}</p>
+                                      </div>
+                                      {twin.voice_cloning_key && (
+                                        <div className="absolute top-1 right-1 bg-primary text-primary-foreground px-1 py-0.5 rounded text-[8px]">
+                                          Voice
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                ))}
+                              </div>
+                            )}
                             
                             {/* From Characters - show character thumbnails if available */}
                             {characters.length > 0 && (
