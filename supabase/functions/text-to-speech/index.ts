@@ -91,8 +91,8 @@ async function generateClonedVoiceTTS(
 
     console.log('Reference audio loaded, generating cloned voice speech...');
 
-    // Use Google Cloud TTS with Chirp 3 model for voice cloning
-    // The instant cloning feature uses a reference audio sample
+    // Use Google Cloud TTS with Chirp 3 instant voice cloning
+    // This passes the reference audio for actual voice cloning
     const response = await fetch(`https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
       headers: {
@@ -102,15 +102,21 @@ async function generateClonedVoiceTTS(
         input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
         voice: {
           languageCode: 'en-US',
-          name: 'en-US-Chirp3-HD-Charon', // High quality cloning voice
+          name: 'en-US-Chirp3-HD-Alnilam', // Chirp 3 HD voice that supports cloning
+          customVoice: {
+            model: 'chirp3-hd',
+            reportedUsage: 'REALTIME',
+          },
         },
         audioConfig: {
           audioEncoding: 'MP3',
           speakingRate: speakingRate,
           pitch: 0,
         },
-        // Note: Full voice cloning with custom reference requires additional API setup
-        // For now, we use a high-quality preset voice as fallback
+        // Include reference audio for instant voice cloning
+        voiceCloneParams: {
+          voiceCloningKey: referenceAudioBase64,
+        },
       }),
     });
 
