@@ -508,28 +508,70 @@ const Reels = () => {
     }
   }, [searchParams]);
 
+  // Load characters with retry logic for timeout handling
+  const loadCharacters = async (retryCount = 0) => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('characters')
+        .select('id, name, reference_images')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (error) {
+        if (error.code === '57014' && retryCount < 2) {
+          console.log(`Characters query timeout, retrying (${retryCount + 1}/2)...`);
+          setTimeout(() => loadCharacters(retryCount + 1), 1000);
+          return;
+        }
+        console.error('Error loading characters:', error);
+        return;
+      }
+      
+      if (data) {
+        setCharacters(data.filter(c => c.reference_images && c.reference_images.length > 0));
+      }
+    } catch (err) {
+      console.error('Failed to load characters:', err);
+    }
+  };
+
+  // Load AI twins with retry logic for timeout handling
+  const loadAiTwins = async (retryCount = 0) => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('ai_twins')
+        .select('id, name, reference_images, voice_cloning_key, voice_sample_url, face_description')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (error) {
+        if (error.code === '57014' && retryCount < 2) {
+          console.log(`AI Twins query timeout, retrying (${retryCount + 1}/2)...`);
+          setTimeout(() => loadAiTwins(retryCount + 1), 1000);
+          return;
+        }
+        console.error('Error loading AI twins:', error);
+        return;
+      }
+      
+      if (data) {
+        setAiTwins(data.filter(t => t.reference_images && t.reference_images.length > 0));
+      }
+    } catch (err) {
+      console.error('Failed to load AI twins:', err);
+    }
+  };
+
   // Fetch saved reels, characters, and AI twins on mount
   useEffect(() => {
     if (user) {
       fetchSavedReels();
-      // Load characters for reference image picker
-      supabase
-        .from('characters')
-        .select('id, name, reference_images')
-        .then(({ data }) => {
-          if (data) {
-            setCharacters(data.filter(c => c.reference_images && c.reference_images.length > 0));
-          }
-        });
-      // Load AI twins for voice cloning and reference images
-      supabase
-        .from('ai_twins')
-        .select('id, name, reference_images, voice_cloning_key, voice_sample_url, face_description')
-        .then(({ data }) => {
-          if (data) {
-            setAiTwins(data.filter(t => t.reference_images && t.reference_images.length > 0));
-          }
-        });
+      loadCharacters();
+      loadAiTwins();
     }
   }, [user]);
 
