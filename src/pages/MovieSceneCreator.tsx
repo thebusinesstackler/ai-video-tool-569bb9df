@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
@@ -121,6 +122,8 @@ const MovieSceneCreator = () => {
   const [selectedSceneForPreset, setSelectedSceneForPreset] = useState<number | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
   const [peteInputValue, setPeteInputValue] = useState('');
+  const [characters, setCharacters] = useState<{ id: string; name: string; description: string | null; reference_images: string[] | null }[]>([]);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Handle movie idea from Pete AI
@@ -229,8 +232,27 @@ const MovieSceneCreator = () => {
     if (userId) {
       loadSavedProjects();
       loadVisualPresets();
+      loadCharacters();
     }
   }, [userId]);
+
+  const loadCharacters = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('characters')
+        .select('id, name, description, reference_images')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setCharacters(data || []);
+    } catch (error) {
+      console.error('Failed to load characters:', error);
+    }
+  };
+
+  const selectedCharacter = characters.find(c => c.id === selectedCharacterId);
 
   // Load project from URL parameter if present
   useEffect(() => {
@@ -252,8 +274,13 @@ const MovieSceneCreator = () => {
 
     setIsGenerating(true);
     try {
+      // Build character description from selected character
+      const characterDescription = selectedCharacter 
+        ? `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`
+        : undefined;
+
       const { data, error } = await supabase.functions.invoke('generate-movie-outline', {
-        body: { movieIdea }
+        body: { movieIdea, characterDescription }
       });
 
       if (error) throw error;
@@ -1027,6 +1054,73 @@ const MovieSceneCreator = () => {
             ))}
           </div>
         </div>
+
+        {/* Character Selection */}
+        {userId && characters.length > 0 && (
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-primary" />
+                  <div>
+                    <Label className="text-sm font-medium">Main Character</Label>
+                    <p className="text-xs text-muted-foreground">Select a character to maintain consistency across scenes</p>
+                  </div>
+                </div>
+                <Select 
+                  value={selectedCharacterId || 'none'} 
+                  onValueChange={(value) => setSelectedCharacterId(value === 'none' ? null : value)}
+                >
+                  <SelectTrigger className="w-[250px] bg-background border-border">
+                    <SelectValue placeholder="No character selected" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border z-50">
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground">No character (AI will create one)</span>
+                    </SelectItem>
+                    {characters.map(char => (
+                      <SelectItem key={char.id} value={char.id}>
+                        <div className="flex items-center gap-2">
+                          {char.reference_images?.[0] ? (
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={char.reference_images[0]} alt={char.name} />
+                              <AvatarFallback>{char.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                              <User className="w-3 h-3 text-primary" />
+                            </div>
+                          )}
+                          <span>{char.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Selected Character Preview */}
+              {selectedCharacter && (
+                <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-start gap-3">
+                  {selectedCharacter.reference_images?.[0] && (
+                    <img 
+                      src={selectedCharacter.reference_images[0]} 
+                      alt={selectedCharacter.name}
+                      className="w-16 h-16 rounded-lg object-cover border border-border"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">{selectedCharacter.name}</p>
+                    {selectedCharacter.description && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{selectedCharacter.description}</p>
+                    )}
+                    <p className="text-[10px] text-primary mt-1">This character will appear consistently in all scenes</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Project Actions */}
         <div className="flex items-center justify-between">
