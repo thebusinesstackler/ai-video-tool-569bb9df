@@ -301,10 +301,15 @@ const MovieSceneCreator = () => {
 
     setIsGenerating(true);
     try {
-      // Build character description from selected character
-      const characterDescription = selectedCharacter 
-        ? `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`
-        : undefined;
+      // Build character description from selected character or AI Twin
+      let characterDescription: string | undefined;
+      
+      if (selectedTwin) {
+        // Use AI Twin's detailed description and face description
+        characterDescription = `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+      } else if (selectedCharacter) {
+        characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
+      }
 
       const { data, error } = await supabase.functions.invoke('generate-movie-outline', {
         body: { movieIdea, characterDescription }
@@ -341,8 +346,13 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingScenes(true);
     try {
+      // Pass AI Twin description for character consistency in scenes
+      const characterDescription = selectedTwin 
+        ? `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || 'No description'}`
+        : undefined;
+
       const { data, error } = await supabase.functions.invoke('generate-movie-scenes', {
-        body: { outline }
+        body: { outline, characterDescription }
       });
 
       if (error) throw error;
@@ -386,8 +396,18 @@ const MovieSceneCreator = () => {
     
     setGeneratingImageFor(sceneNumber);
     try {
+      // Pass AI Twin reference image and description for character consistency
+      const referenceImageUrl = selectedTwin?.reference_images?.[0] || undefined;
+      const characterDescription = selectedTwin 
+        ? `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || ''}`
+        : undefined;
+
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt: enhancedPrompt }
+        body: { 
+          prompt: enhancedPrompt,
+          referenceImageUrl,
+          characterDescription
+        }
       });
 
       if (error) throw error;
