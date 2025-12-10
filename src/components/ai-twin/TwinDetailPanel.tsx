@@ -40,6 +40,7 @@ import {
   Trash2,
   Check
 } from 'lucide-react';
+import { TwinSpeaker } from './TwinSpeaker';
 
 interface AITwin {
   id: string;
@@ -967,6 +968,13 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           </CardContent>
         </Card>
       )}
+
+      {/* Make Twin Speak Section */}
+      <TwinSpeaker 
+        twinName={twin.name}
+        voiceSampleUrl={voiceSampleUrl}
+        hasClonedVoice={!!voiceCloningKey}
+      />
 
       {/* Reference Images Gallery */}
       <Card>
