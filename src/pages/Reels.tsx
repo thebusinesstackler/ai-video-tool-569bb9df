@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { Button } from '@/components/ui/button';
@@ -189,6 +190,7 @@ const PODCAST_DURATION_OPTIONS = [
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [topic, setTopic] = useState('');
   const [selectedSceneCount, setSelectedSceneCount] = useState('4');
   const [selectedSceneDuration, setSelectedSceneDuration] = useState('12');
@@ -212,6 +214,9 @@ const Reels = () => {
   const [isListening, setIsListening] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
+  
+  // Movie Scene Creator source tracking
+  const [fromMovieScene, setFromMovieScene] = useState(false);
   
   // Template state
   const [selectedIntro, setSelectedIntro] = useState('none');
@@ -451,6 +456,23 @@ const Reels = () => {
       portraitInputRef.current.value = '';
     }
   };
+
+  // Handle Movie Scene Creator transfers
+  useEffect(() => {
+    const source = searchParams.get('source');
+    const transferredTopic = searchParams.get('topic');
+    
+    if (source === 'movie-scene' && transferredTopic) {
+      setTopic(transferredTopic);
+      setFromMovieScene(true);
+      // Clear params to avoid re-triggering
+      setSearchParams({});
+      toast({
+        title: "Movie Idea Transferred!",
+        description: "Your movie idea has been imported. Ready to create your reel!",
+      });
+    }
+  }, [searchParams]);
 
   // Fetch saved reels and characters on mount
   useEffect(() => {
