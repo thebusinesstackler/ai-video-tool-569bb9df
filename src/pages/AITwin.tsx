@@ -4,6 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -12,7 +14,9 @@ import {
   Loader2,
   Wand2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  Database
 } from 'lucide-react';
 import { TwinCreationWizard } from '@/components/ai-twin/TwinCreationWizard';
 import { TwinCard } from '@/components/ai-twin/TwinCard';
@@ -39,22 +43,54 @@ const AITwin = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
+  
+  // Migration state
+  const [twinsWithBase64, setTwinsWithBase64] = useState<AITwin[]>([]);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState(0);
+  const [currentMigratingTwin, setCurrentMigratingTwin] = useState<string | null>(null);
 
   useEffect(() => {
     loadTwins();
   }, []);
 
+  // Check for twins with base64 images
+  useEffect(() => {
+    if (twins.length > 0) {
+      const needsMigration = twins.filter(twin => 
+        twin.reference_images?.some(img => img.startsWith('data:'))
+      );
+      setTwinsWithBase64(needsMigration);
+    }
+  }, [twins]);
+
   const loadTwins = async () => {
     try {
       setIsLoading(true);
       setLoadError(null);
+      // Only select minimal fields to avoid loading huge base64 strings initially
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('*')
+        .select('id, user_id, name, voice_sample_url, voice_cloning_key, description, face_description, gender, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTwins((data as AITwin[]) || []);
+      
+      // Now fetch reference_images separately for each twin (in parallel)
+      const twinsWithImages = await Promise.all((data || []).map(async (twin) => {
+        const { data: imageData, error: imgError } = await supabase
+          .from('ai_twins')
+          .select('reference_images')
+          .eq('id', twin.id)
+          .single();
+        
+        return {
+          ...twin,
+          reference_images: imgError ? [] : (imageData?.reference_images || [])
+        } as AITwin;
+      }));
+      
+      setTwins(twinsWithImages);
     } catch (error: any) {
       console.error('Error loading twins:', error);
       setLoadError(error.message || 'Failed to load AI Twins');
@@ -66,6 +102,47 @@ const AITwin = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const migrateAllTwins = async () => {
+    if (twinsWithBase64.length === 0) return;
+    
+    setIsMigrating(true);
+    setMigrationProgress(0);
+    
+    let migrated = 0;
+    
+    for (const twin of twinsWithBase64) {
+      setCurrentMigratingTwin(twin.name);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('migrate-twin-images', {
+          body: { twinId: twin.id }
+        });
+        
+        if (error) {
+          console.error(`Failed to migrate ${twin.name}:`, error);
+        } else {
+          console.log(`Migrated ${twin.name}:`, data);
+        }
+      } catch (err) {
+        console.error(`Error migrating ${twin.name}:`, err);
+      }
+      
+      migrated++;
+      setMigrationProgress(Math.round((migrated / twinsWithBase64.length) * 100));
+    }
+    
+    setIsMigrating(false);
+    setCurrentMigratingTwin(null);
+    
+    // Reload twins to reflect changes
+    await loadTwins();
+    
+    toast({
+      title: 'Migration Complete',
+      description: `Migrated images for ${migrated} AI Twins. Pages should load faster now.`
+    });
   };
 
   const deleteTwin = async (id: string) => {
@@ -119,6 +196,36 @@ const AITwin = () => {
             Create AI Twin
           </Button>
         </div>
+
+        {/* Migration Alert Banner */}
+        {twinsWithBase64.length > 0 && !isLoading && (
+          <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertTitle className="text-amber-600 dark:text-amber-400">
+              Performance Issue Detected
+            </AlertTitle>
+            <AlertDescription className="mt-2">
+              <p className="text-sm text-muted-foreground mb-3">
+                {twinsWithBase64.length} AI Twin(s) have images stored as base64 data, which causes slow loading. 
+                Migrate them to cloud storage for faster performance.
+              </p>
+              {isMigrating ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Migrating {currentMigratingTwin}...</span>
+                  </div>
+                  <Progress value={migrationProgress} className="h-2" />
+                </div>
+              ) : (
+                <Button size="sm" onClick={migrateAllTwins} className="gap-2">
+                  <Database className="h-4 w-4" />
+                  Migrate All ({twinsWithBase64.length} twins)
+                </Button>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Main Content */}
         {isLoading ? (
