@@ -523,10 +523,20 @@ const MovieSceneCreator = () => {
       if (selectedTwin) {
         // Use ALL reference images from AI Twin for better consistency
         referenceImages = selectedTwin.reference_images || [];
-        characterDescription = `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || ''}`;
+        // Build comprehensive character description including all physical details
+        const genderText = selectedTwin.gender ? `${selectedTwin.gender}` : 'person';
+        const faceDesc = selectedTwin.face_description || '';
+        const generalDesc = selectedTwin.description || '';
+        characterDescription = `${selectedTwin.name} is a ${genderText}. Physical appearance: ${faceDesc}. ${generalDesc}`.trim();
+        
+        // Prepend character description to the prompt for better likeness
+        enhancedPrompt = `The main character is ${selectedTwin.name}, a ${genderText} with these features: ${faceDesc || generalDesc}. Scene: ${enhancedPrompt}`;
       } else if (selectedCharacter?.reference_images?.length) {
         referenceImages = selectedCharacter.reference_images;
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || ''}`;
+        if (selectedCharacter.description) {
+          enhancedPrompt = `The main character is ${selectedCharacter.name} with these features: ${selectedCharacter.description}. Scene: ${enhancedPrompt}`;
+        }
       } else if (selectedGalleryImage) {
         referenceImages = [selectedGalleryImage.image_url];
         characterDescription = selectedGalleryImage.prompt || undefined;
