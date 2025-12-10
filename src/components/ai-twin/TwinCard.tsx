@@ -88,12 +88,12 @@ export const TwinCard: React.FC<TwinCardProps> = ({ twin, onDelete, onSelect }) 
         )}
 
         {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-          <Button size="sm" variant="secondary" onClick={onSelect}>
+        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <Button size="sm" variant="secondary" onClick={onSelect} className="bg-white text-black hover:bg-gray-100">
             <Eye className="w-4 h-4 mr-1" />
             View
           </Button>
-          <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+          <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="bg-red-600 hover:bg-red-700">
             <Trash2 className="w-4 h-4" />
           </Button>
         </div>
