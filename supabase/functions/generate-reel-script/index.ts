@@ -53,7 +53,10 @@ serve(async (req) => {
       outroConfig,
       hookStyle,
       enableCutScenes = false,
-      characterDescription
+      characterDescription,
+      isPodcastMode = false,
+      characterId,
+      characterName
     } = await req.json();
 
     if (!topic) {
@@ -73,8 +76,140 @@ serve(async (req) => {
     console.log('Hook style:', hookStyle || 'auto');
     console.log('Cut scenes enabled:', enableCutScenes);
     console.log('Character description:', characterDescription || 'not specified');
+    console.log('Podcast mode:', isPodcastMode, 'Character:', characterName || 'none');
     console.log('Intro config:', introConfig);
     console.log('Outro config:', outroConfig);
+
+    // Handle Podcast Mode - single long-form monologue
+    if (isPodcastMode) {
+      const durationSeconds = sceneDuration || targetDuration;
+      const wordsPerSecond = 2.5;
+      const targetWords = Math.round(durationSeconds * wordsPerSecond);
+      
+      const podcastSystemPrompt = `You are a professional podcast scriptwriter creating an engaging monologue.
+
+${characterName ? `CHARACTER: ${characterName}` : ''}
+${characterDescription ? `CHARACTER DESCRIPTION: ${characterDescription}
+- The speaker should have a personality consistent with this description
+- All visual descriptions must show THIS EXACT character` : ''}
+
+SCRIPT REQUIREMENTS:
+- Write a natural, conversational monologue of approximately ${targetWords} words
+- Duration target: ${durationSeconds} seconds when spoken at normal pace
+- The content should feel like a genuine podcast segment, not a formal presentation
+- Use natural pauses, rhetorical questions, and engaging hooks throughout
+- Write in first person, as if speaking directly to the viewer/listener
+- Include natural transitions: "And here's the thing...", "But wait...", "Now, let me tell you..."
+- Build to a satisfying conclusion or call-to-action
+
+TONE:
+- Conversational and authentic
+- Engaging and personal
+- Informative but not preachy
+- Natural flow with varied sentence lengths
+
+OUTPUT FORMAT:
+Return a JSON array with exactly 1 scene:
+[
+  {
+    "sceneNumber": 1,
+    "narration": "The full podcast script here (${targetWords} words)",
+    "visualDescription": "Single consistent shot of the speaker. ${characterDescription || 'Professional person'} speaking directly to camera with warm lighting. Medium close-up, slight depth of field, modern studio or home office background.",
+    "duration": ${durationSeconds},
+    "isPodcast": true
+  }
+]`;
+
+      const podcastUserPrompt = `Write a ${Math.round(durationSeconds / 60)}-minute podcast-style monologue about: "${topic}"
+
+The script should be approximately ${targetWords} words and feel natural when spoken aloud.
+
+Remember:
+- Start with an engaging hook that draws viewers in
+- Build through the content naturally
+- End with a memorable conclusion or call-to-action
+- The entire script will be spoken by one person looking at the camera`;
+
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: podcastSystemPrompt },
+            { role: 'user', content: podcastUserPrompt }
+          ],
+          max_tokens: 8192, // Larger for long-form content
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('AI Gateway error:', response.status, errorText);
+        
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'API credits exhausted. Please add credits to continue.' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw new Error(`AI Gateway error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('No content in AI response');
+      }
+
+      console.log('Raw podcast AI response length:', content.length);
+
+      // Extract JSON from the response
+      let jsonContent = content;
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[1].trim();
+      } else {
+        const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (arrayMatch) {
+          jsonContent = arrayMatch[0];
+        }
+      }
+      
+      jsonContent = jsonContent.replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ').trim();
+
+      let scenes;
+      try {
+        scenes = JSON.parse(jsonContent);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        // Create a fallback scene with the raw content
+        scenes = [{
+          sceneNumber: 1,
+          narration: content.replace(/```[\s\S]*?```/g, '').replace(/\[[\s\S]*?\]/g, '').trim().slice(0, targetWords * 6),
+          visualDescription: `${characterDescription || 'Professional person'} speaking directly to camera with warm lighting. Medium close-up, slight depth of field.`,
+          duration: durationSeconds,
+          isPodcast: true
+        }];
+      }
+
+      console.log('Generated podcast scenes:', scenes.length, 'Narration length:', scenes[0]?.narration?.length);
+
+      return new Response(
+        JSON.stringify({ scenes }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Calculate scene duration - use provided value or calculate from target duration
     const introDuration = introConfig?.introTemplate && introConfig.introTemplate !== 'none' ? 3 : 0;

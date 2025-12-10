@@ -173,6 +173,14 @@ const SCENE_DURATION_OPTIONS = [
   { value: '30', label: '30 seconds' },
 ];
 
+const PODCAST_DURATION_OPTIONS = [
+  { value: '30', label: '30 seconds' },
+  { value: '60', label: '1 minute' },
+  { value: '120', label: '2 minutes' },
+  { value: '180', label: '3 minutes' },
+  { value: '300', label: '5 minutes' },
+];
+
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -238,6 +246,11 @@ const Reels = () => {
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS
   const [selectedVoice, setSelectedVoice] = useState<'nova' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'shimmer'>('nova');
+  
+  // Podcast mode
+  const [isPodcastMode, setIsPodcastMode] = useState(false);
+  const [podcastDuration, setPodcastDuration] = useState('60');
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   
   const portraitInputRef = useRef<HTMLInputElement>(null);
   
@@ -489,9 +502,15 @@ const Reels = () => {
     setProject(prev => ({ ...prev, status: 'generating-script', topic }));
     setProgress(10);
 
-    const sceneCount = parseInt(selectedSceneCount);
-    const sceneDuration = parseInt(selectedSceneDuration);
+    // For podcast mode, use 1 scene with the full duration
+    const sceneCount = isPodcastMode ? 1 : parseInt(selectedSceneCount);
+    const sceneDuration = isPodcastMode ? parseInt(podcastDuration) : parseInt(selectedSceneDuration);
     const targetDuration = sceneCount * sceneDuration;
+    
+    // Get selected character info for podcast mode
+    const selectedCharacter = isPodcastMode && selectedCharacterId 
+      ? characters.find(c => c.id === selectedCharacterId)
+      : null;
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
@@ -501,8 +520,11 @@ const Reels = () => {
           sceneDuration,
           targetDuration,
           hookStyle,
-          enableCutScenes,
+          enableCutScenes: isPodcastMode ? false : enableCutScenes,
           characterDescription: characterDescription.trim() || undefined,
+          isPodcastMode,
+          characterId: selectedCharacterId,
+          characterName: selectedCharacter?.name,
           introConfig: selectedIntro !== 'none' ? {
             introTemplate: selectedIntro,
             introText: introText
@@ -525,7 +547,9 @@ const Reels = () => {
 
       toast({
         title: "Scripts Generated",
-        description: `${sceneCount} scene scripts (${selectedSceneDuration}s each) created for your reel.`
+        description: isPodcastMode 
+          ? `Podcast script (~${Math.round(sceneDuration / 60)} min) created.`
+          : `${sceneCount} scene scripts (${selectedSceneDuration}s each) created for your reel.`
       });
     } catch (error: any) {
       console.error('Script generation error:', error);
@@ -1472,82 +1496,182 @@ const Reels = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label>Number of Scenes</Label>
-                    <Select value={selectedSceneCount} onValueChange={setSelectedSceneCount} disabled={isGenerating}>
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SCENE_COUNT_OPTIONS.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Scene Duration</Label>
-                    <Select value={selectedSceneDuration} onValueChange={setSelectedSceneDuration} disabled={isGenerating}>
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SCENE_DURATION_OPTIONS.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Total: ~{parseInt(selectedSceneCount) * parseInt(selectedSceneDuration)}s
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Hook Style</Label>
-                    <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">Auto (Topic-based)</SelectItem>
-                        <SelectItem value="bold_claim">Bold Claim</SelectItem>
-                        <SelectItem value="question">Question</SelectItem>
-                        <SelectItem value="controversy">Controversy</SelectItem>
-                        <SelectItem value="story">Story</SelectItem>
-                        <SelectItem value="secret">Secret Reveal</SelectItem>
-                        <SelectItem value="countdown">Countdown/List</SelectItem>
-                        <SelectItem value="fomo">FOMO</SelectItem>
-                        <SelectItem value="curiosity">Curiosity Gap</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      Rendering Mode
-                      {useServerStitching ? (
-                        <Cloud className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Monitor className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </Label>
-                    <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-border bg-background">
-                      <span className={`text-sm ${!useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Browser</span>
-                      <Switch
-                        checked={useServerStitching}
-                        onCheckedChange={setUseServerStitching}
-                        disabled={isGenerating}
-                      />
-                      <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
+                {/* Podcast Mode Toggle */}
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-500/10 to-primary/10 rounded-lg border border-purple-500/20">
+                  <div className="flex items-center gap-3">
+                    <Mic className="w-5 h-5 text-purple-500" />
+                    <div>
+                      <p className="font-medium text-sm">Podcast Mode</p>
+                      <p className="text-xs text-muted-foreground">Single character monologue (up to 5 minutes)</p>
                     </div>
                   </div>
+                  <Switch
+                    checked={isPodcastMode}
+                    onCheckedChange={(checked) => {
+                      setIsPodcastMode(checked);
+                      if (checked) {
+                        setEnableLipSync(true); // Auto-enable lip sync for podcast
+                      }
+                    }}
+                    disabled={isGenerating}
+                  />
                 </div>
+
+                {isPodcastMode ? (
+                  // Podcast Mode Settings
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-purple-500/5 rounded-lg border border-purple-500/20">
+                    <div className="space-y-2">
+                      <Label>Podcast Duration</Label>
+                      <Select value={podcastDuration} onValueChange={setPodcastDuration} disabled={isGenerating}>
+                        <SelectTrigger className="bg-background border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PODCAST_DURATION_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        ~{Math.round(parseInt(podcastDuration) * 2.5)} words
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Character</Label>
+                      <Select 
+                        value={selectedCharacterId || ''} 
+                        onValueChange={(v) => {
+                          setSelectedCharacterId(v || null);
+                          // Set character's first reference image as portrait
+                          const char = characters.find(c => c.id === v);
+                          if (char && char.reference_images?.[0]) {
+                            setPortraitImage(char.reference_images[0]);
+                            setPortraitPreview(char.reference_images[0]);
+                            analyzeReferenceImage(char.reference_images[0]);
+                          }
+                        }} 
+                        disabled={isGenerating}
+                      >
+                        <SelectTrigger className="bg-background border-border">
+                          <SelectValue placeholder="Select character..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {characters.map(char => (
+                            <SelectItem key={char.id} value={char.id}>
+                              {char.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {characters.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          No characters found. Create one in the Characters page.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        Rendering Mode
+                        {useServerStitching ? (
+                          <Cloud className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Monitor className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </Label>
+                      <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-border bg-background">
+                        <span className={`text-sm ${!useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Browser</span>
+                        <Switch
+                          checked={useServerStitching}
+                          onCheckedChange={setUseServerStitching}
+                          disabled={isGenerating}
+                        />
+                        <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Normal Reel Mode Settings
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label>Number of Scenes</Label>
+                      <Select value={selectedSceneCount} onValueChange={setSelectedSceneCount} disabled={isGenerating}>
+                        <SelectTrigger className="bg-background border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SCENE_COUNT_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Scene Duration</Label>
+                      <Select value={selectedSceneDuration} onValueChange={setSelectedSceneDuration} disabled={isGenerating}>
+                        <SelectTrigger className="bg-background border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SCENE_DURATION_OPTIONS.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Total: ~{parseInt(selectedSceneCount) * parseInt(selectedSceneDuration)}s
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Hook Style</Label>
+                      <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
+                        <SelectTrigger className="bg-background border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto (Topic-based)</SelectItem>
+                          <SelectItem value="bold_claim">Bold Claim</SelectItem>
+                          <SelectItem value="question">Question</SelectItem>
+                          <SelectItem value="controversy">Controversy</SelectItem>
+                          <SelectItem value="story">Story</SelectItem>
+                          <SelectItem value="secret">Secret Reveal</SelectItem>
+                          <SelectItem value="countdown">Countdown/List</SelectItem>
+                          <SelectItem value="fomo">FOMO</SelectItem>
+                          <SelectItem value="curiosity">Curiosity Gap</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        Rendering Mode
+                        {useServerStitching ? (
+                          <Cloud className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Monitor className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </Label>
+                      <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-border bg-background">
+                        <span className={`text-sm ${!useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Browser</span>
+                        <Switch
+                          checked={useServerStitching}
+                          onCheckedChange={setUseServerStitching}
+                          disabled={isGenerating}
+                        />
+                        <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Cut Scenes Toggle */}
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
