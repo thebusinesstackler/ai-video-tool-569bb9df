@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { movieIdea } = await req.json();
+    const { movieIdea, characterDescription } = await req.json();
 
     if (!movieIdea) {
       return new Response(
@@ -29,74 +29,89 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an expert screenwriter and story structure consultant. Your job is to take a movie idea and create a detailed, professional outline that breaks down the story into a three-act structure with key scenes.
+    const characterContext = characterDescription 
+      ? `\n\nIMPORTANT - MAIN CHARACTER: ${characterDescription}. Keep this character consistent throughout ALL scenes - same appearance, clothing style, and characteristics.`
+      : '';
+
+    const systemPrompt = `You are an expert screenwriter and story structure consultant specializing in SHORT-FORM video content (like reels and short films). Your job is to take a movie idea and create a cohesive, complete story outline optimized for 4-6 scene video generation.
+
+CRITICAL REQUIREMENTS:
+1. Every story MUST have a clear OPENING scene that establishes the world and character
+2. Every story MUST have a clear CLOSING scene that provides resolution and mirrors/callbacks to the opening
+3. The SAME main character must appear in EVERY scene with consistent description
+4. Each scene must flow naturally into the next
+5. The story should feel complete and satisfying, like a short film${characterContext}
 
 Format your outline as follows:
 
 **LOGLINE:**
-[One compelling sentence that captures the essence of the movie]
+[One compelling sentence that captures the essence of the story]
+
+**MAIN CHARACTER:**
+[Detailed description of the protagonist - appearance, clothing, age, key features. This EXACT description will be used in every scene for consistency]
 
 **GENRE:** [Primary genre]
-**TONE:** [Dramatic, comedic, dark, etc.]
+**TONE:** [Dramatic, comedic, dark, inspiring, etc.]
 
-**ACT ONE: SETUP (25% of runtime)**
+---
 
-Scene 1: Opening Image
-- Description of the opening scene that establishes tone and world
-- Key visual elements
-- Approximate duration: 2-3 minutes
+**SCENE 1: OPENING - [Scene Title]**
+Location: [Specific location]
+Time: [Day/Night/Golden Hour/etc.]
+Duration: 8-10 seconds
 
-Scene 2: Introduce Protagonist
-- Who they are, what they want, their ordinary world
-- Character establishment
-- Duration: 3-5 minutes
+Visual Description:
+[Detailed visual description including the main character (use the exact character description), setting, mood, camera angle. This establishes the world and the character's ordinary life or starting point.]
 
-[Continue with 3-5 more key scenes in Act One]
+Narration/Caption:
+"[Short, punchy narration text that hooks the viewer - 15-25 words max]"
 
-Scene X: Inciting Incident
-- The event that kicks off the main story
-- Duration: 2-3 minutes
+---
 
-Scene Y: End of Act One / First Plot Point
-- Point of no return, protagonist commits to the journey
-- Duration: 2-3 minutes
+**SCENE 2: [Scene Title]**
+Location: [Specific location]
+Time: [Time of day]
+Duration: 8-10 seconds
 
-**ACT TWO: CONFRONTATION (50% of runtime)**
+Visual Description:
+[Include the main character with consistent description. Show the inciting incident or rising action.]
 
-[Break this into sequences]
+Narration/Caption:
+"[Engaging narration - 15-25 words]"
 
-**Sequence 1: Rising Action**
-Scene 1: [Description with camera angles and duration]
-Scene 2: [Description]
-[etc.]
+---
 
-**Midpoint:**
-Scene X: [Major revelation or turning point]
+[Continue with SCENE 3, SCENE 4, etc. - typically 4-6 scenes total]
 
-**Sequence 2: Complications**
-[More scenes]
+---
 
-**Low Point / All Is Lost:**
-Scene X: [Darkest moment]
+**FINAL SCENE: CLOSING - [Scene Title]**
+Location: [Location that ideally mirrors or contrasts with opening]
+Time: [Time of day]
+Duration: 8-10 seconds
 
-**ACT THREE: RESOLUTION (25% of runtime)**
+Visual Description:
+[Include the main character with consistent description. Show resolution, transformation, or callback to opening. This should feel like a satisfying ending.]
 
-Scene 1: [Final plan/realization]
-Scene 2: [Climax preparation]
-Scene 3: [Climactic confrontation]
-Scene 4: [Resolution]
-Scene 5: [Final Image - mirrors opening]
+Narration/Caption:
+"[Powerful closing line that provides resolution - 15-25 words]"
 
-**KEY THEMES:**
-- [Theme 1]
-- [Theme 2]
+---
 
-**VISUAL STYLE NOTES:**
-- Recommended camera angles for key scenes
-- Lighting suggestions
-- Color palette recommendations
+**VISUAL CONSISTENCY NOTES:**
+- Main character appears in every scene wearing: [specific clothing/style]
+- Color palette: [2-3 main colors]
+- Lighting style: [consistent lighting approach]
+- Camera style: [e.g., cinematic, handheld, steady]
 
-Make the outline detailed enough that each scene can be turned into a video generation prompt with start/end keyframes.`;
+IMPORTANT RULES:
+- Keep narration SHORT (15-25 words per scene) - this is for short-form video
+- Each scene should be 8-10 seconds when visualized
+- The main character description must be IDENTICAL in every scene
+- Opening and closing should have thematic connection
+- Story should feel COMPLETE - no cliffhangers`;
+
+    console.log('Generating movie outline with Lovable AI...');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -108,9 +123,8 @@ Make the outline detailed enough that each scene can be turned into a video gene
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Create a detailed movie outline for this idea:\n\n${movieIdea}` }
+          { role: 'user', content: `Create a cohesive short film outline (4-6 scenes) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout.` }
         ],
-        temperature: 0.8,
       }),
     });
 
@@ -138,6 +152,8 @@ Make the outline detailed enough that each scene can be turned into a video gene
     if (!outline) {
       throw new Error('No outline generated');
     }
+
+    console.log('Movie outline generated successfully');
 
     return new Response(
       JSON.stringify({ outline }),
