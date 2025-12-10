@@ -352,7 +352,8 @@ serve(async (req) => {
     const totalDuration = (scenes as Scene[]).reduce((acc, s) => acc + s.duration, 0);
 
     // If WaveSpeed is enabled and API key exists, start video generation tasks
-    const videoTasks: { sceneNumber: number; taskId: string }[] = [];
+    // Track which model was used for each scene to determine if audio overlay is needed
+    const videoTasks: { sceneNumber: number; taskId: string; model: string; hasEmbeddedAudio: boolean }[] = [];
     
     if (useWaveSpeed && WAVESPEED_API_KEY && finalImageUrls.length > 0) {
       console.log('Starting WaveSpeed video generation for', finalImageUrls.length, 'scenes');
@@ -514,9 +515,22 @@ serve(async (req) => {
             console.log('WaveSpeed task created for scene', scene.sceneNumber, ':', videoData);
             
             if (videoData.code === 200 && videoData.data?.id) {
+              // Determine if this model has embedded audio
+              // VEO3 text-to-video and lip sync models (infinitetalk, wan-lipsync, avatar-omni) have embedded audio
+              // Regular image-to-video does NOT have embedded audio
+              const isVeo3 = enableVeo3Mode && !scene.isIntro && !scene.isOutro;
+              const isActualLipSync = enableLipSync && !scene.isIntro && !scene.isOutro && 
+                (apiEndpoint.includes('infinitetalk') || apiEndpoint.includes('avatar-omni') || 
+                 (apiEndpoint.includes('wan-animate') && requestBody.audio));
+              const hasEmbeddedAudio = isVeo3 || isActualLipSync;
+              
+              console.log(`Scene ${scene.sceneNumber}: Model=${apiEndpoint.split('/').pop()}, hasEmbeddedAudio=${hasEmbeddedAudio}`);
+              
               videoTasks.push({
                 sceneNumber: scene.sceneNumber,
-                taskId: videoData.data.id
+                taskId: videoData.data.id,
+                model: apiEndpoint,
+                hasEmbeddedAudio
               });
             }
           } else {
@@ -545,9 +559,13 @@ serve(async (req) => {
               if (fallbackResponse.ok) {
                 const fallbackData = await fallbackResponse.json();
                 if (fallbackData.code === 200 && fallbackData.data?.id) {
+                  // Fallback is always image-to-video which has NO embedded audio
+                  console.log(`Scene ${scene.sceneNumber}: Fallback to image-to-video (NO embedded audio)`);
                   videoTasks.push({
                     sceneNumber: scene.sceneNumber,
-                    taskId: fallbackData.data.id
+                    taskId: fallbackData.data.id,
+                    model: 'alibaba/wan-2.5/image-to-video',
+                    hasEmbeddedAudio: false
                   });
                 }
               }
@@ -559,11 +577,14 @@ serve(async (req) => {
       }
     }
 
+    // Check if any scene has embedded audio (true lip sync or VEO3)
+    const hasAnyEmbeddedAudio = videoTasks.some(t => t.hasEmbeddedAudio);
+    
     const result = {
       videoUrl: null,
       scenes: captionsData,
       sceneImages: finalImageUrls,
-      videoTasks, // Include task IDs for polling
+      videoTasks, // Include task IDs with model info for polling
       captions: addCaptions ? captionsData.map(c => ({
         text: c.text,
         start: c.startTime,
@@ -571,10 +592,12 @@ serve(async (req) => {
       })) : [],
       totalDuration,
       useWaveSpeed: videoTasks.length > 0,
-      lipSyncEnabled: enableLipSync
+      lipSyncEnabled: enableLipSync,
+      hasEmbeddedAudio: hasAnyEmbeddedAudio // True only if actual lip sync/VEO3 was used
     };
 
-    console.log('Reel generation complete with', videoTasks.length, 'video tasks, lip sync:', enableLipSync);
+    console.log('Reel generation complete with', videoTasks.length, 'video tasks');
+    console.log('Models used:', videoTasks.map(t => ({ scene: t.sceneNumber, model: t.model.split('/').pop(), embedded: t.hasEmbeddedAudio })));
 
     return new Response(
       JSON.stringify(result),

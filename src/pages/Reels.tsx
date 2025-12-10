@@ -650,6 +650,10 @@ const Reels = () => {
 
       const generatedScenes = data.scenes || [];
       const videoTasks = data.videoTasks || [];
+      // Track if videos have embedded audio (true only for actual lip sync/VEO3, NOT image-to-video fallback)
+      const hasEmbeddedAudio = data.hasEmbeddedAudio || false;
+      console.log('Video generation response:', { videoTasks: videoTasks.length, hasEmbeddedAudio });
+      
       const scenesWithImages = generatedScenes.filter((s: GeneratedScene) => s.imageUrl);
       
       if (scenesWithImages.length === 0) {
@@ -731,12 +735,21 @@ const Reels = () => {
           // Step 4a: Upload and merge voiceover audio for Creatomate
           let mergedAudioUrl: string | undefined;
           
-          // IMPORTANT: Skip audio overlay when lip sync is enabled!
-          // Lip sync videos have audio BAKED INTO the video - adding an overlay creates double voice
-          const shouldSkipAudioOverlay = enableLipSync && !enableVeo3Mode;
+          // IMPORTANT: Only skip audio overlay if videos ACTUALLY have embedded audio
+          // This is determined by the actual model used (lip sync/VEO3), NOT the toggle setting
+          // Image-to-video fallback does NOT have embedded audio and NEEDS the overlay
+          const shouldSkipAudioOverlay = hasEmbeddedAudio;
+          
+          console.log('Audio overlay decision:', { 
+            hasEmbeddedAudio, 
+            enableLipSync, 
+            enableVeo3Mode,
+            shouldSkipAudioOverlay,
+            reason: shouldSkipAudioOverlay ? 'Videos have embedded audio' : 'Videos need audio overlay'
+          });
           
           if (shouldSkipAudioOverlay) {
-            console.log('Lip sync mode: Skipping audio overlay (audio is baked into video clips)');
+            console.log('Skipping audio overlay: Videos have embedded audio from lip sync/VEO3');
           } else {
             // Filter out empty/silent audio segments before merging
             const audioSegmentsToMerge = sortedAudios
