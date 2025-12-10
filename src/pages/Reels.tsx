@@ -267,7 +267,7 @@ const Reels = () => {
   const [selectedVoice, setSelectedVoice] = useState<string>('en-US-Journey-F');
   
   // Transition style for video stitching
-  const [transitionStyle, setTransitionStyle] = useState<'fade' | 'slide' | 'zoom' | 'crossfade' | 'none'>('crossfade');
+  const [transitionStyle, setTransitionStyle] = useState<'fade' | 'slide' | 'zoom' | 'crossfade' | 'wipe' | 'blur' | 'dissolve' | 'spin' | 'flip' | 'none'>('crossfade');
   
   // Podcast mode
   const [isPodcastMode, setIsPodcastMode] = useState(false);
@@ -1840,6 +1840,11 @@ const Reels = () => {
                           <SelectItem value="fade">Fade (Quick)</SelectItem>
                           <SelectItem value="slide">Slide (Dynamic)</SelectItem>
                           <SelectItem value="zoom">Zoom (Cinematic)</SelectItem>
+                          <SelectItem value="wipe">Wipe (Directional)</SelectItem>
+                          <SelectItem value="blur">Blur (Dreamy)</SelectItem>
+                          <SelectItem value="dissolve">Dissolve (Soft)</SelectItem>
+                          <SelectItem value="spin">Spin (Energetic)</SelectItem>
+                          <SelectItem value="flip">Flip (3D Effect)</SelectItem>
                           <SelectItem value="none">None (Hard Cut)</SelectItem>
                         </SelectContent>
                       </Select>
