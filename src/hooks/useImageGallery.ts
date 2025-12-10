@@ -18,6 +18,7 @@ export interface GeneratedImage {
 interface UseImageGalleryResult {
   images: GeneratedImage[];
   isLoading: boolean;
+  isUploading: boolean;
   fetchImages: () => Promise<void>;
   saveImage: (params: {
     imageUrl: string;
@@ -29,22 +30,23 @@ interface UseImageGalleryResult {
     projectId?: string;
   }) => Promise<void>;
   deleteImage: (id: string) => Promise<void>;
+  uploadImages: (files: FileList) => Promise<string[]>;
 }
 
 export function useImageGallery(): UseImageGalleryResult {
   const { toast } = useToast();
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fetchImages = async () => {
     setIsLoading(true);
     try {
-      // Only fetch metadata columns to avoid timeout from large base64 image_url data
       const { data, error } = await supabase
         .from('generated_images')
         .select('id, user_id, image_url, prompt, source, reference_image_url, transformation, scene_number, project_id, created_at')
         .order('created_at', { ascending: false })
-        .limit(50); // Limit results to prevent timeout
+        .limit(50);
 
       if (error) throw error;
       setImages(data || []);
@@ -94,7 +96,6 @@ export function useImageGallery(): UseImageGalleryResult {
 
       if (error) throw error;
       
-      // Refresh the list
       await fetchImages();
     } catch (error: any) {
       console.error('Error saving image to gallery:', error);
@@ -126,6 +127,93 @@ export function useImageGallery(): UseImageGalleryResult {
     }
   };
 
+  const uploadImages = async (files: FileList): Promise<string[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Not Authenticated",
+        description: "Please log in to upload images.",
+        variant: "destructive"
+      });
+      return [];
+    }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const uploadedUrls: string[] = [];
+
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!validTypes.includes(file.type)) {
+          toast({
+            title: "Invalid File Type",
+            description: `${file.name} is not a supported image format.`,
+            variant: "destructive"
+          });
+          continue;
+        }
+
+        if (file.size > maxSize) {
+          toast({
+            title: "File Too Large",
+            description: `${file.name} exceeds 10MB limit.`,
+            variant: "destructive"
+          });
+          continue;
+        }
+
+        const ext = file.name.split('.').pop() || 'jpg';
+        const fileName = `${user.id}/${crypto.randomUUID()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, file, { contentType: file.type });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          continue;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('reels')
+          .getPublicUrl(fileName);
+
+        // Save to database
+        await supabase
+          .from('generated_images')
+          .insert({
+            user_id: user.id,
+            image_url: publicUrl,
+            prompt: null,
+            source: 'upload'
+          });
+
+        uploadedUrls.push(publicUrl);
+      }
+
+      if (uploadedUrls.length > 0) {
+        toast({
+          title: "Upload Complete",
+          description: `${uploadedUrls.length} image(s) uploaded successfully.`
+        });
+        await fetchImages();
+      }
+
+      return uploadedUrls;
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload images.",
+        variant: "destructive"
+      });
+      return [];
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   useEffect(() => {
     fetchImages();
   }, []);
@@ -133,8 +221,10 @@ export function useImageGallery(): UseImageGalleryResult {
   return {
     images,
     isLoading,
+    isUploading,
     fetchImages,
     saveImage,
-    deleteImage
+    deleteImage,
+    uploadImages
   };
 }
