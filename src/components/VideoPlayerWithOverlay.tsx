@@ -293,13 +293,14 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
       <div className={`aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl relative group transition-opacity duration-300 ${
         isTransitioning ? 'opacity-70' : 'opacity-100'
       }`}>
-        {/* Video element */}
+        {/* Video element - muted to prevent original audio, we use separate voiceover */}
         <video
           ref={videoRef}
           src={currentClip?.videoUrl}
           className="w-full h-full object-contain"
           playsInline
           loop={false}
+          muted
           onClick={togglePlay}
         />
 
