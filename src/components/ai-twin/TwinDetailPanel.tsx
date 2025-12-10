@@ -52,6 +52,18 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [selectedPose, setSelectedPose] = useState<string | null>(null);
+
+  const POSE_PRESETS = [
+    { id: 'standing', label: 'Standing', prompt: 'standing upright, full body visible' },
+    { id: 'sitting', label: 'Sitting', prompt: 'sitting down comfortably' },
+    { id: 'walking', label: 'Walking', prompt: 'walking naturally, mid-stride' },
+    { id: 'arms-crossed', label: 'Arms Crossed', prompt: 'standing with arms crossed confidently' },
+    { id: 'hands-pockets', label: 'Hands in Pockets', prompt: 'standing casually with hands in pockets' },
+    { id: 'leaning', label: 'Leaning', prompt: 'leaning against a wall or surface' },
+    { id: 'gesturing', label: 'Gesturing', prompt: 'gesturing while speaking, expressive hands' },
+    { id: 'thinking', label: 'Thinking', prompt: 'in a thoughtful pose, hand near chin' },
+  ];
 
   const categoryAngles = getCameraAnglesByCategory(selectedCategory as any);
 
@@ -97,11 +109,16 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
       const faceDesc = twin.face_description || twin.description || '';
       const customContext = customPrompt ? ` Scene context: ${customPrompt}.` : '';
       
+      // Include selected pose in the prompt
+      const poseContext = selectedPose 
+        ? ` Pose: ${POSE_PRESETS.find(p => p.id === selectedPose)?.prompt || ''}.`
+        : '';
+      
       // Improved prompt structure for better consistency
       const prompt = `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
 Camera angle: ${angle.promptModifier}. 
 ${faceDesc ? `Person description: ${faceDesc}.` : 'Keep the exact same face, features, skin tone, and appearance as the reference.'}
-${customContext}
+${poseContext}${customContext}
 CRITICAL: The person in the generated image MUST look identical to the reference - same face shape, eyes, nose, mouth, hair, and overall appearance. 
 Style: Professional photography, high quality, sharp focus on the subject.`;
 
@@ -271,6 +288,23 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
               onChange={(e) => setCustomPrompt(e.target.value)}
               className="h-20 resize-none"
             />
+          </div>
+
+          {/* Pose Presets */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Pose (optional)</label>
+            <div className="flex flex-wrap gap-2">
+              {POSE_PRESETS.map(pose => (
+                <Button
+                  key={pose.id}
+                  size="sm"
+                  variant={selectedPose === pose.id ? "default" : "outline"}
+                  onClick={() => setSelectedPose(selectedPose === pose.id ? null : pose.id)}
+                >
+                  {pose.label}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {/* Category Tabs */}
