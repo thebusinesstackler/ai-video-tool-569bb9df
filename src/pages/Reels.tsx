@@ -280,6 +280,8 @@ const Reels = () => {
   const [preSelectedReference, setPreSelectedReference] = useState<string | null>(null);
   const [preReferenceTransformation, setPreReferenceTransformation] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; reference_images: string[] }[]>([]);
+  const [aiTwins, setAiTwins] = useState<{ id: string; name: string; reference_images: string[]; voice_cloning_key: string | null; face_description: string | null }[]>([]);
+  const [selectedTwinId, setSelectedTwinId] = useState<string | null>(null);
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
   const [characterDescription, setCharacterDescription] = useState('');
@@ -497,7 +499,7 @@ const Reels = () => {
     }
   }, [searchParams]);
 
-  // Fetch saved reels and characters on mount
+  // Fetch saved reels, characters, and AI twins on mount
   useEffect(() => {
     if (user) {
       fetchSavedReels();
@@ -508,6 +510,15 @@ const Reels = () => {
         .then(({ data }) => {
           if (data) {
             setCharacters(data.filter(c => c.reference_images && c.reference_images.length > 0));
+          }
+        });
+      // Load AI twins for voice cloning and reference images
+      supabase
+        .from('ai_twins')
+        .select('id, name, reference_images, voice_cloning_key, face_description')
+        .then(({ data }) => {
+          if (data) {
+            setAiTwins(data.filter(t => t.reference_images && t.reference_images.length > 0));
           }
         });
     }
@@ -1985,6 +1996,72 @@ const Reels = () => {
                 <CollapsibleContent>
                 {enableLipSync && (
                 <CardContent className="space-y-4 pt-0">
+                  {/* AI Twin Selector */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Sparkles className="w-3 h-3 text-primary" />
+                      Select AI Twin (Quick Setup)
+                    </Label>
+                    <Select 
+                      value={selectedTwinId || ''} 
+                      onValueChange={(v) => {
+                        setSelectedTwinId(v || null);
+                        const twin = aiTwins.find(t => t.id === v);
+                        if (twin) {
+                          // Set portrait from twin's first reference image
+                          if (twin.reference_images?.[0]) {
+                            setPortraitImage(twin.reference_images[0]);
+                            setPortraitPreview(twin.reference_images[0]);
+                            setPreSelectedReference(twin.reference_images[0]);
+                          }
+                          // Set character description from face description
+                          if (twin.face_description) {
+                            setCharacterDescription(twin.face_description);
+                          }
+                          toast({
+                            title: `AI Twin "${twin.name}" Selected`,
+                            description: twin.voice_cloning_key 
+                              ? 'Voice clone and reference images applied' 
+                              : 'Reference images applied (no cloned voice)',
+                          });
+                        }
+                      }} 
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue placeholder="Choose an AI Twin..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {aiTwins.map(twin => (
+                          <SelectItem key={twin.id} value={twin.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{twin.name}</span>
+                              {twin.voice_cloning_key && (
+                                <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Voice</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {aiTwins.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No AI Twins found. Create one in the AI Twin page for quick voice + image setup.
+                      </p>
+                    )}
+                    {aiTwins.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Select your AI Twin to auto-fill portrait and cloned voice settings.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="relative flex items-center my-2">
+                    <div className="flex-1 border-t border-border" />
+                    <span className="px-3 text-xs text-muted-foreground">or upload manually</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+
                   {/* Portrait Upload */}
                   <div className="space-y-2">
                     <Label>Character Portrait</Label>
