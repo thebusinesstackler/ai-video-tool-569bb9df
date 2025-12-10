@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +16,7 @@ import {
 } from '@/data/cameraAngles';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { 
   Film, 
   Video, 
@@ -53,8 +54,7 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('framing');
-  const [selectedAngle, setSelectedAngle] = useState<CameraAngle | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingAngles, setGeneratingAngles] = useState<Set<string>>(new Set());
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState<string>('');
@@ -140,8 +140,13 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
       return;
     }
 
-    setIsGenerating(true);
-    setSelectedAngle(angle);
+    // Check if already generating this angle
+    if (generatingAngles.has(angle.id)) {
+      return;
+    }
+
+    // Add to generating set
+    setGeneratingAngles(prev => new Set(prev).add(angle.id));
 
     try {
       // Build a more specific prompt that emphasizes keeping the same person
@@ -175,7 +180,16 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         setGeneratedImages(prev => [data.imageUrl, ...prev]);
         
         // Save to twin's reference images
-        const updatedImages = [...(twin.reference_images || []), data.imageUrl];
+        // Fetch current images first to avoid race conditions
+        const { data: currentTwin } = await supabase
+          .from('ai_twins')
+          .select('reference_images')
+          .eq('id', twin.id)
+          .single();
+        
+        const currentImages = currentTwin?.reference_images || twin.reference_images || [];
+        const updatedImages = [...currentImages, data.imageUrl];
+        
         const { error: updateError } = await supabase
           .from('ai_twins')
           .update({ reference_images: updatedImages })
@@ -218,8 +232,12 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         variant: 'destructive'
       });
     } finally {
-      setIsGenerating(false);
-      setSelectedAngle(null);
+      // Remove from generating set
+      setGeneratingAngles(prev => {
+        const next = new Set(prev);
+        next.delete(angle.id);
+        return next;
+      });
     }
   };
 
@@ -438,11 +456,11 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                   key={angle.id}
                   variant="outline"
                   className="min-h-32 h-auto flex-col items-start justify-start p-4 text-left overflow-hidden hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                  disabled={isGenerating}
+                  disabled={generatingAngles.has(angle.id)}
                   onClick={() => generateTwinImage(angle)}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    {isGenerating && selectedAngle?.id === angle.id ? (
+                    {generatingAngles.has(angle.id) ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Camera className="w-4 h-4" />
@@ -483,6 +501,10 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
       {/* Image Preview Dialog */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
         <DialogContent className="max-w-4xl p-2">
+          <VisuallyHidden>
+            <DialogTitle>Image Preview</DialogTitle>
+            <DialogDescription>Preview of the generated image</DialogDescription>
+          </VisuallyHidden>
           <Button 
             size="icon" 
             variant="ghost" 
