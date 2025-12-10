@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           description: string | null
           face_description: string | null
+          gender: string | null
           id: string
           name: string
           reference_images: string[] | null
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           face_description?: string | null
+          gender?: string | null
           id?: string
           name: string
           reference_images?: string[] | null
@@ -43,6 +45,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           face_description?: string | null
+          gender?: string | null
           id?: string
           name?: string
           reference_images?: string[] | null

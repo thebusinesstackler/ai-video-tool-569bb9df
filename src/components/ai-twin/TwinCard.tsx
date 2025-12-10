@@ -13,6 +13,7 @@ interface AITwin {
   voice_sample_url: string | null;
   description: string | null;
   face_description: string | null;
+  gender: string | null;
   created_at: string;
 }
 
@@ -107,7 +108,12 @@ export const TwinCard: React.FC<TwinCardProps> = ({ twin, onDelete, onSelect }) 
           </p>
         )}
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {twin.gender && (
+            <Badge variant="outline" className="text-xs capitalize">
+              {twin.gender}
+            </Badge>
+          )}
           <Badge variant={twin.voice_cloning_key ? "default" : "secondary"} className="text-xs">
             <Volume2 className="w-3 h-3 mr-1" />
             {twin.voice_cloning_key ? "Voice Cloned" : "No Voice"}
