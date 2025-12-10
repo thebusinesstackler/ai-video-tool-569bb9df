@@ -56,6 +56,8 @@ import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScriptGenerator } from '@/components/ScriptGenerator';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -187,6 +189,13 @@ const PODCAST_DURATION_OPTIONS = [
   { value: '300', label: '5 minutes' },
 ];
 
+const VIDEO_SIZE_OPTIONS = [
+  { value: '9:16', label: 'Reel/Story (9:16)', description: 'Portrait - TikTok, Reels, Stories' },
+  { value: '1:1', label: 'Square (1:1)', description: 'Instagram Feed, Facebook' },
+  { value: '16:9', label: 'Landscape (16:9)', description: 'YouTube, Presentations' },
+  { value: '4:5', label: 'Portrait (4:5)', description: 'Instagram Feed Portrait' },
+];
+
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -282,6 +291,14 @@ const Reels = () => {
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [selectedLogoAnimation, setSelectedLogoAnimation] = useState<LogoAnimation>('fade');
   
+  // Video size state
+  const [selectedVideoSize, setSelectedVideoSize] = useState('9:16');
+  
+  // Enhancement sections expanded state
+  const [cutScenesExpanded, setCutScenesExpanded] = useState(false);
+  const [lipSyncExpanded, setLipSyncExpanded] = useState(false);
+  const [showScriptGenerator, setShowScriptGenerator] = useState(false);
+  
   // Feature sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeMode, setActiveMode] = useState<ReelMode>('standard');
@@ -296,11 +313,13 @@ const Reels = () => {
   const handleFeatureChange = (feature: keyof typeof featureToggles, value: boolean) => {
     setFeatureToggles(prev => ({ ...prev, [feature]: value }));
     
-    // Sync with existing state
+    // Sync with existing state and expand sections when enabled
     if (feature === 'cutScenes') {
       setEnableCutScenes(value);
+      if (value) setCutScenesExpanded(true);
     } else if (feature === 'lipSync') {
       setEnableLipSync(value);
+      if (value) setLipSyncExpanded(true);
     } else if (feature === 'upscaler') {
       setShowUpscaler(value);
     }
@@ -313,6 +332,10 @@ const Reels = () => {
       setIsPodcastMode(true);
     } else {
       setIsPodcastMode(false);
+    }
+    // Open script generator dialog when script-only mode is selected
+    if (mode === 'script-only') {
+      setShowScriptGenerator(true);
     }
   };
   
@@ -1807,21 +1830,98 @@ const Reels = () => {
                   </div>
                 )}
 
-                {/* Cut Scenes Toggle */}
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Layers className="w-4 h-4 text-primary" />
-                    <div>
-                      <Label className="text-sm font-medium">Insert Cut Scenes</Label>
-                      <p className="text-xs text-muted-foreground">Add 1-2s transition scenes for better flow</p>
-                    </div>
+                {/* Video Size Selection */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Video className="w-4 h-4 text-primary" />
+                    Video Size / Aspect Ratio
+                  </Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {VIDEO_SIZE_OPTIONS.map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => setSelectedVideoSize(option.value)}
+                        disabled={isGenerating}
+                        className={`p-3 rounded-lg border text-left transition-all ${
+                          selectedVideoSize === option.value
+                            ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                            : 'border-border bg-muted/30 hover:border-primary/50'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        <div className="font-medium text-sm">{option.label}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{option.description}</div>
+                      </button>
+                    ))}
                   </div>
-                  <Switch
-                    checked={enableCutScenes}
-                    onCheckedChange={setEnableCutScenes}
-                    disabled={isGenerating}
-                  />
                 </div>
+
+                {/* Cut Scenes Toggle with Expandable Options */}
+                <Collapsible open={cutScenesExpanded} onOpenChange={setCutScenesExpanded}>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <CollapsibleTrigger asChild>
+                      <div 
+                        className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${
+                          enableCutScenes ? 'bg-primary/10' : 'bg-muted/50 hover:bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Layers className="w-4 h-4 text-primary" />
+                          <div>
+                            <Label className="text-sm font-medium cursor-pointer">Insert Cut Scenes</Label>
+                            <p className="text-xs text-muted-foreground">Add 1-2s transition scenes for better flow</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={enableCutScenes}
+                            onCheckedChange={(checked) => {
+                              setEnableCutScenes(checked);
+                              if (checked) setCutScenesExpanded(true);
+                            }}
+                            disabled={isGenerating}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${cutScenesExpanded ? 'rotate-180' : ''}`} />
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="p-4 border-t border-border bg-background space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm">Cut Scene Style</Label>
+                          <Select defaultValue="dynamic" disabled={isGenerating || !enableCutScenes}>
+                            <SelectTrigger className="bg-muted/50 border-border">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="dynamic">Dynamic (Motion)</SelectItem>
+                              <SelectItem value="subtle">Subtle (Fade)</SelectItem>
+                              <SelectItem value="dramatic">Dramatic (Zoom)</SelectItem>
+                              <SelectItem value="minimal">Minimal (Quick Cut)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">Cut Scene Duration</Label>
+                          <Select defaultValue="1.5" disabled={isGenerating || !enableCutScenes}>
+                            <SelectTrigger className="bg-muted/50 border-border">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0.5">0.5 seconds</SelectItem>
+                              <SelectItem value="1">1 second</SelectItem>
+                              <SelectItem value="1.5">1.5 seconds</SelectItem>
+                              <SelectItem value="2">2 seconds</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Cut scenes will be automatically inserted between main scenes to create smooth transitions.
+                        </p>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
 
                 <div className="flex items-end">
                   <Button 
@@ -1847,30 +1947,41 @@ const Reels = () => {
               disabled={isGenerating}
             />
 
-            {/* Lip Sync Mode */}
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="w-5 h-5 text-primary" />
-                    Lip Sync Mode
-                    {enableLipSync && (
-                      <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                        Enabled
-                      </span>
-                    )}
-                  </div>
-                  <Switch
-                    checked={enableLipSync}
-                    onCheckedChange={setEnableLipSync}
-                    disabled={isGenerating}
-                  />
-                </CardTitle>
-                <CardDescription>
-                  Create talking head videos with synchronized lip movements
-                </CardDescription>
-              </CardHeader>
-              {enableLipSync && (
+            {/* Lip Sync Mode - Expandable */}
+            <Collapsible open={lipSyncExpanded} onOpenChange={setLipSyncExpanded}>
+              <Card className="bg-card border-border overflow-hidden">
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <User className="w-5 h-5 text-primary" />
+                        Lip Sync Mode
+                        {enableLipSync && (
+                          <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                            Enabled
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={enableLipSync}
+                          onCheckedChange={(checked) => {
+                            setEnableLipSync(checked);
+                            if (checked) setLipSyncExpanded(true);
+                          }}
+                          disabled={isGenerating}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${lipSyncExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardTitle>
+                    <CardDescription>
+                      Create talking head videos with synchronized lip movements
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                {enableLipSync && (
                 <CardContent className="space-y-4 pt-0">
                   {/* Portrait Upload */}
                   <div className="space-y-2">
@@ -2004,7 +2115,9 @@ const Reels = () => {
                   </div>
                 </CardContent>
               )}
-            </Card>
+              </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             {/* Intro/Outro Templates */}
             <Collapsible open={templateSectionOpen} onOpenChange={setTemplateSectionOpen}>
@@ -2669,6 +2782,23 @@ const Reels = () => {
           </div>
         </div>
       </div>
+      {/* Script Generator Dialog */}
+      <Dialog open={showScriptGenerator} onOpenChange={(open) => {
+        setShowScriptGenerator(open);
+        if (!open && activeMode === 'script-only') {
+          setActiveMode('standard');
+        }
+      }}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              Script Generator
+            </DialogTitle>
+          </DialogHeader>
+          <ScriptGenerator />
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
