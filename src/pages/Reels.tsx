@@ -280,7 +280,7 @@ const Reels = () => {
   const [preSelectedReference, setPreSelectedReference] = useState<string | null>(null);
   const [preReferenceTransformation, setPreReferenceTransformation] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; reference_images: string[] }[]>([]);
-  const [aiTwins, setAiTwins] = useState<{ id: string; name: string; reference_images: string[]; voice_cloning_key: string | null; face_description: string | null }[]>([]);
+  const [aiTwins, setAiTwins] = useState<{ id: string; name: string; reference_images: string[]; voice_cloning_key: string | null; voice_sample_url: string | null; face_description: string | null }[]>([]);
   const [selectedTwinId, setSelectedTwinId] = useState<string | null>(null);
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
@@ -524,7 +524,7 @@ const Reels = () => {
       // Load AI twins for voice cloning and reference images
       supabase
         .from('ai_twins')
-        .select('id, name, reference_images, voice_cloning_key, face_description')
+        .select('id, name, reference_images, voice_cloning_key, voice_sample_url, face_description')
         .then(({ data }) => {
           if (data) {
             setAiTwins(data.filter(t => t.reference_images && t.reference_images.length > 0));
@@ -2637,7 +2637,10 @@ const Reels = () => {
                           }
                         }
                         const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
-                        const clonedVoiceUrl = selectedTwin?.voice_cloning_key || undefined;
+                        // Use voice_sample_url for voice cloning (the actual audio file URL)
+                        const clonedVoiceUrl = selectedTwin?.voice_sample_url || undefined;
+                        // Pass all reference images from the AI Twin for character consistency
+                        const allTwinReferenceImages = selectedTwin?.reference_images || [];
                         
                         generatePreview(
                           project.scenes, 
@@ -2646,7 +2649,8 @@ const Reels = () => {
                           selectedVoice,
                           characterRefImage || undefined,
                           characterDescription || undefined,
-                          clonedVoiceUrl
+                          clonedVoiceUrl,
+                          allTwinReferenceImages
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}

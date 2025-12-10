@@ -14,7 +14,8 @@ serve(async (req) => {
   try {
     const { 
       prompt, 
-      referenceImageUrl, 
+      referenceImageUrl,
+      referenceImages, 
       characterDescription, 
       characterTransformation,
       cameraAngle,
@@ -32,9 +33,14 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
+    
+    // Use multiple reference images if provided, otherwise fall back to single reference
+    const allReferenceImages: string[] = referenceImages && referenceImages.length > 0 
+      ? referenceImages 
+      : (referenceImageUrl ? [referenceImageUrl] : []);
 
     console.log('Editing/generating image with reference:', {
-      hasReferenceImage: !!referenceImageUrl,
+      referenceImagesCount: allReferenceImages.length,
       hasCharacterDescription: !!characterDescription,
       hasCharacterTransformation: !!characterTransformation,
       cameraAngle: cameraAngle || 'not specified',
@@ -44,7 +50,7 @@ serve(async (req) => {
 
     let messages: any[];
     
-    if (referenceImageUrl) {
+    if (allReferenceImages.length > 0) {
       // Build transformation instruction if provided
       const transformInstruction = characterTransformation 
         ? `IMPORTANT CHARACTER TRANSFORMATION: ${characterTransformation}. ` 
@@ -64,13 +70,18 @@ serve(async (req) => {
         ? `BACKGROUND CONSISTENCY (CRITICAL): The background MUST be: ${backgroundDescription}. Keep the EXACT same environment, lighting, and atmosphere as specified. Only change the camera angle and character pose. `
         : 'BACKGROUND CONSISTENCY: Maintain the same environment and lighting as the reference image. ';
       
+      // Multi-reference instruction
+      const multiRefInstruction = allReferenceImages.length > 1
+        ? `CRITICAL: Study ALL ${allReferenceImages.length} reference images to ensure MAXIMUM character consistency. The character's face, skin tone, hair, and features must match EXACTLY across all generated scenes. `
+        : '';
+      
       // Different prompts based on whether transformation is requested
       const instructionText = characterTransformation
         ? `Generate a new scene image based on this prompt: ${prompt}
 
-${transformInstruction}${characterInstruction}${cameraInstruction}
+${multiRefInstruction}${transformInstruction}${characterInstruction}${cameraInstruction}
 
-Use the reference image for:
+Use the reference image(s) for:
 - Pose and body position
 - Clothing style and overall aesthetic
 - Lighting and composition
@@ -83,33 +94,30 @@ BUT APPLY THIS TRANSFORMATION: ${characterTransformation}
 Keep the scene composition similar but transform the character as specified.`
         : `Generate a scene image based on this prompt: ${prompt}
 
-${characterInstruction}${cameraInstruction}${backgroundInstruction}
+${multiRefInstruction}${characterInstruction}${cameraInstruction}${backgroundInstruction}
 
-Use the reference image as STYLE INSPIRATION for:
+Use the reference image(s) to MAINTAIN EXACT CHARACTER IDENTITY:
+- SAME facial features, skin tone, and hair
 - Professional appearance and demeanor
 - Clothing style and aesthetic
 - Lighting quality and composition
 - Scene atmosphere and framing
-- Overall visual quality
 
 ${cameraAngle ? `Use this SPECIFIC camera angle: ${cameraAngle}` : ''}
 
-The generated image should match the scene description exactly. Use the reference for visual style and quality, not identity.
-IMPORTANT: Follow the scene prompt's description of the character. Generate a high-quality professional image matching the prompt.`;
+The generated image should match the scene description exactly while keeping the character's identity consistent with the references.`;
 
+      // Build content array with all reference images (up to 4)
+      const imageContents = allReferenceImages.slice(0, 4).map(imgUrl => ({
+        type: 'image_url',
+        image_url: { url: imgUrl }
+      }));
+      
       messages = [{
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: instructionText
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: referenceImageUrl
-            }
-          }
+          { type: 'text', text: instructionText },
+          ...imageContents
         ]
       }];
     } else {
