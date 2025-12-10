@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
@@ -75,7 +75,24 @@ interface MovieScene {
   videoTaskId?: string;
   selectedCameraAngle?: string;
   selectedLighting?: string;
+  mood?: string;
+  suggestedMusic?: string;
 }
+
+const MOOD_ICONS: Record<string, string> = {
+  tense: '😰',
+  romantic: '💕',
+  action: '💥',
+  melancholic: '😢',
+  triumphant: '🏆',
+  mysterious: '🔮',
+  peaceful: '🕊️',
+  horror: '👻',
+  comedic: '😄',
+  epic: '⚔️',
+  nostalgic: '📷',
+  inspiring: '✨',
+};
 
 interface VisualPreset {
   id: string;
@@ -1959,6 +1976,33 @@ const MovieSceneCreator = () => {
                         placeholder={`Enter what ${selectedTwin?.name || 'the main character'} will say...`}
                       />
                     </div>
+
+                    {/* Mood & Music Suggestion */}
+                    {(scene.mood || scene.suggestedMusic) && (
+                      <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <Music className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm text-foreground">Scene Mood</span>
+                              {scene.mood && (
+                                <Badge variant="secondary" className="capitalize">
+                                  {MOOD_ICONS[scene.mood] || '🎬'} {scene.mood}
+                                </Badge>
+                              )}
+                            </div>
+                            {scene.suggestedMusic && (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-medium">Suggested Music: </span>
+                                {scene.suggestedMusic}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {scene.otherCharacterDialogue && (
                       <div>
