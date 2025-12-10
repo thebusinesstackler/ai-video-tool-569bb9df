@@ -36,6 +36,7 @@ interface ReelFeatureSidebarProps {
   activeMode: ReelMode;
   onModeChange: (mode: ReelMode) => void;
   features: {
+    introOutro: boolean;
     cutScenes: boolean;
     upscaler: boolean;
     lipSync: boolean;
@@ -75,6 +76,12 @@ const MODES = [
 
 const FEATURES = [
   {
+    id: 'introOutro',
+    label: 'Intro & Outro',
+    description: 'Add branded intro and outro screens',
+    icon: <Film className="w-4 h-4" />
+  },
+  {
     id: 'captions',
     label: 'Captions',
     description: 'Add animated text captions to video',
@@ -90,7 +97,7 @@ const FEATURES = [
     id: 'cutScenes',
     label: 'Cut Scenes',
     description: 'Add B-roll and transition scenes',
-    icon: <Film className="w-4 h-4" />
+    icon: <Sparkles className="w-4 h-4" />
   },
   {
     id: 'upscaler',

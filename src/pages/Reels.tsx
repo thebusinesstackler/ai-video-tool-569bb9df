@@ -305,6 +305,7 @@ const Reels = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeMode, setActiveMode] = useState<ReelMode>('standard');
   const [featureToggles, setFeatureToggles] = useState({
+    introOutro: false,
     cutScenes: false,
     upscaler: false,
     lipSync: false,
@@ -318,7 +319,9 @@ const Reels = () => {
     setFeatureToggles(prev => ({ ...prev, [feature]: value }));
     
     // Sync with existing state and expand sections when enabled
-    if (feature === 'cutScenes') {
+    if (feature === 'introOutro') {
+      setTemplateSectionOpen(value);
+    } else if (feature === 'cutScenes') {
       setEnableCutScenes(value);
       if (value) setCutScenesExpanded(true);
     } else if (feature === 'lipSync') {
@@ -2209,45 +2212,51 @@ const Reels = () => {
               </Card>
             </Collapsible>
 
-            {/* Intro/Outro Templates */}
-            <Collapsible open={templateSectionOpen} onOpenChange={setTemplateSectionOpen}>
-              <Card className="bg-card border-border">
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Palette className="w-5 h-5 text-primary" />
-                        Intro & Outro Templates
-                        {(selectedIntro !== 'none' || selectedOutro !== 'none') && (
-                          <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                            {[selectedIntro !== 'none' && 'Intro', selectedOutro !== 'none' && 'Outro'].filter(Boolean).join(' + ')}
-                          </span>
-                        )}
-                      </div>
-                      <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${templateSectionOpen ? 'rotate-180' : ''}`} />
-                    </CardTitle>
-                    <CardDescription>
-                      Add professional intro and outro screens to your reel
-                    </CardDescription>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="pt-0">
-                    <TemplateSelector
-                      selectedIntro={selectedIntro}
-                      selectedOutro={selectedOutro}
-                      introText={introText}
-                      outroText={outroText}
-                      onIntroChange={setSelectedIntro}
-                      onOutroChange={setSelectedOutro}
-                      onIntroTextChange={setIntroText}
-                      onOutroTextChange={setOutroText}
-                      disabled={isGenerating}
-                    />
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
+            {/* Intro/Outro Templates - Only visible when enabled from sidebar */}
+            {featureToggles.introOutro && (
+              <Collapsible open={templateSectionOpen} onOpenChange={setTemplateSectionOpen}>
+                <Card className="bg-card border-border">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Palette className="w-5 h-5 text-primary" />
+                          Intro & Outro Templates
+                          {(selectedIntro !== 'none' || selectedOutro !== 'none') && (
+                            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                              {[selectedIntro !== 'none' && 'Intro', selectedOutro !== 'none' && 'Outro'].filter(Boolean).join(' + ')}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${templateSectionOpen ? 'rotate-180' : ''}`} />
+                      </CardTitle>
+                      <CardDescription>
+                        Add professional intro and outro screens to your reel
+                      </CardDescription>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      <TemplateSelector
+                        selectedIntro={selectedIntro}
+                        selectedOutro={selectedOutro}
+                        introText={introText}
+                        outroText={outroText}
+                        onIntroChange={setSelectedIntro}
+                        onOutroChange={setSelectedOutro}
+                        onIntroTextChange={setIntroText}
+                        onOutroTextChange={setOutroText}
+                        selectedLogoUrl={selectedLogoUrl}
+                        selectedLogoAnimation={selectedLogoAnimation}
+                        onLogoChange={setSelectedLogoUrl}
+                        onLogoAnimationChange={setSelectedLogoAnimation}
+                        disabled={isGenerating}
+                      />
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            )}
 
             {/* Generated Scenes */}
             {project.scenes.length > 0 && (
