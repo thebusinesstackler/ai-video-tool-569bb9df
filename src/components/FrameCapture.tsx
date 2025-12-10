@@ -102,6 +102,11 @@ export const FrameCapture: React.FC<FrameCaptureProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
   };
 
+  // Don't render if no video URL provided
+  if (!videoUrl) {
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>

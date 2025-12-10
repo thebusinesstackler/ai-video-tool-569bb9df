@@ -47,6 +47,7 @@ serve(async (req) => {
     const { 
       topic, 
       sceneCount = 4, 
+      sceneDuration,
       targetDuration = 30,
       introConfig,
       outroConfig,
@@ -68,24 +69,26 @@ serve(async (req) => {
     }
 
     console.log('Generating reel script for topic:', topic);
+    console.log('Scene count:', sceneCount, 'Scene duration:', sceneDuration || 'auto');
     console.log('Hook style:', hookStyle || 'auto');
     console.log('Cut scenes enabled:', enableCutScenes);
     console.log('Character description:', characterDescription || 'not specified');
     console.log('Intro config:', introConfig);
     console.log('Outro config:', outroConfig);
 
-    // Calculate scene duration excluding intro/outro
+    // Calculate scene duration - use provided value or calculate from target duration
     const introDuration = introConfig?.introTemplate && introConfig.introTemplate !== 'none' ? 3 : 0;
     const outroDuration = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none' ? 3 : 0;
     const contentDuration = targetDuration - introDuration - outroDuration;
     
-    // Calculate scene duration - max 8 seconds per scene (WaveSpeed limit)
-    const maxSceneDuration = 8;
-    const sceneDuration = Math.min(Math.round(contentDuration / sceneCount), maxSceneDuration);
+    // Use explicit sceneDuration if provided, otherwise calculate from total
+    const finalSceneDuration = sceneDuration || Math.round(contentDuration / sceneCount);
     
-    // Calculate word count for 8 seconds with slower speech (0.6x speed = ~30 words fills 8s)
-    const maxWordsPerScene = 30;
-    const minWordsPerScene = 25;
+    // Calculate word count based on scene duration
+    // At 0.6x speed, about 2.5 words per second
+    const wordsPerSecond = 2.5;
+    const maxWordsPerScene = Math.round(finalSceneDuration * wordsPerSecond);
+    const minWordsPerScene = Math.round(maxWordsPerScene * 0.8);
 
     // Generate dynamic hook guidance based on style
     const hookGuidance = generateHookGuidance(hookStyle, topic);
@@ -121,7 +124,7 @@ CRITICAL STORY RULES:
 - Each scene builds on the previous one - think of it as chapters in a story
 - No scene should repeat what another scene says
 - Scene flow: Hook → Setup → Core content → Resolution/CTA
-- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill the full ${sceneDuration} seconds
+- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill the full ${finalSceneDuration} seconds
 
 ${hookGuidance}
 
@@ -149,7 +152,8 @@ VISUAL CONTINUITY:
 
 ${cutSceneInstructions}`;
 
-    const userPrompt = `Write ${sceneCount} scenes for a ${contentDuration}-second Reel about: "${topic}"
+    const userPrompt = `Write ${sceneCount} scenes for a reel about: "${topic}"
+Each scene should be approximately ${finalSceneDuration} seconds when narrated.
 
 STORY FLOW (each scene MUST connect to the next):
 - Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
@@ -157,7 +161,7 @@ STORY FLOW (each scene MUST connect to the next):
 - Scene ${sceneCount} (CLOSE): Deliver the payoff, conclusion, or call-to-action
 
 NARRATION REQUIREMENTS:
-- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${sceneDuration} seconds when spoken slowly)
+- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
 - Write conversational sentences that flow naturally when spoken
 - Each scene should transition smoothly to the next
 - Use complete thoughts and natural pauses
@@ -182,7 +186,7 @@ Return ONLY valid JSON array:
     "sceneNumber": 1,
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here - engaging hook that's NOT 'stop scrolling'",
     "visualDescription": "Style: [style]. Subject: [what]. Camera: ${CAMERA_ANGLES[0].angle}. Lighting: [type]. Background: [env - use same for ALL scenes]. Colors: [palette]. Mood: [mood].",
-    "duration": ${sceneDuration},
+    "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }
 ]`;
