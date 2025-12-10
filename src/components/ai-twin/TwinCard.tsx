@@ -1,15 +1,18 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Volume2, ImageIcon, Eye } from 'lucide-react';
+import { Trash2, Volume2, ImageIcon, Eye, Film, Video } from 'lucide-react';
 
 interface AITwin {
   id: string;
   name: string;
   reference_images: string[];
   voice_cloning_key: string | null;
+  voice_sample_url: string | null;
   description: string | null;
+  face_description: string | null;
   created_at: string;
 }
 
@@ -20,8 +23,35 @@ interface TwinCardProps {
 }
 
 export const TwinCard: React.FC<TwinCardProps> = ({ twin, onDelete, onSelect }) => {
+  const navigate = useNavigate();
   const primaryImage = twin.reference_images?.[0];
   const imageCount = twin.reference_images?.length || 0;
+
+  const handleCreateMovie = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate('/movies', { 
+      state: { 
+        selectedTwin: twin,
+        twinId: twin.id,
+        twinName: twin.name,
+        twinDescription: twin.description,
+        referenceImage: twin.reference_images?.[0]
+      }
+    });
+  };
+
+  const handleCreateReel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate('/reels', { 
+      state: { 
+        selectedTwin: twin,
+        twinId: twin.id,
+        twinName: twin.name,
+        twinDescription: twin.description,
+        referenceImage: twin.reference_images?.[0]
+      }
+    });
+  };
 
   return (
     <Card className="group hover:shadow-lg transition-all duration-300 overflow-hidden">
@@ -63,21 +93,21 @@ export const TwinCard: React.FC<TwinCardProps> = ({ twin, onDelete, onSelect }) 
             <Eye className="w-4 h-4 mr-1" />
             View
           </Button>
-          <Button size="sm" variant="destructive" onClick={onDelete}>
+          <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
             <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
-      <CardContent className="p-4">
+      <CardContent className="p-4 space-y-3">
         <h3 className="font-semibold text-lg truncate">{twin.name}</h3>
         {twin.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+          <p className="text-sm text-muted-foreground line-clamp-2">
             {twin.description}
           </p>
         )}
         
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2">
           <Badge variant={twin.voice_cloning_key ? "default" : "secondary"} className="text-xs">
             <Volume2 className="w-3 h-3 mr-1" />
             {twin.voice_cloning_key ? "Voice Cloned" : "No Voice"}
@@ -86,6 +116,27 @@ export const TwinCard: React.FC<TwinCardProps> = ({ twin, onDelete, onSelect }) 
             <ImageIcon className="w-3 h-3 mr-1" />
             {imageCount} {imageCount === 1 ? 'Image' : 'Images'}
           </Badge>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-2">
+          <Button 
+            size="sm" 
+            className="flex-1 bg-gradient-primary hover:opacity-90"
+            onClick={handleCreateMovie}
+          >
+            <Film className="w-4 h-4 mr-1" />
+            Movie
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="flex-1"
+            onClick={handleCreateReel}
+          >
+            <Video className="w-4 h-4 mr-1" />
+            Reel
+          </Button>
         </div>
       </CardContent>
     </Card>
