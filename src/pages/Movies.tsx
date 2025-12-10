@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Film, Trash2, Eye } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Film, Trash2, Eye, Volume2, ImageIcon, Play, Loader2, Square, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +41,18 @@ interface MovieProject {
   updated_at: string;
 }
 
+interface AITwin {
+  id: string;
+  name: string;
+  reference_images: string[];
+  voice_cloning_key: string | null;
+  voice_sample_url: string | null;
+  description: string | null;
+  face_description: string | null;
+}
+
 const Movies = () => {
+  const location = useLocation();
   const [projects, setProjects] = useState<MovieProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<MovieProject | null>(null);
@@ -46,9 +60,26 @@ const Movies = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // AI Twin from navigation state
+  const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
+  const [voicePreviewText, setVoicePreviewText] = useState('');
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     loadProjects();
   }, []);
+
+  // Check for AI Twin from navigation state
+  useEffect(() => {
+    const state = location.state as { selectedTwin?: AITwin } | null;
+    if (state?.selectedTwin) {
+      setSelectedTwin(state.selectedTwin);
+      // Clear the state to prevent showing twin panel on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const loadProjects = async () => {
     try {
@@ -137,6 +168,105 @@ const Movies = () => {
     return scenes?.filter(scene => scene.generatedVideo).length || 0;
   };
 
+  // Voice preview functionality
+  const previewClonedVoice = async () => {
+    if (!voicePreviewText.trim()) {
+      toast({
+        title: "Enter Text",
+        description: "Please type something for your AI Twin to say.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedTwin?.voice_sample_url) {
+      toast({
+        title: "No Voice Sample",
+        description: "This AI Twin doesn't have a cloned voice.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsPreviewingVoice(true);
+    try {
+      // Use the text-to-speech function with cloned voice
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: voicePreviewText,
+          voice: 'cloned',
+          clonedVoiceUrl: selectedTwin.voice_sample_url
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.audioUrl) {
+        // Stop any currently playing audio
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+
+        const audio = new Audio(data.audioUrl);
+        audioRef.current = audio;
+        
+        audio.onplay = () => setIsPlayingVoice(true);
+        audio.onended = () => setIsPlayingVoice(false);
+        audio.onerror = () => {
+          setIsPlayingVoice(false);
+          toast({
+            title: "Playback Error",
+            description: "Failed to play the audio.",
+            variant: "destructive"
+          });
+        };
+        
+        await audio.play();
+      }
+
+      toast({
+        title: "Voice Preview Ready",
+        description: `Playing ${selectedTwin.name}'s voice...`,
+      });
+    } catch (error: any) {
+      console.error('Voice preview error:', error);
+      toast({
+        title: "Preview Failed",
+        description: error.message || "Failed to preview cloned voice.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsPreviewingVoice(false);
+    }
+  };
+
+  const stopVoicePlayback = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlayingVoice(false);
+    }
+  };
+
+  const createMovieWithTwin = () => {
+    navigate('/movie-scene-creator', {
+      state: {
+        selectedTwin,
+        twinId: selectedTwin?.id,
+        twinName: selectedTwin?.name,
+        twinDescription: selectedTwin?.description,
+        referenceImages: selectedTwin?.reference_images
+      }
+    });
+  };
+
+  const clearSelectedTwin = () => {
+    setSelectedTwin(null);
+    setVoicePreviewText('');
+    stopVoicePlayback();
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -147,13 +277,132 @@ const Movies = () => {
               View and manage all your saved movie projects
             </p>
           </div>
+          <Button onClick={() => navigate('/movie-scene-creator')}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Movie
+          </Button>
         </div>
+
+        {/* AI Twin Feature Panel */}
+        {selectedTwin && (
+          <Card className="border-primary bg-gradient-to-r from-primary/5 to-primary/10">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Film className="w-5 h-5 text-primary" />
+                  Create Movie with {selectedTwin.name}
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={clearSelectedTwin}>
+                  Close
+                </Button>
+              </div>
+              <CardDescription>
+                Your AI Twin is ready to star in a movie. Preview the cloned voice below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Twin Info Row */}
+              <div className="flex gap-6">
+                {/* Reference Images */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    Reference Images ({selectedTwin.reference_images?.length || 0})
+                  </Label>
+                  <div className="flex gap-2">
+                    {selectedTwin.reference_images?.slice(0, 4).map((img, idx) => (
+                      <img 
+                        key={idx}
+                        src={img}
+                        alt={`Reference ${idx + 1}`}
+                        className="w-16 h-16 rounded-lg object-cover border-2 border-border"
+                      />
+                    ))}
+                    {(selectedTwin.reference_images?.length || 0) > 4 && (
+                      <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center text-sm font-medium">
+                        +{selectedTwin.reference_images!.length - 4} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Twin Details */}
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={selectedTwin.voice_cloning_key ? "default" : "secondary"}>
+                      <Volume2 className="w-3 h-3 mr-1" />
+                      {selectedTwin.voice_cloning_key ? "Voice Cloned" : "No Voice"}
+                    </Badge>
+                    {selectedTwin.face_description && (
+                      <Badge variant="outline" className="text-xs">
+                        {selectedTwin.face_description.includes('male') ? 'Male' : 
+                         selectedTwin.face_description.includes('female') ? 'Female' : 'Person'}
+                      </Badge>
+                    )}
+                  </div>
+                  {selectedTwin.description && (
+                    <p className="text-sm text-muted-foreground">{selectedTwin.description}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Voice Preview Section */}
+              {selectedTwin.voice_sample_url && (
+                <div className="space-y-3 p-4 bg-background rounded-lg border">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-primary" />
+                    Preview Cloned Voice
+                  </Label>
+                  <Textarea
+                    placeholder={`Type what you want ${selectedTwin.name} to say...`}
+                    value={voicePreviewText}
+                    onChange={(e) => setVoicePreviewText(e.target.value)}
+                    className="min-h-[80px] resize-none"
+                  />
+                  <div className="flex gap-2">
+                    {isPlayingVoice ? (
+                      <Button 
+                        variant="outline" 
+                        onClick={stopVoicePlayback}
+                      >
+                        <Square className="w-4 h-4 mr-2" />
+                        Stop
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={previewClonedVoice}
+                        disabled={isPreviewingVoice || !voicePreviewText.trim()}
+                      >
+                        {isPreviewingVoice ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-2" />
+                        )}
+                        {isPreviewingVoice ? 'Generating...' : 'Preview Voice'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Create Movie Button */}
+              <Button 
+                size="lg" 
+                className="w-full bg-gradient-primary hover:opacity-90"
+                onClick={createMovieWithTwin}
+              >
+                <Film className="w-5 h-5 mr-2" />
+                Start Creating Movie with {selectedTwin.name}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
-        ) : projects.length === 0 ? (
+        ) : projects.length === 0 && !selectedTwin ? (
           <Card>
             <CardContent className="py-12">
               <div className="text-center">

@@ -1,20 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
 import { PeteAIAssistant } from '@/components/PeteAIAssistant';
+
+interface AITwin {
+  id: string;
+  name: string;
+  reference_images: string[];
+  voice_cloning_key: string | null;
+  voice_sample_url: string | null;
+  description: string | null;
+  face_description: string | null;
+}
 
 const SAMPLE_MOVIES = [
   {
@@ -100,6 +111,7 @@ const LIGHTING_STYLES = [
 const MovieSceneCreator = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [movieIdea, setMovieIdea] = useState('');
   const [outline, setOutline] = useState('');
   const [scenes, setScenes] = useState<MovieScene[]>([]);
@@ -124,7 +136,22 @@ const MovieSceneCreator = () => {
   const [peteInputValue, setPeteInputValue] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; description: string | null; reference_images: string[] | null }[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
   const { toast } = useToast();
+
+  // Check for AI Twin from navigation state
+  useEffect(() => {
+    const state = location.state as { selectedTwin?: AITwin; referenceImages?: string[] } | null;
+    if (state?.selectedTwin) {
+      setSelectedTwin(state.selectedTwin);
+      toast({
+        title: "AI Twin Selected",
+        description: `${state.selectedTwin.name} is ready to star in your movie!`,
+      });
+      // Clear the state to prevent showing twin panel on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Handle movie idea from Pete AI
   const handleMovieIdeaCaptured = (idea: string) => {
@@ -1028,6 +1055,73 @@ const MovieSceneCreator = () => {
             </div>
           </div>
         </div>
+
+        {/* AI Twin Panel */}
+        {selectedTwin && (
+          <Card className="border-primary bg-gradient-to-r from-primary/5 to-primary/10">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <User className="w-5 h-5 text-primary" />
+                  Starring: {selectedTwin.name}
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setSelectedTwin(null)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <CardDescription>
+                This AI Twin will be featured in your movie with their cloned voice and reference images.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex items-start gap-4">
+                {/* Reference Images */}
+                <div className="flex -space-x-3">
+                  {selectedTwin.reference_images?.slice(0, 4).map((img, idx) => (
+                    <img 
+                      key={idx}
+                      src={img}
+                      alt={`Reference ${idx + 1}`}
+                      className="w-12 h-12 rounded-full border-2 border-background object-cover"
+                    />
+                  ))}
+                  {(selectedTwin.reference_images?.length || 0) > 4 && (
+                    <div className="w-12 h-12 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium">
+                      +{selectedTwin.reference_images!.length - 4}
+                    </div>
+                  )}
+                </div>
+
+                {/* Twin Info */}
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={selectedTwin.voice_cloning_key ? "default" : "secondary"}>
+                      <Volume2 className="w-3 h-3 mr-1" />
+                      {selectedTwin.voice_cloning_key ? "Cloned Voice Ready" : "No Voice"}
+                    </Badge>
+                    <Badge variant="outline">
+                      <ImageIcon className="w-3 h-3 mr-1" />
+                      {selectedTwin.reference_images?.length || 0} Reference Images
+                    </Badge>
+                    {selectedTwin.face_description && (
+                      <Badge variant="outline" className="text-xs">
+                        {selectedTwin.face_description.toLowerCase().includes('male') && !selectedTwin.face_description.toLowerCase().includes('female') ? 'Male' : 
+                         selectedTwin.face_description.toLowerCase().includes('female') ? 'Female' : 'Person'}
+                      </Badge>
+                    )}
+                  </div>
+                  {selectedTwin.description && (
+                    <p className="text-sm text-muted-foreground">{selectedTwin.description}</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Pete AI Assistant */}
         <PeteAIAssistant 
