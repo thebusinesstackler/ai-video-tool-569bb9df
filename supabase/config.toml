@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.analyze-face-description]
 verify_jwt = false
+
+[functions.migrate-twin-images]
+verify_jwt = true
