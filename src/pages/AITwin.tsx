@@ -29,6 +29,7 @@ interface AITwin {
   reference_images: string[];
   voice_sample_url: string | null;
   voice_cloning_key: string | null;
+  consent_audio_url: string | null;
   description: string | null;
   face_description: string | null;
   gender: string | null;
@@ -71,7 +72,7 @@ const AITwin = () => {
       // Only select minimal fields to avoid loading huge base64 strings initially
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('id, user_id, name, voice_sample_url, voice_cloning_key, description, face_description, gender, created_at, updated_at')
+        .select('id, user_id, name, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
