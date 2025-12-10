@@ -549,12 +549,13 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           {/* Category Tabs */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Camera Angle Category</label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {CAMERA_CATEGORIES.map(cat => (
                 <Button
                   key={cat.id}
                   size="sm"
-                  variant={selectedCategory === cat.id ? "default" : "outline"}
+                  variant={selectedCategory === cat.id ? "default" : "ghost"}
+                  className={selectedCategory === cat.id ? "" : "border border-border bg-background"}
                   onClick={() => setSelectedCategory(cat.id)}
                 >
                   {cat.name}

@@ -1,6 +1,6 @@
 // Camera angle definitions with visual descriptions for Reels
 
-export type CameraCategory = 'static' | 'framing' | 'character' | 'movement';
+export type CameraCategory = 'static' | 'framing' | 'character' | 'movement' | 'lighting' | 'mood' | 'action';
 
 export interface CameraAngle {
   id: string;
@@ -16,6 +16,9 @@ export const CAMERA_CATEGORIES = [
   { id: 'framing', name: 'Framing', description: 'Subject size in frame' },
   { id: 'character', name: 'Character Shots', description: 'Subject-focused angles' },
   { id: 'movement', name: 'Movement', description: 'Dynamic camera motion' },
+  { id: 'lighting', name: 'Lighting', description: 'Lighting styles and moods' },
+  { id: 'mood', name: 'Mood & Style', description: 'Cinematic aesthetics' },
+  { id: 'action', name: 'Action Poses', description: 'Dynamic character poses' },
 ];
 
 export const CAMERA_ANGLES: CameraAngle[] = [
@@ -273,6 +276,188 @@ export const CAMERA_ANGLES: CameraAngle[] = [
     description: 'Smooth following shot. Fluid movement through space.',
     visualExample: 'Smooth steadicam following shot, gliding through space, fluid movement, professional polish',
     promptModifier: 'steadicam shot, smooth gliding movement, fluid tracking'
+  },
+  
+  // Lighting Shots
+  {
+    id: 'golden-hour',
+    name: 'Golden Hour',
+    category: 'lighting',
+    description: 'Warm sunset/sunrise glow. Romantic and flattering.',
+    visualExample: 'Warm golden hour lighting, sun low in sky, long shadows, romantic glow, orange and gold tones',
+    promptModifier: 'golden hour lighting, warm sunset glow, soft romantic light'
+  },
+  {
+    id: 'blue-hour',
+    name: 'Blue Hour',
+    category: 'lighting',
+    description: 'Cool twilight atmosphere. Mysterious and calm.',
+    visualExample: 'Blue hour twilight, cool blue tones, peaceful atmosphere, magical ambiance',
+    promptModifier: 'blue hour lighting, twilight atmosphere, cool blue tones'
+  },
+  {
+    id: 'high-key',
+    name: 'High Key',
+    category: 'lighting',
+    description: 'Bright, minimal shadows. Clean and optimistic.',
+    visualExample: 'Bright high key lighting, minimal shadows, clean white background, optimistic feel',
+    promptModifier: 'high key lighting, bright and airy, minimal shadows, clean aesthetic'
+  },
+  {
+    id: 'low-key',
+    name: 'Low Key',
+    category: 'lighting',
+    description: 'Dark, dramatic shadows. Moody and mysterious.',
+    visualExample: 'Low key dramatic lighting, deep shadows, noir atmosphere, mysterious mood',
+    promptModifier: 'low key lighting, dramatic shadows, noir style, moody atmosphere'
+  },
+  {
+    id: 'rim-light',
+    name: 'Rim Light',
+    category: 'lighting',
+    description: 'Light from behind creates glowing edge.',
+    visualExample: 'Rim lighting from behind, glowing edge outline, dramatic backlight, halo effect',
+    promptModifier: 'rim lighting, backlit with glowing edge, dramatic outline'
+  },
+  {
+    id: 'silhouette',
+    name: 'Silhouette',
+    category: 'lighting',
+    description: 'Dark figure against bright background.',
+    visualExample: 'Silhouette against bright background, dramatic contrast, mysterious figure',
+    promptModifier: 'silhouette shot, dark figure against bright light, high contrast'
+  },
+  {
+    id: 'neon',
+    name: 'Neon/Cyberpunk',
+    category: 'lighting',
+    description: 'Vibrant colored lights. Futuristic urban feel.',
+    visualExample: 'Neon colored lighting, cyberpunk atmosphere, pink and blue glow, futuristic urban',
+    promptModifier: 'neon lighting, cyberpunk style, vibrant pink and blue colors, futuristic'
+  },
+  {
+    id: 'natural-soft',
+    name: 'Natural Soft',
+    category: 'lighting',
+    description: 'Soft window light. Natural and flattering.',
+    visualExample: 'Soft natural window light, diffused lighting, gentle shadows, flattering portrait',
+    promptModifier: 'soft natural lighting, window light, diffused and flattering'
+  },
+  
+  // Mood & Style
+  {
+    id: 'cinematic',
+    name: 'Cinematic',
+    category: 'mood',
+    description: 'Film-like quality with dramatic composition.',
+    visualExample: 'Cinematic composition, 2.35:1 aspect ratio feel, dramatic lighting, movie quality',
+    promptModifier: 'cinematic style, film quality, dramatic composition, movie-like'
+  },
+  {
+    id: 'noir',
+    name: 'Film Noir',
+    category: 'mood',
+    description: 'Classic black and white crime drama style.',
+    visualExample: 'Film noir style, high contrast black and white, dramatic shadows, 1940s detective',
+    promptModifier: 'film noir style, high contrast, dramatic shadows, classic crime drama aesthetic'
+  },
+  {
+    id: 'vintage',
+    name: 'Vintage',
+    category: 'mood',
+    description: 'Retro film look with grain and warm tones.',
+    visualExample: 'Vintage film look, warm faded colors, film grain, retro aesthetic, 70s style',
+    promptModifier: 'vintage film style, warm faded tones, film grain, retro aesthetic'
+  },
+  {
+    id: 'dreamy',
+    name: 'Dreamy',
+    category: 'mood',
+    description: 'Soft focus, ethereal quality.',
+    visualExample: 'Dreamy soft focus, ethereal glow, hazy atmosphere, romantic fantasy',
+    promptModifier: 'dreamy soft focus, ethereal glow, hazy atmosphere, romantic'
+  },
+  {
+    id: 'dramatic',
+    name: 'Dramatic',
+    category: 'mood',
+    description: 'High contrast, intense atmosphere.',
+    visualExample: 'Dramatic high contrast, intense atmosphere, bold shadows, powerful mood',
+    promptModifier: 'dramatic lighting, high contrast, intense atmosphere, bold'
+  },
+  {
+    id: 'minimalist',
+    name: 'Minimalist',
+    category: 'mood',
+    description: 'Clean, simple composition with negative space.',
+    visualExample: 'Minimalist composition, lots of negative space, clean lines, simple elegant',
+    promptModifier: 'minimalist style, clean composition, negative space, simple elegant'
+  },
+  
+  // Action Poses
+  {
+    id: 'walking-toward',
+    name: 'Walking Toward',
+    category: 'action',
+    description: 'Subject walking toward camera with purpose.',
+    visualExample: 'Person walking confidently toward camera, purposeful stride, dynamic movement',
+    promptModifier: 'walking toward camera, confident stride, dynamic forward movement'
+  },
+  {
+    id: 'looking-back',
+    name: 'Looking Back',
+    category: 'action',
+    description: 'Subject glancing back over shoulder.',
+    visualExample: 'Person looking back over shoulder, mysterious glance, turning away',
+    promptModifier: 'looking back over shoulder, mysterious glance, mid-turn'
+  },
+  {
+    id: 'reaching-out',
+    name: 'Reaching Out',
+    category: 'action',
+    description: 'Subject reaching toward camera or object.',
+    visualExample: 'Person reaching out toward camera, hand extended, dramatic gesture',
+    promptModifier: 'reaching out toward camera, hand extended, dramatic reaching gesture'
+  },
+  {
+    id: 'sitting-relaxed',
+    name: 'Sitting Relaxed',
+    category: 'action',
+    description: 'Casual seated position, comfortable.',
+    visualExample: 'Person sitting relaxed, casual comfortable pose, at ease',
+    promptModifier: 'sitting in relaxed casual pose, comfortable and at ease'
+  },
+  {
+    id: 'standing-powerful',
+    name: 'Power Stance',
+    category: 'action',
+    description: 'Confident stance with presence.',
+    visualExample: 'Powerful confident stance, hands on hips or arms crossed, commanding presence',
+    promptModifier: 'powerful confident stance, commanding presence, strong body language'
+  },
+  {
+    id: 'mid-laugh',
+    name: 'Mid-Laugh',
+    category: 'action',
+    description: 'Genuine laughing expression.',
+    visualExample: 'Person mid-laugh, genuine joy, natural happy expression, candid moment',
+    promptModifier: 'mid-laugh expression, genuine joy, natural candid happiness'
+  },
+  {
+    id: 'deep-thought',
+    name: 'Deep in Thought',
+    category: 'action',
+    description: 'Contemplative, reflective expression.',
+    visualExample: 'Person deep in thought, contemplative expression, looking away, reflective mood',
+    promptModifier: 'deep in thought, contemplative expression, reflective and thoughtful'
+  },
+  {
+    id: 'speaking',
+    name: 'Speaking/Talking',
+    category: 'action',
+    description: 'Mid-speech expression with gesture.',
+    visualExample: 'Person speaking, mid-sentence expression, hand gestures, engaged conversation',
+    promptModifier: 'speaking with expression, mid-conversation, natural hand gestures'
   },
 ];
 

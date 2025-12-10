@@ -19,7 +19,10 @@ import {
   ArrowDown,
   RotateCcw,
   Crosshair,
-  Video
+  Video,
+  Sun,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import {
   Tooltip,
@@ -39,6 +42,9 @@ const categoryIcons: Record<CameraCategory, React.ReactNode> = {
   'framing': <Maximize className="w-4 h-4" />,
   'character': <User className="w-4 h-4" />,
   'movement': <Move className="w-4 h-4" />,
+  'lighting': <Sun className="w-4 h-4" />,
+  'mood': <Sparkles className="w-4 h-4" />,
+  'action': <Zap className="w-4 h-4" />,
 };
 
 const angleIcons: Record<string, React.ReactNode> = {
@@ -78,12 +84,12 @@ export function CameraAngleSelector({
       </div>
 
       <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-9">
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1">
           {CAMERA_CATEGORIES.map((category) => (
             <TabsTrigger 
               key={category.id} 
               value={category.id}
-              className="text-xs px-2 gap-1"
+              className="text-xs px-3 py-1.5 gap-1"
               disabled={disabled}
             >
               {categoryIcons[category.id as CameraCategory]}
