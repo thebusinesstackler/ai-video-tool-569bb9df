@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles } from 'lucide-react';
 import { ImageGrouper } from './ImageGrouper';
 import { VoiceCloner } from './VoiceCloner';
 
@@ -18,12 +18,14 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnalyzingFace, setIsAnalyzingFace] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [gender, setGender] = useState('male');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [faceDescription, setFaceDescription] = useState<string | null>(null);
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(null);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(null);
 
@@ -44,6 +46,48 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
     }
   };
 
+  const analyzeFaceDescription = async () => {
+    if (selectedImages.length === 0) return;
+    
+    setIsAnalyzingFace(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-face-description', {
+        body: { 
+          imageUrls: selectedImages,
+          name: name.trim(),
+          gender
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.description) {
+        setFaceDescription(data.description);
+        toast({
+          title: 'Face Analyzed!',
+          description: 'AI has generated a detailed description of your twin.'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error analyzing face:', error);
+      toast({
+        title: 'Analysis Failed',
+        description: error.message || 'Could not analyze face. You can still proceed.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsAnalyzingFace(false);
+    }
+  };
+
+  const handleStepChange = async (newStep: number) => {
+    // When moving from step 2 to step 3, analyze face if images selected
+    if (step === 2 && newStep === 3 && selectedImages.length > 0 && !faceDescription) {
+      await analyzeFaceDescription();
+    }
+    setStep(newStep);
+  };
+
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
@@ -57,6 +101,7 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
           user_id: user.id,
           name: name.trim(),
           description: description.trim() || null,
+          face_description: faceDescription,
           gender: gender,
           reference_images: selectedImages,
           voice_sample_url: voiceSampleUrl,
@@ -184,12 +229,26 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">Voice Clone</h4>
                 <p className="text-lg">{voiceCloningKey ? '✅ Voice cloned' : '❌ No voice clone'}</p>
               </div>
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Face Analysis</h4>
+                <p className="text-lg">{faceDescription ? '✅ Analyzed' : '❌ Not analyzed'}</p>
+              </div>
             </div>
 
             {description && (
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">Description</h4>
                 <p>{description}</p>
+              </div>
+            )}
+
+            {faceDescription && (
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  AI Face Description
+                </h4>
+                <p className="text-sm">{faceDescription}</p>
               </div>
             )}
 
@@ -217,6 +276,7 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
         <Button 
           variant="ghost" 
           onClick={step === 1 ? onCancel : () => setStep(step - 1)}
+          disabled={isAnalyzingFace}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           {step === 1 ? 'Cancel' : 'Back'}
@@ -224,11 +284,20 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
 
         {step < 4 ? (
           <Button 
-            onClick={() => setStep(step + 1)}
-            disabled={!canProceed()}
+            onClick={() => handleStepChange(step + 1)}
+            disabled={!canProceed() || isAnalyzingFace}
           >
-            Next
-            <ArrowRight className="w-4 h-4 ml-2" />
+            {isAnalyzingFace ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing Face...
+              </>
+            ) : (
+              <>
+                Next
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </>
+            )}
           </Button>
         ) : (
           <Button 
