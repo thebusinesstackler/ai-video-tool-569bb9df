@@ -15,9 +15,11 @@ const Gallery = () => {
   const { toast } = useToast();
   const { isUploading, uploadImages, fetchImages } = useImageGallery();
   const [isMigrating, setIsMigrating] = useState(false);
-  const [migrationResult, setMigrationResult] = useState<{
-    migrated: number;
+  const [isAutoMigrating, setIsAutoMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState<{
+    totalMigrated: number;
     errors: number;
+    remaining: number;
     message: string;
   } | null>(null);
 
@@ -26,7 +28,20 @@ const Gallery = () => {
     await fetchImages();
   };
 
-  const runMigration = async () => {
+  const runSingleBatch = async (): Promise<{ migrated: number; errors: number; remaining: number; success: boolean }> => {
+    const { data, error } = await supabase.functions.invoke('migrate-images-to-storage', {});
+    
+    if (error) throw error;
+    
+    return {
+      migrated: data.migrated || 0,
+      errors: data.errors || 0,
+      remaining: data.remaining || 0,
+      success: data.success
+    };
+  };
+
+  const runAutoMigration = async () => {
     if (!user) {
       toast({
         title: "Not Authenticated",
@@ -36,28 +51,45 @@ const Gallery = () => {
       return;
     }
 
+    setIsAutoMigrating(true);
     setIsMigrating(true);
-    setMigrationResult(null);
+    setMigrationProgress({ totalMigrated: 0, errors: 0, remaining: 0, message: 'Starting migration...' });
+
+    let totalMigrated = 0;
+    let totalErrors = 0;
+    let remaining = 1; // Start with 1 to enter loop
 
     try {
-      const { data, error } = await supabase.functions.invoke('migrate-images-to-storage', {});
+      while (remaining > 0) {
+        const result = await runSingleBatch();
+        totalMigrated += result.migrated;
+        totalErrors += result.errors;
+        remaining = result.remaining;
 
-      if (error) throw error;
+        setMigrationProgress({
+          totalMigrated,
+          errors: totalErrors,
+          remaining,
+          message: remaining > 0 
+            ? `Migrated ${totalMigrated} images, ${remaining} remaining...` 
+            : `Complete! Migrated ${totalMigrated} images.`
+        });
 
-      setMigrationResult({
-        migrated: data.migrated || 0,
-        errors: data.errors || 0,
-        message: data.message || 'Migration complete'
-      });
+        // If no images were migrated in this batch, we're done
+        if (result.migrated === 0) break;
+        
+        // Small delay to prevent overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
       toast({
-        title: data.migrated > 0 ? "Migration Complete" : "No Images to Migrate",
-        description: data.message
+        title: "Migration Complete",
+        description: `Successfully migrated ${totalMigrated} images${totalErrors > 0 ? ` with ${totalErrors} errors` : ''}.`
       });
 
-      // Refresh the page to show updated images
-      if (data.migrated > 0) {
-        window.location.reload();
+      // Refresh to show updated images
+      if (totalMigrated > 0) {
+        await fetchImages(true);
       }
     } catch (error: any) {
       console.error('Migration error:', error);
@@ -68,7 +100,12 @@ const Gallery = () => {
       });
     } finally {
       setIsMigrating(false);
+      setIsAutoMigrating(false);
     }
+  };
+
+  const stopMigration = () => {
+    setIsAutoMigrating(false);
   };
 
   return (
@@ -96,36 +133,48 @@ const Gallery = () => {
               <div className="flex-1">
                 <p className="text-sm font-medium">Fix Loading Issues</p>
                 <p className="text-xs text-muted-foreground">
-                  Convert base64 images to storage URLs
+                  Auto-migrate all base64 images to storage URLs
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={runMigration}
-                disabled={isMigrating || !user}
-              >
-                {isMigrating ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Database className="w-4 h-4 mr-2" />
-                )}
-                {isMigrating ? 'Migrating...' : 'Migrate Images'}
-              </Button>
+              {isAutoMigrating ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={stopMigration}
+                >
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={runAutoMigration}
+                  disabled={isMigrating || !user}
+                >
+                  {isMigrating ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Database className="w-4 h-4 mr-2" />
+                  )}
+                  {isMigrating ? 'Migrating...' : 'Auto-Migrate All'}
+                </Button>
+              )}
             </CardContent>
-            {migrationResult && (
-              <div className={`px-4 pb-4 pt-0`}>
-                <div className={`flex items-center gap-2 text-xs ${migrationResult.errors > 0 ? 'text-orange-500' : 'text-green-500'}`}>
-                  {migrationResult.errors > 0 ? (
+            {migrationProgress && (
+              <div className="px-4 pb-4 pt-0">
+                <div className={`flex items-center gap-2 text-xs ${migrationProgress.errors > 0 ? 'text-orange-500' : 'text-green-500'}`}>
+                  {migrationProgress.remaining > 0 ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : migrationProgress.errors > 0 ? (
                     <AlertCircle className="w-3 h-3" />
                   ) : (
                     <CheckCircle className="w-3 h-3" />
                   )}
-                  {migrationResult.message}
+                  {migrationProgress.message}
                 </div>
               </div>
-              )}
-            </Card>
+            )}
+          </Card>
         </div>
         
         <ImageGallery />
