@@ -19,7 +19,9 @@ interface UseImageGalleryResult {
   images: GeneratedImage[];
   isLoading: boolean;
   isUploading: boolean;
-  fetchImages: () => Promise<void>;
+  hasMore: boolean;
+  fetchImages: (reset?: boolean) => Promise<void>;
+  loadMore: () => Promise<void>;
   saveImage: (params: {
     imageUrl: string;
     prompt?: string;
@@ -38,20 +40,62 @@ export function useImageGallery(): UseImageGalleryResult {
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 12;
 
-  const fetchImages = async () => {
+  const fetchImages = async (reset = false) => {
+    const currentPage = reset ? 0 : page;
+    if (reset) {
+      setPage(0);
+      setImages([]);
+    }
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('generated_images')
         .select('id, user_id, image_url, prompt, source, reference_image_url, transformation, scene_number, project_id, created_at')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
-      setImages(data || []);
+      
+      const newImages = data || [];
+      setHasMore(newImages.length === PAGE_SIZE);
+      
+      if (reset) {
+        setImages(newImages);
+      } else {
+        setImages(prev => [...prev, ...newImages]);
+      }
     } catch (error: any) {
       console.error('Error fetching images:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (isLoading || !hasMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('generated_images')
+        .select('id, user_id, image_url, prompt, source, reference_image_url, transformation, scene_number, project_id, created_at')
+        .order('created_at', { ascending: false })
+        .range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
+
+      if (error) throw error;
+      
+      const newImages = data || [];
+      setHasMore(newImages.length === PAGE_SIZE);
+      setImages(prev => [...prev, ...newImages]);
+    } catch (error: any) {
+      console.error('Error loading more images:', error);
     } finally {
       setIsLoading(false);
     }
@@ -215,14 +259,16 @@ export function useImageGallery(): UseImageGalleryResult {
   };
 
   useEffect(() => {
-    fetchImages();
+    fetchImages(true);
   }, []);
 
   return {
     images,
     isLoading,
     isUploading,
+    hasMore,
     fetchImages,
+    loadMore,
     saveImage,
     deleteImage,
     uploadImages
