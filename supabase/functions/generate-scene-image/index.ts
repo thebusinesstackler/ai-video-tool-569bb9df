@@ -40,9 +40,14 @@ serve(async (req) => {
     
     if (allReferenceImages.length > 0) {
       // Use multi-modal input with reference images for character consistency
-      const characterPrompt = characterDescription 
-        ? `Generate a photorealistic image. The person shown in the reference image(s) must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Study ALL provided reference images to ensure maximum consistency. Character: ${characterDescription}. Scene: ${prompt}`
-        : `Generate a photorealistic image. The person shown in the reference image(s) must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Study ALL provided reference images to ensure maximum consistency. Scene: ${prompt}`;
+      // IMPORTANT: Don't ask to change the person's appearance - just place them in the scene as they are
+      const characterPrompt = `Generate a cinematic, photorealistic image for a movie scene. 
+
+REFERENCE PERSON: Use the person from the reference image(s) as the main subject. Keep their EXACT appearance - same face, same features, same look. Do NOT change their hair color, eye color, or any physical features.
+
+SCENE TO CREATE: ${prompt}
+
+Place the reference person naturally into this scene setting. Focus on lighting, composition, and atmosphere while preserving the person's authentic appearance from the reference images.`;
       
       // Build content array with all reference images
       messageContent = [
@@ -54,10 +59,10 @@ serve(async (req) => {
         }))
       ];
     } else {
-      // Text-only prompt
+      // Text-only prompt - can use character description since there's no reference to conflict with
       const enhancedPrompt = characterDescription 
-        ? `${prompt}. Character description for consistency: ${characterDescription}`
-        : prompt;
+        ? `Generate a cinematic, photorealistic movie scene image. ${prompt}. The main character: ${characterDescription}`
+        : `Generate a cinematic, photorealistic movie scene image. ${prompt}`;
       messageContent = enhancedPrompt;
     }
 
