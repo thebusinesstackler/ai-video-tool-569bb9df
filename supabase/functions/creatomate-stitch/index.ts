@@ -15,8 +15,9 @@ interface VideoClip {
 interface StitchRequest {
   clips: VideoClip[];
   audioUrl?: string; // Combined voiceover audio URL
-  transition?: 'fade' | 'slide' | 'none';
+  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
+  transitionDuration?: number; // Duration in seconds (0.3 - 1.5)
 }
 
 serve(async (req) => {
@@ -30,7 +31,7 @@ serve(async (req) => {
       throw new Error('CREATOMATE_API_KEY is not configured');
     }
 
-    const { clips, audioUrl, transition = 'fade', captionStyle = 'bottom' } = await req.json() as StitchRequest;
+    const { clips, audioUrl, transition = 'crossfade', captionStyle = 'bottom', transitionDuration = 0.8 } = await req.json() as StitchRequest;
 
     if (!clips || clips.length === 0) {
       throw new Error('No video clips provided');
@@ -49,27 +50,64 @@ serve(async (req) => {
       const videoDuration = Math.min(clip.audioDuration || clip.duration || 5, 8);
       console.log(`Clip ${index + 1}: video duration ${videoDuration}s (audio was ${clip.audioDuration}s, preset was ${clip.duration}s)`);
       
+      // Build transition animations based on type
+      const getTransitionAnimations = () => {
+        if (index === 0 || transition === 'none') return [];
+        
+        const duration = Math.min(Math.max(transitionDuration, 0.3), 1.5);
+        
+        switch (transition) {
+          case 'fade':
+            return [{
+              type: 'fade',
+              fade: 'in',
+              duration,
+              easing: 'ease-in-out'
+            }];
+          case 'slide':
+            return [{
+              type: 'slide',
+              direction: index % 2 === 0 ? 'left' : 'right', // Alternate directions
+              duration,
+              easing: 'ease-out'
+            }];
+          case 'zoom':
+            return [{
+              type: 'scale',
+              start_scale: '120%',
+              end_scale: '100%',
+              duration,
+              easing: 'ease-out'
+            }, {
+              type: 'fade',
+              fade: 'in',
+              duration: duration * 0.5
+            }];
+          case 'crossfade':
+            // Crossfade: overlap with previous clip
+            return [{
+              type: 'fade',
+              fade: 'in',
+              duration,
+              easing: 'linear'
+            }];
+          default:
+            return [];
+        }
+      };
+      
+      // For crossfade, start this clip earlier to overlap
+      const overlapTime = transition === 'crossfade' && index > 0 ? transitionDuration * 0.5 : 0;
+      const adjustedTime = Math.max(0, currentTime - overlapTime);
+      
       // Add video element
       elements.push({
         type: 'video',
         source: clip.url,
-        time: currentTime,
-        duration: videoDuration,
-        // Add fade transition between clips
-        ...(transition === 'fade' && index > 0 ? {
-          animations: [{
-            type: 'fade',
-            fade: 'in',
-            duration: 0.5
-          }]
-        } : {}),
-        ...(transition === 'slide' && index > 0 ? {
-          animations: [{
-            type: 'slide',
-            direction: 'left',
-            duration: 0.5
-          }]
-        } : {})
+        time: adjustedTime,
+        duration: videoDuration + overlapTime, // Extend to cover overlap
+        fit: 'cover',
+        animations: getTransitionAnimations()
       });
 
       // Add caption text overlay if provided

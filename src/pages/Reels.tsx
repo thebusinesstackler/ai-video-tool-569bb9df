@@ -244,8 +244,11 @@ const Reels = () => {
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5' | 'wan-animate'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
-  // Voice selection for TTS
-  const [selectedVoice, setSelectedVoice] = useState<'nova' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'shimmer'>('nova');
+  // Voice selection for TTS (Google Cloud TTS voices)
+  const [selectedVoice, setSelectedVoice] = useState<string>('en-US-Journey-F');
+  
+  // Transition style for video stitching
+  const [transitionStyle, setTransitionStyle] = useState<'fade' | 'slide' | 'zoom' | 'crossfade' | 'none'>('crossfade');
   
   // Podcast mode
   const [isPodcastMode, setIsPodcastMode] = useState(false);
@@ -920,8 +923,9 @@ const Reels = () => {
           const result = await stitchWithCreatomate({
             clips,
             audioUrl: mergedAudioUrl,
-            transition: 'fade',
-            captionStyle: 'bottom'
+            transition: transitionStyle,
+            captionStyle: 'bottom',
+            transitionDuration: transitionStyle === 'crossfade' ? 1.0 : 0.6
           });
           
           if (result.success && result.videoUrl) {
@@ -1281,8 +1285,9 @@ const Reels = () => {
         const result = await stitchWithCreatomate({
           clips,
           audioUrl: mergedAudioUrl,
-          transition: 'fade',
-          captionStyle: 'bottom'
+          transition: transitionStyle,
+          captionStyle: 'bottom',
+          transitionDuration: transitionStyle === 'crossfade' ? 1.0 : 0.6
         });
 
         if (result.success && result.videoUrl) {
@@ -1670,6 +1675,22 @@ const Reels = () => {
                         <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
                       </div>
                     </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Transition Style</Label>
+                      <Select value={transitionStyle} onValueChange={(v) => setTransitionStyle(v as typeof transitionStyle)} disabled={isGenerating}>
+                        <SelectTrigger className="bg-background border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="crossfade">Crossfade (Smooth)</SelectItem>
+                          <SelectItem value="fade">Fade (Quick)</SelectItem>
+                          <SelectItem value="slide">Slide (Dynamic)</SelectItem>
+                          <SelectItem value="zoom">Zoom (Cinematic)</SelectItem>
+                          <SelectItem value="none">None (Hard Cut)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 )}
 
@@ -1709,7 +1730,7 @@ const Reels = () => {
             {/* Voice Selection - Always Visible */}
             <VoiceSelector 
               selectedVoice={selectedVoice}
-              onVoiceSelect={(v) => setSelectedVoice(v as typeof selectedVoice)}
+              onVoiceSelect={setSelectedVoice}
               disabled={isGenerating}
             />
 
