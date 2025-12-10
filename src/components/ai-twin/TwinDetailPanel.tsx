@@ -972,8 +972,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
       {/* Make Twin Speak Section */}
       <TwinSpeaker 
         twinName={twin.name}
-        voiceSampleUrl={voiceSampleUrl}
-        hasClonedVoice={!!voiceCloningKey}
+        voiceCloningKey={voiceCloningKey}
       />
 
       {/* Reference Images Gallery */}

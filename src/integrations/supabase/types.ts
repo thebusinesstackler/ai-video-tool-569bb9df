@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       ai_twins: {
         Row: {
+          consent_audio_url: string | null
           created_at: string
           description: string | null
           face_description: string | null
@@ -29,6 +30,7 @@ export type Database = {
           voice_sample_url: string | null
         }
         Insert: {
+          consent_audio_url?: string | null
           created_at?: string
           description?: string | null
           face_description?: string | null
@@ -42,6 +44,7 @@ export type Database = {
           voice_sample_url?: string | null
         }
         Update: {
+          consent_audio_url?: string | null
           created_at?: string
           description?: string | null
           face_description?: string | null

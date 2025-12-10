@@ -1,40 +1,51 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Mic, Upload, Play, Pause, Loader2, Check, Volume2, StopCircle, Trash2 } from 'lucide-react';
+import { Mic, Upload, Play, Pause, Loader2, Check, Volume2, StopCircle, Trash2, AlertCircle } from 'lucide-react';
 
 interface VoiceClonerProps {
   voiceSampleUrl: string | null;
   voiceCloningKey: string | null;
+  consentAudioUrl?: string | null;
   onVoiceSampleChange: (url: string | null) => void;
   onVoiceCloningKeyChange: (key: string | null) => void;
+  onConsentAudioChange?: (url: string | null) => void;
 }
+
+const CONSENT_SCRIPT = "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model";
+
+type RecordingStep = 'idle' | 'consent' | 'reference';
 
 export const VoiceCloner: React.FC<VoiceClonerProps> = ({
   voiceSampleUrl,
   voiceCloningKey,
+  consentAudioUrl,
   onVoiceSampleChange,
-  onVoiceCloningKeyChange
+  onVoiceCloningKeyChange,
+  onConsentAudioChange
 }) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
+  const [recordingStep, setRecordingStep] = useState<RecordingStep>('idle');
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [tempConsentUrl, setTempConsentUrl] = useState<string | null>(null);
 
-  const startRecording = async () => {
+  const startRecording = async (step: RecordingStep) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -47,12 +58,13 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await uploadAudioBlob(audioBlob);
+        await uploadAudioBlob(audioBlob, step);
         stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      setRecordingStep(step);
       setRecordingTime(0);
 
       const interval = setInterval(() => {
@@ -81,13 +93,13 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
     }
   };
 
-  const uploadAudioBlob = async (blob: Blob) => {
+  const uploadAudioBlob = async (blob: Blob, step: RecordingStep) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Path must start with user ID for RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
-      const fileName = `${user.id}/voice-samples/${Date.now()}.webm`;
+      const folder = step === 'consent' ? 'consent-audio' : 'voice-samples';
+      const fileName = `${user.id}/${folder}/${Date.now()}.webm`;
       const { data, error } = await supabase.storage
         .from('project-files')
         .upload(fileName, blob, { contentType: 'audio/webm' });
@@ -98,11 +110,22 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
         .from('project-files')
         .getPublicUrl(fileName);
 
-      onVoiceSampleChange(urlData.publicUrl);
-      toast({
-        title: 'Audio Uploaded',
-        description: 'Your voice sample is ready for cloning'
-      });
+      if (step === 'consent') {
+        setTempConsentUrl(urlData.publicUrl);
+        onConsentAudioChange?.(urlData.publicUrl);
+        toast({
+          title: 'Consent Recorded',
+          description: 'Now record your voice sample (30+ seconds of natural speech)'
+        });
+        setRecordingStep('idle');
+      } else {
+        onVoiceSampleChange(urlData.publicUrl);
+        toast({
+          title: 'Voice Sample Uploaded',
+          description: 'Both recordings ready for cloning'
+        });
+        setRecordingStep('idle');
+      }
     } catch (error: any) {
       console.error('Error uploading audio:', error);
       toast({
@@ -110,6 +133,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
         description: error.message || 'Failed to upload audio',
         variant: 'destructive'
       });
+      setRecordingStep('idle');
     }
   };
 
@@ -126,14 +150,25 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
       return;
     }
 
-    await uploadAudioBlob(file);
+    // For file uploads, we still need consent first
+    if (!tempConsentUrl && !consentAudioUrl) {
+      toast({
+        title: 'Consent Required',
+        description: 'Please record the consent statement first before uploading a voice sample',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    await uploadAudioBlob(file, 'reference');
   };
 
   const cloneVoice = async () => {
-    if (!voiceSampleUrl) {
+    const consent = tempConsentUrl || consentAudioUrl;
+    if (!voiceSampleUrl || !consent) {
       toast({
-        title: 'No Audio Sample',
-        description: 'Please record or upload an audio sample first',
+        title: 'Missing Audio',
+        description: 'Please record both consent and voice sample first',
         variant: 'destructive'
       });
       return;
@@ -143,7 +178,11 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
       setIsCloning(true);
 
       const { data, error } = await supabase.functions.invoke('clone-voice', {
-        body: { audioUrl: voiceSampleUrl }
+        body: { 
+          audioUrl: voiceSampleUrl,
+          consentAudioUrl: consent,
+          consentScript: CONSENT_SCRIPT
+        }
       });
 
       if (error) throw error;
@@ -152,10 +191,10 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
         onVoiceCloningKeyChange(data.voiceCloningKey);
         toast({
           title: 'Voice Cloned!',
-          description: 'Your voice has been successfully cloned'
+          description: 'Your voice has been successfully cloned with Google Cloud'
         });
       } else {
-        throw new Error('No voice cloning key returned');
+        throw new Error(data?.error || 'No voice cloning key returned');
       }
     } catch (error: any) {
       console.error('Error cloning voice:', error);
@@ -170,34 +209,22 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
   };
 
   const playPreview = async () => {
-    console.log('playPreview called', { voiceSampleUrl, audioRef: audioRef.current });
-    
-    if (!audioRef.current || !voiceSampleUrl) {
-      console.log('Missing audioRef or voiceSampleUrl');
-      return;
-    }
+    if (!audioRef.current || !voiceSampleUrl) return;
     
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
       try {
-        console.log('Setting audio source to:', voiceSampleUrl);
         audioRef.current.src = voiceSampleUrl;
         audioRef.current.load();
-        
-        // Add event listeners for debugging
-        audioRef.current.onloadeddata = () => console.log('Audio loaded');
-        audioRef.current.onerror = (e) => console.error('Audio error:', e);
-        
         await audioRef.current.play();
-        console.log('Audio playing');
         setIsPlaying(true);
       } catch (error) {
         console.error('Error playing audio:', error);
         toast({
           title: 'Playback Failed',
-          description: 'Could not play audio. The file may be corrupted or unsupported.',
+          description: 'Could not play audio.',
           variant: 'destructive'
         });
       }
@@ -207,7 +234,10 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
   const clearAudio = () => {
     onVoiceSampleChange(null);
     onVoiceCloningKeyChange(null);
+    onConsentAudioChange?.(null);
+    setTempConsentUrl(null);
     setIsPlaying(false);
+    setRecordingStep('idle');
   };
 
   const formatTime = (seconds: number) => {
@@ -216,48 +246,108 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const hasConsent = tempConsentUrl || consentAudioUrl;
+  const hasVoiceSample = voiceSampleUrl;
+  const isReadyToClone = hasConsent && hasVoiceSample && !voiceCloningKey;
+
   return (
     <div className="space-y-6">
       <div>
         <h4 className="font-medium">Clone Your Voice (Optional)</h4>
         <p className="text-sm text-muted-foreground">
-          Record or upload 30+ seconds of clear speech to create a voice clone using Google Cloud
+          Google Cloud voice cloning requires a consent recording and a voice sample
         </p>
       </div>
 
-      {/* Recording/Upload Options */}
-      {!voiceSampleUrl ? (
-        <div className="grid grid-cols-2 gap-4">
-          <Card 
-            className={`cursor-pointer transition-all hover:border-primary ${isRecording ? 'border-destructive bg-destructive/5' : ''}`}
-            onClick={isRecording ? stopRecording : startRecording}
-          >
-            <CardContent className="flex flex-col items-center justify-center p-8">
-              {isRecording ? (
-                <>
-                  <StopCircle className="w-12 h-12 text-destructive mb-3 animate-pulse" />
-                  <p className="font-medium">Recording...</p>
-                  <p className="text-2xl font-mono mt-2">{formatTime(recordingTime)}</p>
-                  <p className="text-xs text-muted-foreground mt-2">Click to stop</p>
-                </>
-              ) : (
-                <>
-                  <Mic className="w-12 h-12 text-primary mb-3" />
-                  <p className="font-medium">Record Voice</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click to start recording</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
+      {/* Step 1: Consent Recording */}
+      {!hasConsent && !isRecording && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-6 h-6 text-primary shrink-0 mt-1" />
+              <div className="flex-1">
+                <h5 className="font-medium mb-2">Step 1: Record Consent Statement</h5>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Google requires you to say the following consent statement:
+                </p>
+                <blockquote className="border-l-4 border-primary pl-4 py-2 mb-4 bg-background/50 rounded">
+                  <p className="text-sm italic">"{CONSENT_SCRIPT}"</p>
+                </blockquote>
+                <Button onClick={() => startRecording('consent')}>
+                  <Mic className="w-4 h-4 mr-2" />
+                  Record Consent
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-          <Card 
-            className="cursor-pointer transition-all hover:border-primary"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <CardContent className="flex flex-col items-center justify-center p-8">
-              <Upload className="w-12 h-12 text-primary mb-3" />
-              <p className="font-medium">Upload Audio</p>
-              <p className="text-xs text-muted-foreground mt-1">MP3, WAV, or other audio</p>
+      {/* Recording UI */}
+      {isRecording && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <StopCircle className="w-16 h-16 text-destructive mb-4 animate-pulse" />
+            <p className="font-medium text-lg mb-2">
+              Recording {recordingStep === 'consent' ? 'Consent' : 'Voice Sample'}...
+            </p>
+            <p className="text-3xl font-mono mb-4">{formatTime(recordingTime)}</p>
+            {recordingStep === 'consent' && (
+              <p className="text-sm text-muted-foreground text-center mb-4 max-w-md">
+                Say: "{CONSENT_SCRIPT}"
+              </p>
+            )}
+            {recordingStep === 'reference' && (
+              <p className="text-sm text-muted-foreground mb-4">
+                Speak naturally for 30+ seconds
+              </p>
+            )}
+            <Button variant="destructive" onClick={stopRecording}>
+              <StopCircle className="w-4 h-4 mr-2" />
+              Stop Recording
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 2: Voice Sample Recording */}
+      {hasConsent && !hasVoiceSample && !isRecording && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
+              <Check className="w-3 h-3 mr-1" />
+              Consent Recorded
+            </Badge>
+          </div>
+          
+          <Card className="border-primary/50">
+            <CardContent className="p-6">
+              <h5 className="font-medium mb-2">Step 2: Record Voice Sample</h5>
+              <p className="text-sm text-muted-foreground mb-4">
+                Record 30+ seconds of clear, natural speech for best results
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <Card 
+                  className="cursor-pointer transition-all hover:border-primary"
+                  onClick={() => startRecording('reference')}
+                >
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <Mic className="w-10 h-10 text-primary mb-2" />
+                    <p className="font-medium text-sm">Record Voice</p>
+                  </CardContent>
+                </Card>
+
+                <Card 
+                  className="cursor-pointer transition-all hover:border-primary"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <Upload className="w-10 h-10 text-primary mb-2" />
+                    <p className="font-medium text-sm">Upload Audio</p>
+                  </CardContent>
+                </Card>
+              </div>
             </CardContent>
           </Card>
 
@@ -269,7 +359,10 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
             className="hidden"
           />
         </div>
-      ) : (
+      )}
+
+      {/* Both recordings complete - ready to clone */}
+      {hasVoiceSample && (
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -282,8 +375,17 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
                   {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 </Button>
                 <div>
-                  <p className="font-medium">Voice Sample Ready</p>
-                  <p className="text-xs text-muted-foreground">Click play to preview</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30 text-xs">
+                      <Check className="w-3 h-3 mr-1" />
+                      Consent
+                    </Badge>
+                    <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30 text-xs">
+                      <Check className="w-3 h-3 mr-1" />
+                      Voice Sample
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Click play to preview voice sample</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -295,7 +397,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
                 ) : (
                   <Button
                     onClick={cloneVoice}
-                    disabled={isCloning}
+                    disabled={isCloning || !isReadyToClone}
                     className="bg-gradient-primary"
                   >
                     {isCloning ? (
@@ -334,7 +436,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
           <li>Record in a quiet environment</li>
           <li>Speak clearly and naturally for 30+ seconds</li>
           <li>Avoid background noise and music</li>
-          <li>Voice cloning is powered by Google Cloud</li>
+          <li>Voice cloning is powered by Google Cloud Chirp 3</li>
         </ul>
       </div>
     </div>

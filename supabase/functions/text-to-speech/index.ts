@@ -29,70 +29,18 @@ const GOOGLE_VOICES: Record<string, VoiceConfig> = {
 // Default voice if none specified or not found
 const DEFAULT_VOICE: VoiceConfig = { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' };
 
-// Google Cloud Chirp 3 Instant Clone Voice - uses reference audio for voice cloning
+// Google Cloud TTS with actual voice cloning key (from generateVoiceCloningKey API)
 async function generateClonedVoiceTTS(
   text: string,
   apiKey: string,
-  clonedVoiceUrl: string,
+  voiceCloningKey: string,
   speakingRate: number = 1.0
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
-    console.log('Generating TTS with Google Cloud Chirp 3 cloned voice');
-    console.log('Reference audio URL:', clonedVoiceUrl);
+    console.log('Generating TTS with Google Cloud cloned voice');
+    console.log('Voice cloning key length:', voiceCloningKey.length);
 
-    // First, fetch the reference audio and convert to base64
-    let referenceAudioBase64: string;
-    
-    // Check if it's a Supabase storage URL
-    const urlParts = clonedVoiceUrl.split('/storage/v1/object/public/');
-    if (urlParts.length === 2) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      
-      const pathParts = urlParts[1].split('/');
-      const bucket = pathParts[0];
-      const filePath = pathParts.slice(1).join('/');
-      
-      console.log(`Downloading reference audio from bucket: ${bucket}, path: ${filePath}`);
-      
-      const { data, error } = await supabase.storage.from(bucket).download(filePath);
-      if (error) {
-        console.error('Failed to download reference audio:', error);
-        return null;
-      }
-      
-      const audioBuffer = await data.arrayBuffer();
-      const audioBytes = new Uint8Array(audioBuffer);
-      let binary = '';
-      const chunkSize = 32768;
-      for (let i = 0; i < audioBytes.length; i += chunkSize) {
-        const chunk = audioBytes.subarray(i, i + chunkSize);
-        binary += String.fromCharCode.apply(null, Array.from(chunk));
-      }
-      referenceAudioBase64 = btoa(binary);
-    } else {
-      // External URL - fetch directly
-      const audioResponse = await fetch(clonedVoiceUrl);
-      if (!audioResponse.ok) {
-        console.error('Failed to fetch reference audio from URL');
-        return null;
-      }
-      const audioBuffer = await audioResponse.arrayBuffer();
-      const audioBytes = new Uint8Array(audioBuffer);
-      let binary = '';
-      const chunkSize = 32768;
-      for (let i = 0; i < audioBytes.length; i += chunkSize) {
-        const chunk = audioBytes.subarray(i, i + chunkSize);
-        binary += String.fromCharCode.apply(null, Array.from(chunk));
-      }
-      referenceAudioBase64 = btoa(binary);
-    }
-
-    console.log('Reference audio loaded, generating cloned voice speech...');
-
-    // Use Google Cloud TTS with Chirp 3 instant voice cloning
-    // This passes the reference audio for actual voice cloning
+    // Use Google Cloud TTS with the actual voice cloning key
     const response = await fetch(`https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
       headers: {
@@ -102,36 +50,27 @@ async function generateClonedVoiceTTS(
         input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
         voice: {
           languageCode: 'en-US',
-          name: 'en-US-Chirp3-HD-Alnilam', // Chirp 3 HD voice that supports cloning
-          customVoice: {
-            model: 'chirp3-hd',
-            reportedUsage: 'REALTIME',
-          },
+          voiceClone: {
+            voiceCloningKey: voiceCloningKey
+          }
         },
         audioConfig: {
           audioEncoding: 'MP3',
           speakingRate: speakingRate,
           pitch: 0,
         },
-        // Include reference audio for instant voice cloning
-        voiceCloneParams: {
-          voiceCloningKey: referenceAudioBase64,
-        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google Chirp 3 TTS error:', response.status, errorText);
-      
-      // Fallback to standard Journey voice
-      console.log('Falling back to standard voice...');
+      console.error('Google Cloud cloned voice TTS error:', response.status, errorText);
       return null;
     }
 
     const data = await response.json();
     if (data.audioContent) {
-      console.log('Google Chirp 3 cloned voice TTS successful');
+      console.log('Google Cloud cloned voice TTS successful');
       return {
         audioContent: data.audioContent,
         audioUrl: `data:audio/mp3;base64,${data.audioContent}`
@@ -145,7 +84,7 @@ async function generateClonedVoiceTTS(
   }
 }
 
-// Google Cloud TTS - Primary engine
+// Google Cloud TTS - Primary engine for standard voices
 async function generateGoogleTTS(
   text: string, 
   apiKey: string, 
@@ -171,7 +110,7 @@ async function generateGoogleTTS(
           audioEncoding: 'MP3',
           speakingRate: speakingRate,
           pitch: 0,
-          effectsProfileId: ['headphone-class-device'] // Better audio quality
+          effectsProfileId: ['headphone-class-device']
         }
       }),
     });
@@ -319,21 +258,21 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'en-US-Journey-D', speed = 1, clonedVoiceUrl } = await req.json();
+    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Cloned: ${!!clonedVoiceUrl}`);
+    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!voiceCloningKey}`);
 
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     
-    // If cloned voice URL is provided, try to use voice cloning
-    if (clonedVoiceUrl && googleApiKey) {
-      console.log('Attempting cloned voice generation...');
-      const clonedResult = await generateClonedVoiceTTS(text, googleApiKey, clonedVoiceUrl, speed);
+    // If voice cloning key is provided, use cloned voice
+    if (voiceCloningKey && googleApiKey) {
+      console.log('Attempting cloned voice generation with stored key...');
+      const clonedResult = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, speed);
       if (clonedResult) {
         return new Response(
           JSON.stringify({ ...clonedResult, isClonedVoice: true }),

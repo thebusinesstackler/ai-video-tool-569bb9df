@@ -19,15 +19,14 @@ import {
 
 interface TwinSpeakerProps {
   twinName: string;
-  voiceSampleUrl: string | null;
-  hasClonedVoice: boolean;
+  voiceCloningKey: string | null;
 }
 
 export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({ 
   twinName, 
-  voiceSampleUrl,
-  hasClonedVoice 
+  voiceCloningKey
 }) => {
+  const hasClonedVoice = !!voiceCloningKey;
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
   
@@ -114,7 +113,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: script,
-          clonedVoiceUrl: voiceSampleUrl
+          voiceCloningKey: voiceCloningKey
         }
       });
 
