@@ -74,6 +74,20 @@ AVAILABLE LIGHTING STYLES (pick the most appropriate):
 - "overcast": Soft, diffused lighting, melancholy
 - "harsh": Strong direct lighting, sharp shadows, confrontation
 
+AVAILABLE MOODS (pick the most fitting):
+- "tense": Suspenseful, thriller moments - Suggested music: Dark ambient, low drones, heartbeat sounds
+- "romantic": Love, intimacy, connection - Suggested music: Soft piano, strings, gentle acoustic
+- "action": Fast-paced, exciting, battles - Suggested music: Intense orchestral, driving percussion, electronic beats
+- "melancholic": Sad, reflective, loss - Suggested music: Minor key piano, sorrowful strings, rain ambience
+- "triumphant": Victory, achievement, climax - Suggested music: Epic orchestral, brass fanfares, uplifting choir
+- "mysterious": Intrigue, secrets, unknown - Suggested music: Ethereal synths, subtle tension, whispered tones
+- "peaceful": Calm, serene, contemplative - Suggested music: Ambient nature sounds, soft pads, gentle melody
+- "horror": Fear, dread, supernatural - Suggested music: Dissonant strings, sudden stings, eerie silence
+- "comedic": Funny, lighthearted, playful - Suggested music: Quirky instruments, upbeat tempo, playful melody
+- "epic": Grand scale, important moment - Suggested music: Full orchestra, choir, powerful drums
+- "nostalgic": Memory, past, bittersweet - Suggested music: Vintage sounds, music box, warm analog tones
+- "inspiring": Hope, motivation, uplift - Suggested music: Rising crescendo, major key, building energy
+
 CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown, no code blocks):
 [
   {
@@ -85,7 +99,9 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
     "dialogue": "Complete voiceover narration for the scene...",
     "imagePrompt": "Highly detailed cinematic prompt for image generation${characterDescription ? '. MUST include the main character with their exact appearance.' : ''}",
     "selectedCameraAngle": "close-up",
-    "selectedLighting": "golden-hour"
+    "selectedLighting": "golden-hour",
+    "mood": "romantic",
+    "suggestedMusic": "Soft piano with gentle strings, warm and intimate atmosphere"
   }
 ]
 
@@ -95,7 +111,9 @@ IMPORTANT FORMATTING RULES:
 - Describe sounds and dialogue naturally in plain text
 - Make narration 60-120 seconds when spoken to create complete movie scenes
 - Include character dialogue, sound descriptions, and atmospheric details all in natural flowing text
-- ALWAYS include selectedCameraAngle and selectedLighting - pick the BEST options based on the scene's mood, action, and emotional impact
+- ALWAYS include selectedCameraAngle, selectedLighting, mood, and suggestedMusic
+- Pick the BEST options based on the scene's mood, action, and emotional impact
+- suggestedMusic should be a specific, descriptive suggestion for background music/audio that matches the mood
 ${characterDescription ? `- The main character (${characterDescription}) MUST appear in every scene's imagePrompt with consistent appearance` : ''}
 
 Return ONLY the JSON array, no other text or formatting.`;
