@@ -204,9 +204,7 @@ serve(async (req) => {
       portraitImage = null,
       voiceovers = [],
       voice = 'nova', // Voice for TTS
-      preGeneratedImages = [], // Pre-generated images from preview
-      enableVeo3Mode = false, // VEO3 mode - generates video with built-in voice
-      veo3Model = 'veo3-fast' // VEO3 model variant
+      preGeneratedImages = [] // Pre-generated images from preview
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -220,7 +218,6 @@ serve(async (req) => {
     console.log('Scenes:', scenes.length);
     console.log('Add captions:', addCaptions);
     console.log('Use WaveSpeed:', useWaveSpeed);
-    console.log('VEO3 Mode:', enableVeo3Mode, 'Model:', veo3Model);
     console.log('Enable Lip Sync:', enableLipSync);
     console.log('Lip Sync Model:', lipSyncModel);
     console.log('Portrait Image provided:', !!portraitImage);
@@ -357,7 +354,6 @@ serve(async (req) => {
     
     if (useWaveSpeed && WAVESPEED_API_KEY && finalImageUrls.length > 0) {
       console.log('Starting WaveSpeed video generation for', finalImageUrls.length, 'scenes');
-      console.log('VEO3 mode:', enableVeo3Mode ? `Yes (${veo3Model})` : 'No');
       console.log('Lip sync mode:', enableLipSync ? `Yes (${lipSyncModel})` : 'No');
       
       for (let i = 0; i < finalImageUrls.length; i++) {
@@ -385,27 +381,8 @@ serve(async (req) => {
         
         console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
         
-        // VEO3 MODE: Generate video with built-in voice from prompt (no separate TTS needed)
-        // Uses WaveSpeed text-to-video which generates video from text description
-        if (enableVeo3Mode && !scene.isIntro && !scene.isOutro && scene.narration) {
-          console.log(`Using VEO3/Text-to-Video mode for scene ${scene.sceneNumber} - generating video from prompt`);
-          
-          // Use WaveSpeed text-to-video model (WAN 2.5 is reliable and generates good quality)
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/text-to-video';
-          
-          // Build prompt that includes what the character should SAY
-          // The model will generate a video depicting the scene with dialogue
-          const voicePrompt = `${scene.visualDescription}. A person speaking the words: "${scene.narration}" with clear speech, natural expression, and engaging delivery. Cinematic quality, vertical 9:16 aspect ratio for social media.`;
-          
-          requestBody = {
-            prompt: voicePrompt,
-            duration: clipDuration,
-            seed: Math.floor(Math.random() * 2147483647),
-            resolution: "480p"
-          };
-        }
         // LIP SYNC MODE: For lip sync scenes (not intro/outro), use the lip sync model
-        else if (enableLipSync && !scene.isIntro && !scene.isOutro && scene.narration) {
+        if (enableLipSync && !scene.isIntro && !scene.isOutro && scene.narration) {
           // Use lip sync model with native voice or provided audio
           console.log(`Using lip sync model ${lipSyncModel} for scene ${scene.sceneNumber}`);
           
@@ -516,13 +493,12 @@ serve(async (req) => {
             
             if (videoData.code === 200 && videoData.data?.id) {
               // Determine if this model has embedded audio
-              // VEO3 text-to-video and lip sync models (infinitetalk, wan-lipsync, avatar-omni) have embedded audio
+              // Lip sync models (infinitetalk, wan-lipsync, avatar-omni) have embedded audio
               // Regular image-to-video does NOT have embedded audio
-              const isVeo3 = enableVeo3Mode && !scene.isIntro && !scene.isOutro;
               const isActualLipSync = enableLipSync && !scene.isIntro && !scene.isOutro && 
                 (apiEndpoint.includes('infinitetalk') || apiEndpoint.includes('avatar-omni') || 
                  (apiEndpoint.includes('wan-animate') && requestBody.audio));
-              const hasEmbeddedAudio = isVeo3 || isActualLipSync;
+              const hasEmbeddedAudio = isActualLipSync;
               
               console.log(`Scene ${scene.sceneNumber}: Model=${apiEndpoint.split('/').pop()}, hasEmbeddedAudio=${hasEmbeddedAudio}`);
               
@@ -537,9 +513,8 @@ serve(async (req) => {
             const errorText = await videoResponse.text();
             console.error('WaveSpeed error for scene', scene.sceneNumber, ':', errorText);
             
-            // Fallback to regular image-to-video if VEO3 or lip sync fails
-            const usingSpecialMode = enableVeo3Mode || enableLipSync;
-            if (usingSpecialMode) {
+            // Fallback to regular image-to-video if lip sync fails
+            if (enableLipSync) {
               console.log('Falling back to regular image-to-video for scene', scene.sceneNumber);
               
               const fallbackResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
