@@ -240,10 +240,42 @@ const Reels = () => {
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
   const [characterDescription, setCharacterDescription] = useState('');
+  const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
+
+  // Auto-analyze reference image for character description
+  const analyzeReferenceImage = async (imageUrl: string) => {
+    setIsAnalyzingReference(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-reference-image', {
+        body: { imageUrl }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.description) {
+        setCharacterDescription(data.description);
+        toast({
+          title: "Character Detected",
+          description: `Auto-filled: ${data.description}`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to analyze reference image:', error);
+      // Don't show error toast - just silently fail and let user fill manually
+    } finally {
+      setIsAnalyzingReference(false);
+    }
+  };
+
+  // Helper to set reference and trigger analysis
+  const handleReferenceSelected = (imageUrl: string) => {
+    setPreSelectedReference(imageUrl);
+    analyzeReferenceImage(imageUrl);
+  };
 
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -1817,6 +1849,7 @@ const Reels = () => {
                               onClick={() => {
                                 setPreSelectedReference(null);
                                 setPreReferenceTransformation('');
+                                setCharacterDescription('');
                               }}
                             >
                               <X className="w-3 h-3" />
@@ -1845,7 +1878,7 @@ const Reels = () => {
                           
                           {/* From Gallery */}
                           <GalleryImagePicker
-                            onSelect={(imageUrl) => setPreSelectedReference(imageUrl)}
+                            onSelect={(imageUrl) => handleReferenceSelected(imageUrl)}
                             title="Select Reference from Gallery"
                             trigger={
                               <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
@@ -1863,7 +1896,7 @@ const Reels = () => {
                                   <div 
                                     key={char.id}
                                     className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 border-border hover:border-primary transition-colors relative group"
-                                    onClick={() => setPreSelectedReference(char.reference_images[0])}
+                                    onClick={() => handleReferenceSelected(char.reference_images[0])}
                                     title={char.name}
                                   >
                                     <img 
@@ -1897,14 +1930,14 @@ const Reels = () => {
                               .upload(fileName, file, { contentType: file.type });
                             if (!uploadError && uploadData) {
                               const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                              setPreSelectedReference(publicUrl.publicUrl);
+                              handleReferenceSelected(publicUrl.publicUrl);
                               return;
                             }
                           }
                           // Fallback to base64
                           const reader = new FileReader();
                           reader.onload = (ev) => {
-                            setPreSelectedReference(ev.target?.result as string);
+                            handleReferenceSelected(ev.target?.result as string);
                           };
                           reader.readAsDataURL(file);
                         }}
@@ -1915,15 +1948,24 @@ const Reels = () => {
                         <Label className="text-xs flex items-center gap-2">
                           <User className="w-3 h-3" />
                           Character Description (for script)
+                          {isAnalyzingReference && (
+                            <span className="flex items-center gap-1 text-primary">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span className="text-[10px]">Detecting...</span>
+                            </span>
+                          )}
                         </Label>
                         <Input
                           placeholder="e.g., Male entrepreneur, 30s, professional attire"
                           value={characterDescription}
                           onChange={(e) => setCharacterDescription(e.target.value)}
                           className="text-sm"
+                          disabled={isAnalyzingReference}
                         />
                         <p className="text-[10px] text-muted-foreground">
-                          Describe the person to ensure all generated scripts match their gender, age, and appearance
+                          {preSelectedReference 
+                            ? "Auto-detected from image. Edit if needed to ensure scripts match the character."
+                            : "Describe the person to ensure all generated scripts match their gender, age, and appearance"}
                         </p>
                       </div>
                     </CardContent>
