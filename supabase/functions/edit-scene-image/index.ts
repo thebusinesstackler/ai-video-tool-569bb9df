@@ -81,21 +81,21 @@ ${backgroundInstruction}
 BUT APPLY THIS TRANSFORMATION: ${characterTransformation}
 
 Keep the scene composition similar but transform the character as specified.`
-        : `Generate a new scene image based on this prompt: ${prompt}
+        : `Generate a scene image based on this prompt: ${prompt}
 
 ${characterInstruction}${cameraInstruction}${backgroundInstruction}
 
-CRITICAL INSTRUCTION: The main character/person in the new image MUST look EXACTLY like the person in the reference image provided. Maintain the same:
-- Facial features (face shape, eyes, nose, mouth)
-- Hair style and color
-- Skin tone
-- Body type and proportions
-- Clothing style if visible
+Use the reference image as STYLE INSPIRATION for:
+- Professional appearance and demeanor
+- Clothing style and aesthetic
+- Lighting quality and composition
+- Scene atmosphere and framing
+- Overall visual quality
 
 ${cameraAngle ? `Use this SPECIFIC camera angle: ${cameraAngle}` : ''}
 
-The scene background should match the prompt, but the character must be visually identical to the reference.
-IMPORTANT: Keep the same environment/setting but only change the camera angle and pose.`;
+The generated image should match the scene description exactly. Use the reference for visual style and quality, not identity.
+IMPORTANT: Follow the scene prompt's description of the character. Generate a high-quality professional image matching the prompt.`;
 
       messages = [{
         role: 'user',
