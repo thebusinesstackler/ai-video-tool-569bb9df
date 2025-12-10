@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { SignJWT, importPKCS8 } from "https://deno.land/x/jose@v4.14.4/index.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,52 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode.apply(null, Array.from(chunk));
   }
   return btoa(binary);
+}
+
+// Get OAuth access token from service account
+async function getAccessToken(serviceAccount: {
+  client_email: string;
+  private_key: string;
+  project_id: string;
+}): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const scope = 'https://www.googleapis.com/auth/cloud-platform';
+  
+  // Import the private key
+  const privateKey = await importPKCS8(serviceAccount.private_key, 'RS256');
+  
+  // Create JWT
+  const jwt = await new SignJWT({
+    iss: serviceAccount.client_email,
+    sub: serviceAccount.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: scope,
+  })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .sign(privateKey);
+  
+  // Exchange JWT for access token
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }),
+  });
+  
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    console.error('Token exchange error:', errorText);
+    throw new Error(`Failed to get access token: ${errorText}`);
+  }
+  
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
 }
 
 // Download audio from Supabase storage or external URL
@@ -74,14 +121,28 @@ serve(async (req) => {
       );
     }
 
-    const GOOGLE_CLOUD_TTS_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
-    if (!GOOGLE_CLOUD_TTS_API_KEY) {
-      throw new Error('GOOGLE_CLOUD_TTS_API_KEY is not configured');
+    // Get service account credentials
+    const serviceAccountJson = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT');
+    if (!serviceAccountJson) {
+      throw new Error('GOOGLE_CLOUD_SERVICE_ACCOUNT is not configured');
+    }
+
+    let serviceAccount: { client_email: string; private_key: string; project_id: string };
+    try {
+      serviceAccount = JSON.parse(serviceAccountJson);
+    } catch (e) {
+      throw new Error('Invalid GOOGLE_CLOUD_SERVICE_ACCOUNT JSON format');
     }
 
     console.log('Starting Google Cloud voice cloning process');
+    console.log('Project ID:', serviceAccount.project_id);
     console.log('Reference audio URL:', audioUrl);
     console.log('Consent audio URL:', consentAudioUrl);
+
+    // Get OAuth access token
+    console.log('Getting OAuth access token...');
+    const accessToken = await getAccessToken(serviceAccount);
+    console.log('Access token obtained successfully');
 
     // Download both audio files
     console.log('Downloading reference audio...');
@@ -92,9 +153,8 @@ serve(async (req) => {
     const consentAudioBase64 = await downloadAudio(consentAudioUrl);
     console.log(`Consent audio size: ${consentAudioBase64.length} chars`);
 
-    // Call Google Cloud TTS API to generate voice cloning key
-    // Using the voices:generateVoiceCloningKey endpoint
-    const generateKeyUrl = `https://texttospeech.googleapis.com/v1beta1/voices:generateVoiceCloningKey?key=${GOOGLE_CLOUD_TTS_API_KEY}`;
+    // Call Google Cloud TTS API with OAuth Bearer token
+    const generateKeyUrl = 'https://texttospeech.googleapis.com/v1beta1/voices:generateVoiceCloningKey';
     
     const requestBody = {
       reference_audio: {
@@ -115,12 +175,14 @@ serve(async (req) => {
       language_code: "en-US"
     };
 
-    console.log('Calling Google Cloud generateVoiceCloningKey API...');
+    console.log('Calling Google Cloud generateVoiceCloningKey API with OAuth...');
     
     const response = await fetch(generateKeyUrl, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'x-goog-user-project': serviceAccount.project_id,
       },
       body: JSON.stringify(requestBody),
     });
@@ -129,12 +191,14 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('Google Cloud API error:', response.status, errorText);
       
-      // Parse error for more details
       try {
         const errorJson = JSON.parse(errorText);
         const errorMessage = errorJson.error?.message || 'Failed to generate voice cloning key';
         throw new Error(errorMessage);
       } catch (e) {
+        if (e instanceof Error && e.message !== 'Failed to generate voice cloning key') {
+          throw e;
+        }
         throw new Error(`Google API error (${response.status}): ${errorText.substring(0, 200)}`);
       }
     }
