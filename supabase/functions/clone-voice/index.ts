@@ -97,22 +97,22 @@ serve(async (req) => {
     const generateKeyUrl = `https://texttospeech.googleapis.com/v1beta1/voices:generateVoiceCloningKey?key=${GOOGLE_CLOUD_TTS_API_KEY}`;
     
     const requestBody = {
-      referenceAudio: {
-        audioConfig: {
-          audioEncoding: "LINEAR16",
-          sampleRateHertz: 48000
+      reference_audio: {
+        audio_config: {
+          audio_encoding: "LINEAR16",
+          sample_rate_hertz: 24000
         },
         content: referenceAudioBase64
       },
-      consentAudio: {
-        audioConfig: {
-          audioEncoding: "LINEAR16",
-          sampleRateHertz: 48000
+      voice_talent_consent: {
+        audio_config: {
+          audio_encoding: "LINEAR16",
+          sample_rate_hertz: 24000
         },
         content: consentAudioBase64
       },
-      consentScript: consentScript || "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model",
-      languageCode: "en-US"
+      consent_script: consentScript || "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model.",
+      language_code: "en-US"
     };
 
     console.log('Calling Google Cloud generateVoiceCloningKey API...');
