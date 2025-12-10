@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, clonedVoiceUrl?: string) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, clonedVoiceUrl?: string, allReferenceImages?: string[]) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
@@ -129,9 +129,12 @@ export function useScenePreview(): UseScenePreviewResult {
     voice: string = 'alloy',
     characterRefImage?: string,
     characterDescription?: string,
-    clonedVoiceUrl?: string
+    clonedVoiceUrl?: string,
+    allReferenceImages?: string[]
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
+    // Use all reference images if provided, otherwise use just the active reference
+    const referenceImagesArray = allReferenceImages?.length ? allReferenceImages : (activeReference ? [activeReference] : []);
     if (scenes.length === 0) return;
 
     setIsGeneratingPreview(true);
@@ -250,12 +253,15 @@ export function useScenePreview(): UseScenePreviewResult {
         const scene = scenes[i];
         
         try {
-          // Use edit-scene-image if we have a reference, otherwise use generate-scene-image
-          const functionName = activeReference ? 'edit-scene-image' : 'generate-scene-image';
+          // Use edit-scene-image if we have references, otherwise use generate-scene-image
+          const hasReferences = referenceImagesArray.length > 0;
+          const functionName = hasReferences ? 'edit-scene-image' : 'generate-scene-image';
           const { data: imageData, error: imageError } = await supabase.functions.invoke(functionName, {
             body: { 
               prompt: `${scene.visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
-              referenceImageUrl: activeReference || undefined,
+              // Pass all reference images for better character consistency
+              referenceImageUrl: referenceImagesArray[0] || undefined,
+              referenceImages: referenceImagesArray.length > 1 ? referenceImagesArray : undefined,
               characterDescription: characterDescription || undefined
             }
           });

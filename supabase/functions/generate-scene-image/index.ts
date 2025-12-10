@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, referenceImageUrl, characterDescription } = await req.json();
+    const { prompt, referenceImageUrl, referenceImages, characterDescription } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -20,6 +20,11 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    // Use multiple reference images if provided, otherwise fall back to single reference
+    const allReferenceImages: string[] = referenceImages && referenceImages.length > 0 
+      ? referenceImages 
+      : (referenceImageUrl ? [referenceImageUrl] : []);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -27,21 +32,26 @@ serve(async (req) => {
     }
 
     console.log('Generating image with prompt:', prompt);
-    console.log('Reference image:', referenceImageUrl ? 'provided' : 'none');
+    console.log('Reference images count:', allReferenceImages.length);
     console.log('Character description:', characterDescription || 'none');
 
     // Build the message content
     let messageContent: any;
     
-    if (referenceImageUrl) {
-      // Use multi-modal input with reference image for character consistency
+    if (allReferenceImages.length > 0) {
+      // Use multi-modal input with reference images for character consistency
       const characterPrompt = characterDescription 
-        ? `Generate a photorealistic image. The person in this reference image must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Character: ${characterDescription}. Scene: ${prompt}`
-        : `Generate a photorealistic image. The person in this reference image must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Scene: ${prompt}`;
+        ? `Generate a photorealistic image. The person shown in the reference image(s) must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Study ALL provided reference images to ensure maximum consistency. Character: ${characterDescription}. Scene: ${prompt}`
+        : `Generate a photorealistic image. The person shown in the reference image(s) must appear in the generated scene with EXACTLY the same facial features, skin tone, hair, and overall appearance. Study ALL provided reference images to ensure maximum consistency. Scene: ${prompt}`;
       
+      // Build content array with all reference images
       messageContent = [
         { type: 'text', text: characterPrompt },
-        { type: 'image_url', image_url: { url: referenceImageUrl } }
+        // Add all reference images (up to 4 for better consistency)
+        ...allReferenceImages.slice(0, 4).map(imgUrl => ({
+          type: 'image_url',
+          image_url: { url: imgUrl }
+        }))
       ];
     } else {
       // Text-only prompt
