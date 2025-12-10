@@ -51,7 +51,8 @@ serve(async (req) => {
       introConfig,
       outroConfig,
       hookStyle,
-      enableCutScenes = false
+      enableCutScenes = false,
+      characterDescription
     } = await req.json();
 
     if (!topic) {
@@ -69,6 +70,7 @@ serve(async (req) => {
     console.log('Generating reel script for topic:', topic);
     console.log('Hook style:', hookStyle || 'auto');
     console.log('Cut scenes enabled:', enableCutScenes);
+    console.log('Character description:', characterDescription || 'not specified');
     console.log('Intro config:', introConfig);
     console.log('Outro config:', outroConfig);
 
@@ -101,6 +103,17 @@ CUT SCENE RULES (IMPORTANT):
 - Cut scenes should be visually dynamic and add energy
 ` : '';
 
+    // Character consistency instructions
+    const characterInstructions = characterDescription ? `
+CHARACTER CONSISTENCY (CRITICAL - MUST FOLLOW):
+The user has specified this character description: "${characterDescription}"
+- ALL scenes MUST describe THIS EXACT character in every visualDescription
+- NEVER change the gender, age, ethnicity, or key physical traits specified
+- Use the EXACT characteristics provided (e.g., if "male" is specified, ALL scenes show a male)
+- Apply scene context (actions, locations, poses) TO THIS CHARACTER
+- Example: If description says "Male entrepreneur, 30s", every scene shows a male entrepreneur in his 30s
+` : '';
+
     const systemPrompt = `You are an elite short-form video scriptwriter creating ONE COHESIVE STORY for viral social media content.
 
 CRITICAL STORY RULES:
@@ -120,6 +133,8 @@ NARRATION RULES:
 - Use transitional phrases between ideas: "And here's the thing...", "But wait...", "So what does this mean?"
 
 ${cameraInstructions}
+
+${characterInstructions}
 
 BACKGROUND CONSISTENCY (CRITICAL):
 - Use ONE consistent background/environment across ALL scenes
