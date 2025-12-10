@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,14 @@ import {
   X,
   Edit2,
   Save,
-  XCircle
+  XCircle,
+  Mic,
+  Upload,
+  Play,
+  Pause,
+  StopCircle,
+  Trash2,
+  Check
 } from 'lucide-react';
 
 interface AITwin {
@@ -69,6 +76,22 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(twin.description || '');
   const [isSavingDescription, setIsSavingDescription] = useState(false);
+
+  // Voice cloning state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
+  const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
+
+  // Batch generation state
+  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
 
   const POSE_PRESETS = [
     { id: 'standing', label: 'Standing', prompt: 'standing upright, full body visible' },
@@ -344,6 +367,304 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     }
   };
 
+  // Voice cloning functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        await uploadAudioBlob(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      const interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+      setRecordingInterval(interval);
+
+    } catch (error: any) {
+      console.error('Error starting recording:', error);
+      toast({
+        title: 'Recording Failed',
+        description: 'Could not access microphone. Please check permissions.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingInterval) {
+        clearInterval(recordingInterval);
+        setRecordingInterval(null);
+      }
+    }
+  };
+
+  const uploadAudioBlob = async (blob: Blob) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const fileName = `${user.id}/voice-samples/${Date.now()}.webm`;
+      const { data, error } = await supabase.storage
+        .from('project-files')
+        .upload(fileName, blob, { contentType: 'audio/webm' });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('project-files')
+        .getPublicUrl(fileName);
+
+      setVoiceSampleUrl(urlData.publicUrl);
+      
+      // Save to database
+      await supabase
+        .from('ai_twins')
+        .update({ voice_sample_url: urlData.publicUrl })
+        .eq('id', twin.id);
+      
+      toast({
+        title: 'Audio Uploaded',
+        description: 'Your voice sample is ready for cloning'
+      });
+    } catch (error: any) {
+      console.error('Error uploading audio:', error);
+      toast({
+        title: 'Upload Failed',
+        description: error.message || 'Failed to upload audio',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleVoiceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/')) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload an audio file (MP3, WAV, etc.)',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    await uploadAudioBlob(file);
+  };
+
+  const cloneVoice = async () => {
+    if (!voiceSampleUrl) {
+      toast({
+        title: 'No Audio Sample',
+        description: 'Please record or upload an audio sample first',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      setIsCloning(true);
+
+      const { data, error } = await supabase.functions.invoke('clone-voice', {
+        body: { audioUrl: voiceSampleUrl }
+      });
+
+      if (error) throw error;
+
+      if (data?.voiceCloningKey) {
+        setVoiceCloningKey(data.voiceCloningKey);
+        
+        // Save to database
+        await supabase
+          .from('ai_twins')
+          .update({ voice_cloning_key: data.voiceCloningKey })
+          .eq('id', twin.id);
+        
+        onUpdate();
+        toast({
+          title: 'Voice Cloned!',
+          description: 'Your voice has been successfully cloned'
+        });
+      } else {
+        throw new Error('No voice cloning key returned');
+      }
+    } catch (error: any) {
+      console.error('Error cloning voice:', error);
+      toast({
+        title: 'Cloning Failed',
+        description: error.message || 'Failed to clone voice',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  const playVoicePreview = () => {
+    if (audioRef.current && voiceSampleUrl) {
+      if (isPlayingVoice) {
+        audioRef.current.pause();
+        setIsPlayingVoice(false);
+      } else {
+        audioRef.current.src = voiceSampleUrl;
+        audioRef.current.play();
+        setIsPlayingVoice(true);
+      }
+    }
+  };
+
+  const clearVoice = async () => {
+    setVoiceSampleUrl(null);
+    setVoiceCloningKey(null);
+    setIsPlayingVoice(false);
+    
+    await supabase
+      .from('ai_twins')
+      .update({ voice_sample_url: null, voice_cloning_key: null })
+      .eq('id', twin.id);
+    
+    onUpdate();
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Batch generate 5 images at once
+  const generateBatchImages = async (angle: CameraAngle) => {
+    if (!twin.reference_images?.[0]) {
+      toast({
+        title: 'No reference image',
+        description: 'This twin needs at least one reference image',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (isBatchGenerating || generatingAngles.has(angle.id)) {
+      return;
+    }
+
+    setIsBatchGenerating(true);
+    setGeneratingAngles(prev => new Set(prev).add(angle.id));
+
+    try {
+      const faceDesc = twin.face_description || twin.description || '';
+      const customContext = customPrompt ? ` Scene context: ${customPrompt}.` : '';
+      const poseContext = selectedPose 
+        ? ` Pose: ${POSE_PRESETS.find(p => p.id === selectedPose)?.prompt || ''}.`
+        : '';
+
+      // Generate 5 images in parallel with slight prompt variations
+      const variations = [
+        '',
+        ' Slight variation in expression.',
+        ' Different subtle pose.',
+        ' Alternative lighting mood.',
+        ' Unique composition.'
+      ];
+
+      const promises = variations.map(async (variation, index) => {
+        const prompt = `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
+Camera angle: ${angle.promptModifier}. 
+${faceDesc ? `Person description: ${faceDesc}.` : 'Keep the exact same face, features, skin tone, and appearance as the reference.'}
+${poseContext}${customContext}${variation}
+CRITICAL: The person in the generated image MUST look identical to the reference - same face shape, eyes, nose, mouth, hair, and overall appearance. 
+Style: Professional photography, high quality, sharp focus on the subject.`;
+
+        const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+          body: {
+            prompt,
+            referenceImageUrl: twin.reference_images[0],
+            characterDescription: twin.face_description || twin.description
+          }
+        });
+
+        if (error) throw error;
+        return data?.imageUrl;
+      });
+
+      const results = await Promise.allSettled(promises);
+      const successfulUrls = results
+        .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled' && !!r.value)
+        .map(r => r.value);
+
+      if (successfulUrls.length > 0) {
+        setGeneratedImages(prev => [...successfulUrls, ...prev]);
+
+        // Fetch current images and add all new ones
+        const { data: currentTwin } = await supabase
+          .from('ai_twins')
+          .select('reference_images')
+          .eq('id', twin.id)
+          .single();
+
+        const currentImages = currentTwin?.reference_images || twin.reference_images || [];
+        const updatedImages = [...currentImages, ...successfulUrls];
+
+        await supabase
+          .from('ai_twins')
+          .update({ reference_images: updatedImages })
+          .eq('id', twin.id);
+
+        // Save all to gallery
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const galleryInserts = successfulUrls.map(url => ({
+            user_id: user.id,
+            image_url: url,
+            prompt: `${angle.name} batch generation`,
+            source: 'ai-twin-batch',
+            reference_image_url: twin.reference_images[0]
+          }));
+
+          await supabase.from('generated_images').insert(galleryInserts);
+        }
+
+        onUpdate();
+        toast({
+          title: `${successfulUrls.length} images generated`,
+          description: `Batch generation complete for ${angle.name}`
+        });
+      }
+    } catch (error: any) {
+      console.error('Error in batch generation:', error);
+      toast({
+        title: 'Batch generation failed',
+        description: error.message || 'Some images failed to generate',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsBatchGenerating(false);
+      setGeneratingAngles(prev => {
+        const next = new Set(prev);
+        next.delete(angle.id);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Twin Info Header */}
@@ -475,6 +796,129 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </Button>
       </div>
 
+      {/* Voice Cloning Section - Show when no voice is cloned */}
+      {!voiceCloningKey && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Volume2 className="w-4 h-4" />
+              Clone Voice
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Record or upload 30+ seconds of clear speech to create a voice clone
+            </p>
+
+            {!voiceSampleUrl ? (
+              <div className="grid grid-cols-2 gap-4">
+                <Card 
+                  className={`cursor-pointer transition-all hover:border-primary ${isRecording ? 'border-destructive bg-destructive/5' : ''}`}
+                  onClick={isRecording ? stopRecording : startRecording}
+                >
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    {isRecording ? (
+                      <>
+                        <StopCircle className="w-10 h-10 text-destructive mb-2 animate-pulse" />
+                        <p className="font-medium text-sm">Recording...</p>
+                        <p className="text-xl font-mono mt-1">{formatTime(recordingTime)}</p>
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-10 h-10 text-primary mb-2" />
+                        <p className="font-medium text-sm">Record Voice</p>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card 
+                  className="cursor-pointer transition-all hover:border-primary"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <Upload className="w-10 h-10 text-primary mb-2" />
+                    <p className="font-medium text-sm">Upload Audio</p>
+                  </CardContent>
+                </Card>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleVoiceFileUpload}
+                  className="hidden"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={playVoicePreview}
+                  >
+                    {isPlayingVoice ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  </Button>
+                  <div>
+                    <p className="font-medium text-sm">Voice Sample Ready</p>
+                    <p className="text-xs text-muted-foreground">Click play to preview</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={cloneVoice}
+                    disabled={isCloning}
+                    className="bg-gradient-primary"
+                    size="sm"
+                  >
+                    {isCloning ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Cloning...
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-4 h-4 mr-2" />
+                        Clone Voice
+                      </>
+                    )}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={clearVoice}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <audio 
+              ref={audioRef} 
+              onEnded={() => setIsPlayingVoice(false)}
+              className="hidden"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Voice Cloned Badge */}
+      {voiceCloningKey && (
+        <Card className="bg-green-500/10 border-green-500/30">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <Badge className="bg-green-500">
+                <Check className="w-3 h-3 mr-1" />
+                Voice Cloned
+              </Badge>
+              <span className="text-sm text-muted-foreground">Voice ready for use in videos</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={clearVoice}>
+              <Trash2 className="w-4 h-4 mr-1" />
+              Remove
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Reference Images Gallery */}
       <Card>
         <CardHeader className="pb-2">
@@ -572,8 +1016,8 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                   key={angle.id}
                   variant="outline"
                   className="min-h-32 h-auto flex-col items-start justify-start p-4 text-left overflow-hidden hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                  disabled={generatingAngles.has(angle.id)}
-                  onClick={() => generateTwinImage(angle)}
+                  disabled={generatingAngles.has(angle.id) || isBatchGenerating}
+                  onClick={() => generateBatchImages(angle)}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     {generatingAngles.has(angle.id) ? (
@@ -586,6 +1030,9 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                   <span className="text-xs opacity-70 line-clamp-2">
                     {angle.description}
                   </span>
+                  <Badge variant="secondary" className="mt-2 text-xs">
+                    Generates 5 images
+                  </Badge>
                 </Button>
               ))}
             </div>
