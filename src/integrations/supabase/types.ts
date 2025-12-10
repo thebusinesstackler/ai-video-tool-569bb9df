@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_twins: {
+        Row: {
+          created_at: string
+          description: string | null
+          face_description: string | null
+          id: string
+          name: string
+          reference_images: string[] | null
+          updated_at: string
+          user_id: string
+          voice_cloning_key: string | null
+          voice_sample_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          face_description?: string | null
+          id?: string
+          name: string
+          reference_images?: string[] | null
+          updated_at?: string
+          user_id: string
+          voice_cloning_key?: string | null
+          voice_sample_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          face_description?: string | null
+          id?: string
+          name?: string
+          reference_images?: string[] | null
+          updated_at?: string
+          user_id?: string
+          voice_cloning_key?: string | null
+          voice_sample_url?: string | null
+        }
+        Relationships: []
+      }
       characters: {
         Row: {
           created_at: string
