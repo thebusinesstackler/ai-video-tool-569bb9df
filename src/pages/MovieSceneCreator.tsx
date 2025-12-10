@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2 } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
+import { PeteAIAssistant } from '@/components/PeteAIAssistant';
 
 const SAMPLE_MOVIES = [
   {
@@ -97,6 +98,7 @@ const LIGHTING_STYLES = [
 
 const MovieSceneCreator = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [movieIdea, setMovieIdea] = useState('');
   const [outline, setOutline] = useState('');
   const [scenes, setScenes] = useState<MovieScene[]>([]);
@@ -117,7 +119,88 @@ const MovieSceneCreator = () => {
   const [isSavePresetDialogOpen, setIsSavePresetDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [selectedSceneForPreset, setSelectedSceneForPreset] = useState<number | null>(null);
+  const [isTransferring, setIsTransferring] = useState(false);
   const { toast } = useToast();
+
+  // Handle movie idea from Pete AI
+  const handleMovieIdeaCaptured = (idea: string) => {
+    setMovieIdea(idea);
+  };
+
+  // Transfer to Reels & Stories
+  const transferToReels = async () => {
+    if (!movieIdea.trim()) {
+      toast({
+        title: "No Movie Idea",
+        description: "Please enter a movie idea first before transferring to Reels.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsTransferring(true);
+    try {
+      // Auto-save the project if user is logged in
+      if (userId && (outline || scenes.length > 0)) {
+        const title = projectTitle || `Movie: ${movieIdea.slice(0, 50)}...`;
+        
+        if (currentProjectId) {
+          // Update existing project
+          await supabase
+            .from('movie_projects')
+            .update({
+              movie_idea: movieIdea,
+              outline: outline,
+              scenes: scenes as any,
+              title: title,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', currentProjectId);
+        } else {
+          // Create new project
+          const { data } = await supabase
+            .from('movie_projects')
+            .insert([{
+              user_id: userId,
+              movie_idea: movieIdea,
+              outline: outline,
+              scenes: scenes as any,
+              title: title
+            }])
+            .select()
+            .single();
+          
+          if (data) {
+            setCurrentProjectId(data.id);
+          }
+        }
+        
+        toast({
+          title: "Project Saved",
+          description: "Your movie project has been auto-saved."
+        });
+      }
+
+      // Navigate to Reels with movie idea as topic
+      const params = new URLSearchParams({
+        source: 'movie-scene',
+        topic: movieIdea,
+        ...(outline && { outline: outline.slice(0, 500) })
+      });
+      
+      navigate(`/reels?${params.toString()}`);
+      
+    } catch (error: any) {
+      console.error('Transfer error:', error);
+      toast({
+        title: "Transfer Failed",
+        description: error.message || "Failed to transfer to Reels.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTransferring(false);
+    }
+  };
 
   useEffect(() => {
     // Check if user is authenticated
@@ -839,16 +922,85 @@ const MovieSceneCreator = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Movie Scene Creator</h1>
-            <p className="text-muted-foreground">
-              Describe your movie idea, get an AI-generated outline, and create scenes for your film.
-            </p>
-            {currentProjectId && projectTitle && (
-              <p className="text-sm text-primary mt-1">Currently editing: {projectTitle}</p>
-            )}
+        {/* Enhanced Header with Description */}
+        <div className="space-y-4">
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Film className="w-8 h-8 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">Movie Scene Creator Studio</h1>
+                  {currentProjectId && projectTitle && (
+                    <p className="text-sm text-primary">Currently editing: {projectTitle}</p>
+                  )}
+                </div>
+              </div>
+              <p className="text-lg text-muted-foreground max-w-3xl">
+                Turn your movie ideas into visual reality! Create complete films with AI-powered scene generation.
+              </p>
+            </div>
+
+            {/* Transfer to Reels Button */}
+            <Button
+              onClick={transferToReels}
+              disabled={isTransferring || !movieIdea.trim()}
+              variant="outline"
+              className="gap-2"
+            >
+              {isTransferring ? (
+                <>
+                  <Sparkles className="w-4 h-4 animate-spin" />
+                  Transferring...
+                </>
+              ) : (
+                <>
+                  Transfer to Reels
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
           </div>
+
+          {/* Feature Highlights */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Lightbulb className="w-4 h-4 text-primary" />
+              <span>Describe any concept</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span>AI-generated outlines</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Camera className="w-4 h-4 text-primary" />
+              <span>Custom camera angles</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Image className="w-4 h-4 text-primary" />
+              <span>Generate scene images</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Play className="w-4 h-4 text-primary" />
+              <span>Lip-synced videos</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Video className="w-4 h-4 text-primary" />
+              <span>Stitch into movie</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Pete AI Assistant */}
+        <PeteAIAssistant 
+          onMovieIdeaCaptured={handleMovieIdeaCaptured}
+          currentIdea={movieIdea}
+        />
+
+        {/* Project Actions */}
+        <div className="flex items-center justify-between">
+          <div></div>
           
           {userId && (
             <div className="flex gap-2">
