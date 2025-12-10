@@ -156,18 +156,29 @@ interface SavedReel {
   created_at: string;
 }
 
-const DURATION_OPTIONS = [
-  { value: '15', label: '15 seconds', sceneCount: 2 },
-  { value: '30', label: '30 seconds', sceneCount: 3 },
-  { value: '45', label: '45 seconds', sceneCount: 4 },
-  { value: '60', label: '60 seconds', sceneCount: 5 },
+const SCENE_COUNT_OPTIONS = [
+  { value: '2', label: '2 scenes' },
+  { value: '3', label: '3 scenes' },
+  { value: '4', label: '4 scenes' },
+  { value: '5', label: '5 scenes' },
+  { value: '6', label: '6 scenes' },
+];
+
+const SCENE_DURATION_OPTIONS = [
+  { value: '8', label: '8 seconds' },
+  { value: '10', label: '10 seconds' },
+  { value: '12', label: '12 seconds' },
+  { value: '15', label: '15 seconds' },
+  { value: '20', label: '20 seconds' },
+  { value: '30', label: '30 seconds' },
 ];
 
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [topic, setTopic] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState('30');
+  const [selectedSceneCount, setSelectedSceneCount] = useState('4');
+  const [selectedSceneDuration, setSelectedSceneDuration] = useState('12');
   const [project, setProject] = useState<ReelProject>({
     topic: '',
     scenes: [],
@@ -478,15 +489,16 @@ const Reels = () => {
     setProject(prev => ({ ...prev, status: 'generating-script', topic }));
     setProgress(10);
 
-    const durationOption = DURATION_OPTIONS.find(d => d.value === selectedDuration);
-    const sceneCount = durationOption?.sceneCount || 3;
-    const targetDuration = parseInt(selectedDuration);
+    const sceneCount = parseInt(selectedSceneCount);
+    const sceneDuration = parseInt(selectedSceneDuration);
+    const targetDuration = sceneCount * sceneDuration;
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
         body: { 
           topic, 
-          sceneCount, 
+          sceneCount,
+          sceneDuration,
           targetDuration,
           hookStyle,
           enableCutScenes,
@@ -513,7 +525,7 @@ const Reels = () => {
 
       toast({
         title: "Scripts Generated",
-        description: `${sceneCount} scene scripts have been created for your ${selectedDuration}s reel.`
+        description: `${sceneCount} scene scripts (${selectedSceneDuration}s each) created for your reel.`
       });
     } catch (error: any) {
       console.error('Script generation error:', error);
@@ -1462,19 +1474,38 @@ const Reels = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
-                    <Label>Video Duration</Label>
-                    <Select value={selectedDuration} onValueChange={setSelectedDuration} disabled={isGenerating}>
+                    <Label>Number of Scenes</Label>
+                    <Select value={selectedSceneCount} onValueChange={setSelectedSceneCount} disabled={isGenerating}>
                       <SelectTrigger className="bg-background border-border">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {DURATION_OPTIONS.map(option => (
+                        {SCENE_COUNT_OPTIONS.map(option => (
                           <SelectItem key={option.value} value={option.value}>
-                            {option.label} ({option.sceneCount} scenes)
+                            {option.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Scene Duration</Label>
+                    <Select value={selectedSceneDuration} onValueChange={setSelectedSceneDuration} disabled={isGenerating}>
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SCENE_DURATION_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Total: ~{parseInt(selectedSceneCount) * parseInt(selectedSceneDuration)}s
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -2132,14 +2163,23 @@ const Reels = () => {
                         </>
                       ) : (
                         /* Single stitched video - use regular video player */
-                        <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">
-                          <video
-                            src={project.videoBlobUrl}
-                            controls
-                            className="w-full h-full object-contain"
-                            playsInline
-                          />
-                        </div>
+                        <>
+                          <div className="aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl">
+                            <video
+                              src={project.videoBlobUrl}
+                              controls
+                              className="w-full h-full object-contain"
+                              playsInline
+                            />
+                          </div>
+                          {/* Frame capture for stitched video */}
+                          <div className="flex justify-center">
+                            <FrameCapture
+                              videoUrl={project.videoBlobUrl || ''}
+                              onFrameCaptured={setExternalReference}
+                            />
+                          </div>
+                        </>
                       )}
                     </div>
                   )}
