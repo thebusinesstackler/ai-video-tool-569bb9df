@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
@@ -122,8 +122,15 @@ export function useScenePreview(): UseScenePreviewResult {
   const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
   const [characterTransformation, setCharacterTransformation] = useState<string>('');
 
-  const generatePreview = async (scenes: Scene[], userId?: string, refImageUrl?: string, voice: string = 'alloy') => {
-    const activeReference = refImageUrl || referenceImageUrl;
+  const generatePreview = async (
+    scenes: Scene[], 
+    userId?: string, 
+    refImageUrl?: string, 
+    voice: string = 'alloy',
+    characterRefImage?: string,
+    characterDescription?: string
+  ) => {
+    const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     if (scenes.length === 0) return;
 
     setIsGeneratingPreview(true);
@@ -243,7 +250,8 @@ export function useScenePreview(): UseScenePreviewResult {
           const { data: imageData, error: imageError } = await supabase.functions.invoke(functionName, {
             body: { 
               prompt: `${scene.visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
-              referenceImageUrl: activeReference || undefined
+              referenceImageUrl: activeReference || undefined,
+              characterDescription: characterDescription || undefined
             }
           });
 
