@@ -47,6 +47,32 @@ For each scene, you must provide:
 4. Character actions and emotions
 5. Complete narration for voiceover (60-120 seconds of content)
 6. A detailed image generation prompt that captures the key visual moment${characterDescription ? ` - ALWAYS include the main character with this exact description: ${characterDescription}` : ''}
+7. The BEST camera angle for the scene based on emotional impact and visual storytelling
+8. The BEST lighting style for the scene based on mood and atmosphere
+
+AVAILABLE CAMERA ANGLES (pick the most appropriate):
+- "eye-level": Standard neutral perspective, good for dialogue
+- "low-angle": Camera looks up, makes subject appear powerful or imposing
+- "high-angle": Camera looks down, makes subject appear vulnerable
+- "birds-eye": Directly overhead, dramatic establishing shots
+- "dutch-angle": Tilted camera, creates tension and unease
+- "over-shoulder": View from behind character, good for conversations
+- "pov": Character's point of view, immersive moments
+- "close-up": Tight shot on subject, emotional detail, intimate moments
+- "wide-shot": Full scene establishing shot, grand locations
+- "medium-shot": Waist-up framing, balanced general use
+
+AVAILABLE LIGHTING STYLES (pick the most appropriate):
+- "natural": Soft, realistic daylight
+- "golden-hour": Warm sunset/sunrise glow, romantic or peaceful
+- "blue-hour": Cool twilight atmosphere, mysterious
+- "noir": High contrast, dramatic shadows, thriller/mystery
+- "studio": Professional three-point setup, interviews
+- "moonlight": Cool, ethereal night lighting
+- "neon": Vibrant colored lights, cyberpunk/urban night
+- "candlelight": Warm, flickering ambiance, intimate
+- "overcast": Soft, diffused lighting, melancholy
+- "harsh": Strong direct lighting, sharp shadows, confrontation
 
 CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown, no code blocks):
 [
@@ -56,8 +82,10 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
     "location": "Location description",
     "timeOfDay": "Day/Night/Dawn/Dusk",
     "description": "Detailed description of what happens in this scene",
-    "dialogue": "Complete voiceover narration for the scene. Include spoken dialogue, describe sound effects like thunder rumbling or footsteps echoing, and atmospheric descriptions. Create a rich audio drama experience that is 60-120 seconds when spoken. Use descriptive language rather than special characters or quotes.",
-    "imagePrompt": "Highly detailed cinematic prompt for image generation, including camera angle, lighting, mood, character descriptions, setting details${characterDescription ? '. MUST include the main character with their exact appearance.' : ''}"
+    "dialogue": "Complete voiceover narration for the scene...",
+    "imagePrompt": "Highly detailed cinematic prompt for image generation${characterDescription ? '. MUST include the main character with their exact appearance.' : ''}",
+    "selectedCameraAngle": "close-up",
+    "selectedLighting": "golden-hour"
   }
 ]
 
@@ -65,9 +93,9 @@ IMPORTANT FORMATTING RULES:
 - Do NOT use quotation marks within the dialogue field
 - Do NOT use square brackets within the dialogue field
 - Describe sounds and dialogue naturally in plain text
-- Example dialogue format: "Thunder rumbles in the distance. Sarah opens the creaking door and calls out nervously asking if anyone is there. Footsteps echo on the wooden floor as wind howls through the broken windows."
 - Make narration 60-120 seconds when spoken to create complete movie scenes
 - Include character dialogue, sound descriptions, and atmospheric details all in natural flowing text
+- ALWAYS include selectedCameraAngle and selectedLighting - pick the BEST options based on the scene's mood, action, and emotional impact
 ${characterDescription ? `- The main character (${characterDescription}) MUST appear in every scene's imagePrompt with consistent appearance` : ''}
 
 Return ONLY the JSON array, no other text or formatting.`;

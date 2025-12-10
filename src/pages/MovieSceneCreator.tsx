@@ -415,7 +415,12 @@ const MovieSceneCreator = () => {
 
       if (error) throw error;
 
-      const generatedScenes = data.scenes as MovieScene[];
+      // Ensure all scenes have camera angle and lighting set (with fallbacks)
+      const generatedScenes = (data.scenes as MovieScene[]).map(scene => ({
+        ...scene,
+        selectedCameraAngle: scene.selectedCameraAngle || 'eye-level',
+        selectedLighting: scene.selectedLighting || 'natural',
+      }));
       setScenes(generatedScenes);
       
       toast({
