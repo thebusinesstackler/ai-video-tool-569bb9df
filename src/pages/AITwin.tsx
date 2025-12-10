@@ -10,7 +10,9 @@ import {
   Plus, 
   ScanFace, 
   Loader2,
-  Wand2
+  Wand2,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { TwinCreationWizard } from '@/components/ai-twin/TwinCreationWizard';
 import { TwinCard } from '@/components/ai-twin/TwinCard';
@@ -34,6 +36,7 @@ const AITwin = () => {
   const { toast } = useToast();
   const [twins, setTwins] = useState<AITwin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
 
@@ -44,6 +47,7 @@ const AITwin = () => {
   const loadTwins = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       const { data, error } = await supabase
         .from('ai_twins')
         .select('*')
@@ -53,9 +57,10 @@ const AITwin = () => {
       setTwins((data as AITwin[]) || []);
     } catch (error: any) {
       console.error('Error loading twins:', error);
+      setLoadError(error.message || 'Failed to load AI Twins');
       toast({
         title: 'Error',
-        description: 'Failed to load AI Twins',
+        description: 'Failed to load AI Twins. Click retry to try again.',
         variant: 'destructive'
       });
     } finally {
@@ -120,6 +125,20 @@ const AITwin = () => {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
+        ) : loadError ? (
+          <Card className="border-destructive">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <AlertCircle className="w-16 h-16 text-destructive mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Failed to Load</h3>
+              <p className="text-muted-foreground text-center max-w-md mb-6">
+                {loadError}
+              </p>
+              <Button onClick={loadTwins} variant="outline">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
         ) : twins.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
