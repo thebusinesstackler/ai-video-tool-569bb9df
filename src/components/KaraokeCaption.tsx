@@ -26,10 +26,13 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   position = 'bottom'
 }) => {
   const words = useMemo(() => text.split(/\s+/).filter(w => w.length > 0), [text]);
-  const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
+  
+  // If duration is 0 or very small, show all words at once (static mode)
+  const isStaticMode = duration <= 0.1;
+  const progress = isStaticMode ? 1 : Math.min(currentTime / duration, 1);
   
   // Calculate which word should be visible based on progress
-  const currentWordIndex = Math.floor(progress * words.length);
+  const currentWordIndex = isStaticMode ? words.length : Math.floor(progress * words.length);
   const wordProgress = (progress * words.length) % 1;
 
   // For typewriter, calculate how many characters should be visible
@@ -57,9 +60,10 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
 
   // Render word with appropriate style
   const renderWord = (word: string, index: number) => {
-    const isCurrentWord = index === currentWordIndex;
-    const isPastWord = index < currentWordIndex;
-    const isFutureWord = index > currentWordIndex;
+    // In static mode, all words are considered "past" (fully visible)
+    const isCurrentWord = !isStaticMode && index === currentWordIndex;
+    const isPastWord = isStaticMode || index < currentWordIndex;
+    const isFutureWord = !isStaticMode && index > currentWordIndex;
 
     switch (style) {
       case 'wordPop':
