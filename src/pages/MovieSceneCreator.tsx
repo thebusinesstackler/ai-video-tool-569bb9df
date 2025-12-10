@@ -68,6 +68,7 @@ interface MovieScene {
   timeOfDay: string;
   description: string;
   dialogue: string | null;
+  otherCharacterDialogue?: string | null;
   imagePrompt: string;
   generatedImage?: string;
   generatedVideo?: string;
@@ -426,27 +427,49 @@ const MovieSceneCreator = () => {
       const scenesWithDialogue = await Promise.all(
         generatedScenes.map(async (scene) => {
           try {
-            const { data: dialogueData, error: dialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
-              body: {
-                sceneDescription: scene.description,
-                sceneTitle: scene.title,
-                location: scene.location,
-                timeOfDay: scene.timeOfDay,
-                characterName,
-                tone: scene.title.toLowerCase().includes('tension') || scene.title.toLowerCase().includes('conflict') 
-                  ? 'dramatic' 
-                  : scene.title.toLowerCase().includes('romance') || scene.title.toLowerCase().includes('love')
-                    ? 'romantic'
-                    : 'natural'
-              }
+            const sceneContext = {
+              sceneDescription: scene.description,
+              sceneTitle: scene.title,
+              location: scene.location,
+              timeOfDay: scene.timeOfDay,
+              characterName,
+              tone: scene.title.toLowerCase().includes('tension') || scene.title.toLowerCase().includes('conflict') 
+                ? 'dramatic' 
+                : scene.title.toLowerCase().includes('romance') || scene.title.toLowerCase().includes('love')
+                  ? 'romantic'
+                  : 'natural'
+            };
+
+            // Generate main character (AI Twin) dialogue
+            const { data: mainDialogueData, error: mainDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+              body: { ...sceneContext, isMainCharacter: true }
             });
 
-            if (dialogueError) {
-              console.error(`Failed to generate dialogue for scene ${scene.sceneNumber}:`, dialogueError);
+            if (mainDialogueError) {
+              console.error(`Failed to generate main dialogue for scene ${scene.sceneNumber}:`, mainDialogueError);
               return scene;
             }
 
-            return { ...scene, dialogue: dialogueData.dialogue };
+            // Check if scene involves multiple characters (look for keywords)
+            const hasOtherCharacters = /interact|conversation|talk|speak|meet|confront|argue|discuss|responds|replies|another|other person|companion|partner|friend|enemy|stranger/i.test(scene.description);
+            
+            let otherDialogue = null;
+            if (hasOtherCharacters && characterName) {
+              // Generate other character's dialogue
+              const { data: otherDialogueData, error: otherDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+                body: { ...sceneContext, isMainCharacter: false }
+              });
+
+              if (!otherDialogueError && otherDialogueData?.dialogue) {
+                otherDialogue = otherDialogueData.dialogue;
+              }
+            }
+
+            return { 
+              ...scene, 
+              dialogue: mainDialogueData.dialogue,
+              otherCharacterDialogue: otherDialogue
+            };
           } catch (err) {
             console.error(`Error generating dialogue for scene ${scene.sceneNumber}:`, err);
             return scene;
@@ -736,26 +759,50 @@ const MovieSceneCreator = () => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     if (!scene) return;
 
+    const characterName = selectedTwin?.name || selectedCharacter?.name;
+
     try {
       toast({
         title: "Generating Dialogue",
-        description: "Creating character dialogue for this scene..."
+        description: `Creating dialogue for ${characterName || 'main character'}...`
       });
 
+      const sceneContext = {
+        sceneDescription: scene.description,
+        sceneTitle: scene.title,
+        location: scene.location,
+        timeOfDay: scene.timeOfDay,
+        characterName,
+        tone: 'natural'
+      };
+
+      // Generate main character dialogue
       const { data, error } = await supabase.functions.invoke('generate-scene-dialogue', {
-        body: {
-          sceneDescription: scene.description,
-          tone: 'natural'
-        }
+        body: { ...sceneContext, isMainCharacter: true }
       });
 
       if (error) throw error;
 
       if (data?.dialogue) {
         updateSceneText(sceneNumber, 'dialogue', data.dialogue);
+        
+        // Check if scene might have other characters
+        const hasOtherCharacters = /interact|conversation|talk|speak|meet|confront|argue|discuss|responds|replies|another|other person|companion|partner|friend|enemy|stranger/i.test(scene.description);
+        
+        if (hasOtherCharacters && characterName) {
+          // Also generate other character's dialogue
+          const { data: otherData } = await supabase.functions.invoke('generate-scene-dialogue', {
+            body: { ...sceneContext, isMainCharacter: false }
+          });
+          
+          if (otherData?.dialogue) {
+            updateSceneText(sceneNumber, 'otherCharacterDialogue', otherData.dialogue);
+          }
+        }
+
         toast({
           title: "Dialogue Generated!",
-          description: "AI-generated dialogue has been added to the scene."
+          description: hasOtherCharacters ? "Generated dialogue for both characters." : "AI-generated dialogue has been added."
         });
       }
     } catch (error) {
@@ -1873,9 +1920,10 @@ const MovieSceneCreator = () => {
                     
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <Label className="text-sm font-semibold">
-                          Dialogue / Words to Say
-                          <span className="text-xs text-muted-foreground font-normal ml-2">(Used for lip sync generation)</span>
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <User className="w-4 h-4 text-primary" />
+                          {selectedTwin?.name || 'Main Character'} Dialogue
+                          <span className="text-xs text-muted-foreground font-normal">(AI Twin speaks this)</span>
                         </Label>
                         <Button
                           onClick={() => generateDialogue(scene.sceneNumber)}
@@ -1884,17 +1932,34 @@ const MovieSceneCreator = () => {
                           className="h-7"
                         >
                           <Wand2 className="w-3 h-3 mr-1" />
-                          Generate Dialogue
+                          Generate
                         </Button>
                       </div>
                       <Textarea
                         value={scene.dialogue || ''}
                         onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
                         rows={3}
-                        className="mt-1 resize-none italic"
-                        placeholder="Enter the dialogue or words the character will say in this scene..."
+                        className="mt-1 resize-none italic border-primary/30"
+                        placeholder={`Enter what ${selectedTwin?.name || 'the main character'} will say...`}
                       />
                     </div>
+
+                    {scene.otherCharacterDialogue && (
+                      <div>
+                        <Label className="text-sm font-semibold flex items-center gap-2 mb-1">
+                          <User className="w-4 h-4 text-muted-foreground" />
+                          Other Character Dialogue
+                          <span className="text-xs text-muted-foreground font-normal">(Supporting character)</span>
+                        </Label>
+                        <Textarea
+                          value={scene.otherCharacterDialogue || ''}
+                          onChange={(e) => updateSceneText(scene.sceneNumber, 'otherCharacterDialogue', e.target.value)}
+                          rows={2}
+                          className="mt-1 resize-none italic opacity-80"
+                          placeholder="Other character's lines..."
+                        />
+                      </div>
+                    )}
                     
                     <div>
                       <Label className="text-sm font-semibold">Image Generation Prompt</Label>

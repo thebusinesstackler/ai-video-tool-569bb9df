@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { sceneDescription, characterName, tone, location, timeOfDay, sceneTitle } = await req.json();
+    const { sceneDescription, characterName, tone, location, timeOfDay, sceneTitle, isMainCharacter = true } = await req.json();
 
     if (!sceneDescription) {
       throw new Error('Scene description is required');
@@ -22,29 +22,44 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Generating dialogue for scene:', sceneDescription);
+    console.log('Generating dialogue for scene:', sceneDescription, 'Main character:', characterName);
 
-    const prompt = `You are a professional screenwriter creating dialogue for a movie scene. Write REALISTIC, NATURAL dialogue that:
-- Sounds like how real people actually talk
-- Has natural pauses, reactions, and emotion
-- Fits the scene's mood and context
-- Is concise enough for lip-sync video (15-30 seconds of speech, about 40-80 words)
-- Captures the character's personality and the scene's tension/emotion
+    const prompt = isMainCharacter 
+      ? `You are a professional screenwriter creating dialogue for a movie scene. 
+
+IMPORTANT: You are writing dialogue ONLY for the main character "${characterName || 'the protagonist'}". 
+- Write ONLY what ${characterName || 'the protagonist'} says
+- Do NOT write any other character's lines
+- The dialogue should be natural and fit the scene
+- Keep it concise for lip-sync video (15-30 seconds, about 40-80 words)
 
 Scene Title: ${sceneTitle || 'Untitled Scene'}
 Location: ${location || 'Unknown'}
 Time: ${timeOfDay || 'Day'}
-${characterName ? `Main Character: ${characterName}` : ''}
+Main Character: ${characterName || 'Protagonist'}
 ${tone ? `Tone/Mood: ${tone}` : ''}
 
 Scene Description: ${sceneDescription}
 
-Write ONLY the spoken dialogue. Include natural speech patterns like:
-- Brief pauses (use "..." for dramatic pauses)
-- Emotional reactions where appropriate
-- Realistic word choices based on the character's personality
+Write ONLY ${characterName || "the protagonist"}'s spoken dialogue. Include natural pauses (use "..."). 
+Do NOT include other characters' lines, stage directions, or character names.`
+      : `You are a professional screenwriter creating dialogue for a supporting character in a movie scene.
 
-Do NOT include character names, stage directions, or action descriptions. Just the words the character speaks.`;
+IMPORTANT: You are writing dialogue for a SUPPORTING CHARACTER (not the main character "${characterName}").
+- Write dialogue for ONE supporting character responding to or interacting with ${characterName}
+- Keep it brief (10-20 seconds of speech, about 20-40 words)
+- Make it natural and reactive to the scene
+
+Scene Title: ${sceneTitle || 'Untitled Scene'}
+Location: ${location || 'Unknown'}
+Time: ${timeOfDay || 'Day'}
+Main Character (NOT speaking): ${characterName || 'Protagonist'}
+${tone ? `Tone/Mood: ${tone}` : ''}
+
+Scene Description: ${sceneDescription}
+
+Write ONLY the supporting character's spoken dialogue. Keep it brief and reactive.
+Do NOT include the main character's lines, stage directions, or character names.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
