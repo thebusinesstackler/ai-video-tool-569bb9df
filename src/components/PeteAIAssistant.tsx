@@ -79,6 +79,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
   const [isThinking, setIsThinking] = useState(false);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const [transcript, setTranscript] = useState('');
+  const typeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize with a random greeting
   useEffect(() => {
@@ -89,18 +90,36 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
     }
   }, [hasGreeted]);
 
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (typeIntervalRef.current) {
+        clearInterval(typeIntervalRef.current);
+      }
+    };
+  }, []);
+
   // Typewriter effect for Pete's messages
   const typeMessage = (message: string) => {
+    // Clear any existing typing interval to prevent interleaving
+    if (typeIntervalRef.current) {
+      clearInterval(typeIntervalRef.current);
+      typeIntervalRef.current = null;
+    }
+    
     setIsTyping(true);
     setPeteMessage('');
     let index = 0;
     
-    const interval = setInterval(() => {
+    typeIntervalRef.current = setInterval(() => {
       if (index < message.length) {
         setPeteMessage(prev => prev + message[index]);
         index++;
       } else {
-        clearInterval(interval);
+        if (typeIntervalRef.current) {
+          clearInterval(typeIntervalRef.current);
+          typeIntervalRef.current = null;
+        }
         setIsTyping(false);
       }
     }, 30);
