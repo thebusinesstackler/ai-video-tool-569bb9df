@@ -1,32 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useImageGallery } from '@/hooks/useImageGallery';
 import { 
   Plus, 
-  Trash2, 
-  Mic, 
-  Upload, 
-  Play, 
-  Pause, 
   ScanFace, 
-  ImageIcon, 
-  Volume2,
   Loader2,
-  Check,
-  X,
   Wand2
 } from 'lucide-react';
 import { TwinCreationWizard } from '@/components/ai-twin/TwinCreationWizard';
 import { TwinCard } from '@/components/ai-twin/TwinCard';
+import { TwinDetailPanel } from '@/components/ai-twin/TwinDetailPanel';
 
 interface AITwin {
   id: string;
@@ -177,44 +165,15 @@ const AITwin = () => {
 
         {/* Twin Detail Dialog */}
         <Dialog open={!!selectedTwin} onOpenChange={() => setSelectedTwin(null)}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedTwin?.name}</DialogTitle>
             </DialogHeader>
             {selectedTwin && (
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-medium mb-3">Reference Images ({selectedTwin.reference_images?.length || 0})</h4>
-                  <div className="grid grid-cols-4 gap-2">
-                    {selectedTwin.reference_images?.map((img, idx) => (
-                      <img 
-                        key={idx}
-                        src={img}
-                        alt={`Reference ${idx + 1}`}
-                        className="w-full aspect-square object-cover rounded-lg"
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {selectedTwin.description && (
-                  <div>
-                    <h4 className="font-medium mb-2">Description</h4>
-                    <p className="text-muted-foreground">{selectedTwin.description}</p>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-4">
-                  <Badge variant={selectedTwin.voice_cloning_key ? "default" : "secondary"}>
-                    <Volume2 className="w-3 h-3 mr-1" />
-                    {selectedTwin.voice_cloning_key ? "Voice Cloned" : "No Voice Clone"}
-                  </Badge>
-                  <Badge variant="outline">
-                    <ImageIcon className="w-3 h-3 mr-1" />
-                    {selectedTwin.reference_images?.length || 0} Images
-                  </Badge>
-                </div>
-              </div>
+              <TwinDetailPanel 
+                twin={selectedTwin} 
+                onUpdate={loadTwins}
+              />
             )}
           </DialogContent>
         </Dialog>
