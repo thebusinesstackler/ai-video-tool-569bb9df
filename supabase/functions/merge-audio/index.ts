@@ -25,8 +25,20 @@ serve(async (req) => {
   try {
     const { segments, userId } = await req.json() as MergeRequest;
 
+    // Return gracefully if no segments provided (e.g., lip sync videos have embedded audio)
     if (!segments || segments.length === 0) {
-      throw new Error('No audio segments provided');
+      console.log('No audio segments to merge - this is OK if videos have embedded audio');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          audioUrl: null,
+          totalDuration: 0,
+          segmentCount: 0,
+          skipped: true,
+          reason: 'No audio segments provided'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Merging ${segments.length} audio segments for user ${userId}`);
