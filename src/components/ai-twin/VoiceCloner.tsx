@@ -170,24 +170,34 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
   };
 
   const playPreview = async () => {
-    if (!audioRef.current || !voiceSampleUrl) return;
+    console.log('playPreview called', { voiceSampleUrl, audioRef: audioRef.current });
+    
+    if (!audioRef.current || !voiceSampleUrl) {
+      console.log('Missing audioRef or voiceSampleUrl');
+      return;
+    }
     
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
       try {
-        // Set source and wait for it to load
+        console.log('Setting audio source to:', voiceSampleUrl);
         audioRef.current.src = voiceSampleUrl;
         audioRef.current.load();
         
+        // Add event listeners for debugging
+        audioRef.current.onloadeddata = () => console.log('Audio loaded');
+        audioRef.current.onerror = (e) => console.error('Audio error:', e);
+        
         await audioRef.current.play();
+        console.log('Audio playing');
         setIsPlaying(true);
       } catch (error) {
         console.error('Error playing audio:', error);
         toast({
           title: 'Playback Failed',
-          description: 'Could not play audio. Try uploading again.',
+          description: 'Could not play audio. The file may be corrupted or unsupported.',
           variant: 'destructive'
         });
       }
