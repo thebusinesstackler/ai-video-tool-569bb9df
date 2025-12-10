@@ -60,6 +60,11 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [selectedPose, setSelectedPose] = useState<string | null>(null);
   
+  // Reference image variation state
+  const [variationSourceImage, setVariationSourceImage] = useState<string | null>(null);
+  const [variationPose, setVariationPose] = useState<string>('');
+  const [isGeneratingVariation, setIsGeneratingVariation] = useState(false);
+  
   // Editable fields
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(twin.description || '');
@@ -74,9 +79,14 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
     { id: 'leaning', label: 'Leaning', prompt: 'leaning against a wall or surface' },
     { id: 'gesturing', label: 'Gesturing', prompt: 'gesturing while speaking, expressive hands' },
     { id: 'thinking', label: 'Thinking', prompt: 'in a thoughtful pose, hand near chin' },
+    { id: 'getting-up', label: 'Getting Up', prompt: 'in the motion of standing up from a seated position' },
+    { id: 'sitting-down', label: 'Sitting Down', prompt: 'in the motion of sitting down' },
+    { id: 'turning', label: 'Turning Around', prompt: 'turning around, mid-turn' },
+    { id: 'reaching', label: 'Reaching', prompt: 'reaching for something with one arm' },
   ];
 
   const categoryAngles = getCameraAnglesByCategory(selectedCategory as any);
+
 
   const handleCreateMovie = () => {
     navigate('/movies', { 
@@ -241,6 +251,99 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     }
   };
 
+  const generateVariation = async () => {
+    if (!variationSourceImage || !variationPose.trim()) {
+      toast({
+        title: 'Missing information',
+        description: 'Please describe the pose or action change',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsGeneratingVariation(true);
+
+    try {
+      const faceDesc = twin.face_description || twin.description || '';
+      
+      // Create prompt that emphasizes keeping the same scene/background but changing pose
+      const prompt = `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
+CRITICAL INSTRUCTIONS:
+1. Keep the EXACT SAME background, lighting, and scene as the reference image
+2. Keep the person's face, features, skin tone, and appearance IDENTICAL to the reference
+3. ONLY change the pose/action: ${variationPose}
+${faceDesc ? `Person description: ${faceDesc}` : ''}
+The background, lighting, camera angle, and environment must remain exactly the same as the reference.
+Style: Professional photography, high quality, sharp focus on the subject.`;
+
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: {
+          prompt,
+          referenceImageUrl: variationSourceImage,
+          characterDescription: twin.face_description || twin.description
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.imageUrl) {
+        setGeneratedImages(prev => [data.imageUrl, ...prev]);
+        
+        // Save to twin's reference images
+        const { data: currentTwin } = await supabase
+          .from('ai_twins')
+          .select('reference_images')
+          .eq('id', twin.id)
+          .single();
+        
+        const currentImages = currentTwin?.reference_images || twin.reference_images || [];
+        const updatedImages = [...currentImages, data.imageUrl];
+        
+        const { error: updateError } = await supabase
+          .from('ai_twins')
+          .update({ reference_images: updatedImages })
+          .eq('id', twin.id);
+
+        if (updateError) {
+          console.error('Failed to save image to twin:', updateError);
+        } else {
+          onUpdate();
+        }
+
+        // Also save to gallery
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('generated_images')
+            .insert({
+              user_id: user.id,
+              image_url: data.imageUrl,
+              prompt: prompt,
+              source: 'ai-twin-variation',
+              reference_image_url: variationSourceImage
+            });
+        }
+
+        toast({
+          title: 'Variation generated & saved',
+          description: 'New pose variation saved to twin and gallery'
+        });
+        
+        setVariationSourceImage(null);
+        setVariationPose('');
+      }
+    } catch (error: any) {
+      console.error('Error generating variation:', error);
+      toast({
+        title: 'Generation failed',
+        description: error.message || 'Failed to generate variation',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingVariation(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Twin Info Header */}
@@ -378,17 +481,29 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           <CardTitle className="text-sm flex items-center gap-2">
             <ImageIcon className="w-4 h-4" />
             Reference Images ({twin.reference_images?.length || 0})
+            <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-2">
             {twin.reference_images?.map((img, idx) => (
-              <img 
+              <div 
                 key={idx}
-                src={img}
-                alt={`Reference ${idx + 1}`}
-                className="w-full aspect-square object-cover rounded-lg hover:ring-2 hover:ring-primary transition-all cursor-pointer"
-              />
+                className="relative group cursor-pointer"
+                onClick={() => setVariationSourceImage(img)}
+              >
+                <img 
+                  src={img}
+                  alt={`Reference ${idx + 1}`}
+                  className="w-full aspect-square object-cover rounded-lg hover:ring-2 hover:ring-primary transition-all"
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                  <div className="text-white text-xs text-center px-2">
+                    <Wand2 className="w-4 h-4 mx-auto mb-1" />
+                    Create Variation
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </CardContent>
@@ -497,6 +612,95 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           )}
         </CardContent>
       </Card>
+
+      {/* Variation Generation Dialog */}
+      <Dialog open={!!variationSourceImage} onOpenChange={() => setVariationSourceImage(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogTitle className="flex items-center gap-2">
+            <Wand2 className="w-5 h-5" />
+            Create Scene Variation
+          </DialogTitle>
+          <DialogDescription>
+            Generate a new image with the same background and lighting, but with a different pose or action.
+          </DialogDescription>
+          
+          <div className="space-y-4 mt-4">
+            {/* Source image preview */}
+            {variationSourceImage && (
+              <div className="flex gap-4 items-start">
+                <img 
+                  src={variationSourceImage}
+                  alt="Source"
+                  className="w-24 h-24 object-cover rounded-lg"
+                />
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">
+                    The new image will keep this exact background, lighting, and camera angle.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Pose presets */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quick Pose Changes</label>
+              <div className="flex flex-wrap gap-2">
+                {POSE_PRESETS.map(pose => (
+                  <Button
+                    key={pose.id}
+                    size="sm"
+                    variant={variationPose === pose.prompt ? "default" : "outline"}
+                    onClick={() => setVariationPose(pose.prompt)}
+                  >
+                    {pose.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Custom description */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Or describe the change</label>
+              <Textarea
+                placeholder="E.g., 'getting up from the chair', 'turning to look at camera', 'picking up a coffee cup', 'laughing'"
+                value={variationPose}
+                onChange={(e) => setVariationPose(e.target.value)}
+                className="h-20 resize-none"
+              />
+            </div>
+            
+            {/* Generate button */}
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setVariationSourceImage(null);
+                  setVariationPose('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={generateVariation}
+                disabled={isGeneratingVariation || !variationPose.trim()}
+                className="bg-gradient-primary"
+              >
+                {isGeneratingVariation ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Variation
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Image Preview Dialog */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
