@@ -12,10 +12,12 @@ serve(async (req) => {
   }
 
   try {
-    const { message } = await req.json();
+    const body = await req.json();
+    const { message, messages } = body;
 
-    if (!message) {
-      return new Response(JSON.stringify({ error: "Message is required" }), {
+    // Support both single message string and messages array
+    if (!message && (!messages || !Array.isArray(messages) || messages.length === 0)) {
+      return new Response(JSON.stringify({ error: "Message or messages array is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -32,6 +34,20 @@ serve(async (req) => {
       });
     }
 
+    // Build messages array: use provided messages or construct from single message
+    const chatMessages = messages 
+      ? messages 
+      : [
+          {
+            role: "system",
+            content: "You are a professional video script writer. Create engaging, clear video scripts optimized for the specified duration, style, audience, and tone. Focus on compelling openings, clear messaging, and strong calls to action.",
+          },
+          {
+            role: "user",
+            content: message,
+          },
+        ];
+
     // Call the Lovable AI Gateway
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -40,21 +56,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-				
-				model: "google/gemini-2.5-flash",
-				
-        messages: [
-					
-          {
-            role: "system",
-            content: "You are a professional video script writer. Create engaging, clear video scripts optimized for the specified duration, style, audience, and tone. Focus on compelling openings, clear messaging, and strong calls to action.",
-          },
-					
-          {
-            role: "user",
-            content: message,
-          },
-        ],
+        model: "google/gemini-2.5-flash",
+        messages: chatMessages,
       }),
     });
 
