@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles } from 'lucide-react';
 import { ImageGrouper } from './ImageGrouper';
 import { VoiceCloner } from './VoiceCloner';
+import { convertImagesToStorageUrls, hasBase64Images } from '@/lib/imageUtils';
 
 interface TwinCreationWizardProps {
   onComplete: () => void;
@@ -95,6 +96,16 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Convert any base64 images to storage URLs before saving
+      let finalImages = selectedImages;
+      if (hasBase64Images(selectedImages)) {
+        toast({
+          title: 'Converting Images',
+          description: 'Optimizing images for storage...'
+        });
+        finalImages = await convertImagesToStorageUrls(selectedImages, user.id, 'reels');
+      }
+
       const { error } = await supabase
         .from('ai_twins')
         .insert({
@@ -103,7 +114,7 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
           description: description.trim() || null,
           face_description: faceDescription,
           gender: gender,
-          reference_images: selectedImages,
+          reference_images: finalImages,
           voice_sample_url: voiceSampleUrl,
           voice_cloning_key: voiceCloningKey
         });
