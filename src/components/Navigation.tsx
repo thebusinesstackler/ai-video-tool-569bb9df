@@ -3,8 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   VideoIcon, 
   FileTextIcon, 
-  UsersIcon, 
-  BarChart3Icon,
+  UsersIcon,
   SettingsIcon,
   HomeIcon,
   SparklesIcon,
@@ -25,7 +24,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 const navigationItems = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Content Analysis', href: '/analysis', icon: BarChart3Icon },
   { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard },
   { name: 'Movies', href: '/movies', icon: Film },
   { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
