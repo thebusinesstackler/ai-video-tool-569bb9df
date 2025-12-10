@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Mic, MicOff, Film, Sparkles, Volume2, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -59,9 +59,9 @@ interface PeteAIAssistantProps {
 }
 
 const PETE_GREETINGS = [
-  "Hey there, future filmmaker! 🎬 I'm Pete, your AI movie director. Tell me about the movie you want to create!",
+  "Hey there, future filmmaker! I'm Pete, your AI movie director. Tell me about the movie you want to create!",
   "Welcome to the studio! I'm Pete, ready to help bring your movie vision to life. What story are we telling today?",
-  "Action! I'm Pete, your creative partner. Share your movie idea and let's make cinematic magic together!",
+  "Lights, camera, action! I'm Pete, your creative partner. Share your movie idea and let's make cinematic magic together!",
 ];
 
 const PETE_ENCOURAGEMENTS = [
@@ -86,6 +86,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
   const [transcript, setTranscript] = useState('');
   const typeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [localInput, setLocalInput] = useState('');
+  const messageRef = useRef('');
 
   // Use controlled or uncontrolled input
   const textInputValue = onInputChange ? inputValue : localInput;
@@ -109,8 +110,11 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
     };
   }, []);
 
-  // Typewriter effect for Pete's messages
+  // Typewriter effect for Pete's messages - fixed to prevent character doubling
   const typeMessage = (message: string) => {
+    // Sanitize message - remove undefined and clean up
+    const cleanMessage = (message || '').replace(/undefined/g, '').trim();
+    
     // Clear any existing typing interval to prevent interleaving
     if (typeIntervalRef.current) {
       clearInterval(typeIntervalRef.current);
@@ -119,11 +123,14 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
     
     setIsTyping(true);
     setPeteMessage('');
+    messageRef.current = '';
     let index = 0;
     
     typeIntervalRef.current = setInterval(() => {
-      if (index < message.length) {
-        setPeteMessage(prev => prev + message[index]);
+      if (index < cleanMessage.length) {
+        const char = cleanMessage.charAt(index);
+        messageRef.current += char;
+        setPeteMessage(messageRef.current);
         index++;
       } else {
         if (typeIntervalRef.current) {
@@ -132,7 +139,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
         }
         setIsTyping(false);
       }
-    }, 30);
+    }, 25);
   };
 
   // Get Pete's response to the movie idea
@@ -145,7 +152,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
 
       if (error) throw error;
 
-      if (data?.response) {
+      if (data?.response && typeof data.response === 'string') {
         typeMessage(data.response);
       } else {
         // Fallback to local encouragement
@@ -169,7 +176,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
     getPeteResponse(idea);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmitIdea();
@@ -178,7 +185,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
 
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      typeMessage("Hmm, speech recognition isn't supported in your browser. Try typing your idea instead, or use Chrome!");
+      typeMessage("Hmm, speech recognition is not supported in your browser. Try typing your idea instead, or use Chrome!");
       return;
     }
 
@@ -215,7 +222,7 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
     recognition.start();
     setIsListening(true);
     setTranscript('');
-    typeMessage("I'm listening... Tell me about your movie! 🎤");
+    typeMessage("I'm listening... Tell me about your movie!");
   };
 
   const stopListening = () => {
@@ -268,39 +275,42 @@ export const PeteAIAssistant: React.FC<PeteAIAssistantProps> = ({
               </div>
             )}
 
-            {/* Text Input */}
+            {/* Text Input - Taller Textarea */}
             <div className="flex gap-2">
-              <Input
+              <Textarea
                 value={textInputValue}
                 onChange={(e) => setTextInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your movie idea here..."
-                className="flex-1 bg-background/50 border-border focus:border-primary"
+                placeholder="Type your movie idea here... (Press Enter to submit, Shift+Enter for new line)"
+                className="flex-1 min-h-[80px] bg-background/50 border-border focus:border-primary resize-none"
                 disabled={isListening || isThinking}
+                rows={3}
               />
-              <Button
-                onClick={handleSubmitIdea}
-                disabled={!textInputValue.trim() || isListening || isThinking}
-                size="icon"
-                className="shrink-0"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-              <Button
-                onClick={isListening ? stopListening : startListening}
-                size="icon"
-                variant={isListening ? "destructive" : "outline"}
-                className={cn(
-                  "shrink-0 transition-all",
-                  isListening && "animate-pulse"
-                )}
-              >
-                {isListening ? (
-                  <MicOff className="w-4 h-4" />
-                ) : (
-                  <Mic className="w-4 h-4" />
-                )}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={handleSubmitIdea}
+                  disabled={!textInputValue.trim() || isListening || isThinking}
+                  size="icon"
+                  className="shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={isListening ? stopListening : startListening}
+                  size="icon"
+                  variant={isListening ? "destructive" : "outline"}
+                  className={cn(
+                    "shrink-0 transition-all",
+                    isListening && "animate-pulse"
+                  )}
+                >
+                  {isListening ? (
+                    <MicOff className="w-4 h-4" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
