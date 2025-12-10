@@ -308,6 +308,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_logos: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string
+          name: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url: string
+          name?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string
+          name?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       visual_presets: {
         Row: {
           camera_angle: string

@@ -41,7 +41,8 @@ import {
   Upload,
   X,
   Image as ImageIcon,
-  Camera
+  Camera,
+  Video as VideoIcon
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -49,6 +50,8 @@ import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
+import { CameraAngleSelector } from '@/components/CameraAngleSelector';
+import { LogoAnimation } from '@/data/reelTemplates';
 import { FolderOpen } from 'lucide-react';
 
 // Speech Recognition types
@@ -266,6 +269,11 @@ const Reels = () => {
   const [characterDescription, setCharacterDescription] = useState('');
   const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
   const referenceInputRef = useRef<HTMLInputElement>(null);
+  
+  // Camera angle and logo state
+  const [selectedCameraAngle, setSelectedCameraAngle] = useState('eye-level');
+  const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
+  const [selectedLogoAnimation, setSelectedLogoAnimation] = useState<LogoAnimation>('fade');
   
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
