@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
@@ -21,6 +22,7 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
   // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [gender, setGender] = useState('male');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(null);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
           user_id: user.id,
           name: name.trim(),
           description: description.trim() || null,
+          gender: gender,
           reference_images: selectedImages,
           voice_sample_url: voiceSampleUrl,
           voice_cloning_key: voiceCloningKey
@@ -123,6 +126,19 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
               />
             </div>
             <div>
+              <label className="text-sm font-medium mb-2 block">Gender *</label>
+              <Select value={gender} onValueChange={setGender}>
+                <SelectTrigger className="max-w-md">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="non-binary">Non-binary</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-sm font-medium mb-2 block">Description (optional)</label>
               <Textarea
                 value={description}
@@ -159,6 +175,10 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">Name</h4>
                 <p className="text-lg">{name}</p>
+              </div>
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">Gender</h4>
+                <p className="text-lg capitalize">{gender}</p>
               </div>
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">Voice Clone</h4>

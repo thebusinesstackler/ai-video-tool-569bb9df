@@ -25,6 +25,7 @@ interface AITwin {
   voice_sample_url: string | null;
   description: string | null;
   face_description: string | null;
+  gender: string | null;
 }
 
 const SAMPLE_MOVIES = [
@@ -305,8 +306,10 @@ const MovieSceneCreator = () => {
       let characterDescription: string | undefined;
       
       if (selectedTwin) {
-        // Use AI Twin's detailed description and face description
-        characterDescription = `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+        // Use AI Twin's detailed description, face description, and gender
+        const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
+        const pronouns = selectedTwin.gender === 'female' ? 'she/her' : selectedTwin.gender === 'male' ? 'he/him' : 'they/them';
+        characterDescription = `${selectedTwin.name} (${genderText}character, pronouns: ${pronouns}): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
       } else if (selectedCharacter) {
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
       }
@@ -346,10 +349,13 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingScenes(true);
     try {
-      // Pass AI Twin description for character consistency in scenes
-      const characterDescription = selectedTwin 
-        ? `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || 'No description'}`
-        : undefined;
+      // Pass AI Twin description with gender for character consistency in scenes
+      let characterDescription: string | undefined;
+      if (selectedTwin) {
+        const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
+        const pronouns = selectedTwin.gender === 'female' ? 'she/her' : selectedTwin.gender === 'male' ? 'he/him' : 'they/them';
+        characterDescription = `${selectedTwin.name} (${genderText}character, pronouns: ${pronouns}): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+      }
 
       const { data, error } = await supabase.functions.invoke('generate-movie-scenes', {
         body: { outline, characterDescription }

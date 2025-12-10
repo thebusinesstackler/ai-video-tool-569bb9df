@@ -25,6 +25,7 @@ interface AITwin {
   voice_cloning_key: string | null;
   description: string | null;
   face_description: string | null;
+  gender: string | null;
   created_at: string;
   updated_at: string;
 }
