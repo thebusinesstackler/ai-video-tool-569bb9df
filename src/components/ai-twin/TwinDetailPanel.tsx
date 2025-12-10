@@ -14,6 +14,8 @@ import {
   getCameraAnglesByCategory,
   type CameraAngle 
 } from '@/data/cameraAngles';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { 
   Film, 
   Video, 
@@ -25,7 +27,10 @@ import {
   Sparkles,
   User,
   Wand2,
-  X
+  X,
+  Edit2,
+  Save,
+  XCircle
 } from 'lucide-react';
 
 interface AITwin {
@@ -36,6 +41,7 @@ interface AITwin {
   voice_sample_url: string | null;
   description: string | null;
   face_description: string | null;
+  gender: string | null;
 }
 
 interface TwinDetailPanelProps {
@@ -53,6 +59,11 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [selectedPose, setSelectedPose] = useState<string | null>(null);
+  
+  // Editable fields
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(twin.description || '');
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   const POSE_PRESETS = [
     { id: 'standing', label: 'Standing', prompt: 'standing upright, full body visible' },
@@ -89,6 +100,34 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
         referenceImage: twin.reference_images?.[0]
       }
     });
+  };
+
+  const saveDescription = async () => {
+    setIsSavingDescription(true);
+    try {
+      const { error } = await supabase
+        .from('ai_twins')
+        .update({ description: editedDescription.trim() || null })
+        .eq('id', twin.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Description saved',
+        description: 'Your AI Twin description has been updated'
+      });
+      setIsEditingDescription(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error saving description:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save description',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingDescription(false);
+    }
   };
 
   const generateTwinImage = async (angle: CameraAngle) => {
@@ -197,10 +236,10 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         )}
         <div className="flex-1">
           <h2 className="text-2xl font-bold">{twin.name}</h2>
-          {twin.description && (
-            <p className="text-muted-foreground mt-1">{twin.description}</p>
+          {twin.gender && (
+            <Badge variant="outline" className="mt-1 capitalize">{twin.gender}</Badge>
           )}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             <Badge variant={twin.voice_cloning_key ? "default" : "secondary"}>
               <Volume2 className="w-3 h-3 mr-1" />
               {twin.voice_cloning_key ? "Voice Cloned" : "No Voice"}
@@ -213,13 +252,80 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </div>
       </div>
 
-      {/* Face Description */}
-      {twin.face_description && (
-        <Card>
-          <CardHeader className="pb-2">
+      {/* Editable Description */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <User className="w-4 h-4" />
-              Face Description
+              Character Description
+            </CardTitle>
+            {!isEditingDescription && (
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => {
+                  setEditedDescription(twin.description || '');
+                  setIsEditingDescription(true);
+                }}
+              >
+                <Edit2 className="w-4 h-4 mr-1" />
+                Edit
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isEditingDescription ? (
+            <div className="space-y-3">
+              <Textarea
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                placeholder="Describe this person for movie generation. E.g., 'A tall African American man in his 30s with a short beard, confident demeanor, wearing business casual attire. He has warm brown eyes and a friendly smile.'"
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                This description will be used in movie scripts and image generation to ensure consistent portrayal.
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  onClick={saveDescription}
+                  disabled={isSavingDescription}
+                >
+                  {isSavingDescription ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-1" />
+                  )}
+                  Save
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => setIsEditingDescription(false)}
+                >
+                  <XCircle className="w-4 h-4 mr-1" />
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {twin.description || 'No description set. Click Edit to describe this AI Twin for accurate movie generation.'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Face Description (AI-generated) */}
+      {twin.face_description && (
+        <Card className="bg-muted/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              AI-Analyzed Face Description
             </CardTitle>
           </CardHeader>
           <CardContent>
