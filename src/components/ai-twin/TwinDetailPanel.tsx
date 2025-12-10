@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,15 +32,11 @@ import {
   Edit2,
   Save,
   XCircle,
-  Mic,
-  Upload,
-  Play,
-  Pause,
-  StopCircle,
   Trash2,
   Check
 } from 'lucide-react';
 import { TwinSpeaker } from './TwinSpeaker';
+import { VoiceCloner } from './VoiceCloner';
 
 interface AITwin {
   id: string;
@@ -48,6 +44,7 @@ interface AITwin {
   reference_images: string[];
   voice_cloning_key: string | null;
   voice_sample_url: string | null;
+  consent_audio_url: string | null;
   description: string | null;
   face_description: string | null;
   gender: string | null;
@@ -79,17 +76,9 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   // Voice cloning state
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
-  const [isCloning, setIsCloning] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [consentAudioUrl, setConsentAudioUrl] = useState<string | null>(twin.consent_audio_url);
 
   // Batch generation state
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
@@ -368,188 +357,43 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     }
   };
 
-  // Voice cloning functions
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await uploadAudioBlob(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      const interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-      setRecordingInterval(interval);
-
-    } catch (error: any) {
-      console.error('Error starting recording:', error);
-      toast({
-        title: 'Recording Failed',
-        description: 'Could not access microphone. Please check permissions.',
-        variant: 'destructive'
-      });
-    }
+  // Voice cloning callbacks - sync with database
+  const handleVoiceSampleChange = async (url: string | null) => {
+    setVoiceSampleUrl(url);
+    await supabase
+      .from('ai_twins')
+      .update({ voice_sample_url: url })
+      .eq('id', twin.id);
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (recordingInterval) {
-        clearInterval(recordingInterval);
-        setRecordingInterval(null);
-      }
-    }
+  const handleVoiceCloningKeyChange = async (key: string | null) => {
+    setVoiceCloningKey(key);
+    await supabase
+      .from('ai_twins')
+      .update({ voice_cloning_key: key })
+      .eq('id', twin.id);
+    onUpdate();
   };
 
-  const uploadAudioBlob = async (blob: Blob) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const fileName = `${user.id}/voice-samples/${Date.now()}.webm`;
-      const { data, error } = await supabase.storage
-        .from('project-files')
-        .upload(fileName, blob, { contentType: 'audio/webm' });
-
-      if (error) throw error;
-
-      const { data: urlData } = supabase.storage
-        .from('project-files')
-        .getPublicUrl(fileName);
-
-      setVoiceSampleUrl(urlData.publicUrl);
-      
-      // Save to database
-      await supabase
-        .from('ai_twins')
-        .update({ voice_sample_url: urlData.publicUrl })
-        .eq('id', twin.id);
-      
-      toast({
-        title: 'Audio Uploaded',
-        description: 'Your voice sample is ready for cloning'
-      });
-    } catch (error: any) {
-      console.error('Error uploading audio:', error);
-      toast({
-        title: 'Upload Failed',
-        description: error.message || 'Failed to upload audio',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleVoiceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('audio/')) {
-      toast({
-        title: 'Invalid File',
-        description: 'Please upload an audio file (MP3, WAV, etc.)',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    await uploadAudioBlob(file);
-  };
-
-  const cloneVoice = async () => {
-    if (!voiceSampleUrl) {
-      toast({
-        title: 'No Audio Sample',
-        description: 'Please record or upload an audio sample first',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    try {
-      setIsCloning(true);
-
-      const { data, error } = await supabase.functions.invoke('clone-voice', {
-        body: { audioUrl: voiceSampleUrl }
-      });
-
-      if (error) throw error;
-
-      if (data?.voiceCloningKey) {
-        setVoiceCloningKey(data.voiceCloningKey);
-        
-        // Save to database
-        await supabase
-          .from('ai_twins')
-          .update({ voice_cloning_key: data.voiceCloningKey })
-          .eq('id', twin.id);
-        
-        onUpdate();
-        toast({
-          title: 'Voice Cloned!',
-          description: 'Your voice has been successfully cloned'
-        });
-      } else {
-        throw new Error('No voice cloning key returned');
-      }
-    } catch (error: any) {
-      console.error('Error cloning voice:', error);
-      toast({
-        title: 'Cloning Failed',
-        description: error.message || 'Failed to clone voice',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsCloning(false);
-    }
-  };
-
-  const playVoicePreview = () => {
-    if (audioRef.current && voiceSampleUrl) {
-      if (isPlayingVoice) {
-        audioRef.current.pause();
-        setIsPlayingVoice(false);
-      } else {
-        audioRef.current.src = voiceSampleUrl;
-        audioRef.current.play();
-        setIsPlayingVoice(true);
-      }
-    }
+  const handleConsentAudioChange = async (url: string | null) => {
+    setConsentAudioUrl(url);
+    await supabase
+      .from('ai_twins')
+      .update({ consent_audio_url: url })
+      .eq('id', twin.id);
   };
 
   const clearVoice = async () => {
     setVoiceSampleUrl(null);
     setVoiceCloningKey(null);
-    setIsPlayingVoice(false);
+    setConsentAudioUrl(null);
     
     await supabase
       .from('ai_twins')
-      .update({ voice_sample_url: null, voice_cloning_key: null })
+      .update({ voice_sample_url: null, voice_cloning_key: null, consent_audio_url: null })
       .eq('id', twin.id);
     
     onUpdate();
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Batch generate 5 images at once
@@ -846,128 +690,31 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </Button>
       </div>
 
-      {/* Voice Cloning Section - Show when no voice is cloned */}
-      {!voiceCloningKey && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Volume2 className="w-4 h-4" />
-              Clone Voice
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Record or upload 30+ seconds of clear speech to create a voice clone
-            </p>
-
-            {!voiceSampleUrl ? (
-              <div className="grid grid-cols-2 gap-4">
-                <Card 
-                  className={`cursor-pointer transition-all hover:border-primary ${isRecording ? 'border-destructive bg-destructive/5' : ''}`}
-                  onClick={isRecording ? stopRecording : startRecording}
-                >
-                  <CardContent className="flex flex-col items-center justify-center p-6">
-                    {isRecording ? (
-                      <>
-                        <StopCircle className="w-10 h-10 text-destructive mb-2 animate-pulse" />
-                        <p className="font-medium text-sm">Recording...</p>
-                        <p className="text-xl font-mono mt-1">{formatTime(recordingTime)}</p>
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="w-10 h-10 text-primary mb-2" />
-                        <p className="font-medium text-sm">Record Voice</p>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card 
-                  className="cursor-pointer transition-all hover:border-primary"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <CardContent className="flex flex-col items-center justify-center p-6">
-                    <Upload className="w-10 h-10 text-primary mb-2" />
-                    <p className="font-medium text-sm">Upload Audio</p>
-                  </CardContent>
-                </Card>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="audio/*"
-                  onChange={handleVoiceFileUpload}
-                  className="hidden"
-                />
-              </div>
-            ) : (
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={playVoicePreview}
-                  >
-                    {isPlayingVoice ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                  </Button>
-                  <div>
-                    <p className="font-medium text-sm">Voice Sample Ready</p>
-                    <p className="text-xs text-muted-foreground">Click play to preview</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={cloneVoice}
-                    disabled={isCloning}
-                    className="bg-gradient-primary"
-                    size="sm"
-                  >
-                    {isCloning ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Cloning...
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="w-4 h-4 mr-2" />
-                        Clone Voice
-                      </>
-                    )}
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={clearVoice}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <audio 
-              ref={audioRef} 
-              onEnded={() => setIsPlayingVoice(false)}
-              className="hidden"
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Voice Cloned Badge */}
-      {voiceCloningKey && (
-        <Card className="bg-green-500/10 border-green-500/30">
-          <CardContent className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <Badge className="bg-green-500">
+      {/* Voice Cloning Section */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Volume2 className="w-4 h-4" />
+            Voice Cloning
+            {voiceCloningKey && (
+              <Badge className="bg-green-500 ml-2">
                 <Check className="w-3 h-3 mr-1" />
-                Voice Cloned
+                Cloned
               </Badge>
-              <span className="text-sm text-muted-foreground">Voice ready for use in videos</span>
-            </div>
-            <Button variant="ghost" size="sm" onClick={clearVoice}>
-              <Trash2 className="w-4 h-4 mr-1" />
-              Remove
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <VoiceCloner
+            voiceSampleUrl={voiceSampleUrl}
+            voiceCloningKey={voiceCloningKey}
+            consentAudioUrl={consentAudioUrl}
+            onVoiceSampleChange={handleVoiceSampleChange}
+            onVoiceCloningKeyChange={handleVoiceCloningKeyChange}
+            onConsentAudioChange={handleConsentAudioChange}
+          />
+        </CardContent>
+      </Card>
 
       {/* Make Twin Speak Section */}
       <TwinSpeaker 
