@@ -655,23 +655,34 @@ const MovieSceneCreator = () => {
 
     setGeneratingVideoFor(sceneNumber);
     try {
-      // Generate audio from dialogue or description using default Google TTS voice
+      // Generate audio from dialogue or description
       const textForAudio = scene.dialogue || scene.description;
       
+      // Determine if we're using cloned voice from AI Twin
+      const useClonedVoice = selectedTwin?.voice_sample_url;
+      
       toast({
-        title: "Generating Audio",
-        description: "Creating voiceover for the scene...",
+        title: useClonedVoice ? "Generating Cloned Voice Audio" : "Generating Audio",
+        description: useClonedVoice 
+          ? `Creating voiceover using ${selectedTwin.name}'s cloned voice...`
+          : "Creating voiceover for the scene...",
       });
 
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: textForAudio, voice: 'alloy' }
+        body: { 
+          text: textForAudio, 
+          voice: 'en-US-Journey-D',
+          clonedVoiceUrl: useClonedVoice || undefined
+        }
       });
 
       if (ttsError) throw ttsError;
 
       toast({
         title: "Generating Video",
-        description: "Creating lip-synced video using Google TTS voice...",
+        description: useClonedVoice 
+          ? `Creating lip-synced video with ${selectedTwin.name}'s voice...`
+          : "Creating lip-synced video using default voice...",
       });
 
       // Generate video with lip sync using InfiniteTalk model
