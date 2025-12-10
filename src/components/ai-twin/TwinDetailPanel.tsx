@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -22,7 +23,8 @@ import {
   ImageIcon,
   Sparkles,
   User,
-  Wand2
+  Wand2,
+  X
 } from 'lucide-react';
 
 interface AITwin {
@@ -47,6 +49,7 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [selectedAngle, setSelectedAngle] = useState<CameraAngle | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const categoryAngles = getCameraAnglesByCategory(selectedCategory as any);
 
@@ -246,23 +249,25 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
           </div>
 
           {/* Camera Angles Grid */}
-          <ScrollArea className="h-80">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <ScrollArea className="h-72">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pr-4">
               {categoryAngles.map(angle => (
                 <Button
                   key={angle.id}
                   variant="outline"
-                  className="h-auto flex-col items-start p-3 text-left hover:bg-secondary"
+                  className="h-24 flex-col items-start justify-start p-3 text-left hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
                   disabled={isGenerating}
                   onClick={() => generateTwinImage(angle)}
                 >
-                  {isGenerating && selectedAngle?.id === angle.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin mb-1" />
-                  ) : (
-                    <Camera className="w-4 h-4 mb-1" />
-                  )}
-                  <span className="font-medium text-sm">{angle.name}</span>
-                  <span className="text-xs text-muted-foreground line-clamp-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    {isGenerating && selectedAngle?.id === angle.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
+                    <span className="font-medium text-sm">{angle.name}</span>
+                  </div>
+                  <span className="text-xs opacity-70 line-clamp-2">
                     {angle.description}
                   </span>
                 </Button>
@@ -275,7 +280,7 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
             <div className="space-y-2">
               <h4 className="text-sm font-medium flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
-                Just Generated
+                Just Generated (click to enlarge)
               </h4>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {generatedImages.map((img, idx) => (
@@ -283,7 +288,8 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
                     key={idx}
                     src={img}
                     alt={`Generated ${idx + 1}`}
-                    className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                    className="w-20 h-20 object-cover rounded-lg flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                    onClick={() => setPreviewImage(img)}
                   />
                 ))}
               </div>
@@ -291,6 +297,27 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
           )}
         </CardContent>
       </Card>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-4xl p-2">
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="absolute right-2 top-2 z-10"
+            onClick={() => setPreviewImage(null)}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+          {previewImage && (
+            <img 
+              src={previewImage}
+              alt="Preview"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
