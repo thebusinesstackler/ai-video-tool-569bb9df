@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,11 +18,23 @@ import {
   RefreshCwIcon,
   MicIcon,
   PlayIcon,
-  VideoIcon
+  VideoIcon,
+  User,
+  ImageIcon,
+  Volume2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+
+interface AITwin {
+  id: string;
+  name: string;
+  reference_images: string[];
+  voice_cloning_key: string | null;
+  face_description: string | null;
+  description: string | null;
+}
 
 interface ScriptParams {
   topic: string;
@@ -58,15 +70,68 @@ export const ScriptGenerator = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<string>('default');
   const [isNarrationDialogOpen, setIsNarrationDialogOpen] = useState(false);
+  
+  // AI Twin and gender state
+  const [aiTwins, setAiTwins] = useState<AITwin[]>([]);
+  const [selectedTwinId, setSelectedTwinId] = useState<string | null>(null);
+  const [selectedGender, setSelectedGender] = useState<string>('auto');
+  const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // API keys are now securely handled server-side via Supabase edge functions
-  React.useEffect(() => {
+  useEffect(() => {
     // API is always configured since we use server-side keys
     setApiConfigured(true);
     setKieConfigured(true);
   }, []);
+
+  // Load AI Twins
+  useEffect(() => {
+    const loadAITwins = async () => {
+      const { data } = await supabase
+        .from('ai_twins')
+        .select('id, name, reference_images, voice_cloning_key, face_description, description')
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        setAiTwins(data.filter(t => t.reference_images && t.reference_images.length > 0));
+      }
+    };
+    
+    loadAITwins();
+  }, []);
+
+  // Handle AI Twin selection
+  const handleTwinSelect = (twinId: string) => {
+    if (twinId === 'none') {
+      setSelectedTwinId(null);
+      setSelectedTwin(null);
+      return;
+    }
+    
+    const twin = aiTwins.find(t => t.id === twinId);
+    if (twin) {
+      setSelectedTwinId(twinId);
+      setSelectedTwin(twin);
+      
+      // Auto-detect gender from face description
+      const desc = (twin.face_description || twin.description || '').toLowerCase();
+      if (desc.includes('male') && !desc.includes('female')) {
+        setSelectedGender('male');
+      } else if (desc.includes('female') || desc.includes('woman')) {
+        setSelectedGender('female');
+      }
+      
+      toast({
+        title: `AI Twin "${twin.name}" Selected`,
+        description: twin.voice_cloning_key 
+          ? `Cloned voice active • ${twin.reference_images?.length || 0} reference images`
+          : `${twin.reference_images?.length || 0} reference images (no cloned voice)`,
+      });
+    }
+  };
 
   const handleGenerate = async () => {
     if (!params.topic.trim()) {
@@ -378,8 +443,119 @@ export const ScriptGenerator = () => {
             />
           </div>
 
+          {/* AI Twin Selector */}
+          <div className="space-y-3 p-4 rounded-lg border border-primary/20 bg-primary/5">
+            <Label className="flex items-center gap-2">
+              <SparklesIcon className="w-4 h-4 text-primary" />
+              AI Twin (Recommended)
+            </Label>
+            <Select value={selectedTwinId || 'none'} onValueChange={handleTwinSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select your AI Twin..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No AI Twin</SelectItem>
+                {aiTwins.map((twin) => (
+                  <SelectItem key={twin.id} value={twin.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{twin.name}</span>
+                      {twin.voice_cloning_key && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          <Volume2 className="w-2.5 h-2.5 mr-1" />
+                          Voice
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        <ImageIcon className="w-2.5 h-2.5 mr-1" />
+                        {twin.reference_images?.length || 0}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Selected Twin Preview */}
+            {selectedTwin && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-3">
+                  {/* Reference Images Preview */}
+                  <div className="flex -space-x-2">
+                    {selectedTwin.reference_images?.slice(0, 4).map((img, idx) => (
+                      <img 
+                        key={idx}
+                        src={img} 
+                        alt={`Reference ${idx + 1}`}
+                        className="w-10 h-10 rounded-full border-2 border-background object-cover"
+                      />
+                    ))}
+                    {(selectedTwin.reference_images?.length || 0) > 4 && (
+                      <div className="w-10 h-10 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-medium">
+                        +{(selectedTwin.reference_images?.length || 0) - 4}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{selectedTwin.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedTwin.reference_images?.length || 0} reference images
+                      {selectedTwin.voice_cloning_key && ' • Cloned voice ready'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Voice Status */}
+                {selectedTwin.voice_cloning_key && (
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
+                    <Volume2 className="w-4 h-4 text-green-500" />
+                    <span className="text-xs text-green-600 dark:text-green-400">
+                      Cloned voice will be used — no voice selection needed
+                    </span>
+                  </div>
+                )}
+                
+                {/* Face Description */}
+                {selectedTwin.face_description && (
+                  <p className="text-xs text-muted-foreground italic">
+                    "{selectedTwin.face_description}"
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {aiTwins.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No AI Twins found. Create one to use your cloned voice and reference images.
+              </p>
+            )}
+          </div>
+
+          {/* Gender / Presenter Type - Only show if no AI Twin selected */}
+          {!selectedTwin && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Presenter Gender
+              </Label>
+              <Select value={selectedGender} onValueChange={setSelectedGender}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (Topic-based)</SelectItem>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="neutral">Neutral / Unspecified</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Helps generate appropriate pronouns and descriptions in the script.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="character">Character (Optional)</Label>
+            <Label htmlFor="character">Legacy Character (Optional)</Label>
             <Select value={params.characterId} onValueChange={(value) => setParams(prev => ({ ...prev, characterId: value }))}>
               <SelectTrigger id="character">
                 <SelectValue placeholder="No character (generic script)" />
@@ -394,7 +570,7 @@ export const ScriptGenerator = () => {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Select a character to write scripts specifically for them with detailed scene descriptions optimized for 10-second segments.
+              Use AI Twins above for better results. Legacy characters are for backwards compatibility.
             </p>
           </div>
 
