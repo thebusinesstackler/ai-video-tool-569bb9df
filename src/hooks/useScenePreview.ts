@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, clonedVoiceUrl?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
@@ -128,7 +128,8 @@ export function useScenePreview(): UseScenePreviewResult {
     refImageUrl?: string, 
     voice: string = 'alloy',
     characterRefImage?: string,
-    characterDescription?: string
+    characterDescription?: string,
+    clonedVoiceUrl?: string
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     if (scenes.length === 0) return;
@@ -169,7 +170,11 @@ export function useScenePreview(): UseScenePreviewResult {
 
         try {
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-            body: { text: scene.narration, voice }
+            body: { 
+              text: scene.narration, 
+              voice,
+              clonedVoiceUrl: clonedVoiceUrl || undefined
+            }
           });
 
           if (ttsError) {

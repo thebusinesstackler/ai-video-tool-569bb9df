@@ -2636,13 +2636,17 @@ const Reels = () => {
                             setCharacterTransformation(preReferenceTransformation);
                           }
                         }
+                        const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
+                        const clonedVoiceUrl = selectedTwin?.voice_cloning_key || undefined;
+                        
                         generatePreview(
                           project.scenes, 
                           user?.id, 
                           referenceToUse || undefined, 
                           selectedVoice,
                           characterRefImage || undefined,
-                          characterDescription || undefined
+                          characterDescription || undefined,
+                          clonedVoiceUrl
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
