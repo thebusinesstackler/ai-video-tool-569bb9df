@@ -1,19 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { ImageGallery } from '@/components/ImageGallery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Database, CheckCircle, AlertCircle, Upload } from 'lucide-react';
+import { Loader2, Database, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useImageGallery } from '@/hooks/useImageGallery';
+import { ImageDropZone } from '@/components/ImageDropZone';
 
 const Gallery = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isUploading, uploadImages, fetchImages } = useImageGallery();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationResult, setMigrationResult] = useState<{
     migrated: number;
@@ -21,12 +21,9 @@ const Gallery = () => {
     message: string;
   } | null>(null);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      await uploadImages(e.target.files);
-      await fetchImages();
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const handleFilesSelected = async (files: FileList) => {
+    await uploadImages(files);
+    await fetchImages();
   };
 
   const runMigration = async () => {
@@ -78,48 +75,34 @@ const Gallery = () => {
     <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Image Gallery</h1>
-            <p className="text-muted-foreground mt-2">
-              All your generated images in one place
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Upload Button */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-              onChange={handleUpload}
-              className="hidden"
-            />
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading || !user}
-            >
-              {isUploading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4 mr-2" />
-              )}
-              Upload Images
-            </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Image Gallery</h1>
+          <p className="text-muted-foreground mt-2">
+            All your generated images in one place
+          </p>
+        </div>
+        </div>
+        
+        {/* Drag and Drop Zone */}
+        <ImageDropZone
+          onFilesSelected={handleFilesSelected}
+          isUploading={isUploading}
+        />
 
-            {/* Migration Tool */}
-            <Card className="bg-muted/50 border-dashed">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Fix Loading Issues</p>
-                  <p className="text-xs text-muted-foreground">
-                    Convert base64 images to storage URLs
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={runMigration}
+        <div className="flex items-center justify-end">
+          {/* Migration Tool */}
+          <Card className="bg-muted/50 border-dashed">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Fix Loading Issues</p>
+                <p className="text-xs text-muted-foreground">
+                  Convert base64 images to storage URLs
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={runMigration}
                 disabled={isMigrating || !user}
               >
                 {isMigrating ? (
@@ -143,7 +126,6 @@ const Gallery = () => {
               </div>
               )}
             </Card>
-          </div>
         </div>
         
         <ImageGallery />
