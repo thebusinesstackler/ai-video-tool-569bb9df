@@ -239,6 +239,7 @@ const Reels = () => {
   const [characters, setCharacters] = useState<{ id: string; name: string; reference_images: string[] }[]>([]);
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
+  const [characterDescription, setCharacterDescription] = useState('');
   const referenceInputRef = useRef<HTMLInputElement>(null);
   
   const videoBlobRef = useRef<Blob | null>(null);
@@ -460,6 +461,7 @@ const Reels = () => {
           targetDuration,
           hookStyle,
           enableCutScenes,
+          characterDescription: characterDescription.trim() || undefined,
           introConfig: selectedIntro !== 'none' ? {
             introTemplate: selectedIntro,
             introText: introText
@@ -1907,6 +1909,23 @@ const Reels = () => {
                           reader.readAsDataURL(file);
                         }}
                       />
+                      
+                      {/* Character Description for Script Generation */}
+                      <div className="space-y-2 pt-2 border-t border-border/50">
+                        <Label className="text-xs flex items-center gap-2">
+                          <User className="w-3 h-3" />
+                          Character Description (for script)
+                        </Label>
+                        <Input
+                          placeholder="e.g., Male entrepreneur, 30s, professional attire"
+                          value={characterDescription}
+                          onChange={(e) => setCharacterDescription(e.target.value)}
+                          className="text-sm"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Describe the person to ensure all generated scripts match their gender, age, and appearance
+                        </p>
+                      </div>
                     </CardContent>
                   </Card>
 
