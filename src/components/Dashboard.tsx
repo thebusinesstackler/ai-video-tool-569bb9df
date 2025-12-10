@@ -8,8 +8,6 @@ import {
   TrendingUpIcon,
   PlayIcon,
   UploadIcon,
-  SparklesIcon,
-  BarChart3Icon,
   LogInIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -97,6 +95,18 @@ export const Dashboard = () => {
         .select('id')
         .eq('user_id', currentUser.id);
 
+      // Fetch reels count for total videos
+      const { data: reels, error: reelsError } = await supabase
+        .from('reels')
+        .select('id')
+        .eq('user_id', currentUser.id);
+
+      // Fetch movie projects count
+      const { data: movieProjects, error: movieError } = await supabase
+        .from('movie_projects')
+        .select('id')
+        .eq('user_id', currentUser.id);
+
       if (projectsError) {
         console.error('Error loading projects:', projectsError);
       }
@@ -105,14 +115,13 @@ export const Dashboard = () => {
         console.error('Error loading characters:', charactersError);
       }
 
-      const recentProjects = (projects || [])
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 3);
+      // Total videos = projects + reels + movie projects
+      const totalVideos = (projects?.length || 0) + (reels?.length || 0) + (movieProjects?.length || 0);
 
       setStats({
-        videosCount: projects?.length || 0,
+        videosCount: totalVideos,
         charactersCount: characters?.length || 0,
-        recentProjects
+        recentProjects: []
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -279,46 +288,6 @@ export const Dashboard = () => {
         ))}
       </div>
 
-      {/* Recent Activity */}
-      <Card className="glass">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold text-foreground">Recent Projects</CardTitle>
-            <Button asChild variant="ghost">
-              <Link to="/projects">View All</Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {isLoadingStats ? (
-              <div className="text-center text-muted-foreground">Loading...</div>
-            ) : stats.recentProjects.length > 0 ? (
-              stats.recentProjects.map((project) => (
-                <div key={project.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-accent/5 transition-colors">
-                  <div className="w-8 h-8 bg-gradient-accent rounded-full flex items-center justify-center">
-                    <VideoIcon className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground">{project.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatTimeAgo(project.created_at)} • {project.model_type}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <VideoIcon className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">No projects yet</p>
-                <Button asChild className="mt-4" variant="outline">
-                  <Link to="/projects">Create Your First Video</Link>
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
