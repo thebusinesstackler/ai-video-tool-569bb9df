@@ -547,11 +547,14 @@ const Reels = () => {
     setProgress(5);
     
     // Use preview voiceovers if they exist, otherwise generate new ones
-    // Skip voiceover generation entirely if VEO3 mode is enabled (VEO3 generates voice from prompt)
+    // Only skip voiceover generation if VEO3 mode is enabled AND lip sync is disabled
+    // (VEO3 generates voice from prompt, but if lip sync is enabled, we need TTS for the audio)
     const hasPreviewVoiceovers = previewVoiceovers.length > 0;
-    const skipVoiceGeneration = enableVeo3Mode;
+    // IMPORTANT: Only skip voice generation if VEO3 mode AND NOT lip sync mode
+    // When lip sync is enabled, we need TTS audio even if VEO3 is also checked (lip sync takes priority)
+    const skipVoiceGeneration = enableVeo3Mode && !enableLipSync;
     const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = 
-      hasPreviewVoiceovers && !skipVoiceGeneration ? [...previewVoiceovers] : [];
+      hasPreviewVoiceovers ? [...previewVoiceovers] : [];
 
     try {
       // Skip voiceover generation if we have them from preview OR if VEO3 mode is enabled
@@ -785,11 +788,73 @@ const Reels = () => {
           if (shouldSkipAudioOverlay) {
             console.log('Skipping audio overlay: Videos have embedded audio from lip sync/VEO3');
           } else {
+            // CRITICAL FIX: If we need audio but don't have it, generate voiceovers now
+            if (sortedAudios.length === 0 || sortedAudios.every(a => !a.audioUrl || a.audioUrl.trim() === '')) {
+              console.log('WARNING: No voiceovers available but videos need audio. Generating now...');
+              setProgressStatus('Generating voiceovers (late generation)...');
+              
+              for (const scene of project.scenes) {
+                if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
+                  voiceovers.push({
+                    sceneNumber: scene.sceneNumber,
+                    audioUrl: '',
+                    duration: scene.duration || 2
+                  });
+                  continue;
+                }
+                
+                try {
+                  const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+                    body: { text: scene.narration, voice: selectedVoice }
+                  });
+                  
+                  if (!ttsError && ttsData?.audioContent) {
+                    const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+                    const actualDuration = await getAudioDuration(audioUrl);
+                    
+                    // Upload to storage
+                    let storageUrl: string | undefined;
+                    if (user) {
+                      try {
+                        const base64Data = ttsData.audioContent;
+                        const binaryString = atob(base64Data);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                          bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        const fileName = `${user.id}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
+                        const { data: uploadData, error: uploadError } = await supabase.storage
+                          .from('reels')
+                          .upload(fileName, bytes, { contentType: 'audio/mp3' });
+                        if (!uploadError && uploadData) {
+                          const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                          storageUrl = publicUrl.publicUrl;
+                        }
+                      } catch (e) { console.warn('Upload failed:', e); }
+                    }
+                    
+                    voiceovers.push({
+                      sceneNumber: scene.sceneNumber,
+                      audioUrl,
+                      storageUrl,
+                      duration: actualDuration
+                    });
+                  }
+                } catch (e) {
+                  console.error('Late TTS generation failed for scene', scene.sceneNumber, e);
+                }
+              }
+              
+              // Update sortedAudios with newly generated voiceovers
+              sortedAudios.length = 0;
+              sortedAudios.push(...voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber));
+            }
+            
             // Filter out empty/silent audio segments before merging
             const audioSegmentsToMerge = sortedAudios
               .filter(a => a.audioUrl && a.audioUrl.trim() !== '')
               .map(a => ({
-                audioUrl: a.audioUrl,
+                audioUrl: a.storageUrl || a.audioUrl, // Prefer storage URL for merge
                 duration: a.duration,
                 sceneNumber: a.sceneNumber
               }));
@@ -797,6 +862,7 @@ const Reels = () => {
             if (audioSegmentsToMerge.length === 0) {
               console.log('No audio segments to merge, skipping audio merge');
             } else {
+              console.log('Merging audio segments:', audioSegmentsToMerge.length);
               try {
                 const { data: mergeData, error: mergeError } = await supabase.functions.invoke('merge-audio', {
                   body: {
