@@ -1876,6 +1876,7 @@ const Reels = () => {
                             checked={enableCutScenes}
                             onCheckedChange={(checked) => {
                               setEnableCutScenes(checked);
+                              setFeatureToggles(prev => ({ ...prev, cutScenes: checked }));
                               if (checked) setCutScenesExpanded(true);
                             }}
                             disabled={isGenerating}
@@ -1962,15 +1963,16 @@ const Reels = () => {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={enableLipSync}
-                          onCheckedChange={(checked) => {
-                            setEnableLipSync(checked);
-                            if (checked) setLipSyncExpanded(true);
-                          }}
-                          disabled={isGenerating}
-                          onClick={(e) => e.stopPropagation()}
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={enableLipSync}
+                            onCheckedChange={(checked) => {
+                              setEnableLipSync(checked);
+                              setFeatureToggles(prev => ({ ...prev, lipSync: checked }));
+                              if (checked) setLipSyncExpanded(true);
+                            }}
+                            disabled={isGenerating}
+                            onClick={(e) => e.stopPropagation()}
                         />
                         <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${lipSyncExpanded ? 'rotate-180' : ''}`} />
                       </div>
