@@ -307,7 +307,9 @@ const Reels = () => {
   const [featureToggles, setFeatureToggles] = useState({
     cutScenes: false,
     upscaler: false,
-    lipSync: false
+    lipSync: false,
+    captions: true,
+    backgroundMusic: false
   });
   const [showUpscaler, setShowUpscaler] = useState(false);
   
@@ -324,6 +326,10 @@ const Reels = () => {
       if (value) setLipSyncExpanded(true);
     } else if (feature === 'upscaler') {
       setShowUpscaler(value);
+    } else if (feature === 'captions') {
+      // Captions are enabled by default - could add caption settings expansion
+    } else if (feature === 'backgroundMusic') {
+      // Background music toggle - could add music selection UI
     }
   };
   
