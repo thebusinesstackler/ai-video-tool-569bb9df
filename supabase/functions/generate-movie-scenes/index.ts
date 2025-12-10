@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { outline } = await req.json();
+    const { outline, characterDescription } = await req.json();
     
     if (!outline) {
       return new Response(
@@ -20,6 +20,11 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Build character context for the prompt
+    const characterContext = characterDescription 
+      ? `\n\nCRITICAL - MAIN CHARACTER (must appear in EVERY scene with this EXACT description): ${characterDescription}. Use this exact appearance description in every imagePrompt to maintain character consistency.`
+      : '';
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
@@ -33,6 +38,7 @@ serve(async (req) => {
     console.log('Generating movie scenes from outline...');
 
     const systemPrompt = `You are an expert screenwriter and cinematographer specializing in creating immersive audiovisual experiences. Your task is to break down a movie outline into detailed, cinematic scenes that work as complete movie segments with rich narration.
+${characterContext}
 
 For each scene, you must provide:
 1. Scene number and title
@@ -40,7 +46,7 @@ For each scene, you must provide:
 3. Detailed visual description (what the camera sees)
 4. Character actions and emotions
 5. Complete narration for voiceover (60-120 seconds of content)
-6. A detailed image generation prompt that captures the key visual moment
+6. A detailed image generation prompt that captures the key visual moment${characterDescription ? ` - ALWAYS include the main character with this exact description: ${characterDescription}` : ''}
 
 CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown, no code blocks):
 [
@@ -51,7 +57,7 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
     "timeOfDay": "Day/Night/Dawn/Dusk",
     "description": "Detailed description of what happens in this scene",
     "dialogue": "Complete voiceover narration for the scene. Include spoken dialogue, describe sound effects like thunder rumbling or footsteps echoing, and atmospheric descriptions. Create a rich audio drama experience that is 60-120 seconds when spoken. Use descriptive language rather than special characters or quotes.",
-    "imagePrompt": "Highly detailed cinematic prompt for image generation, including camera angle, lighting, mood, character descriptions, setting details"
+    "imagePrompt": "Highly detailed cinematic prompt for image generation, including camera angle, lighting, mood, character descriptions, setting details${characterDescription ? '. MUST include the main character with their exact appearance.' : ''}"
   }
 ]
 
@@ -62,6 +68,7 @@ IMPORTANT FORMATTING RULES:
 - Example dialogue format: "Thunder rumbles in the distance. Sarah opens the creaking door and calls out nervously asking if anyone is there. Footsteps echo on the wooden floor as wind howls through the broken windows."
 - Make narration 60-120 seconds when spoken to create complete movie scenes
 - Include character dialogue, sound descriptions, and atmospheric details all in natural flowing text
+${characterDescription ? `- The main character (${characterDescription}) MUST appear in every scene's imagePrompt with consistent appearance` : ''}
 
 Return ONLY the JSON array, no other text or formatting.`;
 
