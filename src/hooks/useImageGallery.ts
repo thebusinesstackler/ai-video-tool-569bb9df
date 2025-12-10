@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
 
 export interface GeneratedImage {
   id: string;
@@ -125,11 +126,18 @@ export function useImageGallery(): UseImageGalleryResult {
         return;
       }
 
+      // Auto-convert base64 to storage URL before saving
+      let finalImageUrl = imageUrl;
+      if (imageUrl.startsWith('data:')) {
+        console.log('Converting base64 image to storage URL...');
+        finalImageUrl = await convertBase64ToStorageUrl(imageUrl, user.id, 'reels');
+      }
+
       const { error } = await supabase
         .from('generated_images')
         .insert({
           user_id: user.id,
-          image_url: imageUrl,
+          image_url: finalImageUrl,
           prompt: prompt || null,
           source,
           reference_image_url: referenceImageUrl || null,
