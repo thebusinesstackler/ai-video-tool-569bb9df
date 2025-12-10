@@ -220,6 +220,8 @@ const Reels = () => {
   const [savedReels, setSavedReels] = useState<SavedReel[]>([]);
   const [loadingReels, setLoadingReels] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
+  const [isSavingReel, setIsSavingReel] = useState(false);
+  const [currentReelSaved, setCurrentReelSaved] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
@@ -639,6 +641,102 @@ const Reels = () => {
         description: error.message || "Failed to delete reel.",
         variant: "destructive"
       });
+    }
+  };
+
+  // Manual save to My Reels
+  const saveToMyReels = async () => {
+    if (!user) {
+      toast({
+        title: "Sign In Required",
+        description: "Please sign in to save reels.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const hasContent = project.generatedScenes.length > 0 || project.previewScenes.length > 0 || project.videoBlobUrl;
+    if (!hasContent) {
+      toast({
+        title: "Nothing to Save",
+        description: "Generate some content first before saving.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSavingReel(true);
+
+    try {
+      const scenesData = project.generatedScenes.length > 0 
+        ? project.generatedScenes.map((scene) => {
+            const video = project.videoClips.find(v => v.sceneNumber === scene.sceneNumber);
+            const audio = project.voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
+            return {
+              ...scene,
+              videoUrl: video?.videoUrl || null,
+              audioUrl: audio?.storageUrl || null,
+              audioDuration: audio?.duration || null
+            };
+          })
+        : project.previewScenes.map((scene) => ({
+            sceneNumber: scene.sceneNumber,
+            text: scene.narration,
+            imageUrl: scene.imageUrl,
+            videoUrl: null,
+            audioUrl: scene.audioUrl,
+            audioDuration: scene.audioDuration,
+            startTime: 0,
+            endTime: scene.audioDuration
+          }));
+
+      const thumbnailUrl = project.generatedScenes[0]?.imageUrl 
+        || project.previewScenes[0]?.imageUrl 
+        || null;
+
+      const totalDuration = project.voiceovers.reduce((acc, a) => acc + a.duration, 0) 
+        || project.previewScenes.reduce((acc, s) => acc + s.audioDuration, 0)
+        || project.scenes.reduce((acc, s) => acc + s.duration, 0)
+        || 0;
+
+      let savedVideoUrl = project.videoBlobUrl;
+      if (project.videoBlobUrl && project.videoBlobUrl.startsWith('blob:') && videoBlobRef.current) {
+        const fileName = `${user.id}/${Date.now()}-reel.mp4`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, videoBlobRef.current, { contentType: 'video/mp4' });
+
+        if (!uploadError && uploadData) {
+          const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+          savedVideoUrl = publicUrl.publicUrl;
+        }
+      }
+
+      await supabase.from('reels').insert([{
+        user_id: user.id,
+        topic: project.topic || topic || 'Untitled Reel',
+        video_url: savedVideoUrl,
+        thumbnail_url: thumbnailUrl,
+        scenes: scenesData as unknown as any,
+        total_duration: Math.round(totalDuration)
+      }]);
+
+      setCurrentReelSaved(true);
+      fetchSavedReels();
+
+      toast({
+        title: "Reel Saved!",
+        description: "Your reel has been saved to My Reels."
+      });
+    } catch (error: any) {
+      console.error('Error saving reel:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save reel.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSavingReel(false);
     }
   };
 
@@ -1358,6 +1456,8 @@ const Reels = () => {
     setOutroText('');
     // Reset preview
     resetPreview();
+    // Reset save state
+    setCurrentReelSaved(false);
   };
 
   const handleDownloadVideo = async () => {
@@ -2957,6 +3057,27 @@ const Reels = () => {
                       >
                         <Download className="w-4 h-4 mr-2" />
                         Download for TikTok
+                      </Button>
+                    )}
+                    {/* Save to My Reels button */}
+                    {!currentReelSaved && (project.generatedScenes.length > 0 || project.previewScenes.length > 0 || project.videoBlobUrl) && (
+                      <Button 
+                        onClick={saveToMyReels}
+                        disabled={isSavingReel}
+                        variant="secondary"
+                      >
+                        {isSavingReel ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <FolderOpen className="w-4 h-4 mr-2" />
+                        )}
+                        Save to My Reels
+                      </Button>
+                    )}
+                    {currentReelSaved && (
+                      <Button variant="secondary" disabled className="opacity-70">
+                        <History className="w-4 h-4 mr-2" />
+                        Saved
                       </Button>
                     )}
                     <Button onClick={resetProject} variant="outline">
