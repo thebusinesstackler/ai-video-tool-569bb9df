@@ -121,9 +121,27 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
           onUpdate();
         }
 
+        // Also save to gallery (generated_images table)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: galleryError } = await supabase
+            .from('generated_images')
+            .insert({
+              user_id: user.id,
+              image_url: data.imageUrl,
+              prompt: prompt,
+              source: 'ai-twin',
+              reference_image_url: twin.reference_images[0]
+            });
+
+          if (galleryError) {
+            console.error('Failed to save to gallery:', galleryError);
+          }
+        }
+
         toast({
-          title: 'Image generated',
-          description: `${angle.name} shot generated and saved`
+          title: 'Image generated & saved',
+          description: `${angle.name} shot saved to twin and gallery`
         });
       }
     } catch (error: any) {
