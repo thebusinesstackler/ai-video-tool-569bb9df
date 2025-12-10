@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -50,11 +51,11 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [customPrompt, setCustomPrompt] = useState<string>('');
 
   const categoryAngles = getCameraAnglesByCategory(selectedCategory as any);
 
   const handleCreateMovie = () => {
-    // Navigate to movies page with this twin pre-selected
     navigate('/movies', { 
       state: { 
         selectedTwin: twin,
@@ -67,7 +68,6 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   };
 
   const handleCreateReel = () => {
-    // Navigate to reels page with this twin pre-selected
     navigate('/reels', { 
       state: { 
         selectedTwin: twin,
@@ -93,7 +93,17 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
     setSelectedAngle(angle);
 
     try {
-      const prompt = `Generate a ${angle.promptModifier} of this person. ${twin.face_description || twin.description || 'Maintain the same person\'s appearance, face, and features.'}. Photorealistic, high quality, professional photography.`;
+      // Build a more specific prompt that emphasizes keeping the same person
+      const faceDesc = twin.face_description || twin.description || '';
+      const customContext = customPrompt ? ` Scene context: ${customPrompt}.` : '';
+      
+      // Improved prompt structure for better consistency
+      const prompt = `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
+Camera angle: ${angle.promptModifier}. 
+${faceDesc ? `Person description: ${faceDesc}.` : 'Keep the exact same face, features, skin tone, and appearance as the reference.'}
+${customContext}
+CRITICAL: The person in the generated image MUST look identical to the reference - same face shape, eyes, nose, mouth, hair, and overall appearance. 
+Style: Professional photography, high quality, sharp focus on the subject.`;
 
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
         body: {
@@ -252,18 +262,32 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Custom Prompt */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Scene Details (optional)</label>
+            <Textarea
+              placeholder="Describe the background, pose, or setting. E.g., 'standing in a modern office', 'sitting at a cafe', 'outdoor park with trees', 'wearing a suit', 'arms crossed confidently'"
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              className="h-20 resize-none"
+            />
+          </div>
+
           {/* Category Tabs */}
-          <div className="flex flex-wrap gap-2">
-            {CAMERA_CATEGORIES.map(cat => (
-              <Button
-                key={cat.id}
-                size="sm"
-                variant={selectedCategory === cat.id ? "default" : "outline"}
-                onClick={() => setSelectedCategory(cat.id)}
-              >
-                {cat.name}
-              </Button>
-            ))}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Camera Angle Category</label>
+            <div className="flex flex-wrap gap-2">
+              {CAMERA_CATEGORIES.map(cat => (
+                <Button
+                  key={cat.id}
+                  size="sm"
+                  variant={selectedCategory === cat.id ? "default" : "outline"}
+                  onClick={() => setSelectedCategory(cat.id)}
+                >
+                  {cat.name}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {/* Camera Angles Grid */}
