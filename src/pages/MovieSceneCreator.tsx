@@ -2099,11 +2099,31 @@ const MovieSceneCreator = () => {
                     {scene.generatedImage ? (
                       <div className="space-y-3">
                         <div>
-                          <Label className="text-sm font-semibold">Generated Image</Label>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-sm font-semibold">Generated Image</Label>
+                            <Button
+                              onClick={() => generateSceneImage(scene.sceneNumber, scene.imagePrompt)}
+                              disabled={generatingImageFor === scene.sceneNumber}
+                              variant="outline"
+                              size="sm"
+                            >
+                              {generatingImageFor === scene.sceneNumber ? (
+                                <>
+                                  <Sparkles className="w-3 h-3 mr-1 animate-spin" />
+                                  Regenerating...
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="w-3 h-3 mr-1" />
+                                  Regenerate
+                                </>
+                              )}
+                            </Button>
+                          </div>
                           <img 
                             src={scene.generatedImage} 
                             alt={`Scene ${scene.sceneNumber}: ${scene.title}`}
-                            className="mt-2 w-full rounded-lg border border-border"
+                            className="w-full rounded-lg border border-border"
                           />
                         </div>
                         
