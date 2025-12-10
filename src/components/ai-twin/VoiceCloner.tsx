@@ -86,7 +86,8 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileName = `voice-samples/${user.id}/${Date.now()}.webm`;
+      // Path must start with user ID for RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
+      const fileName = `${user.id}/voice-samples/${Date.now()}.webm`;
       const { data, error } = await supabase.storage
         .from('project-files')
         .upload(fileName, blob, { contentType: 'audio/webm' });
