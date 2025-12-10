@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, X, Loader2, Wand2, Search, ImageIcon, Upload } from 'lucide-react';
+import { Check, X, Loader2, Wand2, Search, ImageIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ImageDropZone } from '@/components/ImageDropZone';
 
 interface ImageGrouperProps {
   selectedImages: string[];
@@ -26,17 +27,13 @@ export const ImageGrouper: React.FC<ImageGrouperProps> = ({ selectedImages, onIm
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [suggestedGroups, setSuggestedGroups] = useState<ImageGroup[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const uploadedUrls = await uploadImages(e.target.files);
-      // Auto-select uploaded images
-      if (uploadedUrls.length > 0) {
-        onImagesChange([...selectedImages, ...uploadedUrls]);
-      }
+  const handleFilesSelected = async (files: FileList) => {
+    const uploadedUrls = await uploadImages(files);
+    // Auto-select uploaded images
+    if (uploadedUrls.length > 0) {
+      onImagesChange([...selectedImages, ...uploadedUrls]);
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const filteredImages = images.filter(img => 
@@ -119,27 +116,11 @@ export const ImageGrouper: React.FC<ImageGrouperProps> = ({ selectedImages, onIm
           <Badge variant="outline">
             {selectedImages.length} selected
           </Badge>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            multiple
-            onChange={handleUpload}
-            className="hidden"
+          <ImageDropZone
+            onFilesSelected={handleFilesSelected}
+            isUploading={isUploading}
+            compact
           />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-          >
-            {isUploading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4 mr-2" />
-            )}
-            Upload
-          </Button>
           <Button
             variant="outline"
             size="sm"
