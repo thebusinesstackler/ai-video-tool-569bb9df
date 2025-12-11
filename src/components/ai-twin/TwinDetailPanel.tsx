@@ -74,6 +74,11 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(twin.description || '');
   const [isSavingDescription, setIsSavingDescription] = useState(false);
+  
+  // Name editing state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(twin.name);
+  const [isSavingName, setIsSavingName] = useState(false);
 
   // Voice cloning state
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
@@ -122,6 +127,44 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
         referenceImage: twin.reference_images?.[0]
       }
     });
+  };
+
+  const saveName = async () => {
+    const trimmedName = editedName.trim();
+    if (!trimmedName) {
+      toast({
+        title: 'Invalid name',
+        description: 'Name cannot be empty',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      const { error } = await supabase
+        .from('ai_twins')
+        .update({ name: trimmedName })
+        .eq('id', twin.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Name saved',
+        description: 'Your AI Twin name has been updated'
+      });
+      setIsEditingName(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error saving name:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save name',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingName(false);
+    }
   };
 
   const saveDescription = async () => {
@@ -561,7 +604,58 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           />
         )}
         <div className="flex-1">
-          <h2 className="text-2xl font-bold">{twin.name}</h2>
+          {isEditingName ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                className="text-xl font-bold h-10 max-w-[200px]"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveName();
+                  if (e.key === 'Escape') {
+                    setEditedName(twin.name);
+                    setIsEditingName(false);
+                  }
+                }}
+              />
+              <Button 
+                size="sm" 
+                onClick={saveName}
+                disabled={isSavingName}
+              >
+                {isSavingName ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+              </Button>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={() => {
+                  setEditedName(twin.name);
+                  setIsEditingName(false);
+                }}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold">{twin.name}</h2>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={() => {
+                  setEditedName(twin.name);
+                  setIsEditingName(true);
+                }}
+              >
+                <Edit2 className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
           {twin.gender && (
             <Badge variant="outline" className="mt-1 capitalize">{twin.gender}</Badge>
           )}
