@@ -78,7 +78,6 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   // Voice cloning state
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
-  const [consentAudioUrl, setConsentAudioUrl] = useState<string | null>(twin.consent_audio_url);
 
   // Batch generation state
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
@@ -375,22 +374,13 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     onUpdate();
   };
 
-  const handleConsentAudioChange = async (url: string | null) => {
-    setConsentAudioUrl(url);
-    await supabase
-      .from('ai_twins')
-      .update({ consent_audio_url: url })
-      .eq('id', twin.id);
-  };
-
   const clearVoice = async () => {
     setVoiceSampleUrl(null);
     setVoiceCloningKey(null);
-    setConsentAudioUrl(null);
     
     await supabase
       .from('ai_twins')
-      .update({ voice_sample_url: null, voice_cloning_key: null, consent_audio_url: null })
+      .update({ voice_sample_url: null, voice_cloning_key: null })
       .eq('id', twin.id);
     
     onUpdate();
@@ -708,10 +698,8 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           <VoiceCloner
             voiceSampleUrl={voiceSampleUrl}
             voiceCloningKey={voiceCloningKey}
-            consentAudioUrl={consentAudioUrl}
             onVoiceSampleChange={handleVoiceSampleChange}
             onVoiceCloningKeyChange={handleVoiceCloningKeyChange}
-            onConsentAudioChange={handleConsentAudioChange}
           />
         </CardContent>
       </Card>
@@ -719,7 +707,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
       {/* Make Twin Speak Section */}
       <TwinSpeaker 
         twinName={twin.name}
-        voiceCloningKey={voiceCloningKey}
+        speechifyVoiceId={voiceCloningKey}
       />
 
       {/* Reference Images Gallery */}

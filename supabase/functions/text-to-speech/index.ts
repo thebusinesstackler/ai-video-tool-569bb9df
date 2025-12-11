@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -252,30 +251,97 @@ async function generateWaveSpeedTTS(
   }
 }
 
+// Speechify TTS with cloned voice
+async function generateSpeechifyTTS(
+  text: string,
+  apiKey: string,
+  voiceId: string,
+  speed: number = 1.0
+): Promise<{ audioContent: string; audioUrl: string } | null> {
+  try {
+    console.log('Generating TTS with Speechify cloned voice:', voiceId);
+
+    const response = await fetch('https://api.sws.speechify.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: text.length > 5000 ? text.substring(0, 5000) : text,
+        voice_id: voiceId,
+        audio_format: 'mp3'
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Speechify TTS error:', response.status, errorText);
+      return null;
+    }
+
+    // Speechify returns audio as binary data
+    const audioBuffer = await response.arrayBuffer();
+    const audioBytes = new Uint8Array(audioBuffer);
+    
+    // Convert to base64
+    let binary = '';
+    const chunkSize = 32768;
+    for (let i = 0; i < audioBytes.length; i += chunkSize) {
+      const chunk = audioBytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64Audio = btoa(binary);
+
+    console.log('Speechify TTS successful');
+    return {
+      audioContent: base64Audio,
+      audioUrl: `data:audio/mp3;base64,${base64Audio}`
+    };
+  } catch (error) {
+    console.error('Speechify TTS error:', error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey } = await req.json();
+    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey, speechifyVoiceId } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!voiceCloningKey}`);
+    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!voiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
 
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
+    const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
     
-    // If voice cloning key is provided, use cloned voice
+    // Priority 1: Speechify cloned voice (new system)
+    if (speechifyVoiceId && speechifyApiKey) {
+      console.log('Attempting Speechify cloned voice generation...');
+      const speechifyResult = await generateSpeechifyTTS(text, speechifyApiKey, speechifyVoiceId, speed);
+      if (speechifyResult) {
+        return new Response(
+          JSON.stringify({ ...speechifyResult, isClonedVoice: true, provider: 'speechify' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log('Speechify TTS failed, falling back...');
+    }
+    
+    // Priority 2: Google Cloud cloned voice (legacy system)
     if (voiceCloningKey && googleApiKey) {
-      console.log('Attempting cloned voice generation with stored key...');
+      console.log('Attempting Google cloned voice generation with stored key...');
       const clonedResult = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, speed);
       if (clonedResult) {
         return new Response(
-          JSON.stringify({ ...clonedResult, isClonedVoice: true }),
+          JSON.stringify({ ...clonedResult, isClonedVoice: true, provider: 'google' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
