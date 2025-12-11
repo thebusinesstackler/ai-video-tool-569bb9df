@@ -146,6 +146,18 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
 
     console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
 
+    // Check file size - Speechify has a ~10MB limit
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast({
+        title: 'File Too Large',
+        description: 'Please upload an audio file under 10MB. Try using MP3 format for smaller file sizes.',
+        variant: 'destructive'
+      });
+      e.target.value = '';
+      return;
+    }
+
     // Check by file extension (more reliable than MIME type)
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
     const supportedExtensions = ['mp3', 'wav', 'wave', 'm4a', 'webm', 'mp4', 'ogg'];
@@ -156,7 +168,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
         description: `Please upload an audio file (MP3, WAV, M4A, or WebM). Got: .${ext}`,
         variant: 'destructive'
       });
-      e.target.value = ''; // Reset input
+      e.target.value = '';
       return;
     }
 
