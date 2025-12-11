@@ -17,6 +17,64 @@ interface VoiceClonerProps {
 
 const CONSENT_SCRIPT = "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model";
 
+// Convert AudioBuffer to WAV blob
+const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+  const numChannels = 1; // Mono
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  
+  const samples = buffer.getChannelData(0);
+  const dataLength = samples.length * bytesPerSample;
+  const bufferLength = 44 + dataLength;
+  
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const view = new DataView(arrayBuffer);
+  
+  // WAV header
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataLength, true);
+  
+  // Write audio data
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const sample = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+    offset += 2;
+  }
+  
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
+};
+
+// Convert any audio blob to WAV format
+const convertToWav = async (blob: Blob): Promise<Blob> => {
+  const audioContext = new AudioContext();
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  audioContext.close();
+  return audioBufferToWav(audioBuffer);
+};
+
 type RecordingStep = 'idle' | 'consent' | 'reference';
 
 export const VoiceCloner: React.FC<VoiceClonerProps> = ({
@@ -117,22 +175,28 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Determine file extension based on mime type
-      const getExtension = (mime: string): string => {
-        if (mime.includes('wav')) return 'wav';
-        if (mime.includes('mp4') || mime.includes('m4a')) return 'm4a';
-        if (mime.includes('mp3') || mime.includes('mpeg')) return 'mp3';
-        return 'webm';
-      };
+      // Convert to WAV format for Google Cloud compatibility
+      let finalBlob = blob;
+      let extension = 'wav';
+      let contentType = 'audio/wav';
       
-      const extension = mimeType ? getExtension(mimeType) : 'webm';
-      const contentType = mimeType || 'audio/webm';
+      // If not already WAV, convert it
+      if (!mimeType?.includes('wav')) {
+        console.log('Converting audio to WAV format...');
+        try {
+          finalBlob = await convertToWav(blob);
+          console.log('Audio converted to WAV successfully');
+        } catch (conversionError) {
+          console.error('Failed to convert audio:', conversionError);
+          throw new Error('Failed to convert audio to WAV format. Please try uploading an MP3 or WAV file instead.');
+        }
+      }
       
       const folder = step === 'consent' ? 'consent-audio' : 'voice-samples';
       const fileName = `${user.id}/${folder}/${Date.now()}.${extension}`;
       const { data, error } = await supabase.storage
         .from('project-files')
-        .upload(fileName, blob, { contentType });
+        .upload(fileName, finalBlob, { contentType });
 
       if (error) throw error;
 
