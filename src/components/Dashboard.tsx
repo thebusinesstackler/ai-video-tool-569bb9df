@@ -187,10 +187,10 @@ export const Dashboard = () => {
         />
         <div className="relative p-8 lg:p-12">
           <div className="max-w-3xl">
-            <h1 className="text-4xl lg:text-6xl font-bold mb-6 gradient-text animate-float drop-shadow-[0_2px_8px_rgba(139,92,246,0.5)]">
+            <h1 className="text-4xl lg:text-6xl font-bold mb-6 text-foreground">
               AI Video Automation Platform
             </h1>
-            <p className="text-xl text-foreground/90 font-medium mb-8 leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+            <p className="text-xl text-foreground/90 font-medium mb-8 leading-relaxed">
               Create stunning videos with AI-powered content analysis, script generation, 
               and automated production using the latest VEO3 technology.
             </p>
@@ -198,10 +198,6 @@ export const Dashboard = () => {
               <Button variant="hero" size="lg">
                 <PlayIcon className="w-5 h-5" />
                 Start Creating
-              </Button>
-              <Button variant="glass" size="lg">
-                <UploadIcon className="w-5 h-5" />
-                Analyze Content
               </Button>
             </div>
           </div>
