@@ -154,20 +154,37 @@ serve(async (req) => {
     console.log(`Consent audio size: ${consentAudioBase64.length} chars`);
 
     // Call Google Cloud TTS API with OAuth Bearer token
+    // Using the v1beta1 synthesize endpoint with voice cloning
+    const synthesizeUrl = `https://texttospeech.googleapis.com/v1beta1/projects/${serviceAccount.project_id}/locations/global:synthesizeLongAudio`;
+    
+    // For instant voice cloning, we need to use the voices:generateVoiceCloningKey endpoint
+    // The audio should be sent as OGG_OPUS since that's what browsers record
     const generateKeyUrl = 'https://texttospeech.googleapis.com/v1beta1/voices:generateVoiceCloningKey';
+    
+    // Detect audio format from file extension or default to OGG_OPUS (browser default)
+    const getAudioEncoding = (url: string): string => {
+      if (url.includes('.wav')) return 'LINEAR16';
+      if (url.includes('.mp3')) return 'MP3';
+      // Browser MediaRecorder typically produces webm/opus or ogg/opus
+      return 'OGG_OPUS';
+    };
+    
+    const referenceEncoding = getAudioEncoding(audioUrl);
+    const consentEncoding = getAudioEncoding(consentAudioUrl);
+    
+    console.log(`Reference audio encoding: ${referenceEncoding}`);
+    console.log(`Consent audio encoding: ${consentEncoding}`);
     
     const requestBody = {
       reference_audio: {
         audio_config: {
-          audio_encoding: "LINEAR16",
-          sample_rate_hertz: 24000
+          audio_encoding: referenceEncoding
         },
         content: referenceAudioBase64
       },
       voice_talent_consent: {
         audio_config: {
-          audio_encoding: "LINEAR16",
-          sample_rate_hertz: 24000
+          audio_encoding: consentEncoding
         },
         content: consentAudioBase64
       },
