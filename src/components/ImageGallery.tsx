@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   Image as ImageIcon, 
   Trash2, 
@@ -12,10 +18,17 @@ import {
   Download,
   Star,
   Calendar,
-  X
+  X,
+  Maximize2,
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { GeneratedImage, useImageGallery } from '@/hooks/useImageGallery';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface ImageGalleryProps {
   onSelectImage?: (imageUrl: string) => void;
@@ -26,10 +39,13 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   onSelectImage,
   selectable = false 
 }) => {
-  const { images, isLoading, hasMore, loadMore, deleteImage } = useImageGallery();
+  const { images, isLoading, hasMore, loadMore, deleteImage, saveImage, fetchImages } = useImageGallery();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   const [filterSource, setFilterSource] = useState<string>('all');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isUpscaling, setIsUpscaling] = useState(false);
+  const { toast } = useToast();
 
   const filteredImages = images.filter(img => {
     const matchesSearch = !searchTerm || 
@@ -40,6 +56,10 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   });
 
   const sources = ['all', ...new Set(images.map(img => img.source))];
+
+  const currentIndex = selectedImage 
+    ? filteredImages.findIndex(img => img.id === selectedImage.id)
+    : -1;
 
   const handleDownload = async (imageUrl: string, imageName: string) => {
     try {
@@ -55,6 +75,88 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
+    }
+  };
+
+  const navigateImage = useCallback((direction: 'prev' | 'next') => {
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'prev' 
+      ? (currentIndex - 1 + filteredImages.length) % filteredImages.length
+      : (currentIndex + 1) % filteredImages.length;
+    
+    setSelectedImage(filteredImages[newIndex]);
+  }, [currentIndex, filteredImages]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedImage) return;
+      
+      switch (e.key) {
+        case 'Escape':
+          if (isFullscreen) {
+            setIsFullscreen(false);
+          } else {
+            setSelectedImage(null);
+          }
+          break;
+        case 'ArrowLeft':
+          navigateImage('prev');
+          break;
+        case 'ArrowRight':
+          navigateImage('next');
+          break;
+        case 'f':
+        case 'F':
+          setIsFullscreen(!isFullscreen);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImage, isFullscreen, navigateImage]);
+
+  const handleUpscale = async (mode: '2x' | '4x' | 'enhance') => {
+    if (!selectedImage) return;
+    
+    setIsUpscaling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('upscale-image', {
+        body: { 
+          imageUrl: selectedImage.image_url,
+          mode 
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data.upscaledImageUrl) {
+        // Save the upscaled image to the gallery
+        await saveImage({
+          imageUrl: data.upscaledImageUrl,
+          prompt: `${mode === 'enhance' ? 'Enhanced' : `Upscaled ${mode}`}: ${selectedImage.prompt || 'Original image'}`,
+          source: 'upscaled',
+          referenceImageUrl: selectedImage.image_url
+        });
+        
+        await fetchImages(true);
+        
+        toast({
+          title: "Image Upscaled",
+          description: data.message || `Image ${mode === 'enhance' ? 'enhanced' : `upscaled to ${mode}`} successfully!`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Upscale error:', error);
+      toast({
+        title: "Upscale Failed",
+        description: error.message || "Failed to upscale image. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpscaling(false);
     }
   };
 
@@ -214,28 +316,77 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
       </Card>
 
       {/* Image Detail Dialog */}
-      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={!!selectedImage && !isFullscreen} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Image Details</span>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setSelectedImage(null)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setIsFullscreen(true)}
+                  title="Fullscreen (F)"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setSelectedImage(null)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </DialogTitle>
           </DialogHeader>
           {selectedImage && (
             <div className="space-y-4">
-              <div className="aspect-[9/16] max-h-[60vh] mx-auto rounded-lg overflow-hidden bg-muted">
-                <img
-                  src={selectedImage.image_url}
-                  alt={selectedImage.prompt || 'Generated image'}
-                  className="w-full h-full object-contain"
-                />
+              {/* Image with navigation */}
+              <div className="relative group">
+                <div 
+                  className="aspect-[9/16] max-h-[60vh] mx-auto rounded-lg overflow-hidden bg-muted cursor-pointer"
+                  onClick={() => setIsFullscreen(true)}
+                >
+                  <img
+                    src={selectedImage.image_url}
+                    alt={selectedImage.prompt || 'Generated image'}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                
+                {/* Navigation arrows */}
+                {filteredImages.length > 1 && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateImage('prev');
+                      }}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateImage('next');
+                      }}
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </Button>
+                  </>
+                )}
+                
+                {/* Click hint */}
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-sm text-foreground text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  Click to view fullscreen
+                </div>
               </div>
               
               <div className="space-y-2 text-sm">
@@ -260,16 +411,48 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   )}
                   <span>{format(new Date(selectedImage.created_at), 'MMM d, yyyy h:mm a')}</span>
                 </div>
+                
+                <div className="text-xs text-muted-foreground">
+                  Use ← → arrows to navigate, F for fullscreen, Esc to close
+                </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   onClick={() => handleDownload(selectedImage.image_url, `image-${selectedImage.id.slice(0, 8)}`)}
-                  className="flex-1"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download
                 </Button>
+                
+                {/* Upscale dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" disabled={isUpscaling}>
+                      {isUpscaling ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <ZoomIn className="w-4 h-4 mr-2" />
+                      )}
+                      {isUpscaling ? 'Upscaling...' : 'Upscale'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => handleUpscale('2x')}>
+                      <ZoomIn className="w-4 h-4 mr-2" />
+                      Upscale 2x
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleUpscale('4x')}>
+                      <ZoomIn className="w-4 h-4 mr-2" />
+                      Upscale 4x
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleUpscale('enhance')}>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      AI Enhance
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
                 {onSelectImage && (
                   <Button
                     variant="secondary"
@@ -277,7 +460,6 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                       onSelectImage(selectedImage.image_url);
                       setSelectedImage(null);
                     }}
-                    className="flex-1"
                   >
                     <Star className="w-4 h-4 mr-2" />
                     Use as Reference
@@ -297,6 +479,79 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Fullscreen Lightbox */}
+      {isFullscreen && selectedImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+          onClick={() => setIsFullscreen(false)}
+        >
+          {/* Close button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 text-white hover:bg-white/20"
+            onClick={() => setIsFullscreen(false)}
+          >
+            <X className="w-6 h-6" />
+          </Button>
+          
+          {/* Navigation */}
+          {filteredImages.length > 1 && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 w-12 h-12"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigateImage('prev');
+                }}
+              >
+                <ChevronLeft className="w-8 h-8" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 w-12 h-12"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigateImage('next');
+                }}
+              >
+                <ChevronRight className="w-8 h-8" />
+              </Button>
+            </>
+          )}
+          
+          {/* Full image */}
+          <img
+            src={selectedImage.image_url}
+            alt={selectedImage.prompt || 'Generated image'}
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          
+          {/* Image info overlay */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+            <div className="max-w-4xl mx-auto text-white">
+              {selectedImage.prompt && (
+                <p className="text-sm mb-2 line-clamp-2">{selectedImage.prompt}</p>
+              )}
+              <div className="flex items-center gap-4 text-sm text-white/70">
+                <span className="capitalize">{selectedImage.source}</span>
+                <span>{format(new Date(selectedImage.created_at), 'MMM d, yyyy')}</span>
+                <span>{currentIndex + 1} / {filteredImages.length}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Keyboard hints */}
+          <div className="absolute top-4 left-4 text-white/50 text-xs">
+            Esc to close • ← → to navigate • Click image to keep open
+          </div>
+        </div>
+      )}
     </>
   );
 };

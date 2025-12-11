@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.migrate-twin-images]
 verify_jwt = true
+
+[functions.upscale-image]
+verify_jwt = false
