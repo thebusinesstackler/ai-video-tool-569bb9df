@@ -224,6 +224,11 @@ export function useImageGallery(): UseImageGalleryResult {
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
+          toast({
+            title: "Upload Failed",
+            description: `${file.name}: ${uploadError.message}`,
+            variant: "destructive"
+          });
           continue;
         }
 
