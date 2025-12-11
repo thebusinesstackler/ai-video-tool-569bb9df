@@ -139,23 +139,38 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    const supportedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/mp4', 'audio/webm'];
-    const isSupported = supportedTypes.some(type => file.type.includes(type.split('/')[1])) || 
-                        file.name.match(/\.(mp3|wav|m4a|webm)$/i);
-    
-    if (!isSupported) {
-      toast({
-        title: 'Unsupported Format',
-        description: 'Please upload an MP3, WAV, M4A, or WebM audio file.',
-        variant: 'destructive'
-      });
+    if (!file) {
+      console.log('No file selected');
       return;
     }
 
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'mp3';
-    const contentType = ext === 'wav' ? 'audio/wav' : ext === 'm4a' ? 'audio/m4a' : ext === 'webm' ? 'audio/webm' : 'audio/mpeg';
+    console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
+
+    // Check by file extension (more reliable than MIME type)
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const supportedExtensions = ['mp3', 'wav', 'wave', 'm4a', 'webm', 'mp4', 'ogg'];
+    
+    if (!supportedExtensions.includes(ext)) {
+      toast({
+        title: 'Unsupported Format',
+        description: `Please upload an audio file (MP3, WAV, M4A, or WebM). Got: .${ext}`,
+        variant: 'destructive'
+      });
+      e.target.value = ''; // Reset input
+      return;
+    }
+
+    // Map extension to content type
+    const contentTypeMap: Record<string, string> = {
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'wave': 'audio/wav',
+      'm4a': 'audio/mp4',
+      'webm': 'audio/webm',
+      'mp4': 'audio/mp4',
+      'ogg': 'audio/ogg'
+    };
+    const contentType = contentTypeMap[ext] || 'audio/mpeg';
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
