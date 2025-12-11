@@ -37,6 +37,8 @@ import {
 } from 'lucide-react';
 import { TwinSpeaker } from './TwinSpeaker';
 import { VoiceCloner } from './VoiceCloner';
+import { GalleryImagePicker } from '@/components/GalleryImagePicker';
+import { FolderOpen } from 'lucide-react';
 
 interface AITwin {
   id: string;
@@ -648,6 +650,31 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     e.target.value = '';
   };
 
+  const handleAddImageFromGallery = async (imageUrl: string) => {
+    try {
+      const updatedImages = [...(twin.reference_images || []), imageUrl];
+      const { error: updateError } = await supabase
+        .from('ai_twins')
+        .update({ reference_images: updatedImages })
+        .eq('id', twin.id);
+
+      if (updateError) throw updateError;
+
+      onUpdate();
+      toast({
+        title: 'Image added',
+        description: 'Image from gallery added to your AI Twin'
+      });
+    } catch (error: any) {
+      console.error('Error adding image from gallery:', error);
+      toast({
+        title: 'Failed to add image',
+        description: error.message || 'Failed to add image from gallery',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Twin Info Header */}
@@ -869,7 +896,17 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
               Reference Images ({twin.reference_images?.length || 0})
               <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation, hover for delete</span>
             </div>
-            <div>
+            <div className="flex gap-2">
+              <GalleryImagePicker
+                onSelect={handleAddImageFromGallery}
+                showGenerate={false}
+                trigger={
+                  <Button size="sm" variant="outline">
+                    <FolderOpen className="w-4 h-4 mr-1" />
+                    From Gallery
+                  </Button>
+                }
+              />
               <input
                 type="file"
                 accept="image/*"
@@ -882,7 +919,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                 <Button size="sm" variant="outline" asChild>
                   <span className="cursor-pointer">
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Images
+                    Upload
                   </span>
                 </Button>
               </label>
