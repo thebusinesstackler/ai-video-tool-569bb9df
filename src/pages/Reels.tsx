@@ -2641,14 +2641,31 @@ const Reels = () => {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {preSelectedReference ? (
+                        {preSelectedReference || selectedTwinId ? (
                           <div className="flex items-start gap-4">
-                            <div className="relative">
-                              <img 
-                                src={preSelectedReference} 
-                                alt="Reference" 
-                                className="w-24 h-24 object-cover rounded-lg border-2 border-primary"
-                              />
+                            <div className="relative flex gap-2">
+                              {/* Show all reference images for AI Twin */}
+                              {selectedTwinId && aiTwins.find(t => t.id === selectedTwinId)?.reference_images?.slice(0, 5).map((img, idx) => (
+                                <img 
+                                  key={idx}
+                                  src={img} 
+                                  alt={`Reference ${idx + 1}`} 
+                                  className={`w-16 h-16 object-cover rounded-lg border-2 ${idx === 0 ? 'border-primary' : 'border-border'}`}
+                                />
+                              ))}
+                              {selectedTwinId && (aiTwins.find(t => t.id === selectedTwinId)?.reference_images?.length || 0) > 5 && (
+                                <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center text-xs font-medium border-2 border-border">
+                                  +{(aiTwins.find(t => t.id === selectedTwinId)?.reference_images?.length || 0) - 5}
+                                </div>
+                              )}
+                              {/* Show single reference if not from AI Twin */}
+                              {!selectedTwinId && preSelectedReference && (
+                                <img 
+                                  src={preSelectedReference} 
+                                  alt="Reference" 
+                                  className="w-24 h-24 object-cover rounded-lg border-2 border-primary"
+                                />
+                              )}
                               <Button
                                 variant="destructive"
                                 size="icon"
@@ -2657,12 +2674,24 @@ const Reels = () => {
                                   setPreSelectedReference(null);
                                   setPreReferenceTransformation('');
                                   setCharacterDescription('');
+                                  setSelectedTwinId(null);
                                 }}
                               >
                                 <X className="w-3 h-3" />
                               </Button>
                             </div>
                             <div className="flex-1 space-y-2">
+                              {selectedTwinId && (
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-sm font-medium">{aiTwins.find(t => t.id === selectedTwinId)?.name}</span>
+                                  {aiTwins.find(t => t.id === selectedTwinId)?.voice_cloning_key && (
+                                    <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded">Cloned Voice</span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    ({aiTwins.find(t => t.id === selectedTwinId)?.reference_images?.length || 0} images)
+                                  </span>
+                                </div>
+                              )}
                               <Label className="text-xs">Character Transformation (Optional)</Label>
                               <Input
                                 placeholder="e.g., make them a superhero, wearing a suit..."
@@ -2848,8 +2877,8 @@ const Reels = () => {
                           }
                         }
                         const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
-                        // Use voice_sample_url for voice cloning (the actual audio file URL)
-                        const clonedVoiceUrl = selectedTwin?.voice_sample_url || undefined;
+                        // Use voice_cloning_key which is the Speechify voice ID
+                        const speechifyVoiceId = selectedTwin?.voice_cloning_key || undefined;
                         // Pass all reference images from the AI Twin for character consistency
                         const allTwinReferenceImages = selectedTwin?.reference_images || [];
                         
@@ -2859,8 +2888,8 @@ const Reels = () => {
                           referenceToUse || undefined, 
                           selectedVoice,
                           characterRefImage || undefined,
-                          characterDescription || undefined,
-                          clonedVoiceUrl,
+                          characterDescription || selectedTwin?.face_description || undefined,
+                          speechifyVoiceId,
                           allTwinReferenceImages
                         );
                       }}
