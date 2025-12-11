@@ -235,10 +235,15 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('audio/')) {
+    // Accept only supported formats: MP3, WAV, M4A
+    const supportedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/mp4'];
+    const isSupported = supportedTypes.some(type => file.type.includes(type.split('/')[1])) || 
+                        file.name.match(/\.(mp3|wav|m4a)$/i);
+    
+    if (!isSupported) {
       toast({
-        title: 'Invalid File',
-        description: 'Please upload an audio file (MP3, WAV, etc.)',
+        title: 'Unsupported Format',
+        description: 'Please upload an MP3, WAV, or M4A audio file. WebM is not supported.',
         variant: 'destructive'
       });
       return;
@@ -254,7 +259,40 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
       return;
     }
 
-    await uploadAudioBlob(file, 'reference');
+    // Get the file extension
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'mp3';
+    const contentType = ext === 'wav' ? 'audio/wav' : ext === 'm4a' ? 'audio/m4a' : 'audio/mpeg';
+    
+    // Upload directly without conversion since it's already in a supported format
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      const folder = 'voice-samples';
+      const fileName = `${user.id}/${folder}/${Date.now()}.${ext}`;
+      const { data, error } = await supabase.storage
+        .from('project-files')
+        .upload(fileName, file, { contentType });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('project-files')
+        .getPublicUrl(fileName);
+
+      onVoiceSampleChange(urlData.publicUrl);
+      toast({
+        title: 'Voice Sample Uploaded',
+        description: 'Audio file uploaded successfully. Ready for cloning!'
+      });
+    } catch (error: any) {
+      console.error('Error uploading audio:', error);
+      toast({
+        title: 'Upload Failed',
+        description: error.message || 'Failed to upload audio',
+        variant: 'destructive'
+      });
+    }
   };
 
   const cloneVoice = async () => {
