@@ -280,20 +280,38 @@ async function generateSpeechifyTTS(
       return null;
     }
 
-    // Speechify returns audio as binary data
-    const audioBuffer = await response.arrayBuffer();
-    const audioBytes = new Uint8Array(audioBuffer);
+    // Check content type to determine how to handle response
+    const contentType = response.headers.get('content-type') || '';
+    console.log('Speechify response content-type:', contentType);
     
-    // Convert to base64
-    let binary = '';
-    const chunkSize = 32768;
-    for (let i = 0; i < audioBytes.length; i += chunkSize) {
-      const chunk = audioBytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    let base64Audio: string;
+    
+    if (contentType.includes('application/json')) {
+      // Speechify returns JSON with audio_data field
+      const jsonResponse = await response.json();
+      console.log('Speechify returned JSON response');
+      if (jsonResponse.audio_data) {
+        base64Audio = jsonResponse.audio_data;
+      } else {
+        console.error('Speechify JSON response missing audio_data');
+        return null;
+      }
+    } else {
+      // Speechify returns audio as binary data
+      const audioBuffer = await response.arrayBuffer();
+      const audioBytes = new Uint8Array(audioBuffer);
+      
+      // Convert to base64
+      let binary = '';
+      const chunkSize = 32768;
+      for (let i = 0; i < audioBytes.length; i += chunkSize) {
+        const chunk = audioBytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      base64Audio = btoa(binary);
     }
-    const base64Audio = btoa(binary);
 
-    console.log('Speechify TTS successful');
+    console.log('Speechify TTS successful, audio base64 length:', base64Audio.length);
     return {
       audioContent: base64Audio,
       audioUrl: `data:audio/mp3;base64,${base64Audio}`
