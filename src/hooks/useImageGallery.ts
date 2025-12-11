@@ -201,17 +201,22 @@ export function useImageGallery(): UseImageGalleryResult {
 
     setIsUploading(true);
     try {
+      console.log('Starting upload loop, files count:', files.length);
       for (const file of Array.from(files)) {
+        console.log('Processing file:', file.name, 'type:', file.type, 'size:', file.size);
+        
         if (!validTypes.includes(file.type)) {
+          console.log('Invalid file type:', file.type);
           toast({
             title: "Invalid File Type",
-            description: `${file.name} is not a supported image format.`,
+            description: `${file.name} is not a supported image format. Type: ${file.type}`,
             variant: "destructive"
           });
           continue;
         }
 
         if (file.size > maxSize) {
+          console.log('File too large:', file.size);
           toast({
             title: "File Too Large",
             description: `${file.name} exceeds 10MB limit.`,
@@ -222,6 +227,7 @@ export function useImageGallery(): UseImageGalleryResult {
 
         const ext = file.name.split('.').pop() || 'jpg';
         const fileName = `${user.id}/${crypto.randomUUID()}.${ext}`;
+        console.log('Uploading to:', fileName);
 
         const { error: uploadError } = await supabase.storage
           .from('reels')
@@ -237,6 +243,7 @@ export function useImageGallery(): UseImageGalleryResult {
           continue;
         }
 
+        console.log('Upload successful, getting public URL');
         const { data: { publicUrl } } = supabase.storage
           .from('reels')
           .getPublicUrl(fileName);
