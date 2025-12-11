@@ -43,7 +43,9 @@ export const ImageDropZone: React.FC<ImageDropZoneProps> = ({
   }, [onFilesSelected]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('handleFileChange triggered', e.target.files);
     if (e.target.files && e.target.files.length > 0) {
+      console.log('Files selected:', e.target.files.length, 'files');
       onFilesSelected(e.target.files);
     }
     if (fileInputRef.current) fileInputRef.current.value = '';

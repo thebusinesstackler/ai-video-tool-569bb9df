@@ -180,8 +180,11 @@ export function useImageGallery(): UseImageGalleryResult {
   };
 
   const uploadImages = async (files: FileList): Promise<string[]> => {
+    console.log('uploadImages called with', files.length, 'files');
+    
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
+      console.log('No user authenticated');
       toast({
         title: "Not Authenticated",
         description: "Please log in to upload images.",
@@ -189,6 +192,8 @@ export function useImageGallery(): UseImageGalleryResult {
       });
       return [];
     }
+
+    console.log('User authenticated:', user.id);
 
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     const maxSize = 10 * 1024 * 1024; // 10MB
