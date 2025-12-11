@@ -46,7 +46,10 @@ export const ImageDropZone: React.FC<ImageDropZoneProps> = ({
     console.log('handleFileChange triggered', e.target.files);
     if (e.target.files && e.target.files.length > 0) {
       console.log('Files selected:', e.target.files.length, 'files');
-      onFilesSelected(e.target.files);
+      // Create a copy of files before clearing the input, since FileList is a live reference
+      const filesCopy = new DataTransfer();
+      Array.from(e.target.files).forEach(file => filesCopy.items.add(file));
+      onFilesSelected(filesCopy.files);
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
