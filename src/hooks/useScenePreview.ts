@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, clonedVoiceUrl?: string, allReferenceImages?: string[]) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[]) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
@@ -129,7 +129,7 @@ export function useScenePreview(): UseScenePreviewResult {
     voice: string = 'alloy',
     characterRefImage?: string,
     characterDescription?: string,
-    clonedVoiceUrl?: string,
+    speechifyVoiceId?: string,
     allReferenceImages?: string[]
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
@@ -175,8 +175,8 @@ export function useScenePreview(): UseScenePreviewResult {
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
             body: { 
               text: scene.narration, 
-              voice,
-              clonedVoiceUrl: clonedVoiceUrl || undefined
+              voice: speechifyVoiceId ? undefined : voice,
+              speechifyVoiceId: speechifyVoiceId || undefined
             }
           });
 
