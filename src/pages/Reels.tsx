@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -199,6 +200,7 @@ const VIDEO_SIZE_OPTIONS = [
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [topic, setTopic] = useState('');
   const [selectedSceneCount, setSelectedSceneCount] = useState('4');
@@ -1699,25 +1701,27 @@ const Reels = () => {
 
   return (
     <Layout>
-      <div className="flex h-full -m-6">
-        {/* Feature Sidebar */}
-        <ReelFeatureSidebar
-          collapsed={sidebarCollapsed}
-          onCollapsedChange={setSidebarCollapsed}
-          activeMode={activeMode}
-          onModeChange={handleModeChange}
-          features={featureToggles}
-          onFeatureChange={handleFeatureChange}
-          disabled={isGenerating}
-        />
+      <div className={`flex h-full ${isMobile ? '' : '-m-6'}`}>
+        {/* Feature Sidebar - Hidden on Mobile */}
+        {!isMobile && (
+          <ReelFeatureSidebar
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
+            activeMode={activeMode}
+            onModeChange={handleModeChange}
+            features={featureToggles}
+            onFeatureChange={handleFeatureChange}
+            disabled={isGenerating}
+          />
+        )}
         
         {/* Main Content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className={`flex-1 overflow-auto ${isMobile ? 'p-0' : 'p-6'}`}>
           <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold gradient-text">Reels & Stories</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold gradient-text">Reels & Stories</h1>
                 <p className="text-muted-foreground mt-1">
                   {activeMode === 'podcast' 
                     ? 'Create long-form audio-focused podcast content'
@@ -1764,16 +1768,55 @@ const Reels = () => {
             )}
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="bg-card border border-border">
-                <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsList className="bg-card border border-border w-full sm:w-auto">
+                <TabsTrigger value="create" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Video className="w-4 h-4 mr-2" />
-                  Create Reel
+                  <span className="hidden sm:inline">Create Reel</span>
+                  <span className="sm:hidden">Create</span>
                 </TabsTrigger>
-                <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <TabsTrigger value="history" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <History className="w-4 h-4 mr-2" />
-                  My Reels ({savedReels.length})
+                  <span className="hidden sm:inline">My Reels ({savedReels.length})</span>
+                  <span className="sm:hidden">Reels ({savedReels.length})</span>
                 </TabsTrigger>
               </TabsList>
+
+              {/* Mobile Mode Selector */}
+              {isMobile && (
+                <div className="flex flex-wrap gap-2">
+                  <Select value={activeMode} onValueChange={(value) => handleModeChange(value as ReelMode)}>
+                    <SelectTrigger className="bg-card border-border w-full">
+                      <SelectValue placeholder="Select mode..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">
+                        <div className="flex items-center gap-2">
+                          <Video className="w-4 h-4" />
+                          Standard Reel
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="podcast">
+                        <div className="flex items-center gap-2">
+                          <Mic className="w-4 h-4" />
+                          Podcast Mode
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ai-twin">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          AI Twin Mode
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="script-only">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          Script Generator
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
           <TabsContent value="create" className="space-y-6">
             {/* Progress Bar */}
@@ -1899,7 +1942,7 @@ const Reels = () => {
 
                 {isPodcastMode ? (
                   // Podcast Mode Settings
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-purple-500/5 rounded-lg border border-purple-500/20">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-purple-500/5 rounded-lg border border-purple-500/20">
                     <div className="space-y-2">
                       <Label>Podcast Duration</Label>
                       <Select value={podcastDuration} onValueChange={setPodcastDuration} disabled={isGenerating}>
@@ -1975,7 +2018,7 @@ const Reels = () => {
                   </div>
                 ) : (
                   // Normal Reel Mode Settings
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label>Number of Scenes</Label>
                       <Select value={selectedSceneCount} onValueChange={setSelectedSceneCount} disabled={isGenerating}>
@@ -2080,7 +2123,7 @@ const Reels = () => {
                     <Video className="w-4 h-4 text-primary" />
                     Video Size / Aspect Ratio
                   </Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                     {VIDEO_SIZE_OPTIONS.map(option => (
                       <button
                         key={option.value}
@@ -3141,7 +3184,7 @@ const Reels = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {savedReels.map((reel) => {
                   // Get video clips from scenes
                   const videoClips = reel.scenes?.filter(s => s.videoUrl) || [];
@@ -3258,7 +3301,7 @@ const Reels = () => {
           setActiveMode('standard');
         }
       }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto mx-4">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-primary" />
