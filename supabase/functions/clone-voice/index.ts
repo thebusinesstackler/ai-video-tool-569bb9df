@@ -154,26 +154,31 @@ serve(async (req) => {
     console.log(`Consent audio size: ${consentAudioBase64.length} chars`);
 
     // Call Google Cloud TTS API with OAuth Bearer token
-    // Using the v1beta1 synthesize endpoint with voice cloning
-    const synthesizeUrl = `https://texttospeech.googleapis.com/v1beta1/projects/${serviceAccount.project_id}/locations/global:synthesizeLongAudio`;
-    
-    // For instant voice cloning, we need to use the voices:generateVoiceCloningKey endpoint
-    // The audio should be sent as OGG_OPUS since that's what browsers record
     const generateKeyUrl = 'https://texttospeech.googleapis.com/v1beta1/voices:generateVoiceCloningKey';
     
-    // Detect audio format from file extension or default to OGG_OPUS (browser default)
+    // Detect audio format from file extension
+    // Google supports: LINEAR16, PCM, MP3, M4A (NOT webm/opus!)
     const getAudioEncoding = (url: string): string => {
-      if (url.includes('.wav')) return 'LINEAR16';
-      if (url.includes('.mp3')) return 'MP3';
-      // Browser MediaRecorder typically produces webm/opus or ogg/opus
-      return 'OGG_OPUS';
+      const lowerUrl = url.toLowerCase();
+      if (lowerUrl.includes('.wav')) return 'LINEAR16';
+      if (lowerUrl.includes('.mp3')) return 'MP3';
+      if (lowerUrl.includes('.m4a')) return 'M4A';
+      if (lowerUrl.includes('.pcm')) return 'PCM';
+      // Default to LINEAR16 for WAV files recorded by browser
+      return 'LINEAR16';
     };
     
     const referenceEncoding = getAudioEncoding(audioUrl);
     const consentEncoding = getAudioEncoding(consentAudioUrl);
     
+    console.log(`Reference audio URL: ${audioUrl}`);
     console.log(`Reference audio encoding: ${referenceEncoding}`);
     console.log(`Consent audio encoding: ${consentEncoding}`);
+    
+    // Check for unsupported formats
+    if (audioUrl.toLowerCase().includes('.webm') || consentAudioUrl.toLowerCase().includes('.webm')) {
+      throw new Error('WebM audio format is not supported by Google Voice Cloning. Please record in WAV format.');
+    }
     
     const requestBody = {
       reference_audio: {
@@ -193,12 +198,18 @@ serve(async (req) => {
     };
 
     console.log('Calling Google Cloud generateVoiceCloningKey API with OAuth...');
+    console.log('Request body structure:', JSON.stringify({
+      reference_audio: { audio_config: requestBody.reference_audio.audio_config, content_length: referenceAudioBase64.length },
+      voice_talent_consent: { audio_config: requestBody.voice_talent_consent.audio_config, content_length: consentAudioBase64.length },
+      consent_script: requestBody.consent_script,
+      language_code: requestBody.language_code
+    }));
     
     const response = await fetch(generateKeyUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'x-goog-user-project': serviceAccount.project_id,
       },
       body: JSON.stringify(requestBody),
@@ -208,15 +219,24 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('Google Cloud API error:', response.status, errorText);
       
+      // Handle specific error codes
+      if (response.status === 404) {
+        throw new Error('Voice cloning API not available. Please ensure the Text-to-Speech API is enabled in Google Cloud Console and your project has access to Chirp 3 Instant Custom Voice (preview feature).');
+      }
+      
+      if (response.status === 403) {
+        throw new Error('Permission denied. Please check that the service account has the required permissions for Text-to-Speech API.');
+      }
+      
       try {
         const errorJson = JSON.parse(errorText);
         const errorMessage = errorJson.error?.message || 'Failed to generate voice cloning key';
         throw new Error(errorMessage);
       } catch (e) {
-        if (e instanceof Error && e.message !== 'Failed to generate voice cloning key') {
+        if (e instanceof Error && !e.message.includes('Failed to generate')) {
           throw e;
         }
-        throw new Error(`Google API error (${response.status}): ${errorText.substring(0, 200)}`);
+        throw new Error(`Google API error (${response.status}): ${errorText.substring(0, 300)}`);
       }
     }
 

@@ -44,9 +44,28 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
 
   const startRecording = async (step: RecordingStep) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000,
+          echoCancellation: true,
+          noiseSuppression: true
+        } 
+      });
       streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Try to use WAV/PCM format, fallback to webm if not supported
+      // Note: Most browsers support audio/webm but Google needs LINEAR16/MP3/M4A
+      // We'll record as webm and the file extension will help the backend know the format
+      const mimeType = MediaRecorder.isTypeSupported('audio/wav') 
+        ? 'audio/wav' 
+        : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : 'audio/webm';
+      
+      console.log('Recording with MIME type:', mimeType);
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -57,8 +76,8 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await uploadAudioBlob(audioBlob, step);
+        const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+        await uploadAudioBlob(audioBlob, step, mimeType);
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -93,16 +112,27 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
     }
   };
 
-  const uploadAudioBlob = async (blob: Blob, step: RecordingStep) => {
+  const uploadAudioBlob = async (blob: Blob, step: RecordingStep, mimeType?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Determine file extension based on mime type
+      const getExtension = (mime: string): string => {
+        if (mime.includes('wav')) return 'wav';
+        if (mime.includes('mp4') || mime.includes('m4a')) return 'm4a';
+        if (mime.includes('mp3') || mime.includes('mpeg')) return 'mp3';
+        return 'webm';
+      };
+      
+      const extension = mimeType ? getExtension(mimeType) : 'webm';
+      const contentType = mimeType || 'audio/webm';
+      
       const folder = step === 'consent' ? 'consent-audio' : 'voice-samples';
-      const fileName = `${user.id}/${folder}/${Date.now()}.webm`;
+      const fileName = `${user.id}/${folder}/${Date.now()}.${extension}`;
       const { data, error } = await supabase.storage
         .from('project-files')
-        .upload(fileName, blob, { contentType: 'audio/webm' });
+        .upload(fileName, blob, { contentType });
 
       if (error) throw error;
 
