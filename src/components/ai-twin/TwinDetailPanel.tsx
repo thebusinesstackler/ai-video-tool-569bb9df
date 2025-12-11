@@ -592,6 +592,62 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     }
   };
 
+  const handleAddMoreImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: 'Error', description: 'Not authenticated', variant: 'destructive' });
+        return;
+      }
+
+      const newImageUrls: string[] = [];
+
+      for (const file of Array.from(files)) {
+        const fileName = `${user.id}/twin-images/${twin.id}/${Date.now()}-${file.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, file, { contentType: file.type });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          continue;
+        }
+
+        const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+        newImageUrls.push(publicUrl.publicUrl);
+      }
+
+      if (newImageUrls.length > 0) {
+        const updatedImages = [...(twin.reference_images || []), ...newImageUrls];
+        const { error: updateError } = await supabase
+          .from('ai_twins')
+          .update({ reference_images: updatedImages })
+          .eq('id', twin.id);
+
+        if (updateError) throw updateError;
+
+        onUpdate();
+        toast({
+          title: 'Images added',
+          description: `Added ${newImageUrls.length} new image(s) to your AI Twin`
+        });
+      }
+    } catch (error: any) {
+      console.error('Error adding images:', error);
+      toast({
+        title: 'Upload failed',
+        description: error.message || 'Failed to upload images',
+        variant: 'destructive'
+      });
+    }
+
+    // Reset input
+    e.target.value = '';
+  };
+
   return (
     <div className="space-y-6">
       {/* Twin Info Header */}
@@ -807,10 +863,30 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
       {/* Reference Images Gallery */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <ImageIcon className="w-4 h-4" />
-            Reference Images ({twin.reference_images?.length || 0})
-            <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation, hover for delete</span>
+          <CardTitle className="text-sm flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4" />
+              Reference Images ({twin.reference_images?.length || 0})
+              <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation, hover for delete</span>
+            </div>
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                id={`add-images-${twin.id}`}
+                onChange={handleAddMoreImages}
+              />
+              <label htmlFor={`add-images-${twin.id}`}>
+                <Button size="sm" variant="outline" asChild>
+                  <span className="cursor-pointer">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Images
+                  </span>
+                </Button>
+              </label>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
