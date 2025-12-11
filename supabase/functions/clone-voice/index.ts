@@ -175,9 +175,9 @@ serve(async (req) => {
     console.log(`Reference audio encoding: ${referenceEncoding}`);
     console.log(`Consent audio encoding: ${consentEncoding}`);
     
-    // Check for unsupported formats
+    // Log a warning for unsupported formats but try anyway (client should convert to WAV)
     if (audioUrl.toLowerCase().includes('.webm') || consentAudioUrl.toLowerCase().includes('.webm')) {
-      throw new Error('WebM audio format is not supported by Google Voice Cloning. Please record in WAV format.');
+      console.warn('Warning: WebM format detected. This may fail - client should convert to WAV.');
     }
     
     const requestBody = {
