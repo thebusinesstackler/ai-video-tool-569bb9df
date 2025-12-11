@@ -5,6 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,6 +98,9 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
 
   // Batch generation state
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+  
+  // Delete confirmation state
+  const [imageToDelete, setImageToDelete] = useState<string | null>(null);
 
   const POSE_PRESETS = [
     { id: 'standing', label: 'Standing', prompt: 'standing upright, full body visible' },
@@ -545,8 +558,13 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
     }
   };
 
-  // Delete a reference image from the twin
-  const deleteReferenceImage = async (imageUrl: string) => {
+  // Delete a reference image from the twin (called after confirmation)
+  const confirmDeleteImage = async () => {
+    if (!imageToDelete) return;
+    
+    const imageUrl = imageToDelete;
+    setImageToDelete(null);
+    
     try {
       // Remove from local generated images state
       setGeneratedImages(prev => prev.filter(img => img !== imageUrl));
@@ -957,7 +975,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                     className="w-8 h-8 bg-destructive/80 hover:bg-destructive text-white"
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteReferenceImage(img);
+                      setImageToDelete(img);
                     }}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1076,7 +1094,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                       className="absolute top-1 right-1 w-6 h-6 bg-destructive/80 hover:bg-destructive text-white opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteReferenceImage(img);
+                        setImageToDelete(img);
                       }}
                     >
                       <Trash2 className="w-3 h-3" />
@@ -1202,6 +1220,24 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!imageToDelete} onOpenChange={() => setImageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this photo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the image from your AI Twin and gallery. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteImage} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
