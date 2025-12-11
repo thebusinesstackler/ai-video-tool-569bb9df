@@ -120,15 +120,27 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
       if (error) throw error;
 
       if (data?.audioContent) {
+        // Check if audioContent is nested JSON (from some TTS providers)
+        let actualAudioBase64 = data.audioContent;
+        try {
+          const decoded = atob(data.audioContent);
+          if (decoded.startsWith('{') && decoded.includes('audio_data')) {
+            const parsed = JSON.parse(decoded);
+            actualAudioBase64 = parsed.audio_data;
+          }
+        } catch (e) {
+          // Not nested JSON, use as-is
+        }
+        
         // Convert base64 to audio URL
-        const audioBlob = base64ToBlob(data.audioContent, 'audio/mp3');
+        const audioBlob = base64ToBlob(actualAudioBase64, 'audio/mp3');
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
         
         // Auto-play
         setTimeout(() => {
           if (audioRef.current) {
-            audioRef.current.play();
+            audioRef.current.play().catch(e => console.error('Auto-play failed:', e));
             setIsPlaying(true);
           }
         }, 100);
