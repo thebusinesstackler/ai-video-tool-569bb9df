@@ -190,12 +190,13 @@ export function useScenePreview(): UseScenePreviewResult {
             continue;
           }
 
-          if (ttsData?.audioContent) {
-            const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
-            const actualDuration = await getAudioDuration(audioUrl);
+          if (ttsData?.audioContent || ttsData?.audioUrl) {
+            // Use audioUrl from response if available, otherwise construct from audioContent
+            let audioUrl = ttsData.audioUrl || `data:audio/mp3;base64,${ttsData.audioContent}`;
+            console.log(`Scene ${scene.sceneNumber} TTS received, audio length: ${ttsData.audioContent?.length || 'N/A'}`);
 
             let storageUrl: string | undefined;
-            if (userId) {
+            if (userId && ttsData.audioContent) {
               try {
                 const base64Data = ttsData.audioContent;
                 const binaryString = atob(base64Data);
@@ -212,11 +213,18 @@ export function useScenePreview(): UseScenePreviewResult {
                 if (!uploadError && uploadData) {
                   const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
                   storageUrl = publicUrl.publicUrl;
+                  console.log(`Scene ${scene.sceneNumber} audio uploaded to storage:`, storageUrl);
+                  // Use storage URL for playback (more reliable than base64)
+                  audioUrl = storageUrl;
                 }
               } catch (uploadErr) {
                 console.warn('Voiceover upload failed:', uploadErr);
               }
             }
+
+            // Get duration from the audio URL
+            const actualDuration = await getAudioDuration(audioUrl);
+            console.log(`Scene ${scene.sceneNumber} audio duration: ${actualDuration}s`);
 
             newVoiceovers.push({
               sceneNumber: scene.sceneNumber,
@@ -225,7 +233,7 @@ export function useScenePreview(): UseScenePreviewResult {
               duration: actualDuration
             });
 
-            // Update preview scene with audio
+            // Update preview scene with audio (prefer storage URL)
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
                 ? { ...ps, audioUrl, audioDuration: actualDuration }
