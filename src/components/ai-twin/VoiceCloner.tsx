@@ -22,7 +22,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
   onVoiceCloningKeyChange
 }) => {
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const audioRef = useRef<HTMLAudioElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -338,27 +338,24 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
                 </CardContent>
               </Card>
 
-              <Card 
-                className="cursor-pointer transition-all hover:border-primary"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <CardContent className="flex flex-col items-center justify-center p-6">
-                  <Upload className="w-10 h-10 text-primary mb-2" />
-                  <p className="font-medium text-sm">Upload Audio</p>
-                </CardContent>
-              </Card>
+              <label className="cursor-pointer">
+                <Card className="transition-all hover:border-primary">
+                  <CardContent className="flex flex-col items-center justify-center p-6">
+                    <Upload className="w-10 h-10 text-primary mb-2" />
+                    <p className="font-medium text-sm">Upload Audio</p>
+                  </CardContent>
+                </Card>
+                <input
+                  type="file"
+                  accept=".mp3,.wav,.m4a,.webm,audio/mpeg,audio/wav,audio/mp4,audio/webm"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
           </CardContent>
         </Card>
       )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="audio/*"
-        onChange={handleFileUpload}
-        className="hidden"
-      />
 
       {/* Voice sample ready - show consent form */}
       {hasVoiceSample && !voiceCloningKey && (
