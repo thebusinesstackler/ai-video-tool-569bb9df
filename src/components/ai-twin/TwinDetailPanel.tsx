@@ -643,12 +643,12 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold">{twin.name}</h2>
+              <h2 className="text-2xl font-bold">{editedName || twin.name}</h2>
               <Button 
                 size="sm" 
                 variant="ghost"
                 onClick={() => {
-                  setEditedName(twin.name);
+                  setEditedName(editedName || twin.name);
                   setIsEditingName(true);
                 }}
               >
