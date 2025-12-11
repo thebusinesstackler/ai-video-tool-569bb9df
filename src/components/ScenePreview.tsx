@@ -72,9 +72,15 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     });
 
     let audio = audioRefs.current.get(sceneNumber);
-    if (!audio) {
+    
+    // Always recreate audio if URL changed or doesn't exist
+    if (!audio || audio.src !== audioUrl) {
       audio = new Audio(audioUrl);
       audio.onended = () => setPlayingAudio(null);
+      audio.onerror = (e) => {
+        console.error('Audio playback error for scene', sceneNumber, ':', e);
+        setPlayingAudio(null);
+      };
       audioRefs.current.set(sceneNumber, audio);
     }
 
@@ -83,7 +89,10 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
       audio.currentTime = 0;
       setPlayingAudio(null);
     } else {
-      audio.play();
+      audio.play().catch(err => {
+        console.error('Failed to play audio:', err);
+        setPlayingAudio(null);
+      });
       setPlayingAudio(sceneNumber);
     }
   };
