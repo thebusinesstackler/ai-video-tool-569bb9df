@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { SignJWT, importPKCS8 } from "https://deno.land/x/jose@v4.14.4/index.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,52 +16,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode.apply(null, Array.from(chunk));
   }
   return btoa(binary);
-}
-
-// Get OAuth access token from service account
-async function getAccessToken(serviceAccount: {
-  client_email: string;
-  private_key: string;
-  project_id: string;
-}): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const scope = 'https://www.googleapis.com/auth/cloud-platform';
-  
-  // Import the private key
-  const privateKey = await importPKCS8(serviceAccount.private_key, 'RS256');
-  
-  // Create JWT
-  const jwt = await new SignJWT({
-    iss: serviceAccount.client_email,
-    sub: serviceAccount.client_email,
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600,
-    scope: scope,
-  })
-    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
-    .sign(privateKey);
-  
-  // Exchange JWT for access token
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
-  });
-  
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    console.error('Token exchange error:', errorText);
-    throw new Error(`Failed to get access token: ${errorText}`);
-  }
-  
-  const tokenData = await tokenResponse.json();
-  return tokenData.access_token;
 }
 
 // Download audio from Supabase storage or external URL
@@ -121,28 +74,15 @@ serve(async (req) => {
       );
     }
 
-    // Get service account credentials
-    const serviceAccountJson = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT');
-    if (!serviceAccountJson) {
-      throw new Error('GOOGLE_CLOUD_SERVICE_ACCOUNT is not configured');
+    // Get Chirp 3 API key
+    const chirp3ApiKey = Deno.env.get('CHIRP3_API_KEY');
+    if (!chirp3ApiKey) {
+      throw new Error('CHIRP3_API_KEY is not configured');
     }
 
-    let serviceAccount: { client_email: string; private_key: string; project_id: string };
-    try {
-      serviceAccount = JSON.parse(serviceAccountJson);
-    } catch (e) {
-      throw new Error('Invalid GOOGLE_CLOUD_SERVICE_ACCOUNT JSON format');
-    }
-
-    console.log('Starting Google Cloud voice cloning process');
-    console.log('Project ID:', serviceAccount.project_id);
+    console.log('Starting Chirp 3 Instant Custom Voice cloning process');
     console.log('Reference audio URL:', audioUrl);
     console.log('Consent audio URL:', consentAudioUrl);
-
-    // Get OAuth access token
-    console.log('Getting OAuth access token...');
-    const accessToken = await getAccessToken(serviceAccount);
-    console.log('Access token obtained successfully');
 
     // Download both audio files
     console.log('Downloading reference audio...');
@@ -153,32 +93,24 @@ serve(async (req) => {
     const consentAudioBase64 = await downloadAudio(consentAudioUrl);
     console.log(`Consent audio size: ${consentAudioBase64.length} chars`);
 
-    // Call Google Cloud TTS API with OAuth Bearer token
-    const generateKeyUrl = 'https://texttospeech.googleapis.com/v1beta1/voices:generateVoiceCloningKey';
+    // Use regional endpoint for Chirp 3 Instant Custom Voice
+    const generateKeyUrl = 'https://us-texttospeech.googleapis.com/v1beta1/voices:generateVoiceCloningKey';
     
     // Detect audio format from file extension
-    // Google supports: LINEAR16, PCM, MP3, M4A (NOT webm/opus!)
     const getAudioEncoding = (url: string): string => {
       const lowerUrl = url.toLowerCase();
       if (lowerUrl.includes('.wav')) return 'LINEAR16';
       if (lowerUrl.includes('.mp3')) return 'MP3';
       if (lowerUrl.includes('.m4a')) return 'M4A';
       if (lowerUrl.includes('.pcm')) return 'PCM';
-      // Default to LINEAR16 for WAV files recorded by browser
       return 'LINEAR16';
     };
     
     const referenceEncoding = getAudioEncoding(audioUrl);
     const consentEncoding = getAudioEncoding(consentAudioUrl);
     
-    console.log(`Reference audio URL: ${audioUrl}`);
     console.log(`Reference audio encoding: ${referenceEncoding}`);
     console.log(`Consent audio encoding: ${consentEncoding}`);
-    
-    // Log a warning for unsupported formats but try anyway (client should convert to WAV)
-    if (audioUrl.toLowerCase().includes('.webm') || consentAudioUrl.toLowerCase().includes('.webm')) {
-      console.warn('Warning: WebM format detected. This may fail - client should convert to WAV.');
-    }
     
     const requestBody = {
       reference_audio: {
@@ -197,7 +129,7 @@ serve(async (req) => {
       language_code: "en-US"
     };
 
-    console.log('Calling Google Cloud generateVoiceCloningKey API with OAuth...');
+    console.log('Calling Chirp 3 generateVoiceCloningKey API...');
     console.log('Request body structure:', JSON.stringify({
       reference_audio: { audio_config: requestBody.reference_audio.audio_config, content_length: referenceAudioBase64.length },
       voice_talent_consent: { audio_config: requestBody.voice_talent_consent.audio_config, content_length: consentAudioBase64.length },
@@ -208,24 +140,26 @@ serve(async (req) => {
     const response = await fetch(generateKeyUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'X-Goog-Api-Key': chirp3ApiKey,
         'Content-Type': 'application/json; charset=utf-8',
-        'x-goog-user-project': serviceAccount.project_id,
       },
       body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google Cloud API error:', response.status, errorText);
+      console.error('Chirp 3 API error:', response.status, errorText);
       
-      // Handle specific error codes
       if (response.status === 404) {
-        throw new Error('Voice cloning API not available. Please ensure the Text-to-Speech API is enabled in Google Cloud Console and your project has access to Chirp 3 Instant Custom Voice (preview feature).');
+        throw new Error('Voice cloning API endpoint not found. Please verify the Chirp 3 API is enabled for your project.');
       }
       
       if (response.status === 403) {
-        throw new Error('Permission denied. Please check that the service account has the required permissions for Text-to-Speech API.');
+        throw new Error('Permission denied. Please verify the Chirp 3 API key has the required permissions.');
+      }
+
+      if (response.status === 401) {
+        throw new Error('Invalid API key. Please check your CHIRP3_API_KEY is correct.');
       }
       
       try {
@@ -236,16 +170,16 @@ serve(async (req) => {
         if (e instanceof Error && !e.message.includes('Failed to generate')) {
           throw e;
         }
-        throw new Error(`Google API error (${response.status}): ${errorText.substring(0, 300)}`);
+        throw new Error(`Chirp 3 API error (${response.status}): ${errorText.substring(0, 300)}`);
       }
     }
 
     const data = await response.json();
-    console.log('Google Cloud API response received');
+    console.log('Chirp 3 API response received');
 
     if (!data.voiceCloningKey) {
       console.error('No voiceCloningKey in response:', JSON.stringify(data));
-      throw new Error('Google Cloud did not return a voice cloning key');
+      throw new Error('Chirp 3 API did not return a voice cloning key');
     }
 
     console.log('Voice cloning key generated successfully');
@@ -254,7 +188,7 @@ serve(async (req) => {
       JSON.stringify({ 
         voiceCloningKey: data.voiceCloningKey,
         message: 'Voice profile created successfully. Your cloned voice is ready for use.',
-        provider: 'google-cloud-chirp3'
+        provider: 'chirp3-instant-custom-voice'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
