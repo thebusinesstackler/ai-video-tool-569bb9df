@@ -37,7 +37,7 @@ serve(async (req) => {
 
     console.log('Generating movie scenes from outline...');
 
-    const systemPrompt = `You are an expert screenwriter and cinematographer specializing in creating immersive audiovisual experiences. Your task is to break down a movie outline into detailed, cinematic scenes that work as complete movie segments with rich narration.
+const systemPrompt = `You are an expert screenwriter and cinematographer specializing in creating immersive audiovisual experiences with KEYFRAME-BASED scene design. Your task is to break down a movie outline into detailed, cinematic scenes where each scene has a START FRAME and END FRAME for video generation.
 ${characterContext}
 
 For each scene, you must provide:
@@ -46,11 +46,18 @@ For each scene, you must provide:
 3. Detailed visual description (what the camera sees)
 4. Character actions and emotions
 5. Complete narration for voiceover (60-120 seconds of content)
-6. A detailed image generation prompt that captures the key visual moment${characterDescription ? ` - ALWAYS include the main character with this exact description: ${characterDescription}` : ''}
-7. The BEST camera angle for the scene based on emotional impact and visual storytelling
-8. The BEST lighting style for the scene based on mood and atmosphere
+6. START FRAME: The opening keyframe with image prompt, camera angle, and character position
+7. END FRAME: The closing keyframe with image prompt, camera angle, and character position
+8. TRANSITION: What action happens between frames and how the camera moves
+9. The BEST lighting style for the scene based on mood and atmosphere
 
-AVAILABLE CAMERA ANGLES (pick the most appropriate):
+KEYFRAME DESIGN PRINCIPLES:
+- START FRAME establishes the scene's beginning state
+- END FRAME shows where the scene concludes (and should flow into the next scene's start)
+- TRANSITION describes the action and camera movement connecting the frames
+- For continuity: each scene's END should visually connect to the next scene's START
+
+AVAILABLE CAMERA ANGLES (use for both start and end frames):
 - "eye-level": Standard neutral perspective, good for dialogue
 - "low-angle": Camera looks up, makes subject appear powerful or imposing
 - "high-angle": Camera looks down, makes subject appear vulnerable
@@ -61,6 +68,17 @@ AVAILABLE CAMERA ANGLES (pick the most appropriate):
 - "close-up": Tight shot on subject, emotional detail, intimate moments
 - "wide-shot": Full scene establishing shot, grand locations
 - "medium-shot": Waist-up framing, balanced general use
+
+AVAILABLE CAMERA MOVEMENTS (for transitions):
+- "static": Camera stays in place
+- "tracking": Camera follows subject horizontally
+- "push-in": Camera moves toward subject (dolly in)
+- "pull-out": Camera moves away from subject (dolly out)
+- "pan": Camera rotates horizontally
+- "tilt": Camera rotates vertically
+- "crane-up": Camera rises
+- "crane-down": Camera lowers
+- "orbit": Camera circles around subject
 
 AVAILABLE LIGHTING STYLES (pick the most appropriate):
 - "natural": Soft, realistic daylight
@@ -97,7 +115,19 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
     "timeOfDay": "Day/Night/Dawn/Dusk",
     "description": "Detailed description of what happens in this scene",
     "dialogue": "Complete voiceover narration for the scene...",
-    "imagePrompt": "Highly detailed cinematic prompt for image generation${characterDescription ? '. MUST include the main character with their exact appearance.' : ''}",
+    "startFrame": {
+      "imagePrompt": "Detailed prompt for the START frame image${characterDescription ? '. MUST include the main character.' : ''}",
+      "cameraAngle": "wide-shot",
+      "position": "Character standing at left of frame, facing right"
+    },
+    "endFrame": {
+      "imagePrompt": "Detailed prompt for the END frame image${characterDescription ? '. MUST include the main character.' : ''}",
+      "cameraAngle": "close-up",
+      "position": "Character now center frame, facing camera"
+    },
+    "transitionAction": "Character walks forward toward the camera while speaking",
+    "transitionCameraMovement": "push-in",
+    "imagePrompt": "Fallback single image prompt for backward compatibility",
     "selectedCameraAngle": "close-up",
     "selectedLighting": "golden-hour",
     "mood": "romantic",
@@ -111,10 +141,11 @@ IMPORTANT FORMATTING RULES:
 - Describe sounds and dialogue naturally in plain text
 - Make narration 60-120 seconds when spoken to create complete movie scenes
 - Include character dialogue, sound descriptions, and atmospheric details all in natural flowing text
-- ALWAYS include selectedCameraAngle, selectedLighting, mood, and suggestedMusic
-- Pick the BEST options based on the scene's mood, action, and emotional impact
+- ALWAYS include startFrame, endFrame, transitionAction, and transitionCameraMovement
+- The END frame of scene N should visually connect to the START frame of scene N+1
+- startFrame and endFrame must each have imagePrompt, cameraAngle, and position
 - suggestedMusic should be a specific, descriptive suggestion for background music/audio that matches the mood
-${characterDescription ? `- The main character (${characterDescription}) MUST appear in every scene's imagePrompt with consistent appearance` : ''}
+${characterDescription ? `- The main character (${characterDescription}) MUST appear in every frame's imagePrompt with consistent appearance` : ''}
 
 Return ONLY the JSON array, no other text or formatting.`;
 

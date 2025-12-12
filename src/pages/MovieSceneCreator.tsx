@@ -11,11 +11,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
 import { PeteAIAssistant } from '@/components/PeteAIAssistant';
+import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEMENTS } from '@/components/KeyframeSceneCard';
+import { SceneTimeline } from '@/components/SceneTimeline';
 
 interface AITwin {
   id: string;
@@ -61,6 +63,7 @@ const SAMPLE_MOVIES = [
   }
 ];
 
+// Legacy interface for backward compatibility
 interface MovieScene {
   sceneNumber: number;
   title: string;
@@ -77,6 +80,11 @@ interface MovieScene {
   selectedLighting?: string;
   mood?: string;
   suggestedMusic?: string;
+  // New keyframe fields
+  startFrame?: KeyframeData;
+  endFrame?: KeyframeData;
+  transitionAction?: string;
+  transitionCameraMovement?: string;
 }
 
 const MOOD_ICONS: Record<string, string> = {
@@ -155,6 +163,10 @@ const MovieSceneCreator = () => {
   const [peteInputValue, setPeteInputValue] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; description: string | null; reference_images: string[] | null }[]>([]);
   const [aiTwins, setAiTwins] = useState<AITwin[]>([]);
+  // Keyframe system state
+  const [autoLinkScenes, setAutoLinkScenes] = useState(true);
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const [generatingFrameFor, setGeneratingFrameFor] = useState<{ sceneNumber: number; frame: 'start' | 'end' } | null>(null);
   const [galleryImages, setGalleryImages] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
@@ -800,6 +812,85 @@ const MovieSceneCreator = () => {
           : s
       )
     );
+  };
+
+  // Keyframe helper functions
+  const updateKeyframe = (sceneNumber: number, frame: 'start' | 'end', updates: Partial<KeyframeData>) => {
+    setScenes(prevScenes =>
+      prevScenes.map(s =>
+        s.sceneNumber === sceneNumber
+          ? { 
+              ...s, 
+              [frame === 'start' ? 'startFrame' : 'endFrame']: {
+                ...(s[frame === 'start' ? 'startFrame' : 'endFrame'] || { imagePrompt: '', cameraAngle: 'eye-level', position: '' }),
+                ...updates
+              }
+            }
+          : s
+      )
+    );
+  };
+
+  const generateKeyframeImage = async (sceneNumber: number, frame: 'start' | 'end') => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!scene) return;
+    
+    const frameData = frame === 'start' ? scene.startFrame : scene.endFrame;
+    if (!frameData?.imagePrompt) {
+      toast({ title: "Image prompt required", variant: "destructive" });
+      return;
+    }
+
+    setGeneratingFrameFor({ sceneNumber, frame });
+    try {
+      let referenceImages: string[] = [];
+      let characterDescription: string | undefined;
+      
+      if (selectedTwin) {
+        referenceImages = selectedTwin.reference_images || [];
+        characterDescription = `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || ''}`;
+      }
+
+      const enhancedPrompt = `${frameData.imagePrompt}. Camera: ${frameData.cameraAngle}. Position: ${frameData.position}`;
+
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt: enhancedPrompt, referenceImages, characterDescription }
+      });
+
+      if (error) throw error;
+
+      updateKeyframe(sceneNumber, frame, { generatedImage: data.imageUrl });
+      
+      // Auto-link: if end frame generated and auto-link is on, copy to next scene's start
+      if (frame === 'end' && autoLinkScenes) {
+        const nextScene = scenes.find(s => s.sceneNumber === sceneNumber + 1);
+        if (nextScene) {
+          updateKeyframe(sceneNumber + 1, 'start', { 
+            generatedImage: data.imageUrl,
+            imagePrompt: frameData.imagePrompt 
+          });
+        }
+      }
+
+      toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame generated!` });
+    } catch (error: any) {
+      toast({ title: "Generation failed", description: error.message, variant: "destructive" });
+    } finally {
+      setGeneratingFrameFor(null);
+    }
+  };
+
+  const linkToPreviousScene = (sceneNumber: number) => {
+    const prevScene = scenes.find(s => s.sceneNumber === sceneNumber - 1);
+    if (prevScene?.endFrame?.generatedImage) {
+      updateKeyframe(sceneNumber, 'start', {
+        generatedImage: prevScene.endFrame.generatedImage,
+        imagePrompt: prevScene.endFrame.imagePrompt,
+        cameraAngle: prevScene.endFrame.cameraAngle,
+        position: prevScene.endFrame.position
+      });
+      toast({ title: "Linked to previous scene" });
+    }
   };
 
   const generateDialogue = async (sceneNumber: number) => {
