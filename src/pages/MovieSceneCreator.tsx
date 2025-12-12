@@ -33,6 +33,38 @@ interface AITwin {
   gender: string | null;
 }
 
+// Helper to clean dialogue text - remove stage directions and character prefixes before TTS
+const cleanDialogueForTTS = (text: string): string => {
+  if (!text) return '';
+  
+  // Remove stage directions in parentheses: (sighs), (pauses), (whispers), etc.
+  let cleaned = text.replace(/\([^)]*\)/g, '');
+  
+  // Remove stage directions in brackets: [emotion], [action], etc.
+  cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
+  
+  // Remove asterisk stage directions: *sighs*, *pauses*, etc.
+  cleaned = cleaned.replace(/\*[^*]*\*/g, '');
+  
+  // Remove character name prefixes: "Character Name: " at start of lines
+  cleaned = cleaned.split('\n').map(line => {
+    return line.replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '');
+  }).join(' ');
+  
+  // Clean up multiple spaces and trim
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+};
+
+// Helper to detect if a voice ID is a Speechify UUID format
+const isSpeechifyVoiceId = (voiceKey: string | null): boolean => {
+  if (!voiceKey) return false;
+  // Speechify voice IDs are UUIDs like: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(voiceKey);
+};
+
 // Movie length options
 const MOVIE_LENGTH_OPTIONS = [
   { value: 'quick-reel', label: 'Quick Reel', description: '4-6 scenes, ~1 min', sceneCount: '4-6', duration: '~1 minute' },
@@ -1226,11 +1258,26 @@ const MovieSceneCreator = () => {
 
     setGeneratingVideoFor(sceneNumber);
     try {
-      // Generate audio from dialogue or description
-      const textForAudio = scene.dialogue || scene.description;
+      // Generate audio from dialogue (never use description as dialogue)
+      let textForAudio = '';
+      if (scene.dialogue) {
+        if (Array.isArray(scene.dialogue)) {
+          textForAudio = scene.dialogue.map(d => d.line).join(' ');
+        } else {
+          textForAudio = scene.dialogue;
+        }
+      }
+      
+      // Clean dialogue text - remove stage directions before TTS
+      textForAudio = cleanDialogueForTTS(textForAudio);
+      
+      // If no dialogue, use a simple default
+      if (!textForAudio) {
+        textForAudio = "This moment is everything. I have to keep going.";
+      }
       
       // Determine voice to use based on story bible character assignments or selected twins
-      let voiceToUse: { name: string; url: string } | null = null;
+      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string } | null = null;
       
       // Check if we have a story bible with voice assignments
       if (storyBible?.characters) {
@@ -1238,25 +1285,46 @@ const MovieSceneCreator = () => {
         if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
           const firstSpeaker = scene.dialogue[0].character;
           const assignedChar = storyBible.characters.find(c => 
-            c.name.toLowerCase() === firstSpeaker.toLowerCase() && c.assignedVoiceUrl
+            c.name.toLowerCase() === firstSpeaker.toLowerCase()
           );
-          if (assignedChar?.assignedVoiceUrl) {
-            voiceToUse = { name: assignedChar.assignedTwinName || firstSpeaker, url: assignedChar.assignedVoiceUrl };
+          if (assignedChar?.assignedTwinId) {
+            const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
+            if (assignedTwin?.voice_cloning_key) {
+              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+              voiceToUse = { 
+                name: assignedTwin.name,
+                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+              };
+            }
           }
         } else {
           // For non-conversation dialogue, use protagonist's voice if assigned
-          const protagonist = storyBible.characters.find(c => c.role === 'protagonist' && c.assignedVoiceUrl);
-          if (protagonist?.assignedVoiceUrl) {
-            voiceToUse = { name: protagonist.assignedTwinName || protagonist.name, url: protagonist.assignedVoiceUrl };
+          const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
+          if (protagonist?.assignedTwinId) {
+            const assignedTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
+            if (assignedTwin?.voice_cloning_key) {
+              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+              voiceToUse = { 
+                name: assignedTwin.name,
+                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+              };
+            }
           }
         }
       }
       
       // Fallback to selected twins if no story bible assignment
       if (!voiceToUse) {
-        const twinWithVoice = selectedTwins.find(t => t.voice_sample_url);
-        if (twinWithVoice?.voice_sample_url) {
-          voiceToUse = { name: twinWithVoice.name, url: twinWithVoice.voice_sample_url };
+        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
+        if (twinWithVoice?.voice_cloning_key) {
+          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
+          voiceToUse = { 
+            name: twinWithVoice.name, 
+            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
+            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
+          };
         }
       }
       
@@ -1267,11 +1335,13 @@ const MovieSceneCreator = () => {
           : "Creating voiceover for the scene...",
       });
 
+      console.log('TTS request with voice:', voiceToUse);
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
         body: { 
           text: textForAudio, 
           voice: 'en-US-Journey-D',
-          clonedVoiceUrl: voiceToUse?.url || undefined
+          speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
+          voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
         }
       });
 
@@ -1410,40 +1480,61 @@ const MovieSceneCreator = () => {
             )
           );
         } else {
-          // Use description as fallback
-          dialogueText = scene.description;
+          // Generate a simple default dialogue instead of using scene description
+          dialogueText = "This is my moment. I need to make it count.";
         }
       }
+      
+      // Clean dialogue text - remove stage directions before TTS
+      dialogueText = cleanDialogueForTTS(dialogueText);
 
       // STEP 2: Determine voice to use (prefer cloned voice from AI Twin)
-      let voiceToUse: { name: string; url?: string; voiceCloningKey?: string } | null = null;
+      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string } | null = null;
       
       // Check story bible for voice assignments
       if (storyBible?.characters) {
         if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
           const firstSpeaker = scene.dialogue[0].character;
           const assignedChar = storyBible.characters.find(c => 
-            c.name.toLowerCase() === firstSpeaker.toLowerCase() && c.assignedVoiceUrl
+            c.name.toLowerCase() === firstSpeaker.toLowerCase()
           );
-          if (assignedChar?.assignedVoiceUrl) {
-            voiceToUse = { name: assignedChar.assignedTwinName || firstSpeaker, url: assignedChar.assignedVoiceUrl };
+          if (assignedChar?.assignedTwinId) {
+            // Find the AI Twin to get voice_cloning_key
+            const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
+            if (assignedTwin?.voice_cloning_key) {
+              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+              voiceToUse = { 
+                name: assignedTwin.name,
+                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+              };
+            }
           }
         } else {
-          const protagonist = storyBible.characters.find(c => c.role === 'protagonist' && c.assignedVoiceUrl);
-          if (protagonist?.assignedVoiceUrl) {
-            voiceToUse = { name: protagonist.assignedTwinName || protagonist.name, url: protagonist.assignedVoiceUrl };
+          const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
+          if (protagonist?.assignedTwinId) {
+            const assignedTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
+            if (assignedTwin?.voice_cloning_key) {
+              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+              voiceToUse = { 
+                name: assignedTwin.name,
+                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+              };
+            }
           }
         }
       }
       
       // Fallback to selected twins for cloned voice
       if (!voiceToUse) {
-        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key || t.voice_sample_url);
-        if (twinWithVoice) {
+        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
+        if (twinWithVoice?.voice_cloning_key) {
+          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
           voiceToUse = { 
             name: twinWithVoice.name, 
-            voiceCloningKey: twinWithVoice.voice_cloning_key || undefined,
-            url: twinWithVoice.voice_sample_url || undefined
+            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
+            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
           };
         }
       }
@@ -1456,12 +1547,13 @@ const MovieSceneCreator = () => {
       });
 
       // STEP 3: Generate TTS audio with cloned voice if available
+      console.log('TTS request with voice:', voiceToUse);
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
         body: { 
           text: dialogueText, 
           voice: 'en-US-Journey-D',
-          voiceCloningKey: voiceToUse?.voiceCloningKey || undefined,
-          clonedVoiceUrl: voiceToUse?.url || undefined
+          speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
+          voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
         }
       });
 

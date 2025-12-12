@@ -28,11 +28,16 @@ serve(async (req) => {
       ? `You are a professional screenwriter creating dialogue for a movie scene. 
 
 IMPORTANT: You are writing dialogue ONLY for the main character "${characterName || 'the protagonist'}". 
-- Write ONLY what ${characterName || 'the protagonist'} says
-- Do NOT write any other character's lines
-- The dialogue should be natural and fit the scene
+- Write ONLY what ${characterName || 'the protagonist'} says - their actual spoken words
 - Write substantial dialogue for a 30-45 second scene (about 100-150 words)
 - Include emotional depth, pauses for emphasis, and natural speech patterns
+
+CRITICAL RULES - DO NOT INCLUDE ANY OF THESE:
+- NO stage directions like (sighs), (pauses), (whispers), [emotional], *action*, etc.
+- NO character name prefixes like "Character:" or "PROTAGONIST:"
+- NO descriptions of actions or emotions in parentheses or brackets
+- NO scene descriptions - ONLY spoken words
+- NO narration or third-person descriptions
 
 Scene Title: ${sceneTitle || 'Untitled Scene'}
 Location: ${location || 'Unknown'}
@@ -42,15 +47,21 @@ ${tone ? `Tone/Mood: ${tone}` : ''}
 
 Scene Description: ${sceneDescription}
 
-Write ONLY ${characterName || "the protagonist"}'s spoken dialogue. Include natural pauses (use "...") and emotional beats.
-Make the dialogue substantial and meaningful - this is a key scene moment.
-Do NOT include other characters' lines, stage directions, or character names.`
+Write ONLY the actual spoken words. Use "..." for pauses. No stage directions.
+Example of WRONG: "(sighs) I can't believe this..."
+Example of CORRECT: "I can't believe this... After everything we've been through..."`
       : `You are a professional screenwriter creating dialogue for a supporting character in a movie scene.
 
 IMPORTANT: You are writing dialogue for a SUPPORTING CHARACTER (not the main character "${characterName}").
 - Write dialogue for ONE supporting character responding to or interacting with ${characterName}
 - Write substantial dialogue for a 20-30 second response (about 60-100 words)
 - Make it natural, emotional, and reactive to the scene
+
+CRITICAL RULES - DO NOT INCLUDE ANY OF THESE:
+- NO stage directions like (sighs), (pauses), (whispers), [emotional], *action*, etc.
+- NO character name prefixes like "Character:" or "SUPPORTING:"
+- NO descriptions of actions or emotions in parentheses or brackets
+- NO scene descriptions - ONLY spoken words
 
 Scene Title: ${sceneTitle || 'Untitled Scene'}
 Location: ${location || 'Unknown'}
@@ -60,8 +71,7 @@ ${tone ? `Tone/Mood: ${tone}` : ''}
 
 Scene Description: ${sceneDescription}
 
-Write ONLY the supporting character's spoken dialogue. Make it meaningful and emotionally engaging.
-Do NOT include the main character's lines, stage directions, or character names.`;
+Write ONLY the actual spoken words. Use "..." for pauses. No stage directions.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
