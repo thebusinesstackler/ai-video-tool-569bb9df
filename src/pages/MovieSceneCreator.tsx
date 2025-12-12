@@ -65,14 +65,54 @@ const SAMPLE_MOVIES = [
   }
 ];
 
-// Legacy interface for backward compatibility
+// Story Bible types
+interface StoryBibleCharacter {
+  name: string;
+  role: 'protagonist' | 'deuteragonist' | 'antagonist' | 'supporting';
+  age: string;
+  appearance: string;
+  wardrobe: string;
+  voiceStyle: string;
+  personality: string;
+  arc: string;
+}
+
+interface DialogueEntry {
+  character: string;
+  line: string;
+  emotion?: string;
+}
+
+interface StoryBible {
+  logline: string;
+  theme: string;
+  emotionalArc: string[];
+  threeActStructure: {
+    setup: string;
+    confrontation: string;
+    resolution: string;
+  };
+  characters: StoryBibleCharacter[];
+  wardrobeNotes: string;
+  sceneDialogueMap: {
+    sceneNumber: number;
+    title: string;
+    charactersPresent: string[];
+    dialogueFlow: { character: string; action: string }[];
+    conflict: string;
+  }[];
+}
+
+// Movie Scene interface with conversation dialogue
 interface MovieScene {
   sceneNumber: number;
   title: string;
   location: string;
   timeOfDay: string;
   description: string;
-  dialogue: string | null;
+  dialogue: DialogueEntry[] | string | null; // Now supports conversation array
+  narration?: string;
+  charactersInScene?: string[];
   otherCharacterDialogue?: string | null;
   imagePrompt: string;
   generatedImage?: string;
@@ -82,7 +122,8 @@ interface MovieScene {
   selectedLighting?: string;
   mood?: string;
   suggestedMusic?: string;
-  // New keyframe fields
+  connectsTo?: number;
+  // Keyframe fields
   startFrame?: KeyframeData;
   endFrame?: KeyframeData;
   transitionAction?: string;
@@ -165,6 +206,10 @@ const MovieSceneCreator = () => {
   const [peteInputValue, setPeteInputValue] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; description: string | null; reference_images: string[] | null }[]>([]);
   const [aiTwins, setAiTwins] = useState<AITwin[]>([]);
+  // Story Bible state
+  const [storyBible, setStoryBible] = useState<StoryBible | null>(null);
+  const [isGeneratingStoryBible, setIsGeneratingStoryBible] = useState(false);
+  const [showStoryBibleEditor, setShowStoryBibleEditor] = useState(false);
   // Keyframe system state
   const [autoLinkScenes, setAutoLinkScenes] = useState(true);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
@@ -375,6 +420,52 @@ const MovieSceneCreator = () => {
     }
   }, [searchParams, userId]);
 
+  // Generate Story Bible first
+  const generateStoryBible = async () => {
+    if (!movieIdea.trim()) {
+      toast({
+        title: "Movie Idea Required",
+        description: "Please describe your movie idea first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingStoryBible(true);
+    try {
+      let characterDescription: string | undefined;
+      
+      if (selectedTwin) {
+        const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
+        characterDescription = `${selectedTwin.name} (${genderText}character): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+      } else if (selectedCharacter) {
+        characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-story-bible', {
+        body: { movieIdea, characterDescription }
+      });
+
+      if (error) throw error;
+
+      setStoryBible(data.storyBible);
+      setShowStoryBibleEditor(true);
+      toast({
+        title: "Story Bible Generated!",
+        description: `Created ${data.storyBible.characters?.length || 0} characters with wardrobes. Review and edit before generating scenes.`,
+      });
+    } catch (error: any) {
+      console.error('Error generating story bible:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate story bible. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingStoryBible(false);
+    }
+  };
+
   const generateOutline = async () => {
     if (!movieIdea.trim()) {
       toast({
@@ -438,7 +529,7 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingScenes(true);
     try {
-      // Pass character description for consistency in scenes
+      // Pass character description and story bible for consistency
       let characterDescription: string | undefined;
       let characterName: string | undefined;
       
@@ -454,8 +545,13 @@ const MovieSceneCreator = () => {
         characterDescription = `Character based on: ${selectedGalleryImage.prompt}`;
       }
 
+      // Pass story bible if available for better consistency
       const { data, error } = await supabase.functions.invoke('generate-movie-scenes', {
-        body: { outline, characterDescription }
+        body: { 
+          outline, 
+          characterDescription,
+          storyBible: storyBible || undefined
+        }
       });
 
       if (error) throw error;
@@ -1858,25 +1954,129 @@ const MovieSceneCreator = () => {
                   </p>
                 )}
               </div>
-              <Button
-                onClick={generateOutline}
-                disabled={isGenerating || !movieIdea.trim()}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Outline...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Movie Outline
-                  </>
-                )}
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={generateStoryBible}
+                  disabled={isGeneratingStoryBible || !movieIdea.trim()}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isGeneratingStoryBible ? (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                      Creating Story Bible...
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-4 h-4 mr-2" />
+                      Story Bible
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={generateOutline}
+                  disabled={isGenerating || !movieIdea.trim()}
+                  className="w-full"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Outline
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
+
+          {/* Story Bible Card (when generated) */}
+          {storyBible && (
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-primary" />
+                    Story Bible
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowStoryBibleEditor(!showStoryBibleEditor)}
+                  >
+                    {showStoryBibleEditor ? 'Collapse' : 'Expand'}
+                  </Button>
+                </div>
+                <CardDescription>
+                  {storyBible.logline}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Characters Grid */}
+                <div>
+                  <Label className="text-sm font-semibold mb-2 block">Characters ({storyBible.characters.length})</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {storyBible.characters.map((char, idx) => (
+                      <div key={idx} className="p-2 bg-muted/50 rounded-lg border">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={char.role === 'protagonist' ? 'default' : 'secondary'} className="capitalize text-xs">
+                            {char.role}
+                          </Badge>
+                          <span className="font-medium text-sm">{char.name}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{char.wardrobe}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {showStoryBibleEditor && (
+                  <>
+                    {/* Three Act Structure */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Three-Act Structure</Label>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="p-2 bg-green-500/10 rounded border border-green-500/20">
+                          <p className="font-medium text-green-600">Setup</p>
+                          <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.setup}</p>
+                        </div>
+                        <div className="p-2 bg-yellow-500/10 rounded border border-yellow-500/20">
+                          <p className="font-medium text-yellow-600">Confrontation</p>
+                          <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.confrontation}</p>
+                        </div>
+                        <div className="p-2 bg-red-500/10 rounded border border-red-500/20">
+                          <p className="font-medium text-red-600">Resolution</p>
+                          <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.resolution}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Character Details */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Character Wardrobes (Consistent Throughout)</Label>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {storyBible.characters.map((char, idx) => (
+                          <div key={idx} className="p-2 bg-muted/30 rounded-lg border text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{char.name}</span>
+                              <Badge variant="outline" className="text-xs capitalize">{char.role}</Badge>
+                            </div>
+                            <p className="text-xs"><span className="font-medium">Appearance:</span> {char.appearance}</p>
+                            <p className="text-xs text-primary"><span className="font-medium">Wardrobe:</span> {char.wardrobe}</p>
+                            <p className="text-xs text-muted-foreground"><span className="font-medium">Voice:</span> {char.voiceStyle}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Generated Outline */}
           <Card>
@@ -2078,12 +2278,15 @@ const MovieSceneCreator = () => {
                       />
                     </div>
                     
+                    {/* Dialogue Section - Supports both string and conversation array */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <Label className="text-sm font-semibold flex items-center gap-2">
                           <User className="w-4 h-4 text-primary" />
-                          {selectedTwin?.name || 'Main Character'} Dialogue
-                          <span className="text-xs text-muted-foreground font-normal">(AI Twin speaks this)</span>
+                          Dialogue
+                          {Array.isArray(scene.dialogue) && (
+                            <Badge variant="secondary" className="text-xs">Conversation</Badge>
+                          )}
                         </Label>
                         <Button
                           onClick={() => generateDialogue(scene.sceneNumber)}
@@ -2095,13 +2298,31 @@ const MovieSceneCreator = () => {
                           Generate
                         </Button>
                       </div>
-                      <Textarea
-                        value={scene.dialogue || ''}
-                        onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
-                        rows={3}
-                        className="mt-1 resize-none italic border-primary/30"
-                        placeholder={`Enter what ${selectedTwin?.name || 'the main character'} will say...`}
-                      />
+                      
+                      {/* Render conversation array or text input */}
+                      {Array.isArray(scene.dialogue) ? (
+                        <div className="space-y-2 bg-muted/50 rounded-lg p-3 border">
+                          {scene.dialogue.map((entry, idx) => (
+                            <div key={idx} className="flex gap-2">
+                              <Badge variant="outline" className="shrink-0 capitalize">
+                                {entry.character}
+                              </Badge>
+                              <p className="text-sm text-foreground italic">"{entry.line}"</p>
+                              {entry.emotion && (
+                                <span className="text-xs text-muted-foreground">({entry.emotion})</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <Textarea
+                          value={typeof scene.dialogue === 'string' ? scene.dialogue : ''}
+                          onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
+                          rows={3}
+                          className="mt-1 resize-none italic border-primary/30"
+                          placeholder={`Enter dialogue for the scene...`}
+                        />
+                      )}
                     </div>
 
                     {/* Mood & Music Suggestion */}

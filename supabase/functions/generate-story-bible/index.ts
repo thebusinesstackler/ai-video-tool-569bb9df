@@ -1,0 +1,210 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { movieIdea, characterDescription } = await req.json();
+    
+    if (!movieIdea) {
+      return new Response(
+        JSON.stringify({ error: 'Movie idea is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!apiKey) {
+      console.error('LOVABLE_API_KEY not found');
+      return new Response(
+        JSON.stringify({ error: 'AI service unavailable' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Generating story bible for movie idea...');
+
+    const systemPrompt = `You are an expert story development consultant and production designer specializing in creating comprehensive story bibles for short-form video content (1-3 minutes).
+
+Your task is to create a complete STORY BIBLE that ensures total consistency throughout the film:
+
+1. **STORY STRUCTURE**
+   - Logline: One sentence describing the entire story
+   - Theme: Core message or emotion
+   - Three-Act Structure: Setup, Confrontation, Resolution
+   - Emotional Arc: How the audience should feel at each point
+   - Scene Flow: How each scene connects to the next
+
+2. **CHARACTER PROFILES** (Define 2-4 characters)
+   Each character MUST have:
+   - name: Character's name
+   - role: "protagonist" | "deuteragonist" | "antagonist" | "supporting"
+   - age: Approximate age range
+   - appearance: Physical description (hair, skin, eyes, build)
+   - wardrobe: SPECIFIC outfit they wear THROUGHOUT the entire film (this MUST be consistent in EVERY scene)
+   - voiceStyle: How they speak (tone, pace, accent, mannerisms)
+   - personality: Key traits and motivations
+   - arc: How they change from beginning to end
+
+3. **WARDROBE CONSISTENCY NOTES**
+   - Define the exact clothing each character wears
+   - Include colors, materials, and distinctive features
+   - This wardrobe description will be injected into EVERY image prompt
+
+4. **SCENE-BY-SCENE DIALOGUE ASSIGNMENTS**
+   For each planned scene, specify:
+   - Which characters appear
+   - Who speaks and in what order
+   - The general topic/conflict of their conversation
+
+CRITICAL: Return ONLY valid JSON with this structure (no markdown):
+{
+  "logline": "One sentence story summary",
+  "theme": "Core theme",
+  "emotionalArc": ["hope", "tension", "triumph"],
+  "threeActStructure": {
+    "setup": "Description of Act 1",
+    "confrontation": "Description of Act 2", 
+    "resolution": "Description of Act 3"
+  },
+  "characters": [
+    {
+      "name": "Character Name",
+      "role": "protagonist",
+      "age": "mid-30s",
+      "appearance": "Detailed physical description",
+      "wardrobe": "Red leather jacket over white t-shirt, dark blue jeans, black boots",
+      "voiceStyle": "Confident, quick-witted, slight accent",
+      "personality": "Determined but vulnerable",
+      "arc": "Starts doubtful, becomes confident leader"
+    }
+  ],
+  "wardrobeNotes": "Key wardrobe details for image consistency",
+  "sceneDialogueMap": [
+    {
+      "sceneNumber": 1,
+      "title": "The Discovery",
+      "charactersPresent": ["Maria", "James"],
+      "dialogueFlow": [
+        { "character": "Maria", "action": "initiates conversation about the mystery" },
+        { "character": "James", "action": "expresses doubt" },
+        { "character": "Maria", "action": "reveals key evidence" }
+      ],
+      "conflict": "Maria tries to convince James"
+    }
+  ]
+}`;
+
+    const userPrompt = `Create a complete story bible for this movie concept:
+
+${movieIdea}
+
+${characterDescription ? `\n\nMain character reference (must be the protagonist):\n${characterDescription}` : ''}
+
+Requirements:
+- 2-4 total characters (protagonist + supporting cast)
+- Each character needs a SPECIFIC wardrobe that stays consistent throughout
+- Plan for 6-10 scenes with clear dialogue assignments
+- Ensure each scene has distinct character interactions (no one speaks to themselves)
+- Different characters should have clearly different speaking styles
+
+Return ONLY the JSON, no markdown.`;
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI Gateway error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error(`AI Gateway error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let generatedContent = data?.choices?.[0]?.message?.content;
+
+    if (!generatedContent) {
+      throw new Error('No content generated');
+    }
+
+    console.log('Raw story bible response length:', generatedContent.length);
+
+    // Extract JSON from markdown code blocks if present
+    const jsonMatch = generatedContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+    if (jsonMatch) {
+      generatedContent = jsonMatch[1];
+    }
+
+    // Try to find JSON object in the response
+    const objectMatch = generatedContent.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      generatedContent = objectMatch[0];
+    }
+
+    // Parse the story bible
+    let storyBible;
+    try {
+      storyBible = JSON.parse(generatedContent);
+    } catch (parseError) {
+      // Try cleanup
+      const cleaned = generatedContent
+        .replace(/^\uFEFF/, '')
+        .replace(/,\s*([\]}])/g, '$1')
+        .trim();
+      storyBible = JSON.parse(cleaned);
+    }
+
+    // Validate structure
+    if (!storyBible.characters || !Array.isArray(storyBible.characters)) {
+      throw new Error('Invalid story bible - missing characters array');
+    }
+
+    console.log(`Generated story bible with ${storyBible.characters.length} characters`);
+
+    return new Response(
+      JSON.stringify({ storyBible }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error: any) {
+    console.error('Error in generate-story-bible:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'Failed to generate story bible' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

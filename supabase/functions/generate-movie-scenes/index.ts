@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { outline, characterDescription } = await req.json();
+    const { outline, characterDescription, storyBible } = await req.json();
     
     if (!outline) {
       return new Response(
@@ -21,10 +21,34 @@ serve(async (req) => {
       );
     }
 
-    // Build character context for the prompt
-    const characterContext = characterDescription 
-      ? `\n\nCRITICAL - MAIN CHARACTER (must appear in EVERY scene with this EXACT description): ${characterDescription}. Use this exact appearance description in every imagePrompt to maintain character consistency.`
-      : '';
+    // Build character context from story bible or fallback to single character description
+    let characterContext = '';
+    let wardrobeContext = '';
+    let dialogueMapContext = '';
+    
+    if (storyBible?.characters && Array.isArray(storyBible.characters)) {
+      // Build comprehensive character context from story bible
+      const characterDescriptions = storyBible.characters.map((char: any) => 
+        `${char.name} (${char.role}): ${char.appearance}. WARDROBE: ${char.wardrobe}. Voice style: ${char.voiceStyle}. Personality: ${char.personality}.`
+      ).join('\n');
+      
+      characterContext = `\n\nCRITICAL CHARACTER PROFILES (maintain consistency across ALL scenes):\n${characterDescriptions}`;
+      
+      // Wardrobe consistency notes
+      wardrobeContext = storyBible.characters.map((char: any) => 
+        `- ${char.name} ALWAYS wears: ${char.wardrobe}`
+      ).join('\n');
+      
+      // Dialogue map for scene assignments
+      if (storyBible.sceneDialogueMap && Array.isArray(storyBible.sceneDialogueMap)) {
+        dialogueMapContext = '\n\nSCENE DIALOGUE ASSIGNMENTS:\n' + 
+          storyBible.sceneDialogueMap.map((scene: any) => 
+            `Scene ${scene.sceneNumber} "${scene.title}": ${scene.charactersPresent?.join(', ') || 'TBD'} - ${scene.conflict || ''}`
+          ).join('\n');
+      }
+    } else if (characterDescription) {
+      characterContext = `\n\nCRITICAL - MAIN CHARACTER (must appear in EVERY scene with this EXACT description): ${characterDescription}. Use this exact appearance description in every imagePrompt to maintain character consistency.`;
+    }
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
@@ -35,10 +59,12 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating movie scenes from outline...');
+    console.log('Generating movie scenes from outline with story bible:', !!storyBible);
 
 const systemPrompt = `You are an expert screenwriter and cinematographer specializing in creating immersive audiovisual experiences with KEYFRAME-BASED scene design. Your task is to break down a movie outline into detailed, cinematic scenes where each scene has a START FRAME and END FRAME for video generation.
 ${characterContext}
+${wardrobeContext ? `\n\nWARDROBE CONSISTENCY (MUST be included in EVERY image prompt):\n${wardrobeContext}` : ''}
+${dialogueMapContext}
 
 For each scene, you must provide:
 1. Scene number and title
@@ -106,6 +132,12 @@ AVAILABLE MOODS (pick the most fitting):
 - "nostalgic": Memory, past, bittersweet - Suggested music: Vintage sounds, music box, warm analog tones
 - "inspiring": Hope, motivation, uplift - Suggested music: Rising crescendo, major key, building energy
 
+DIALOGUE FORMAT - CRITICAL:
+- Dialogue MUST be a CONVERSATION ARRAY, not a single string
+- Each scene should have back-and-forth dialogue between characters
+- Use the story bible's sceneDialogueMap to assign who speaks
+- Different characters MUST have distinct speaking styles
+
 CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown, no code blocks):
 [
   {
@@ -114,38 +146,46 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
     "location": "Location description",
     "timeOfDay": "Day/Night/Dawn/Dusk",
     "description": "Detailed description of what happens in this scene",
-    "dialogue": "Complete voiceover narration for the scene...",
+    "charactersInScene": ["Character1", "Character2"],
+    "dialogue": [
+      { "character": "Maria", "line": "We need to find the key before sunset.", "emotion": "urgent" },
+      { "character": "James", "line": "Are you sure this is the right place?", "emotion": "doubtful" },
+      { "character": "Maria", "line": "Trust me. I know what I'm doing.", "emotion": "confident" }
+    ],
+    "narration": "Optional scene narration or voiceover...",
     "startFrame": {
-      "imagePrompt": "Detailed prompt for the START frame image${characterDescription ? '. MUST include the main character.' : ''}",
+      "imagePrompt": "Detailed prompt for START frame. MUST include character wardrobes from story bible.",
       "cameraAngle": "wide-shot",
       "position": "Character standing at left of frame, facing right"
     },
     "endFrame": {
-      "imagePrompt": "Detailed prompt for the END frame image${characterDescription ? '. MUST include the main character.' : ''}",
+      "imagePrompt": "Detailed prompt for END frame. MUST include character wardrobes from story bible.",
       "cameraAngle": "close-up",
       "position": "Character now center frame, facing camera"
     },
     "transitionAction": "Character walks forward toward the camera while speaking",
     "transitionCameraMovement": "push-in",
-    "imagePrompt": "Fallback single image prompt for backward compatibility",
+    "imagePrompt": "Fallback single image prompt with ALL character wardrobes included",
     "selectedCameraAngle": "close-up",
     "selectedLighting": "golden-hour",
     "mood": "romantic",
-    "suggestedMusic": "Soft piano with gentle strings, warm and intimate atmosphere"
+    "suggestedMusic": "Soft piano with gentle strings, warm and intimate atmosphere",
+    "connectsTo": 2
   }
 ]
 
 IMPORTANT FORMATTING RULES:
-- Do NOT use quotation marks within the dialogue field
-- Do NOT use square brackets within the dialogue field
-- Describe sounds and dialogue naturally in plain text
-- Make narration 60-120 seconds when spoken to create complete movie scenes
-- Include character dialogue, sound descriptions, and atmospheric details all in natural flowing text
+- Dialogue MUST be an array of conversation turns, not a single string
+- Each dialogue entry needs: character (name), line (what they say), emotion (how they feel)
+- Different characters should sound different based on their voiceStyle from the story bible
+- NO character speaks to themselves - scenes must have actual conversations
+- Make scenes 60-120 seconds when narration + dialogue are spoken
 - ALWAYS include startFrame, endFrame, transitionAction, and transitionCameraMovement
 - The END frame of scene N should visually connect to the START frame of scene N+1
+- Include "connectsTo" field with the next scene number for continuity
 - startFrame and endFrame must each have imagePrompt, cameraAngle, and position
-- suggestedMusic should be a specific, descriptive suggestion for background music/audio that matches the mood
-${characterDescription ? `- The main character (${characterDescription}) MUST appear in every frame's imagePrompt with consistent appearance` : ''}
+- Image prompts MUST include character wardrobes exactly as defined in the story bible
+- suggestedMusic should be specific and match the mood
 
 Return ONLY the JSON array, no other text or formatting.`;
 
