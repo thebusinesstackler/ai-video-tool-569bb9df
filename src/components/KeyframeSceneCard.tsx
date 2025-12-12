@@ -116,6 +116,7 @@ interface KeyframeSceneCardProps {
   onGenerateStartImage: (sceneNumber: number) => void;
   onGenerateEndImage: (sceneNumber: number) => void;
   onGenerateVideo: (sceneNumber: number) => void;
+  onGenerateTransitionVideo?: (sceneNumber: number) => void;
   onGenerateDialogue: (sceneNumber: number) => void;
   onDuplicate: (sceneNumber: number) => void;
   onDelete: (sceneNumber: number) => void;
@@ -135,6 +136,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   onGenerateStartImage,
   onGenerateEndImage,
   onGenerateVideo,
+  onGenerateTransitionVideo,
   onGenerateDialogue,
   onDuplicate,
   onDelete,
@@ -470,38 +472,71 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                 </div>
                 
                 {/* Video Generation */}
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {scene.generatedVideo ? (
-                      <video 
-                        src={scene.generatedVideo} 
-                        className="h-16 rounded"
-                        controls
-                      />
-                    ) : (
-                      <div className="w-28 h-16 bg-muted rounded flex items-center justify-center">
-                        <Video className="w-6 h-6 text-muted-foreground/50" />
+                <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {scene.generatedVideo ? (
+                        <video 
+                          src={scene.generatedVideo} 
+                          className="h-16 rounded"
+                          controls
+                        />
+                      ) : (
+                        <div className="w-28 h-16 bg-muted rounded flex items-center justify-center">
+                          <Video className="w-6 h-6 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">Scene Video</p>
+                        <p className="text-xs text-muted-foreground">
+                          {scene.generatedVideo ? 'Video generated' : 
+                           scene.startFrame?.generatedImage && scene.endFrame?.generatedImage 
+                             ? 'Ready for transition video' 
+                             : 'Generate frames first'}
+                        </p>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-medium">Scene Video</p>
-                      <p className="text-xs text-muted-foreground">
-                        {scene.generatedVideo ? 'Video generated' : 'Generate start frame first'}
-                      </p>
                     </div>
                   </div>
-                  <Button
-                    onClick={() => onGenerateVideo(scene.sceneNumber)}
-                    disabled={isGeneratingVideo || !scene.startFrame?.generatedImage}
-                    size="sm"
-                  >
-                    {isGeneratingVideo ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      <Play className="w-4 h-4 mr-1" />
+                  
+                  {/* Video Generation Options */}
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => onGenerateVideo(scene.sceneNumber)}
+                      disabled={isGeneratingVideo || !scene.startFrame?.generatedImage}
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {isGeneratingVideo ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-1" />
+                      )}
+                      Lip-Sync Video
+                    </Button>
+                    
+                    {onGenerateTransitionVideo && (
+                      <Button
+                        onClick={() => onGenerateTransitionVideo(scene.sceneNumber)}
+                        disabled={isGeneratingVideo || !scene.startFrame?.generatedImage || !scene.endFrame?.generatedImage}
+                        size="sm"
+                        className="flex-1"
+                      >
+                        {isGeneratingVideo ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <ArrowRight className="w-4 h-4 mr-1" />
+                        )}
+                        Transition Video
+                      </Button>
                     )}
-                    Generate Video
-                  </Button>
+                  </div>
+                  
+                  {scene.startFrame?.generatedImage && scene.endFrame?.generatedImage && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      💡 Transition video will interpolate between your start and end frames
+                    </p>
+                  )}
                 </div>
               </div>
             )}

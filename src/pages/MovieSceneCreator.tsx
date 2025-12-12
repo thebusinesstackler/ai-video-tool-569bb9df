@@ -1266,6 +1266,96 @@ const MovieSceneCreator = () => {
     }
   };
 
+  // Generate transition video using keyframe interpolation (start → end frame)
+  const generateTransitionVideo = async (sceneNumber: number) => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    
+    if (!scene?.startFrame?.generatedImage || !scene?.endFrame?.generatedImage) {
+      toast({
+        title: "Both Frames Required",
+        description: "Please generate both start and end frame images first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setGeneratingVideoFor(sceneNumber);
+    try {
+      toast({
+        title: "Generating Transition Video",
+        description: "Creating video that interpolates between your start and end frames...",
+      });
+
+      // Use keyframe interpolation model
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          model: 'keyframe-interpolation',
+          startFrameUrl: scene.startFrame.generatedImage,
+          endFrameUrl: scene.endFrame.generatedImage,
+          prompt: scene.transitionAction || scene.description || 'Smooth cinematic transition',
+          duration: 5,
+          aspectRatio: '16:9'
+        }
+      });
+
+      if (videoError) throw videoError;
+
+      // Update scene with task ID
+      setScenes(prevScenes => 
+        prevScenes.map(s => 
+          s.sceneNumber === sceneNumber 
+            ? { ...s, videoTaskId: videoData.taskId }
+            : s
+        )
+      );
+
+      // Poll for video completion
+      const checkStatus = async () => {
+        const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+          body: {
+            action: 'status',
+            taskId: videoData.taskId
+          }
+        });
+
+        if (statusError) throw statusError;
+
+        if (statusData.status === 'completed' && statusData.videoUrl) {
+          setScenes(prevScenes => 
+            prevScenes.map(s => 
+              s.sceneNumber === sceneNumber 
+                ? { ...s, generatedVideo: statusData.videoUrl }
+                : s
+            )
+          );
+          setGeneratingVideoFor(null);
+          
+          toast({
+            title: "Transition Video Ready!",
+            description: `Scene ${sceneNumber} keyframe transition is complete.`,
+          });
+        } else if (statusData.status === 'failed') {
+          throw new Error('Video generation failed');
+        } else {
+          // Continue polling
+          setTimeout(checkStatus, 3000);
+        }
+      };
+
+      setTimeout(checkStatus, 3000);
+
+    } catch (error: any) {
+      console.error('Error generating transition video:', error);
+      toast({
+        title: "Transition Video Failed",
+        description: error.message || "Failed to generate transition video. Please try again.",
+        variant: "destructive"
+      });
+      setGeneratingVideoFor(null);
+    }
+  };
+
   const loadSavedProjects = async () => {
     if (!userId) return;
 
@@ -2431,6 +2521,7 @@ const MovieSceneCreator = () => {
                   onGenerateStartImage={(sceneNum) => generateKeyframeImage(sceneNum, 'start')}
                   onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
                   onGenerateVideo={generateLipSyncVideo}
+                  onGenerateTransitionVideo={generateTransitionVideo}
                   onGenerateDialogue={generateDialogue}
                   onDuplicate={duplicateScene}
                   onDelete={deleteScene}

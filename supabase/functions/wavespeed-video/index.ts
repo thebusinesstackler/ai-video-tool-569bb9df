@@ -9,9 +9,11 @@ const corsHeaders = {
 interface WaveSpeedVideoParams {
   prompt: string;
   imageUrls?: string[];
+  startFrameUrl?: string;
+  endFrameUrl?: string;
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -63,16 +65,29 @@ serve(async (req) => {
       const duration = params.duration || 5;
       const seed = params.seeds || Math.floor(Math.random() * 2147483647);
 
-      if (params.model === 'alibaba/wan-2.5/text-to-video') {
-        // Enhanced Text-to-Video model (Alibaba WAN 2.5 with built-in audio)
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/text-to-video';
+      if (params.model === 'keyframe-interpolation') {
+        // Keyframe interpolation: create video transitioning from start frame to end frame
+        // Using Kling AI's image-to-video with start/end frame support
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/kling-ai/v1.6/pro/image-to-video';
         
+        if (!params.startFrameUrl) {
+          throw new Error('Start frame image is required for keyframe interpolation');
+        }
+
         requestBody = {
-          prompt: params.prompt,
+          image: params.startFrameUrl,
+          prompt: params.prompt || 'Smooth transition between scenes',
           duration: duration,
-          seed: seed
+          aspect_ratio: params.aspectRatio || '16:9'
         };
-      } else if (params.model === 'wan-2.5-i2v') {
+
+        // Add end frame if provided for true interpolation
+        if (params.endFrameUrl) {
+          requestBody.tail_image = params.endFrameUrl;
+        }
+
+        console.log('Using keyframe interpolation with start and end frames');
+      } else if (params.model === 'alibaba/wan-2.5/text-to-video') {
         // Image-to-Video model (alibaba/wan-2.5/image-to-video)
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
         
