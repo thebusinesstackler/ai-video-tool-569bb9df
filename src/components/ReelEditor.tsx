@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,16 @@ import { useCreatomate } from '@/hooks/useCreatomate';
 import { CaptionStyleSelector } from './CaptionStyleSelector';
 import { CaptionSettings } from './KaraokeCaption';
 import { VideoPlayer } from './VideoPlayer';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Loader2,
   Play,
@@ -81,6 +91,44 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
   const [regeneratingType, setRegeneratingType] = useState<'image' | 'video' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isRestitching, setIsRestitching] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showRestitchConfirm, setShowRestitchConfirm] = useState(false);
+  
+  // Store original scenes from DB to compare and prevent data loss
+  const originalScenesRef = useRef<ReelScene[]>(reel.scenes || []);
+
+  // Fetch fresh data from database when editor opens
+  useEffect(() => {
+    if (open) {
+      fetchFreshReelData();
+    }
+  }, [open, reel.id]);
+
+  const fetchFreshReelData = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('reels')
+        .select('*')
+        .eq('id', reel.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const freshScenes = (data.scenes as unknown as ReelScene[]) || [];
+        setScenes(freshScenes);
+        originalScenesRef.current = freshScenes;
+        setCaptionSettings((data.caption_settings as unknown as CaptionSettings) || DEFAULT_CAPTION_SETTINGS);
+      }
+    } catch (error: any) {
+      console.error('Error fetching reel:', error);
+      toast({ title: "Error loading reel", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const hasChanges = JSON.stringify(captionSettings) !== JSON.stringify(reel.caption_settings || DEFAULT_CAPTION_SETTINGS);
 
@@ -202,7 +250,32 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
     }
   };
 
+  const validateBeforeSave = (): boolean => {
+    // Prevent saving if scenes array is empty but original had scenes
+    if (scenes.length === 0 && originalScenesRef.current.length > 0) {
+      toast({ 
+        title: "Cannot save", 
+        description: "Scenes data is missing. This would erase your reel data.", 
+        variant: "destructive" 
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const handleRestitchClick = () => {
+    if (!validateBeforeSave()) return;
+    setShowRestitchConfirm(true);
+  };
+
+  const handleSaveClick = () => {
+    if (!validateBeforeSave()) return;
+    setShowSaveConfirm(true);
+  };
+
   const restitchVideo = async () => {
+    setShowRestitchConfirm(false);
+    
     const videoClips = scenes.filter(s => s.videoUrl).map(s => ({
       url: s.videoUrl!,
       duration: s.endTime - s.startTime,
@@ -213,6 +286,8 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
       toast({ title: "No videos", description: "Generate scene videos first", variant: "destructive" });
       return;
     }
+
+    if (!validateBeforeSave()) return;
 
     setIsRestitching(true);
 
@@ -238,6 +313,7 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
 
         if (error) throw error;
 
+        originalScenesRef.current = scenes; // Update reference after successful save
         onReelUpdated({
           ...reel,
           video_url: result.videoUrl,
@@ -257,6 +333,10 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
   };
 
   const saveChanges = async () => {
+    setShowSaveConfirm(false);
+    
+    if (!validateBeforeSave()) return;
+
     setIsSaving(true);
     try {
       const { error } = await supabase
@@ -269,6 +349,7 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
 
       if (error) throw error;
 
+      originalScenesRef.current = scenes; // Update reference after successful save
       onReelUpdated({
         ...reel,
         scenes,
@@ -286,25 +367,64 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
   const missingCount = getMissingScenes().length;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Video className="w-5 h-5 text-primary" />
-            Edit Reel
-          </SheetTitle>
-          <p className="text-sm text-muted-foreground line-clamp-1">{reel.topic}</p>
-        </SheetHeader>
+    <>
+      {/* Save Confirmation Dialog */}
+      <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save Changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will update your reel with the current {scenes.length} scenes and caption settings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={saveChanges}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        <div className="space-y-6 mt-6">
-          {/* Caption Settings */}
-          <div className="space-y-4">
-            <Label className="text-base font-semibold">Caption Settings</Label>
-            <CaptionStyleSelector
-              settings={captionSettings}
-              onChange={setCaptionSettings}
-            />
-          </div>
+      {/* Restitch Confirmation Dialog */}
+      <AlertDialog open={showRestitchConfirm} onOpenChange={setShowRestitchConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Re-stitch Video?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create a new stitched video from your {scenes.filter(s => s.videoUrl).length} scene clips and update the reel.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={restitchVideo}>Re-stitch</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Video className="w-5 h-5 text-primary" />
+              Edit Reel
+            </SheetTitle>
+            <p className="text-sm text-muted-foreground line-clamp-1">{reel.topic}</p>
+          </SheetHeader>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">Loading reel data...</span>
+            </div>
+          ) : (
+          <div className="space-y-6 mt-6">
+            {/* Caption Settings */}
+            <div className="space-y-4">
+              <Label className="text-base font-semibold">Caption Settings</Label>
+              <CaptionStyleSelector
+                settings={captionSettings}
+                onChange={setCaptionSettings}
+              />
+            </div>
 
           {/* Scenes */}
           <div className="space-y-4">
@@ -443,7 +563,7 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
             <Button
               variant="secondary"
               size="sm"
-              onClick={restitchVideo}
+              onClick={handleRestitchClick}
               disabled={isStitching || isRestitching || scenes.filter(s => s.videoUrl).length === 0}
             >
               {isRestitching ? (
@@ -455,7 +575,7 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
             </Button>
             <Button
               size="sm"
-              onClick={saveChanges}
+              onClick={handleSaveClick}
               disabled={isSaving || !hasChanges}
             >
               {isSaving ? (
@@ -467,7 +587,9 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 };
