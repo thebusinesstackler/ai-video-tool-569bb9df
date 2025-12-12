@@ -216,16 +216,30 @@ const MovieSceneCreator = () => {
   const [generatingFrameFor, setGeneratingFrameFor] = useState<{ sceneNumber: number; frame: 'start' | 'end' } | null>(null);
   const [galleryImages, setGalleryImages] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
-  const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
+  const [selectedTwins, setSelectedTwins] = useState<AITwin[]>([]); // Multi-twin selection
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<{ id: string; image_url: string; prompt: string | null } | null>(null);
   const [characterSourceTab, setCharacterSourceTab] = useState<'twins' | 'characters' | 'gallery'>('twins');
   const { toast } = useToast();
+
+  // Helper to toggle twin selection
+  const toggleTwinSelection = (twin: AITwin) => {
+    setSelectedTwins(prev => {
+      const isSelected = prev.some(t => t.id === twin.id);
+      if (isSelected) {
+        return prev.filter(t => t.id !== twin.id);
+      } else {
+        return [...prev, twin];
+      }
+    });
+    setSelectedCharacterId(null);
+    setSelectedGalleryImage(null);
+  };
 
   // Check for AI Twin from navigation state
   useEffect(() => {
     const state = location.state as { selectedTwin?: AITwin; referenceImages?: string[] } | null;
     if (state?.selectedTwin) {
-      setSelectedTwin(state.selectedTwin);
+      setSelectedTwins([state.selectedTwin]);
       toast({
         title: "AI Twin Selected",
         description: `${state.selectedTwin.name} is ready to star in your movie!`,
@@ -435,9 +449,12 @@ const MovieSceneCreator = () => {
     try {
       let characterDescription: string | undefined;
       
-      if (selectedTwin) {
-        const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
-        characterDescription = `${selectedTwin.name} (${genderText}character): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+      if (selectedTwins.length > 0) {
+        // Build descriptions for all selected twins
+        characterDescription = selectedTwins.map(twin => {
+          const genderText = twin.gender ? `${twin.gender} ` : '';
+          return `${twin.name} (${genderText}character): ${twin.face_description || twin.description || 'No description'}`;
+        }).join('\n\n');
       } else if (selectedCharacter) {
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
       }
@@ -481,11 +498,13 @@ const MovieSceneCreator = () => {
       // Build character description from selected AI Twin, character, or gallery image
       let characterDescription: string | undefined;
       
-      if (selectedTwin) {
-        // Use AI Twin's detailed description, face description, and gender
-        const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
-        const pronouns = selectedTwin.gender === 'female' ? 'she/her' : selectedTwin.gender === 'male' ? 'he/him' : 'they/them';
-        characterDescription = `${selectedTwin.name} (${genderText}character, pronouns: ${pronouns}): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
+      if (selectedTwins.length > 0) {
+        // Use all AI Twins' detailed descriptions
+        characterDescription = selectedTwins.map(twin => {
+          const genderText = twin.gender ? `${twin.gender} ` : '';
+          const pronouns = twin.gender === 'female' ? 'she/her' : twin.gender === 'male' ? 'he/him' : 'they/them';
+          return `${twin.name} (${genderText}character, pronouns: ${pronouns}): ${twin.face_description || twin.description || 'No description'}`;
+        }).join('\n\n');
       } else if (selectedCharacter) {
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
       } else if (selectedGalleryImage) {
@@ -533,11 +552,13 @@ const MovieSceneCreator = () => {
       let characterDescription: string | undefined;
       let characterName: string | undefined;
       
-      if (selectedTwin) {
-        const genderText = selectedTwin.gender ? `${selectedTwin.gender} ` : '';
-        const pronouns = selectedTwin.gender === 'female' ? 'she/her' : selectedTwin.gender === 'male' ? 'he/him' : 'they/them';
-        characterDescription = `${selectedTwin.name} (${genderText}character, pronouns: ${pronouns}): ${selectedTwin.face_description || selectedTwin.description || 'No description'}`;
-        characterName = selectedTwin.name;
+      if (selectedTwins.length > 0) {
+        characterDescription = selectedTwins.map(twin => {
+          const genderText = twin.gender ? `${twin.gender} ` : '';
+          const pronouns = twin.gender === 'female' ? 'she/her' : twin.gender === 'male' ? 'he/him' : 'they/them';
+          return `${twin.name} (${genderText}character, pronouns: ${pronouns}): ${twin.face_description || twin.description || 'No description'}`;
+        }).join('\n\n');
+        characterName = selectedTwins.map(t => t.name).join(' & ');
       } else if (selectedCharacter) {
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || 'No description'}`;
         characterName = selectedCharacter.name;
@@ -666,17 +687,24 @@ const MovieSceneCreator = () => {
       let referenceImages: string[] = [];
       let characterDescription: string | undefined;
       
-      if (selectedTwin) {
-        // Use ALL reference images from AI Twin for better consistency
-        referenceImages = selectedTwin.reference_images || [];
+      if (selectedTwins.length > 0) {
+        // Use ALL reference images from all AI Twins for better consistency
+        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
         // Build comprehensive character description including all physical details
-        const genderText = selectedTwin.gender ? `${selectedTwin.gender}` : 'person';
-        const faceDesc = selectedTwin.face_description || '';
-        const generalDesc = selectedTwin.description || '';
-        characterDescription = `${selectedTwin.name} is a ${genderText}. Physical appearance: ${faceDesc}. ${generalDesc}`.trim();
+        characterDescription = selectedTwins.map(twin => {
+          const genderText = twin.gender ? `${twin.gender}` : 'person';
+          const faceDesc = twin.face_description || '';
+          const generalDesc = twin.description || '';
+          return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}. ${generalDesc}`.trim();
+        }).join('\n\n');
         
-        // Prepend character description to the prompt for better likeness
-        enhancedPrompt = `The main character is ${selectedTwin.name}, a ${genderText} with these features: ${faceDesc || generalDesc}. Scene: ${enhancedPrompt}`;
+        // Prepend character descriptions to the prompt for better likeness
+        const charactersPrompt = selectedTwins.map(twin => {
+          const genderText = twin.gender || 'person';
+          const faceDesc = twin.face_description || twin.description || '';
+          return `${twin.name}, a ${genderText} with these features: ${faceDesc}`;
+        }).join('. Also featuring ');
+        enhancedPrompt = `The characters are ${charactersPrompt}. Scene: ${enhancedPrompt}`;
       } else if (selectedCharacter?.reference_images?.length) {
         referenceImages = selectedCharacter.reference_images;
         characterDescription = `${selectedCharacter.name}: ${selectedCharacter.description || ''}`;
@@ -944,9 +972,11 @@ const MovieSceneCreator = () => {
       let referenceImages: string[] = [];
       let characterDescription: string | undefined;
       
-      if (selectedTwin) {
-        referenceImages = selectedTwin.reference_images || [];
-        characterDescription = `${selectedTwin.name}: ${selectedTwin.face_description || selectedTwin.description || ''}`;
+      if (selectedTwins.length > 0) {
+        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
+        characterDescription = selectedTwins.map(twin => 
+          `${twin.name}: ${twin.face_description || twin.description || ''}`
+        ).join('\n\n');
       }
 
       const enhancedPrompt = `${frameData.imagePrompt}. Camera: ${frameData.cameraAngle}. Position: ${frameData.position}`;
@@ -1006,7 +1036,7 @@ const MovieSceneCreator = () => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     if (!scene) return;
 
-    const characterName = selectedTwin?.name || selectedCharacter?.name;
+    const characterName = selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name;
 
     try {
       toast({
@@ -1078,13 +1108,14 @@ const MovieSceneCreator = () => {
       // Generate audio from dialogue or description
       const textForAudio = scene.dialogue || scene.description;
       
-      // Determine if we're using cloned voice from AI Twin
-      const useClonedVoice = selectedTwin?.voice_sample_url;
+      // Determine if we're using cloned voice from AI Twin (use first twin with voice)
+      const twinWithVoice = selectedTwins.find(t => t.voice_sample_url);
+      const useClonedVoice = twinWithVoice?.voice_sample_url;
       
       toast({
         title: useClonedVoice ? "Generating Cloned Voice Audio" : "Generating Audio",
         description: useClonedVoice 
-          ? `Creating voiceover using ${selectedTwin.name}'s cloned voice...`
+          ? `Creating voiceover using ${twinWithVoice.name}'s cloned voice...`
           : "Creating voiceover for the scene...",
       });
 
@@ -1101,7 +1132,7 @@ const MovieSceneCreator = () => {
       toast({
         title: "Generating Video",
         description: useClonedVoice 
-          ? `Creating lip-synced video with ${selectedTwin.name}'s voice...`
+          ? `Creating lip-synced video with ${twinWithVoice.name}'s voice...`
           : "Creating lip-synced video using default voice...",
       });
 
@@ -1496,68 +1527,76 @@ const MovieSceneCreator = () => {
           </div>
         </div>
 
-        {/* AI Twin Panel */}
-        {selectedTwin && (
+        {/* AI Twins Panel - Now supports multiple */}
+        {selectedTwins.length > 0 && (
           <Card className="border-primary bg-gradient-to-r from-primary/5 to-primary/10">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <User className="w-5 h-5 text-primary" />
-                  Starring: {selectedTwin.name}
+                  Starring: {selectedTwins.map(t => t.name).join(' & ')}
                 </CardTitle>
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => setSelectedTwin(null)}
+                  onClick={() => setSelectedTwins([])}
                 >
                   <X className="w-4 h-4" />
                 </Button>
               </div>
               <CardDescription>
-                This AI Twin will be featured in your movie with their cloned voice and reference images.
+                {selectedTwins.length === 1 
+                  ? "This AI Twin will be featured in your movie with their cloned voice and reference images."
+                  : `These ${selectedTwins.length} AI Twins will star together in your movie.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="flex items-start gap-4">
-                {/* Reference Images */}
-                <div className="flex -space-x-3">
-                  {selectedTwin.reference_images?.slice(0, 4).map((img, idx) => (
-                    <img 
-                      key={idx}
-                      src={img}
-                      alt={`Reference ${idx + 1}`}
-                      className="w-12 h-12 rounded-full border-2 border-background object-cover"
-                    />
-                  ))}
-                  {(selectedTwin.reference_images?.length || 0) > 4 && (
-                    <div className="w-12 h-12 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-medium">
-                      +{selectedTwin.reference_images!.length - 4}
+              <div className="flex flex-wrap gap-4">
+                {selectedTwins.map((twin, idx) => (
+                  <div key={twin.id} className="flex items-start gap-3 p-2 rounded-lg bg-background/50">
+                    {/* Reference Images */}
+                    <div className="flex -space-x-2">
+                      {twin.reference_images?.slice(0, 3).map((img, imgIdx) => (
+                        <img 
+                          key={imgIdx}
+                          src={img}
+                          alt={`Reference ${imgIdx + 1}`}
+                          className="w-10 h-10 rounded-full border-2 border-background object-cover"
+                        />
+                      ))}
                     </div>
-                  )}
-                </div>
 
-                {/* Twin Info */}
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={selectedTwin.voice_cloning_key ? "default" : "secondary"}>
-                      <Volume2 className="w-3 h-3 mr-1" />
-                      {selectedTwin.voice_cloning_key ? "Cloned Voice Ready" : "No Voice"}
-                    </Badge>
-                    <Badge variant="outline">
-                      <ImageIcon className="w-3 h-3 mr-1" />
-                      {selectedTwin.reference_images?.length || 0} Reference Images
-                    </Badge>
-                    {selectedTwin.face_description && (
-                      <Badge variant="outline" className="text-xs">
-                        {selectedTwin.face_description.toLowerCase().includes('male') && !selectedTwin.face_description.toLowerCase().includes('female') ? 'Male' : 
-                         selectedTwin.face_description.toLowerCase().includes('female') ? 'Female' : 'Person'}
-                      </Badge>
-                    )}
+                    {/* Twin Info */}
+                    <div className="space-y-1">
+                      <p className="font-medium text-sm">{twin.name}</p>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Badge variant={twin.voice_cloning_key ? "default" : "secondary"} className="text-[10px]">
+                          <Volume2 className="w-2.5 h-2.5 mr-0.5" />
+                          {twin.voice_cloning_key ? "Voice" : "No Voice"}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          <ImageIcon className="w-2.5 h-2.5 mr-0.5" />
+                          {twin.reference_images?.length || 0}
+                        </Badge>
+                        {twin.gender && (
+                          <Badge variant="outline" className="text-[10px] capitalize">
+                            {twin.gender}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Remove single twin */}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0"
+                      onClick={() => setSelectedTwins(prev => prev.filter(t => t.id !== twin.id))}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
                   </div>
-                  {selectedTwin.description && (
-                    <p className="text-sm text-muted-foreground">{selectedTwin.description}</p>
-                  )}
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -1639,46 +1678,50 @@ const MovieSceneCreator = () => {
                     </p>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                      {aiTwins.map(twin => (
-                        <div
-                          key={twin.id}
-                          onClick={() => {
-                            setSelectedTwin(twin);
-                            setSelectedCharacterId(null);
-                            setSelectedGalleryImage(null);
-                          }}
-                          className={`cursor-pointer p-2 rounded-lg border transition-all ${
-                            selectedTwin?.id === twin.id 
-                              ? 'border-primary bg-primary/10 ring-2 ring-primary' 
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {twin.reference_images?.[0] ? (
-                              <img 
-                                src={twin.reference_images[0]} 
-                                alt={twin.name}
-                                className="w-10 h-10 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                                <User className="w-5 h-5 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{twin.name}</p>
-                              <div className="flex items-center gap-1">
-                                {twin.gender && (
-                                  <Badge variant="outline" className="text-[10px] capitalize px-1 py-0">{twin.gender}</Badge>
-                                )}
-                                {twin.voice_sample_url && (
-                                  <Volume2 className="w-3 h-3 text-primary" />
-                                )}
+                      {aiTwins.map(twin => {
+                        const isSelected = selectedTwins.some(t => t.id === twin.id);
+                        return (
+                          <div
+                            key={twin.id}
+                            onClick={() => {
+                              toggleTwinSelection(twin);
+                            }}
+                            className={`cursor-pointer p-2 rounded-lg border transition-all ${
+                              isSelected 
+                                ? 'border-primary bg-primary/10 ring-2 ring-primary' 
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {twin.reference_images?.[0] ? (
+                                <img 
+                                  src={twin.reference_images[0]} 
+                                  alt={twin.name}
+                                  className="w-10 h-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                  <User className="w-5 h-5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{twin.name}</p>
+                                <div className="flex items-center gap-1">
+                                  {twin.gender && (
+                                    <Badge variant="outline" className="text-[10px] capitalize px-1 py-0">{twin.gender}</Badge>
+                                  )}
+                                  {twin.voice_sample_url && (
+                                    <Volume2 className="w-3 h-3 text-primary" />
+                                  )}
+                                  {isSelected && (
+                                    <Badge variant="default" className="text-[10px] px-1 py-0">✓</Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1698,7 +1741,7 @@ const MovieSceneCreator = () => {
                           key={char.id}
                           onClick={() => {
                             setSelectedCharacterId(char.id);
-                            setSelectedTwin(null);
+                            setSelectedTwins([]);
                             setSelectedGalleryImage(null);
                           }}
                           className={`cursor-pointer p-2 rounded-lg border transition-all ${
@@ -1744,7 +1787,7 @@ const MovieSceneCreator = () => {
                           key={img.id}
                           onClick={() => {
                             setSelectedGalleryImage(img);
-                            setSelectedTwin(null);
+                            setSelectedTwins([]);
                             setSelectedCharacterId(null);
                           }}
                           className={`cursor-pointer rounded-lg border overflow-hidden transition-all ${
@@ -1766,12 +1809,12 @@ const MovieSceneCreator = () => {
               )}
 
               {/* Clear Selection */}
-              {(selectedTwin || selectedCharacter || selectedGalleryImage) && (
+              {(selectedTwins.length > 0 || selectedCharacter || selectedGalleryImage) && (
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => {
-                    setSelectedTwin(null);
+                    setSelectedTwins([]);
                     setSelectedCharacterId(null);
                     setSelectedGalleryImage(null);
                   }}
@@ -2233,7 +2276,7 @@ const MovieSceneCreator = () => {
                   isGeneratingImage={generatingImageFor === scene.sceneNumber || 
                     (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
                   isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
-                  characterName={selectedTwin?.name || selectedCharacter?.name}
+                  characterName={selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name}
                   onUpdateScene={(sceneNum, updates) => {
                     setScenes(prev => prev.map(s => 
                       s.sceneNumber === sceneNum ? { ...s, ...updates } : s
