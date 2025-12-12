@@ -11,13 +11,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
 import { PeteAIAssistant } from '@/components/PeteAIAssistant';
 import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEMENTS } from '@/components/KeyframeSceneCard';
 import { SceneTimeline } from '@/components/SceneTimeline';
+import { StoryboardExport } from '@/components/StoryboardExport';
+import { CommercialTemplateSelector } from '@/components/CommercialTemplateSelector';
 
 interface AITwin {
   id: string;
@@ -893,6 +895,17 @@ const MovieSceneCreator = () => {
     }
   };
 
+  // Apply commercial template
+  const applyCommercialTemplate = (templateScenes: MovieSceneWithKeyframes[], movieIdea: string) => {
+    setMovieIdea(movieIdea);
+    setScenes(templateScenes as MovieScene[]);
+    setOutline(`Commercial Template Applied\n\n${movieIdea}\n\nScenes: ${templateScenes.length}`);
+    toast({
+      title: "Template Applied!",
+      description: `Loaded ${templateScenes.length} pre-configured scenes. Customize and generate images.`
+    });
+  };
+
   const generateDialogue = async (sceneNumber: number) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     if (!scene) return;
@@ -1328,25 +1341,34 @@ const MovieSceneCreator = () => {
               </p>
             </div>
 
-            {/* Transfer to Reels Button */}
-            <Button
-              onClick={transferToReels}
-              disabled={isTransferring || !movieIdea.trim()}
-              variant="outline"
-              className="gap-2"
-            >
-              {isTransferring ? (
-                <>
-                  <Sparkles className="w-4 h-4 animate-spin" />
-                  Transferring...
-                </>
-              ) : (
-                <>
-                  Transfer to Reels
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </Button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <CommercialTemplateSelector onApplyTemplate={applyCommercialTemplate} />
+              
+              <StoryboardExport 
+                scenes={scenes as MovieSceneWithKeyframes[]} 
+                projectTitle={projectTitle || 'Movie Storyboard'} 
+              />
+              
+              <Button
+                onClick={transferToReels}
+                disabled={isTransferring || !movieIdea.trim()}
+                variant="outline"
+                className="gap-2"
+              >
+                {isTransferring ? (
+                  <>
+                    <Sparkles className="w-4 h-4 animate-spin" />
+                    Transferring...
+                  </>
+                ) : (
+                  <>
+                    Transfer to Reels
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Feature Highlights */}
