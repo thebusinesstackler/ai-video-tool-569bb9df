@@ -67,8 +67,8 @@ serve(async (req) => {
 
       if (params.model === 'keyframe-interpolation') {
         // Keyframe interpolation: create video transitioning from start frame to end frame
-        // Using Kling AI's image-to-video with start/end frame support
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/kling-ai/v1.6/pro/image-to-video';
+        // Using Kling 2.6 Pro image-to-video with tail_image support for interpolation
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v2.6-pro/image-to-video';
         
         if (!params.startFrameUrl) {
           throw new Error('Start frame image is required for keyframe interpolation');
