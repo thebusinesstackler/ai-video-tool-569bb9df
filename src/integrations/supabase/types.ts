@@ -236,6 +236,7 @@ export type Database = {
       reels: {
         Row: {
           audio_url: string | null
+          caption_settings: Json | null
           created_at: string
           id: string
           scenes: Json | null
@@ -248,6 +249,7 @@ export type Database = {
         }
         Insert: {
           audio_url?: string | null
+          caption_settings?: Json | null
           created_at?: string
           id?: string
           scenes?: Json | null
@@ -260,6 +262,7 @@ export type Database = {
         }
         Update: {
           audio_url?: string | null
+          caption_settings?: Json | null
           created_at?: string
           id?: string
           scenes?: Json | null

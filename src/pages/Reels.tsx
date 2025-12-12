@@ -59,6 +59,7 @@ import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScriptGenerator } from '@/components/ScriptGenerator';
+import { ReelEditor } from '@/components/ReelEditor';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -160,9 +161,16 @@ interface SavedReel {
   topic: string;
   video_url: string | null;
   thumbnail_url: string | null;
+  audio_url?: string | null;
   scenes: GeneratedScene[];
   total_duration: number;
   created_at: string;
+  caption_settings?: {
+    enabled: boolean;
+    style: string;
+    background: string;
+    position: string;
+  };
 }
 
 const SCENE_COUNT_OPTIONS = [
@@ -316,6 +324,7 @@ const Reels = () => {
     captions: true,
     backgroundMusic: false
   });
+  const [editingReel, setEditingReel] = useState<SavedReel | null>(null);
   const [showUpscaler, setShowUpscaler] = useState(false);
   
   // Sync feature toggles with existing state
@@ -3262,6 +3271,14 @@ const Reels = () => {
                       
                       <CardContent className="pt-4">
                         <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingReel(reel)}
+                          >
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
                           {reel.video_url && (
                             <Button
                               variant="outline"
@@ -3314,6 +3331,19 @@ const Reels = () => {
           <ScriptGenerator />
         </DialogContent>
       </Dialog>
+
+      {/* Reel Editor */}
+      {editingReel && (
+        <ReelEditor
+          reel={editingReel}
+          open={!!editingReel}
+          onOpenChange={(open) => !open && setEditingReel(null)}
+          onReelUpdated={(updatedReel) => {
+            setSavedReels(prev => prev.map(r => r.id === updatedReel.id ? updatedReel : r));
+            setEditingReel(null);
+          }}
+        />
+      )}
     </Layout>
   );
 };
