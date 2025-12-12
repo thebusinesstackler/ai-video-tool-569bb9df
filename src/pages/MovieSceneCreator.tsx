@@ -1266,7 +1266,7 @@ const MovieSceneCreator = () => {
     }
   };
 
-  // Generate transition video using keyframe interpolation (start → end frame)
+  // Generate transition video using keyframe interpolation (start → end frame) WITH audio/dialogue
   const generateTransitionVideo = async (sceneNumber: number) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     
@@ -1281,20 +1281,124 @@ const MovieSceneCreator = () => {
 
     setGeneratingVideoFor(sceneNumber);
     try {
+      // STEP 1: Ensure we have dialogue for this scene
+      let dialogueText = '';
+      if (scene.dialogue) {
+        if (Array.isArray(scene.dialogue)) {
+          dialogueText = scene.dialogue.map(d => `${d.character}: ${d.line}`).join('\n');
+        } else {
+          dialogueText = scene.dialogue;
+        }
+      }
+      
+      // If no dialogue, generate it first
+      if (!dialogueText) {
+        const characterName = selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name;
+        
+        toast({
+          title: "Generating Dialogue",
+          description: `Creating dialogue for Scene ${sceneNumber}...`,
+        });
+
+        const sceneContext = {
+          sceneDescription: scene.description,
+          sceneTitle: scene.title,
+          location: scene.location,
+          timeOfDay: scene.timeOfDay,
+          characterName,
+          tone: 'natural'
+        };
+
+        const { data: dialogueData, error: dialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+          body: { ...sceneContext, isMainCharacter: true }
+        });
+
+        if (!dialogueError && dialogueData?.dialogue) {
+          dialogueText = dialogueData.dialogue;
+          // Update scene with generated dialogue
+          setScenes(prevScenes => 
+            prevScenes.map(s => 
+              s.sceneNumber === sceneNumber 
+                ? { ...s, dialogue: dialogueText }
+                : s
+            )
+          );
+        } else {
+          // Use description as fallback
+          dialogueText = scene.description;
+        }
+      }
+
+      // STEP 2: Determine voice to use (prefer cloned voice from AI Twin)
+      let voiceToUse: { name: string; url?: string; voiceCloningKey?: string } | null = null;
+      
+      // Check story bible for voice assignments
+      if (storyBible?.characters) {
+        if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
+          const firstSpeaker = scene.dialogue[0].character;
+          const assignedChar = storyBible.characters.find(c => 
+            c.name.toLowerCase() === firstSpeaker.toLowerCase() && c.assignedVoiceUrl
+          );
+          if (assignedChar?.assignedVoiceUrl) {
+            voiceToUse = { name: assignedChar.assignedTwinName || firstSpeaker, url: assignedChar.assignedVoiceUrl };
+          }
+        } else {
+          const protagonist = storyBible.characters.find(c => c.role === 'protagonist' && c.assignedVoiceUrl);
+          if (protagonist?.assignedVoiceUrl) {
+            voiceToUse = { name: protagonist.assignedTwinName || protagonist.name, url: protagonist.assignedVoiceUrl };
+          }
+        }
+      }
+      
+      // Fallback to selected twins for cloned voice
+      if (!voiceToUse) {
+        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key || t.voice_sample_url);
+        if (twinWithVoice) {
+          voiceToUse = { 
+            name: twinWithVoice.name, 
+            voiceCloningKey: twinWithVoice.voice_cloning_key || undefined,
+            url: twinWithVoice.voice_sample_url || undefined
+          };
+        }
+      }
+      
       toast({
-        title: "Generating Transition Video",
-        description: "Creating video that interpolates between your start and end frames...",
+        title: voiceToUse ? `Using ${voiceToUse.name}'s Voice` : "Generating Audio",
+        description: voiceToUse 
+          ? `Creating voiceover with ${voiceToUse.name}'s cloned voice...`
+          : "Creating voiceover for the scene...",
       });
 
-      // Use keyframe interpolation model
+      // STEP 3: Generate TTS audio with cloned voice if available
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: { 
+          text: dialogueText, 
+          voice: 'en-US-Journey-D',
+          voiceCloningKey: voiceToUse?.voiceCloningKey || undefined,
+          clonedVoiceUrl: voiceToUse?.url || undefined
+        }
+      });
+
+      if (ttsError) throw ttsError;
+
+      // STEP 4: Calculate duration based on dialogue length (roughly 150 words per minute)
+      const wordCount = dialogueText.split(/\s+/).length;
+      const estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5))); // 2.5 words per second, min 5s, max 30s
+
+      toast({
+        title: "Generating Transition Video",
+        description: `Creating ${estimatedDuration}s video with lip-sync from start to end frame...`,
+      });
+
+      // STEP 5: Use InfiniteTalk for lip-sync video with the audio
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'keyframe-interpolation',
-          startFrameUrl: scene.startFrame.generatedImage,
-          endFrameUrl: scene.endFrame.generatedImage,
-          prompt: scene.transitionAction || scene.description || 'Smooth cinematic transition',
-          duration: 5,
+          model: 'infinitetalk',
+          imageUrls: [scene.startFrame.generatedImage],
+          audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
+          prompt: scene.transitionAction || scene.description || 'Character speaking with natural expressions',
+          duration: estimatedDuration,
           aspectRatio: '16:9'
         }
       });
@@ -1333,7 +1437,7 @@ const MovieSceneCreator = () => {
           
           toast({
             title: "Transition Video Ready!",
-            description: `Scene ${sceneNumber} keyframe transition is complete.`,
+            description: `Scene ${sceneNumber} video with ${voiceToUse?.name || 'default'} voice is complete.`,
           });
         } else if (statusData.status === 'failed') {
           throw new Error('Video generation failed');
