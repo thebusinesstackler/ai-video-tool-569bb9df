@@ -202,6 +202,7 @@ const MovieSceneCreator = () => {
   const [isGeneratingScenes, setIsGeneratingScenes] = useState(false);
   const [generatingImageFor, setGeneratingImageFor] = useState<number | null>(null);
   const [generatingVideoFor, setGeneratingVideoFor] = useState<number | null>(null);
+  const [isRegeneratingDialogue, setIsRegeneratingDialogue] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState('');
   const [savedProjects, setSavedProjects] = useState<any[]>([]);
@@ -1120,6 +1121,91 @@ const MovieSceneCreator = () => {
         description: "Failed to generate dialogue. Please try again.",
         variant: "destructive"
       });
+    }
+  };
+
+  // Regenerate dialogue for ALL scenes with longer 30+ second dialogue
+  const regenerateAllDialogue = async () => {
+    if (scenes.length === 0) {
+      toast({
+        title: "No Scenes",
+        description: "Generate scenes first before regenerating dialogue.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsRegeneratingDialogue(true);
+    const characterName = selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name;
+
+    try {
+      toast({
+        title: "Regenerating All Dialogue",
+        description: `Creating longer 30+ second dialogue for ${scenes.length} scenes...`,
+      });
+
+      const updatedScenes = await Promise.all(
+        scenes.map(async (scene) => {
+          try {
+            const sceneContext = {
+              sceneDescription: scene.description,
+              sceneTitle: scene.title,
+              location: scene.location,
+              timeOfDay: scene.timeOfDay,
+              characterName,
+              tone: scene.mood || 'natural'
+            };
+
+            // Generate main character dialogue
+            const { data: mainDialogueData, error: mainDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+              body: { ...sceneContext, isMainCharacter: true }
+            });
+
+            if (mainDialogueError) {
+              console.error(`Failed to generate dialogue for scene ${scene.sceneNumber}:`, mainDialogueError);
+              return scene;
+            }
+
+            // Check if scene involves multiple characters
+            const hasOtherCharacters = /interact|conversation|talk|speak|meet|confront|argue|discuss|responds|replies|another|other person|companion|partner|friend|enemy|stranger/i.test(scene.description);
+            
+            let otherDialogue = null;
+            if (hasOtherCharacters && characterName) {
+              const { data: otherDialogueData, error: otherDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+                body: { ...sceneContext, isMainCharacter: false }
+              });
+
+              if (!otherDialogueError && otherDialogueData?.dialogue) {
+                otherDialogue = otherDialogueData.dialogue;
+              }
+            }
+
+            return { 
+              ...scene, 
+              dialogue: mainDialogueData.dialogue,
+              otherCharacterDialogue: otherDialogue
+            };
+          } catch (err) {
+            console.error(`Error regenerating dialogue for scene ${scene.sceneNumber}:`, err);
+            return scene;
+          }
+        })
+      );
+
+      setScenes(updatedScenes);
+      toast({
+        title: "Dialogue Regenerated!",
+        description: `Updated dialogue for ${scenes.length} scenes with longer 30+ second content.`,
+      });
+    } catch (error: any) {
+      console.error('Error regenerating dialogue:', error);
+      toast({
+        title: "Regeneration Failed",
+        description: error.message || "Failed to regenerate dialogue. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRegeneratingDialogue(false);
     }
   };
 
@@ -2508,28 +2594,49 @@ const MovieSceneCreator = () => {
         {/* Generated Scenes */}
         {scenes.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h2 className="text-2xl font-bold text-foreground">Generated Scenes</h2>
-              {scenes.some(s => s.generatedVideo) && (
+              <div className="flex items-center gap-2">
                 <Button
-                  onClick={stitchAllVideos}
-                  disabled={isStitching}
-                  size="lg"
+                  onClick={regenerateAllDialogue}
+                  disabled={isRegeneratingDialogue}
+                  variant="outline"
+                  size="sm"
                   className="gap-2"
                 >
-                  {isStitching ? (
+                  {isRegeneratingDialogue ? (
                     <>
-                      <Sparkles className="w-5 h-5 animate-spin" />
-                      Stitching {stitchProgress}%...
+                      <Sparkles className="w-4 h-4 animate-spin" />
+                      Regenerating...
                     </>
                   ) : (
                     <>
-                      <Video className="w-5 h-5" />
-                      Stitch All Videos into Movie
+                      <Volume2 className="w-4 h-4" />
+                      Regenerate All Dialogue (30s+)
                     </>
                   )}
                 </Button>
-              )}
+                {scenes.some(s => s.generatedVideo) && (
+                  <Button
+                    onClick={stitchAllVideos}
+                    disabled={isStitching}
+                    size="lg"
+                    className="gap-2"
+                  >
+                    {isStitching ? (
+                      <>
+                        <Sparkles className="w-5 h-5 animate-spin" />
+                        Stitching {stitchProgress}%...
+                      </>
+                    ) : (
+                      <>
+                        <Video className="w-5 h-5" />
+                        Stitch All Videos into Movie
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
 
             {isStitching && (
