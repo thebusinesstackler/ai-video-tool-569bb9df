@@ -266,6 +266,7 @@ const MovieSceneCreator = () => {
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<{ id: string; image_url: string; prompt: string | null } | null>(null);
   const [characterSourceTab, setCharacterSourceTab] = useState<'twins' | 'characters' | 'gallery'>('twins');
   const [movieLength, setMovieLength] = useState<string>('quick-reel');
+  const [previewingVoiceFor, setPreviewingVoiceFor] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Helper to toggle twin selection
@@ -280,6 +281,58 @@ const MovieSceneCreator = () => {
     });
     setSelectedCharacterId(null);
     setSelectedGalleryImage(null);
+  };
+
+  // Preview AI Twin's cloned voice
+  const previewTwinVoice = async (twin: AITwin) => {
+    if (!twin.voice_cloning_key) {
+      toast({
+        title: "No Voice Configured",
+        description: `${twin.name} doesn't have a cloned voice set up yet.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setPreviewingVoiceFor(twin.id);
+    try {
+      const previewText = `Hello, I'm ${twin.name}. This is a preview of my cloned voice for your movie.`;
+      
+      const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+      console.log('Voice preview - Using Speechify:', isSpeechify, 'Voice ID:', twin.voice_cloning_key);
+      
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: previewText,
+          voice: 'en-US-Journey-D',
+          speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
+          voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.audioContent) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+        audio.play();
+        
+        toast({
+          title: "Playing Voice Preview",
+          description: `${twin.name}'s cloned voice (${data.provider || 'TTS'})`,
+        });
+      } else {
+        throw new Error('No audio content returned');
+      }
+    } catch (error: any) {
+      console.error('Voice preview error:', error);
+      toast({
+        title: "Voice Preview Failed",
+        description: error.message || "Failed to preview voice. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setPreviewingVoiceFor(null);
+    }
   };
 
   // Check for AI Twin from navigation state
@@ -2004,10 +2057,27 @@ const MovieSceneCreator = () => {
                     <div className="space-y-1">
                       <p className="font-medium text-sm">{twin.name}</p>
                       <div className="flex items-center gap-1 flex-wrap">
-                        <Badge variant={twin.voice_cloning_key ? "default" : "secondary"} className="text-[10px]">
-                          <Volume2 className="w-2.5 h-2.5 mr-0.5" />
-                          {twin.voice_cloning_key ? "Voice" : "No Voice"}
-                        </Badge>
+                        {twin.voice_cloning_key ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-5 text-[10px] px-1.5 gap-0.5"
+                            onClick={() => previewTwinVoice(twin)}
+                            disabled={previewingVoiceFor === twin.id}
+                          >
+                            {previewingVoiceFor === twin.id ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            ) : (
+                              <Volume2 className="w-2.5 h-2.5" />
+                            )}
+                            {previewingVoiceFor === twin.id ? "Playing..." : "Preview Voice"}
+                          </Button>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px]">
+                            <Volume2 className="w-2.5 h-2.5 mr-0.5" />
+                            No Voice
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="text-[10px]">
                           <ImageIcon className="w-2.5 h-2.5 mr-0.5" />
                           {twin.reference_images?.length || 0}
