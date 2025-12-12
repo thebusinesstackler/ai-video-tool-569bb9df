@@ -3198,9 +3198,10 @@ const Reels = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {savedReels.map((reel) => {
-                  // Get video clips from scenes
+                  // Get scenes - show grid if there are multiple scenes
+                  const sceneCount = reel.scenes?.length || 0;
                   const videoClips = reel.scenes?.filter(s => s.videoUrl) || [];
-                  const hasMultipleClips = videoClips.length > 1;
+                  const hasScenes = sceneCount > 1;
                   
                   return (
                     <Card key={reel.id} className="bg-card border-border overflow-hidden">
@@ -3226,18 +3227,18 @@ const Reels = () => {
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
                           <p className="text-white text-sm font-medium line-clamp-2">{reel.topic}</p>
                           <p className="text-white/70 text-xs mt-1">
-                            {new Date(reel.created_at).toLocaleDateString()} • {reel.total_duration}s • {reel.scenes?.length || 0} scenes
+                            {new Date(reel.created_at).toLocaleDateString()} • {reel.total_duration}s • {sceneCount} scenes
                           </p>
                         </div>
-                        {hasMultipleClips && (
+                        {videoClips.length > 0 && (
                           <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                            {videoClips.length} clips
+                            {videoClips.length}/{sceneCount} clips
                           </div>
                         )}
                       </div>
                       
-                      {/* Scene clips grid */}
-                      {hasMultipleClips && (
+                      {/* Scene clips grid - show if there are multiple scenes */}
+                      {hasScenes && (
                         <div className="p-3 border-t border-border">
                           <p className="text-xs text-muted-foreground mb-2">Individual Clips:</p>
                           <div className="grid grid-cols-5 gap-1">
