@@ -107,14 +107,17 @@ CRITICAL: Return ONLY valid JSON with this structure (no markdown):
 
 ${movieIdea}
 
-${characterDescription ? `\n\nMain character reference (must be the protagonist):\n${characterDescription}` : ''}
+${characterDescription ? `\n\nCharacter reference(s) - these are the main characters who MUST be included with these exact names and descriptions:\n${characterDescription}` : ''}
 
 Requirements:
-- 2-4 total characters (protagonist + supporting cast)
+- Include ${characterDescription?.includes('\n\n') ? 'ALL the provided characters as main cast members' : 'the provided character (if any) as protagonist'}
+- Total cast: 2-4 characters (fill in supporting roles as needed)
 - Each character needs a SPECIFIC wardrobe that stays consistent throughout
 - Plan for 6-10 scenes with clear dialogue assignments
-- Ensure each scene has distinct character interactions (no one speaks to themselves)
+- Create CONVERSATIONS between characters (back-and-forth dialogue)
+- Each scene should have distinct character interactions
 - Different characters should have clearly different speaking styles
+- If multiple main characters are provided, create scenes where they interact with each other
 
 Return ONLY the JSON, no markdown.`;
 
