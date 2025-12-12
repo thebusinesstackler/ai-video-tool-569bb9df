@@ -486,13 +486,13 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                     <div>
                       <p className="text-sm font-medium">Scene Video</p>
                       <p className="text-xs text-muted-foreground">
-                        {scene.generatedVideo ? 'Video generated' : 'Generate both frames first'}
+                        {scene.generatedVideo ? 'Video generated' : 'Generate start frame first'}
                       </p>
                     </div>
                   </div>
                   <Button
                     onClick={() => onGenerateVideo(scene.sceneNumber)}
-                    disabled={isGeneratingVideo || !scene.startFrame?.generatedImage || !scene.endFrame?.generatedImage}
+                    disabled={isGeneratingVideo || !scene.startFrame?.generatedImage}
                     size="sm"
                   >
                     {isGeneratingVideo ? (

@@ -1125,10 +1125,14 @@ const MovieSceneCreator = () => {
 
   const generateLipSyncVideo = async (sceneNumber: number) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
-    if (!scene?.generatedImage) {
+    
+    // Check for keyframe images (new system) or legacy generatedImage
+    const imageToUse = scene?.startFrame?.generatedImage || scene?.generatedImage;
+    
+    if (!imageToUse) {
       toast({
         title: "Image Required",
-        description: "Please generate the scene image first.",
+        description: "Please generate the start frame image first (in the Keyframes tab).",
         variant: "destructive"
       });
       return;
@@ -1199,7 +1203,7 @@ const MovieSceneCreator = () => {
         body: {
           action: 'create',
           model: 'infinitetalk',
-          imageUrls: [scene.generatedImage],
+          imageUrls: [imageToUse],
           audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
           duration: 5
         }
