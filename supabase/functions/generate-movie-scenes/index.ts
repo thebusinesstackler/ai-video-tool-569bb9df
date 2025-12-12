@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { outline, characterDescription, storyBible } = await req.json();
+    const { outline, characterDescription, storyBible, movieLength = 'quick-reel' } = await req.json();
     
     if (!outline) {
       return new Response(
@@ -59,7 +59,16 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating movie scenes from outline with story bible:', !!storyBible);
+    // Scene count based on movie length
+    const sceneCountMap: Record<string, string> = {
+      'quick-reel': '4-6',
+      'short-story': '10-15',
+      'short-film': '20-30',
+      'full-movie': '40-60'
+    };
+    const targetSceneCount = sceneCountMap[movieLength] || '8-12';
+    
+    console.log(`Generating ${movieLength} scenes (${targetSceneCount}) from outline with story bible:`, !!storyBible);
 
 const systemPrompt = `You are an expert screenwriter and cinematographer specializing in creating immersive audiovisual experiences with KEYFRAME-BASED scene design. Your task is to break down a movie outline into detailed, cinematic scenes where each scene has a START FRAME and END FRAME for video generation.
 ${characterContext}
@@ -189,7 +198,7 @@ IMPORTANT FORMATTING RULES:
 
 Return ONLY the JSON array, no other text or formatting.`;
 
-    const userPrompt = `Based on this movie outline, generate 8-12 key cinematic scenes with complete immersive narration:
+    const userPrompt = `Based on this movie outline, generate ${targetSceneCount} key cinematic scenes with complete immersive narration:
 
 ${outline}
 
