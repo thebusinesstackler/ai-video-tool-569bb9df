@@ -75,6 +75,10 @@ interface StoryBibleCharacter {
   voiceStyle: string;
   personality: string;
   arc: string;
+  // Voice assignment - links to AI Twin
+  assignedTwinId?: string;
+  assignedTwinName?: string;
+  assignedVoiceUrl?: string;
 }
 
 interface DialogueEntry {
@@ -1108,14 +1112,41 @@ const MovieSceneCreator = () => {
       // Generate audio from dialogue or description
       const textForAudio = scene.dialogue || scene.description;
       
-      // Determine if we're using cloned voice from AI Twin (use first twin with voice)
-      const twinWithVoice = selectedTwins.find(t => t.voice_sample_url);
-      const useClonedVoice = twinWithVoice?.voice_sample_url;
+      // Determine voice to use based on story bible character assignments or selected twins
+      let voiceToUse: { name: string; url: string } | null = null;
+      
+      // Check if we have a story bible with voice assignments
+      if (storyBible?.characters) {
+        // For conversation-style dialogue, find the first speaking character
+        if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
+          const firstSpeaker = scene.dialogue[0].character;
+          const assignedChar = storyBible.characters.find(c => 
+            c.name.toLowerCase() === firstSpeaker.toLowerCase() && c.assignedVoiceUrl
+          );
+          if (assignedChar?.assignedVoiceUrl) {
+            voiceToUse = { name: assignedChar.assignedTwinName || firstSpeaker, url: assignedChar.assignedVoiceUrl };
+          }
+        } else {
+          // For non-conversation dialogue, use protagonist's voice if assigned
+          const protagonist = storyBible.characters.find(c => c.role === 'protagonist' && c.assignedVoiceUrl);
+          if (protagonist?.assignedVoiceUrl) {
+            voiceToUse = { name: protagonist.assignedTwinName || protagonist.name, url: protagonist.assignedVoiceUrl };
+          }
+        }
+      }
+      
+      // Fallback to selected twins if no story bible assignment
+      if (!voiceToUse) {
+        const twinWithVoice = selectedTwins.find(t => t.voice_sample_url);
+        if (twinWithVoice?.voice_sample_url) {
+          voiceToUse = { name: twinWithVoice.name, url: twinWithVoice.voice_sample_url };
+        }
+      }
       
       toast({
-        title: useClonedVoice ? "Generating Cloned Voice Audio" : "Generating Audio",
-        description: useClonedVoice 
-          ? `Creating voiceover using ${twinWithVoice.name}'s cloned voice...`
+        title: voiceToUse ? "Generating Cloned Voice Audio" : "Generating Audio",
+        description: voiceToUse 
+          ? `Creating voiceover using ${voiceToUse.name}'s cloned voice...`
           : "Creating voiceover for the scene...",
       });
 
@@ -1123,7 +1154,7 @@ const MovieSceneCreator = () => {
         body: { 
           text: textForAudio, 
           voice: 'en-US-Journey-D',
-          clonedVoiceUrl: useClonedVoice || undefined
+          clonedVoiceUrl: voiceToUse?.url || undefined
         }
       });
 
@@ -1131,8 +1162,8 @@ const MovieSceneCreator = () => {
 
       toast({
         title: "Generating Video",
-        description: useClonedVoice 
-          ? `Creating lip-synced video with ${twinWithVoice.name}'s voice...`
+        description: voiceToUse 
+          ? `Creating lip-synced video with ${voiceToUse.name}'s voice...`
           : "Creating lip-synced video using default voice...",
       });
 
@@ -2070,6 +2101,12 @@ const MovieSceneCreator = () => {
                             {char.role}
                           </Badge>
                           <span className="font-medium text-sm">{char.name}</span>
+                          {char.assignedTwinName && (
+                            <Badge variant="outline" className="text-[10px] gap-1">
+                              <Volume2 className="w-2.5 h-2.5" />
+                              {char.assignedTwinName}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-1">{char.wardrobe}</p>
                       </div>
@@ -2101,16 +2138,69 @@ const MovieSceneCreator = () => {
                     {/* Character Details */}
                     <div className="space-y-2">
                       <Label className="text-sm font-semibold">Character Wardrobes (Consistent Throughout)</Label>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
                         {storyBible.characters.map((char, idx) => (
-                          <div key={idx} className="p-2 bg-muted/30 rounded-lg border text-sm">
-                            <div className="flex items-center gap-2 mb-1">
+                          <div key={idx} className="p-3 bg-muted/30 rounded-lg border text-sm">
+                            <div className="flex items-center gap-2 mb-2">
                               <span className="font-medium">{char.name}</span>
                               <Badge variant="outline" className="text-xs capitalize">{char.role}</Badge>
                             </div>
-                            <p className="text-xs"><span className="font-medium">Appearance:</span> {char.appearance}</p>
-                            <p className="text-xs text-primary"><span className="font-medium">Wardrobe:</span> {char.wardrobe}</p>
-                            <p className="text-xs text-muted-foreground"><span className="font-medium">Voice:</span> {char.voiceStyle}</p>
+                            <p className="text-xs mb-1"><span className="font-medium">Appearance:</span> {char.appearance}</p>
+                            <p className="text-xs text-primary mb-1"><span className="font-medium">Wardrobe:</span> {char.wardrobe}</p>
+                            <p className="text-xs text-muted-foreground mb-2"><span className="font-medium">Voice Style:</span> {char.voiceStyle}</p>
+                            
+                            {/* Voice Assignment Dropdown */}
+                            <div className="flex items-center gap-2 pt-2 border-t border-border">
+                              <Volume2 className="w-4 h-4 text-primary" />
+                              <Select
+                                value={char.assignedTwinId || 'default'}
+                                onValueChange={(value) => {
+                                  const twin = aiTwins.find(t => t.id === value);
+                                  setStoryBible(prev => {
+                                    if (!prev) return prev;
+                                    const updatedCharacters = [...prev.characters];
+                                    updatedCharacters[idx] = {
+                                      ...updatedCharacters[idx],
+                                      assignedTwinId: value === 'default' ? undefined : value,
+                                      assignedTwinName: twin?.name,
+                                      assignedVoiceUrl: twin?.voice_sample_url || undefined
+                                    };
+                                    return { ...prev, characters: updatedCharacters };
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-xs flex-1">
+                                  <SelectValue placeholder="Assign voice..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="default">
+                                    <span className="flex items-center gap-2">
+                                      <Volume2 className="w-3 h-3" />
+                                      Default AI Voice
+                                    </span>
+                                  </SelectItem>
+                                  {aiTwins.filter(t => t.voice_sample_url).map(twin => (
+                                    <SelectItem key={twin.id} value={twin.id}>
+                                      <span className="flex items-center gap-2">
+                                        {twin.reference_images?.[0] && (
+                                          <img 
+                                            src={twin.reference_images[0]} 
+                                            alt={twin.name}
+                                            className="w-4 h-4 rounded-full object-cover"
+                                          />
+                                        )}
+                                        {twin.name}'s Voice
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {char.assignedTwinName && (
+                                <Badge variant="default" className="text-[10px]">
+                                  {char.assignedTwinName}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
