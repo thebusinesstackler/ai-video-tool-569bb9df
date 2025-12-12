@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { 
   Film, Copy, Trash2, ChevronDown, ChevronRight, Image, Play, 
   ArrowRight, Link, Camera, Lightbulb, Music, User, Wand2, 
-  Loader2, Video, Volume2
+  Loader2, Video, Volume2, Expand, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -142,6 +143,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<'keyframes' | 'audio' | 'settings'>('keyframes');
+  const [viewingImage, setViewingImage] = useState<{ src: string; title: string } | null>(null);
 
   const canLinkToPrevious = sceneIndex > 0 && previousSceneEndFrame?.generatedImage;
 
@@ -252,13 +254,27 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                     </div>
                     
                     {/* Image Preview */}
-                    <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+                    <div 
+                      className={cn(
+                        "aspect-video bg-muted rounded-lg overflow-hidden relative group",
+                        scene.startFrame?.generatedImage && "cursor-pointer"
+                      )}
+                      onClick={() => scene.startFrame?.generatedImage && setViewingImage({ 
+                        src: scene.startFrame.generatedImage, 
+                        title: `Scene ${scene.sceneNumber} - Start Frame` 
+                      })}
+                    >
                       {scene.startFrame?.generatedImage ? (
-                        <img 
-                          src={scene.startFrame.generatedImage} 
-                          alt="Start frame"
-                          className="w-full h-full object-cover"
-                        />
+                        <>
+                          <img 
+                            src={scene.startFrame.generatedImage} 
+                            alt="Start frame"
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                            <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </>
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Image className="w-8 h-8 text-muted-foreground/50" />
@@ -372,13 +388,27 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                     </div>
                     
                     {/* Image Preview */}
-                    <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+                    <div 
+                      className={cn(
+                        "aspect-video bg-muted rounded-lg overflow-hidden relative group",
+                        scene.endFrame?.generatedImage && "cursor-pointer"
+                      )}
+                      onClick={() => scene.endFrame?.generatedImage && setViewingImage({ 
+                        src: scene.endFrame.generatedImage, 
+                        title: `Scene ${scene.sceneNumber} - End Frame` 
+                      })}
+                    >
                       {scene.endFrame?.generatedImage ? (
-                        <img 
-                          src={scene.endFrame.generatedImage} 
-                          alt="End frame"
-                          className="w-full h-full object-cover"
-                        />
+                        <>
+                          <img 
+                            src={scene.endFrame.generatedImage} 
+                            alt="End frame"
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                            <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </>
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Image className="w-8 h-8 text-muted-foreground/50" />
@@ -604,6 +634,33 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Image Lightbox Dialog */}
+      <Dialog open={!!viewingImage} onOpenChange={(open) => !open && setViewingImage(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background/95 backdrop-blur">
+          <DialogTitle className="sr-only">{viewingImage?.title || 'Image Preview'}</DialogTitle>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
+              onClick={() => setViewingImage(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            {viewingImage && (
+              <img 
+                src={viewingImage.src} 
+                alt={viewingImage.title}
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+            )}
+            <div className="p-4 border-t border-border">
+              <p className="text-sm text-muted-foreground text-center">{viewingImage?.title}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

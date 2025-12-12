@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2 } from 'lucide-react';
+import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideos } from '@/lib/videoStitch';
@@ -991,14 +992,30 @@ const MovieSceneCreator = () => {
 
       if (error) throw error;
 
-      updateKeyframe(sceneNumber, frame, { generatedImage: data.imageUrl });
+      // Convert base64 to storage URL for better performance and persistence
+      let imageUrl = data.imageUrl;
+      if (imageUrl && imageUrl.startsWith('data:')) {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user?.id) {
+            const storageUrl = await convertBase64ToStorageUrl(imageUrl, userData.user.id, 'reels');
+            if (storageUrl && !storageUrl.startsWith('data:')) {
+              imageUrl = storageUrl;
+            }
+          }
+        } catch (uploadErr) {
+          console.warn('Failed to upload to storage, using base64:', uploadErr);
+        }
+      }
+
+      updateKeyframe(sceneNumber, frame, { generatedImage: imageUrl });
       
       // Auto-link: if end frame generated and auto-link is on, copy to next scene's start
       if (frame === 'end' && autoLinkScenes) {
         const nextScene = scenes.find(s => s.sceneNumber === sceneNumber + 1);
         if (nextScene) {
           updateKeyframe(sceneNumber + 1, 'start', { 
-            generatedImage: data.imageUrl,
+            generatedImage: imageUrl,
             imagePrompt: frameData.imagePrompt 
           });
         }
