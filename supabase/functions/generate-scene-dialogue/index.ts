@@ -31,7 +31,8 @@ IMPORTANT: You are writing dialogue ONLY for the main character "${characterName
 - Write ONLY what ${characterName || 'the protagonist'} says
 - Do NOT write any other character's lines
 - The dialogue should be natural and fit the scene
-- Keep it concise for lip-sync video (15-30 seconds, about 40-80 words)
+- Write substantial dialogue for a 30-45 second scene (about 100-150 words)
+- Include emotional depth, pauses for emphasis, and natural speech patterns
 
 Scene Title: ${sceneTitle || 'Untitled Scene'}
 Location: ${location || 'Unknown'}
@@ -41,14 +42,15 @@ ${tone ? `Tone/Mood: ${tone}` : ''}
 
 Scene Description: ${sceneDescription}
 
-Write ONLY ${characterName || "the protagonist"}'s spoken dialogue. Include natural pauses (use "..."). 
+Write ONLY ${characterName || "the protagonist"}'s spoken dialogue. Include natural pauses (use "...") and emotional beats.
+Make the dialogue substantial and meaningful - this is a key scene moment.
 Do NOT include other characters' lines, stage directions, or character names.`
       : `You are a professional screenwriter creating dialogue for a supporting character in a movie scene.
 
 IMPORTANT: You are writing dialogue for a SUPPORTING CHARACTER (not the main character "${characterName}").
 - Write dialogue for ONE supporting character responding to or interacting with ${characterName}
-- Keep it brief (10-20 seconds of speech, about 20-40 words)
-- Make it natural and reactive to the scene
+- Write substantial dialogue for a 20-30 second response (about 60-100 words)
+- Make it natural, emotional, and reactive to the scene
 
 Scene Title: ${sceneTitle || 'Untitled Scene'}
 Location: ${location || 'Unknown'}
@@ -58,7 +60,7 @@ ${tone ? `Tone/Mood: ${tone}` : ''}
 
 Scene Description: ${sceneDescription}
 
-Write ONLY the supporting character's spoken dialogue. Keep it brief and reactive.
+Write ONLY the supporting character's spoken dialogue. Make it meaningful and emotionally engaging.
 Do NOT include the main character's lines, stage directions, or character names.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
