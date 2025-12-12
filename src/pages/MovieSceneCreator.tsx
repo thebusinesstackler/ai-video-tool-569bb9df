@@ -2205,379 +2205,50 @@ const MovieSceneCreator = () => {
               </Card>
             )}
 
-            <div className="grid gap-4">
-              {scenes.map((scene) => (
-                <Card key={scene.sceneNumber}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="flex items-center gap-2">
-                          <Film className="w-5 h-5 text-primary" />
-                          Scene {scene.sceneNumber}: {scene.title}
-                        </CardTitle>
-                        <CardDescription>
-                          {scene.location} • {scene.timeOfDay}
-                        </CardDescription>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => duplicateScene(scene.sceneNumber)}
-                          variant="ghost"
-                          size="sm"
-                          title="Duplicate scene"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          onClick={() => deleteScene(scene.sceneNumber)}
-                          variant="ghost"
-                          size="sm"
-                          title="Delete scene"
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label className="text-sm font-semibold">Title</Label>
-                      <Input
-                        value={scene.title}
-                        onChange={(e) => updateSceneText(scene.sceneNumber, 'title', e.target.value)}
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-semibold">Location</Label>
-                        <Input
-                          value={scene.location}
-                          onChange={(e) => updateSceneText(scene.sceneNumber, 'location', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm font-semibold">Time of Day</Label>
-                        <Input
-                          value={scene.timeOfDay}
-                          onChange={(e) => updateSceneText(scene.sceneNumber, 'timeOfDay', e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-sm font-semibold">Description</Label>
-                      <Textarea
-                        value={scene.description}
-                        onChange={(e) => updateSceneText(scene.sceneNumber, 'description', e.target.value)}
-                        rows={3}
-                        className="mt-1 resize-none"
-                      />
-                    </div>
-                    
-                    {/* Dialogue Section - Supports both string and conversation array */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <Label className="text-sm font-semibold flex items-center gap-2">
-                          <User className="w-4 h-4 text-primary" />
-                          Dialogue
-                          {Array.isArray(scene.dialogue) && (
-                            <Badge variant="secondary" className="text-xs">Conversation</Badge>
-                          )}
-                        </Label>
-                        <Button
-                          onClick={() => generateDialogue(scene.sceneNumber)}
-                          variant="outline"
-                          size="sm"
-                          className="h-7"
-                        >
-                          <Wand2 className="w-3 h-3 mr-1" />
-                          Generate
-                        </Button>
-                      </div>
-                      
-                      {/* Render conversation array or text input */}
-                      {Array.isArray(scene.dialogue) ? (
-                        <div className="space-y-2 bg-muted/50 rounded-lg p-3 border">
-                          {scene.dialogue.map((entry, idx) => (
-                            <div key={idx} className="flex gap-2">
-                              <Badge variant="outline" className="shrink-0 capitalize">
-                                {entry.character}
-                              </Badge>
-                              <p className="text-sm text-foreground italic">"{entry.line}"</p>
-                              {entry.emotion && (
-                                <span className="text-xs text-muted-foreground">({entry.emotion})</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <Textarea
-                          value={typeof scene.dialogue === 'string' ? scene.dialogue : ''}
-                          onChange={(e) => updateSceneText(scene.sceneNumber, 'dialogue', e.target.value)}
-                          rows={3}
-                          className="mt-1 resize-none italic border-primary/30"
-                          placeholder={`Enter dialogue for the scene...`}
-                        />
-                      )}
-                    </div>
+            {/* Scene Timeline */}
+            <SceneTimeline
+              scenes={scenes as MovieSceneWithKeyframes[]}
+              activeSceneIndex={activeSceneIndex}
+              onSelectScene={setActiveSceneIndex}
+              autoLinkEnabled={autoLinkScenes}
+              onToggleAutoLink={() => setAutoLinkScenes(!autoLinkScenes)}
+            />
 
-                    {/* Mood & Music Suggestion */}
-                    {(scene.mood || scene.suggestedMusic) && (
-                      <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <Music className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm text-foreground">Scene Mood</span>
-                              {scene.mood && (
-                                <Badge variant="secondary" className="capitalize">
-                                  {MOOD_ICONS[scene.mood] || '🎬'} {scene.mood}
-                                </Badge>
-                              )}
-                            </div>
-                            {scene.suggestedMusic && (
-                              <p className="text-xs text-muted-foreground">
-                                <span className="font-medium">Suggested Music: </span>
-                                {scene.suggestedMusic}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {scene.otherCharacterDialogue && (
-                      <div>
-                        <Label className="text-sm font-semibold flex items-center gap-2 mb-1">
-                          <User className="w-4 h-4 text-muted-foreground" />
-                          Other Character Dialogue
-                          <span className="text-xs text-muted-foreground font-normal">(Supporting character)</span>
-                        </Label>
-                        <Textarea
-                          value={scene.otherCharacterDialogue || ''}
-                          onChange={(e) => updateSceneText(scene.sceneNumber, 'otherCharacterDialogue', e.target.value)}
-                          rows={2}
-                          className="mt-1 resize-none italic opacity-80"
-                          placeholder="Other character's lines..."
-                        />
-                      </div>
-                    )}
-                    
-                    <div>
-                      <Label className="text-sm font-semibold">Image Generation Prompt</Label>
-                      <Textarea
-                        value={scene.imagePrompt}
-                        onChange={(e) => updateSceneText(scene.sceneNumber, 'imagePrompt', e.target.value)}
-                        rows={3}
-                        className="mt-1 resize-none"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor={`camera-${scene.sceneNumber}`} className="text-sm font-semibold">
-                        Camera Angle
-                      </Label>
-                      <Select
-                        value={scene.selectedCameraAngle || 'eye-level'}
-                        onValueChange={(angle) => updateSceneCameraAngle(scene.sceneNumber, angle)}
-                      >
-                        <SelectTrigger 
-                          id={`camera-${scene.sceneNumber}`}
-                          className="bg-background border-border"
-                        >
-                          <SelectValue placeholder="Select camera angle" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background border-border z-50">
-                          {CAMERA_ANGLES.map((angle) => (
-                            <SelectItem 
-                              key={angle.id} 
-                              value={angle.id}
-                              className="bg-background hover:bg-accent focus:bg-accent"
-                            >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{angle.name}</span>
-                                <span className="text-xs text-muted-foreground">{angle.description}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor={`lighting-${scene.sceneNumber}`} className="text-sm font-semibold">
-                        Lighting Style
-                      </Label>
-                      <Select
-                        value={scene.selectedLighting || 'natural'}
-                        onValueChange={(lighting) => updateSceneLighting(scene.sceneNumber, lighting)}
-                      >
-                        <SelectTrigger 
-                          id={`lighting-${scene.sceneNumber}`}
-                          className="bg-background border-border"
-                        >
-                          <SelectValue placeholder="Select lighting style" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background border-border z-50">
-                          {LIGHTING_STYLES.map((lighting) => (
-                            <SelectItem 
-                              key={lighting.id} 
-                              value={lighting.id}
-                              className="bg-background hover:bg-accent focus:bg-accent"
-                            >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{lighting.name}</span>
-                                <span className="text-xs text-muted-foreground">{lighting.description}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Visual Presets</Label>
-                      <div className="flex gap-2">
-                        <Select
-                          onValueChange={(presetId) => applyVisualPreset(scene.sceneNumber, presetId)}
-                        >
-                          <SelectTrigger className="bg-background border-border flex-1">
-                            <SelectValue placeholder="Apply saved preset..." />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border-border z-50">
-                            {visualPresets.length === 0 ? (
-                              <div className="p-2 text-sm text-muted-foreground">No saved presets</div>
-                            ) : (
-                              visualPresets.map((preset) => (
-                                <SelectItem 
-                                  key={preset.id} 
-                                  value={preset.id}
-                                  className="bg-background hover:bg-accent focus:bg-accent"
-                                >
-                                  <div className="flex items-center justify-between w-full">
-                                    <span>{preset.name}</span>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 ml-2"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteVisualPreset(preset.id);
-                                      }}
-                                    >
-                                      <Trash2 className="w-3 h-3 text-destructive" />
-                                    </Button>
-                                  </div>
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          onClick={() => {
-                            setSelectedSceneForPreset(scene.sceneNumber);
-                            setIsSavePresetDialogOpen(true);
-                          }}
-                          variant="outline"
-                          size="sm"
-                          title="Save current settings as preset"
-                        >
-                          <Star className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {scene.generatedImage ? (
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <Label className="text-sm font-semibold">Generated Image</Label>
-                            <Button
-                              onClick={() => generateSceneImage(scene.sceneNumber, scene.imagePrompt)}
-                              disabled={generatingImageFor === scene.sceneNumber}
-                              variant="outline"
-                              size="sm"
-                            >
-                              {generatingImageFor === scene.sceneNumber ? (
-                                <>
-                                  <Sparkles className="w-3 h-3 mr-1 animate-spin" />
-                                  Regenerating...
-                                </>
-                              ) : (
-                                <>
-                                  <Wand2 className="w-3 h-3 mr-1" />
-                                  Regenerate
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                          <img 
-                            src={scene.generatedImage} 
-                            alt={`Scene ${scene.sceneNumber}: ${scene.title}`}
-                            className="w-full rounded-lg border border-border"
-                          />
-                        </div>
-                        
-                        {scene.generatedVideo ? (
-                          <div>
-                            <Label className="text-sm font-semibold">Generated Lip Sync Video</Label>
-                            <video 
-                              src={scene.generatedVideo} 
-                              controls
-                              className="mt-2 w-full rounded-lg border border-border"
-                            />
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <Button
-                              onClick={() => generateLipSyncVideo(scene.sceneNumber)}
-                              disabled={generatingVideoFor === scene.sceneNumber}
-                              className="w-full"
-                              variant="secondary"
-                            >
-                              {generatingVideoFor === scene.sceneNumber ? (
-                                <>
-                                  <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                                  Generating Lip Sync Video...
-                                </>
-                              ) : (
-                                <>
-                                  <Film className="w-4 h-4 mr-2" />
-                                  Generate Lip Sync Video
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <Button
-                        onClick={() => generateSceneImage(scene.sceneNumber, scene.imagePrompt)}
-                        disabled={generatingImageFor === scene.sceneNumber}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        {generatingImageFor === scene.sceneNumber ? (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                            Generating Image...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Generate Scene Image
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
+            {/* Keyframe Scene Cards */}
+            <div className="space-y-4">
+              {scenes.map((scene, index) => (
+                <KeyframeSceneCard
+                  key={scene.sceneNumber}
+                  scene={{
+                    ...scene,
+                    startFrame: scene.startFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
+                    endFrame: scene.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
+                    transitionAction: scene.transitionAction || '',
+                    transitionCameraMovement: scene.transitionCameraMovement || 'static',
+                    dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : 
+                              Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join('\n') : null
+                  } as MovieSceneWithKeyframes}
+                  sceneIndex={index}
+                  totalScenes={scenes.length}
+                  isGeneratingImage={generatingImageFor === scene.sceneNumber || 
+                    (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
+                  isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
+                  characterName={selectedTwin?.name || selectedCharacter?.name}
+                  onUpdateScene={(sceneNum, updates) => {
+                    setScenes(prev => prev.map(s => 
+                      s.sceneNumber === sceneNum ? { ...s, ...updates } : s
+                    ));
+                  }}
+                  onUpdateKeyframe={updateKeyframe}
+                  onGenerateStartImage={(sceneNum) => generateKeyframeImage(sceneNum, 'start')}
+                  onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
+                  onGenerateVideo={generateLipSyncVideo}
+                  onGenerateDialogue={generateDialogue}
+                  onDuplicate={duplicateScene}
+                  onDelete={deleteScene}
+                  onLinkToPreviousScene={linkToPreviousScene}
+                  previousSceneEndFrame={index > 0 ? scenes[index - 1]?.endFrame : undefined}
+                />
               ))}
             </div>
           </div>
