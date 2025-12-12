@@ -5,13 +5,80 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Movie length configurations
+const MOVIE_LENGTH_CONFIG: Record<string, { sceneRange: string; duration: string; actStructure: string }> = {
+  'quick-reel': {
+    sceneRange: '4-6',
+    duration: '1-2 minutes',
+    actStructure: `This is a SHORT-FORM video (like a reel or short). Structure:
+- Opening hook (1 scene)
+- Rising action (2-3 scenes)  
+- Climax & Resolution (1-2 scenes)`
+  },
+  'short-story': {
+    sceneRange: '10-15',
+    duration: '3-5 minutes',
+    actStructure: `This is a SHORT STORY format. Use 3-act structure:
+- ACT 1 (Setup): 2-3 scenes - Establish world, character, and inciting incident
+- ACT 2 (Confrontation): 5-8 scenes - Rising action, obstacles, character development
+- ACT 3 (Resolution): 3-4 scenes - Climax, falling action, resolution`
+  },
+  'short-film': {
+    sceneRange: '20-30',
+    duration: '10-15 minutes',
+    actStructure: `This is a SHORT FILM format. Use detailed 3-act structure:
+- ACT 1 (Setup): 5-7 scenes
+  * Opening image/world establishment
+  * Character introduction and ordinary world
+  * Inciting incident
+  * Debate/reaction
+- ACT 2 (Confrontation): 10-16 scenes
+  * First plot point
+  * Rising action and obstacles
+  * Midpoint twist
+  * Complications and setbacks
+  * All is lost moment
+- ACT 3 (Resolution): 5-7 scenes
+  * Climax preparation
+  * Final confrontation
+  * Resolution and new equilibrium
+  * Closing image (mirrors opening)`
+  },
+  'full-movie': {
+    sceneRange: '40-60',
+    duration: '30+ minutes',
+    actStructure: `This is a FULL MOVIE format. Use comprehensive 3-act structure with sub-plots:
+- ACT 1 (Setup): 10-15 scenes (25%)
+  * Opening hook
+  * World building
+  * Character introductions (protagonist, deuteragonist, antagonist)
+  * Inciting incident
+  * First major decision
+- ACT 2 (Confrontation): 20-30 scenes (50%)
+  * Point of no return
+  * Fun & games / exploring new world
+  * B-story development (romance/friendship sub-plot)
+  * Midpoint revelation
+  * Bad guys close in
+  * All is lost / dark night of the soul
+- ACT 3 (Resolution): 10-15 scenes (25%)
+  * Break into three / new plan
+  * Finale preparation
+  * Climactic sequence (multiple scenes)
+  * Resolution of all plots
+  * Final image / new status quo
+
+Include sub-plots, character arcs for secondary characters, and thematic depth.`
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { movieIdea, characterDescription } = await req.json();
+    const { movieIdea, characterDescription, movieLength = 'quick-reel' } = await req.json();
 
     if (!movieIdea) {
       return new Response(
@@ -29,36 +96,46 @@ serve(async (req) => {
       );
     }
 
+    const lengthConfig = MOVIE_LENGTH_CONFIG[movieLength] || MOVIE_LENGTH_CONFIG['quick-reel'];
+    console.log(`Generating ${movieLength} outline with ${lengthConfig.sceneRange} scenes`);
+
     const characterContext = characterDescription 
-      ? `\n\nIMPORTANT - MAIN CHARACTER: ${characterDescription}. Keep this character consistent throughout ALL scenes - same appearance, clothing style, and characteristics.`
+      ? `\n\nIMPORTANT - MAIN CHARACTER(S): ${characterDescription}. Keep these characters consistent throughout ALL scenes - same appearance, clothing style, and characteristics.`
       : '';
 
-    const systemPrompt = `You are an expert screenwriter and story structure consultant specializing in SHORT-FORM video content (like reels and short films). Your job is to take a movie idea and create a cohesive, complete story outline optimized for 4-6 scene video generation.
+    const systemPrompt = `You are an expert screenwriter and story structure consultant. Your job is to take a movie idea and create a cohesive, complete story outline.
+
+${lengthConfig.actStructure}
+
+TARGET: ${lengthConfig.sceneRange} scenes total, approximately ${lengthConfig.duration} runtime.
 
 CRITICAL REQUIREMENTS:
 1. Every story MUST have a clear OPENING scene that establishes the world and character
 2. Every story MUST have a clear CLOSING scene that provides resolution and mirrors/callbacks to the opening
-3. The SAME main character must appear in EVERY scene with consistent description
+3. The SAME main character(s) must appear consistently with the same description throughout
 4. Each scene must flow naturally into the next
-5. The story should feel complete and satisfying, like a short film${characterContext}
+5. The story should feel COMPLETE and satisfying${characterContext}
 
 Format your outline as follows:
 
 **LOGLINE:**
 [One compelling sentence that captures the essence of the story]
 
-**MAIN CHARACTER:**
-[Detailed description of the protagonist - appearance, clothing, age, key features. This EXACT description will be used in every scene for consistency]
+**MAIN CHARACTER(S):**
+[Detailed description of the protagonist(s) - appearance, clothing, age, key features. This EXACT description will be used in every scene for consistency]
 
 **GENRE:** [Primary genre]
 **TONE:** [Dramatic, comedic, dark, inspiring, etc.]
+**TARGET LENGTH:** ${lengthConfig.sceneRange} scenes (${lengthConfig.duration})
 
 ---
+
+**ACT 1: SETUP**
 
 **SCENE 1: OPENING - [Scene Title]**
 Location: [Specific location]
 Time: [Day/Night/Golden Hour/etc.]
-Duration: 8-10 seconds
+Duration: 8-15 seconds
 
 Visual Description:
 [Detailed visual description including the main character (use the exact character description), setting, mood, camera angle. This establishes the world and the character's ordinary life or starting point.]
@@ -68,27 +145,16 @@ Narration/Caption:
 
 ---
 
-**SCENE 2: [Scene Title]**
-Location: [Specific location]
-Time: [Time of day]
-Duration: 8-10 seconds
-
-Visual Description:
-[Include the main character with consistent description. Show the inciting incident or rising action.]
-
-Narration/Caption:
-"[Engaging narration - 15-25 words]"
+[Continue with all scenes, grouped by ACT]
 
 ---
 
-[Continue with SCENE 3, SCENE 4, etc. - typically 4-6 scenes total]
-
----
+**ACT 3: RESOLUTION**
 
 **FINAL SCENE: CLOSING - [Scene Title]**
 Location: [Location that ideally mirrors or contrasts with opening]
 Time: [Time of day]
-Duration: 8-10 seconds
+Duration: 8-15 seconds
 
 Visual Description:
 [Include the main character with consistent description. Show resolution, transformation, or callback to opening. This should feel like a satisfying ending.]
@@ -105,11 +171,12 @@ Narration/Caption:
 - Camera style: [e.g., cinematic, handheld, steady]
 
 IMPORTANT RULES:
-- Keep narration SHORT (15-25 words per scene) - this is for short-form video
-- Each scene should be 8-10 seconds when visualized
+- Keep narration SHORT (15-25 words per scene) - this is for video content
+- Each scene should be 8-15 seconds when visualized
 - The main character description must be IDENTICAL in every scene
 - Opening and closing should have thematic connection
-- Story should feel COMPLETE - no cliffhangers`;
+- Story should feel COMPLETE - no cliffhangers
+- Generate EXACTLY ${lengthConfig.sceneRange} scenes to match the selected format`;
 
     console.log('Generating movie outline with Lovable AI...');
 
@@ -123,7 +190,7 @@ IMPORTANT RULES:
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Create a cohesive short film outline (4-6 scenes) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout.` }
+          { role: 'user', content: `Create a cohesive ${movieLength.replace('-', ' ')} outline (${lengthConfig.sceneRange} scenes, ${lengthConfig.duration}) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout. Use proper 3-act structure.` }
         ],
       }),
     });

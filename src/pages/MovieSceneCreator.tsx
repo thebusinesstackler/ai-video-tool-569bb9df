@@ -33,6 +33,14 @@ interface AITwin {
   gender: string | null;
 }
 
+// Movie length options
+const MOVIE_LENGTH_OPTIONS = [
+  { value: 'quick-reel', label: 'Quick Reel', description: '4-6 scenes, ~1 min', sceneCount: '4-6', duration: '~1 minute' },
+  { value: 'short-story', label: 'Short Story', description: '10-15 scenes, ~3-5 min', sceneCount: '10-15', duration: '~3-5 minutes' },
+  { value: 'short-film', label: 'Short Film', description: '20-30 scenes, ~10-15 min', sceneCount: '20-30', duration: '~10-15 minutes' },
+  { value: 'full-movie', label: 'Full Movie', description: '40-60 scenes, ~30+ min', sceneCount: '40-60', duration: '~30+ minutes' },
+];
+
 const SAMPLE_MOVIES = [
   {
     value: 'sci-fi-thriller',
@@ -224,6 +232,7 @@ const MovieSceneCreator = () => {
   const [selectedTwins, setSelectedTwins] = useState<AITwin[]>([]); // Multi-twin selection
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<{ id: string; image_url: string; prompt: string | null } | null>(null);
   const [characterSourceTab, setCharacterSourceTab] = useState<'twins' | 'characters' | 'gallery'>('twins');
+  const [movieLength, setMovieLength] = useState<string>('quick-reel');
   const { toast } = useToast();
 
   // Helper to toggle twin selection
@@ -519,7 +528,7 @@ const MovieSceneCreator = () => {
       }
 
       const { data, error } = await supabase.functions.invoke('generate-movie-outline', {
-        body: { movieIdea, characterDescription }
+        body: { movieIdea, characterDescription, movieLength }
       });
 
       if (error) throw error;
@@ -576,7 +585,8 @@ const MovieSceneCreator = () => {
         body: { 
           outline, 
           characterDescription,
-          storyBible: storyBible || undefined
+          storyBible: storyBible || undefined,
+          movieLength
         }
       });
 
@@ -2045,6 +2055,30 @@ const MovieSceneCreator = () => {
                   </p>
                 )}
               </div>
+              
+              {/* Movie Length Selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Movie Length</Label>
+                <Select value={movieLength} onValueChange={setMovieLength}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select movie length" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MOVIE_LENGTH_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">({option.description})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {MOVIE_LENGTH_OPTIONS.find(o => o.value === movieLength)?.description || 'Select a format'}
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={generateStoryBible}
