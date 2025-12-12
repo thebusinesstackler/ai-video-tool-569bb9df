@@ -2214,8 +2214,23 @@ const MovieSceneCreator = () => {
                                   {twin.gender && (
                                     <Badge variant="outline" className="text-[10px] capitalize px-1 py-0">{twin.gender}</Badge>
                                   )}
-                                  {twin.voice_sample_url && (
-                                    <Volume2 className="w-3 h-3 text-primary" />
+                                  {twin.voice_cloning_key && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 w-5 p-0"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        previewTwinVoice(twin);
+                                      }}
+                                      disabled={previewingVoiceFor === twin.id}
+                                    >
+                                      {previewingVoiceFor === twin.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                                      ) : (
+                                        <Volume2 className="w-3 h-3 text-primary" />
+                                      )}
+                                    </Button>
                                   )}
                                   {isSelected && (
                                     <Badge variant="default" className="text-[10px] px-1 py-0">✓</Badge>
