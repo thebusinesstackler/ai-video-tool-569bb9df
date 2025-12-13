@@ -7,6 +7,7 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 interface StitchOptions {
   videoUrls: string[];
   audioUrls?: string[]; // Audio files to concatenate and add as voiceover
+  transitions?: string[]; // Fix #6: Transition types between each video (fade, dissolve, etc.)
   onProgress?: (percent: number) => void;
 }
 
@@ -65,11 +66,11 @@ async function getFFmpeg(): Promise<FFmpeg> {
 }
 
 export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blob> {
-  const { videoUrls, audioUrls = [], onProgress } = options;
+  const { videoUrls, audioUrls = [], transitions = [], onProgress } = options;
   
   if (!videoUrls || videoUrls.length === 0) throw new Error('No video URLs provided');
 
-  console.log('Starting video stitching for', videoUrls.length, 'videos and', audioUrls.length, 'audio files');
+  console.log('Starting video stitching for', videoUrls.length, 'videos,', audioUrls.length, 'audio files, and', transitions.length, 'transitions');
   
   try {
     // Get or load FFmpeg with timeout
@@ -140,14 +141,105 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
     const timestamp = Date.now();
     const outputName = `output_${timestamp}.mp4`;
 
-    // Step 1: Concatenate videos
-    const videoConcatList = videoPartNames.map((n) => `file '${n}'`).join('\n');
-    console.log('Video concat list:', videoConcatList);
-    await ffmpeg.writeFile('video_concat.txt', new TextEncoder().encode(videoConcatList));
+    // Fix #6: Check if we should use xfade transitions
+    const hasTransitions = transitions.length > 0 && videoPartNames.length > 1;
+    
+    if (hasTransitions && videoPartNames.length >= 2) {
+      // Use xfade filter for transitions between videos
+      console.log('Applying transitions between videos...');
+      
+      // Build xfade filter chain
+      // Map transition names to FFmpeg xfade transition names
+      const transitionMap: Record<string, string> = {
+        'cross-dissolve': 'dissolve',
+        'dissolve': 'dissolve',
+        'fade': 'fade',
+        'fade-to-black': 'fadeblack',
+        'fade-from-black': 'fadeblack',
+        'wipe-left': 'wipeleft',
+        'wipe-right': 'wiperight',
+        'slide-left': 'slideleft',
+        'slide-right': 'slideright',
+        'hard-cut': 'fade', // Use very short fade as fallback
+        'default': 'fade'
+      };
+      
+      const transitionDuration = 0.5; // 0.5 second transitions
+      
+      try {
+        // For complex filter chains with multiple inputs, we need to build it differently
+        // First, re-encode all videos to ensure compatibility
+        for (let i = 0; i < videoPartNames.length; i++) {
+          await ffmpeg.exec([
+            '-i', videoPartNames[i],
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-pix_fmt', 'yuv420p',
+            '-r', '30',
+            '-y',
+            `reenc${i}.mp4`
+          ]);
+        }
+        
+        if (videoPartNames.length === 2) {
+          // Simple case: 2 videos with 1 transition
+          const transType = transitionMap[transitions[0]?.toLowerCase()] || 'fade';
+          await ffmpeg.exec([
+            '-i', 'reenc0.mp4',
+            '-i', 'reenc1.mp4',
+            '-filter_complex', `[0:v][1:v]xfade=transition=${transType}:duration=${transitionDuration}:offset=4[v]`,
+            '-map', '[v]',
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-y',
+            'concat_video.mp4'
+          ]);
+        } else {
+          // Multiple videos - apply transitions sequentially
+          let currentOutput = 'reenc0.mp4';
+          
+          for (let i = 1; i < videoPartNames.length; i++) {
+            const transType = transitionMap[transitions[i - 1]?.toLowerCase()] || 'fade';
+            const tempOutput = i === videoPartNames.length - 1 ? 'concat_video.mp4' : `trans_temp${i}.mp4`;
+            
+            await ffmpeg.exec([
+              '-i', currentOutput,
+              '-i', `reenc${i}.mp4`,
+              '-filter_complex', `[0:v][1:v]xfade=transition=${transType}:duration=${transitionDuration}:offset=4[v]`,
+              '-map', '[v]',
+              '-c:v', 'libx264',
+              '-preset', 'ultrafast',
+              '-y',
+              tempOutput
+            ]);
+            
+            // Clean up previous temp file
+            if (currentOutput.startsWith('trans_temp')) {
+              try { await ffmpeg.deleteFile(currentOutput); } catch {}
+            }
+            
+            currentOutput = tempOutput;
+          }
+        }
+        
+        console.log('Transitions applied successfully');
+      } catch (transitionError) {
+        console.log('Transition processing failed, falling back to simple concat:', transitionError);
+        // Fallback to simple concat
+        const videoConcatList = videoPartNames.map((n) => `file '${n}'`).join('\n');
+        await ffmpeg.writeFile('video_concat.txt', new TextEncoder().encode(videoConcatList));
+        await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'video_concat.txt', '-c', 'copy', 'concat_video.mp4']);
+      }
+    } else {
+      // Step 1: Simple concatenate videos (no transitions)
+      const videoConcatList = videoPartNames.map((n) => `file '${n}'`).join('\n');
+      console.log('Video concat list:', videoConcatList);
+      await ffmpeg.writeFile('video_concat.txt', new TextEncoder().encode(videoConcatList));
 
-    console.log('Concatenating videos...');
-    await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'video_concat.txt', '-c', 'copy', 'concat_video.mp4']);
-    console.log('Video concatenation successful');
+      console.log('Concatenating videos...');
+      await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'video_concat.txt', '-c', 'copy', 'concat_video.mp4']);
+      console.log('Video concatenation successful');
+    }
 
     // Step 2: If we have audio, concatenate and merge
     if (audioPartNames.length > 0) {
