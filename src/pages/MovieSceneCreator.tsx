@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2 } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin } from 'lucide-react';
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,6 +21,9 @@ import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEME
 import { SceneTimeline } from '@/components/SceneTimeline';
 import { StoryboardExport } from '@/components/StoryboardExport';
 import { CommercialTemplateSelector } from '@/components/CommercialTemplateSelector';
+import { LocationManager, Location } from '@/components/LocationManager';
+import { CoverageSelector, SceneCoverage, CoverageShot } from '@/components/CoverageSelector';
+import { CharacterBlockingEditor, CharacterBlocking } from '@/components/CharacterBlockingEditor';
 
 interface AITwin {
   id: string;
@@ -268,6 +271,14 @@ const MovieSceneCreator = () => {
   const [movieLength, setMovieLength] = useState<string>('quick-reel');
   const [previewingVoiceFor, setPreviewingVoiceFor] = useState<string | null>(null);
   const [describingSceneFor, setDescribingSceneFor] = useState<{ sceneNumber: number; frame: 'start' | 'end' } | null>(null);
+  
+  // Location & Coverage System state
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [isExtractingLocations, setIsExtractingLocations] = useState(false);
+  const [sceneCoverages, setSceneCoverages] = useState<Map<number, SceneCoverage>>(new Map());
+  const [sceneBlockings, setSceneBlockings] = useState<Map<number, CharacterBlocking[]>>(new Map());
+  const [isGeneratingCoverage, setIsGeneratingCoverage] = useState(false);
+  
   const { toast } = useToast();
 
   // Helper to toggle twin selection
@@ -395,6 +406,194 @@ const MovieSceneCreator = () => {
       }
     } catch (error: any) {
       console.error('Auto-save failed:', error);
+    }
+  };
+
+  // Extract locations from outline using AI
+  const extractLocationsFromOutline = async () => {
+    if (!outline.trim()) {
+      toast({
+        title: "No Outline",
+        description: "Please generate an outline first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExtractingLocations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-locations', {
+        body: { outline }
+      });
+
+      if (error) throw error;
+
+      if (data?.locations && Array.isArray(data.locations)) {
+        setLocations(data.locations);
+        toast({
+          title: "Locations Extracted",
+          description: `Found ${data.locations.length} unique locations in your outline.`
+        });
+      }
+    } catch (error: any) {
+      console.error('Error extracting locations:', error);
+      toast({
+        title: "Extraction Failed",
+        description: error.message || "Failed to extract locations.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExtractingLocations(false);
+    }
+  };
+
+  // Get location reference for a scene based on its location name
+  const getLocationReferenceForScene = (scene: MovieScene): string | undefined => {
+    if (!scene.location || locations.length === 0) return undefined;
+    
+    // Try to match scene location to a defined location
+    const sceneLoc = scene.location.toLowerCase();
+    const matchedLocation = locations.find(loc => 
+      sceneLoc.includes(loc.name.toLowerCase()) || 
+      loc.name.toLowerCase().includes(sceneLoc.split(' ')[0])
+    );
+    
+    return matchedLocation?.referenceImage;
+  };
+
+  // Update scene coverage
+  const updateSceneCoverage = (coverage: SceneCoverage) => {
+    setSceneCoverages(prev => {
+      const newMap = new Map(prev);
+      newMap.set(coverage.sceneNumber, coverage);
+      return newMap;
+    });
+  };
+
+  // Update scene blocking
+  const updateSceneBlocking = (sceneNumber: number, blocking: CharacterBlocking[]) => {
+    setSceneBlockings(prev => {
+      const newMap = new Map(prev);
+      newMap.set(sceneNumber, blocking);
+      return newMap;
+    });
+  };
+
+  // Generate all coverage shots for a scene
+  const generateCoverageShots = async (coverage: SceneCoverage) => {
+    const selectedShots = coverage.shots.filter(s => s.selected);
+    if (selectedShots.length === 0) {
+      toast({
+        title: "No Shots Selected",
+        description: "Please select at least one shot to generate.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingCoverage(true);
+    const scene = scenes.find(s => s.sceneNumber === coverage.sceneNumber);
+    if (!scene) return;
+
+    const locationRef = coverage.locationId 
+      ? locations.find(l => l.id === coverage.locationId)?.referenceImage
+      : getLocationReferenceForScene(scene);
+
+    const blocking = sceneBlockings.get(coverage.sceneNumber) || [];
+
+    try {
+      // Generate each shot sequentially to avoid rate limits
+      for (let i = 0; i < selectedShots.length; i++) {
+        const shot = selectedShots[i];
+        
+        toast({
+          title: `Generating Shot ${i + 1}/${selectedShots.length}`,
+          description: shot.description
+        });
+
+        // Build shot-specific prompt
+        let shotPrompt = `${shot.description}. `;
+        
+        // Add character focus for character-specific shots
+        if (shot.characterFocus) {
+          const charBlocking = blocking.find(b => b.characterName === shot.characterFocus);
+          if (charBlocking) {
+            shotPrompt += `Character ${shot.characterFocus} positioned ${charBlocking.startPosition} of frame, facing ${charBlocking.facing}. `;
+          }
+        }
+
+        // Add shot type specific instructions
+        switch (shot.type) {
+          case 'establishing':
+            shotPrompt += `Wide establishing shot showing the entire location: ${scene.location}. ${scene.timeOfDay}. `;
+            break;
+          case 'two-shot':
+            shotPrompt += `Medium two-shot with both characters in frame. `;
+            break;
+          case 'close-up':
+            shotPrompt += `Tight close-up on face, emphasizing emotion. `;
+            break;
+          case 'over-shoulder':
+            shotPrompt += `Over-the-shoulder shot from ${shot.fromCharacter}'s perspective looking at ${shot.characterFocus}. `;
+            break;
+          case 'reaction':
+            shotPrompt += `Reaction shot capturing ${shot.characterFocus}'s emotional response. `;
+            break;
+        }
+
+        // Gather reference images
+        let referenceImages: string[] = [];
+        if (shot.characterFocus && storyBible?.characters) {
+          const char = storyBible.characters.find(c => c.name === shot.characterFocus);
+          if (char?.assignedTwinId) {
+            const twin = aiTwins.find(t => t.id === char.assignedTwinId);
+            if (twin?.reference_images) {
+              referenceImages = twin.reference_images;
+            }
+          }
+        }
+
+        const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+          body: {
+            prompt: shotPrompt + scene.description,
+            referenceImages,
+            locationReference: locationRef,
+            characterBlocking: blocking
+          }
+        });
+
+        if (error) {
+          console.error(`Error generating shot ${shot.id}:`, error);
+          continue;
+        }
+
+        // Update the shot with generated image
+        setSceneCoverages(prev => {
+          const newMap = new Map(prev);
+          const existingCoverage = newMap.get(coverage.sceneNumber);
+          if (existingCoverage) {
+            const updatedShots = existingCoverage.shots.map(s =>
+              s.id === shot.id ? { ...s, imageUrl: data.imageUrl } : s
+            );
+            newMap.set(coverage.sceneNumber, { ...existingCoverage, shots: updatedShots });
+          }
+          return newMap;
+        });
+      }
+
+      toast({
+        title: "Coverage Generated",
+        description: `Generated ${selectedShots.length} shots for Scene ${coverage.sceneNumber}.`
+      });
+    } catch (error: any) {
+      console.error('Error generating coverage:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate coverage shots.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingCoverage(false);
     }
   };
 
@@ -898,11 +1097,17 @@ const MovieSceneCreator = () => {
         characterDescription = selectedGalleryImage.prompt || undefined;
       }
 
+      // Get location reference and blocking for this scene
+      const locationReference = scene ? getLocationReferenceForScene(scene) : undefined;
+      const characterBlocking = sceneBlockings.get(sceneNumber) || [];
+
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
         body: { 
           prompt: enhancedPrompt,
           referenceImages,
-          characterDescription
+          characterDescription,
+          locationReference,
+          characterBlocking
         }
       });
 
@@ -3039,6 +3244,17 @@ const MovieSceneCreator = () => {
             </Card>
           )}
 
+          {/* Location Manager */}
+          {outline && (
+            <LocationManager
+              locations={locations}
+              onLocationsChange={setLocations}
+              outline={outline}
+              onExtractLocations={extractLocationsFromOutline}
+              isExtracting={isExtractingLocations}
+            />
+          )}
+
           {/* Generated Outline */}
           <Card>
             <CardHeader>
@@ -3198,44 +3414,89 @@ const MovieSceneCreator = () => {
 
             {/* Keyframe Scene Cards */}
             <div className="space-y-4">
-              {scenes.map((scene, index) => (
-                <KeyframeSceneCard
-                  key={scene.sceneNumber}
-                  scene={{
-                    ...scene,
-                    startFrame: scene.startFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
-                    endFrame: scene.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
-                    transitionAction: scene.transitionAction || '',
-                    transitionCameraMovement: scene.transitionCameraMovement || 'static',
-                    dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : 
-                              Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join('\n') : null
-                  } as MovieSceneWithKeyframes}
-                  sceneIndex={index}
-                  totalScenes={scenes.length}
-                  isGeneratingImage={generatingImageFor === scene.sceneNumber || 
-                    (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
-                  isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
-                  isDescribingScene={describingSceneFor?.sceneNumber === scene.sceneNumber}
-                  characterName={selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name}
-                  onUpdateScene={(sceneNum, updates) => {
-                    setScenes(prev => prev.map(s => 
-                      s.sceneNumber === sceneNum ? { ...s, ...updates } : s
-                    ));
-                  }}
-                  onUpdateKeyframe={updateKeyframe}
-                  onGenerateStartImage={(sceneNum) => generateKeyframeImage(sceneNum, 'start')}
-                  onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
-                  onGenerateVideo={generateLipSyncVideo}
-                  onGenerateTransitionVideo={generateTransitionVideo}
-                  onGenerateDialogue={generateDialogue}
-                  onDescribeScene={describeScene}
-                  onDescribeAndGenerate={describeAndGenerateScene}
-                  onDuplicate={duplicateScene}
-                  onDelete={deleteScene}
-                  onLinkToPreviousScene={linkToPreviousScene}
-                  previousSceneEndFrame={index > 0 ? scenes[index - 1]?.endFrame : undefined}
-                />
-              ))}
+              {scenes.map((scene, index) => {
+                // Get characters in this scene from story bible
+                const charactersInScene = storyBible?.sceneDialogueMap?.find(
+                  s => s.sceneNumber === scene.sceneNumber
+                )?.charactersPresent || 
+                (scene.charactersInScene || []);
+                
+                const sceneCoverage = sceneCoverages.get(scene.sceneNumber);
+                const sceneBlocking = sceneBlockings.get(scene.sceneNumber) || [];
+                
+                return (
+                  <div key={scene.sceneNumber} className="space-y-2">
+                    {/* Coverage & Blocking Controls */}
+                    {charactersInScene.length > 0 && (
+                      <div className="flex items-center gap-2 px-2">
+                        <span className="text-xs text-muted-foreground">Scene {scene.sceneNumber} tools:</span>
+                        <CoverageSelector
+                          sceneNumber={scene.sceneNumber}
+                          sceneTitle={scene.title}
+                          charactersInScene={charactersInScene}
+                          locationId={locations.find(l => 
+                            scene.location?.toLowerCase().includes(l.name.toLowerCase())
+                          )?.id}
+                          coverage={sceneCoverage}
+                          onCoverageChange={updateSceneCoverage}
+                          onGenerateCoverage={generateCoverageShots}
+                          isGenerating={isGeneratingCoverage}
+                        />
+                        <CharacterBlockingEditor
+                          sceneNumber={scene.sceneNumber}
+                          charactersInScene={charactersInScene}
+                          blocking={sceneBlocking}
+                          onBlockingChange={(blocking) => updateSceneBlocking(scene.sceneNumber, blocking)}
+                        />
+                        {locations.length > 0 && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {locations.find(l => 
+                              scene.location?.toLowerCase().includes(l.name.toLowerCase())
+                            )?.name || 'No location match'}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    
+                    <KeyframeSceneCard
+                      scene={{
+                        ...scene,
+                        startFrame: scene.startFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
+                        endFrame: scene.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
+                        transitionAction: scene.transitionAction || '',
+                        transitionCameraMovement: scene.transitionCameraMovement || 'static',
+                        dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : 
+                                  Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join('\n') : null
+                      } as MovieSceneWithKeyframes}
+                      sceneIndex={index}
+                      totalScenes={scenes.length}
+                      isGeneratingImage={generatingImageFor === scene.sceneNumber || 
+                        (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
+                      isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
+                      isDescribingScene={describingSceneFor?.sceneNumber === scene.sceneNumber}
+                      characterName={selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name}
+                      onUpdateScene={(sceneNum, updates) => {
+                        setScenes(prev => prev.map(s => 
+                          s.sceneNumber === sceneNum ? { ...s, ...updates } : s
+                        ));
+                      }}
+                      onUpdateKeyframe={updateKeyframe}
+                      onGenerateStartImage={(sceneNum) => generateKeyframeImage(sceneNum, 'start')}
+                      onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
+                      onGenerateVideo={generateLipSyncVideo}
+                      onGenerateTransitionVideo={generateTransitionVideo}
+                      onGenerateDialogue={generateDialogue}
+                      onDescribeScene={describeScene}
+                      onDescribeAndGenerate={describeAndGenerateScene}
+                      onDuplicate={duplicateScene}
+                      onDelete={deleteScene}
+                      onLinkToPreviousScene={linkToPreviousScene}
+                      previousSceneEndFrame={index > 0 ? scenes[index - 1]?.endFrame : undefined}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
