@@ -103,31 +103,62 @@ CRITICAL: Return ONLY valid JSON with this structure (no markdown):
   ]
 }`;
 
+    // Extract character names from the description to enforce strict matching
+    const extractCharacterNames = (desc: string): string[] => {
+      if (!desc) return [];
+      // Split by double newlines to get each character block
+      const blocks = desc.split(/\n\n+/);
+      const names: string[] = [];
+      for (const block of blocks) {
+        // Try to extract name from first line or "Name:" pattern
+        const nameMatch = block.match(/^([A-Z][a-zA-Z\s]+?)(?:\s*[-–—:]|\n)/);
+        if (nameMatch) {
+          names.push(nameMatch[1].trim());
+        }
+      }
+      return names;
+    };
+
     // Count how many characters were provided
     const providedCharacterCount = characterDescription 
       ? (characterDescription.match(/\n\n/g)?.length || 0) + 1 
       : 0;
     
+    const characterNames = extractCharacterNames(characterDescription || '');
+    const characterNamesList = characterNames.length > 0 ? characterNames.join(', ') : '';
+    
     const userPrompt = `Create a complete story bible for this movie concept:
 
 ${movieIdea}
 
-${characterDescription ? `\n\nPRIMARY CAST - USE EXACTLY THESE CHARACTERS (do NOT add any other characters unless absolutely necessary for the story):\n${characterDescription}` : ''}
+${characterDescription ? `
+=== MANDATORY CAST LIST - USE THESE EXACT CHARACTERS ONLY ===
+${characterDescription}
+=== END OF CAST LIST ===
+
+CRITICAL CASTING RULES:
+- The story MUST feature ONLY these ${providedCharacterCount} characters: ${characterNamesList}
+- DO NOT create any new characters
+- DO NOT add extras, supporting roles, or background characters
+- DO NOT invent family members, friends, colleagues, or any other people
+- If the story needs someone else mentioned, have the existing characters refer to them without showing them
+- The "characters" array in your JSON MUST contain EXACTLY ${providedCharacterCount} entries
+` : ''}
 
 Requirements:
 ${providedCharacterCount >= 2 
-  ? `- USE ONLY the ${providedCharacterCount} provided characters. Do NOT add additional supporting characters.
-- These are the ONLY characters in the story - no extras, no supporting roles.`
+  ? `- EXACTLY ${providedCharacterCount} characters in the story: ${characterNamesList}
+- NO additional characters whatsoever - this is a ${providedCharacterCount}-person story
+- Every scene features ONLY these ${providedCharacterCount} characters interacting`
   : providedCharacterCount === 1 
-    ? `- The provided character is the protagonist
-- Add 1-2 supporting characters ONLY if essential to the story`
+    ? `- The provided character is the sole protagonist
+- Add 1-2 supporting characters ONLY if absolutely essential`
     : `- Create 2-4 characters as needed for the story`}
 - Each character needs a SPECIFIC wardrobe that stays consistent throughout
 - Plan for 6-10 scenes with clear dialogue assignments
-- Create CONVERSATIONS between characters (back-and-forth dialogue)
-- Each scene should have distinct character interactions
+- Create CONVERSATIONS between the provided characters (back-and-forth dialogue)
+- Each scene should have distinct character interactions between the named characters only
 - Different characters should have clearly different speaking styles
-${providedCharacterCount >= 2 ? `- ALL scenes should feature interactions between the ${providedCharacterCount} provided characters` : ''}
 
 Return ONLY the JSON, no markdown.`;
 
