@@ -279,6 +279,11 @@ const MovieSceneCreator = () => {
   const [sceneBlockings, setSceneBlockings] = useState<Map<number, CharacterBlocking[]>>(new Map());
   const [isGeneratingCoverage, setIsGeneratingCoverage] = useState(false);
   
+  // One-click generation state
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [generateAllStep, setGenerateAllStep] = useState('');
+  const [generateAllProgress, setGenerateAllProgress] = useState(0);
+  
   const { toast } = useToast();
 
   // Helper to toggle twin selection
@@ -1079,6 +1084,242 @@ const MovieSceneCreator = () => {
       });
     } finally {
       setIsGeneratingScenes(false);
+    }
+  };
+
+  // One-click Generate All - chains story bible, outline, locations, scenes with dialogue, and first frame
+  const generateAll = async () => {
+    if (!movieIdea.trim()) {
+      toast({
+        title: "Movie Idea Required",
+        description: "Please describe your movie idea first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedTwins.length === 0) {
+      toast({
+        title: "Select AI Twins",
+        description: "Please select at least one AI Twin to star in your movie.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingAll(true);
+    setGenerateAllProgress(0);
+
+    try {
+      // Step 1: Generate Story Bible (10%)
+      setGenerateAllStep('Creating Story Bible...');
+      setGenerateAllProgress(5);
+
+      let characterDescription = selectedTwins.map(twin => {
+        const genderText = twin.gender ? `${twin.gender} ` : '';
+        return `${twin.name} (${genderText}character): ${twin.face_description || twin.description || 'No description'}`;
+      }).join('\n\n');
+
+      const { data: storyBibleData, error: storyBibleError } = await supabase.functions.invoke('generate-story-bible', {
+        body: { movieIdea, characterDescription }
+      });
+
+      if (storyBibleError) throw storyBibleError;
+
+      // Auto-assign voices from selected AI Twins
+      let storyBibleWithVoices = storyBibleData.storyBible;
+      if (storyBibleWithVoices.characters) {
+        storyBibleWithVoices = {
+          ...storyBibleWithVoices,
+          characters: storyBibleWithVoices.characters.map((char: any) => {
+            const matchingTwin = selectedTwins.find(
+              twin => twin.name.toLowerCase() === char.name.toLowerCase()
+            );
+            if (matchingTwin) {
+              return {
+                ...char,
+                assignedTwinId: matchingTwin.id,
+                assignedTwinName: matchingTwin.name,
+                assignedVoiceCloningKey: matchingTwin.voice_cloning_key || undefined
+              };
+            }
+            return char;
+          })
+        };
+      }
+      setStoryBible(storyBibleWithVoices);
+      setGenerateAllProgress(15);
+
+      // Step 2: Generate Outline (25%)
+      setGenerateAllStep('Generating Outline...');
+      
+      const pronounsDesc = selectedTwins.map(twin => {
+        const genderText = twin.gender ? `${twin.gender} ` : '';
+        const pronouns = twin.gender === 'female' ? 'she/her' : twin.gender === 'male' ? 'he/him' : 'they/them';
+        return `${twin.name} (${genderText}character, pronouns: ${pronouns}): ${twin.face_description || twin.description || 'No description'}`;
+      }).join('\n\n');
+
+      const { data: outlineData, error: outlineError } = await supabase.functions.invoke('generate-movie-outline', {
+        body: { movieIdea, characterDescription: pronounsDesc, movieLength }
+      });
+
+      if (outlineError) throw outlineError;
+      setOutline(outlineData.outline);
+      setGenerateAllProgress(30);
+
+      // Step 3: Extract Locations (35%)
+      setGenerateAllStep('Extracting Locations...');
+      
+      const { data: locationsData, error: locationsError } = await supabase.functions.invoke('extract-locations', {
+        body: { outline: outlineData.outline }
+      });
+
+      if (!locationsError && locationsData?.locations) {
+        setLocations(locationsData.locations);
+      }
+      setGenerateAllProgress(40);
+
+      // Step 4: Generate Scenes (55%)
+      setGenerateAllStep('Generating Scenes...');
+      
+      const { data: scenesData, error: scenesError } = await supabase.functions.invoke('generate-movie-scenes', {
+        body: { 
+          outline: outlineData.outline, 
+          characterDescription: pronounsDesc,
+          storyBible: storyBibleWithVoices,
+          movieLength
+        }
+      });
+
+      if (scenesError) throw scenesError;
+
+      const generatedScenes = (scenesData.scenes as MovieScene[]).map(scene => ({
+        ...scene,
+        selectedCameraAngle: scene.selectedCameraAngle || 'eye-level',
+        selectedLighting: scene.selectedLighting || 'natural',
+      }));
+      setGenerateAllProgress(55);
+
+      // Step 5: Generate Conversation Dialogue for each scene (75%)
+      setGenerateAllStep('Creating Dialogue...');
+      const characterNames = selectedTwins.map(t => t.name);
+      
+      const scenesWithDialogue = await Promise.all(
+        generatedScenes.map(async (scene, index) => {
+          try {
+            setGenerateAllProgress(55 + Math.floor((index / generatedScenes.length) * 20));
+            
+            // For 2+ characters, use conversation dialogue
+            if (selectedTwins.length >= 2) {
+              const { data: convData, error: convError } = await supabase.functions.invoke('generate-conversation-dialogue', {
+                body: {
+                  sceneDescription: scene.description,
+                  sceneTitle: scene.title,
+                  location: scene.location,
+                  timeOfDay: scene.timeOfDay,
+                  characterNames,
+                  tone: scene.mood || 'natural'
+                }
+              });
+
+              if (!convError && convData?.conversation) {
+                return {
+                  ...scene,
+                  dialogue: convData.conversation, // Array of {character, line}
+                  charactersInScene: characterNames
+                };
+              }
+            }
+
+            // Fallback: single character dialogue
+            const { data: dialogueData, error: dialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+              body: {
+                sceneDescription: scene.description,
+                sceneTitle: scene.title,
+                location: scene.location,
+                timeOfDay: scene.timeOfDay,
+                characterName: characterNames[0],
+                isMainCharacter: true
+              }
+            });
+
+            if (!dialogueError && dialogueData?.dialogue) {
+              return { ...scene, dialogue: dialogueData.dialogue };
+            }
+
+            return scene;
+          } catch (err) {
+            console.error(`Error generating dialogue for scene ${scene.sceneNumber}:`, err);
+            return scene;
+          }
+        })
+      );
+      
+      setScenes(scenesWithDialogue);
+      setGenerateAllProgress(75);
+
+      // Step 6: Generate first scene's start frame (90%)
+      if (scenesWithDialogue.length > 0) {
+        setGenerateAllStep('Generating First Frame...');
+        const firstScene = scenesWithDialogue[0];
+        
+        // Build prompt for first frame
+        let enhancedPrompt = firstScene.imagePrompt;
+        const referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
+        const charDescription = selectedTwins.map(twin => {
+          const genderText = twin.gender || 'person';
+          const faceDesc = twin.face_description || twin.description || '';
+          return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
+        }).join('\n\n');
+
+        try {
+          const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
+            body: { 
+              prompt: enhancedPrompt,
+              referenceImages,
+              characterDescription: charDescription
+            }
+          });
+
+          if (!imageError && imageData?.imageUrl) {
+            scenesWithDialogue[0] = {
+              ...scenesWithDialogue[0],
+              startFrame: {
+                imagePrompt: enhancedPrompt,
+                generatedImage: imageData.imageUrl,
+                position: 'center',
+                cameraAngle: 'eye-level'
+              }
+            };
+            setScenes([...scenesWithDialogue]);
+          }
+        } catch (frameError) {
+          console.error('Error generating first frame:', frameError);
+        }
+      }
+
+      setGenerateAllProgress(100);
+      setGenerateAllStep('Complete!');
+
+      toast({
+        title: "Movie Generated!",
+        description: `Created ${scenesWithDialogue.length} scenes with dialogue and first frame. Review and customize as needed.`,
+      });
+
+      // Auto-save
+      setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+
+    } catch (error: any) {
+      console.error('Error in generateAll:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate movie. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingAll(false);
+      setGenerateAllStep('');
+      setGenerateAllProgress(0);
     }
   };
 
@@ -3121,17 +3362,58 @@ const MovieSceneCreator = () => {
                 </p>
               </div>
 
+              {/* Generate All Button - One-Click Workflow */}
+              {selectedTwins.length >= 1 && (
+                <Button
+                  onClick={generateAll}
+                  disabled={isGeneratingAll || !movieIdea.trim()}
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                  size="lg"
+                >
+                  {isGeneratingAll ? (
+                    <div className="flex items-center gap-3 w-full">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <div className="flex-1 text-left">
+                        <p className="font-medium">{generateAllStep}</p>
+                        <Progress value={generateAllProgress} className="h-1.5 mt-1" />
+                      </div>
+                      <span className="text-sm">{generateAllProgress}%</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Wand2 className="w-5 h-5 mr-2" />
+                      Generate Complete Movie
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              {selectedTwins.length === 0 && (
+                <div className="p-3 bg-muted/50 rounded-lg border border-dashed text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Select AI Twins above to enable one-click movie generation
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground px-2">or step by step</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={generateStoryBible}
-                  disabled={isGeneratingStoryBible || !movieIdea.trim()}
+                  disabled={isGeneratingStoryBible || !movieIdea.trim() || isGeneratingAll}
                   variant="outline"
+                  size="sm"
                   className="w-full"
                 >
                   {isGeneratingStoryBible ? (
                     <>
                       <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                      Creating Story Bible...
+                      Story Bible...
                     </>
                   ) : (
                     <>
@@ -3142,13 +3424,15 @@ const MovieSceneCreator = () => {
                 </Button>
                 <Button
                   onClick={generateOutline}
-                  disabled={isGenerating || !movieIdea.trim()}
+                  disabled={isGenerating || !movieIdea.trim() || isGeneratingAll}
+                  variant="outline"
+                  size="sm"
                   className="w-full"
                 >
                   {isGenerating ? (
                     <>
                       <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                      Generating...
+                      Outline...
                     </>
                   ) : (
                     <>
