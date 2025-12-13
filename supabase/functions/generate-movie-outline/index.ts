@@ -103,18 +103,46 @@ serve(async (req) => {
       ? `\n\nIMPORTANT - MAIN CHARACTER(S): ${characterDescription}. Keep these characters consistent throughout ALL scenes - same appearance, clothing style, and characteristics.`
       : '';
 
-    const systemPrompt = `You are an expert screenwriter and story structure consultant. Your job is to take a movie idea and create a cohesive, complete story outline.
+    const systemPrompt = `You are an expert screenwriter, cinematographer, and story structure consultant. Your job is to take a movie idea and create a cohesive, complete story outline with detailed cinematography directions.
 
 ${lengthConfig.actStructure}
 
 TARGET: ${lengthConfig.sceneRange} scenes total, approximately ${lengthConfig.duration} runtime.
+
+CAMERA MOVEMENTS (use these in your outline):
+- Static: Camera remains fixed in position
+- Pan Left/Right: Camera rotates horizontally on axis
+- Tilt Up/Down: Camera rotates vertically on axis
+- Zoom In: Lens zooms closer to subject
+- Zoom Out: Lens zooms away from subject
+- Push In: Camera physically moves toward subject (dolly)
+- Pull Out: Camera physically moves away from subject
+- Crane Up: Camera rises vertically
+- Crane Down: Camera lowers vertically
+- Orbit: Camera circles around subject
+- Tracking: Camera follows subject movement laterally
+- Handheld: Slightly shaky, documentary feel
+- Steadicam: Smooth gliding motion following action
+
+TRANSITION/CUT TYPES (use these between scenes):
+- Hard Cut: Standard instant transition (most common)
+- Cross-Dissolve: Gradual blend between scenes (emotional moments, time passing)
+- Fade to Black: Scene fades out (end of chapter/act)
+- Fade from Black: Scene fades in (new chapter/act)
+- Whip Pan: Fast pan creating motion blur transition (energetic)
+- Match Cut: Visual elements align between scenes (artistic continuity)
+- Jump Cut: Jarring time skip within same scene (modern, stylized)
+- Smash Cut: Sudden dramatic shift (shock/contrast)
+- J-Cut: Audio from next scene starts before visual
+- L-Cut: Audio from current scene continues over next visual
 
 CRITICAL REQUIREMENTS:
 1. Every story MUST have a clear OPENING scene that establishes the world and character
 2. Every story MUST have a clear CLOSING scene that provides resolution and mirrors/callbacks to the opening
 3. The SAME main character(s) must appear consistently with the same description throughout
 4. Each scene must flow naturally into the next
-5. The story should feel COMPLETE and satisfying${characterContext}
+5. The story should feel COMPLETE and satisfying
+6. EVERY SCENE must include specific camera angles, movements, and transition to next scene${characterContext}
 
 Format your outline as follows:
 
@@ -137,15 +165,21 @@ Location: [Specific location]
 Time: [Day/Night/Golden Hour/etc.]
 Duration: 8-15 seconds
 
+Cinematography:
+- Start Frame: [Camera angle] - [Subject positioning, e.g., "Wide shot, character center frame"]
+- Camera Movement: [Movement during scene, e.g., "Slow push in toward subject"]
+- End Frame: [Camera angle] - [Final subject positioning, e.g., "Medium close-up on face"]
+- Transition: [Cut type to next scene, e.g., "Cross-dissolve"]
+
 Visual Description:
-[Detailed visual description including the main character (use the exact character description), setting, mood, camera angle. This establishes the world and the character's ordinary life or starting point.]
+[Detailed visual description including the main character (use the exact character description), setting, mood. Describe what happens during the camera movement. This establishes the world and the character's ordinary life or starting point.]
 
 Narration/Caption:
 "[Short, punchy narration text that hooks the viewer - 15-25 words max]"
 
 ---
 
-[Continue with all scenes, grouped by ACT]
+[Continue with all scenes, grouped by ACT, each with full Cinematography section]
 
 ---
 
@@ -155,6 +189,12 @@ Narration/Caption:
 Location: [Location that ideally mirrors or contrasts with opening]
 Time: [Time of day]
 Duration: 8-15 seconds
+
+Cinematography:
+- Start Frame: [Camera angle] - [Subject positioning]
+- Camera Movement: [Movement during scene]
+- End Frame: [Camera angle] - [Final subject positioning]
+- Transition: [Fade to Black for final scene]
 
 Visual Description:
 [Include the main character with consistent description. Show resolution, transformation, or callback to opening. This should feel like a satisfying ending.]
@@ -168,7 +208,12 @@ Narration/Caption:
 - Main character appears in every scene wearing: [specific clothing/style]
 - Color palette: [2-3 main colors]
 - Lighting style: [consistent lighting approach]
-- Camera style: [e.g., cinematic, handheld, steady]
+
+**CINEMATOGRAPHY NOTES:**
+- Primary camera movement style: [e.g., "Mostly slow push-ins and static shots with occasional orbits for emotional moments"]
+- Transition style: [e.g., "Cross-dissolves for emotional beats, hard cuts for action, fade to black between acts"]
+- Zoom usage: [When zooms are used and why, e.g., "Zoom-ins for reveals and tension, zoom-outs for establishing scale"]
+- Pacing: [How camera choices support story pacing]
 
 IMPORTANT RULES:
 - Keep narration SHORT (15-25 words per scene) - this is for video content
@@ -176,6 +221,7 @@ IMPORTANT RULES:
 - The main character description must be IDENTICAL in every scene
 - Opening and closing should have thematic connection
 - Story should feel COMPLETE - no cliffhangers
+- EVERY scene MUST have the full Cinematography section with Start Frame, Camera Movement, End Frame, and Transition
 - Generate EXACTLY ${lengthConfig.sceneRange} scenes to match the selected format`;
 
     console.log('Generating movie outline with Lovable AI...');
