@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { 
   Film, Copy, Trash2, ChevronDown, ChevronRight, Image, Play, 
   ArrowRight, Link, Camera, Lightbulb, Music, User, Wand2, 
-  Loader2, Video, Volume2, Expand, X
+  Loader2, Video, Volume2, Expand, X, MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -647,46 +647,85 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
             {/* Audio Tab */}
             {activeTab === 'audio' && (
               <div className="space-y-4">
-                {/* Main Character Dialogue */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <User className="w-4 h-4 text-primary" />
-                      {characterName || 'Main Character'} Dialogue
-                    </Label>
-                    <Button
-                      onClick={() => onGenerateDialogue(scene.sceneNumber)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Wand2 className="w-3 h-3 mr-1" />
-                      Generate
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={scene.dialogue || ''}
-                    onChange={(e) => onUpdateScene(scene.sceneNumber, { dialogue: e.target.value })}
-                    rows={3}
-                    className="resize-none italic"
-                    placeholder={`Enter what ${characterName || 'the main character'} will say...`}
-                  />
-                </div>
-
-                {/* Second Character Dialogue - always show when there are 2 characters */}
-                {(scene.otherCharacterDialogue !== undefined || secondCharacterName) && (
+                {/* Conversation-style dialogue (array format) */}
+                {Array.isArray(scene.dialogue) && scene.dialogue.length > 0 ? (
                   <div>
-                    <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
-                      <User className="w-4 h-4 text-orange-500" />
-                      {secondCharacterName || 'Other Character'} Dialogue
-                    </Label>
-                    <Textarea
-                      value={scene.otherCharacterDialogue || ''}
-                      onChange={(e) => onUpdateScene(scene.sceneNumber, { otherCharacterDialogue: e.target.value })}
-                      rows={3}
-                      className="resize-none italic"
-                      placeholder={`Enter what ${secondCharacterName || 'the other character'} will say...`}
-                    />
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-primary" />
+                        Conversation
+                      </Label>
+                      <Button
+                        onClick={() => onGenerateDialogue(scene.sceneNumber)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Wand2 className="w-3 h-3 mr-1" />
+                        Regenerate
+                      </Button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {scene.dialogue.map((entry: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`p-2 rounded-lg border ${
+                            idx % 2 === 0 
+                              ? 'bg-primary/5 border-primary/20 ml-0 mr-8' 
+                              : 'bg-orange-500/5 border-orange-500/20 ml-8 mr-0'
+                          }`}
+                        >
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">
+                            {entry.character}
+                          </p>
+                          <p className="text-sm italic">"{entry.line}"</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    {/* Main Character Dialogue (legacy string format) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <User className="w-4 h-4 text-primary" />
+                          {characterName || 'Main Character'} Dialogue
+                        </Label>
+                        <Button
+                          onClick={() => onGenerateDialogue(scene.sceneNumber)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Wand2 className="w-3 h-3 mr-1" />
+                          Generate
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={typeof scene.dialogue === 'string' ? scene.dialogue : ''}
+                        onChange={(e) => onUpdateScene(scene.sceneNumber, { dialogue: e.target.value })}
+                        rows={3}
+                        className="resize-none italic"
+                        placeholder={`Enter what ${characterName || 'the main character'} will say...`}
+                      />
+                    </div>
+
+                    {/* Second Character Dialogue - always show when there are 2 characters */}
+                    {(scene.otherCharacterDialogue !== undefined || secondCharacterName) && (
+                      <div>
+                        <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
+                          <User className="w-4 h-4 text-orange-500" />
+                          {secondCharacterName || 'Other Character'} Dialogue
+                        </Label>
+                        <Textarea
+                          value={scene.otherCharacterDialogue || ''}
+                          onChange={(e) => onUpdateScene(scene.sceneNumber, { otherCharacterDialogue: e.target.value })}
+                          rows={3}
+                          className="resize-none italic"
+                          placeholder={`Enter what ${secondCharacterName || 'the other character'} will say...`}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Music Suggestion */}
