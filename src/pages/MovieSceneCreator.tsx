@@ -800,12 +800,19 @@ const MovieSceneCreator = () => {
           return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}. ${generalDesc}`.trim();
         }).join('\n\n');
         
-        // Prepend character descriptions to the prompt for better likeness
+        // Build detailed character descriptions and collect reference images for AI Twins
         const charactersPrompt = selectedTwins.map(twin => {
           const genderText = twin.gender || 'person';
           const faceDesc = twin.face_description || twin.description || '';
           return `${twin.name}, a ${genderText} with these features: ${faceDesc}`;
         }).join('. Also featuring ');
+        
+        // Use all available reference images from selected AI Twins for strong likeness
+        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
+        if (referenceImages.length > 0) {
+          characterDescription = selectedTwins.map(twin => `${twin.name}: ${twin.description || twin.face_description || ''}`).join('\n');
+        }
+
         enhancedPrompt = `The characters are ${charactersPrompt}. Scene: ${enhancedPrompt}`;
       } else if (selectedCharacter?.reference_images?.length) {
         referenceImages = selectedCharacter.reference_images;
