@@ -2558,11 +2558,11 @@ const MovieSceneCreator = () => {
       
       console.log('Cinematic video prompt:', videoPrompt);
       
-      // Use keyframe-interpolation for the visual transition (start→end frame)
+      // Use VIDU start-end-to-video-q2-turbo for the visual transition (start→end frame)
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'keyframe-interpolation',
+          model: 'vidu-start-end',
           startFrameUrl: scene.startFrame.generatedImage,
           endFrameUrl: scene.endFrame.generatedImage,
           prompt: videoPrompt,
