@@ -593,10 +593,10 @@ const Reels = () => {
     
     setLoadingReels(true);
     try {
-      // Only fetch needed columns (exclude heavy scenes JSONB for list view)
+      // Fetch all columns including scenes for individual clips display
       const { data, error } = await supabase
         .from('reels')
-        .select('id, topic, video_url, thumbnail_url, total_duration, created_at')
+        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, scenes, caption_settings, audio_url')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -609,9 +609,11 @@ const Reels = () => {
         topic: item.topic,
         video_url: item.video_url,
         thumbnail_url: item.thumbnail_url,
-        scenes: [], // Load scenes on-demand when needed
+        audio_url: item.audio_url,
+        scenes: (item.scenes as unknown as GeneratedScene[]) || [],
         total_duration: item.total_duration ?? 0,
-        created_at: item.created_at
+        created_at: item.created_at,
+        caption_settings: item.caption_settings as SavedReel['caption_settings']
       }));
       
       setSavedReels(reels);
