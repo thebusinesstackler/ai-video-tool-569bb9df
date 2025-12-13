@@ -976,16 +976,30 @@ const MovieSceneCreator = () => {
         description: `Created ${generatedScenes.length} scenes. Generating dialogue...`,
       });
 
-      // Auto-generate dialogue for each scene
+      // Auto-generate dialogue for each scene with specific character assignments
       const scenesWithDialogue = await Promise.all(
         generatedScenes.map(async (scene) => {
           try {
+            // Get character names from story bible dialogue map or use selected twins
+            const sceneDialogueMap = storyBible?.sceneDialogueMap?.find(
+              (s: any) => s.sceneNumber === scene.sceneNumber
+            );
+            
+            // Determine which characters are in this scene
+            let charactersInScene: string[] = [];
+            if (sceneDialogueMap?.charactersPresent) {
+              charactersInScene = sceneDialogueMap.charactersPresent;
+            } else if (selectedTwins.length > 0) {
+              charactersInScene = selectedTwins.map(t => t.name);
+            } else if (characterName) {
+              charactersInScene = [characterName];
+            }
+
             const sceneContext = {
               sceneDescription: scene.description,
               sceneTitle: scene.title,
               location: scene.location,
               timeOfDay: scene.timeOfDay,
-              characterName,
               tone: scene.title.toLowerCase().includes('tension') || scene.title.toLowerCase().includes('conflict') 
                 ? 'dramatic' 
                 : scene.title.toLowerCase().includes('romance') || scene.title.toLowerCase().includes('love')
@@ -993,9 +1007,14 @@ const MovieSceneCreator = () => {
                   : 'natural'
             };
 
-            // Generate main character (AI Twin) dialogue
+            // If we have 2+ characters, generate dialogue for first character
+            const firstCharacter = charactersInScene[0];
             const { data: mainDialogueData, error: mainDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
-              body: { ...sceneContext, isMainCharacter: true }
+              body: { 
+                ...sceneContext, 
+                characterName: firstCharacter,
+                isMainCharacter: true 
+              }
             });
 
             if (mainDialogueError) {
@@ -1003,14 +1022,17 @@ const MovieSceneCreator = () => {
               return scene;
             }
 
-            // Check if scene involves multiple characters (look for keywords)
-            const hasOtherCharacters = /interact|conversation|talk|speak|meet|confront|argue|discuss|responds|replies|another|other person|companion|partner|friend|enemy|stranger/i.test(scene.description);
-            
+            // If we have a second character, generate their dialogue too
             let otherDialogue = null;
-            if (hasOtherCharacters && characterName) {
-              // Generate other character's dialogue
+            if (charactersInScene.length >= 2) {
+              const secondCharacter = charactersInScene[1];
               const { data: otherDialogueData, error: otherDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
-                body: { ...sceneContext, isMainCharacter: false }
+                body: { 
+                  ...sceneContext, 
+                  characterName: secondCharacter,
+                  otherCharacterName: firstCharacter,
+                  isMainCharacter: false 
+                }
               });
 
               if (!otherDialogueError && otherDialogueData?.dialogue) {
@@ -1033,7 +1055,7 @@ const MovieSceneCreator = () => {
       setScenes(scenesWithDialogue);
       toast({
         title: "Complete!",
-        description: `Generated ${generatedScenes.length} scenes with dialogue.`,
+        description: `Generated ${generatedScenes.length} scenes with dialogue for all characters.`,
       });
     } catch (error: any) {
       console.error('Error generating scenes:', error);
@@ -3500,7 +3522,8 @@ const MovieSceneCreator = () => {
                         (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
                       isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
                       isDescribingScene={describingSceneFor?.sceneNumber === scene.sceneNumber}
-                      characterName={selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name}
+                      characterName={selectedTwins.length > 0 ? selectedTwins[0]?.name : selectedCharacter?.name}
+                      secondCharacterName={selectedTwins.length > 1 ? selectedTwins[1]?.name : undefined}
                       onUpdateScene={(sceneNum, updates) => {
                         setScenes(prev => prev.map(s => 
                           s.sceneNumber === sceneNum ? { ...s, ...updates } : s
