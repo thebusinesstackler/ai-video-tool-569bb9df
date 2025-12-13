@@ -226,53 +226,86 @@ IMPORTANT RULES:
 
     console.log('Generating movie outline with Lovable AI...');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Create a cohesive ${movieLength.replace('-', ' ')} outline (${lengthConfig.sceneRange} scenes, ${lengthConfig.duration}) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout. Use proper 3-act structure.` }
-        ],
-      }),
+    const requestBody = JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Create a cohesive ${movieLength.replace('-', ' ')} outline (${lengthConfig.sceneRange} scenes, ${lengthConfig.duration}) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout. Use proper 3-act structure.` }
+      ],
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    // Retry logic for transient errors
+    const MAX_RETRIES = 3;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`AI Gateway attempt ${attempt}/${MAX_RETRIES}`);
+        
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: requestBody,
+        });
+
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'AI credits exhausted. Please add credits to your workspace.' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`AI Gateway error (attempt ${attempt}):`, response.status, errorText.substring(0, 200));
+          
+          // Retry on 5xx errors (transient)
+          if (response.status >= 500 && attempt < MAX_RETRIES) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          
+          throw new Error(`AI Gateway error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const outline = data.choices?.[0]?.message?.content;
+
+        if (!outline) {
+          throw new Error('No outline generated');
+        }
+
+        console.log('Movie outline generated successfully');
+
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ outline }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+        
+      } catch (fetchError: any) {
+        lastError = fetchError;
+        console.error(`Fetch error (attempt ${attempt}):`, fetchError.message);
+        
+        if (attempt < MAX_RETRIES) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
     }
-
-    const data = await response.json();
-    const outline = data.choices?.[0]?.message?.content;
-
-    if (!outline) {
-      throw new Error('No outline generated');
-    }
-
-    console.log('Movie outline generated successfully');
-
-    return new Response(
-      JSON.stringify({ outline }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    
+    throw lastError || new Error('Failed after retries');
   } catch (error: any) {
     console.error('Error in generate-movie-outline:', error);
     return new Response(
