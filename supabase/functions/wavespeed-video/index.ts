@@ -174,6 +174,7 @@ serve(async (req) => {
         }
       } else if (params.model === 'vidu-start-end') {
         // VIDU Start-End to Video Q2 Turbo model - optimized for start/end frame transitions
+        // Max duration is 8 seconds for this model
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/vidu/start-end-to-video-q2-turbo';
         
         if (!params.startFrameUrl) {
@@ -184,11 +185,15 @@ serve(async (req) => {
           throw new Error('End frame image is required for VIDU start-end model');
         }
 
+        // Clamp duration to max 8 seconds for VIDU model
+        const viduDuration = Math.min(duration, 8);
+        console.log(`VIDU start-end: requested duration ${duration}s, using ${viduDuration}s (max: 8)`);
+
         requestBody = {
           first_frame: params.startFrameUrl,
           last_frame: params.endFrameUrl,
           prompt: params.prompt || 'Smooth cinematic transition between scenes',
-          duration: duration
+          duration: viduDuration
         };
         
         console.log('Using VIDU start-end-to-video-q2-turbo for frame interpolation');
