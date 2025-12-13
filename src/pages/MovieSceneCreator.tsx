@@ -825,11 +825,36 @@ const MovieSceneCreator = () => {
 
       if (error) throw error;
 
-      setStoryBible(data.storyBible);
+      // Auto-assign voices from selected AI Twins to matching story bible characters
+      let storyBibleWithVoices = data.storyBible;
+      if (selectedTwins.length > 0 && storyBibleWithVoices.characters) {
+        storyBibleWithVoices = {
+          ...storyBibleWithVoices,
+          characters: storyBibleWithVoices.characters.map((char: any) => {
+            // Find matching twin by name (case-insensitive)
+            const matchingTwin = selectedTwins.find(
+              twin => twin.name.toLowerCase() === char.name.toLowerCase()
+            );
+            if (matchingTwin) {
+              return {
+                ...char,
+                assignedTwinId: matchingTwin.id,
+                assignedTwinName: matchingTwin.name,
+                assignedVoiceCloningKey: matchingTwin.voice_cloning_key || undefined
+              };
+            }
+            return char;
+          })
+        };
+      }
+
+      setStoryBible(storyBibleWithVoices);
       setShowStoryBibleEditor(true);
+      
+      const assignedCount = storyBibleWithVoices.characters?.filter((c: any) => c.assignedTwinId).length || 0;
       toast({
         title: "Story Bible Generated!",
-        description: `Created ${data.storyBible.characters?.length || 0} characters with wardrobes. Review and edit before generating scenes.`,
+        description: `Created ${storyBibleWithVoices.characters?.length || 0} characters${assignedCount > 0 ? ` (${assignedCount} with voices auto-assigned)` : ''}. Review and edit before generating scenes.`,
       });
     } catch (error: any) {
       console.error('Error generating story bible:', error);
