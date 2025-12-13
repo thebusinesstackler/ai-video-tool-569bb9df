@@ -173,9 +173,8 @@ serve(async (req) => {
           requestBody.image = params.imageUrls[0];
         }
       } else if (params.model === 'vidu-start-end') {
-        // VIDU Start-End to Video Q2 Turbo model - optimized for start/end frame transitions
-        // Max duration is 8 seconds for this model
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/vidu/start-end-to-video-q2-turbo';
+        // VIDU Start-End to Video 2.0 model - optimized for start/end frame transitions
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/vidu/start-end-to-video-2.0';
         
         if (!params.startFrameUrl) {
           throw new Error('Start frame image is required for VIDU start-end model');
@@ -185,18 +184,15 @@ serve(async (req) => {
           throw new Error('End frame image is required for VIDU start-end model');
         }
 
-        // Clamp duration to max 8 seconds for VIDU model
-        const viduDuration = Math.min(duration, 8);
-        console.log(`VIDU start-end: requested duration ${duration}s, using ${viduDuration}s (max: 8)`);
-
         requestBody = {
-          first_frame: params.startFrameUrl,
-          last_frame: params.endFrameUrl,
+          image: params.startFrameUrl,
+          last_image: params.endFrameUrl,
           prompt: params.prompt || 'Smooth cinematic transition between scenes',
-          duration: viduDuration
+          movement_amplitude: 'auto',
+          seed: -1
         };
         
-        console.log('Using VIDU start-end-to-video-q2-turbo for frame interpolation');
+        console.log('Using VIDU start-end-to-video-2.0 for frame interpolation');
       } else if (params.model === 'veo3') {
         // VEO3 model
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3';
