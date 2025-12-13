@@ -12,7 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, referenceImageUrl, referenceImages, characterDescription } = await req.json();
+    const { 
+      prompt, 
+      referenceImageUrl, 
+      referenceImages, 
+      characterDescription,
+      locationReference,  // New: Location reference image for background consistency
+      characterBlocking   // New: Character positioning info
+    } = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -34,35 +41,72 @@ serve(async (req) => {
     console.log('Generating image with prompt:', prompt);
     console.log('Reference images count:', allReferenceImages.length);
     console.log('Character description:', characterDescription || 'none');
+    console.log('Location reference:', locationReference ? 'provided' : 'none');
+    console.log('Character blocking:', characterBlocking ? JSON.stringify(characterBlocking) : 'none');
+
+    // Build blocking instructions if provided
+    let blockingInstructions = '';
+    if (characterBlocking && Array.isArray(characterBlocking) && characterBlocking.length > 0) {
+      blockingInstructions = '\n\nCHARACTER POSITIONING:\n' + characterBlocking.map((block: any) => 
+        `- ${block.characterName}: positioned ${block.startPosition} of frame, facing ${block.facing}${block.movement !== 'Stays stationary' ? `, ${block.movement}` : ''}`
+      ).join('\n');
+    }
 
     // Build the message content
     let messageContent: any;
     
-    if (allReferenceImages.length > 0) {
-      // Use multi-modal input with reference images for character consistency
-      // IMPORTANT: Don't ask to change the person's appearance - just place them in the scene as they are
-      const characterPrompt = `Generate a cinematic, photorealistic image for a movie scene. 
-
-REFERENCE PERSON: Use the person from the reference image(s) as the main subject. Keep their EXACT appearance - same face, same features, same look. Do NOT change their hair color, eye color, or any physical features.
-
-SCENE TO CREATE: ${prompt}
-
-Place the reference person naturally into this scene setting. Focus on lighting, composition, and atmosphere while preserving the person's authentic appearance from the reference images.`;
+    // Collect all images: character references + location reference
+    const allImages: string[] = [...allReferenceImages];
+    if (locationReference) {
+      allImages.push(locationReference);
+    }
+    
+    if (allImages.length > 0) {
+      // Use multi-modal input with reference images for character AND location consistency
+      let characterPrompt = `Generate a cinematic, photorealistic image for a movie scene.`;
       
-      // Build content array with all reference images
+      if (allReferenceImages.length > 0) {
+        characterPrompt += `
+
+REFERENCE PERSON(S): Use the person(s) from the first ${allReferenceImages.length} reference image(s) as the main subject(s). Keep their EXACT appearance - same face, same features, same look. Do NOT change their hair color, eye color, or any physical features.`;
+      }
+      
+      if (locationReference) {
+        characterPrompt += `
+
+LOCATION REFERENCE: Use the LAST reference image as the background/environment. Keep the same architectural style, colors, props, and lighting. The scene should feel like it's taking place in this exact location.`;
+      }
+      
+      characterPrompt += `
+
+SCENE TO CREATE: ${prompt}${blockingInstructions}
+
+Place the reference person(s) naturally into this scene setting. Focus on lighting, composition, and atmosphere while preserving the person's authentic appearance and the location's visual identity.`;
+      
+      // Build content array with all reference images (characters first, then location)
       messageContent = [
         { type: 'text', text: characterPrompt },
-        // Add all reference images (up to 4 for better consistency)
+        // Add character reference images (up to 4)
         ...allReferenceImages.slice(0, 4).map(imgUrl => ({
           type: 'image_url',
           image_url: { url: imgUrl }
-        }))
+        })),
+        // Add location reference if provided
+        ...(locationReference ? [{
+          type: 'image_url',
+          image_url: { url: locationReference }
+        }] : [])
       ];
     } else {
       // Text-only prompt - can use character description since there's no reference to conflict with
-      const enhancedPrompt = characterDescription 
+      let enhancedPrompt = characterDescription 
         ? `Generate a cinematic, photorealistic movie scene image. ${prompt}. The main character: ${characterDescription}`
         : `Generate a cinematic, photorealistic movie scene image. ${prompt}`;
+      
+      if (blockingInstructions) {
+        enhancedPrompt += blockingInstructions;
+      }
+      
       messageContent = enhancedPrompt;
     }
 

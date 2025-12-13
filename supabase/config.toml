@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.describe-scene]
 verify_jwt = false
+
+[functions.extract-locations]
+verify_jwt = false
