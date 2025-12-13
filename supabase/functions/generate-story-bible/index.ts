@@ -178,17 +178,44 @@ Return ONLY the JSON, no markdown.`;
       generatedContent = objectMatch[0];
     }
 
-    // Parse the story bible
+    // Parse the story bible with robust cleanup
     let storyBible;
     try {
       storyBible = JSON.parse(generatedContent);
     } catch (parseError) {
-      // Try cleanup
-      const cleaned = generatedContent
-        .replace(/^\uFEFF/, '')
-        .replace(/,\s*([\]}])/g, '$1')
+      console.log('Initial JSON parse failed, attempting cleanup...');
+      
+      // More aggressive cleanup for malformed JSON
+      let cleaned = generatedContent
+        .replace(/^\uFEFF/, '') // Remove BOM
+        .replace(/[\x00-\x1F\x7F]/g, (char: string) => {
+          // Replace control characters except for common whitespace
+          if (char === '\n' || char === '\r' || char === '\t') {
+            return ' '; // Replace newlines/tabs in strings with space
+          }
+          return '';
+        })
+        .replace(/,\s*([\]}])/g, '$1') // Remove trailing commas
+        .replace(/([^\\])\\([^"\\\/bfnrtu])/g, '$1\\\\$2') // Fix unescaped backslashes
         .trim();
-      storyBible = JSON.parse(cleaned);
+      
+      try {
+        storyBible = JSON.parse(cleaned);
+      } catch (secondError) {
+        console.log('Second parse attempt failed, trying more aggressive cleanup...');
+        
+        // Even more aggressive: just try to extract and reformat
+        // Remove all line breaks within strings by replacing them globally
+        cleaned = cleaned.replace(/\n/g, ' ').replace(/\r/g, ' ');
+        
+        try {
+          storyBible = JSON.parse(cleaned);
+        } catch (thirdError) {
+          console.error('All JSON parse attempts failed:', thirdError);
+          console.log('Raw content preview:', generatedContent.substring(0, 500));
+          throw new Error('Failed to parse AI response as JSON. The AI may have generated malformed content.');
+        }
+      }
     }
 
     // Validate structure
