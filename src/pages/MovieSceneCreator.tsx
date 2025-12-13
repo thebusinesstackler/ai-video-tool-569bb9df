@@ -980,17 +980,30 @@ const MovieSceneCreator = () => {
       const scenesWithDialogue = await Promise.all(
         generatedScenes.map(async (scene) => {
           try {
-            // Get character names from story bible dialogue map or use selected twins
+            // Get character names from story bible dialogue map
             const sceneDialogueMap = storyBible?.sceneDialogueMap?.find(
               (s: any) => s.sceneNumber === scene.sceneNumber
             );
             
-            // Determine which characters are in this scene
+            // Determine which characters are in this scene, prioritizing the selected AI Twins
             let charactersInScene: string[] = [];
-            if (sceneDialogueMap?.charactersPresent) {
+            if (selectedTwins.length > 0) {
+              const twinNames = selectedTwins.map(t => t.name);
+
+              if (sceneDialogueMap?.charactersPresent?.length) {
+                const presentSet = new Set(sceneDialogueMap.charactersPresent);
+                // Prefer twins that are actually marked as present in this scene
+                charactersInScene = twinNames.filter(name => presentSet.has(name));
+
+                // If none of the twins are explicitly listed, fall back to all selected twins
+                if (charactersInScene.length === 0) {
+                  charactersInScene = twinNames;
+                }
+              } else {
+                charactersInScene = twinNames;
+              }
+            } else if (sceneDialogueMap?.charactersPresent) {
               charactersInScene = sceneDialogueMap.charactersPresent;
-            } else if (selectedTwins.length > 0) {
-              charactersInScene = selectedTwins.map(t => t.name);
             } else if (characterName) {
               charactersInScene = [characterName];
             }
