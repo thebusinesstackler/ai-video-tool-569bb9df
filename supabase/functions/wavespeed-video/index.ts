@@ -13,7 +13,7 @@ interface WaveSpeedVideoParams {
   endFrameUrl?: string;
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -172,6 +172,26 @@ serve(async (req) => {
         if (params.imageUrls && params.imageUrls.length > 0) {
           requestBody.image = params.imageUrls[0];
         }
+      } else if (params.model === 'vidu-start-end') {
+        // VIDU Start-End to Video Q2 Turbo model - optimized for start/end frame transitions
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/vidu/start-end-to-video-q2-turbo';
+        
+        if (!params.startFrameUrl) {
+          throw new Error('Start frame image is required for VIDU start-end model');
+        }
+        
+        if (!params.endFrameUrl) {
+          throw new Error('End frame image is required for VIDU start-end model');
+        }
+
+        requestBody = {
+          first_frame: params.startFrameUrl,
+          last_frame: params.endFrameUrl,
+          prompt: params.prompt || 'Smooth cinematic transition between scenes',
+          duration: duration
+        };
+        
+        console.log('Using VIDU start-end-to-video-q2-turbo for frame interpolation');
       } else if (params.model === 'veo3') {
         // VEO3 model
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3';
