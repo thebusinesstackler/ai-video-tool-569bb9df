@@ -103,21 +103,31 @@ CRITICAL: Return ONLY valid JSON with this structure (no markdown):
   ]
 }`;
 
+    // Count how many characters were provided
+    const providedCharacterCount = characterDescription 
+      ? (characterDescription.match(/\n\n/g)?.length || 0) + 1 
+      : 0;
+    
     const userPrompt = `Create a complete story bible for this movie concept:
 
 ${movieIdea}
 
-${characterDescription ? `\n\nCharacter reference(s) - these are the main characters who MUST be included with these exact names and descriptions:\n${characterDescription}` : ''}
+${characterDescription ? `\n\nPRIMARY CAST - USE EXACTLY THESE CHARACTERS (do NOT add any other characters unless absolutely necessary for the story):\n${characterDescription}` : ''}
 
 Requirements:
-- Include ${characterDescription?.includes('\n\n') ? 'ALL the provided characters as main cast members' : 'the provided character (if any) as protagonist'}
-- Total cast: 2-4 characters (fill in supporting roles as needed)
+${providedCharacterCount >= 2 
+  ? `- USE ONLY the ${providedCharacterCount} provided characters. Do NOT add additional supporting characters.
+- These are the ONLY characters in the story - no extras, no supporting roles.`
+  : providedCharacterCount === 1 
+    ? `- The provided character is the protagonist
+- Add 1-2 supporting characters ONLY if essential to the story`
+    : `- Create 2-4 characters as needed for the story`}
 - Each character needs a SPECIFIC wardrobe that stays consistent throughout
 - Plan for 6-10 scenes with clear dialogue assignments
 - Create CONVERSATIONS between characters (back-and-forth dialogue)
 - Each scene should have distinct character interactions
 - Different characters should have clearly different speaking styles
-- If multiple main characters are provided, create scenes where they interact with each other
+${providedCharacterCount >= 2 ? `- ALL scenes should feature interactions between the ${providedCharacterCount} provided characters` : ''}
 
 Return ONLY the JSON, no markdown.`;
 
