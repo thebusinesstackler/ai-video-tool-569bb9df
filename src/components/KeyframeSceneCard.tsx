@@ -112,6 +112,7 @@ interface KeyframeSceneCardProps {
   isGeneratingVideo: boolean;
   isDescribingScene?: boolean;
   characterName?: string;
+  secondCharacterName?: string;
   onUpdateScene: (sceneNumber: number, updates: Partial<MovieSceneWithKeyframes>) => void;
   onUpdateKeyframe: (sceneNumber: number, frame: 'start' | 'end', updates: Partial<KeyframeData>) => void;
   onGenerateStartImage: (sceneNumber: number) => void;
@@ -135,6 +136,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   isGeneratingVideo,
   isDescribingScene,
   characterName,
+  secondCharacterName,
   onUpdateScene,
   onUpdateKeyframe,
   onGenerateStartImage,
@@ -152,6 +154,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<'keyframes' | 'audio' | 'settings'>('keyframes');
   const [viewingImage, setViewingImage] = useState<{ src: string; title: string } | null>(null);
+  const [viewingVideo, setViewingVideo] = useState<{ src: string; title: string } | null>(null);
 
   const canLinkToPrevious = sceneIndex > 0 && previousSceneEndFrame?.generatedImage;
 
@@ -552,30 +555,50 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                 </div>
                 
                 {/* Video Generation */}
-                <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                <div className="p-4 bg-muted/50 rounded-lg space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {scene.generatedVideo ? (
+                    <div className="flex items-center gap-2">
+                      <Video className="w-5 h-5 text-primary" />
+                      <span className="font-semibold">Scene Video</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {scene.generatedVideo ? 'Video generated' : 
+                       scene.startFrame?.generatedImage && scene.endFrame?.generatedImage 
+                         ? 'Ready for transition video' 
+                         : 'Generate frames first'}
+                    </p>
+                  </div>
+                  
+                  {/* Large Video Preview */}
+                  <div 
+                    className={cn(
+                      "aspect-video bg-muted rounded-lg overflow-hidden relative group",
+                      scene.generatedVideo && "cursor-pointer"
+                    )}
+                    onClick={() => scene.generatedVideo && setViewingVideo({ 
+                      src: scene.generatedVideo, 
+                      title: `Scene ${scene.sceneNumber} - ${scene.title}` 
+                    })}
+                  >
+                    {scene.generatedVideo ? (
+                      <>
                         <video 
                           src={scene.generatedVideo} 
-                          className="h-16 rounded"
+                          className="w-full h-full object-cover"
                           controls
+                          onClick={(e) => e.stopPropagation()}
                         />
-                      ) : (
-                        <div className="w-28 h-16 bg-muted rounded flex items-center justify-center">
-                          <Video className="w-6 h-6 text-muted-foreground/50" />
+                        <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Expand className="w-3 h-3" />
+                          Fullscreen
                         </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium">Scene Video</p>
-                        <p className="text-xs text-muted-foreground">
-                          {scene.generatedVideo ? 'Video generated' : 
-                           scene.startFrame?.generatedImage && scene.endFrame?.generatedImage 
-                             ? 'Ready for transition video' 
-                             : 'Generate frames first'}
-                        </p>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                        <Video className="w-12 h-12 mb-2" />
+                        <span className="text-sm">No video generated</span>
                       </div>
-                    </div>
+                    )}
                   </div>
                   
                   {/* Video Generation Options */}
@@ -649,19 +672,19 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                   />
                 </div>
 
-                {/* Other Character Dialogue */}
-                {scene.otherCharacterDialogue !== undefined && (
+                {/* Second Character Dialogue - always show when there are 2 characters */}
+                {(scene.otherCharacterDialogue !== undefined || secondCharacterName) && (
                   <div>
                     <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      Other Character Dialogue
+                      <User className="w-4 h-4 text-orange-500" />
+                      {secondCharacterName || 'Other Character'} Dialogue
                     </Label>
                     <Textarea
                       value={scene.otherCharacterDialogue || ''}
                       onChange={(e) => onUpdateScene(scene.sceneNumber, { otherCharacterDialogue: e.target.value })}
-                      rows={2}
-                      className="resize-none italic opacity-80"
-                      placeholder="Other character's lines..."
+                      rows={3}
+                      className="resize-none italic"
+                      placeholder={`Enter what ${secondCharacterName || 'the other character'} will say...`}
                     />
                   </div>
                 )}
@@ -772,6 +795,34 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
             )}
             <div className="p-4 border-t border-border">
               <p className="text-sm text-muted-foreground text-center">{viewingImage?.title}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Lightbox Dialog */}
+      <Dialog open={!!viewingVideo} onOpenChange={(open) => !open && setViewingVideo(null)}>
+        <DialogContent className="max-w-5xl p-0 overflow-hidden bg-background/95 backdrop-blur">
+          <DialogTitle className="sr-only">{viewingVideo?.title || 'Video Preview'}</DialogTitle>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
+              onClick={() => setViewingVideo(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            {viewingVideo && (
+              <video 
+                src={viewingVideo.src}
+                controls
+                autoPlay
+                className="w-full h-auto max-h-[80vh]"
+              />
+            )}
+            <div className="p-4 border-t border-border">
+              <p className="text-sm text-muted-foreground text-center">{viewingVideo?.title}</p>
             </div>
           </div>
         </DialogContent>
