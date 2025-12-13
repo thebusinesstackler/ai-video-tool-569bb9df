@@ -1629,80 +1629,134 @@ const MovieSceneCreator = () => {
 
     setGeneratingVideoFor(sceneNumber);
     try {
-      // STEP 1: Ensure we have dialogue for this scene
-      let dialogueText = '';
-      if (scene.dialogue) {
-        if (Array.isArray(scene.dialogue)) {
-          dialogueText = scene.dialogue.map(d => `${d.character}: ${d.line}`).join('\n');
-        } else {
-          dialogueText = scene.dialogue;
-        }
-      }
+      // STEP 1: Check if dialogue is conversation-style (array) or single narrator
+      const isConversationDialogue = Array.isArray(scene.dialogue) && scene.dialogue.length > 0;
       
-      // If no dialogue, generate it first
-      if (!dialogueText) {
-        const characterName = selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name;
-        
+      let audioContent: string | null = null;
+      let estimatedDuration = 5;
+
+      if (isConversationDialogue && scene.dialogue && Array.isArray(scene.dialogue)) {
+        // MULTI-VOICE: Generate separate audio for each character
         toast({
-          title: "Generating Dialogue",
-          description: `Creating dialogue for Scene ${sceneNumber}...`,
+          title: "Generating Multi-Voice Audio",
+          description: `Creating conversation audio for ${scene.dialogue.length} dialogue lines...`,
         });
 
-        const sceneContext = {
-          sceneDescription: scene.description,
-          sceneTitle: scene.title,
-          location: scene.location,
-          timeOfDay: scene.timeOfDay,
-          characterName,
-          tone: 'natural'
-        };
+        // Build voice assignments from story bible
+        const voiceAssignments: Array<{
+          characterName: string;
+          speechifyVoiceId?: string;
+          voiceCloningKey?: string;
+          defaultVoice?: string;
+        }> = [];
 
-        const { data: dialogueData, error: dialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
-          body: { ...sceneContext, isMainCharacter: true }
-        });
-
-        if (!dialogueError && dialogueData?.dialogue) {
-          dialogueText = dialogueData.dialogue;
-          // Update scene with generated dialogue
-          setScenes(prevScenes => 
-            prevScenes.map(s => 
-              s.sceneNumber === sceneNumber 
-                ? { ...s, dialogue: dialogueText }
-                : s
-            )
-          );
-        } else {
-          // Generate a simple default dialogue instead of using scene description
-          dialogueText = "This is my moment. I need to make it count.";
-        }
-      }
-      
-      // Clean dialogue text - remove stage directions before TTS
-      dialogueText = cleanDialogueForTTS(dialogueText);
-
-      // STEP 2: Determine voice to use (prefer cloned voice from AI Twin)
-      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string } | null = null;
-      
-      // Check story bible for voice assignments
-      if (storyBible?.characters) {
-        if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
-          const firstSpeaker = scene.dialogue[0].character;
-          const assignedChar = storyBible.characters.find(c => 
-            c.name.toLowerCase() === firstSpeaker.toLowerCase()
-          );
-          if (assignedChar?.assignedTwinId) {
-            // Find the AI Twin to get voice_cloning_key
-            const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
-            if (assignedTwin?.voice_cloning_key) {
-              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
-              voiceToUse = { 
-                name: assignedTwin.name,
-                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
-                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
-              };
+        if (storyBible?.characters) {
+          for (const char of storyBible.characters) {
+            if (char.assignedTwinId) {
+              const twin = aiTwins.find(t => t.id === char.assignedTwinId);
+              if (twin?.voice_cloning_key) {
+                const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+                voiceAssignments.push({
+                  characterName: char.name,
+                  speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
+                  voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined,
+                  defaultVoice: char.role === 'protagonist' ? 'en-US-Journey-D' : 'en-US-Journey-F'
+                });
+              }
             }
           }
-        } else {
+        }
+
+        // Also add selected twins as fallback assignments
+        for (const twin of selectedTwins) {
+          if (twin.voice_cloning_key && !voiceAssignments.find(v => v.characterName.toLowerCase() === twin.name.toLowerCase())) {
+            const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+            voiceAssignments.push({
+              characterName: twin.name,
+              speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
+              voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
+            });
+          }
+        }
+
+        console.log('Voice assignments for multi-voice TTS:', voiceAssignments);
+
+        // Call multi-voice TTS
+        const { data: multiVoiceData, error: multiVoiceError } = await supabase.functions.invoke('multi-voice-tts', {
+          body: {
+            dialogue: scene.dialogue,
+            voiceAssignments,
+            defaultVoice: 'en-US-Journey-D'
+          }
+        });
+
+        if (multiVoiceError) {
+          console.error('Multi-voice TTS error:', multiVoiceError);
+          throw new Error('Failed to generate multi-voice audio');
+        }
+
+        audioContent = multiVoiceData.audioContent;
+        
+        // Estimate duration based on total word count
+        const totalWords = scene.dialogue.reduce((acc, d) => acc + (d.line?.split(/\s+/).length || 0), 0);
+        estimatedDuration = Math.max(5, Math.min(30, Math.ceil(totalWords / 2.5)));
+        
+        console.log(`Multi-voice audio generated: ${multiVoiceData.lineCount} lines, ~${estimatedDuration}s`);
+        
+      } else {
+        // SINGLE VOICE: Generate audio for narrator/single character
+        let dialogueText = '';
+        if (scene.dialogue) {
+          if (Array.isArray(scene.dialogue)) {
+            dialogueText = scene.dialogue.map(d => d.line).join(' ');
+          } else {
+            dialogueText = scene.dialogue;
+          }
+        }
+        
+        // If no dialogue, generate it first
+        if (!dialogueText) {
+          const characterName = selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name;
+          
+          toast({
+            title: "Generating Dialogue",
+            description: `Creating dialogue for Scene ${sceneNumber}...`,
+          });
+
+          const sceneContext = {
+            sceneDescription: scene.description,
+            sceneTitle: scene.title,
+            location: scene.location,
+            timeOfDay: scene.timeOfDay,
+            characterName,
+            tone: 'natural'
+          };
+
+          const { data: dialogueData, error: dialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
+            body: { ...sceneContext, isMainCharacter: true }
+          });
+
+          if (!dialogueError && dialogueData?.dialogue) {
+            dialogueText = dialogueData.dialogue;
+            setScenes(prevScenes => 
+              prevScenes.map(s => 
+                s.sceneNumber === sceneNumber 
+                  ? { ...s, dialogue: dialogueText }
+                  : s
+              )
+            );
+          } else {
+            dialogueText = "This is my moment. I need to make it count.";
+          }
+        }
+        
+        // Clean dialogue text
+        dialogueText = cleanDialogueForTTS(dialogueText);
+
+        // Determine voice to use
+        let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string } | null = null;
+        
+        if (storyBible?.characters) {
           const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
           if (protagonist?.assignedTwinId) {
             const assignedTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
@@ -1716,58 +1770,54 @@ const MovieSceneCreator = () => {
             }
           }
         }
-      }
-      
-      // Fallback to selected twins for cloned voice
-      if (!voiceToUse) {
-        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
-        if (twinWithVoice?.voice_cloning_key) {
-          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
-          voiceToUse = { 
-            name: twinWithVoice.name, 
-            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
-            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
-          };
+        
+        if (!voiceToUse) {
+          const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
+          if (twinWithVoice?.voice_cloning_key) {
+            const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
+            voiceToUse = { 
+              name: twinWithVoice.name, 
+              speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
+              voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
+            };
+          }
         }
+        
+        toast({
+          title: voiceToUse ? `Using ${voiceToUse.name}'s Voice` : "Generating Audio",
+          description: "Creating voiceover for the scene...",
+        });
+
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+          body: { 
+            text: dialogueText, 
+            voice: 'en-US-Journey-D',
+            speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
+            voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
+          }
+        });
+
+        if (ttsError) throw ttsError;
+        audioContent = ttsData.audioContent;
+        
+        const wordCount = dialogueText.split(/\s+/).length;
+        estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5)));
       }
-      
-      toast({
-        title: voiceToUse ? `Using ${voiceToUse.name}'s Voice` : "Generating Audio",
-        description: voiceToUse 
-          ? `Creating voiceover with ${voiceToUse.name}'s cloned voice...`
-          : "Creating voiceover for the scene...",
-      });
 
-      // STEP 3: Generate TTS audio with cloned voice if available
-      console.log('TTS request with voice:', voiceToUse);
-      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { 
-          text: dialogueText, 
-          voice: 'en-US-Journey-D',
-          speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
-          voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
-        }
-      });
-
-      if (ttsError) throw ttsError;
-
-      // STEP 4: Calculate duration based on dialogue length (roughly 150 words per minute)
-      const wordCount = dialogueText.split(/\s+/).length;
-      const estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5))); // 2.5 words per second, min 5s, max 30s
-
+      // STEP 2: Generate the transition video with keyframe interpolation
       toast({
         title: "Generating Transition Video",
-        description: `Creating ${estimatedDuration}s video with lip-sync from start to end frame...`,
+        description: `Creating ${estimatedDuration}s video transitioning from start to end frame...`,
       });
 
-      // STEP 5: Use InfiniteTalk for lip-sync video with the audio
+      // Use keyframe-interpolation for the visual transition (start→end frame)
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'infinitetalk',
-          imageUrls: [scene.startFrame.generatedImage],
-          audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
-          prompt: scene.transitionAction || scene.description || 'Character speaking with natural expressions',
+          model: 'keyframe-interpolation',
+          startFrameUrl: scene.startFrame.generatedImage,
+          endFrameUrl: scene.endFrame.generatedImage,
+          prompt: scene.transitionAction || scene.description || 'Smooth cinematic transition',
           duration: estimatedDuration,
           aspectRatio: '16:9'
         }
@@ -1779,7 +1829,7 @@ const MovieSceneCreator = () => {
       setScenes(prevScenes => 
         prevScenes.map(s => 
           s.sceneNumber === sceneNumber 
-            ? { ...s, videoTaskId: videoData.taskId }
+            ? { ...s, videoTaskId: videoData.taskId, transitionAudioContent: audioContent }
             : s
         )
       );
@@ -1796,6 +1846,9 @@ const MovieSceneCreator = () => {
         if (statusError) throw statusError;
 
         if (statusData.status === 'completed' && statusData.videoUrl) {
+          // Video is ready - store the video URL
+          // Note: Audio merging with video would require additional processing
+          // For now, store both separately and the user can combine them if needed
           setScenes(prevScenes => 
             prevScenes.map(s => 
               s.sceneNumber === sceneNumber 
@@ -1807,7 +1860,7 @@ const MovieSceneCreator = () => {
           
           toast({
             title: "Transition Video Ready!",
-            description: `Scene ${sceneNumber} video with ${voiceToUse?.name || 'default'} voice is complete.`,
+            description: `Scene ${sceneNumber} keyframe transition video is complete.`,
           });
         } else if (statusData.status === 'failed') {
           throw new Error('Video generation failed');
