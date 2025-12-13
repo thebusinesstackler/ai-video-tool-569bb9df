@@ -80,3 +80,6 @@ verify_jwt = true
 
 [functions.upscale-image]
 verify_jwt = false
+
+[functions.describe-scene]
+verify_jwt = false
