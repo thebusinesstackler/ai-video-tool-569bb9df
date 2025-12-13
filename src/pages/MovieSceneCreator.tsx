@@ -119,7 +119,7 @@ interface StoryBibleCharacter {
   // Voice assignment - links to AI Twin
   assignedTwinId?: string;
   assignedTwinName?: string;
-  assignedVoiceUrl?: string;
+  assignedVoiceCloningKey?: string;
 }
 
 interface DialogueEntry {
@@ -2675,7 +2675,7 @@ const MovieSceneCreator = () => {
                                       ...updatedCharacters[idx],
                                       assignedTwinId: value === 'default' ? undefined : value,
                                       assignedTwinName: twin?.name,
-                                      assignedVoiceUrl: twin?.voice_sample_url || undefined
+                                      assignedVoiceCloningKey: twin?.voice_cloning_key || undefined
                                     };
                                     return { ...prev, characters: updatedCharacters };
                                   });
@@ -2691,7 +2691,7 @@ const MovieSceneCreator = () => {
                                       Default AI Voice
                                     </span>
                                   </SelectItem>
-                                  {aiTwins.filter(t => t.voice_sample_url).map(twin => (
+                                  {aiTwins.filter(t => t.voice_cloning_key).map(twin => (
                                     <SelectItem key={twin.id} value={twin.id}>
                                       <span className="flex items-center gap-2">
                                         {twin.reference_images?.[0] && (
