@@ -68,16 +68,21 @@ serve(async (req) => {
       if (params.model === 'keyframe-interpolation') {
         // Keyframe interpolation: create video transitioning from start frame to end frame
         // Using Kling 2.6 Pro image-to-video with tail_image support for interpolation
+        // IMPORTANT: Kling 2.6 Pro only accepts duration values of 5 or 10
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v2.6-pro/image-to-video';
         
         if (!params.startFrameUrl) {
           throw new Error('Start frame image is required for keyframe interpolation');
         }
 
+        // Clamp duration to allowed values: 5 or 10 only
+        const klingDuration = duration >= 8 ? 10 : 5;
+        console.log(`Keyframe interpolation: requested duration ${duration}s, using ${klingDuration}s (allowed: 5 or 10)`);
+
         requestBody = {
           image: params.startFrameUrl,
           prompt: params.prompt || 'Smooth transition between scenes',
-          duration: duration,
+          duration: klingDuration,
           aspect_ratio: params.aspectRatio || '16:9'
         };
 
