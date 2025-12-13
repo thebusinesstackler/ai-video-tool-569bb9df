@@ -15,7 +15,7 @@ import { Sparkles, Film, ChevronRight, Save, FolderOpen, Trash2, Video, Copy, St
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { stitchVideos } from '@/lib/videoStitch';
+import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { PeteAIAssistant } from '@/components/PeteAIAssistant';
 import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEMENTS } from '@/components/KeyframeSceneCard';
 import { SceneTimeline } from '@/components/SceneTimeline';
@@ -849,11 +849,30 @@ const MovieSceneCreator = () => {
       let referenceImages: string[] = [];
       let characterDescription: string | undefined;
       
-      if (selectedTwins.length > 0) {
-        // Use ALL reference images from all AI Twins for better consistency
-        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
+      // Fix #3: Gather reference images from AI Twins assigned in Story Bible
+      const storyBibleTwinIds = new Set<string>();
+      if (storyBible?.characters) {
+        for (const char of storyBible.characters) {
+          if (char.assignedTwinId) {
+            storyBibleTwinIds.add(char.assignedTwinId);
+          }
+        }
+      }
+      
+      // Combine selected twins with story bible assigned twins
+      const allRelevantTwins = [...selectedTwins];
+      for (const twinId of storyBibleTwinIds) {
+        if (!allRelevantTwins.find(t => t.id === twinId)) {
+          const twin = aiTwins.find(t => t.id === twinId);
+          if (twin) allRelevantTwins.push(twin);
+        }
+      }
+      
+      if (allRelevantTwins.length > 0) {
+        // Use ALL reference images from all relevant AI Twins for better consistency
+        referenceImages = allRelevantTwins.flatMap(twin => twin.reference_images || []);
         // Build comprehensive character description including all physical details
-        characterDescription = selectedTwins.map(twin => {
+        characterDescription = allRelevantTwins.map(twin => {
           const genderText = twin.gender ? `${twin.gender}` : 'person';
           const faceDesc = twin.face_description || '';
           const generalDesc = twin.description || '';
@@ -861,17 +880,11 @@ const MovieSceneCreator = () => {
         }).join('\n\n');
         
         // Build detailed character descriptions and collect reference images for AI Twins
-        const charactersPrompt = selectedTwins.map(twin => {
+        const charactersPrompt = allRelevantTwins.map(twin => {
           const genderText = twin.gender || 'person';
           const faceDesc = twin.face_description || twin.description || '';
           return `${twin.name}, a ${genderText} with these features: ${faceDesc}`;
         }).join('. Also featuring ');
-        
-        // Use all available reference images from selected AI Twins for strong likeness
-        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
-        if (referenceImages.length > 0) {
-          characterDescription = selectedTwins.map(twin => `${twin.name}: ${twin.description || twin.face_description || ''}`).join('\n');
-        }
 
         enhancedPrompt = `The characters are ${charactersPrompt}. Scene: ${enhancedPrompt}`;
       } else if (selectedCharacter?.reference_images?.length) {
@@ -1886,6 +1899,26 @@ const MovieSceneCreator = () => {
         description: `Creating ${estimatedDuration}s video transitioning from start to end frame...`,
       });
 
+      // Fix #4: Build enhanced prompt with camera movement from scene
+      let videoPrompt = scene.transitionAction || scene.description || 'Smooth cinematic transition';
+      
+      // Add camera movement instructions if specified
+      if (scene.transitionCameraMovement) {
+        const movementDescriptions: Record<string, string> = {
+          'static': 'Camera remains still and steady',
+          'tracking': 'Camera follows the subject horizontally across the frame',
+          'push-in': 'Camera moves forward toward the subject, dolly in',
+          'pull-out': 'Camera moves backward away from the subject, dolly out',
+          'pan': 'Camera rotates horizontally to follow action',
+          'tilt': 'Camera rotates vertically',
+          'crane-up': 'Camera rises upward',
+          'crane-down': 'Camera descends downward',
+          'orbit': 'Camera circles around the subject'
+        };
+        const movementDesc = movementDescriptions[scene.transitionCameraMovement] || scene.transitionCameraMovement;
+        videoPrompt = `${videoPrompt}. Camera movement: ${movementDesc}`;
+      }
+      
       // Use keyframe-interpolation for the visual transition (start→end frame)
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
@@ -1893,7 +1926,7 @@ const MovieSceneCreator = () => {
           model: 'keyframe-interpolation',
           startFrameUrl: scene.startFrame.generatedImage,
           endFrameUrl: scene.endFrame.generatedImage,
-          prompt: scene.transitionAction || scene.description || 'Smooth cinematic transition',
+          prompt: videoPrompt,
           duration: estimatedDuration,
           aspectRatio: '16:9'
         }
@@ -2065,6 +2098,8 @@ const MovieSceneCreator = () => {
       setOutline(data.outline || '');
       setScenes((data.scenes as any) || []); // Cast from Json to MovieScene[]
       setStitchedVideoUrl((data as any).stitched_video_url || null);
+      // Fix #2: Load story bible from saved project
+      setStoryBible((data as any).story_bible || null);
 
       setIsLoadDialogOpen(false);
       toast({
@@ -2131,9 +2166,15 @@ const MovieSceneCreator = () => {
 
   const stitchAllVideos = async () => {
     // Check if all scenes have generated videos
-    const videosToStitch = scenes
-      .filter(scene => scene.generatedVideo)
-      .map(scene => scene.generatedVideo as string);
+    // Collect videos and their corresponding audio
+    const scenesWithVideos = scenes.filter(scene => scene.generatedVideo);
+    const videosToStitch = scenesWithVideos.map(scene => scene.generatedVideo as string);
+    
+    // Fix #1: Collect audio for each scene (transitionAudioContent is base64)
+    const audiosToStitch = scenesWithVideos
+      .map(scene => (scene as any).transitionAudioContent)
+      .filter(Boolean)
+      .map(audioBase64 => `data:audio/mp3;base64,${audioBase64}`);
 
     if (videosToStitch.length === 0) {
       toast({
@@ -2157,12 +2198,16 @@ const MovieSceneCreator = () => {
     try {
       toast({
         title: "Stitching Videos",
-        description: "Combining all scene videos into a complete movie. This may take a few minutes...",
+        description: `Combining ${videosToStitch.length} scene videos${audiosToStitch.length > 0 ? ` with ${audiosToStitch.length} audio tracks` : ''}. This may take a few minutes...`,
       });
 
-      // Stitch videos using FFmpeg
-      const stitchedBlob = await stitchVideos(videosToStitch, (progress) => {
-        setStitchProgress(progress);
+      // Fix #1: Stitch videos WITH audio using the enhanced function
+      const stitchedBlob = await stitchVideosWithAudio({
+        videoUrls: videosToStitch,
+        audioUrls: audiosToStitch.length > 0 ? audiosToStitch : undefined,
+        onProgress: (progress) => {
+          setStitchProgress(progress);
+        }
       });
 
       // Create a URL for the stitched video

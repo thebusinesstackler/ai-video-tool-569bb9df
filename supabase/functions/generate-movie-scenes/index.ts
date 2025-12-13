@@ -50,6 +50,30 @@ serve(async (req) => {
       characterContext = `\n\nCRITICAL - MAIN CHARACTER (must appear in EVERY scene with this EXACT description): ${characterDescription}. Use this exact appearance description in every imagePrompt to maintain character consistency.`;
     }
 
+    // Fix #5: Parse cinematography from outline if present
+    let cinematographyContext = '';
+    
+    // Check for cinematography section in outline
+    const cinematographyMatch = outline.match(/CINEMATOGRAPHY NOTES[:\s]*([\s\S]*?)(?=\n\n[A-Z]|\n---|\n##|$)/i);
+    if (cinematographyMatch) {
+      cinematographyContext = `\n\nCINEMATOGRAPHY FROM OUTLINE (MUST FOLLOW):\n${cinematographyMatch[1].trim()}`;
+    }
+    
+    // Parse per-scene cinematography from outline (format: "Scene X: ... Cinematography: ...")
+    const scenesCinematography: Record<number, string> = {};
+    const sceneCinematographyRegex = /Scene\s+(\d+)[^]*?(?:Cinematography|Camera)[:\s]*([^\n]+(?:\n\s+-[^\n]+)*)/gi;
+    let match;
+    while ((match = sceneCinematographyRegex.exec(outline)) !== null) {
+      scenesCinematography[parseInt(match[1])] = match[2].trim();
+    }
+    
+    if (Object.keys(scenesCinematography).length > 0) {
+      cinematographyContext += '\n\nPER-SCENE CINEMATOGRAPHY INSTRUCTIONS:\n' +
+        Object.entries(scenesCinematography)
+          .map(([num, cine]) => `Scene ${num}: ${cine}`)
+          .join('\n');
+    }
+
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
       console.error('LOVABLE_API_KEY not found');
@@ -68,12 +92,13 @@ serve(async (req) => {
     };
     const targetSceneCount = sceneCountMap[movieLength] || '8-12';
     
-    console.log(`Generating ${movieLength} scenes (${targetSceneCount}) from outline with story bible:`, !!storyBible);
+    console.log(`Generating ${movieLength} scenes (${targetSceneCount}) from outline with story bible:`, !!storyBible, 'cinematography parsed:', !!cinematographyContext);
 
 const systemPrompt = `You are an expert screenwriter and cinematographer specializing in creating immersive audiovisual experiences with KEYFRAME-BASED scene design. Your task is to break down a movie outline into detailed, cinematic scenes where each scene has a START FRAME and END FRAME for video generation.
 ${characterContext}
 ${wardrobeContext ? `\n\nWARDROBE CONSISTENCY (MUST be included in EVERY image prompt):\n${wardrobeContext}` : ''}
 ${dialogueMapContext}
+${cinematographyContext}
 
 For each scene, you must provide:
 1. Scene number and title
