@@ -350,6 +350,54 @@ const MovieSceneCreator = () => {
     }
   }, [location.state]);
 
+  // Auto-save function - saves project silently without showing dialogs
+  const autoSaveProject = async (updatedScenes?: MovieScene[]) => {
+    if (!userId) return;
+    if (!movieIdea.trim() && !outline && scenes.length === 0) return;
+    
+    try {
+      const scenesToSave = updatedScenes || scenes;
+      const title = projectTitle || `Movie: ${movieIdea.slice(0, 50)}...`;
+      
+      const projectData = {
+        user_id: userId,
+        title,
+        movie_idea: movieIdea,
+        outline: outline,
+        scenes: scenesToSave as any,
+        story_bible: storyBible as any,
+        updated_at: new Date().toISOString()
+      };
+
+      if (currentProjectId) {
+        // Update existing project
+        const { error } = await supabase
+          .from('movie_projects')
+          .update(projectData)
+          .eq('id', currentProjectId);
+
+        if (error) throw error;
+        console.log('Project auto-saved (updated)');
+      } else if (scenesToSave.length > 0 || outline) {
+        // Create new project only if we have content
+        const { data, error } = await supabase
+          .from('movie_projects')
+          .insert([projectData])
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setCurrentProjectId(data.id);
+          setProjectTitle(title);
+          console.log('Project auto-saved (created):', data.id);
+        }
+      }
+    } catch (error: any) {
+      console.error('Auto-save failed:', error);
+    }
+  };
+
   // Handle movie idea from Pete AI
   const handleMovieIdeaCaptured = (idea: string) => {
     setMovieIdea(idea);
@@ -461,6 +509,18 @@ const MovieSceneCreator = () => {
       loadGalleryImages();
     }
   }, [userId]);
+
+  // Periodic auto-save every 60 seconds when there's unsaved content
+  useEffect(() => {
+    if (!userId) return;
+    if (!scenes.length && !outline) return;
+
+    const interval = setInterval(() => {
+      autoSaveProject();
+    }, 60000); // Auto-save every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [userId, scenes, outline, currentProjectId, movieIdea, projectTitle, storyBible]);
 
   const loadCharacters = async () => {
     if (!userId) return;
@@ -836,13 +896,16 @@ const MovieSceneCreator = () => {
       if (error) throw error;
 
       // Update the scene with the generated image
-      setScenes(prevScenes => 
-        prevScenes.map(scene => 
+      setScenes(prevScenes => {
+        const updated = prevScenes.map(scene => 
           scene.sceneNumber === sceneNumber 
             ? { ...scene, generatedImage: data.imageUrl }
             : scene
-        )
-      );
+        );
+        // Auto-save after image generation
+        setTimeout(() => autoSaveProject(updated), 500);
+        return updated;
+      });
 
       toast({
         title: "Image Generated!",
@@ -1125,6 +1188,9 @@ const MovieSceneCreator = () => {
         }
       }
 
+      // Auto-save after generating frame image
+      setTimeout(() => autoSaveProject(), 500);
+
       toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame generated!` });
     } catch (error: any) {
       toast({ title: "Generation failed", description: error.message, variant: "destructive" });
@@ -1261,6 +1327,9 @@ const MovieSceneCreator = () => {
           });
         }
       }
+
+      // Auto-save after generating frame image
+      setTimeout(() => autoSaveProject(), 500);
 
       toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame auto-generated!` });
     } catch (error: any) {
@@ -1856,13 +1925,16 @@ const MovieSceneCreator = () => {
           // Video is ready - store the video URL
           // Note: Audio merging with video would require additional processing
           // For now, store both separately and the user can combine them if needed
-          setScenes(prevScenes => 
-            prevScenes.map(s => 
+          setScenes(prevScenes => {
+            const updated = prevScenes.map(s => 
               s.sceneNumber === sceneNumber 
                 ? { ...s, generatedVideo: statusData.videoUrl }
                 : s
-            )
-          );
+            );
+            // Auto-save after video generation
+            setTimeout(() => autoSaveProject(updated), 500);
+            return updated;
+          });
           setGeneratingVideoFor(null);
           
           toast({
