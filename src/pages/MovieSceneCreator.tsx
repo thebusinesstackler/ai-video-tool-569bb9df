@@ -267,6 +267,7 @@ const MovieSceneCreator = () => {
   const [characterSourceTab, setCharacterSourceTab] = useState<'twins' | 'characters' | 'gallery'>('twins');
   const [movieLength, setMovieLength] = useState<string>('quick-reel');
   const [previewingVoiceFor, setPreviewingVoiceFor] = useState<string | null>(null);
+  const [describingSceneFor, setDescribingSceneFor] = useState<{ sceneNumber: number; frame: 'start' | 'end' } | null>(null);
   const { toast } = useToast();
 
   // Helper to toggle twin selection
@@ -1121,6 +1122,144 @@ const MovieSceneCreator = () => {
     } catch (error: any) {
       toast({ title: "Generation failed", description: error.message, variant: "destructive" });
     } finally {
+      setGeneratingFrameFor(null);
+    }
+  };
+
+  // Describe scene using AI to generate image prompt
+  const describeScene = async (sceneNumber: number, frame: 'start' | 'end') => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!scene) return;
+
+    setDescribingSceneFor({ sceneNumber, frame });
+    try {
+      const characterDescription = selectedTwins.length > 0 
+        ? selectedTwins.map(twin => `${twin.name}: ${twin.face_description || twin.description || ''}`).join('\n\n')
+        : selectedCharacter?.description || undefined;
+
+      const frameData = frame === 'start' ? scene.startFrame : scene.endFrame;
+
+      const { data, error } = await supabase.functions.invoke('describe-scene', {
+        body: {
+          sceneTitle: scene.title,
+          location: scene.location,
+          timeOfDay: scene.timeOfDay,
+          dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : 
+                    Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join(' ') : null,
+          transitionAction: scene.transitionAction,
+          characterDescription,
+          cameraAngle: frameData?.cameraAngle || 'eye-level',
+          position: frameData?.position,
+          frameType: frame,
+          mood: scene.mood,
+          lighting: scene.selectedLighting
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.imagePrompt) {
+        updateKeyframe(sceneNumber, frame, { imagePrompt: data.imagePrompt });
+        toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame described!` });
+      }
+    } catch (error: any) {
+      toast({ title: "Description failed", description: error.message, variant: "destructive" });
+    } finally {
+      setDescribingSceneFor(null);
+    }
+  };
+
+  // Describe scene and then generate image
+  const describeAndGenerateScene = async (sceneNumber: number, frame: 'start' | 'end') => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!scene) return;
+
+    setDescribingSceneFor({ sceneNumber, frame });
+    try {
+      const characterDescription = selectedTwins.length > 0 
+        ? selectedTwins.map(twin => `${twin.name}: ${twin.face_description || twin.description || ''}`).join('\n\n')
+        : selectedCharacter?.description || undefined;
+
+      const frameData = frame === 'start' ? scene.startFrame : scene.endFrame;
+
+      // Step 1: Describe the scene
+      const { data: describeData, error: describeError } = await supabase.functions.invoke('describe-scene', {
+        body: {
+          sceneTitle: scene.title,
+          location: scene.location,
+          timeOfDay: scene.timeOfDay,
+          dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : 
+                    Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join(' ') : null,
+          transitionAction: scene.transitionAction,
+          characterDescription,
+          cameraAngle: frameData?.cameraAngle || 'eye-level',
+          position: frameData?.position,
+          frameType: frame,
+          mood: scene.mood,
+          lighting: scene.selectedLighting
+        }
+      });
+
+      if (describeError) throw describeError;
+
+      if (!describeData?.imagePrompt) {
+        throw new Error('No description generated');
+      }
+
+      // Update the prompt
+      updateKeyframe(sceneNumber, frame, { imagePrompt: describeData.imagePrompt });
+      setDescribingSceneFor(null);
+
+      // Step 2: Generate the image
+      setGeneratingFrameFor({ sceneNumber, frame });
+
+      let referenceImages: string[] = [];
+      if (selectedTwins.length > 0) {
+        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
+      }
+
+      const enhancedPrompt = `${describeData.imagePrompt}. Camera: ${frameData?.cameraAngle || 'eye-level'}. Position: ${frameData?.position || ''}`;
+
+      const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt: enhancedPrompt, referenceImages, characterDescription }
+      });
+
+      if (imageError) throw imageError;
+
+      // Convert base64 to storage URL
+      let imageUrl = imageData.imageUrl;
+      if (imageUrl && imageUrl.startsWith('data:')) {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user?.id) {
+            const storageUrl = await convertBase64ToStorageUrl(imageUrl, userData.user.id, 'reels');
+            if (storageUrl && !storageUrl.startsWith('data:')) {
+              imageUrl = storageUrl;
+            }
+          }
+        } catch (uploadErr) {
+          console.warn('Failed to upload to storage, using base64:', uploadErr);
+        }
+      }
+
+      updateKeyframe(sceneNumber, frame, { generatedImage: imageUrl });
+
+      // Auto-link to next scene if applicable
+      if (frame === 'end' && autoLinkScenes) {
+        const nextScene = scenes.find(s => s.sceneNumber === sceneNumber + 1);
+        if (nextScene) {
+          updateKeyframe(sceneNumber + 1, 'start', { 
+            generatedImage: imageUrl,
+            imagePrompt: describeData.imagePrompt 
+          });
+        }
+      }
+
+      toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame auto-generated!` });
+    } catch (error: any) {
+      toast({ title: "Auto-generate failed", description: error.message, variant: "destructive" });
+    } finally {
+      setDescribingSceneFor(null);
       setGeneratingFrameFor(null);
     }
   };
@@ -2899,6 +3038,7 @@ const MovieSceneCreator = () => {
                   isGeneratingImage={generatingImageFor === scene.sceneNumber || 
                     (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
                   isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
+                  isDescribingScene={describingSceneFor?.sceneNumber === scene.sceneNumber}
                   characterName={selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name}
                   onUpdateScene={(sceneNum, updates) => {
                     setScenes(prev => prev.map(s => 
@@ -2911,6 +3051,8 @@ const MovieSceneCreator = () => {
                   onGenerateVideo={generateLipSyncVideo}
                   onGenerateTransitionVideo={generateTransitionVideo}
                   onGenerateDialogue={generateDialogue}
+                  onDescribeScene={describeScene}
+                  onDescribeAndGenerate={describeAndGenerateScene}
                   onDuplicate={duplicateScene}
                   onDelete={deleteScene}
                   onLinkToPreviousScene={linkToPreviousScene}

@@ -110,6 +110,7 @@ interface KeyframeSceneCardProps {
   totalScenes: number;
   isGeneratingImage: boolean;
   isGeneratingVideo: boolean;
+  isDescribingScene?: boolean;
   characterName?: string;
   onUpdateScene: (sceneNumber: number, updates: Partial<MovieSceneWithKeyframes>) => void;
   onUpdateKeyframe: (sceneNumber: number, frame: 'start' | 'end', updates: Partial<KeyframeData>) => void;
@@ -118,6 +119,8 @@ interface KeyframeSceneCardProps {
   onGenerateVideo: (sceneNumber: number) => void;
   onGenerateTransitionVideo?: (sceneNumber: number) => void;
   onGenerateDialogue: (sceneNumber: number) => void;
+  onDescribeScene?: (sceneNumber: number, frame: 'start' | 'end') => void;
+  onDescribeAndGenerate?: (sceneNumber: number, frame: 'start' | 'end') => void;
   onDuplicate: (sceneNumber: number) => void;
   onDelete: (sceneNumber: number) => void;
   onLinkToPreviousScene?: (sceneNumber: number) => void;
@@ -130,6 +133,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   totalScenes,
   isGeneratingImage,
   isGeneratingVideo,
+  isDescribingScene,
   characterName,
   onUpdateScene,
   onUpdateKeyframe,
@@ -138,6 +142,8 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   onGenerateVideo,
   onGenerateTransitionVideo,
   onGenerateDialogue,
+  onDescribeScene,
+  onDescribeAndGenerate,
   onDuplicate,
   onDelete,
   onLinkToPreviousScene,
@@ -286,13 +292,31 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                     
                     {/* Start Frame Controls */}
                     <div className="space-y-2">
-                      <Textarea
-                        placeholder="Describe the starting visual..."
-                        value={scene.startFrame?.imagePrompt || ''}
-                        onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'start', { imagePrompt: e.target.value })}
-                        rows={2}
-                        className="text-xs resize-none"
-                      />
+                      <div className="flex gap-1">
+                        <Textarea
+                          placeholder="Describe the starting visual..."
+                          value={scene.startFrame?.imagePrompt || ''}
+                          onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'start', { imagePrompt: e.target.value })}
+                          rows={2}
+                          className="text-xs resize-none flex-1"
+                        />
+                        {onDescribeScene && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-auto px-2"
+                            onClick={() => onDescribeScene(scene.sceneNumber, 'start')}
+                            disabled={isDescribingScene}
+                            title="Auto-describe this frame"
+                          >
+                            {isDescribingScene ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Wand2 className="w-3 h-3" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                       
                       <div className="grid grid-cols-2 gap-2">
                         <Select
@@ -320,19 +344,38 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                         />
                       </div>
                       
-                      <Button
-                        onClick={() => onGenerateStartImage(scene.sceneNumber)}
-                        disabled={isGeneratingImage}
-                        size="sm"
-                        className="w-full"
-                      >
-                        {isGeneratingImage ? (
-                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                          <Image className="w-4 h-4 mr-1" />
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => onGenerateStartImage(scene.sceneNumber)}
+                          disabled={isGeneratingImage || !scene.startFrame?.imagePrompt}
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          {isGeneratingImage ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Image className="w-4 h-4 mr-1" />
+                          )}
+                          Generate
+                        </Button>
+                        
+                        {onDescribeAndGenerate && (
+                          <Button
+                            onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'start')}
+                            disabled={isGeneratingImage || isDescribingScene}
+                            size="sm"
+                            className="flex-1"
+                          >
+                            {(isGeneratingImage || isDescribingScene) ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <Wand2 className="w-4 h-4 mr-1" />
+                            )}
+                            Auto-Generate
+                          </Button>
                         )}
-                        Generate Start
-                      </Button>
+                      </div>
                     </div>
                   </div>
 
@@ -420,13 +463,31 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                     
                     {/* End Frame Controls */}
                     <div className="space-y-2">
-                      <Textarea
-                        placeholder="Describe the ending visual..."
-                        value={scene.endFrame?.imagePrompt || ''}
-                        onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'end', { imagePrompt: e.target.value })}
-                        rows={2}
-                        className="text-xs resize-none"
-                      />
+                      <div className="flex gap-1">
+                        <Textarea
+                          placeholder="Describe the ending visual..."
+                          value={scene.endFrame?.imagePrompt || ''}
+                          onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'end', { imagePrompt: e.target.value })}
+                          rows={2}
+                          className="text-xs resize-none flex-1"
+                        />
+                        {onDescribeScene && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-auto px-2"
+                            onClick={() => onDescribeScene(scene.sceneNumber, 'end')}
+                            disabled={isDescribingScene}
+                            title="Auto-describe this frame"
+                          >
+                            {isDescribingScene ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Wand2 className="w-3 h-3" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                       
                       <div className="grid grid-cols-2 gap-2">
                         <Select
@@ -454,19 +515,38 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                         />
                       </div>
                       
-                      <Button
-                        onClick={() => onGenerateEndImage(scene.sceneNumber)}
-                        disabled={isGeneratingImage}
-                        size="sm"
-                        className="w-full"
-                      >
-                        {isGeneratingImage ? (
-                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                          <Image className="w-4 h-4 mr-1" />
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => onGenerateEndImage(scene.sceneNumber)}
+                          disabled={isGeneratingImage || !scene.endFrame?.imagePrompt}
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          {isGeneratingImage ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Image className="w-4 h-4 mr-1" />
+                          )}
+                          Generate
+                        </Button>
+                        
+                        {onDescribeAndGenerate && (
+                          <Button
+                            onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'end')}
+                            disabled={isGeneratingImage || isDescribingScene}
+                            size="sm"
+                            className="flex-1"
+                          >
+                            {(isGeneratingImage || isDescribingScene) ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <Wand2 className="w-4 h-4 mr-1" />
+                            )}
+                            Auto-Generate
+                          </Button>
                         )}
-                        Generate End
-                      </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
