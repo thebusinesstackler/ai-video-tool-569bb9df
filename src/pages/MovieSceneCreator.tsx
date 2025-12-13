@@ -1201,15 +1201,41 @@ const MovieSceneCreator = () => {
       setGenerateAllProgress(55);
 
       // Step 5: Generate Conversation Dialogue for each scene (75%)
-      setGenerateAllStep('Creating Dialogue...');
+      setGenerateAllStep('Creating Blockbuster Dialogue...');
       const characterNames = selectedTwins.map(t => t.name);
+      
+      // Build character personalities from story bible or twin descriptions
+      const characterPersonalities: Record<string, string> = {};
+      selectedTwins.forEach(twin => {
+        characterPersonalities[twin.name] = twin.description || twin.face_description || '';
+      });
+      if (storyBibleData?.characters) {
+        storyBibleData.characters.forEach((char: StoryBibleCharacter) => {
+          if (characterPersonalities[char.name] !== undefined) {
+            characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
+          }
+        });
+      }
       
       const scenesWithDialogue = await Promise.all(
         generatedScenes.map(async (scene, index) => {
           try {
             setGenerateAllProgress(55 + Math.floor((index / generatedScenes.length) * 20));
             
-            // For 2+ characters, use conversation dialogue
+            // Determine scene position for context
+            const totalScenes = generatedScenes.length;
+            let scenePosition = `${index + 1} of ${totalScenes}`;
+            if (index === 0) scenePosition = 'opening';
+            else if (index === totalScenes - 1) scenePosition = 'resolution/final';
+            else if (index === Math.floor(totalScenes / 2)) scenePosition = 'midpoint';
+            else if (index === Math.floor(totalScenes * 0.75)) scenePosition = 'climax';
+            
+            // Get previous scene summary for continuity
+            const previousSceneSummary = index > 0 
+              ? `${generatedScenes[index - 1].title}: ${generatedScenes[index - 1].description.substring(0, 150)}...`
+              : undefined;
+            
+            // For 2+ characters, use conversation dialogue with rich context
             if (selectedTwins.length >= 2) {
               const { data: convData, error: convError } = await supabase.functions.invoke('generate-conversation-dialogue', {
                 body: {
@@ -1218,7 +1244,18 @@ const MovieSceneCreator = () => {
                   location: scene.location,
                   timeOfDay: scene.timeOfDay,
                   characterNames,
-                  tone: scene.mood || 'natural'
+                  tone: scene.mood || 'dramatic',
+                  // NEW: Pass rich story context for blockbuster dialogue
+                  movieIdea: movieIdea,
+                  storyBible: storyBibleData ? {
+                    theme: storyBibleData.theme,
+                    logline: storyBibleData.logline,
+                    tone: storyBibleData.emotionalArc?.join(', ')
+                  } : undefined,
+                  scenePosition,
+                  previousSceneSummary,
+                  characterPersonalities,
+                  transitionAction: scene.transitionAction
                 }
               });
 
@@ -1887,24 +1924,92 @@ const MovieSceneCreator = () => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     if (!scene) return;
 
-    const characterName = selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name;
+    const characterNames = selectedTwins.length > 0 ? selectedTwins.map(t => t.name) : [selectedCharacter?.name].filter(Boolean);
 
     try {
       toast({
-        title: "Generating Dialogue",
-        description: `Creating dialogue for ${characterName || 'main character'}...`
+        title: "Generating Blockbuster Dialogue",
+        description: `Creating cinematic dialogue...`
       });
 
+      // For 2+ characters, use conversation dialogue with story context
+      if (selectedTwins.length >= 2) {
+        // Build character personalities
+        const characterPersonalities: Record<string, string> = {};
+        selectedTwins.forEach(twin => {
+          characterPersonalities[twin.name] = twin.description || twin.face_description || '';
+        });
+        if (storyBible?.characters) {
+          storyBible.characters.forEach((char: StoryBibleCharacter) => {
+            if (characterPersonalities[char.name] !== undefined) {
+              characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
+            }
+          });
+        }
+
+        // Get scene position for context
+        const totalScenes = scenes.length;
+        const sceneIdx = scenes.findIndex(s => s.sceneNumber === sceneNumber);
+        let scenePosition = `${sceneIdx + 1} of ${totalScenes}`;
+        if (sceneIdx === 0) scenePosition = 'opening';
+        else if (sceneIdx === totalScenes - 1) scenePosition = 'resolution/final';
+        
+        // Get previous scene summary
+        const previousSceneSummary = sceneIdx > 0 
+          ? `${scenes[sceneIdx - 1].title}: ${scenes[sceneIdx - 1].description?.substring(0, 150)}...`
+          : undefined;
+
+        const { data: convData, error: convError } = await supabase.functions.invoke('generate-conversation-dialogue', {
+          body: {
+            sceneDescription: scene.description,
+            sceneTitle: scene.title,
+            location: scene.location,
+            timeOfDay: scene.timeOfDay,
+            characterNames,
+            tone: scene.mood || 'dramatic',
+            movieIdea: movieIdea,
+            storyBible: storyBible ? {
+              theme: storyBible.theme,
+              logline: storyBible.logline,
+              tone: storyBible.emotionalArc?.join(', ')
+            } : undefined,
+            scenePosition,
+            previousSceneSummary,
+            characterPersonalities,
+            transitionAction: scene.transitionAction
+          }
+        });
+
+        if (convError) throw convError;
+
+        if (convData?.conversation) {
+          // Store as conversation array
+          setScenes(prevScenes =>
+            prevScenes.map(s =>
+              s.sceneNumber === sceneNumber
+                ? { ...s, dialogue: convData.conversation, charactersInScene: characterNames }
+                : s
+            )
+          );
+          
+          toast({
+            title: "Dialogue Generated!",
+            description: `Created ${convData.conversation.length} lines of blockbuster dialogue.`
+          });
+          return;
+        }
+      }
+
+      // Fallback: single character dialogue
       const sceneContext = {
         sceneDescription: scene.description,
         sceneTitle: scene.title,
         location: scene.location,
         timeOfDay: scene.timeOfDay,
-        characterName,
-        tone: 'natural'
+        characterName: characterNames[0],
+        tone: scene.mood || 'natural'
       };
 
-      // Generate main character dialogue
       const { data, error } = await supabase.functions.invoke('generate-scene-dialogue', {
         body: { ...sceneContext, isMainCharacter: true }
       });
@@ -1914,23 +2019,9 @@ const MovieSceneCreator = () => {
       if (data?.dialogue) {
         updateSceneText(sceneNumber, 'dialogue', data.dialogue);
         
-        // Check if scene might have other characters
-        const hasOtherCharacters = /interact|conversation|talk|speak|meet|confront|argue|discuss|responds|replies|another|other person|companion|partner|friend|enemy|stranger/i.test(scene.description);
-        
-        if (hasOtherCharacters && characterName) {
-          // Also generate other character's dialogue
-          const { data: otherData } = await supabase.functions.invoke('generate-scene-dialogue', {
-            body: { ...sceneContext, isMainCharacter: false }
-          });
-          
-          if (otherData?.dialogue) {
-            updateSceneText(sceneNumber, 'otherCharacterDialogue', otherData.dialogue);
-          }
-        }
-
         toast({
           title: "Dialogue Generated!",
-          description: hasOtherCharacters ? "Generated dialogue for both characters." : "AI-generated dialogue has been added."
+          description: "AI-generated dialogue has been added."
         });
       }
     } catch (error) {
@@ -2401,29 +2492,71 @@ const MovieSceneCreator = () => {
 
       // STEP 2: Generate the transition video with keyframe interpolation
       toast({
-        title: "Generating Transition Video",
-        description: `Creating ${estimatedDuration}s video transitioning from start to end frame...`,
+        title: "Generating Cinematic Transition",
+        description: `Creating ${estimatedDuration}s video with camera movement and action...`,
       });
 
-      // Fix #4: Build enhanced prompt with camera movement from scene
-      let videoPrompt = scene.transitionAction || scene.description || 'Smooth cinematic transition';
+      // Build CINEMATIC video prompt with detailed camera and action instructions
+      const startAngle = scene.startFrame?.cameraAngle || 'eye-level';
+      const endAngle = scene.endFrame?.cameraAngle || 'eye-level';
+      const startPos = scene.startFrame?.position || '';
+      const endPos = scene.endFrame?.position || '';
       
-      // Add camera movement instructions if specified
+      // Build cinematic prompt parts
+      const promptParts: string[] = [];
+      
+      // Add scene action/transition
+      if (scene.transitionAction) {
+        promptParts.push(scene.transitionAction);
+      } else if (scene.description) {
+        promptParts.push(scene.description);
+      }
+      
+      // Add character movement if positions change
+      if (startPos && endPos && startPos !== endPos) {
+        promptParts.push(`Character moves from ${startPos} to ${endPos}`);
+      }
+      
+      // Add camera angle transition if different
+      if (startAngle !== endAngle) {
+        promptParts.push(`Camera transitions from ${startAngle} to ${endAngle}`);
+      }
+      
+      // Add camera movement instructions with detailed descriptions
       if (scene.transitionCameraMovement) {
         const movementDescriptions: Record<string, string> = {
-          'static': 'Camera remains still and steady',
-          'tracking': 'Camera follows the subject horizontally across the frame',
-          'push-in': 'Camera moves forward toward the subject, dolly in',
-          'pull-out': 'Camera moves backward away from the subject, dolly out',
-          'pan': 'Camera rotates horizontally to follow action',
-          'tilt': 'Camera rotates vertically',
-          'crane-up': 'Camera rises upward',
-          'crane-down': 'Camera descends downward',
-          'orbit': 'Camera circles around the subject'
+          'static': 'Camera remains completely still, steady frame',
+          'tracking': 'Camera tracks horizontally, following subject movement smoothly',
+          'push-in': 'Camera pushes in toward subject, dolly movement creating intensity',
+          'pull-out': 'Camera pulls back from subject, revealing more of the scene',
+          'pan': 'Camera pans horizontally, rotating to follow action',
+          'tilt': 'Camera tilts vertically, revealing scene from top to bottom or vice versa',
+          'crane-up': 'Camera cranes upward, rising to reveal establishing shot',
+          'crane-down': 'Camera descends from high angle to eye level',
+          'orbit': 'Camera orbits around the subject in a dramatic arc',
+          'handheld': 'Handheld camera movement, natural documentary style shaking',
+          'steadicam': 'Smooth gliding steadicam movement through the scene',
+          'zoom-in': 'Dramatic lens zoom toward subject, tightening frame',
+          'zoom-out': 'Lens zooms out, widening the frame to reveal context'
         };
         const movementDesc = movementDescriptions[scene.transitionCameraMovement] || scene.transitionCameraMovement;
-        videoPrompt = `${videoPrompt}. Camera movement: ${movementDesc}`;
+        promptParts.push(`Camera movement: ${movementDesc}`);
       }
+      
+      // Add mood/lighting context
+      if (scene.mood) {
+        promptParts.push(`Mood: ${scene.mood}`);
+      }
+      if (scene.selectedLighting) {
+        promptParts.push(`Lighting: ${scene.selectedLighting}`);
+      }
+      
+      // Combine into cinematic video prompt
+      const videoPrompt = promptParts.length > 0 
+        ? promptParts.join('. ') + '. Cinematic quality, smooth motion, professional cinematography.'
+        : 'Smooth cinematic transition between keyframes. Professional film quality.';
+      
+      console.log('Cinematic video prompt:', videoPrompt);
       
       // Use keyframe-interpolation for the visual transition (start→end frame)
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
