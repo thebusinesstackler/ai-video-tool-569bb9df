@@ -17,7 +17,14 @@ serve(async (req) => {
       tone, 
       location, 
       timeOfDay, 
-      sceneTitle 
+      sceneTitle,
+      // NEW: Story context for blockbuster-quality dialogue
+      storyBible,
+      movieIdea,
+      scenePosition, // e.g., "1 of 6", "opening", "climax", "resolution"
+      previousSceneSummary,
+      characterPersonalities, // Object: { "CharName": "personality description" }
+      transitionAction // What happens in this scene
     } = await req.json();
 
     if (!sceneDescription) {
@@ -36,46 +43,96 @@ serve(async (req) => {
     const char1 = characterNames[0];
     const char2 = characterNames[1];
 
-    console.log('Generating conversation dialogue between:', char1, 'and', char2);
+    console.log('Generating blockbuster dialogue between:', char1, 'and', char2);
+    console.log('Scene context:', { sceneTitle, location, tone, scenePosition });
 
-    const prompt = `You are a professional screenwriter creating a realistic back-and-forth conversation for a movie scene.
+    // Build rich story context
+    let storyContext = '';
+    if (movieIdea) {
+      storyContext += `\nMOVIE CONCEPT: ${movieIdea}\n`;
+    }
+    if (storyBible) {
+      if (storyBible.theme) storyContext += `THEME: ${storyBible.theme}\n`;
+      if (storyBible.setting) storyContext += `SETTING: ${storyBible.setting}\n`;
+      if (storyBible.tone) storyContext += `OVERALL TONE: ${storyBible.tone}\n`;
+    }
+    if (previousSceneSummary) {
+      storyContext += `\nPREVIOUSLY: ${previousSceneSummary}\n`;
+    }
+
+    // Build character context
+    let characterContext = '';
+    if (characterPersonalities) {
+      characterContext = Object.entries(characterPersonalities)
+        .map(([name, personality]) => `${name}: ${personality}`)
+        .join('\n');
+    }
+
+    // Determine scene type for dialogue style
+    let sceneTypeGuidance = '';
+    if (scenePosition) {
+      if (scenePosition.includes('1 of') || scenePosition.toLowerCase().includes('opening')) {
+        sceneTypeGuidance = 'This is an OPENING scene - establish the characters and their dynamic. Build intrigue.';
+      } else if (scenePosition.toLowerCase().includes('climax')) {
+        sceneTypeGuidance = 'This is a CLIMAX scene - high emotional stakes, tension, confrontation or revelation.';
+      } else if (scenePosition.toLowerCase().includes('resolution') || scenePosition.toLowerCase().includes('final')) {
+        sceneTypeGuidance = 'This is a RESOLUTION scene - provide closure, emotional payoff, or a memorable ending.';
+      }
+    }
+
+    const prompt = `You are an AWARD-WINNING SCREENWRITER known for creating dialogue that sounds like a BLOCKBUSTER MOVIE TRAILER.
+
+${storyContext}
 
 CHARACTERS IN THIS SCENE:
-1. ${char1} (Character A)
-2. ${char2} (Character B)
+1. ${char1}
+2. ${char2}
+${characterContext ? `\nCHARACTER PERSONALITIES:\n${characterContext}` : ''}
 
 SCENE DETAILS:
 - Title: ${sceneTitle || 'Untitled Scene'}
 - Location: ${location || 'Unknown'}
 - Time: ${timeOfDay || 'Day'}
-${tone ? `- Tone/Mood: ${tone}` : ''}
+- Mood/Tone: ${tone || 'dramatic'}
+${transitionAction ? `- What happens: ${transitionAction}` : ''}
+${sceneTypeGuidance ? `\n${sceneTypeGuidance}` : ''}
 
 SCENE DESCRIPTION:
 ${sceneDescription}
 
 YOUR TASK:
-Create a natural, alternating conversation between ${char1} and ${char2}. The dialogue should:
-- Alternate between the two characters (A speaks, B responds, A responds, etc.)
-- Total approximately 45-60 seconds of dialogue (about 150-200 words total)
-- Feel natural and emotionally authentic to the scene
-- Move the story forward and reveal character dynamics
+Write BLOCKBUSTER MOVIE DIALOGUE - the kind that gives you chills in a trailer. 
+
+DIALOGUE RULES:
+1. SHORT, PUNCHY LINES - Most lines should be 5-15 words. Impact over length.
+2. SUBTEXT - Characters hint at deeper meanings, don't explain everything
+3. TENSION - Even casual exchanges should have underlying stakes
+4. CHARACTER VOICE - Each character sounds distinct based on their personality
+5. EMOTIONAL BEATS - Build to a moment of impact (revelation, confrontation, realization)
+6. NO EXPOSITION DUMPS - Show, don't tell. No "As you know..." dialogue
+7. NATURALISTIC - People interrupt, trail off, react emotionally
+
+DIALOGUE EXAMPLES (for inspiration):
+- "You knew. This whole time... you knew." / "I did what I had to do."
+- "We have 24 hours. That's it." / "Then we make them count."
+- "Promise me you'll come back." / "I'm not making promises I can't keep."
+- "They're coming." / "Let them come."
 
 CRITICAL FORMAT RULES:
 - Return a JSON array of dialogue entries
-- Each entry has "character" (the name) and "line" (what they say)
-- NO stage directions in parentheses or brackets
-- NO asterisks or action descriptions
+- Each entry has "character" (exact name from above) and "line" (spoken words only)
+- NO stage directions, NO parentheses, NO asterisks, NO brackets
 - ONLY the spoken words
 
 Return ONLY valid JSON in this exact format:
 [
-  {"character": "${char1}", "line": "Their first line here..."},
-  {"character": "${char2}", "line": "Their response here..."},
-  {"character": "${char1}", "line": "Their next line..."},
-  {"character": "${char2}", "line": "Their reply..."}
+  {"character": "${char1}", "line": "Their line here..."},
+  {"character": "${char2}", "line": "Their response..."},
+  {"character": "${char1}", "line": "Next line..."},
+  {"character": "${char2}", "line": "Reply..."}
 ]
 
-Generate 4-8 alternating exchanges. Return ONLY the JSON array, no other text.`;
+Generate 4-8 exchanges (8-16 total lines). Make it CINEMATIC. Return ONLY the JSON array.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -88,7 +145,7 @@ Generate 4-8 alternating exchanges. Return ONLY the JSON array, no other text.`;
         messages: [
           {
             role: 'system',
-            content: 'You are an award-winning screenwriter known for authentic, emotionally resonant dialogue. You write natural conversations that reveal character through subtext and conflict. Always return valid JSON only.'
+            content: 'You are an Oscar-winning screenwriter. Your dialogue is legendary - memorable, emotional, and perfectly suited for movie trailers. You write conversations that reveal character through conflict and subtext. Always return valid JSON only.'
           },
           {
             role: 'user',
@@ -146,22 +203,49 @@ Generate 4-8 alternating exchanges. Return ONLY the JSON array, no other text.`;
       throw new Error('Dialogue response is not an array');
     }
 
-    // Clean up each entry
-    const cleanedConversation = conversation.map((entry: any) => ({
-      character: entry.character || 'Unknown',
-      line: (entry.line || '').replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').replace(/\*[^*]*\*/g, '').trim()
-    })).filter((entry: any) => entry.line.length > 0);
+    // Clean up each entry and normalize character names
+    const cleanedConversation = conversation.map((entry: any) => {
+      let charName = entry.character || 'Unknown';
+      
+      // Normalize character names - match to provided names (fuzzy matching)
+      const char1Lower = char1.toLowerCase().replace(/\s+/g, '');
+      const char2Lower = char2.toLowerCase().replace(/\s+/g, '');
+      const entryCharLower = charName.toLowerCase().replace(/\s+/g, '');
+      
+      // Check if entry character matches char1 or char2
+      if (entryCharLower.includes(char1Lower) || char1Lower.includes(entryCharLower)) {
+        charName = char1;
+      } else if (entryCharLower.includes(char2Lower) || char2Lower.includes(entryCharLower)) {
+        charName = char2;
+      }
+      
+      return {
+        character: charName,
+        line: (entry.line || '')
+          .replace(/\([^)]*\)/g, '')  // Remove (parentheses)
+          .replace(/\[[^\]]*\]/g, '') // Remove [brackets]
+          .replace(/\*[^*]*\*/g, '')  // Remove *asterisks*
+          .trim()
+      };
+    }).filter((entry: any) => entry.line.length > 0);
 
-    console.log('Generated conversation:', cleanedConversation.length, 'lines');
+    console.log('Generated blockbuster conversation:', cleanedConversation.length, 'lines');
+
+    // Also return separate dialogue by character for TTS
+    const dialogueByCharacter: Record<string, string> = {};
+    dialogueByCharacter[char1] = cleanedConversation
+      .filter((e: any) => e.character === char1)
+      .map((e: any) => e.line)
+      .join(' ... ');
+    dialogueByCharacter[char2] = cleanedConversation
+      .filter((e: any) => e.character === char2)
+      .map((e: any) => e.line)
+      .join(' ... ');
 
     return new Response(
       JSON.stringify({ 
         conversation: cleanedConversation,
-        // Also return combined dialogue for each character for TTS
-        dialogueByCharacter: {
-          [char1]: cleanedConversation.filter((e: any) => e.character === char1).map((e: any) => e.line).join(' ... '),
-          [char2]: cleanedConversation.filter((e: any) => e.character === char2).map((e: any) => e.line).join(' ... ')
-        }
+        dialogueByCharacter
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

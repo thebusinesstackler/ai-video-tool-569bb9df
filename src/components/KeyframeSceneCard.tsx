@@ -653,7 +653,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                     <div className="flex items-center justify-between mb-2">
                       <Label className="text-sm font-semibold flex items-center gap-2">
                         <MessageSquare className="w-4 h-4 text-primary" />
-                        Conversation
+                        Conversation ({scene.dialogue.length} lines)
                       </Label>
                       <Button
                         onClick={() => onGenerateDialogue(scene.sceneNumber)}
@@ -665,21 +665,35 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                       </Button>
                     </div>
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {scene.dialogue.map((entry: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className={`p-2 rounded-lg border ${
-                            idx % 2 === 0 
-                              ? 'bg-primary/5 border-primary/20 ml-0 mr-8' 
-                              : 'bg-orange-500/5 border-orange-500/20 ml-8 mr-0'
-                          }`}
-                        >
-                          <p className="text-xs font-semibold text-muted-foreground mb-1">
-                            {entry.character}
-                          </p>
-                          <p className="text-sm italic">"{entry.line}"</p>
-                        </div>
-                      ))}
+                      {scene.dialogue.map((entry: any, idx: number) => {
+                        // Determine if this is char1 (primary) or char2 (secondary)
+                        const isFirstChar = characterName && entry.character?.toLowerCase().includes(characterName.toLowerCase().split(' ')[0]) ||
+                                           entry.character === characterName;
+                        const isSecondChar = secondCharacterName && entry.character?.toLowerCase().includes(secondCharacterName.toLowerCase().split(' ')[0]) ||
+                                            entry.character === secondCharacterName;
+                        
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-lg border ${
+                              isFirstChar 
+                                ? 'bg-primary/10 border-primary/30 ml-0 mr-6' 
+                                : isSecondChar
+                                  ? 'bg-orange-500/10 border-orange-500/30 ml-6 mr-0'
+                                  : idx % 2 === 0 
+                                    ? 'bg-primary/5 border-primary/20 ml-0 mr-6' 
+                                    : 'bg-orange-500/5 border-orange-500/20 ml-6 mr-0'
+                            }`}
+                          >
+                            <p className={`text-xs font-bold mb-1 ${
+                              isFirstChar ? 'text-primary' : isSecondChar ? 'text-orange-500' : 'text-muted-foreground'
+                            }`}>
+                              {entry.character}
+                            </p>
+                            <p className="text-sm leading-relaxed">"{entry.line}"</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
