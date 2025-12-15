@@ -13,7 +13,7 @@ interface WaveSpeedVideoParams {
   endFrameUrl?: string;
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -193,6 +193,31 @@ serve(async (req) => {
         };
         
         console.log('Using VIDU start-end-to-video-2.0 for frame interpolation');
+      } else if (params.model === 'seedance-i2v') {
+        // ByteDance Seedance V1 Lite I2V 720p - optimized for image-to-video with optional end frame
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/seedance-v1-lite-i2v-720p';
+        
+        if (!params.startFrameUrl && (!params.imageUrls || params.imageUrls.length === 0)) {
+          throw new Error('Image is required for Seedance I2V model');
+        }
+        
+        // Clamp duration to allowed range: 5-10 seconds
+        const seedanceDuration = Math.max(5, Math.min(10, duration));
+        console.log(`Seedance I2V: requested duration ${duration}s, using ${seedanceDuration}s (allowed: 5-10)`);
+        
+        requestBody = {
+          image: params.startFrameUrl || params.imageUrls?.[0],
+          prompt: params.prompt || 'Smooth cinematic motion, professional quality',
+          seed: -1,
+          duration: seedanceDuration
+        };
+        
+        // Add end frame for interpolation if provided
+        if (params.endFrameUrl) {
+          requestBody.last_image = params.endFrameUrl;
+        }
+        
+        console.log('Using ByteDance Seedance V1 Lite I2V 720p for video generation');
       } else if (params.model === 'veo3') {
         // VEO3 model
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3';
