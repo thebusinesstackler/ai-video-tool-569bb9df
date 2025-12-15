@@ -457,22 +457,27 @@ serve(async (req) => {
             requestBody.prompt = `${scene.visualDescription}. Speaking naturally, engaging expression.`;
           }
         } else {
-          // Use regular image-to-video model for intro/outro
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
+          // Use ByteDance Seedance V1 Lite I2V 720p for high-quality intro/outro videos
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/seedance-v1-lite-i2v-720p';
           
           let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style.`;
           if (scene.isIntro) {
-            motionPrompt = 'Subtle zoom in animation, text reveal effect, attention-grabbing intro motion.';
+            motionPrompt = 'Cinematic intro animation with subtle zoom in, elegant text reveal effect, attention-grabbing professional intro motion. High quality, smooth motion.';
           } else if (scene.isOutro) {
-            motionPrompt = 'Gentle zoom out or pulse effect, engaging call-to-action animation.';
+            motionPrompt = 'Professional outro with gentle zoom out or pulse effect, engaging call-to-action animation, smooth and elegant motion. High quality ending.';
           }
+          
+          // Seedance I2V requires duration between 5-10 seconds
+          const seedanceDuration = Math.max(5, Math.min(10, clipDuration));
           
           requestBody = {
             image: imageUrl,
             prompt: motionPrompt,
-            resolution: "1080p",
-            duration: clipDuration
+            seed: -1,
+            duration: seedanceDuration
           };
+          
+          console.log(`Using Seedance I2V for ${scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'scene'} ${scene.sceneNumber} (720p quality)`);
         }
         
         try {
