@@ -2558,11 +2558,11 @@ const MovieSceneCreator = () => {
       
       console.log('Cinematic video prompt:', videoPrompt);
       
-      // Use VIDU start-end-to-video-q2-turbo for the visual transition (start→end frame)
+      // Use ByteDance Seedance V1 Lite I2V 720p for the visual transition (start→end frame)
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'vidu-start-end',
+          model: 'seedance-i2v',
           startFrameUrl: scene.startFrame.generatedImage,
           endFrameUrl: scene.endFrame.generatedImage,
           prompt: videoPrompt,
