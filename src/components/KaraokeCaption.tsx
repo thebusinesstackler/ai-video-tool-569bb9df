@@ -25,7 +25,7 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   background = 'glass',
   position = 'bottom'
 }) => {
-  const words = useMemo(() => text.split(/\s+/).filter(w => w.length > 0), [text]);
+  const words = useMemo(() => (text || '').split(/\s+/).filter(w => w.length > 0), [text]);
   
   // If duration is 0 or very small, show all words at once (static mode)
   const isStaticMode = duration <= 0.1;
