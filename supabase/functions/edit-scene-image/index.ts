@@ -92,12 +92,17 @@ ${backgroundInstruction}
 BUT APPLY THIS TRANSFORMATION: ${characterTransformation}
 
 Keep the scene composition similar but transform the character as specified.`
-        : `Generate a scene image based on this prompt: ${prompt}
+        : `Generate a scene image showing the EXACT SAME PERSON from the reference images in this new scene: ${prompt}
+
+CRITICAL IDENTITY RULES:
+- IGNORE any gender references in the prompt text - use the ACTUAL person from reference images
+- The person's face, body, gender, skin tone, hair MUST match the reference images EXACTLY
+- Do NOT change the person's appearance or gender under any circumstances
 
 ${multiRefInstruction}${characterInstruction}${cameraInstruction}${backgroundInstruction}
 
 Use the reference image(s) to MAINTAIN EXACT CHARACTER IDENTITY:
-- SAME facial features, skin tone, and hair
+- SAME person, SAME gender, SAME facial features
 - Professional appearance and demeanor
 - Clothing style and aesthetic
 - Lighting quality and composition
@@ -105,7 +110,7 @@ Use the reference image(s) to MAINTAIN EXACT CHARACTER IDENTITY:
 
 ${cameraAngle ? `Use this SPECIFIC camera angle: ${cameraAngle}` : ''}
 
-The generated image should match the scene description exactly while keeping the character's identity consistent with the references.`;
+Generate the image showing the SAME PERSON from the references in the described scene.`;
 
       // Build content array with all reference images (up to 4)
       const imageContents = allReferenceImages.slice(0, 4).map(imgUrl => ({
