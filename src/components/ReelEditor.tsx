@@ -5,12 +5,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCreatomate } from '@/hooks/useCreatomate';
 import { CaptionStyleSelector } from './CaptionStyleSelector';
 import { CaptionSettings } from './KaraokeCaption';
 import { VideoPlayer } from './VideoPlayer';
+import { GalleryImagePicker } from './GalleryImagePicker';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +25,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   Loader2,
   Play,
   Image as ImageIcon,
@@ -30,7 +40,9 @@ import {
   Layers,
   Check,
   AlertCircle,
-  X
+  X,
+  Pencil,
+  Upload
 } from 'lucide-react';
 
 interface ReelScene {
@@ -95,6 +107,13 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showRestitchConfirm, setShowRestitchConfirm] = useState(false);
   
+  // Regeneration dialog state
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const [regenDialogType, setRegenDialogType] = useState<'image' | 'video'>('image');
+  const [regenDialogSceneIndex, setRegenDialogSceneIndex] = useState<number>(0);
+  const [regenReferenceUrl, setRegenReferenceUrl] = useState<string>('');
+  const [regenEditedText, setRegenEditedText] = useState<string>('');
+  
   // Store original scenes from DB to compare and prevent data loss
   const originalScenesRef = useRef<ReelScene[]>(reel.scenes || []);
 
@@ -136,24 +155,58 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
     return scenes.filter(scene => !scene.imageUrl || !scene.videoUrl);
   };
 
-  const regenerateSceneImage = async (sceneIndex: number) => {
+  const openRegenDialog = (sceneIndex: number, type: 'image' | 'video') => {
+    const scene = scenes[sceneIndex];
+    setRegenDialogSceneIndex(sceneIndex);
+    setRegenDialogType(type);
+    setRegenReferenceUrl('');
+    setRegenEditedText(scene?.text || '');
+    setRegenDialogOpen(true);
+  };
+
+  const handleReferenceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setRegenReferenceUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const regenerateSceneImage = async (sceneIndex: number, referenceUrl?: string) => {
     const scene = scenes[sceneIndex];
     if (!scene) return;
 
+    setRegenDialogOpen(false);
     setRegeneratingScene(sceneIndex);
     setRegeneratingType('image');
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-reel-video', {
-        body: {
-          scenes: [{ sceneNumber: scene.sceneNumber, narration: scene.text, visualDescription: scene.text }],
-          generateImagesOnly: true
-        }
-      });
+      let data, error;
+      
+      if (referenceUrl) {
+        // Use edit-scene-image with reference
+        ({ data, error } = await supabase.functions.invoke('edit-scene-image', {
+          body: {
+            prompt: scene.text,
+            referenceImageUrl: referenceUrl
+          }
+        }));
+      } else {
+        // Standard generation
+        ({ data, error } = await supabase.functions.invoke('generate-reel-video', {
+          body: {
+            scenes: [{ sceneNumber: scene.sceneNumber, narration: scene.text, visualDescription: scene.text }],
+            generateImagesOnly: true
+          }
+        }));
+      }
 
       if (error) throw error;
 
-      const generatedImage = data?.scenes?.[0]?.imageUrl;
+      const generatedImage = referenceUrl ? data?.imageUrl : data?.scenes?.[0]?.imageUrl;
       if (generatedImage) {
         const updatedScenes = [...scenes];
         updatedScenes[sceneIndex] = { ...scene, imageUrl: generatedImage };
@@ -168,22 +221,43 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
     }
   };
 
-  const regenerateSceneVideo = async (sceneIndex: number) => {
+  const regenerateSceneVideo = async (sceneIndex: number, editedText?: string) => {
     const scene = scenes[sceneIndex];
     if (!scene || !scene.imageUrl) {
       toast({ title: "Image required", description: "Generate the image first", variant: "destructive" });
       return;
     }
 
+    setRegenDialogOpen(false);
     setRegeneratingScene(sceneIndex);
     setRegeneratingType('video');
 
+    const newText = editedText || scene.text;
+
     try {
+      // If text changed, regenerate audio first
+      let audioUrl = scene.audioUrl || reel.audio_url;
+      
+      if (editedText && editedText !== scene.text) {
+        // Generate new voiceover for this scene
+        const { data: audioData, error: audioError } = await supabase.functions.invoke('generate-reel-voiceover', {
+          body: {
+            text: newText,
+            voice: 'alloy'
+          }
+        });
+        
+        if (audioError) throw audioError;
+        if (audioData?.audioUrl) {
+          audioUrl = audioData.audioUrl;
+        }
+      }
+      
       // Use the wavespeed-video function with infinitetalk model
       const { data, error } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           image_url: scene.imageUrl,
-          audio_url: scene.audioUrl || reel.audio_url,
+          audio_url: audioUrl,
           model: 'infinitetalk'
         }
       });
@@ -195,9 +269,14 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
         const videoUrl = await pollForVideoCompletion(data.taskId);
         if (videoUrl) {
           const updatedScenes = [...scenes];
-          updatedScenes[sceneIndex] = { ...scene, videoUrl };
+          updatedScenes[sceneIndex] = { 
+            ...scene, 
+            videoUrl,
+            text: newText,
+            audioUrl: audioUrl
+          };
           setScenes(updatedScenes);
-          toast({ title: "Video regenerated", description: `Scene ${sceneIndex + 1} video updated (same script)` });
+          toast({ title: "Video regenerated", description: `Scene ${sceneIndex + 1} video updated${editedText ? ' with new script' : ''}` });
         }
       }
     } catch (error: any) {
@@ -368,6 +447,110 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
 
   return (
     <>
+      {/* Regeneration Dialog */}
+      <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {regenDialogType === 'image' ? 'Regenerate Image' : 'Regenerate Video'} - Scene {regenDialogSceneIndex + 1}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {regenDialogType === 'image' ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Reference Image (Optional)</Label>
+                  <p className="text-xs text-muted-foreground">Select a reference image to maintain character consistency</p>
+                  
+                  <Tabs defaultValue="upload" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="upload">Upload</TabsTrigger>
+                      <TabsTrigger value="gallery">Gallery</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="upload" className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleReferenceUpload}
+                          className="hidden"
+                          id="regen-ref-upload"
+                        />
+                        <label
+                          htmlFor="regen-ref-upload"
+                          className="flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-md cursor-pointer hover:bg-muted"
+                        >
+                          <Upload className="w-4 h-4" />
+                          Upload Image
+                        </label>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="gallery">
+                      <GalleryImagePicker
+                        onSelect={(url) => setRegenReferenceUrl(url)}
+                        trigger={
+                          <Button variant="outline" size="sm" className="w-full">
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            Select from Gallery
+                          </Button>
+                        }
+                      />
+                    </TabsContent>
+                  </Tabs>
+                  
+                  {regenReferenceUrl && (
+                    <div className="relative w-24 h-24 rounded overflow-hidden border border-border">
+                      <img src={regenReferenceUrl} alt="Reference" className="w-full h-full object-cover" />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 w-5 h-5"
+                        onClick={() => setRegenReferenceUrl('')}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Edit Script</Label>
+                  <p className="text-xs text-muted-foreground">Modify the script for this scene. New audio will be generated.</p>
+                  <Textarea
+                    value={regenEditedText}
+                    onChange={(e) => setRegenEditedText(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (regenDialogType === 'image') {
+                  regenerateSceneImage(regenDialogSceneIndex, regenReferenceUrl || undefined);
+                } else {
+                  regenerateSceneVideo(regenDialogSceneIndex, regenEditedText !== scenes[regenDialogSceneIndex]?.text ? regenEditedText : undefined);
+                }
+              }}
+            >
+              {regenDialogType === 'image' ? 'Regenerate Image' : 'Regenerate Video'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Save Confirmation Dialog */}
       <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
         <AlertDialogContent>
@@ -505,12 +688,12 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
                         size="sm"
                         className="h-7 text-xs"
                         disabled={isRegenerating}
-                        onClick={() => regenerateSceneImage(idx)}
+                        onClick={() => openRegenDialog(idx, 'image')}
                       >
                         {isRegenerating && regeneratingType === 'image' ? (
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                         ) : (
-                          <ImageIcon className="w-3 h-3 mr-1" />
+                          <Pencil className="w-3 h-3 mr-1" />
                         )}
                         {hasImage ? 'Regen Image' : 'Gen Image'}
                       </Button>
@@ -519,13 +702,13 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
                         size="sm"
                         className="h-7 text-xs"
                         disabled={isRegenerating || !hasImage}
-                        onClick={() => regenerateSceneVideo(idx)}
-                        title={!hasImage ? 'Generate image first' : 'Regenerate video (keeps same script)'}
+                        onClick={() => openRegenDialog(idx, 'video')}
+                        title={!hasImage ? 'Generate image first' : 'Regenerate video'}
                       >
                         {isRegenerating && regeneratingType === 'video' ? (
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                         ) : (
-                          <Video className="w-3 h-3 mr-1" />
+                          <Pencil className="w-3 h-3 mr-1" />
                         )}
                         {hasVideo ? 'Regen Video' : 'Gen Video'}
                       </Button>
