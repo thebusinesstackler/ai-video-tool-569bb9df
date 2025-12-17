@@ -178,6 +178,47 @@ Place the reference person(s) naturally into this scene setting. Focus on lighti
       }
     }
 
+    // If model declined to use reference images, retry with text-only prompt
+    if (!imageUrl && allImages.length > 0) {
+      const refusalContent = data.choices?.[0]?.message?.content;
+      if (typeof refusalContent === 'string' && refusalContent.toLowerCase().includes('cannot')) {
+        console.log('Model declined reference images, retrying with text-only prompt...');
+        
+        const textOnlyPrompt = characterDescription 
+          ? `Generate a cinematic, photorealistic movie scene image. ${prompt}. The main character: ${characterDescription}${blockingInstructions}`
+          : `Generate a cinematic, photorealistic movie scene image. ${prompt}${blockingInstructions}`;
+        
+        const retryResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-image-preview',
+            messages: [{ role: 'user', content: textOnlyPrompt }],
+            modalities: ['image', 'text']
+          }),
+        });
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          imageUrl = retryData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          
+          if (!imageUrl) {
+            const retryContent = retryData.choices?.[0]?.message?.content;
+            if (typeof retryContent === 'string' && retryContent.startsWith('data:image')) {
+              imageUrl = retryContent;
+            }
+          }
+          
+          if (imageUrl) {
+            console.log('Text-only retry successful');
+          }
+        }
+      }
+    }
+
     if (!imageUrl) {
       console.error('Full AI response:', JSON.stringify(data, null, 2));
       throw new Error('No image generated in response. The AI may have declined to generate the image or returned text only.');
