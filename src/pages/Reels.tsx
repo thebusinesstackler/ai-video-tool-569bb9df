@@ -2987,9 +2987,18 @@ const Reels = () => {
             {previewScenes.length > 0 && !project.videoBlobUrl && (
               <ScenePreview
                 scenes={previewScenes}
-                onRegenerateImage={(sceneNumber) => {
+                onRegenerateImage={(sceneNumber, customPrompt, localRefUrl) => {
                   const scene = project.scenes.find(s => s.sceneNumber === sceneNumber);
-                  if (scene) regenerateSceneImage(sceneNumber, scene.visualDescription);
+                  const promptToUse = customPrompt || scene?.visualDescription || '';
+                  
+                  // Use local reference if provided, else fall back to global reference
+                  if (localRefUrl) {
+                    regenerateWithReference(sceneNumber, promptToUse, localRefUrl, characterTransformation);
+                  } else if (referenceImageUrl) {
+                    regenerateWithReference(sceneNumber, promptToUse, referenceImageUrl, characterTransformation);
+                  } else {
+                    regenerateSceneImage(sceneNumber, promptToUse);
+                  }
                 }}
                 onCreateVideo={generateVideo}
                 isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
