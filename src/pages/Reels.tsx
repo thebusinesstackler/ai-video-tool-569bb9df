@@ -49,7 +49,8 @@ import {
   Image as ImageIcon,
   Camera,
   Wand2,
-  FolderOpen
+  FolderOpen,
+  Copy
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -658,6 +659,48 @@ const Reels = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // Duplicate a saved reel - loads its script into the create form
+  const duplicateReel = (reel: SavedReel) => {
+    // Set the topic
+    setTopic(reel.topic);
+    
+    // Convert saved scenes to script scenes
+    if (reel.scenes && reel.scenes.length > 0) {
+      const scriptScenes: Scene[] = reel.scenes.map((scene, index) => ({
+        sceneNumber: index + 1,
+        narration: scene.text || '',
+        visualDescription: scene.text || '',
+        duration: Math.round((scene.endTime || 0) - (scene.startTime || 0)) || 12,
+      }));
+      
+      setProject(prev => ({
+        ...prev,
+        topic: reel.topic,
+        scenes: scriptScenes,
+        status: 'idle',
+        generatedScenes: [],
+        videoClips: [],
+        voiceovers: [],
+        previewScenes: [],
+        videoBlobUrl: null,
+        videoUrl: null
+      }));
+      
+      setSelectedSceneCount(String(scriptScenes.length));
+    }
+    
+    // Switch to create tab
+    setActiveTab('create');
+    
+    // Reset preview state
+    resetPreview();
+    
+    toast({
+      title: "Reel Duplicated",
+      description: "Script loaded. You can now regenerate with modifications.",
+    });
   };
 
   // Manual save to My Reels
@@ -3282,7 +3325,16 @@ const Reels = () => {
                       )}
                       
                       <CardContent className="pt-4">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => duplicateReel(reel)}
+                            title="Duplicate and use same script"
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Duplicate
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -3295,7 +3347,6 @@ const Reels = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1"
                               onClick={() => {
                                 const link = document.createElement('a');
                                 link.href = reel.video_url!;
