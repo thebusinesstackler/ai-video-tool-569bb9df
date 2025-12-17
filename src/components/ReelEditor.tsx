@@ -256,9 +256,10 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
       // Use the wavespeed-video function with infinitetalk model
       const { data, error } = await supabase.functions.invoke('wavespeed-video', {
         body: {
-          image_url: scene.imageUrl,
-          audio_url: audioUrl,
-          model: 'infinitetalk'
+          imageUrls: [scene.imageUrl],
+          audioUrl: audioUrl,
+          model: 'infinitetalk',
+          prompt: newText
         }
       });
 
