@@ -221,6 +221,21 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
     }
   };
 
+  // Helper to convert base64 to Blob for audio upload
+  const base64ToBlob = (base64: string, mimeType: string): Blob => {
+    const byteCharacters = atob(base64);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      byteArrays.push(new Uint8Array(byteNumbers));
+    }
+    return new Blob(byteArrays, { type: mimeType });
+  };
+
   const regenerateSceneVideo = async (sceneIndex: number, editedText?: string) => {
     const scene = scenes[sceneIndex];
     if (!scene || !scene.imageUrl) {
@@ -250,6 +265,34 @@ export const ReelEditor: React.FC<ReelEditorProps> = ({
         if (audioError) throw audioError;
         if (audioData?.audioUrl) {
           audioUrl = audioData.audioUrl;
+        }
+      }
+      
+      // If audio is base64, upload to storage first to get a real HTTP URL
+      if (audioUrl && audioUrl.startsWith('data:audio')) {
+        try {
+          const base64Data = audioUrl.split(',')[1];
+          const audioBlob = base64ToBlob(base64Data, 'audio/mp3');
+          
+          const fileName = `audio_scene_${sceneIndex}_${Date.now()}.mp3`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('reels')
+            .upload(fileName, audioBlob, { contentType: 'audio/mp3', upsert: true });
+          
+          if (uploadError) {
+            console.error('Audio upload error:', uploadError);
+            throw new Error(`Failed to upload audio: ${uploadError.message}`);
+          }
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('reels')
+            .getPublicUrl(fileName);
+          
+          audioUrl = publicUrl;
+          console.log('Uploaded audio to storage:', audioUrl);
+        } catch (uploadErr: any) {
+          console.error('Error uploading audio to storage:', uploadErr);
+          throw new Error(`Audio upload failed: ${uploadErr.message}`);
         }
       }
       
