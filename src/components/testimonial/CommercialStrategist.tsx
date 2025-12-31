@@ -35,6 +35,66 @@ interface CommercialStrategistProps {
   onGenerateBrollImages?: (segments: CommercialSegment[]) => Promise<void>;
 }
 
+// Component to render AI messages with clickable options
+function MessageWithOptions({ content, onOptionClick }: { content: string; onOptionClick: (option: string) => void }) {
+  // Parse content for <options> blocks
+  const parts = content.split(/<options>([\s\S]*?)<\/options>/g);
+  
+  return (
+    <div className="text-sm space-y-3">
+      {parts.map((part, index) => {
+        // Even indices are regular text, odd indices are option blocks
+        if (index % 2 === 0) {
+          // Regular text - render with basic markdown-like formatting
+          return part.split('\n').map((line, lineIndex) => {
+            // Bold text
+            const formattedLine = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            if (line.trim() === '') return <br key={`${index}-${lineIndex}`} />;
+            return (
+              <p 
+                key={`${index}-${lineIndex}`} 
+                className="whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ __html: formattedLine }}
+              />
+            );
+          });
+        } else {
+          // Options block - parse and render as clickable buttons
+          const options = part
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.startsWith('-'))
+            .map(line => {
+              // Remove the leading "- " and extract the option
+              const optionText = line.slice(2).trim();
+              // Extract just the label (text after emoji and ** markers)
+              const labelMatch = optionText.match(/\*\*(.+?)\*\*/);
+              const label = labelMatch ? labelMatch[1] : optionText.split(' - ')[0];
+              const description = optionText.split(' - ').slice(1).join(' - ');
+              return { full: optionText, label, description };
+            });
+
+          return (
+            <div key={index} className="flex flex-wrap gap-2 my-2">
+              {options.map((option, optIndex) => (
+                <Button
+                  key={optIndex}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-auto py-2 px-3 whitespace-normal text-left hover:bg-primary/10 hover:border-primary/50 transition-all"
+                  onClick={() => onOptionClick(option.label)}
+                >
+                  <span dangerouslySetInnerHTML={{ __html: option.full.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
+                </Button>
+              ))}
+            </div>
+          );
+        }
+      })}
+    </div>
+  );
+}
+
 // Calculate duration based on word count (~2.5 words per second for natural speech)
 // Allow longer durations for substantial scripts
 function calculateDurationFromScript(script: string): number {
@@ -440,19 +500,20 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
 
           {/* Chat Area */}
           <div className="border rounded-lg bg-background">
-            <ScrollArea className="h-[280px] p-4" ref={scrollRef}>
+            <ScrollArea className="h-[360px] p-4" ref={scrollRef}>
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <Sparkles className="h-8 w-8 mb-3 opacity-50" />
                   <p className="font-medium">Start brainstorming your commercial</p>
                   <p className="text-sm mt-1">
-                    Describe your product/service, target audience, and goals
+                    I'll ask questions and suggest options to craft your perfect commercial
                   </p>
                   <div className="flex flex-wrap gap-2 mt-4 justify-center">
                     {[
                       "I'm launching a fitness app for busy professionals",
                       "We sell eco-friendly cleaning products",
                       "I have a SaaS tool for small businesses",
+                      "I'm a real estate agent who needs testimonial ads",
                     ].map((example, i) => (
                       <Button
                         key={i}
@@ -480,7 +541,14 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
                             : 'bg-muted'
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg.role === 'assistant' ? (
+                          <MessageWithOptions 
+                            content={msg.content} 
+                            onOptionClick={(option) => setInput(option)}
+                          />
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        )}
                       </div>
                     </div>
                   ))}
