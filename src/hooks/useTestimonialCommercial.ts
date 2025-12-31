@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CommercialSegment, TestimonialCommercial } from '@/types/testimonialCommercial';
 import { toast } from 'sonner';
+import { testimonialExamples, CommercialTemplate } from '@/data/testimonialExamples';
 
 export function useTestimonialCommercial() {
   const [segments, setSegments] = useState<CommercialSegment[]>([]);
@@ -179,6 +180,64 @@ export function useTestimonialCommercial() {
     }
   }, [segments, updateSegment, currentCommercial]);
 
+  const loadExampleTemplate = useCallback(async (templateId: string): Promise<{ success: boolean; name?: string }> => {
+    const template = testimonialExamples.find(t => t.id === templateId);
+    if (!template) {
+      toast.error('Template not found');
+      return { success: false };
+    }
+
+    // Fetch user's AI twins with cloned voices
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error('Please sign in first');
+      return { success: false };
+    }
+
+    const { data: twins } = await supabase
+      .from('ai_twins')
+      .select('id, name, voice_cloning_key')
+      .eq('user_id', user.id)
+      .not('voice_cloning_key', 'is', null);
+
+    if (!twins || twins.length === 0) {
+      toast.error('You need at least one AI Twin with a cloned voice to use examples');
+      return { success: false };
+    }
+
+    if (twins.length < template.twinCount) {
+      toast.warning(`This template uses ${template.twinCount} twins but you only have ${twins.length}. Some segments will share the same twin.`);
+    }
+
+    // Create segments with assigned twins
+    let twinIndex = 0;
+    const newSegments: CommercialSegment[] = template.segments.map((seg) => {
+      const segment: CommercialSegment = {
+        ...seg,
+        id: crypto.randomUUID()
+      };
+
+      // Assign twins to speaking segments
+      if (seg.type === 'twin-speaking') {
+        segment.twinId = twins[twinIndex % twins.length].id;
+        twinIndex++;
+      }
+
+      // Assign voiceover twin for montage segments
+      if (seg.type === 'broll-montage') {
+        segment.voiceoverId = twins[0].id; // Use first twin for voiceover
+      }
+
+      return segment;
+    });
+
+    setSegments(newSegments);
+    setCurrentCommercial(null); // Reset current commercial since this is a new one
+    toast.success(`Loaded "${template.name}" template`);
+    
+    return { success: true, name: template.name };
+  }, []);
+
   return {
     segments,
     setSegments,
@@ -188,6 +247,7 @@ export function useTestimonialCommercial() {
     reorderSegments,
     saveCommercial,
     loadCommercial,
+    loadExampleTemplate,
     generateCommercial,
     isGenerating,
     generationProgress,
