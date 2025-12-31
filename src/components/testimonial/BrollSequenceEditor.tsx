@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Film, Loader2, CheckCircle, RefreshCw, ImagePlus, 
+  Film, Loader2, RefreshCw, ImagePlus, 
   GripVertical, X, Upload, Eye, Clock
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,25 +17,67 @@ interface BrollSequenceEditorProps {
 }
 
 const angleLabels: Record<CameraAngle, string> = {
-  'wide': 'Wide',
-  'medium': 'Med',
+  'extreme-wide': 'XW',
+  'wide': 'W',
+  'medium-wide': 'MW',
+  'medium': 'M',
+  'medium-close': 'MC',
   'close-up': 'CU',
+  'extreme-close-up': 'XCU',
   'over-shoulder': 'OTS',
-  'low-angle': 'Low',
-  'high-angle': 'High',
-  'dutch-angle': 'Dutch',
-  'pov': 'POV'
+  'two-shot': '2S',
+  'low-angle': 'LA',
+  'high-angle': 'HA',
+  'dutch-angle': 'DA',
+  'birds-eye': 'BE',
+  'worms-eye': 'WE',
+  'pov': 'POV',
+  'profile': 'PRF',
+  'three-quarter': '3/4'
 };
 
 const movementIcons: Record<CameraMovement, string> = {
-  'static': '●',
-  'push-in': '→●',
-  'pull-out': '←●',
-  'pan-left': '←',
-  'pan-right': '→',
-  'tracking': '↔',
-  'handheld': '~',
-  'dolly': '⇄'
+  'locked-off': '●',
+  'subtle-float': '~',
+  'breathing': '◎',
+  'slow-zoom-in': '⊕',
+  'fast-zoom-in': '⊕⊕',
+  'slow-zoom-out': '⊖',
+  'crash-zoom': '⚡',
+  'zoom-to-close-up': '⊕→',
+  'zoom-from-detail': '←⊕',
+  'dolly-in': '→●',
+  'dolly-out': '←●',
+  'dolly-around': '↻',
+  'push-in-dramatic': '→→',
+  'pull-back-reveal': '←←',
+  'slow-pan-left': '←',
+  'slow-pan-right': '→',
+  'whip-pan': '⟿',
+  'pan-reveal': '⟶',
+  'pan-follow': '↝',
+  'pan-across-room': '↔',
+  'corner-reveal-pan': '⤴',
+  'tilt-up': '↑',
+  'tilt-down': '↓',
+  'tilt-reveal': '↗',
+  'tracking-alongside': '⇉',
+  'tracking-behind': '⇇',
+  'tracking-in-front': '⇈',
+  'steadicam-float': '≋',
+  'gimbal-glide': '≈',
+  'handheld-subtle': '∿',
+  'handheld-energetic': '∿∿',
+  'shaky-cam': '⌇',
+  'crane-up': '⇧',
+  'crane-down': '⇩',
+  'jib-sweep': '⤻',
+  'dolly-zoom': '⊕←',
+  'orbit': '↻',
+  'arc-left': '↶',
+  'arc-right': '↷',
+  'boom-down-to-eye-level': '⇣',
+  'rise-and-reveal': '⇡'
 };
 
 export function BrollSequenceEditor({
@@ -56,8 +98,14 @@ export function BrollSequenceEditor({
     setGeneratingIndex(index);
 
     try {
+      // Enhance prompt with camera details
+      let enhancedPrompt = shot.prompt;
+      if (shot.movementDescription) {
+        enhancedPrompt += `. Camera: ${shot.movementDescription}`;
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt: shot.prompt, sceneType: 'commercial' }
+        body: { prompt: enhancedPrompt, sceneType: 'commercial' }
       });
 
       if (error) throw error;
@@ -148,8 +196,14 @@ export function BrollSequenceEditor({
   };
 
   const totalDuration = sequence.shots.reduce((sum, shot) => sum + (shot.duration || 2), 0);
-  const hasAllImages = sequence.shots.every(s => s.imageUrl);
   const hasMissingImages = sequence.shots.some(s => !s.imageUrl);
+
+  const pacingLabels = {
+    'slow-deliberate': 'Slow & Deliberate',
+    'rhythmic': 'Rhythmic',
+    'building': 'Building Tension',
+    'frenetic': 'Frenetic'
+  };
 
   return (
     <Card className="border-primary/20">
@@ -161,6 +215,11 @@ export function BrollSequenceEditor({
             <Badge variant="outline" className="ml-2">
               {sequence.isMontage ? 'Montage' : 'Contextual'}
             </Badge>
+            {sequence.pacing && (
+              <Badge variant="secondary" className="ml-1">
+                {pacingLabels[sequence.pacing]}
+              </Badge>
+            )}
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="gap-1">
@@ -196,7 +255,7 @@ export function BrollSequenceEditor({
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDrop(index)}
-              className={`relative flex-shrink-0 w-28 rounded-lg overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all ${
+              className={`relative flex-shrink-0 w-32 rounded-lg overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all ${
                 dragIndex === index ? 'opacity-50 scale-95' : 'border-border hover:border-primary/50'
               }`}
             >
@@ -215,8 +274,8 @@ export function BrollSequenceEditor({
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-1 bg-muted">
                     <ImagePlus className="h-4 w-4 text-muted-foreground mb-1" />
-                    <span className="text-[8px] text-center text-muted-foreground line-clamp-2">
-                      {shot.prompt?.slice(0, 30)}...
+                    <span className="text-[7px] text-center text-muted-foreground line-clamp-2">
+                      {shot.movementDescription?.slice(0, 40) || shot.prompt?.slice(0, 30)}...
                     </span>
                   </div>
                 )}
@@ -281,15 +340,20 @@ export function BrollSequenceEditor({
               </div>
 
               {/* Shot info */}
-              <div className="p-1.5 bg-card">
+              <div className="p-1.5 bg-card space-y-1">
                 <div className="flex items-center justify-between gap-1">
                   <Badge variant="outline" className="text-[9px] px-1 py-0">
                     {angleLabels[shot.angle]}
                   </Badge>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground" title={shot.movement}>
                     {movementIcons[shot.movement]}
                   </span>
                 </div>
+                {shot.movementDescription && (
+                  <p className="text-[8px] text-muted-foreground line-clamp-2">
+                    {shot.movementDescription}
+                  </p>
+                )}
               </div>
             </div>
           ))}
@@ -310,11 +374,18 @@ export function BrollSequenceEditor({
                     : 'bg-muted-foreground/30'
                 }`}
                 style={{ width: `${widthPercent}%` }}
-                title={`Shot ${index + 1}: ${shot.duration}s - ${angleLabels[shot.angle]}`}
+                title={`Shot ${index + 1}: ${shot.duration}s - ${angleLabels[shot.angle]} - ${shot.movement}`}
               />
             );
           })}
         </div>
+
+        {/* Transition style info */}
+        {sequence.transitionStyle && (
+          <div className="mt-2 text-xs text-muted-foreground">
+            Transitions: <Badge variant="outline" className="ml-1 text-[10px]">{sequence.transitionStyle}</Badge>
+          </div>
+        )}
 
         <input
           ref={fileInputRef}
@@ -330,11 +401,29 @@ export function BrollSequenceEditor({
             className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
             onClick={() => setPreviewIndex(null)}
           >
-            <img 
-              src={sequence.shots[previewIndex].imageUrl} 
-              alt="Preview"
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
+            <div className="max-w-4xl w-full space-y-4">
+              <img 
+                src={sequence.shots[previewIndex].imageUrl} 
+                alt="Preview"
+                className="w-full object-contain rounded-lg"
+              />
+              {sequence.shots[previewIndex].movementDescription && (
+                <div className="bg-card p-4 rounded-lg">
+                  <p className="text-sm font-medium">Camera Movement:</p>
+                  <p className="text-muted-foreground">{sequence.shots[previewIndex].movementDescription}</p>
+                  {sequence.shots[previewIndex].startFrame && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      <strong>Start:</strong> {sequence.shots[previewIndex].startFrame}
+                    </p>
+                  )}
+                  {sequence.shots[previewIndex].endFrame && (
+                    <p className="text-xs text-muted-foreground">
+                      <strong>End:</strong> {sequence.shots[previewIndex].endFrame}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
