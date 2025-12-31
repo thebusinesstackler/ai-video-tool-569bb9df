@@ -471,24 +471,33 @@ async function generateVideoForSegment(
     const existingImages = segment.brollImages || segment.brollSlots?.map(s => s.imageUrl).filter(Boolean) || [];
     const videoUrls: string[] = [];
     
+    // Get camera movement info from brollSlots
+    const cameraInfo = segment.brollSlots?.[0];
+    const cameraMovement = cameraInfo?.movement || 'slow-zoom-in';
+    const cameraAngle = cameraInfo?.angle || 'medium';
+    
     // Use audio duration for total B-roll length, divide among clips
     const totalDuration = audioDuration || segment.duration || 10;
     const numClips = Math.max(existingImages.length, prompts.length, 1);
     const clipDuration = Math.max(5, Math.ceil(totalDuration / numClips));
 
-    console.log(`Generating B-roll videos: ${existingImages.length} existing images, ${prompts.length} prompts`);
+    console.log(`Generating B-roll videos: ${existingImages.length} existing images, ${prompts.length} prompts, camera: ${cameraMovement}`);
 
     for (let i = 0; i < Math.max(existingImages.length, prompts.length); i++) {
       if (i >= 5) break; // Max 5 clips
 
       let imageUrl = existingImages[i];
-      const prompt = prompts[i] || 'Cinematic B-roll footage';
+      const basePrompt = prompts[i] || 'Cinematic B-roll footage';
+      
+      // Enhance prompt with camera movement for more dynamic video generation
+      const movementDesc = cameraMovement.replace(/-/g, ' ');
+      const enhancedPrompt = `${basePrompt}. Camera: ${movementDesc}, ${cameraAngle.replace(/-/g, ' ')} shot, cinematic motion.`;
 
       // Only generate image if we don't have one
-      if (!imageUrl && prompt) {
-        console.log(`Generating image for prompt ${i}: ${prompt.substring(0, 50)}...`);
+      if (!imageUrl && basePrompt) {
+        console.log(`Generating image for prompt ${i}: ${basePrompt.substring(0, 50)}...`);
         const { data: imageData } = await supabase.functions.invoke('generate-scene-image', {
-          body: { prompt, sceneType: 'commercial' }
+          body: { prompt: basePrompt, sceneType: 'commercial' }
         });
         imageUrl = imageData?.imageUrl;
       }
@@ -498,14 +507,15 @@ async function generateVideoForSegment(
         continue;
       }
 
-      console.log(`Generating video from image ${i}: ${imageUrl.substring(0, 50)}...`);
+      console.log(`Generating video from image ${i} with camera movement: ${cameraMovement}`);
 
       // Generate short video from image - WaveSpeed i2v supports 5-10s
+      // Include camera movement in the prompt for the video generation
       const { data: videoData } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
           model: 'wan-2.5-i2v',
-          prompt,
+          prompt: enhancedPrompt,
           imageUrls: [imageUrl],
           duration: Math.min(clipDuration, 10) // Max 10s per clip
         }

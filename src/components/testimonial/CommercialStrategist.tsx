@@ -383,11 +383,28 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
           script: seg.script || '',
         };
       } else if (seg.type === 'broll-voice-continue') {
+        // Parse camera info from prompts if available
+        const brollSlots = (seg.brollPrompts || []).map((prompt: string) => {
+          // Try to extract camera info from prompt
+          const cameraMatch = prompt.match(/\((slow[-\s]?zoom[-\s]?in|pan[-\s]?left|pan[-\s]?right|dolly[-\s]?in|dolly[-\s]?around|tracking|orbit|crane[-\s]?up|tilt[-\s]?up|handheld)\)/i);
+          const angleMatch = prompt.match(/\((close[-\s]?up|wide|medium|extreme[-\s]?close[-\s]?up|low[-\s]?angle|high[-\s]?angle|over[-\s]?shoulder)\)/i);
+          
+          return {
+            prompt: prompt.replace(/\([^)]+\)/g, '').trim(), // Clean prompt
+            status: 'pending' as const,
+            movement: cameraMatch ? cameraMatch[1].toLowerCase().replace(/\s/g, '-') as any : 'slow-zoom-in',
+            movementDescription: cameraMatch ? `Camera: ${cameraMatch[1]}` : 'Slow zoom into subject',
+            angle: angleMatch ? angleMatch[1].toLowerCase().replace(/\s/g, '-') as any : 'medium',
+          };
+        });
+        
         return {
           ...baseSegment,
           type: 'broll-voice-continue' as const,
           brollPrompts: seg.brollPrompts || [],
+          brollSlots: brollSlots.length > 0 ? brollSlots : undefined,
           brollImages: [],
+          voiceContinuesFromPrevious: true, // B-roll voice continue means audio extends from previous
         };
       } else if (seg.type === 'broll-montage') {
         return {

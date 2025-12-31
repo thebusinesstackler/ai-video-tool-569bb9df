@@ -184,6 +184,10 @@ export interface CommercialSegment {
   selectedArollIndex?: number;
   sceneCoverage?: SceneCoverage;
   visualContext?: VisualContext; // Maintain visual consistency when speaker returns
+  
+  // Voice continuation (L-cut style) - for broll-voice-continue segments
+  voiceContinuesFromPrevious?: boolean; // If true, audio from previous speaking segment continues over this B-roll
+  extendedAudioDuration?: number; // Total audio duration when voice continues (speaking + broll)
 }
 
 export interface TestimonialCommercial {
