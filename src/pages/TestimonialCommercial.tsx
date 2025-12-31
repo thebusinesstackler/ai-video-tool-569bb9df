@@ -68,6 +68,34 @@ export default function TestimonialCommercial() {
     setFinalVideoUrl(null);
   };
 
+  const handleGenerateBrollImages = async (segments: CommercialSegment[]) => {
+    // Generate images for B-roll segments
+    for (const segment of segments) {
+      if ((segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') && segment.brollPrompts && segment.brollPrompts.length > 0) {
+        const generatedImages: string[] = [];
+        
+        for (const prompt of segment.brollPrompts) {
+          try {
+            const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+              body: { prompt, aspectRatio: '16:9' }
+            });
+
+            if (error) throw error;
+            if (data?.imageUrl) {
+              generatedImages.push(data.imageUrl);
+            }
+          } catch (err) {
+            console.error('Failed to generate B-roll image:', err);
+          }
+        }
+
+        if (generatedImages.length > 0) {
+          updateSegment(segment.id, { brollImages: generatedImages });
+        }
+      }
+    }
+  };
+
   // Load saved commercials
   useEffect(() => {
     async function fetchSaved() {
@@ -145,7 +173,10 @@ export default function TestimonialCommercial() {
         </div>
 
         {/* AI Commercial Strategist */}
-        <CommercialStrategist onApplyStrategy={handleApplyStrategy} />
+        <CommercialStrategist 
+          onApplyStrategy={handleApplyStrategy} 
+          onGenerateBrollImages={handleGenerateBrollImages}
+        />
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Editor */}
@@ -204,8 +235,8 @@ export default function TestimonialCommercial() {
             {/* Timeline Preview & Generation Controls */}
             <Card>
               <CardContent className="pt-6 space-y-6">
-                {/* Visual Timeline Preview */}
-                <TimelinePreview segments={segments} />
+                {/* Visual Timeline Preview with drag-and-drop */}
+                <TimelinePreview segments={segments} onReorder={reorderSegments} />
 
                 {isGenerating ? (
                   <div className="space-y-4">
