@@ -18,7 +18,7 @@ export const testimonialExamples: CommercialTemplate[] = [
       {
         type: 'twin-speaking',
         script: "I have been using this product for 3 months now and I have to say, it completely changed how I work. The results speak for themselves and I could not be happier with my decision.",
-        duration: 10,
+        duration: 8,
         transition: 'fade-in',
         status: 'pending'
       }
@@ -33,7 +33,7 @@ export const testimonialExamples: CommercialTemplate[] = [
       {
         type: 'twin-speaking',
         script: "Let me tell you about my experience with this amazing service. When I first signed up, I was skeptical...",
-        duration: 6,
+        duration: 5,
         transition: 'fade-in',
         status: 'pending'
       },
@@ -41,7 +41,7 @@ export const testimonialExamples: CommercialTemplate[] = [
         type: 'broll-voice-continue',
         brollPrompts: ['Modern office workspace with laptop and coffee, professional setting, natural lighting, clean desk aesthetic'],
         brollImages: [],
-        duration: 4,
+        duration: 5,
         transition: 'cut',
         status: 'pending'
       },
@@ -70,7 +70,7 @@ export const testimonialExamples: CommercialTemplate[] = [
       {
         type: 'twin-speaking',
         script: "I agree completely. The customer support alone is worth it. They are always there when you need them, day or night.",
-        duration: 7,
+        duration: 8,
         transition: 'fade-in',
         status: 'pending'
       }
@@ -85,7 +85,7 @@ export const testimonialExamples: CommercialTemplate[] = [
       {
         type: 'twin-speaking',
         script: "When I first discovered this product, I was skeptical. But now, I cannot imagine my day without it.",
-        duration: 6,
+        duration: 5,
         transition: 'fade-in',
         status: 'pending'
       },
@@ -93,7 +93,7 @@ export const testimonialExamples: CommercialTemplate[] = [
         type: 'broll-voice-continue',
         brollPrompts: ['Hands typing on modern keyboard, close-up of productivity app on screen, bright office environment'],
         brollImages: [],
-        duration: 4,
+        duration: 5,
         transition: 'cut',
         status: 'pending'
       },
@@ -114,7 +114,7 @@ export const testimonialExamples: CommercialTemplate[] = [
           'Call to action button, subscribe now, vibrant colors'
         ],
         brollImages: [],
-        duration: 10,
+        duration: 8,
         transition: 'cut',
         status: 'pending'
       }

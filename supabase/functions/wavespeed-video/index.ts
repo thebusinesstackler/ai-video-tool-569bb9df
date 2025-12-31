@@ -321,14 +321,19 @@ serve(async (req) => {
         };
       } else {
         // Text-to-Video model (default wan-2.2)
+        // IMPORTANT: wan-2.2 only accepts duration values of [5, 8]
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p-ultra-fast';
         
         const size = params.aspectRatio === '9:16' ? '720*1280' : '1280*720';
         
+        // Clamp duration to allowed values: 5 or 8 only
+        const wan22Duration = duration >= 7 ? 8 : 5;
+        console.log(`WAN 2.2 T2V: requested duration ${duration}s, using ${wan22Duration}s (allowed: 5 or 8)`);
+        
         requestBody = {
           prompt: params.prompt,
           size: size,
-          duration: duration,
+          duration: wan22Duration,
           seed: seed
         };
 
