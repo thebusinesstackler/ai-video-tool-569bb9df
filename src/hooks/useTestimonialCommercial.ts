@@ -124,7 +124,7 @@ export function useTestimonialCommercial() {
       let currentStep = 0;
 
       // Process each segment - store generated URLs to pass forward
-      const generatedData: { audioUrl?: string; videoUrl?: string }[] = [];
+      const generatedData: { audioUrl?: string; videoUrl?: string; audioDuration?: number }[] = [];
       
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
@@ -134,27 +134,42 @@ export function useTestimonialCommercial() {
         try {
           // Generate audio for speaking/montage segments
           let audioUrl: string | undefined;
+          let audioDuration: number | undefined;
           if (segment.type === 'twin-speaking' || segment.type === 'broll-montage') {
-            audioUrl = await generateAudioForSegment(segment);
+            const audioResult = await generateAudioForSegment(segment);
+            audioUrl = audioResult.audioUrl;
+            audioDuration = audioResult.duration;
             generatedData[i].audioUrl = audioUrl;
-            updateSegment(segment.id, { audioUrl });
+            generatedData[i].audioDuration = audioDuration;
+            updateSegment(segment.id, { audioUrl, duration: audioDuration });
           }
 
           currentStep++;
           setGenerationProgress((currentStep / totalSteps) * 100);
 
-          // Generate video for segment - pass audioUrl directly since state hasn't updated yet
-          const segmentWithAudio = { ...segment, audioUrl: audioUrl || segment.audioUrl };
+          // Generate video for segment - pass audioUrl and duration directly since state hasn't updated yet
+          const segmentWithAudio = { 
+            ...segment, 
+            audioUrl: audioUrl || segment.audioUrl,
+            duration: audioDuration || segment.duration 
+          };
           const previousData = i > 0 ? generatedData[i - 1] : null;
           const videoResult = await generateVideoForSegment(
             segmentWithAudio, 
-            i > 0 ? { ...segments[i - 1], ...previousData } : null
+            i > 0 ? { ...segments[i - 1], ...previousData } : null,
+            audioDuration
           );
           generatedData[i].videoUrl = videoResult;
           
           // Update segment and auto-save to database
-          const updatedSegment = { ...segment, audioUrl: audioUrl || segment.audioUrl, videoUrl: videoResult, status: 'complete' as const };
-          updateSegment(segment.id, { videoUrl: videoResult, status: 'complete' });
+          const updatedSegment = { 
+            ...segment, 
+            audioUrl: audioUrl || segment.audioUrl, 
+            videoUrl: videoResult, 
+            duration: audioDuration || segment.duration,
+            status: 'complete' as const 
+          };
+          updateSegment(segment.id, { videoUrl: videoResult, status: 'complete', duration: audioDuration || segment.duration });
           
           // Auto-save progress to database
           if (currentCommercial) {
@@ -280,12 +295,18 @@ export function useTestimonialCommercial() {
   };
 }
 
-async function generateAudioForSegment(segment: CommercialSegment): Promise<string> {
+async function generateAudioForSegment(segment: CommercialSegment): Promise<{ audioUrl: string; duration: number }> {
   // Get the twin's voice cloning key
+  const twinId = segment.type === 'twin-speaking' ? segment.twinId : segment.voiceoverId;
+  
+  if (!twinId) {
+    throw new Error('No twin selected for this segment');
+  }
+  
   const { data: twin } = await supabase
     .from('ai_twins')
     .select('voice_cloning_key')
-    .eq('id', segment.type === 'twin-speaking' ? segment.twinId : segment.voiceoverId)
+    .eq('id', twinId)
     .single();
 
   if (!twin?.voice_cloning_key) {
@@ -293,11 +314,15 @@ async function generateAudioForSegment(segment: CommercialSegment): Promise<stri
   }
 
   const text = segment.type === 'twin-speaking' ? segment.script : segment.voiceoverText;
+  
+  // Get current user for audio storage path
+  const { data: { user } } = await supabase.auth.getUser();
 
   const { data, error } = await supabase.functions.invoke('text-to-speech', {
     body: {
       text,
-      voiceId: twin.voice_cloning_key
+      voiceId: twin.voice_cloning_key,
+      userId: user?.id
     }
   });
 
@@ -305,12 +330,17 @@ async function generateAudioForSegment(segment: CommercialSegment): Promise<stri
     throw new Error('Failed to generate audio');
   }
 
-  return data.audioUrl;
+  // Return both the URL and estimated duration
+  return {
+    audioUrl: data.audioUrl,
+    duration: data.duration || Math.ceil((text?.length || 0) / 15) // Fallback estimate
+  };
 }
 
 async function generateVideoForSegment(
   segment: CommercialSegment,
-  previousSegment: CommercialSegment | null
+  previousSegment: CommercialSegment | null,
+  audioDuration?: number
 ): Promise<string> {
   // For twin speaking - use infinitetalk lip-sync
   if (segment.type === 'twin-speaking') {
@@ -328,13 +358,17 @@ async function generateVideoForSegment(
       throw new Error('Audio URL is required for lip-sync video');
     }
 
+    // Use actual audio duration for lip-sync video
+    const videoDuration = audioDuration || segment.duration || 10;
+    console.log(`Generating lip-sync video with duration: ${videoDuration}s, audioUrl: ${segment.audioUrl.substring(0, 50)}...`);
+
     const { data, error } = await supabase.functions.invoke('wavespeed-video', {
       body: {
         action: 'create',
         model: 'infinitetalk',
         imageUrls: [twin.reference_images[0]],
         audioUrl: segment.audioUrl,
-        duration: segment.duration
+        duration: videoDuration
       }
     });
 
@@ -347,6 +381,10 @@ async function generateVideoForSegment(
   if (segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') {
     const prompts = segment.brollPrompts || [];
     const videoUrls: string[] = [];
+    
+    // Use audio duration for total B-roll length, divide among clips
+    const totalDuration = audioDuration || segment.duration || 10;
+    const clipDuration = Math.max(5, Math.ceil(totalDuration / Math.max(prompts.length, 1)));
 
     for (const prompt of prompts.slice(0, 5)) {
       // Generate image
@@ -356,14 +394,14 @@ async function generateVideoForSegment(
 
       if (!imageData?.imageUrl) continue;
 
-      // Generate short video from image
+      // Generate short video from image - WaveSpeed i2v supports 5-10s
       const { data: videoData } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
           model: 'wan-2.5-i2v',
           prompt,
           imageUrls: [imageData.imageUrl],
-          duration: Math.ceil(segment.duration / prompts.length)
+          duration: Math.min(clipDuration, 10) // Max 10s per clip
         }
       });
 
@@ -379,7 +417,8 @@ async function generateVideoForSegment(
         body: {
           clips: videoUrls.map((url, i) => ({
             url,
-            duration: segment.duration / videoUrls.length
+            duration: totalDuration / videoUrls.length,
+            audioDuration: audioDuration // Pass audio duration for proper sync
           })),
           audioUrl: segment.audioUrl,
           transition: 'cut'
