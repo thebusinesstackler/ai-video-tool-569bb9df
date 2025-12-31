@@ -333,6 +333,36 @@ export function useTestimonialCommercial() {
     toast.success('B-roll images generated');
   }, [segments, updateSegment]);
 
+  // Generate a single segment
+  const generateSingleSegment = useCallback(async (segmentId: string) => {
+    const segment = segments.find(s => s.id === segmentId);
+    if (!segment) return;
+
+    updateSegment(segmentId, { status: 'generating' });
+
+    try {
+      let audioUrl: string | undefined;
+      let audioDuration: number | undefined;
+
+      if (segment.type === 'twin-speaking' || segment.type === 'broll-montage') {
+        const audioResult = await generateAudioForSegment(segment);
+        audioUrl = audioResult.audioUrl;
+        audioDuration = audioResult.duration;
+        updateSegment(segmentId, { audioUrl, duration: audioDuration });
+      }
+
+      const segmentWithAudio = { ...segment, audioUrl: audioUrl || segment.audioUrl, duration: audioDuration || segment.duration };
+      const videoUrl = await generateVideoForSegment(segmentWithAudio, null, audioDuration);
+      
+      updateSegment(segmentId, { videoUrl, status: 'complete', duration: audioDuration || segment.duration });
+      toast.success('Segment generated!');
+    } catch (error) {
+      console.error('Failed to generate segment:', error);
+      updateSegment(segmentId, { status: 'error' });
+      toast.error('Failed to generate segment');
+    }
+  }, [segments, updateSegment]);
+
   return {
     segments,
     setSegments,
@@ -345,6 +375,7 @@ export function useTestimonialCommercial() {
     loadExampleTemplate,
     generateCommercial,
     generateBrollImagesForSegment,
+    generateSingleSegment,
     isGenerating,
     generationProgress,
     currentCommercial,

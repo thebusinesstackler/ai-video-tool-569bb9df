@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { CommercialSegment, TransitionType, BrollImageSlot, ShotVariation, BrollSequence } from '@/types/testimonialCommercial';
+import { CommercialSegment, TransitionType, BrollImageSlot, ShotVariation, BrollSequence, SegmentStatus } from '@/types/testimonialCommercial';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,12 +9,16 @@ import { Label } from '@/components/ui/label';
 import { TwinSelector } from './TwinSelector';
 import { ShotVariationPicker } from './ShotVariationPicker';
 import { BrollSequenceEditor } from './BrollSequenceEditor';
+import { SegmentReadinessChecklist } from './SegmentReadinessChecklist';
+import { getSegmentReadiness, getSegmentStatus } from '@/lib/segmentReadiness';
 import { 
   GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, 
-  AlertCircle, Upload, Sparkles, X, RefreshCw, ImagePlus, Check, Camera, Video
+  AlertCircle, Upload, Sparkles, X, RefreshCw, ImagePlus, Check, Camera, Video,
+  Play, AlertTriangle, Circle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface SegmentCardProps {
   segment: CommercialSegment;
@@ -26,7 +30,9 @@ interface SegmentCardProps {
   onDragOver: (e: React.DragEvent) => void;
   onDrop: () => void;
   onGenerateBrollImages?: (segmentId: string) => Promise<void>;
+  onGenerateSegment?: (segmentId: string) => Promise<void>;
   isGeneratingImages?: boolean;
+  isGeneratingSegment?: boolean;
 }
 
 const segmentTypeLabels = {
@@ -41,11 +47,13 @@ const segmentTypeIcons = {
   'broll-montage': Film
 };
 
-const statusColors = {
-  pending: 'bg-muted text-muted-foreground',
-  generating: 'bg-amber-500/20 text-amber-500',
-  complete: 'bg-emerald-500/20 text-emerald-500',
-  error: 'bg-destructive/20 text-destructive'
+const statusConfig: Record<SegmentStatus, { color: string; icon: typeof CheckCircle; label: string }> = {
+  incomplete: { color: 'bg-amber-500/20 text-amber-500 border-amber-500/30', icon: AlertTriangle, label: 'Incomplete' },
+  ready: { color: 'bg-blue-500/20 text-blue-500 border-blue-500/30', icon: Circle, label: 'Ready' },
+  pending: { color: 'bg-muted text-muted-foreground border-border', icon: Circle, label: 'Pending' },
+  generating: { color: 'bg-primary/20 text-primary border-primary/30', icon: Loader2, label: 'Generating' },
+  complete: { color: 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30', icon: CheckCircle, label: 'Complete' },
+  error: { color: 'bg-destructive/20 text-destructive border-destructive/30', icon: AlertCircle, label: 'Error' }
 };
 
 export function SegmentCard({
@@ -58,15 +66,22 @@ export function SegmentCard({
   onDragOver,
   onDrop,
   onGenerateBrollImages,
-  isGeneratingImages
+  onGenerateSegment,
+  isGeneratingImages,
+  isGeneratingSegment
 }: SegmentCardProps) {
   const Icon = segmentTypeIcons[segment.type];
-  const status = segment.status || 'pending';
+  const segmentStatus = getSegmentStatus(segment);
+  const readiness = getSegmentReadiness(segment);
+  const statusInfo = statusConfig[segmentStatus];
+  const StatusIcon = statusInfo.icon;
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const [isDescribing, setIsDescribing] = useState(false);
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
 
   // Use brollSlots if available, otherwise fall back to legacy brollImages/brollPrompts
   const brollSlots: BrollImageSlot[] = segment.brollSlots || 
@@ -258,7 +273,11 @@ export function SegmentCard({
 
   return (
     <Card
-      className="relative cursor-grab active:cursor-grabbing"
+      className={cn(
+        "relative cursor-grab active:cursor-grabbing transition-all",
+        segmentStatus === 'generating' && "ring-2 ring-primary/50 animate-pulse",
+        segmentStatus === 'complete' && "ring-1 ring-emerald-500/30"
+      )}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -276,17 +295,23 @@ export function SegmentCard({
             <span className="text-sm text-muted-foreground">#{index + 1}</span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Compact readiness indicator */}
+            <button
+              onClick={() => setShowChecklist(!showChecklist)}
+              className="hover:opacity-80 transition-opacity"
+            >
+              <SegmentReadinessChecklist checks={readiness.checks} compact />
+            </button>
+            
             {isBrollSegment && segment.imagesApproved && (
-              <Badge className="bg-emerald-500/20 text-emerald-500 gap-1">
+              <Badge className="bg-emerald-500/20 text-emerald-500 gap-1 border-emerald-500/30">
                 <Check className="h-3 w-3" />
                 Images Ready
               </Badge>
             )}
-            <Badge className={statusColors[status]}>
-              {status === 'generating' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-              {status === 'complete' && <CheckCircle className="h-3 w-3 mr-1" />}
-              {status === 'error' && <AlertCircle className="h-3 w-3 mr-1" />}
-              {status}
+            <Badge className={cn(statusInfo.color, "gap-1 border")}>
+              <StatusIcon className={cn("h-3 w-3", segmentStatus === 'generating' && "animate-spin")} />
+              {statusInfo.label}
             </Badge>
             <Button
               variant="ghost"
@@ -297,6 +322,13 @@ export function SegmentCard({
             </Button>
           </div>
         </div>
+        
+        {/* Expandable readiness checklist */}
+        {showChecklist && (
+          <div className="mt-3">
+            <SegmentReadinessChecklist checks={readiness.checks} />
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {segment.type === 'twin-speaking' && (
@@ -681,6 +713,46 @@ export function SegmentCard({
               />
             </div>
           </>
+        )}
+
+        {/* Per-segment generate button */}
+        {readiness.isReady && segmentStatus !== 'complete' && segmentStatus !== 'generating' && onGenerateSegment && (
+          <div className="pt-2 border-t border-border">
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => onGenerateSegment(segment.id)}
+              disabled={isGeneratingSegment}
+            >
+              {isGeneratingSegment ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Generate This Segment
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Video preview for completed segments */}
+        {segmentStatus === 'complete' && segment.videoUrl && (
+          <div className="pt-2 border-t border-border">
+            <div className="flex items-center gap-2 text-sm text-emerald-500 mb-2">
+              <CheckCircle className="h-4 w-4" />
+              <span>Segment generated</span>
+            </div>
+            <video 
+              src={segment.videoUrl} 
+              controls 
+              className="w-full rounded-lg max-h-40 object-contain bg-black"
+            />
+          </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
