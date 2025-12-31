@@ -394,6 +394,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
           ...baseSegment,
           type: 'broll-montage' as const,
           voiceover: seg.voiceover || '',
+          voiceoverText: seg.voiceover || '', // Also set voiceoverText for consistency
           brollPrompts: seg.brollPrompts || [],
           brollImages: [],
         };

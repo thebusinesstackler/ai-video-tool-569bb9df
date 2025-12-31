@@ -39,7 +39,8 @@ export function getSegmentReadiness(segment: CommercialSegment): SegmentReadines
   } else if (segment.type === 'broll-voice-continue') {
     // Required: Has either an image or a prompt ready
     const hasImage = (segment.brollImages?.length ?? 0) > 0 || (segment.brollSlots?.some(s => s.imageUrl) ?? false);
-    const hasPrompt = (segment.brollPrompts?.length ?? 0) > 0 || (segment.brollSlots?.some(s => s.prompt?.trim()) ?? false);
+    const hasPrompt = (segment.brollPrompts?.filter(p => p?.trim()).length ?? 0) > 0 || 
+      (segment.brollSlots?.some(s => s.prompt?.trim()) ?? false);
     
     checks.push({
       id: 'broll',
@@ -62,8 +63,8 @@ export function getSegmentReadiness(segment: CommercialSegment): SegmentReadines
     });
     if (!hasVoiceTwin) missingRequired.push('Select voice');
 
-    // Required: Voiceover text entered
-    const hasVoiceoverText = !!segment.voiceoverText?.trim();
+    // Required: Voiceover text entered - check both voiceoverText AND voiceover (legacy field)
+    const hasVoiceoverText = !!(segment.voiceoverText?.trim() || segment.voiceover?.trim());
     checks.push({
       id: 'voiceoverText',
       label: 'Voiceover text entered',
@@ -74,7 +75,7 @@ export function getSegmentReadiness(segment: CommercialSegment): SegmentReadines
     if (!hasVoiceoverText) missingRequired.push('Enter voiceover text');
 
     // Optional: B-roll prompts/images ready
-    const hasBrollContent = (segment.brollPrompts?.length ?? 0) > 0 || 
+    const hasBrollContent = (segment.brollPrompts?.filter(p => p?.trim()).length ?? 0) > 0 || 
       (segment.brollSlots?.some(s => s.prompt?.trim() || s.imageUrl) ?? false);
     checks.push({
       id: 'brollContent',
