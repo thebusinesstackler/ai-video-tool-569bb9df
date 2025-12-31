@@ -12,12 +12,20 @@ interface VideoClip {
   audioDuration?: number; // Actual voiceover duration - takes precedence over duration
 }
 
+interface LogoConfig {
+  url: string;
+  animation?: 'fade' | 'zoom' | 'slide';
+  duration?: number;
+}
+
 interface StitchRequest {
   clips: VideoClip[];
   audioUrl?: string; // Combined voiceover audio URL
   transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
   transitionDuration?: number; // Duration in seconds (0.3 - 1.5)
+  introLogo?: LogoConfig;
+  outroLogo?: LogoConfig;
 }
 
 serve(async (req) => {
@@ -31,18 +39,71 @@ serve(async (req) => {
       throw new Error('CREATOMATE_API_KEY is not configured');
     }
 
-    const { clips, audioUrl, transition = 'crossfade', captionStyle = 'bottom', transitionDuration = 0.8 } = await req.json() as StitchRequest;
+    const { clips, audioUrl, transition = 'crossfade', captionStyle = 'bottom', transitionDuration = 0.8, introLogo, outroLogo } = await req.json() as StitchRequest;
 
     if (!clips || clips.length === 0) {
       throw new Error('No video clips provided');
     }
 
-    console.log(`Starting Creatomate stitch with ${clips.length} clips, audio: ${!!audioUrl}`);
+    console.log(`Starting Creatomate stitch with ${clips.length} clips, audio: ${!!audioUrl}, introLogo: ${!!introLogo}, outroLogo: ${!!outroLogo}`);
 
     // Build the Creatomate source JSON
-    // Each clip becomes a composition element with duration matching the AUDIO duration
     const elements: any[] = [];
     let currentTime = 0;
+    
+    // Add intro logo if provided
+    const introDuration = introLogo?.duration || 3;
+    if (introLogo?.url) {
+      // Black background for intro
+      elements.push({
+        type: 'shape',
+        shape: 'rectangle',
+        time: 0,
+        duration: introDuration,
+        width: '100%',
+        height: '100%',
+        fill_color: '#000000'
+      });
+      
+      // Logo image
+      const introAnimations: any[] = [];
+      const animType = introLogo.animation || 'fade';
+      
+      if (animType === 'fade') {
+        introAnimations.push(
+          { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-out' },
+          { type: 'fade', fade: 'out', start: introDuration - 0.8, duration: 0.8, easing: 'ease-in' }
+        );
+      } else if (animType === 'zoom') {
+        introAnimations.push(
+          { type: 'scale', start_scale: '80%', end_scale: '100%', duration: 1, easing: 'ease-out' },
+          { type: 'fade', fade: 'in', duration: 0.5 },
+          { type: 'fade', fade: 'out', start: introDuration - 0.5, duration: 0.5 }
+        );
+      } else if (animType === 'slide') {
+        introAnimations.push(
+          { type: 'slide', direction: 'up', duration: 0.8, easing: 'ease-out' },
+          { type: 'fade', fade: 'out', start: introDuration - 0.5, duration: 0.5 }
+        );
+      }
+      
+      elements.push({
+        type: 'image',
+        source: introLogo.url,
+        time: 0,
+        duration: introDuration,
+        fit: 'contain',
+        width: '60%',
+        height: '40%',
+        x: '50%',
+        y: '50%',
+        x_alignment: '50%',
+        y_alignment: '50%',
+        animations: introAnimations
+      });
+      
+      currentTime = introDuration;
+    }
 
     clips.forEach((clip, index) => {
       // Use the actual video duration (capped at 8s by WaveSpeed), NOT the audio duration
@@ -143,16 +204,72 @@ serve(async (req) => {
       currentTime += videoDuration;
     });
 
+    // Add outro logo if provided
+    const outroDuration = outroLogo?.duration || 3;
+    if (outroLogo?.url) {
+      const outroStart = currentTime;
+      
+      // Black background for outro
+      elements.push({
+        type: 'shape',
+        shape: 'rectangle',
+        time: outroStart,
+        duration: outroDuration,
+        width: '100%',
+        height: '100%',
+        fill_color: '#000000'
+      });
+      
+      // Logo image
+      const outroAnimations: any[] = [];
+      const animType = outroLogo.animation || 'fade';
+      
+      if (animType === 'fade') {
+        outroAnimations.push(
+          { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-out' },
+          { type: 'fade', fade: 'out', start: outroDuration - 0.8, duration: 0.8, easing: 'ease-in' }
+        );
+      } else if (animType === 'zoom') {
+        outroAnimations.push(
+          { type: 'scale', start_scale: '80%', end_scale: '100%', duration: 1, easing: 'ease-out' },
+          { type: 'fade', fade: 'in', duration: 0.5 },
+          { type: 'fade', fade: 'out', start: outroDuration - 0.5, duration: 0.5 }
+        );
+      } else if (animType === 'slide') {
+        outroAnimations.push(
+          { type: 'slide', direction: 'down', duration: 0.8, easing: 'ease-out' },
+          { type: 'fade', fade: 'out', start: outroDuration - 0.5, duration: 0.5 }
+        );
+      }
+      
+      elements.push({
+        type: 'image',
+        source: outroLogo.url,
+        time: outroStart,
+        duration: outroDuration,
+        fit: 'contain',
+        width: '60%',
+        height: '40%',
+        x: '50%',
+        y: '50%',
+        x_alignment: '50%',
+        y_alignment: '50%',
+        animations: outroAnimations
+      });
+      
+      currentTime += outroDuration;
+    }
+
     // Add background audio if provided - with proper fade out at the end
     if (audioUrl) {
       // Voiceover audio - ends earlier to allow music fade
       elements.push({
         type: 'audio',
         source: audioUrl,
-        time: 0,
-        duration: currentTime - 2, // Stop voiceover 2 seconds before end for CTA hold
+        time: introLogo?.url ? introDuration : 0, // Start after intro
+        duration: currentTime - (introLogo?.url ? introDuration : 0) - (outroLogo?.url ? outroDuration : 0) - 2,
         volume: '100%',
-        audio_fade_out: 0.5 // Quick fade to not overlap with music fade
+        audio_fade_out: 0.5
       });
     }
 

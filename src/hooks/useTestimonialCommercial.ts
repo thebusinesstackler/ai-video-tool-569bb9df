@@ -93,7 +93,12 @@ export function useTestimonialCommercial() {
     setSegments(commercial.segments || []);
   }, []);
 
-  const generateCommercial = useCallback(async () => {
+  const generateCommercial = useCallback(async (options?: {
+    introLogoUrl?: string | null;
+    introLogoAnimation?: string;
+    outroLogoUrl?: string | null;
+    outroLogoAnimation?: string;
+  }) => {
     if (segments.length === 0) {
       toast.error('Add at least one segment');
       return;
@@ -157,9 +162,14 @@ export function useTestimonialCommercial() {
         }
       }
 
-      // Stitch all videos together
+      // Stitch all videos together with intro/outro logos
       toast.info('Stitching commercial...');
-      const finalVideoUrl = await stitchCommercial(segments);
+      const finalVideoUrl = await stitchCommercial(segments, {
+        introLogoUrl: options?.introLogoUrl || undefined,
+        introLogoAnimation: options?.introLogoAnimation,
+        outroLogoUrl: options?.outroLogoUrl || undefined,
+        outroLogoAnimation: options?.outroLogoAnimation
+      });
 
       if (currentCommercial) {
         await supabase
@@ -411,7 +421,15 @@ async function pollForCreatomate(renderId: string): Promise<string> {
   throw new Error('Video stitching timed out');
 }
 
-async function stitchCommercial(segments: CommercialSegment[]): Promise<string> {
+async function stitchCommercial(
+  segments: CommercialSegment[],
+  options?: {
+    introLogoUrl?: string;
+    introLogoAnimation?: string;
+    outroLogoUrl?: string;
+    outroLogoAnimation?: string;
+  }
+): Promise<string> {
   const clips = segments
     .filter(s => s.videoUrl)
     .map(s => ({
@@ -421,7 +439,19 @@ async function stitchCommercial(segments: CommercialSegment[]): Promise<string> 
     }));
 
   const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
-    body: { clips }
+    body: { 
+      clips,
+      introLogo: options?.introLogoUrl ? {
+        url: options.introLogoUrl,
+        animation: options.introLogoAnimation || 'fade',
+        duration: 3
+      } : undefined,
+      outroLogo: options?.outroLogoUrl ? {
+        url: options.outroLogoUrl,
+        animation: options.outroLogoAnimation || 'fade',
+        duration: 3
+      } : undefined
+    }
   });
 
   if (error) throw error;
