@@ -319,6 +319,8 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
           ...baseSegment,
           type: 'twin-speaking' as const,
           twinId: matchedTwin?.id,
+          twinName: seg.twinName,
+          personaDescription: seg.personaDescription, // Include auto-generated persona
           script: seg.script || '',
         };
       } else if (seg.type === 'broll-voice-continue') {
