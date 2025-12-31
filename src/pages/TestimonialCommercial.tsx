@@ -9,8 +9,22 @@ import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2 } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Sparkles, User, Film, Users, Clapperboard } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType } from '@/types/testimonialCommercial';
+import { testimonialExamples } from '@/data/testimonialExamples';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const templateIcons: Record<string, React.ReactNode> = {
+  'simple-testimonial': <User className="h-4 w-4" />,
+  'testimonial-broll': <Film className="h-4 w-4" />,
+  'multi-twin': <Users className="h-4 w-4" />,
+  'full-production': <Clapperboard className="h-4 w-4" />,
+};
 
 export default function TestimonialCommercial() {
   const navigate = useNavigate();
@@ -29,11 +43,19 @@ export default function TestimonialCommercial() {
     reorderSegments,
     saveCommercial,
     loadCommercial,
+    loadExampleTemplate,
     generateCommercial,
     isGenerating,
     generationProgress,
     currentCommercial
   } = useTestimonialCommercial();
+
+  const handleLoadExample = async (templateId: string) => {
+    const result = await loadExampleTemplate(templateId);
+    if (result.success && result.name) {
+      setName(result.name);
+    }
+  };
 
   // Load saved commercials
   useEffect(() => {
@@ -123,6 +145,31 @@ export default function TestimonialCommercial() {
                     className="text-lg font-semibold max-w-md"
                     placeholder="Commercial name..."
                   />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Examples
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-72 bg-popover">
+                      {testimonialExamples.map((template) => (
+                        <DropdownMenuItem
+                          key={template.id}
+                          onClick={() => handleLoadExample(template.id)}
+                          className="flex flex-col items-start py-3 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            {templateIcons[template.id]}
+                            <span className="font-medium">{template.name}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground pl-6">
+                            {template.description}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button onClick={handleSave} variant="outline">
                     <Save className="h-4 w-4 mr-2" />
                     Save
