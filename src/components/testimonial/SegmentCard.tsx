@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { CommercialSegment, TransitionType, BrollImageSlot, ShotVariation, BrollSequence, SegmentStatus } from '@/types/testimonialCommercial';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,11 @@ import { ShotVariationPicker } from './ShotVariationPicker';
 import { BrollSequenceEditor } from './BrollSequenceEditor';
 import { SegmentReadinessChecklist } from './SegmentReadinessChecklist';
 import { getSegmentReadiness, getSegmentStatus } from '@/lib/segmentReadiness';
+import { cleanScriptForTTS } from '@/lib/audioUtils';
 import { 
   GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, 
   AlertCircle, Upload, Sparkles, X, RefreshCw, ImagePlus, Check, Camera, Video,
-  Play, AlertTriangle, Circle, Move, ZoomIn, ArrowRight, RotateCw, Volume2
+  Play, AlertTriangle, Circle, Move, ZoomIn, ArrowRight, RotateCw, Volume2, Eye
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -82,6 +83,12 @@ export function SegmentCard({
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
+  const [showCleanedPreview, setShowCleanedPreview] = useState(false);
+
+  // Compute cleaned script for TTS preview
+  const scriptText = segment.type === 'twin-speaking' ? segment.script : (segment.voiceoverText || segment.voiceover);
+  const cleanedScript = useMemo(() => cleanScriptForTTS(scriptText || ''), [scriptText]);
+  const hasStageDirections = scriptText !== cleanedScript && scriptText && scriptText.trim().length > 0;
 
   // Use brollSlots if available, otherwise fall back to legacy brollImages/brollPrompts
   const brollSlots: BrollImageSlot[] = segment.brollSlots || 
@@ -349,13 +356,40 @@ export function SegmentCard({
             )}
             
             <div className="space-y-2">
-              <Label>Script (What they say)</Label>
+              <div className="flex items-center justify-between">
+                <Label>Script (What they say)</Label>
+                {hasStageDirections && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs gap-1"
+                    onClick={() => setShowCleanedPreview(!showCleanedPreview)}
+                  >
+                    <Eye className="h-3 w-3" />
+                    {showCleanedPreview ? 'Hide' : 'Show'} TTS Preview
+                  </Button>
+                )}
+              </div>
               <Textarea
                 placeholder="Enter what this speaker will say..."
                 value={segment.script || ''}
                 onChange={(e) => onUpdate(segment.id, { script: e.target.value })}
                 rows={3}
               />
+              
+              {/* Cleaned Script Preview */}
+              {hasStageDirections && showCleanedPreview && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Volume2 className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium text-primary">What TTS will say:</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground italic">{cleanedScript}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-2">
+                    Stage directions like [BEAT], [PAUSE], and (parentheticals) are removed and converted to natural pauses.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Multi-Angle A-Roll Shot Variations */}
@@ -636,13 +670,40 @@ export function SegmentCard({
               label="Voice for Montage"
             />
             <div className="space-y-2">
-              <Label>Voiceover Script</Label>
+              <div className="flex items-center justify-between">
+                <Label>Voiceover Script</Label>
+                {segment.voiceoverText && hasStageDirections && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs gap-1"
+                    onClick={() => setShowCleanedPreview(!showCleanedPreview)}
+                  >
+                    <Eye className="h-3 w-3" />
+                    {showCleanedPreview ? 'Hide' : 'Show'} TTS Preview
+                  </Button>
+                )}
+              </div>
               <Textarea
                 placeholder="Enter the voiceover text for this montage..."
                 value={segment.voiceoverText || ''}
                 onChange={(e) => onUpdate(segment.id, { voiceoverText: e.target.value })}
                 rows={2}
               />
+              
+              {/* Cleaned Script Preview for Montage */}
+              {segment.voiceoverText && hasStageDirections && showCleanedPreview && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Volume2 className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium text-primary">What TTS will say:</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground italic">{cleanedScript}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-2">
+                    Stage directions like [BEAT], [PAUSE], and (parentheticals) are removed and converted to natural pauses.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* B-Roll Sequence Editor for cinematic montages */}
