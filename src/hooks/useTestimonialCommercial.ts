@@ -151,7 +151,21 @@ export function useTestimonialCommercial() {
             i > 0 ? { ...segments[i - 1], ...previousData } : null
           );
           generatedData[i].videoUrl = videoResult;
+          
+          // Update segment and auto-save to database
+          const updatedSegment = { ...segment, audioUrl: audioUrl || segment.audioUrl, videoUrl: videoResult, status: 'complete' as const };
           updateSegment(segment.id, { videoUrl: videoResult, status: 'complete' });
+          
+          // Auto-save progress to database
+          if (currentCommercial) {
+            const updatedSegments = segments.map((s, idx) => 
+              idx === i ? updatedSegment : (idx < i ? { ...s, ...generatedData[idx] } : s)
+            );
+            await supabase
+              .from('testimonial_commercials')
+              .update({ segments: JSON.parse(JSON.stringify(updatedSegments)) })
+              .eq('id', currentCommercial.id);
+          }
 
           currentStep++;
           setGenerationProgress((currentStep / totalSteps) * 100);
