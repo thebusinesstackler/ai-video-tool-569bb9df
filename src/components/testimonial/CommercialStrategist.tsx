@@ -49,6 +49,79 @@ function calculateDurationFromScript(script: string): number {
   return 8;
 }
 
+// Generate a voiceover script based on B-roll prompts
+async function generateVoiceoverFromPrompts(brollPrompts: string[], commercialTitle: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-commercial-strategy`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Generate a SHORT, punchy voiceover script (15-20 words max) for a B-roll montage segment in a commercial called "${commercialTitle}". The visuals will show: ${brollPrompts.join(', ')}. 
+            
+Just return the voiceover text directly, no JSON, no quotes, just the script itself. Make it compelling and action-oriented with a clear call-to-action.`
+          }],
+          targetDuration: 8,
+          availableTwins: [],
+        }),
+      }
+    );
+
+    if (!response.ok || !response.body) {
+      throw new Error('Failed to generate voiceover');
+    }
+
+    // Read the streamed response
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let voiceover = '';
+    let textBuffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      textBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line.startsWith(':') || line.trim() === '') continue;
+        if (!line.startsWith('data: ')) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') break;
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) voiceover += content;
+        } catch {
+          textBuffer = line + '\n' + textBuffer;
+          break;
+        }
+      }
+    }
+
+    // Clean up the voiceover - remove any JSON formatting or quotes
+    voiceover = voiceover.replace(/```json\s*|\s*```/g, '').replace(/^["']|["']$/g, '').trim();
+    return voiceover || 'Discover something amazing today. Take action now.';
+  } catch (error) {
+    console.error('Failed to generate voiceover:', error);
+    // Fallback voiceover
+    return 'Experience the difference. Start your journey today.';
+  }
+}
+
 export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }: CommercialStrategistProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -199,8 +272,26 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
   const handleApplyStrategy = async () => {
     if (!extractedStrategy) return;
 
+    setIsGeneratingImages(true);
+    toast.info('Preparing strategy...');
+
+    // First, generate voiceovers for any montage segments that are missing them
+    const processedStrategySegments = await Promise.all(
+      extractedStrategy.segments.map(async (seg) => {
+        if (seg.type === 'broll-montage' && !seg.voiceover && seg.brollPrompts?.length > 0) {
+          toast.info('Generating voiceover for montage...');
+          const generatedVoiceover = await generateVoiceoverFromPrompts(
+            seg.brollPrompts,
+            extractedStrategy.title
+          );
+          return { ...seg, voiceover: generatedVoiceover };
+        }
+        return seg;
+      })
+    );
+
     // Convert strategy segments to CommercialSegment format
-    const segments: CommercialSegment[] = extractedStrategy.segments.map((seg, index) => {
+    const segments: CommercialSegment[] = processedStrategySegments.map((seg, index) => {
       // Calculate duration based on script length for speaking segments
       let duration = seg.duration || 8;
       if (seg.type === 'twin-speaking' && seg.script) {
@@ -265,7 +356,6 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
     );
 
     if (brollSegments.length > 0 && onGenerateBrollImages) {
-      setIsGeneratingImages(true);
       toast.info('Generating B-roll images...');
       try {
         await onGenerateBrollImages(segments);
@@ -273,10 +363,10 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
       } catch (error) {
         console.error('Failed to generate B-roll images:', error);
         toast.error('Failed to generate some B-roll images');
-      } finally {
-        setIsGeneratingImages(false);
       }
     }
+
+    setIsGeneratingImages(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
