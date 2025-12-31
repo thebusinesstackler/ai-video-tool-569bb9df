@@ -36,17 +36,16 @@ interface CommercialStrategistProps {
 }
 
 // Calculate duration based on word count (~2.5 words per second for natural speech)
-// Round to allowed API values: 5 or 8 seconds
+// Allow longer durations for substantial scripts
 function calculateDurationFromScript(script: string): number {
-  if (!script) return 5;
+  if (!script) return 8;
   const words = script.trim().split(/\s+/).length;
   const estimatedSeconds = Math.ceil(words / 2.5);
   
-  // Clamp to multiples of 5 or 8, minimum 5, round to nearest allowed value
-  if (estimatedSeconds <= 6) return 5;
-  if (estimatedSeconds <= 10) return 8;
-  // For longer scripts, we need multiple segments but for now just use max
-  return 8;
+  // Allow natural durations, minimum 5 seconds, maximum 30 seconds per segment
+  if (estimatedSeconds <= 5) return 5;
+  if (estimatedSeconds >= 30) return 30;
+  return estimatedSeconds;
 }
 
 // Generate a voiceover script based on B-roll prompts
