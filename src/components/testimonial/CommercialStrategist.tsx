@@ -32,13 +32,29 @@ interface Twin {
 
 interface CommercialStrategistProps {
   onApplyStrategy: (segments: CommercialSegment[], name: string) => void;
+  onGenerateBrollImages?: (segments: CommercialSegment[]) => Promise<void>;
 }
 
-export function CommercialStrategist({ onApplyStrategy }: CommercialStrategistProps) {
+// Calculate duration based on word count (~2.5 words per second for natural speech)
+// Round to allowed API values: 5 or 8 seconds
+function calculateDurationFromScript(script: string): number {
+  if (!script) return 5;
+  const words = script.trim().split(/\s+/).length;
+  const estimatedSeconds = Math.ceil(words / 2.5);
+  
+  // Clamp to multiples of 5 or 8, minimum 5, round to nearest allowed value
+  if (estimatedSeconds <= 6) return 5;
+  if (estimatedSeconds <= 10) return 8;
+  // For longer scripts, we need multiple segments but for now just use max
+  return 8;
+}
+
+export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }: CommercialStrategistProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [targetDuration, setTargetDuration] = useState('60');
   const [twins, setTwins] = useState<Twin[]>([]);
   const [extractedStrategy, setExtractedStrategy] = useState<CommercialStrategy | null>(null);
@@ -180,15 +196,23 @@ export function CommercialStrategist({ onApplyStrategy }: CommercialStrategistPr
     }
   };
 
-  const handleApplyStrategy = () => {
+  const handleApplyStrategy = async () => {
     if (!extractedStrategy) return;
 
     // Convert strategy segments to CommercialSegment format
     const segments: CommercialSegment[] = extractedStrategy.segments.map((seg, index) => {
+      // Calculate duration based on script length for speaking segments
+      let duration = seg.duration || 8;
+      if (seg.type === 'twin-speaking' && seg.script) {
+        duration = calculateDurationFromScript(seg.script);
+      } else if (seg.type === 'broll-montage' && seg.voiceover) {
+        duration = calculateDurationFromScript(seg.voiceover);
+      }
+
       const baseSegment = {
         id: crypto.randomUUID(),
         order: index,
-        duration: seg.duration || 8,
+        duration,
         transition: seg.transition || 'cut',
         status: 'pending' as const,
       };
@@ -234,6 +258,25 @@ export function CommercialStrategist({ onApplyStrategy }: CommercialStrategistPr
     onApplyStrategy(segments, extractedStrategy.title);
     toast.success('Strategy applied to timeline!');
     setExtractedStrategy(null);
+
+    // Generate B-roll images for segments that have prompts
+    const brollSegments = segments.filter(
+      s => (s.type === 'broll-voice-continue' || s.type === 'broll-montage') && s.brollPrompts && s.brollPrompts.length > 0
+    );
+
+    if (brollSegments.length > 0 && onGenerateBrollImages) {
+      setIsGeneratingImages(true);
+      toast.info('Generating B-roll images...');
+      try {
+        await onGenerateBrollImages(segments);
+        toast.success('B-roll images generated!');
+      } catch (error) {
+        console.error('Failed to generate B-roll images:', error);
+        toast.error('Failed to generate some B-roll images');
+      } finally {
+        setIsGeneratingImages(false);
+      }
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
