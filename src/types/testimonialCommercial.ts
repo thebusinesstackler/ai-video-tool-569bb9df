@@ -1,5 +1,12 @@
 export type SegmentType = 'twin-speaking' | 'broll-voice-continue' | 'broll-montage';
 export type TransitionType = 'fade-in' | 'cut' | 'crossfade';
+export type ImageGenerationStatus = 'pending' | 'generating' | 'complete' | 'error';
+
+export interface BrollImageSlot {
+  prompt: string;
+  imageUrl?: string;
+  status: ImageGenerationStatus;
+}
 
 export interface CommercialSegment {
   id: string;
@@ -11,6 +18,7 @@ export interface CommercialSegment {
   voiceover?: string; // For broll-montage segments
   brollImages?: string[];
   brollPrompts?: string[];
+  brollSlots?: BrollImageSlot[]; // New structured B-roll with individual image status
   voiceoverId?: string;
   voiceoverText?: string;
   duration: number;
@@ -18,6 +26,7 @@ export interface CommercialSegment {
   videoUrl?: string;
   audioUrl?: string;
   status?: 'pending' | 'generating' | 'complete' | 'error';
+  imagesApproved?: boolean; // Whether B-roll images have been reviewed and approved
 }
 
 export interface TestimonialCommercial {
