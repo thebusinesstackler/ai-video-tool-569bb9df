@@ -12,7 +12,9 @@ import { BrollGenerationProgress, BrollImageStatus } from '@/components/testimon
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Sparkles, User, Film, Users, Clapperboard } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Sparkles, User, Film, Users, Clapperboard, Image as ImageIcon } from 'lucide-react';
+import { LogoUploader } from '@/components/LogoUploader';
+import { LogoAnimation } from '@/data/reelTemplates';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { testimonialExamples } from '@/data/testimonialExamples';
 import {
@@ -39,6 +41,8 @@ export default function TestimonialCommercial() {
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [brollImageStatuses, setBrollImageStatuses] = useState<BrollImageStatus[]>([]);
   const [isGeneratingBroll, setIsGeneratingBroll] = useState(false);
+  const [outroLogoUrl, setOutroLogoUrl] = useState<string | null>(null);
+  const [outroLogoAnimation, setOutroLogoAnimation] = useState<LogoAnimation>('fade');
 
   const {
     segments,
@@ -400,6 +404,28 @@ export default function TestimonialCommercial() {
               </CardContent>
             </Card>
 
+            {/* Logo Outro Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <ImageIcon className="h-4 w-4" />
+                  Outro Logo
+                </CardTitle>
+                <CardDescription>
+                  Add an animated logo to your commercial ending
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LogoUploader
+                  selectedLogoUrl={outroLogoUrl}
+                  selectedAnimation={outroLogoAnimation}
+                  onLogoChange={setOutroLogoUrl}
+                  onAnimationChange={setOutroLogoAnimation}
+                  disabled={isGenerating}
+                />
+              </CardContent>
+            </Card>
+
             {/* Tips Card */}
             <Card>
               <CardHeader>
@@ -409,7 +435,7 @@ export default function TestimonialCommercial() {
                 <p>• Start with an AI Twin speaking segment for impact</p>
                 <p>• Use B-roll overlays while voice continues</p>
                 <p>• End with a montage of quick product shots</p>
-                <p>• Fade-in transitions work best for talking heads</p>
+                <p>• Add your logo for a professional outro</p>
               </CardContent>
             </Card>
           </div>
