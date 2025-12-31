@@ -184,10 +184,22 @@ export function SegmentCard({
               value={segment.twinId}
               onSelect={(id, name) => onUpdate(segment.id, { twinId: id, twinName: name })}
             />
+            
+            {/* Show persona description if no twin is selected */}
+            {!segment.twinId && segment.personaDescription && (
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <Label className="text-primary font-medium">AI-Generated Persona</Label>
+                </div>
+                <p className="text-sm text-muted-foreground">{segment.personaDescription}</p>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label>Script (What they say)</Label>
               <Textarea
-                placeholder="Enter what this AI Twin will say..."
+                placeholder="Enter what this speaker will say..."
                 value={segment.script || ''}
                 onChange={(e) => onUpdate(segment.id, { script: e.target.value })}
                 rows={3}

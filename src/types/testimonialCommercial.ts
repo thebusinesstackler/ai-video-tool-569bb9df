@@ -6,7 +6,9 @@ export interface CommercialSegment {
   type: SegmentType;
   twinId?: string;
   twinName?: string;
+  personaDescription?: string; // Auto-generated persona when no AI Twin is selected
   script?: string;
+  voiceover?: string; // For broll-montage segments
   brollImages?: string[];
   brollPrompts?: string[];
   voiceoverId?: string;

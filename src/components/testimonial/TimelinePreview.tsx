@@ -128,14 +128,30 @@ export function TimelinePreview({ segments, onReorder }: TimelinePreviewProps) {
                     )}
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
+                <TooltipContent side="top" className="text-xs max-w-[280px]">
                   <div className="font-medium">{config.label}</div>
                   <div className="text-muted-foreground">
                     {segment.duration}s • Segment {index + 1}
                   </div>
+                  {segment.type === 'twin-speaking' && segment.twinName && (
+                    <div className="text-muted-foreground mt-1">
+                      Twin: {segment.twinName}
+                    </div>
+                  )}
+                  {segment.type === 'twin-speaking' && !segment.twinId && segment.personaDescription && (
+                    <div className="text-primary/80 mt-1 italic">
+                      Generated: {segment.personaDescription.slice(0, 80)}...
+                    </div>
+                  )}
                   {segment.type === 'twin-speaking' && segment.script && (
-                    <div className="max-w-[200px] truncate text-muted-foreground mt-1">
-                      "{segment.script.slice(0, 50)}..."
+                    <div className="max-w-[250px] truncate text-muted-foreground mt-1">
+                      "{segment.script.slice(0, 60)}..."
+                    </div>
+                  )}
+                  {(segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') && 
+                   segment.brollPrompts && segment.brollPrompts.length > 0 && (
+                    <div className="text-muted-foreground mt-1">
+                      {segment.brollPrompts.length} B-roll shot{segment.brollPrompts.length !== 1 ? 's' : ''}
                     </div>
                   )}
                 </TooltipContent>
