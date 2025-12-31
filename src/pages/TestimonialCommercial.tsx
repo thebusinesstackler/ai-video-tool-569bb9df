@@ -43,6 +43,8 @@ export default function TestimonialCommercial() {
   const [isGeneratingBroll, setIsGeneratingBroll] = useState(false);
   const [outroLogoUrl, setOutroLogoUrl] = useState<string | null>(null);
   const [outroLogoAnimation, setOutroLogoAnimation] = useState<LogoAnimation>('fade');
+  const [introLogoUrl, setIntroLogoUrl] = useState<string | null>(null);
+  const [introLogoAnimation, setIntroLogoAnimation] = useState<LogoAnimation>('fade');
 
   const {
     segments,
@@ -404,7 +406,29 @@ export default function TestimonialCommercial() {
               </CardContent>
             </Card>
 
-            {/* Logo Outro Card */}
+            {/* Intro Logo Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <ImageIcon className="h-4 w-4" />
+                  Intro Logo
+                </CardTitle>
+                <CardDescription>
+                  Add an animated logo to your commercial opening
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LogoUploader
+                  selectedLogoUrl={introLogoUrl}
+                  selectedAnimation={introLogoAnimation}
+                  onLogoChange={setIntroLogoUrl}
+                  onAnimationChange={setIntroLogoAnimation}
+                  disabled={isGenerating}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Outro Logo Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-sm">
@@ -432,10 +456,10 @@ export default function TestimonialCommercial() {
                 <CardTitle className="text-sm">Tips</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>• Start with an AI Twin speaking segment for impact</p>
+                <p>• Add an intro logo for brand recognition</p>
+                <p>• Start with an AI Twin speaking segment</p>
                 <p>• Use B-roll overlays while voice continues</p>
-                <p>• End with a montage of quick product shots</p>
-                <p>• Add your logo for a professional outro</p>
+                <p>• Add an outro logo for a professional ending</p>
               </CardContent>
             </Card>
           </div>
