@@ -1,6 +1,22 @@
 export type SegmentType = 'twin-speaking' | 'broll-voice-continue' | 'broll-montage';
 export type TransitionType = 'fade-in' | 'cut' | 'crossfade' | 'wipe' | 'slide' | 'whip-pan' | 'match-cut' | 'j-cut' | 'l-cut';
 export type ImageGenerationStatus = 'pending' | 'generating' | 'complete' | 'error';
+export type SegmentStatus = 'incomplete' | 'ready' | 'pending' | 'generating' | 'complete' | 'error';
+
+// Readiness check for segment validation
+export interface ReadinessCheck {
+  id: string;
+  label: string;
+  isComplete: boolean;
+  isRequired: boolean;
+  hint?: string;
+}
+
+export interface SegmentReadiness {
+  isReady: boolean;
+  checks: ReadinessCheck[];
+  missingRequired: string[];
+}
 
 // Professional cinematography camera angles
 export type CameraAngle = 

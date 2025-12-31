@@ -9,6 +9,7 @@ import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
 import { CommercialStrategist } from '@/components/testimonial/CommercialStrategist';
 import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { BrollGenerationProgress, BrollImageStatus } from '@/components/testimonial/BrollGenerationProgress';
+import { GlobalReadinessSummary } from '@/components/testimonial/GlobalReadinessSummary';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -58,6 +59,7 @@ export default function TestimonialCommercial() {
     loadExampleTemplate,
     generateCommercial,
     generateBrollImagesForSegment,
+    generateSingleSegment,
     isGenerating,
     generationProgress,
     currentCommercial,
@@ -307,36 +309,32 @@ export default function TestimonialCommercial() {
                   isGenerating={isGeneratingBroll} 
                 />
 
-                {isGenerating ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Generating commercial...</span>
-                    </div>
+                {/* Global Readiness Summary with Generate Button */}
+                <GlobalReadinessSummary
+                  segments={segments}
+                  onGenerateAllBroll={() => handleGenerateBrollImages(segments)}
+                  onGenerateCommercial={handleGenerate}
+                  isGenerating={isGenerating}
+                  isGeneratingBroll={isGeneratingBroll}
+                  generationProgress={generationProgress}
+                />
+
+                {isGenerating && (
+                  <div className="space-y-2">
                     <Progress value={generationProgress} />
                     <p className="text-sm text-muted-foreground">
                       This may take several minutes depending on the number of segments
                     </p>
                   </div>
-                ) : (
-                  <div className="flex gap-4">
-                    <Button 
-                      onClick={handleGenerate} 
-                      disabled={segments.length === 0}
-                      className="flex-1"
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      Generate Commercial
-                    </Button>
-                    {finalVideoUrl && (
-                      <Button variant="outline" asChild>
-                        <a href={finalVideoUrl} download target="_blank" rel="noopener">
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </a>
-                      </Button>
-                    )}
-                  </div>
+                )}
+
+                {finalVideoUrl && !isGenerating && (
+                  <Button variant="outline" asChild className="w-full">
+                    <a href={finalVideoUrl} download target="_blank" rel="noopener">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Video
+                    </a>
+                  </Button>
                 )}
               </CardContent>
             </Card>
