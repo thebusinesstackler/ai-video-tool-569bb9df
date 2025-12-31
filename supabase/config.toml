@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.extract-locations]
 verify_jwt = false
+
+[functions.generate-commercial-strategy]
+verify_jwt = false

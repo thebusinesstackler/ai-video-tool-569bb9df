@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
+import { CommercialStrategist } from '@/components/testimonial/CommercialStrategist';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Sparkles, User, Film, Users, Clapperboard } from 'lucide-react';
-import { TestimonialCommercial as TestimonialCommercialType } from '@/types/testimonialCommercial';
+import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { testimonialExamples } from '@/data/testimonialExamples';
 import {
   DropdownMenu,
@@ -37,6 +38,7 @@ export default function TestimonialCommercial() {
 
   const {
     segments,
+    setSegments,
     addSegment,
     updateSegment,
     deleteSegment,
@@ -47,7 +49,8 @@ export default function TestimonialCommercial() {
     generateCommercial,
     isGenerating,
     generationProgress,
-    currentCommercial
+    currentCommercial,
+    setCurrentCommercial
   } = useTestimonialCommercial();
 
   const handleLoadExample = async (templateId: string) => {
@@ -55,6 +58,13 @@ export default function TestimonialCommercial() {
     if (result.success && result.name) {
       setName(result.name);
     }
+  };
+
+  const handleApplyStrategy = (newSegments: CommercialSegment[], commercialName: string) => {
+    setSegments(newSegments);
+    setName(commercialName);
+    setCurrentCommercial(null); // Reset since this is a new commercial
+    setFinalVideoUrl(null);
   };
 
   // Load saved commercials
@@ -132,6 +142,9 @@ export default function TestimonialCommercial() {
             </p>
           </div>
         </div>
+
+        {/* AI Commercial Strategist */}
+        <CommercialStrategist onApplyStrategy={handleApplyStrategy} />
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Editor */}
