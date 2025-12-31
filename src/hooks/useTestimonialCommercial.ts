@@ -401,7 +401,7 @@ async function generateAudioForSegment(segment: CommercialSegment): Promise<{ au
     throw new Error('Twin does not have a cloned voice');
   }
 
-  const text = segment.type === 'twin-speaking' ? segment.script : segment.voiceoverText;
+  const text = segment.type === 'twin-speaking' ? segment.script : (segment.voiceoverText || segment.voiceover);
   
   // Get current user for audio storage path
   const { data: { user } } = await supabase.auth.getUser();
