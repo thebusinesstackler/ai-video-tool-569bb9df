@@ -1,9 +1,63 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper to upload base64 audio to Supabase storage and return HTTP URL
+async function uploadAudioToStorage(base64Audio: string, userId?: string): Promise<string> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase credentials not available, returning base64 URL');
+    return `data:audio/mp3;base64,${base64Audio}`;
+  }
+  
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
+  // Decode base64 to binary
+  const binaryString = atob(base64Audio);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  
+  // Generate unique filename
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(7);
+  const userFolder = userId || 'anonymous';
+  const filePath = `${userFolder}/audio/${timestamp}-${random}.mp3`;
+  
+  // Upload to Supabase storage
+  const { data, error } = await supabase.storage
+    .from('reels')
+    .upload(filePath, bytes, {
+      contentType: 'audio/mpeg',
+      upsert: false
+    });
+  
+  if (error) {
+    console.error('Failed to upload audio to storage:', error);
+    return `data:audio/mp3;base64,${base64Audio}`;
+  }
+  
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('reels')
+    .getPublicUrl(filePath);
+  
+  console.log('Audio uploaded to storage:', urlData.publicUrl);
+  return urlData.publicUrl;
+}
+
+// Estimate audio duration based on text length (approx 2.5 words per second)
+function estimateAudioDuration(text: string): number {
+  const words = text.trim().split(/\s+/).length;
+  return Math.ceil(words / 2.5);
+}
 
 // Voice configuration mapping
 interface VoiceConfig {
@@ -328,72 +382,89 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey, speechifyVoiceId } = await req.json();
+    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey, speechifyVoiceId, voiceId, userId } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!voiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
+    // Support both voiceCloningKey and voiceId (alias)
+    const effectiveVoiceCloningKey = voiceCloningKey || voiceId;
+
+    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!effectiveVoiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
 
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
     
+    let result: { audioContent: string; audioUrl: string } | null = null;
+    let provider = 'unknown';
+    let isClonedVoice = false;
+    
     // Priority 1: Speechify cloned voice (new system)
     if (speechifyVoiceId && speechifyApiKey) {
       console.log('Attempting Speechify cloned voice generation...');
-      const speechifyResult = await generateSpeechifyTTS(text, speechifyApiKey, speechifyVoiceId, speed);
-      if (speechifyResult) {
-        return new Response(
-          JSON.stringify({ ...speechifyResult, isClonedVoice: true, provider: 'speechify' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      result = await generateSpeechifyTTS(text, speechifyApiKey, speechifyVoiceId, speed);
+      if (result) {
+        provider = 'speechify';
+        isClonedVoice = true;
+      } else {
+        console.log('Speechify TTS failed, falling back...');
       }
-      console.log('Speechify TTS failed, falling back...');
     }
     
     // Priority 2: Google Cloud cloned voice (legacy system)
-    if (voiceCloningKey && googleApiKey) {
+    if (!result && effectiveVoiceCloningKey && googleApiKey) {
       console.log('Attempting Google cloned voice generation with stored key...');
-      const clonedResult = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, speed);
-      if (clonedResult) {
-        return new Response(
-          JSON.stringify({ ...clonedResult, isClonedVoice: true, provider: 'google' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      result = await generateClonedVoiceTTS(text, googleApiKey, effectiveVoiceCloningKey, speed);
+      if (result) {
+        provider = 'google-cloned';
+        isClonedVoice = true;
+      } else {
+        console.log('Cloned voice failed, falling back to standard voice...');
       }
-      console.log('Cloned voice failed, falling back to standard voice...');
     }
     
-    // Get voice configuration - use selected voice or default
-    const voiceConfig = GOOGLE_VOICES[voice] || DEFAULT_VOICE;
-    
-    // Try Google Cloud TTS first (primary engine for natural voices)
-    if (googleApiKey) {
-      const googleResult = await generateGoogleTTS(text, googleApiKey, voiceConfig, speed);
-      if (googleResult) {
-        return new Response(
-          JSON.stringify(googleResult),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    // Priority 3: Google Cloud standard TTS
+    if (!result && googleApiKey) {
+      const voiceConfig = GOOGLE_VOICES[voice] || DEFAULT_VOICE;
+      result = await generateGoogleTTS(text, googleApiKey, voiceConfig, speed);
+      if (result) {
+        provider = 'google';
+      } else {
+        console.log('Google TTS failed, trying fallback...');
       }
-      console.log('Google TTS failed, trying fallback...');
     }
     
-    // Fallback to WaveSpeed if Google fails
-    if (waveSpeedApiKey) {
+    // Priority 4: WaveSpeed fallback
+    if (!result && waveSpeedApiKey) {
       console.log('Attempting WaveSpeed TTS fallback...');
-      const waveSpeedResult = await generateWaveSpeedTTS(text, waveSpeedApiKey, speed);
-      if (waveSpeedResult) {
-        return new Response(
-          JSON.stringify(waveSpeedResult),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      result = await generateWaveSpeedTTS(text, waveSpeedApiKey, speed);
+      if (result) {
+        provider = 'wavespeed';
       }
     }
     
-    throw new Error('No TTS engine available or all attempts failed');
+    if (!result) {
+      throw new Error('No TTS engine available or all attempts failed');
+    }
+    
+    // Upload audio to storage and get HTTP URL
+    const httpAudioUrl = await uploadAudioToStorage(result.audioContent, userId);
+    const estimatedDuration = estimateAudioDuration(text);
+    
+    console.log(`TTS complete - Provider: ${provider}, Duration estimate: ${estimatedDuration}s, URL type: ${httpAudioUrl.startsWith('http') ? 'HTTP' : 'base64'}`);
+    
+    return new Response(
+      JSON.stringify({ 
+        audioContent: result.audioContent,
+        audioUrl: httpAudioUrl,
+        isClonedVoice,
+        provider,
+        duration: estimatedDuration
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
     
   } catch (error) {
     console.error('TTS error:', error);
