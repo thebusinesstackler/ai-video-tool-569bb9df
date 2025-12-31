@@ -1,29 +1,121 @@
 export type SegmentType = 'twin-speaking' | 'broll-voice-continue' | 'broll-montage';
-export type TransitionType = 'fade-in' | 'cut' | 'crossfade' | 'wipe' | 'slide';
+export type TransitionType = 'fade-in' | 'cut' | 'crossfade' | 'wipe' | 'slide' | 'whip-pan' | 'match-cut' | 'j-cut' | 'l-cut';
 export type ImageGenerationStatus = 'pending' | 'generating' | 'complete' | 'error';
 
-// Professional cinematography types
-export type CameraAngle = 'wide' | 'medium' | 'close-up' | 'over-shoulder' | 'low-angle' | 'high-angle' | 'dutch-angle' | 'pov';
-export type CameraMovement = 'static' | 'push-in' | 'pull-out' | 'pan-left' | 'pan-right' | 'tracking' | 'handheld' | 'dolly';
+// Professional cinematography camera angles
+export type CameraAngle = 
+  | 'extreme-wide'      // Vast establishing shot
+  | 'wide'              // Full environment context
+  | 'medium-wide'       // Waist-up with environment
+  | 'medium'            // Standard interview framing
+  | 'medium-close'      // Chest-up, intimate but contextual
+  | 'close-up'          // Face fills frame
+  | 'extreme-close-up'  // Eyes or detail only
+  | 'over-shoulder'     // OTS conversation angle
+  | 'two-shot'          // Two people in frame
+  | 'low-angle'         // Looking up, heroic/powerful
+  | 'high-angle'        // Looking down, vulnerable/overview
+  | 'dutch-angle'       // Tilted for tension/unease
+  | 'birds-eye'         // Directly overhead
+  | 'worms-eye'         // From ground looking up
+  | 'pov'               // First-person perspective
+  | 'profile'           // Side view, cinematic
+  | 'three-quarter';    // 45-degree classic portrait
+
+// Detailed camera movements - Super Bowl quality
+export type CameraMovement = 
+  // Static & Subtle
+  | 'locked-off'            // Perfectly still, professional
+  | 'subtle-float'          // Barely perceptible movement, adds life
+  | 'breathing'             // Very slight in-out, organic feel
+  
+  // Zoom movements
+  | 'slow-zoom-in'          // Gradual push toward subject
+  | 'fast-zoom-in'          // Dramatic snap zoom
+  | 'slow-zoom-out'         // Gradual reveal of context
+  | 'crash-zoom'            // Jarring quick zoom for impact
+  | 'zoom-to-close-up'      // From wide to face, emotional
+  | 'zoom-from-detail'      // Start tight, reveal scene
+  
+  // Dolly movements
+  | 'dolly-in'              // Camera physically moves toward
+  | 'dolly-out'             // Camera physically pulls back
+  | 'dolly-around'          // Circular movement around subject
+  | 'push-in-dramatic'      // Slow, intentional approach
+  | 'pull-back-reveal'      // Dramatic context reveal
+  
+  // Pan movements
+  | 'slow-pan-left'         // Deliberate horizontal sweep left
+  | 'slow-pan-right'        // Deliberate horizontal sweep right
+  | 'whip-pan'              // Fast blur transition
+  | 'pan-reveal'            // Pan to reveal something new
+  | 'pan-follow'            // Following action horizontally
+  | 'pan-across-room'       // Sweeping environmental pan
+  | 'corner-reveal-pan'     // Starting at wall, revealing around corner
+  
+  // Tilt movements
+  | 'tilt-up'               // Vertical pan upward
+  | 'tilt-down'             // Vertical pan downward
+  | 'tilt-reveal'           // Tilt to show something new
+  
+  // Tracking movements
+  | 'tracking-alongside'    // Moving parallel with subject
+  | 'tracking-behind'       // Following from behind
+  | 'tracking-in-front'     // Leading the subject
+  | 'steadicam-float'       // Smooth floating movement
+  | 'gimbal-glide'          // Ultra-smooth modern stabilized
+  
+  // Dynamic/Handheld
+  | 'handheld-subtle'       // Slight documentary feel
+  | 'handheld-energetic'    // More movement, urgency
+  | 'shaky-cam'             // Intentional instability
+  
+  // Crane movements
+  | 'crane-up'              // Rising overhead shot
+  | 'crane-down'            // Descending into scene
+  | 'jib-sweep'             // Arcing overhead movement
+  
+  // Complex combinations
+  | 'dolly-zoom'            // Vertigo effect
+  | 'orbit'                 // 360 around subject
+  | 'arc-left'              // Semi-circular left
+  | 'arc-right'             // Semi-circular right
+  | 'boom-down-to-eye-level'// From above to meet subject
+  | 'rise-and-reveal';      // Lift up to show environment
+
+// Visual continuity tracking for consistent backgrounds
+export interface VisualContext {
+  location: string;           // "modern corner office", "clinical waiting room"
+  backgroundElements: string; // "floor-to-ceiling windows, city skyline, mahogany desk"
+  lighting: string;           // "warm afternoon sun, soft shadows from left"
+  colorPalette: string;       // "warm browns, cream walls, hints of green from plants"
+  props: string;              // "laptop, coffee mug, framed family photo"
+  atmosphere: string;         // "professional yet warm, lived-in executive space"
+}
 
 // Individual shot variation for multi-angle coverage
 export interface ShotVariation {
   id: string;
   angle: CameraAngle;
   movement: CameraMovement;
+  movementDescription: string; // Detailed description: "Starting wide on the desk from 20 feet, slowly zooming in over 8 seconds to rest on her face in a tight close-up"
   prompt: string;
-  duration: number; // 1.5-3s for montage, 5-15s for A-roll
+  duration: number;
   imageUrl?: string;
   videoUrl?: string;
   status: ImageGenerationStatus;
-  isSelected?: boolean; // Whether this is the selected take for final edit
+  isSelected?: boolean;
+  visualContext?: VisualContext; // For background consistency
+  startFrame?: string;  // Description of where camera starts
+  endFrame?: string;    // Description of where camera ends
 }
 
 // Enhanced B-roll sequence structure with shot metadata
 export interface BrollSequence {
   shots: ShotVariation[];
-  isMontage: boolean; // true = rapid 1.5-3s cuts, false = longer contextual shots
-  transitionStyle?: 'cut' | 'crossfade' | 'match-cut';
+  isMontage: boolean;
+  transitionStyle?: 'cut' | 'crossfade' | 'match-cut' | 'whip-pan' | 'invisible';
+  pacing?: 'slow-deliberate' | 'rhythmic' | 'building' | 'frenetic';
 }
 
 // Scene coverage for visual consistency across angles
@@ -33,6 +125,9 @@ export interface SceneCoverage {
   detailShot?: string;
   reactionShot?: string;
   reverseAngle?: string;
+  insertShot?: string;
+  cutaway?: string;
+  visualContext?: VisualContext; // Master context for the scene
 }
 
 export interface BrollImageSlot {
@@ -41,7 +136,10 @@ export interface BrollImageSlot {
   status: ImageGenerationStatus;
   angle?: CameraAngle;
   movement?: CameraMovement;
+  movementDescription?: string;
   duration?: number;
+  startFrame?: string;
+  endFrame?: string;
 }
 
 export interface CommercialSegment {
@@ -49,13 +147,13 @@ export interface CommercialSegment {
   type: SegmentType;
   twinId?: string;
   twinName?: string;
-  personaDescription?: string; // Auto-generated persona when no AI Twin is selected
+  personaDescription?: string;
   script?: string;
-  voiceover?: string; // For broll-montage segments
+  voiceover?: string;
   brollImages?: string[];
   brollPrompts?: string[];
-  brollSlots?: BrollImageSlot[]; // Structured B-roll with individual image status
-  brollSequence?: BrollSequence; // Enhanced B-roll with camera metadata
+  brollSlots?: BrollImageSlot[];
+  brollSequence?: BrollSequence;
   voiceoverId?: string;
   voiceoverText?: string;
   duration: number;
@@ -63,12 +161,13 @@ export interface CommercialSegment {
   videoUrl?: string;
   audioUrl?: string;
   status?: 'pending' | 'generating' | 'complete' | 'error';
-  imagesApproved?: boolean; // Whether B-roll images have been reviewed and approved
+  imagesApproved?: boolean;
   
   // Multi-angle A-roll support
-  arollVariations?: ShotVariation[]; // Multiple camera angles for speaking segments
-  selectedArollIndex?: number; // Which A-roll variation to use in final edit
-  sceneCoverage?: SceneCoverage; // Multi-angle planning metadata
+  arollVariations?: ShotVariation[];
+  selectedArollIndex?: number;
+  sceneCoverage?: SceneCoverage;
+  visualContext?: VisualContext; // Maintain visual consistency when speaker returns
 }
 
 export interface TestimonialCommercial {
@@ -80,6 +179,7 @@ export interface TestimonialCommercial {
   audio_url?: string;
   created_at: string;
   updated_at: string;
+  globalVisualContext?: Record<string, VisualContext>; // Track visual contexts by speaker/location
 }
 
 // Enhanced request types for professional stitching
@@ -95,9 +195,9 @@ export interface EnhancedVideoClip {
 
 export interface BackgroundMusicConfig {
   url: string;
-  volume: number; // 0-100
-  fadeIn: number; // seconds
-  fadeOut: number; // seconds
+  volume: number;
+  fadeIn: number;
+  fadeOut: number;
 }
 
 export interface EnhancedStitchRequest {
@@ -105,8 +205,8 @@ export interface EnhancedStitchRequest {
     type: 'aroll' | 'broll' | 'montage';
     clips: EnhancedVideoClip[];
     audioUrl?: string;
-    voiceContinues?: boolean; // Audio from previous segment continues
+    voiceContinues?: boolean;
   }[];
-  voiceoverTrack?: string; // Full commercial audio
+  voiceoverTrack?: string;
   backgroundMusic?: BackgroundMusicConfig;
 }
