@@ -320,6 +320,39 @@ export type Database = {
         }
         Relationships: []
       }
+      testimonial_commercials: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          id: string
+          name: string
+          segments: Json
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          segments?: Json
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          segments?: Json
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       user_logos: {
         Row: {
           created_at: string

@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import Reels from "./pages/Reels";
 import Gallery from "./pages/Gallery";
 import AITwin from "./pages/AITwin";
+import TestimonialCommercial from "./pages/TestimonialCommercial";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
             <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
             <Route path="/ai-twin" element={<ProtectedRoute><AITwin /></ProtectedRoute>} />
+            <Route path="/testimonial-commercial" element={<ProtectedRoute><TestimonialCommercial /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
