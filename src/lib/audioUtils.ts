@@ -3,6 +3,33 @@
  */
 
 /**
+ * Clean script text for TTS by removing stage directions that would be spoken aloud.
+ * Removes [BEAT], [PAUSE], and other bracketed commands.
+ * Removes parenthetical directions like (slight laugh), (with conviction).
+ * Converts pause markers to natural punctuation that TTS interprets as pauses.
+ */
+export function cleanScriptForTTS(script: string): string {
+  if (!script) return '';
+  
+  return script
+    // Replace [BEAT] and [PAUSE] with ellipsis for natural pauses
+    .replace(/\[BEAT\]/gi, '...')
+    .replace(/\[PAUSE\]/gi, '...')
+    // Remove any other [bracketed] commands
+    .replace(/\[.*?\]/g, '')
+    // Remove parenthetical directions like (slight laugh), (with conviction)
+    .replace(/\([^)]*\)/g, '')
+    // Clean up multiple spaces
+    .replace(/\s+/g, ' ')
+    // Clean up multiple ellipses
+    .replace(/\.\.\.(\s*\.\.\.)+/g, '...')
+    // Clean up comma artifacts
+    .replace(/,\s*,/g, ',')
+    // Clean up leading/trailing whitespace
+    .trim();
+}
+
+/**
  * Get the duration of an audio file from a base64 data URL
  */
 export async function getAudioDuration(audioDataUrl: string): Promise<number> {
