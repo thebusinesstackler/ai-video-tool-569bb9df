@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CommercialSegment, TestimonialCommercial } from '@/types/testimonialCommercial';
+import { CommercialSegment, TestimonialCommercial, BrollImageSlot } from '@/types/testimonialCommercial';
 import { toast } from 'sonner';
 import { testimonialExamples, CommercialTemplate } from '@/data/testimonialExamples';
 
@@ -277,6 +277,62 @@ export function useTestimonialCommercial() {
     return { success: true, name: template.name };
   }, []);
 
+  // Generate B-roll images for a specific segment
+  const generateBrollImagesForSegment = useCallback(async (segmentId: string) => {
+    const segment = segments.find(s => s.id === segmentId);
+    if (!segment) return;
+
+    const prompts = segment.brollPrompts || segment.brollSlots?.map(s => s.prompt).filter(Boolean) || [];
+    if (prompts.length === 0) {
+      toast.error('No prompts to generate images from');
+      return;
+    }
+
+    // Initialize slots with generating status
+    const initialSlots: BrollImageSlot[] = prompts.map((prompt, i) => ({
+      prompt,
+      imageUrl: segment.brollSlots?.[i]?.imageUrl || segment.brollImages?.[i],
+      status: segment.brollSlots?.[i]?.imageUrl || segment.brollImages?.[i] ? 'complete' : 'generating'
+    }));
+    updateSegment(segmentId, { brollSlots: initialSlots });
+
+    const generatedImages: string[] = [];
+
+    for (let i = 0; i < prompts.length; i++) {
+      // Skip if already has image
+      if (initialSlots[i]?.imageUrl) {
+        generatedImages.push(initialSlots[i].imageUrl!);
+        continue;
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+          body: { prompt: prompts[i], sceneType: 'commercial' }
+        });
+
+        if (error) throw error;
+
+        const imageUrl = data?.imageUrl;
+        generatedImages.push(imageUrl || '');
+
+        // Update slot with generated image
+        const updatedSlots = [...initialSlots];
+        updatedSlots[i] = { ...updatedSlots[i], imageUrl, status: imageUrl ? 'complete' : 'error' };
+        updateSegment(segmentId, { 
+          brollSlots: updatedSlots,
+          brollImages: updatedSlots.map(s => s.imageUrl).filter(Boolean) as string[]
+        });
+      } catch (error) {
+        console.error(`Failed to generate image for prompt ${i}:`, error);
+        const updatedSlots = [...initialSlots];
+        updatedSlots[i] = { ...updatedSlots[i], status: 'error' };
+        updateSegment(segmentId, { brollSlots: updatedSlots });
+      }
+    }
+
+    toast.success('B-roll images generated');
+  }, [segments, updateSegment]);
+
   return {
     segments,
     setSegments,
@@ -288,6 +344,7 @@ export function useTestimonialCommercial() {
     loadCommercial,
     loadExampleTemplate,
     generateCommercial,
+    generateBrollImagesForSegment,
     isGenerating,
     generationProgress,
     currentCommercial,
@@ -377,22 +434,40 @@ async function generateVideoForSegment(
     return await pollForVideo(data.taskId);
   }
 
-  // For B-roll - generate image then video
+  // For B-roll - use existing images if available, otherwise generate
   if (segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') {
-    const prompts = segment.brollPrompts || [];
+    const prompts = segment.brollPrompts || segment.brollSlots?.map(s => s.prompt).filter(Boolean) || [];
+    const existingImages = segment.brollImages || segment.brollSlots?.map(s => s.imageUrl).filter(Boolean) || [];
     const videoUrls: string[] = [];
     
     // Use audio duration for total B-roll length, divide among clips
     const totalDuration = audioDuration || segment.duration || 10;
-    const clipDuration = Math.max(5, Math.ceil(totalDuration / Math.max(prompts.length, 1)));
+    const numClips = Math.max(existingImages.length, prompts.length, 1);
+    const clipDuration = Math.max(5, Math.ceil(totalDuration / numClips));
 
-    for (const prompt of prompts.slice(0, 5)) {
-      // Generate image
-      const { data: imageData } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt, sceneType: 'commercial' }
-      });
+    console.log(`Generating B-roll videos: ${existingImages.length} existing images, ${prompts.length} prompts`);
 
-      if (!imageData?.imageUrl) continue;
+    for (let i = 0; i < Math.max(existingImages.length, prompts.length); i++) {
+      if (i >= 5) break; // Max 5 clips
+
+      let imageUrl = existingImages[i];
+      const prompt = prompts[i] || 'Cinematic B-roll footage';
+
+      // Only generate image if we don't have one
+      if (!imageUrl && prompt) {
+        console.log(`Generating image for prompt ${i}: ${prompt.substring(0, 50)}...`);
+        const { data: imageData } = await supabase.functions.invoke('generate-scene-image', {
+          body: { prompt, sceneType: 'commercial' }
+        });
+        imageUrl = imageData?.imageUrl;
+      }
+
+      if (!imageUrl) {
+        console.warn(`No image available for clip ${i}, skipping`);
+        continue;
+      }
+
+      console.log(`Generating video from image ${i}: ${imageUrl.substring(0, 50)}...`);
 
       // Generate short video from image - WaveSpeed i2v supports 5-10s
       const { data: videoData } = await supabase.functions.invoke('wavespeed-video', {
@@ -400,7 +475,7 @@ async function generateVideoForSegment(
           action: 'create',
           model: 'wan-2.5-i2v',
           prompt,
-          imageUrls: [imageData.imageUrl],
+          imageUrls: [imageUrl],
           duration: Math.min(clipDuration, 10) // Max 10s per clip
         }
       });

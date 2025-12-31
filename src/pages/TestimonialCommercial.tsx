@@ -57,6 +57,7 @@ export default function TestimonialCommercial() {
     loadCommercial,
     loadExampleTemplate,
     generateCommercial,
+    generateBrollImagesForSegment,
     isGenerating,
     generationProgress,
     currentCommercial,
@@ -288,6 +289,8 @@ export default function TestimonialCommercial() {
                   onDelete={deleteSegment}
                   onAdd={addSegment}
                   onReorder={reorderSegments}
+                  onGenerateBrollImages={generateBrollImagesForSegment}
+                  isGeneratingImages={isGeneratingBroll}
                 />
               </CardContent>
             </Card>
