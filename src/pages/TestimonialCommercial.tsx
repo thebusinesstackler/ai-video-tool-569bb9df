@@ -192,7 +192,12 @@ export default function TestimonialCommercial() {
   };
 
   const handleGenerate = async () => {
-    const videoUrl = await generateCommercial();
+    const videoUrl = await generateCommercial({
+      introLogoUrl,
+      introLogoAnimation,
+      outroLogoUrl,
+      outroLogoAnimation
+    });
     if (videoUrl) {
       setFinalVideoUrl(videoUrl);
     }
