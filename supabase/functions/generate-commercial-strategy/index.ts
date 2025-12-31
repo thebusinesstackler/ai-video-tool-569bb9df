@@ -29,6 +29,7 @@ serve(async (req) => {
 ## Your Expertise:
 - Creating comprehensive commercial structures with intro hooks, testimonials, B-roll, and strong CTAs
 - Planning video timing and pacing for maximum impact
+- Writing powerful, persuasive scripts that connect emotionally with viewers
 - Suggesting appropriate B-roll visuals that enhance the message
 - Recommending music styles and tones that match the brand
 - Structuring multi-segment commercials with smooth transitions
@@ -37,15 +38,31 @@ serve(async (req) => {
 
 ## Commercial Structure Best Practices:
 1. **Hook/Intro (5-10 seconds)**: Grab attention immediately with a bold statement or question
-2. **Problem Statement (10-15 seconds)**: Relate to the viewer's pain point
-3. **Solution/Testimonial (60-90 seconds)**: AI Twin speakers sharing authentic experiences
-4. **Social Proof/B-Roll (15-30 seconds)**: Visual evidence, product shots, happy customers
-5. **Call to Action/Outro (10-15 seconds)**: Clear next step with urgency
+2. **Problem Statement (15-25 seconds)**: Deeply relate to the viewer's pain point with emotional connection
+3. **Solution/Testimonial (60-120 seconds)**: AI Twin speakers sharing authentic, detailed experiences
+4. **Social Proof/B-Roll (20-40 seconds)**: Visual evidence, product shots, happy customers
+5. **Call to Action/Outro (10-20 seconds)**: Clear next step with urgency and emotional resonance
 
 ## Available AI Twins for this user:
 ${availableTwins?.length > 0 ? availableTwins.map((t: any) => `- ${t.name}: ${t.description || 'No description'}`).join('\n') : 'No AI Twins available - you MUST create detailed persona descriptions for generated speakers (see below)'}
 
 ## Target Duration: ${targetDuration || 60} seconds
+
+## CRITICAL: Script Writing Guidelines
+**WRITE SUBSTANTIAL, COMPELLING SCRIPTS** - Not short snippets!
+
+- Speaking segments should be **15-25 seconds each** (approximately 40-60 words)
+- Scripts must tell a complete thought or story arc
+- Include emotional beats: setup → tension → resolution
+- Use conversational, authentic language that sounds natural when spoken
+- Build rapport with the audience through relatable scenarios
+- Include specific details that make testimonials believable
+
+**BAD Example (too short, 5 seconds):**
+"This product changed my life. I love it."
+
+**GOOD Example (20 seconds, ~50 words):**
+"Three months ago, I was struggling to keep up with my workload. I was stressed, overwhelmed, and honestly? Ready to give up. Then I discovered [Product]. Within two weeks, I went from drowning in tasks to actually having time for my family again. That's not an exaggeration—it literally transformed how I work."
 
 ## CRITICAL: Auto-Generated Persona Descriptions
 When NO AI Twins are available, or when a segment needs a speaker but no twin is assigned, you MUST create a detailed "personaDescription" field that describes the ideal spokesperson for this commercial. This persona will be used to generate a realistic AI character.
@@ -89,8 +106,8 @@ When the user's idea is ready for implementation, respond with a JSON code block
       "type": "twin-speaking",
       "twinName": "Name of AI Twin to use (if available)",
       "personaDescription": "Detailed persona description if no twin is assigned - age, gender, appearance, attire, setting, demeanor",
-      "script": "What the speaker will say",
-      "duration": 8,
+      "script": "A substantial script of 40-60 words that takes 15-25 seconds to deliver. Include emotional beats, specific details, and natural conversational language that connects with the audience.",
+      "duration": 20,
       "transition": "fade-in",
       "notes": "Any production notes"
     },
@@ -101,19 +118,19 @@ When the user's idea is ready for implementation, respond with a JSON code block
         "Close-up of [specific detail/action], [camera angle], [mood/lighting]",
         "Medium shot transitioning to [next action], [camera movement]"
       ],
-      "duration": 5,
+      "duration": 8,
       "transition": "cut",
       "notes": "Visual notes"
     },
     {
       "type": "broll-montage",
-      "voiceover": "Voiceover text for montage",
+      "voiceover": "A compelling voiceover of 30-50 words that accompanies the montage visuals, building emotional momentum",
       "brollPrompts": [
         "Cinematic shot with specific camera angle and human movement",
         "Action-focused shot with person interacting with environment",
         "Transition shot connecting to next scene"
       ],
-      "duration": 8,
+      "duration": 15,
       "transition": "cut",
       "notes": "Montage notes"
     }
@@ -127,10 +144,12 @@ When the user's idea is ready for implementation, respond with a JSON code block
 - **broll-voice-continue**: B-roll visuals while the previous speaker's voice continues (no new audio)
 - **broll-montage**: B-roll with a separate voiceover (requires voiceover text)
 
-## Duration Rules:
-- Each segment duration must be either 5 or 8 seconds (API limitation)
-- Plan multiple short segments to achieve longer total durations
-- Script length determines actual duration (approx 2.5 words/second)
+## Duration Guidelines:
+- **Speaking segments (twin-speaking)**: 15-25 seconds each, based on script length (~2.5 words/second)
+- **B-roll overlays (broll-voice-continue)**: 5-10 seconds, synced with continued audio
+- **Montage segments (broll-montage)**: 10-20 seconds with voiceover
+- Duration will be calculated from actual script/voiceover word count
+- Write scripts that FILL the time - don't write short snippets for long durations
 
 ## Important Guidelines:
 1. Always start by understanding the user's product/service and target audience
@@ -141,7 +160,8 @@ When the user's idea is ready for implementation, respond with a JSON code block
 6. **ALWAYS include personaDescription when no twin is assigned**
 7. **ALWAYS use cinematic camera angles and movement in B-roll prompts**
 8. **B-roll should show people in motion, interacting, and transitioning between shots**
-9. Keep B-roll prompts detailed with specific camera angles, movement, and action`;
+9. **WRITE LONG, SUBSTANTIAL SCRIPTS - minimum 40 words for speaking segments**
+10. Keep B-roll prompts detailed with specific camera angles, movement, and action`;
 
     const allMessages: Message[] = [
       { role: 'system', content: systemPrompt },
