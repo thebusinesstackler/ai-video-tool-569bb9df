@@ -15,6 +15,21 @@ const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
   'shimmer': { name: 'en-US-Wavenet-F', languageCode: 'en-US' },
 };
 
+// Clean script text for TTS by removing stage directions
+function cleanScriptForTTS(script: string): string {
+  if (!script) return '';
+  
+  return script
+    .replace(/\[BEAT\]/gi, '...')
+    .replace(/\[PAUSE\]/gi, '...')
+    .replace(/\[.*?\]/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\.\.\.(\s*\.\.\.)+/g, '...')
+    .replace(/,\s*,/g, ',')
+    .trim();
+}
+
 async function generateGoogleTTS(text: string, voice: string, apiKey: string): Promise<string> {
   const voiceConfig = GOOGLE_VOICES[voice] || GOOGLE_VOICES['nova'];
   
@@ -65,12 +80,16 @@ serve(async (req) => {
 
     console.log('Generating voiceover for scene:', sceneNumber, 'with voice:', voice);
 
+    // Clean the script to remove stage directions
+    const cleanedText = cleanScriptForTTS(text);
+    console.log(`Cleaned script: "${text.substring(0, 50)}..." -> "${cleanedText.substring(0, 50)}..."`);
+
     // Try Google Cloud TTS first (already configured)
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     
     if (GOOGLE_API_KEY) {
       try {
-        const base64Audio = await generateGoogleTTS(text, voice, GOOGLE_API_KEY);
+        const base64Audio = await generateGoogleTTS(cleanedText, voice, GOOGLE_API_KEY);
         const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
         
         console.log('Voiceover generated with Google TTS for scene:', sceneNumber);
@@ -95,7 +114,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: 'tts-1',
-          input: text,
+          input: cleanedText,
           voice: voice,
           response_format: 'mp3',
         }),

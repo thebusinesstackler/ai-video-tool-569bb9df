@@ -59,6 +59,27 @@ function estimateAudioDuration(text: string): number {
   return Math.ceil(words / 2.5);
 }
 
+// Clean script text for TTS by removing stage directions
+function cleanScriptForTTS(script: string): string {
+  if (!script) return '';
+  
+  return script
+    // Replace [BEAT] and [PAUSE] with ellipsis for natural pauses
+    .replace(/\[BEAT\]/gi, '...')
+    .replace(/\[PAUSE\]/gi, '...')
+    // Remove any other [bracketed] commands
+    .replace(/\[.*?\]/g, '')
+    // Remove parenthetical directions like (slight laugh), (with conviction)
+    .replace(/\([^)]*\)/g, '')
+    // Clean up multiple spaces
+    .replace(/\s+/g, ' ')
+    // Clean up multiple ellipses
+    .replace(/\.\.\.(\s*\.\.\.)+/g, '...')
+    // Clean up comma artifacts
+    .replace(/,\s*,/g, ',')
+    .trim();
+}
+
 // Voice configuration mapping
 interface VoiceConfig {
   languageCode: string;
@@ -388,10 +409,14 @@ serve(async (req) => {
       throw new Error('Text is required');
     }
 
+    // Clean the script to remove stage directions before TTS
+    const cleanedText = cleanScriptForTTS(text);
+    console.log(`Cleaned script for TTS: "${text.substring(0, 100)}..." -> "${cleanedText.substring(0, 100)}..."`);
+
     // Support both voiceCloningKey and voiceId (alias)
     const effectiveVoiceCloningKey = voiceCloningKey || voiceId;
 
-    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!effectiveVoiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
+    console.log(`TTS request - Voice: ${voice}, Text length: ${cleanedText.length}, Has cloning key: ${!!effectiveVoiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
 
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
@@ -404,7 +429,7 @@ serve(async (req) => {
     // Priority 1: Speechify cloned voice (new system)
     if (speechifyVoiceId && speechifyApiKey) {
       console.log('Attempting Speechify cloned voice generation...');
-      result = await generateSpeechifyTTS(text, speechifyApiKey, speechifyVoiceId, speed);
+      result = await generateSpeechifyTTS(cleanedText, speechifyApiKey, speechifyVoiceId, speed);
       if (result) {
         provider = 'speechify';
         isClonedVoice = true;
@@ -416,7 +441,7 @@ serve(async (req) => {
     // Priority 2: Google Cloud cloned voice (legacy system)
     if (!result && effectiveVoiceCloningKey && googleApiKey) {
       console.log('Attempting Google cloned voice generation with stored key...');
-      result = await generateClonedVoiceTTS(text, googleApiKey, effectiveVoiceCloningKey, speed);
+      result = await generateClonedVoiceTTS(cleanedText, googleApiKey, effectiveVoiceCloningKey, speed);
       if (result) {
         provider = 'google-cloned';
         isClonedVoice = true;
@@ -428,7 +453,7 @@ serve(async (req) => {
     // Priority 3: Google Cloud standard TTS
     if (!result && googleApiKey) {
       const voiceConfig = GOOGLE_VOICES[voice] || DEFAULT_VOICE;
-      result = await generateGoogleTTS(text, googleApiKey, voiceConfig, speed);
+      result = await generateGoogleTTS(cleanedText, googleApiKey, voiceConfig, speed);
       if (result) {
         provider = 'google';
       } else {
@@ -439,7 +464,7 @@ serve(async (req) => {
     // Priority 4: WaveSpeed fallback
     if (!result && waveSpeedApiKey) {
       console.log('Attempting WaveSpeed TTS fallback...');
-      result = await generateWaveSpeedTTS(text, waveSpeedApiKey, speed);
+      result = await generateWaveSpeedTTS(cleanedText, waveSpeedApiKey, speed);
       if (result) {
         provider = 'wavespeed';
       }
