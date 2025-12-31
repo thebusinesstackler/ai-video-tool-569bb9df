@@ -117,23 +117,34 @@ export function useTestimonialCommercial() {
       const totalSteps = segments.length * 2 + 1; // Generate each + stitch
       let currentStep = 0;
 
-      // Process each segment
+      // Process each segment - store generated URLs to pass forward
+      const generatedData: { audioUrl?: string; videoUrl?: string }[] = [];
+      
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
         updateSegment(segment.id, { status: 'generating' });
+        generatedData[i] = {};
 
         try {
           // Generate audio for speaking/montage segments
+          let audioUrl: string | undefined;
           if (segment.type === 'twin-speaking' || segment.type === 'broll-montage') {
-            const audioResult = await generateAudioForSegment(segment);
-            updateSegment(segment.id, { audioUrl: audioResult });
+            audioUrl = await generateAudioForSegment(segment);
+            generatedData[i].audioUrl = audioUrl;
+            updateSegment(segment.id, { audioUrl });
           }
 
           currentStep++;
           setGenerationProgress((currentStep / totalSteps) * 100);
 
-          // Generate video for segment
-          const videoResult = await generateVideoForSegment(segment, i > 0 ? segments[i - 1] : null);
+          // Generate video for segment - pass audioUrl directly since state hasn't updated yet
+          const segmentWithAudio = { ...segment, audioUrl: audioUrl || segment.audioUrl };
+          const previousData = i > 0 ? generatedData[i - 1] : null;
+          const videoResult = await generateVideoForSegment(
+            segmentWithAudio, 
+            i > 0 ? { ...segments[i - 1], ...previousData } : null
+          );
+          generatedData[i].videoUrl = videoResult;
           updateSegment(segment.id, { videoUrl: videoResult, status: 'complete' });
 
           currentStep++;
@@ -229,19 +240,22 @@ async function generateVideoForSegment(
       throw new Error('Twin does not have reference images');
     }
 
+    if (!segment.audioUrl) {
+      throw new Error('Audio URL is required for lip-sync video');
+    }
+
     const { data, error } = await supabase.functions.invoke('wavespeed-video', {
       body: {
         action: 'create',
-        params: {
-          model: 'infinitetalk',
-          imageUrls: [twin.reference_images[0]],
-          audioUrl: segment.audioUrl,
-          duration: segment.duration
-        }
+        model: 'infinitetalk',
+        imageUrls: [twin.reference_images[0]],
+        audioUrl: segment.audioUrl,
+        duration: segment.duration
       }
     });
 
     if (error) throw error;
+    if (!data?.taskId) throw new Error('No task ID returned from video generation');
     return await pollForVideo(data.taskId);
   }
 
@@ -262,12 +276,10 @@ async function generateVideoForSegment(
       const { data: videoData } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          params: {
-            model: 'wan-2.5-i2v',
-            prompt,
-            imageUrls: [imageData.imageUrl],
-            duration: Math.ceil(segment.duration / prompts.length)
-          }
+          model: 'wan-2.5-i2v',
+          prompt,
+          imageUrls: [imageData.imageUrl],
+          duration: Math.ceil(segment.duration / prompts.length)
         }
       });
 
