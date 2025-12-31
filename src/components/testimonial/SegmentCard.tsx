@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { CommercialSegment, TransitionType, BrollImageSlot } from '@/types/testimonialCommercial';
+import { CommercialSegment, TransitionType, BrollImageSlot, ShotVariation, BrollSequence } from '@/types/testimonialCommercial';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,9 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { TwinSelector } from './TwinSelector';
+import { ShotVariationPicker } from './ShotVariationPicker';
+import { BrollSequenceEditor } from './BrollSequenceEditor';
 import { 
   GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, 
-  AlertCircle, Upload, Sparkles, X, RefreshCw, ImagePlus, Check
+  AlertCircle, Upload, Sparkles, X, RefreshCw, ImagePlus, Check, Camera, Video
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -323,6 +325,41 @@ export function SegmentCard({
                 rows={3}
               />
             </div>
+
+            {/* Multi-Angle A-Roll Shot Variations */}
+            {segment.arollVariations && segment.arollVariations.length > 0 && (
+              <ShotVariationPicker
+                variations={segment.arollVariations}
+                selectedIndex={segment.selectedArollIndex || 0}
+                onSelect={(index) => onUpdate(segment.id, { selectedArollIndex: index })}
+                onUpdate={(variations) => onUpdate(segment.id, { arollVariations: variations })}
+                personaDescription={segment.personaDescription}
+              />
+            )}
+
+            {/* Visual Context Display */}
+            {segment.visualContext && (
+              <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Camera className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Visual Context</Label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  {segment.visualContext.location && (
+                    <div><span className="font-medium">Location:</span> {segment.visualContext.location}</div>
+                  )}
+                  {segment.visualContext.lighting && (
+                    <div><span className="font-medium">Lighting:</span> {segment.visualContext.lighting}</div>
+                  )}
+                  {segment.visualContext.atmosphere && (
+                    <div><span className="font-medium">Atmosphere:</span> {segment.visualContext.atmosphere}</div>
+                  )}
+                  {segment.visualContext.colorPalette && (
+                    <div><span className="font-medium">Colors:</span> {segment.visualContext.colorPalette}</div>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -480,6 +517,15 @@ export function SegmentCard({
                 rows={2}
               />
             </div>
+
+            {/* B-Roll Sequence Editor for cinematic montages */}
+            {segment.brollSequence && (
+              <BrollSequenceEditor
+                sequence={segment.brollSequence}
+                onUpdate={(updatedSequence) => onUpdate(segment.id, { brollSequence: updatedSequence })}
+                isGenerating={isGeneratingImages}
+              />
+            )}
             
             {/* B-Roll Images Gallery for montage */}
             <div className="space-y-3">
