@@ -14,7 +14,7 @@ import { getSegmentReadiness, getSegmentStatus } from '@/lib/segmentReadiness';
 import { 
   GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, 
   AlertCircle, Upload, Sparkles, X, RefreshCw, ImagePlus, Check, Camera, Video,
-  Play, AlertTriangle, Circle
+  Play, AlertTriangle, Circle, Move, ZoomIn, ArrowRight, RotateCw, Volume2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -397,6 +397,101 @@ export function SegmentCard({
 
         {segment.type === 'broll-voice-continue' && (
           <div className="space-y-4">
+            {/* Voice Continuation Indicator */}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <Volume2 className="h-4 w-4 text-amber-500" />
+              <span className="text-sm text-amber-500 font-medium">Voice continues from previous segment</span>
+            </div>
+
+            {/* Camera Movement Info */}
+            {brollSlots.length > 0 && (brollSlots[0]?.movement || brollSlots[0]?.angle) && (
+              <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Camera className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Camera Direction</Label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {brollSlots[0]?.angle && (
+                    <Badge variant="outline" className="gap-1">
+                      <span className="text-xs">Angle:</span>
+                      <span className="capitalize">{brollSlots[0].angle.replace(/-/g, ' ')}</span>
+                    </Badge>
+                  )}
+                  {brollSlots[0]?.movement && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Move className="h-3 w-3" />
+                      <span className="capitalize">{brollSlots[0].movement.replace(/-/g, ' ')}</span>
+                    </Badge>
+                  )}
+                </div>
+                {brollSlots[0]?.movementDescription && (
+                  <p className="text-xs text-muted-foreground mt-2">{brollSlots[0].movementDescription}</p>
+                )}
+              </div>
+            )}
+
+            {/* Camera Movement Selector */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Camera Movement</Label>
+                <Select
+                  value={brollSlots[0]?.movement || 'slow-zoom-in'}
+                  onValueChange={(v) => {
+                    const newSlots = [...brollSlots];
+                    if (newSlots[0]) {
+                      newSlots[0] = { ...newSlots[0], movement: v as any };
+                    } else {
+                      newSlots[0] = { prompt: '', status: 'pending', movement: v as any };
+                    }
+                    onUpdate(segment.id, { brollSlots: newSlots });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="slow-zoom-in">Slow Zoom In</SelectItem>
+                    <SelectItem value="slow-zoom-out">Slow Zoom Out</SelectItem>
+                    <SelectItem value="slow-pan-left">Pan Left</SelectItem>
+                    <SelectItem value="slow-pan-right">Pan Right</SelectItem>
+                    <SelectItem value="dolly-in">Dolly In</SelectItem>
+                    <SelectItem value="dolly-around">Dolly Around</SelectItem>
+                    <SelectItem value="orbit">Orbit</SelectItem>
+                    <SelectItem value="locked-off">Static</SelectItem>
+                    <SelectItem value="handheld-subtle">Handheld</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Camera Angle</Label>
+                <Select
+                  value={brollSlots[0]?.angle || 'medium'}
+                  onValueChange={(v) => {
+                    const newSlots = [...brollSlots];
+                    if (newSlots[0]) {
+                      newSlots[0] = { ...newSlots[0], angle: v as any };
+                    } else {
+                      newSlots[0] = { prompt: '', status: 'pending', angle: v as any };
+                    }
+                    onUpdate(segment.id, { brollSlots: newSlots });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="wide">Wide</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="medium-close">Medium Close</SelectItem>
+                    <SelectItem value="close-up">Close-up</SelectItem>
+                    <SelectItem value="extreme-close-up">Extreme Close-up</SelectItem>
+                    <SelectItem value="low-angle">Low Angle</SelectItem>
+                    <SelectItem value="high-angle">High Angle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             {/* B-Roll Image Gallery */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
