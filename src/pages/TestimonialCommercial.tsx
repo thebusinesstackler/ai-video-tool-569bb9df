@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
 import { CommercialStrategist } from '@/components/testimonial/CommercialStrategist';
+import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -200,9 +201,12 @@ export default function TestimonialCommercial() {
               </CardContent>
             </Card>
 
-            {/* Generation Controls */}
+            {/* Timeline Preview & Generation Controls */}
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-6 space-y-6">
+                {/* Visual Timeline Preview */}
+                <TimelinePreview segments={segments} />
+
                 {isGenerating ? (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
