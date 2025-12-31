@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
 import { CommercialStrategist } from '@/components/testimonial/CommercialStrategist';
 import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
+import { BrollGenerationProgress, BrollImageStatus } from '@/components/testimonial/BrollGenerationProgress';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -36,6 +37,8 @@ export default function TestimonialCommercial() {
   const [name, setName] = useState('Untitled Commercial');
   const [savedCommercials, setSavedCommercials] = useState<TestimonialCommercialType[]>([]);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const [brollImageStatuses, setBrollImageStatuses] = useState<BrollImageStatus[]>([]);
+  const [isGeneratingBroll, setIsGeneratingBroll] = useState(false);
 
   const {
     segments,
@@ -68,33 +71,79 @@ export default function TestimonialCommercial() {
     setFinalVideoUrl(null);
   };
 
-  const handleGenerateBrollImages = async (segments: CommercialSegment[]) => {
-    // Generate images for B-roll segments
-    for (const segment of segments) {
+  const handleGenerateBrollImages = useCallback(async (segments: CommercialSegment[]) => {
+    // Build the list of all images to generate
+    const allImageStatuses: BrollImageStatus[] = [];
+    
+    segments.forEach((segment, segmentIndex) => {
       if ((segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') && segment.brollPrompts && segment.brollPrompts.length > 0) {
-        const generatedImages: string[] = [];
-        
-        for (const prompt of segment.brollPrompts) {
-          try {
-            const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-              body: { prompt, aspectRatio: '16:9' }
-            });
+        segment.brollPrompts.forEach((prompt, promptIndex) => {
+          allImageStatuses.push({
+            segmentId: segment.id,
+            segmentIndex,
+            promptIndex,
+            prompt,
+            status: 'pending',
+          });
+        });
+      }
+    });
 
-            if (error) throw error;
-            if (data?.imageUrl) {
-              generatedImages.push(data.imageUrl);
-            }
-          } catch (err) {
-            console.error('Failed to generate B-roll image:', err);
+    if (allImageStatuses.length === 0) return;
+
+    setBrollImageStatuses(allImageStatuses);
+    setIsGeneratingBroll(true);
+
+    // Generate images one by one with real-time updates
+    for (let i = 0; i < allImageStatuses.length; i++) {
+      const imageStatus = allImageStatuses[i];
+      
+      // Update status to generating
+      setBrollImageStatuses(prev => 
+        prev.map((img, idx) => 
+          idx === i ? { ...img, status: 'generating' } : img
+        )
+      );
+
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+          body: { prompt: imageStatus.prompt, aspectRatio: '16:9' }
+        });
+
+        if (error) throw error;
+        
+        const imageUrl = data?.imageUrl;
+        
+        // Update status to complete with image URL
+        setBrollImageStatuses(prev => 
+          prev.map((img, idx) => 
+            idx === i ? { ...img, status: 'complete', imageUrl } : img
+          )
+        );
+
+        // Also update the segment with the new image
+        if (imageUrl) {
+          const segment = segments.find(s => s.id === imageStatus.segmentId);
+          if (segment) {
+            const currentImages = segment.brollImages || [];
+            const newImages = [...currentImages];
+            newImages[imageStatus.promptIndex] = imageUrl;
+            updateSegment(imageStatus.segmentId, { brollImages: newImages });
           }
         }
-
-        if (generatedImages.length > 0) {
-          updateSegment(segment.id, { brollImages: generatedImages });
-        }
+      } catch (err) {
+        console.error('Failed to generate B-roll image:', err);
+        // Update status to error
+        setBrollImageStatuses(prev => 
+          prev.map((img, idx) => 
+            idx === i ? { ...img, status: 'error' } : img
+          )
+        );
       }
     }
-  };
+
+    setIsGeneratingBroll(false);
+  }, [updateSegment]);
 
   // Load saved commercials
   useEffect(() => {
@@ -237,6 +286,12 @@ export default function TestimonialCommercial() {
               <CardContent className="pt-6 space-y-6">
                 {/* Visual Timeline Preview with drag-and-drop */}
                 <TimelinePreview segments={segments} onReorder={reorderSegments} />
+
+                {/* B-Roll Generation Progress */}
+                <BrollGenerationProgress 
+                  images={brollImageStatuses} 
+                  isGenerating={isGeneratingBroll} 
+                />
 
                 {isGenerating ? (
                   <div className="space-y-4">
