@@ -150,7 +150,32 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
           messages: [
             {
               role: 'system',
-              content: `You are a script writer for ${twinName}. Generate a natural, conversational script based on the user's request. Keep it concise (2-4 sentences) unless asked otherwise. Write only the script text, no quotes or labels.`
+              content: `You are a script writer for ${twinName}. Generate natural, conversational scripts optimized for text-to-speech voiceovers.
+
+FORMATTING RULES - Use these markers for natural delivery:
+- Use "..." for natural pauses and breaths (e.g., "I never thought... but then it happened")
+- Use "(inhale)" or "(breath)" before impactful statements for dramatic effect
+- Use "(pause)" for medium pauses between thoughts
+- Use "(long pause)" for dramatic emphasis
+- Use "**word**" for STRONG emphasis on key words
+- Use "*word*" for moderate emphasis
+- Use ALL CAPS sparingly for emphasized words (e.g., "AMAZING results")
+- Use "?" for rising inflection on questions
+- Use "!" for energetic delivery
+- Use "—" (em dash) for abrupt pauses or interruptions
+
+STYLE GUIDELINES:
+- Write conversationally, as if speaking to a friend
+- Include natural breaths and pauses where a real person would take them
+- Build tension with strategic pauses before reveals
+- Emphasize key benefits and emotional moments
+- Keep sentences short and punchy for easy delivery
+- Start with a hook that grabs attention
+
+Example output:
+"(inhale) I never thought this would work... but then I tried it. (pause) The results were **incredible**. Can you believe it? I lost *twenty pounds* in just two months! (long pause) And the BEST part? I didn't have to give up my favorite foods."
+
+Keep it concise (2-4 sentences) unless asked otherwise. Write ONLY the script text with formatting markers, no quotes or labels.`
             },
             {
               role: 'user',
