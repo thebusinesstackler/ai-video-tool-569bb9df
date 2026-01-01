@@ -64,20 +64,90 @@ function cleanScriptForTTS(script: string): string {
   if (!script) return '';
   
   return script
+    // Convert breath/inhale markers to natural pauses
+    .replace(/\(inhale\)/gi, '...')
+    .replace(/\(breath\)/gi, '...')
+    .replace(/\(deep breath\)/gi, '... ...')
+    .replace(/\(sigh\)/gi, '...')
+    .replace(/\(exhale\)/gi, '...')
+    // Convert pause markers with timing to appropriate pauses
+    .replace(/\(short pause\)/gi, '...')
+    .replace(/\(pause\)/gi, '...')
+    .replace(/\(long pause\)/gi, '... ...')
     // Replace [BEAT] and [PAUSE] with ellipsis for natural pauses
     .replace(/\[BEAT\]/gi, '...')
     .replace(/\[PAUSE\]/gi, '...')
+    .replace(/\[LONG PAUSE\]/gi, '... ...')
+    .replace(/\[SHORT PAUSE\]/gi, '...')
     // Remove any other [bracketed] commands
     .replace(/\[.*?\]/g, '')
     // Remove parenthetical directions like (slight laugh), (with conviction)
     .replace(/\([^)]*\)/g, '')
     // Clean up multiple spaces
     .replace(/\s+/g, ' ')
-    // Clean up multiple ellipses
-    .replace(/\.\.\.(\s*\.\.\.)+/g, '...')
+    // Clean up multiple ellipses (more than 2 sets)
+    .replace(/(\.\.\.(\s*)?){3,}/g, '... ...')
+    .replace(/\.\.\.(\s*\.\.\.)+/g, '... ...')
     // Clean up comma artifacts
     .replace(/,\s*,/g, ',')
     .trim();
+}
+
+// Convert script to SSML for Google Cloud TTS with precise timing
+function convertToSSML(script: string): string {
+  if (!script) return '<speak></speak>';
+  
+  let ssml = script
+    // Exact pause timings
+    .replace(/\(short pause\)/gi, '<break time="300ms"/>')
+    .replace(/\(pause\)/gi, '<break time="500ms"/>')
+    .replace(/\(long pause\)/gi, '<break time="1s"/>')
+    .replace(/\(breath\)/gi, '<break time="400ms"/>')
+    .replace(/\(inhale\)/gi, '<break time="500ms"/>')
+    .replace(/\(deep breath\)/gi, '<break time="800ms"/>')
+    .replace(/\(sigh\)/gi, '<break time="600ms"/>')
+    .replace(/\(exhale\)/gi, '<break time="400ms"/>')
+    // Beat/pause markers
+    .replace(/\[BEAT\]/gi, '<break time="400ms"/>')
+    .replace(/\[PAUSE\]/gi, '<break time="500ms"/>')
+    .replace(/\[LONG PAUSE\]/gi, '<break time="1s"/>')
+    .replace(/\[SHORT PAUSE\]/gi, '<break time="300ms"/>')
+    // Emphasis markers - strong (**text**)
+    .replace(/\*\*([^*]+)\*\*/g, '<emphasis level="strong">$1</emphasis>')
+    // Emphasis markers - moderate (*text*)
+    .replace(/\*([^*]+)\*/g, '<emphasis level="moderate">$1</emphasis>')
+    // Speaking rate changes
+    .replace(/\(slower\)/gi, '<prosody rate="slow">')
+    .replace(/\(end slower\)/gi, '</prosody>')
+    .replace(/\(faster\)/gi, '<prosody rate="fast">')
+    .replace(/\(end faster\)/gi, '</prosody>')
+    .replace(/\(\/slower\)/gi, '</prosody>')
+    .replace(/\(\/faster\)/gi, '</prosody>')
+    // Remove any remaining parenthetical directions
+    .replace(/\([^)]*\)/g, '')
+    // Remove any remaining bracket commands
+    .replace(/\[.*?\]/g, '')
+    // Clean up multiple spaces
+    .replace(/\s+/g, ' ')
+    .trim();
+    
+  return `<speak>${ssml}</speak>`;
+}
+
+// Check if script has SSML-convertible markers
+function hasSSMLMarkers(script: string): boolean {
+  if (!script) return false;
+  
+  const ssmlPatterns = [
+    /\*\*[^*]+\*\*/,
+    /\*[^*]+\*/,
+    /\(slower\)/i,
+    /\(faster\)/i,
+    /\(short pause\)/i,
+    /\(long pause\)/i,
+  ];
+  
+  return ssmlPatterns.some(pattern => pattern.test(script));
 }
 
 // Voice configuration mapping
@@ -158,15 +228,21 @@ async function generateClonedVoiceTTS(
   }
 }
 
-// Google Cloud TTS - Primary engine for standard voices
+// Google Cloud TTS - Primary engine for standard voices (with SSML support)
 async function generateGoogleTTS(
   text: string, 
   apiKey: string, 
   voiceConfig: VoiceConfig,
-  speakingRate: number = 1.0
+  speakingRate: number = 1.0,
+  useSSML: boolean = false
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
-    console.log(`Generating TTS with Google Cloud TTS using voice: ${voiceConfig.name}`);
+    // Determine if we should use SSML
+    const shouldUseSSML = useSSML || hasSSMLMarkers(text);
+    const processedText = shouldUseSSML ? convertToSSML(text) : text;
+    const inputType = shouldUseSSML ? 'ssml' : 'text';
+    
+    console.log(`Generating TTS with Google Cloud TTS using voice: ${voiceConfig.name}, SSML: ${shouldUseSSML}`);
     
     const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
@@ -174,7 +250,9 @@ async function generateGoogleTTS(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+        input: inputType === 'ssml' 
+          ? { ssml: processedText.length > 5000 ? processedText.substring(0, 5000) : processedText }
+          : { text: processedText.length > 5000 ? processedText.substring(0, 5000) : processedText },
         voice: {
           languageCode: voiceConfig.languageCode,
           name: voiceConfig.name,
@@ -192,12 +270,18 @@ async function generateGoogleTTS(
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Google TTS error:', response.status, errorText);
+      
+      // If SSML failed, retry without SSML
+      if (shouldUseSSML) {
+        console.log('SSML failed, retrying with plain text...');
+        return generateGoogleTTS(cleanScriptForTTS(text), apiKey, voiceConfig, speakingRate, false);
+      }
       return null;
     }
 
     const data = await response.json();
     if (data.audioContent) {
-      console.log('Google Cloud TTS successful with voice:', voiceConfig.name);
+      console.log('Google Cloud TTS successful with voice:', voiceConfig.name, shouldUseSSML ? '(SSML)' : '(plain text)');
       return {
         audioContent: data.audioContent,
         audioUrl: `data:audio/mp3;base64,${data.audioContent}`

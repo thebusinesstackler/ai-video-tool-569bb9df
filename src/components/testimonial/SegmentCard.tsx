@@ -10,8 +10,9 @@ import { TwinSelector } from './TwinSelector';
 import { ShotVariationPicker } from './ShotVariationPicker';
 import { BrollSequenceEditor } from './BrollSequenceEditor';
 import { SegmentReadinessChecklist } from './SegmentReadinessChecklist';
+import { ScriptFormattingGuide } from './ScriptFormattingGuide';
 import { getSegmentReadiness, getSegmentStatus } from '@/lib/segmentReadiness';
-import { cleanScriptForTTS } from '@/lib/audioUtils';
+import { cleanScriptForTTS, hasSSMLMarkers } from '@/lib/audioUtils';
 import { 
   GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, 
   AlertCircle, Upload, Sparkles, X, RefreshCw, ImagePlus, Check, Camera, Video,
@@ -89,6 +90,7 @@ export function SegmentCard({
   const scriptText = segment.type === 'twin-speaking' ? segment.script : (segment.voiceoverText || segment.voiceover);
   const cleanedScript = useMemo(() => cleanScriptForTTS(scriptText || ''), [scriptText]);
   const hasStageDirections = scriptText !== cleanedScript && scriptText && scriptText.trim().length > 0;
+  const hasAdvancedMarkers = useMemo(() => hasSSMLMarkers(scriptText || ''), [scriptText]);
 
   // Use brollSlots if available, otherwise fall back to legacy brollImages/brollPrompts
   const brollSlots: BrollImageSlot[] = segment.brollSlots || 
@@ -358,35 +360,56 @@ export function SegmentCard({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Script (What they say)</Label>
-                {hasStageDirections && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs gap-1"
-                    onClick={() => setShowCleanedPreview(!showCleanedPreview)}
-                  >
-                    <Eye className="h-3 w-3" />
-                    {showCleanedPreview ? 'Hide' : 'Show'} TTS Preview
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  <ScriptFormattingGuide compact />
+                  {hasStageDirections && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs gap-1"
+                      onClick={() => setShowCleanedPreview(!showCleanedPreview)}
+                    >
+                      <Eye className="h-3 w-3" />
+                      {showCleanedPreview ? 'Hide' : 'Show'} TTS Preview
+                    </Button>
+                  )}
+                </div>
               </div>
               <Textarea
-                placeholder="Enter what this speaker will say..."
+                placeholder="Enter what this speaker will say... Use (inhale), [BEAT], *emphasis*, or **strong** for control."
                 value={segment.script || ''}
                 onChange={(e) => onUpdate(segment.id, { script: e.target.value })}
                 rows={3}
               />
               
-              {/* Cleaned Script Preview */}
+              {/* Cleaned Script Preview with Enhanced Formatting Indicators */}
               {hasStageDirections && showCleanedPreview && (
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Volume2 className="h-4 w-4 text-primary" />
                     <span className="text-xs font-medium text-primary">What TTS will say:</span>
+                    {hasAdvancedMarkers && (
+                      <Badge variant="outline" className="text-[10px] h-4 bg-primary/10 border-primary/20">
+                        SSML Enhanced
+                      </Badge>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground italic">{cleanedScript}</p>
+                  <p className="text-sm text-muted-foreground italic">
+                    {cleanedScript.split('...').map((part, i, arr) => (
+                      <span key={i}>
+                        {part}
+                        {i < arr.length - 1 && (
+                          <span className="inline-block mx-1 px-1 py-0.5 bg-amber-500/20 text-amber-600 text-xs rounded">
+                            ⏸
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </p>
                   <p className="text-xs text-muted-foreground/60 mt-2">
-                    Stage directions like [BEAT], [PAUSE], and (parentheticals) are removed and converted to natural pauses.
+                    {hasAdvancedMarkers 
+                      ? 'Using SSML for precise control: **strong**, *emphasis*, and timed pauses.'
+                      : 'Stage directions converted to natural pauses. Use **word** or *word* for emphasis.'}
                   </p>
                 </div>
               )}
@@ -672,35 +695,56 @@ export function SegmentCard({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Voiceover Script</Label>
-                {segment.voiceoverText && hasStageDirections && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs gap-1"
-                    onClick={() => setShowCleanedPreview(!showCleanedPreview)}
-                  >
-                    <Eye className="h-3 w-3" />
-                    {showCleanedPreview ? 'Hide' : 'Show'} TTS Preview
-                  </Button>
-                )}
+                <div className="flex items-center gap-1">
+                  <ScriptFormattingGuide compact />
+                  {segment.voiceoverText && hasStageDirections && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs gap-1"
+                      onClick={() => setShowCleanedPreview(!showCleanedPreview)}
+                    >
+                      <Eye className="h-3 w-3" />
+                      {showCleanedPreview ? 'Hide' : 'Show'} TTS Preview
+                    </Button>
+                  )}
+                </div>
               </div>
               <Textarea
-                placeholder="Enter the voiceover text for this montage..."
+                placeholder="Enter the voiceover text... Use (inhale), [BEAT], *emphasis*, or **strong** for control."
                 value={segment.voiceoverText || ''}
                 onChange={(e) => onUpdate(segment.id, { voiceoverText: e.target.value })}
                 rows={2}
               />
               
-              {/* Cleaned Script Preview for Montage */}
+              {/* Cleaned Script Preview for Montage with Enhanced Formatting Indicators */}
               {segment.voiceoverText && hasStageDirections && showCleanedPreview && (
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Volume2 className="h-4 w-4 text-primary" />
                     <span className="text-xs font-medium text-primary">What TTS will say:</span>
+                    {hasAdvancedMarkers && (
+                      <Badge variant="outline" className="text-[10px] h-4 bg-primary/10 border-primary/20">
+                        SSML Enhanced
+                      </Badge>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground italic">{cleanedScript}</p>
+                  <p className="text-sm text-muted-foreground italic">
+                    {cleanedScript.split('...').map((part, i, arr) => (
+                      <span key={i}>
+                        {part}
+                        {i < arr.length - 1 && (
+                          <span className="inline-block mx-1 px-1 py-0.5 bg-amber-500/20 text-amber-600 text-xs rounded">
+                            ⏸
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </p>
                   <p className="text-xs text-muted-foreground/60 mt-2">
-                    Stage directions like [BEAT], [PAUSE], and (parentheticals) are removed and converted to natural pauses.
+                    {hasAdvancedMarkers 
+                      ? 'Using SSML for precise control: **strong**, *emphasis*, and timed pauses.'
+                      : 'Stage directions converted to natural pauses. Use **word** or *word* for emphasis.'}
                   </p>
                 </div>
               )}

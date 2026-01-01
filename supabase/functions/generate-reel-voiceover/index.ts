@@ -20,18 +20,77 @@ function cleanScriptForTTS(script: string): string {
   if (!script) return '';
   
   return script
+    // Convert breath/inhale markers to natural pauses
+    .replace(/\(inhale\)/gi, '...')
+    .replace(/\(breath\)/gi, '...')
+    .replace(/\(deep breath\)/gi, '... ...')
+    .replace(/\(sigh\)/gi, '...')
+    .replace(/\(exhale\)/gi, '...')
+    // Convert pause markers with timing to appropriate pauses
+    .replace(/\(short pause\)/gi, '...')
+    .replace(/\(pause\)/gi, '...')
+    .replace(/\(long pause\)/gi, '... ...')
+    // Replace [BEAT] and [PAUSE] with ellipsis for natural pauses
     .replace(/\[BEAT\]/gi, '...')
     .replace(/\[PAUSE\]/gi, '...')
+    .replace(/\[LONG PAUSE\]/gi, '... ...')
+    .replace(/\[SHORT PAUSE\]/gi, '...')
+    // Remove any other [bracketed] commands
     .replace(/\[.*?\]/g, '')
+    // Remove parenthetical directions like (slight laugh), (with conviction)
     .replace(/\([^)]*\)/g, '')
+    // Clean up multiple spaces
     .replace(/\s+/g, ' ')
-    .replace(/\.\.\.(\s*\.\.\.)+/g, '...')
+    // Clean up multiple ellipses
+    .replace(/(\.\.\.(\s*)?){3,}/g, '... ...')
+    .replace(/\.\.\.(\s*\.\.\.)+/g, '... ...')
+    // Clean up comma artifacts
     .replace(/,\s*,/g, ',')
     .trim();
 }
 
+// Convert script to SSML for Google Cloud TTS
+function convertToSSML(script: string): string {
+  if (!script) return '<speak></speak>';
+  
+  let ssml = script
+    .replace(/\(short pause\)/gi, '<break time="300ms"/>')
+    .replace(/\(pause\)/gi, '<break time="500ms"/>')
+    .replace(/\(long pause\)/gi, '<break time="1s"/>')
+    .replace(/\(breath\)/gi, '<break time="400ms"/>')
+    .replace(/\(inhale\)/gi, '<break time="500ms"/>')
+    .replace(/\(deep breath\)/gi, '<break time="800ms"/>')
+    .replace(/\[BEAT\]/gi, '<break time="400ms"/>')
+    .replace(/\[PAUSE\]/gi, '<break time="500ms"/>')
+    .replace(/\[LONG PAUSE\]/gi, '<break time="1s"/>')
+    .replace(/\*\*([^*]+)\*\*/g, '<emphasis level="strong">$1</emphasis>')
+    .replace(/\*([^*]+)\*/g, '<emphasis level="moderate">$1</emphasis>')
+    .replace(/\(slower\)/gi, '<prosody rate="slow">')
+    .replace(/\(end slower\)/gi, '</prosody>')
+    .replace(/\(faster\)/gi, '<prosody rate="fast">')
+    .replace(/\(end faster\)/gi, '</prosody>')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\[.*?\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+    
+  return `<speak>${ssml}</speak>`;
+}
+
+// Check if script has SSML-convertible markers
+function hasSSMLMarkers(script: string): boolean {
+  if (!script) return false;
+  return /\*\*[^*]+\*\*|\*[^*]+\*|\(slower\)|\(faster\)|\(short pause\)|\(long pause\)/i.test(script);
+}
+
 async function generateGoogleTTS(text: string, voice: string, apiKey: string): Promise<string> {
   const voiceConfig = GOOGLE_VOICES[voice] || GOOGLE_VOICES['nova'];
+  
+  // Use SSML if advanced markers detected
+  const useSSML = hasSSMLMarkers(text);
+  const processedText = useSSML ? convertToSSML(text) : cleanScriptForTTS(text);
+  
+  console.log(`Generating Google TTS, SSML: ${useSSML}`);
   
   const response = await fetch(
     `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
@@ -39,7 +98,7 @@ async function generateGoogleTTS(text: string, voice: string, apiKey: string): P
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        input: { text },
+        input: useSSML ? { ssml: processedText } : { text: processedText },
         voice: {
           languageCode: voiceConfig.languageCode,
           name: voiceConfig.name,
@@ -56,11 +115,17 @@ async function generateGoogleTTS(text: string, voice: string, apiKey: string): P
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Google TTS error:', response.status, errorText);
+    
+    // If SSML failed, retry with plain text
+    if (useSSML) {
+      console.log('SSML failed, retrying with plain text...');
+      return generateGoogleTTS(cleanScriptForTTS(text), voice, apiKey);
+    }
     throw new Error(`Google TTS error: ${response.status}`);
   }
 
   const data = await response.json();
-  return data.audioContent; // Already base64 encoded
+  return data.audioContent;
 }
 
 serve(async (req) => {
