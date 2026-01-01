@@ -88,7 +88,11 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ response: aiMessage }), {
+    // Return in OpenAI-compatible format so callers can use data.choices[0].message.content
+    return new Response(JSON.stringify({
+      response: aiMessage,
+      choices: [{ message: { content: aiMessage, role: "assistant" } }]
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
