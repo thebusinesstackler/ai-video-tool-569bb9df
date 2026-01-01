@@ -59,7 +59,7 @@ function estimateAudioDuration(text: string): number {
   return Math.ceil(words / 2.5);
 }
 
-// Clean script text for TTS by removing stage directions
+// Clean script text for TTS by removing stage directions (for SSML-capable providers)
 function cleanScriptForTTS(script: string): string {
   if (!script) return '';
   
@@ -91,6 +91,70 @@ function cleanScriptForTTS(script: string): string {
     // Clean up comma artifacts
     .replace(/,\s*,/g, ',')
     .trim();
+}
+
+// Format script for non-SSML TTS providers (Speechify) - optimized for public speaker delivery
+function formatForNonSSMLTTS(script: string): string {
+  if (!script) return '';
+  
+  let formatted = script
+    // Step 1: Convert breath/inhale markers to dramatic pauses with comma for inflection
+    .replace(/\(inhale\)/gi, '...')
+    .replace(/\(breath\)/gi, '...')
+    .replace(/\(deep breath\)/gi, '... ...')
+    .replace(/\(sigh\)/gi, '...')
+    .replace(/\(exhale\)/gi, '...')
+    
+    // Step 2: Convert pause markers
+    .replace(/\(short pause\)/gi, ',')
+    .replace(/\(pause\)/gi, '...')
+    .replace(/\(long pause\)/gi, '... ...')
+    .replace(/\[BEAT\]/gi, '...')
+    .replace(/\[PAUSE\]/gi, '...')
+    .replace(/\[LONG PAUSE\]/gi, '... ...')
+    .replace(/\[SHORT PAUSE\]/gi, ',')
+    
+    // Step 3: Convert **STRONG EMPHASIS** to UPPERCASE with pauses for dramatic effect
+    // This creates natural emphasis through capitalization + surrounding pauses
+    .replace(/\*\*([^*]+)\*\*/g, (_, word) => {
+      const upperWord = word.toUpperCase().trim();
+      return `... ${upperWord}...`;
+    })
+    
+    // Step 4: Convert *moderate emphasis* to word with preceding pause
+    .replace(/\*([^*]+)\*/g, (_, word) => {
+      return `... ${word.trim()}`;
+    })
+    
+    // Step 5: Convert em-dashes to pauses
+    .replace(/—/g, '...')
+    .replace(/--/g, '...')
+    
+    // Step 6: Remove any remaining [bracketed] commands
+    .replace(/\[.*?\]/g, '')
+    
+    // Step 7: Remove any remaining parenthetical directions (but keep the pause effect)
+    .replace(/\([^)]*\)/g, '...')
+    
+    // Step 8: Add slight pauses around question marks and exclamation for inflection
+    .replace(/\?(?!\s*\.\.\.)/g, '?...')
+    .replace(/!(?!\s*\.\.\.)/g, '!...')
+    
+    // Step 9: Clean up - normalize multiple ellipses
+    .replace(/\.{4,}/g, '...')
+    .replace(/(\.\.\.(\s*)?){3,}/g, '... ...')
+    .replace(/\.\.\.(\s*\.\.\.)+/g, '... ...')
+    
+    // Step 10: Clean up multiple spaces and comma artifacts
+    .replace(/\s+/g, ' ')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*\.\.\./g, '...')
+    .replace(/\.\.\.\s*,/g, '...')
+    
+    .trim();
+    
+  console.log('Formatted for non-SSML TTS:', formatted.substring(0, 150) + '...');
+  return formatted;
 }
 
 // Convert script to SSML for Google Cloud TTS with precise timing
@@ -511,9 +575,11 @@ serve(async (req) => {
     let isClonedVoice = false;
     
     // Priority 1: Speechify cloned voice (new system)
+    // Use non-SSML formatter for Speechify since it doesn't support SSML
     if (speechifyVoiceId && speechifyApiKey) {
       console.log('Attempting Speechify cloned voice generation...');
-      result = await generateSpeechifyTTS(cleanedText, speechifyApiKey, speechifyVoiceId, speed);
+      const speechifyFormattedText = formatForNonSSMLTTS(text);
+      result = await generateSpeechifyTTS(speechifyFormattedText, speechifyApiKey, speechifyVoiceId, speed);
       if (result) {
         provider = 'speechify';
         isClonedVoice = true;
