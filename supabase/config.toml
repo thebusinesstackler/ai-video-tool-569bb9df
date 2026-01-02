@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.speech-to-text]
 verify_jwt = false
+
+[functions.twin-api]
+verify_jwt = false
