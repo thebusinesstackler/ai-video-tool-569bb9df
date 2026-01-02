@@ -3,6 +3,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SettingsIcon, ShieldCheckIcon, ServerIcon } from 'lucide-react';
 import { ApiKeyManager } from '@/components/ApiKeyManager';
+import { TwinApiKeyManager } from '@/components/TwinApiKeyManager';
 
 const Settings = () => {
   return (
@@ -16,7 +17,12 @@ const Settings = () => {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* API Key Manager */}
+          {/* Twin API Key Manager */}
+          <div className="lg:col-span-2">
+            <TwinApiKeyManager />
+          </div>
+
+          {/* Third-Party API Key Manager */}
           <div className="lg:col-span-2">
             <ApiKeyManager />
           </div>
