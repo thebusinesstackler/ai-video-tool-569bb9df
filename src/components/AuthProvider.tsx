@@ -54,9 +54,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setUser(session?.user ?? null);
         setLoading(false);
       })
-      .catch((error) => {
+      .catch(async (error) => {
         console.error('Failed to get session:', error);
-        // Still set loading to false so the app doesn't hang
+        // Clear stale local session to stop retry loops
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch {
+          // Ignore cleanup errors
+        }
+        setSession(null);
+        setUser(null);
         setLoading(false);
       });
 
