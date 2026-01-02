@@ -26,25 +26,19 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn, user } = useAuth();
+  const { signUp, signIn, user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Clear any stale local session on mount (non-blocking)
+  // Clear any stale local session once auth has finished loading (prevents refresh-token retry loops)
   useEffect(() => {
-    const clearStaleSession = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          // Clear local storage to stop background refresh retries
-          await supabase.auth.signOut({ scope: 'local' });
-        }
-      } catch {
-        // Ignore errors - just trying to clean up
-      }
-    };
-    clearStaleSession();
-  }, []);
+    if (loading) return;
+    if (user) return;
+
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {
+      // ignore
+    });
+  }, [loading, user]);
 
   // Redirect authenticated users
   useEffect(() => {
