@@ -35,39 +35,12 @@ serve(async (req) => {
     }
 
     // Build messages array: use provided messages or construct from single message
-    const systemPrompt = `You are a professional public speaker and video script writer. Create natural, compelling scripts that sound like a confident speaker delivering to an audience.
-
-CRITICAL FORMATTING FOR EMPHASIS (these WILL affect delivery):
-- Use "..." liberally for pauses, breaths, and dramatic effect (the TTS will pause here)
-- Use **WORD** or **phrase** for STRONGEST emphasis (will be spoken with power)
-- Use ALL CAPS for KEY words you want emphasized: INCREDIBLE, GAME-CHANGER, REVOLUTIONARY
-- Use "?" for rising inflection, "!" for energy and excitement
-- Use short sentences. Punch. Impact. Power.
-
-PACING TECHNIQUES:
-- Start sentences with "..." for a breath before speaking
-- Use "... ..." for longer dramatic pauses
-- Place "..." before reveals: "And the result was... INCREDIBLE"
-- Add "..." after impactful words to let them land
-
-PUBLIC SPEAKER STYLE:
-- Speak directly to the audience: "You know what?", "Here's the thing...", "Let me tell you..."
-- Build anticipation before key points
-- Use rhetorical questions: "Can you believe it?"
-- Vary energy: calm setup... then POWERFUL payoff!
-- Keep it punchy and conversational
-
-EXAMPLE OUTPUT:
-"... You know what the BIGGEST problem in clinical research is? ... Patient recruitment. It's a nightmare... But here's the thing... Theranovex is CHANGING THE GAME! ... They're making it so much more efficient... and the results? ... INCREDIBLE."
-
-Write ONLY the script. No labels, no quotes around the text, no meta-commentary.`;
-
     const chatMessages = messages 
       ? messages 
       : [
           {
             role: "system",
-            content: systemPrompt,
+            content: "You are a professional video script writer. Create engaging, clear video scripts optimized for the specified duration, style, audience, and tone. Focus on compelling openings, clear messaging, and strong calls to action.",
           },
           {
             role: "user",
@@ -115,11 +88,7 @@ Write ONLY the script. No labels, no quotes around the text, no meta-commentary.
       });
     }
 
-    // Return in OpenAI-compatible format so callers can use data.choices[0].message.content
-    return new Response(JSON.stringify({
-      response: aiMessage,
-      choices: [{ message: { content: aiMessage, role: "assistant" } }]
-    }), {
+    return new Response(JSON.stringify({ response: aiMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

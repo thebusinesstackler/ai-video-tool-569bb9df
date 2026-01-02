@@ -9,77 +9,15 @@ interface VideoClip {
   url: string;
   duration: number;
   caption?: string;
-  audioDuration?: number;
-  angle?: 'wide' | 'medium' | 'close-up' | 'over-shoulder' | 'low-angle' | 'high-angle' | 'dutch-angle' | 'pov';
-  movement?: 'static' | 'push-in' | 'pull-out' | 'pan-left' | 'pan-right' | 'tracking' | 'handheld' | 'dolly';
-  isAroll?: boolean;
-  isMontage?: boolean;
-}
-
-interface LogoConfig {
-  url: string;
-  animation?: 'fade' | 'zoom' | 'slide';
-  duration?: number;
-}
-
-interface BackgroundMusicConfig {
-  url: string;
-  volume: number; // 0-100
-  fadeIn: number; // seconds
-  fadeOut: number; // seconds
+  audioDuration?: number; // Actual voiceover duration - takes precedence over duration
 }
 
 interface StitchRequest {
   clips: VideoClip[];
-  audioUrl?: string;
-  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'none' | 'smart';
+  audioUrl?: string; // Combined voiceover audio URL
+  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
-  transitionDuration?: number;
-  introLogo?: LogoConfig;
-  outroLogo?: LogoConfig;
-  backgroundMusic?: BackgroundMusicConfig;
-}
-
-// Smart transition selection based on shot types
-function getSmartTransition(prevClip: VideoClip | null, currentClip: VideoClip, index: number): { type: string; duration: number } {
-  if (!prevClip || index === 0) {
-    return { type: 'fade', duration: 0.5 };
-  }
-
-  // Same angle = cut (simulating same camera, different take)
-  if (prevClip.angle === currentClip.angle) {
-    return { type: 'cut', duration: 0 };
-  }
-
-  // Wide to close-up or close-up to wide = crossfade
-  const isWideToClose = prevClip.angle === 'wide' && currentClip.angle === 'close-up';
-  const isCloseToWide = prevClip.angle === 'close-up' && currentClip.angle === 'wide';
-  if (isWideToClose || isCloseToWide) {
-    return { type: 'crossfade', duration: 0.6 };
-  }
-
-  // Montage clips = fast cuts
-  if (currentClip.isMontage) {
-    return { type: 'cut', duration: 0 };
-  }
-
-  // A-roll switches = slightly longer crossfade
-  if (currentClip.isAroll && prevClip.isAroll) {
-    return { type: 'crossfade', duration: 0.4 };
-  }
-
-  // B-roll to A-roll = clean cut
-  if (!prevClip.isAroll && currentClip.isAroll) {
-    return { type: 'cut', duration: 0 };
-  }
-
-  // A-roll to B-roll = subtle crossfade
-  if (prevClip.isAroll && !currentClip.isAroll) {
-    return { type: 'crossfade', duration: 0.5 };
-  }
-
-  // Default: crossfade
-  return { type: 'crossfade', duration: 0.5 };
+  transitionDuration?: number; // Duration in seconds (0.3 - 1.5)
 }
 
 serve(async (req) => {
@@ -93,111 +31,44 @@ serve(async (req) => {
       throw new Error('CREATOMATE_API_KEY is not configured');
     }
 
-    const { 
-      clips, 
-      audioUrl, 
-      transition = 'crossfade', 
-      captionStyle = 'bottom', 
-      transitionDuration = 0.8, 
-      introLogo, 
-      outroLogo,
-      backgroundMusic 
-    } = await req.json() as StitchRequest;
+    const { clips, audioUrl, transition = 'crossfade', captionStyle = 'bottom', transitionDuration = 0.8 } = await req.json() as StitchRequest;
 
     if (!clips || clips.length === 0) {
       throw new Error('No video clips provided');
     }
 
-    console.log(`Starting enhanced Creatomate stitch with ${clips.length} clips, smart transitions: ${transition === 'smart'}`);
+    console.log(`Starting Creatomate stitch with ${clips.length} clips, audio: ${!!audioUrl}`);
 
+    // Build the Creatomate source JSON
+    // Each clip becomes a composition element with duration matching the AUDIO duration
     const elements: any[] = [];
     let currentTime = 0;
-    
-    // Add intro logo if provided
-    const introDuration = introLogo?.duration || 3;
-    if (introLogo?.url) {
-      elements.push({
-        type: 'shape',
-        shape: 'rectangle',
-        time: 0,
-        duration: introDuration,
-        width: '100%',
-        height: '100%',
-        fill_color: '#000000'
-      });
-      
-      const introAnimations: any[] = [];
-      const animType = introLogo.animation || 'fade';
-      
-      if (animType === 'fade') {
-        introAnimations.push(
-          { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-out' },
-          { type: 'fade', fade: 'out', start: introDuration - 0.8, duration: 0.8, easing: 'ease-in' }
-        );
-      } else if (animType === 'zoom') {
-        introAnimations.push(
-          { type: 'scale', start_scale: '80%', end_scale: '100%', duration: 1, easing: 'ease-out' },
-          { type: 'fade', fade: 'in', duration: 0.5 },
-          { type: 'fade', fade: 'out', start: introDuration - 0.5, duration: 0.5 }
-        );
-      } else if (animType === 'slide') {
-        introAnimations.push(
-          { type: 'slide', direction: 'up', duration: 0.8, easing: 'ease-out' },
-          { type: 'fade', fade: 'out', start: introDuration - 0.5, duration: 0.5 }
-        );
-      }
-      
-      elements.push({
-        type: 'image',
-        source: introLogo.url,
-        time: 0,
-        duration: introDuration,
-        fit: 'contain',
-        width: '60%',
-        height: '40%',
-        x: '50%',
-        y: '50%',
-        x_alignment: '50%',
-        y_alignment: '50%',
-        animations: introAnimations
-      });
-      
-      currentTime = introDuration;
-    }
 
     clips.forEach((clip, index) => {
+      // Use the actual video duration (capped at 8s by WaveSpeed), NOT the audio duration
+      // The merged audio track will continue seamlessly across video clips
       const videoDuration = Math.min(clip.audioDuration || clip.duration || 5, 8);
-      const prevClip = index > 0 ? clips[index - 1] : null;
+      console.log(`Clip ${index + 1}: video duration ${videoDuration}s (audio was ${clip.audioDuration}s, preset was ${clip.duration}s)`);
       
-      console.log(`Clip ${index + 1}: ${videoDuration}s, angle: ${clip.angle || 'default'}, montage: ${clip.isMontage}`);
-      
-      // Get transition based on mode
-      let transitionConfig: { type: string; duration: number };
-      
-      if (transition === 'smart') {
-        transitionConfig = getSmartTransition(prevClip, clip, index);
-      } else if (index === 0 || transition === 'none') {
-        transitionConfig = { type: 'none', duration: 0 };
-      } else {
-        transitionConfig = { type: transition, duration: Math.min(Math.max(transitionDuration, 0.3), 1.5) };
-      }
-      
+      // Build transition animations based on type
       const getTransitionAnimations = () => {
-        if (transitionConfig.type === 'none' || transitionConfig.type === 'cut') return [];
+        if (index === 0 || transition === 'none') return [];
         
-        switch (transitionConfig.type) {
+        const duration = Math.min(Math.max(transitionDuration, 0.3), 1.5);
+        
+        switch (transition) {
           case 'fade':
             return [{
               type: 'fade',
               fade: 'in',
-              duration: transitionConfig.duration,
+              duration,
               easing: 'ease-in-out'
             }];
           case 'slide':
             return [{
               type: 'slide',
-              direction: index % 2 === 0 ? 'left' : 'right',
-              duration: transitionConfig.duration,
+              direction: index % 2 === 0 ? 'left' : 'right', // Alternate directions
+              duration,
               easing: 'ease-out'
             }];
           case 'zoom':
@@ -205,18 +76,19 @@ serve(async (req) => {
               type: 'scale',
               start_scale: '120%',
               end_scale: '100%',
-              duration: transitionConfig.duration,
+              duration,
               easing: 'ease-out'
             }, {
               type: 'fade',
               fade: 'in',
-              duration: transitionConfig.duration * 0.5
+              duration: duration * 0.5
             }];
           case 'crossfade':
+            // Crossfade: overlap with previous clip
             return [{
               type: 'fade',
               fade: 'in',
-              duration: transitionConfig.duration,
+              duration,
               easing: 'linear'
             }];
           default:
@@ -225,7 +97,7 @@ serve(async (req) => {
       };
       
       // For crossfade, start this clip earlier to overlap
-      const overlapTime = transitionConfig.type === 'crossfade' && index > 0 ? transitionConfig.duration * 0.5 : 0;
+      const overlapTime = transition === 'crossfade' && index > 0 ? transitionDuration * 0.5 : 0;
       const adjustedTime = Math.max(0, currentTime - overlapTime);
       
       // Add video element
@@ -233,7 +105,7 @@ serve(async (req) => {
         type: 'video',
         source: clip.url,
         time: adjustedTime,
-        duration: videoDuration + overlapTime,
+        duration: videoDuration + overlapTime, // Extend to cover overlap
         fit: 'cover',
         animations: getTransitionAnimations()
       });
@@ -271,86 +143,16 @@ serve(async (req) => {
       currentTime += videoDuration;
     });
 
-    // Add outro logo if provided
-    const outroDuration = outroLogo?.duration || 3;
-    if (outroLogo?.url) {
-      const outroStart = currentTime;
-      
-      elements.push({
-        type: 'shape',
-        shape: 'rectangle',
-        time: outroStart,
-        duration: outroDuration,
-        width: '100%',
-        height: '100%',
-        fill_color: '#000000'
-      });
-      
-      const outroAnimations: any[] = [];
-      const animType = outroLogo.animation || 'fade';
-      
-      if (animType === 'fade') {
-        outroAnimations.push(
-          { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-out' },
-          { type: 'fade', fade: 'out', start: outroDuration - 0.8, duration: 0.8, easing: 'ease-in' }
-        );
-      } else if (animType === 'zoom') {
-        outroAnimations.push(
-          { type: 'scale', start_scale: '80%', end_scale: '100%', duration: 1, easing: 'ease-out' },
-          { type: 'fade', fade: 'in', duration: 0.5 },
-          { type: 'fade', fade: 'out', start: outroDuration - 0.5, duration: 0.5 }
-        );
-      } else if (animType === 'slide') {
-        outroAnimations.push(
-          { type: 'slide', direction: 'down', duration: 0.8, easing: 'ease-out' },
-          { type: 'fade', fade: 'out', start: outroDuration - 0.5, duration: 0.5 }
-        );
-      }
-      
-      elements.push({
-        type: 'image',
-        source: outroLogo.url,
-        time: outroStart,
-        duration: outroDuration,
-        fit: 'contain',
-        width: '60%',
-        height: '40%',
-        x: '50%',
-        y: '50%',
-        x_alignment: '50%',
-        y_alignment: '50%',
-        animations: outroAnimations
-      });
-      
-      currentTime += outroDuration;
-    }
-
-    // Add background audio (voiceover)
+    // Add background audio if provided - with proper fade out at the end
     if (audioUrl) {
+      // Voiceover audio - ends earlier to allow music fade
       elements.push({
         type: 'audio',
         source: audioUrl,
-        time: introLogo?.url ? introDuration : 0,
-        duration: currentTime - (introLogo?.url ? introDuration : 0) - (outroLogo?.url ? outroDuration : 0) - 2,
-        volume: '100%',
-        audio_fade_out: 0.5
-      });
-    }
-
-    // Add background music if provided
-    if (backgroundMusic?.url) {
-      const musicVolume = Math.min(Math.max(backgroundMusic.volume || 30, 0), 100);
-      const fadeIn = backgroundMusic.fadeIn || 1;
-      const fadeOut = backgroundMusic.fadeOut || 2;
-      
-      elements.push({
-        type: 'audio',
-        source: backgroundMusic.url,
         time: 0,
-        duration: currentTime,
-        volume: `${musicVolume}%`,
-        audio_fade_in: fadeIn,
-        audio_fade_out: fadeOut
+        duration: currentTime - 2, // Stop voiceover 2 seconds before end for CTA hold
+        volume: '100%',
+        audio_fade_out: 0.5 // Quick fade to not overlap with music fade
       });
     }
 
@@ -362,8 +164,9 @@ serve(async (req) => {
       elements
     };
 
-    console.log('Enhanced Creatomate source with', elements.length, 'elements');
+    console.log('Creatomate source:', JSON.stringify(source, null, 2));
 
+    // Start the render
     const response = await fetch('https://api.creatomate.com/v1/renders', {
       method: 'POST',
       headers: {
@@ -382,6 +185,7 @@ serve(async (req) => {
     const renderData = await response.json();
     console.log('Creatomate render started:', renderData);
 
+    // Return the render ID for status polling
     return new Response(
       JSON.stringify({
         success: true,

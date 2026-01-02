@@ -35,77 +35,18 @@ interface CommercialStrategistProps {
   onGenerateBrollImages?: (segments: CommercialSegment[]) => Promise<void>;
 }
 
-// Component to render AI messages with clickable options
-function MessageWithOptions({ content, onOptionClick }: { content: string; onOptionClick: (option: string) => void }) {
-  // Parse content for <options> blocks
-  const parts = content.split(/<options>([\s\S]*?)<\/options>/g);
-  
-  return (
-    <div className="text-sm space-y-3">
-      {parts.map((part, index) => {
-        // Even indices are regular text, odd indices are option blocks
-        if (index % 2 === 0) {
-          // Regular text - render with basic markdown-like formatting
-          return part.split('\n').map((line, lineIndex) => {
-            // Bold text
-            const formattedLine = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            if (line.trim() === '') return <br key={`${index}-${lineIndex}`} />;
-            return (
-              <p 
-                key={`${index}-${lineIndex}`} 
-                className="whitespace-pre-wrap"
-                dangerouslySetInnerHTML={{ __html: formattedLine }}
-              />
-            );
-          });
-        } else {
-          // Options block - parse and render as clickable buttons
-          const options = part
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line.startsWith('-'))
-            .map(line => {
-              // Remove the leading "- " and extract the option
-              const optionText = line.slice(2).trim();
-              // Extract just the label (text after emoji and ** markers)
-              const labelMatch = optionText.match(/\*\*(.+?)\*\*/);
-              const label = labelMatch ? labelMatch[1] : optionText.split(' - ')[0];
-              const description = optionText.split(' - ').slice(1).join(' - ');
-              return { full: optionText, label, description };
-            });
-
-          return (
-            <div key={index} className="flex flex-wrap gap-2 my-2">
-              {options.map((option, optIndex) => (
-                <Button
-                  key={optIndex}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-auto py-2 px-3 whitespace-normal text-left hover:bg-primary/10 hover:border-primary/50 transition-all"
-                  onClick={() => onOptionClick(option.label)}
-                >
-                  <span dangerouslySetInnerHTML={{ __html: option.full.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
-                </Button>
-              ))}
-            </div>
-          );
-        }
-      })}
-    </div>
-  );
-}
-
 // Calculate duration based on word count (~2.5 words per second for natural speech)
-// Allow longer durations for substantial scripts
+// Round to allowed API values: 5 or 8 seconds
 function calculateDurationFromScript(script: string): number {
-  if (!script) return 8;
+  if (!script) return 5;
   const words = script.trim().split(/\s+/).length;
   const estimatedSeconds = Math.ceil(words / 2.5);
   
-  // Allow natural durations, minimum 5 seconds, maximum 30 seconds per segment
-  if (estimatedSeconds <= 5) return 5;
-  if (estimatedSeconds >= 30) return 30;
-  return estimatedSeconds;
+  // Clamp to multiples of 5 or 8, minimum 5, round to nearest allowed value
+  if (estimatedSeconds <= 6) return 5;
+  if (estimatedSeconds <= 10) return 8;
+  // For longer scripts, we need multiple segments but for now just use max
+  return 8;
 }
 
 // Generate a voiceover script based on B-roll prompts
@@ -378,40 +319,20 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
           ...baseSegment,
           type: 'twin-speaking' as const,
           twinId: matchedTwin?.id,
-          twinName: seg.twinName,
-          personaDescription: seg.personaDescription, // Include auto-generated persona
           script: seg.script || '',
         };
       } else if (seg.type === 'broll-voice-continue') {
-        // Parse camera info from prompts if available
-        const brollSlots = (seg.brollPrompts || []).map((prompt: string) => {
-          // Try to extract camera info from prompt
-          const cameraMatch = prompt.match(/\((slow[-\s]?zoom[-\s]?in|pan[-\s]?left|pan[-\s]?right|dolly[-\s]?in|dolly[-\s]?around|tracking|orbit|crane[-\s]?up|tilt[-\s]?up|handheld)\)/i);
-          const angleMatch = prompt.match(/\((close[-\s]?up|wide|medium|extreme[-\s]?close[-\s]?up|low[-\s]?angle|high[-\s]?angle|over[-\s]?shoulder)\)/i);
-          
-          return {
-            prompt: prompt.replace(/\([^)]+\)/g, '').trim(), // Clean prompt
-            status: 'pending' as const,
-            movement: cameraMatch ? cameraMatch[1].toLowerCase().replace(/\s/g, '-') as any : 'slow-zoom-in',
-            movementDescription: cameraMatch ? `Camera: ${cameraMatch[1]}` : 'Slow zoom into subject',
-            angle: angleMatch ? angleMatch[1].toLowerCase().replace(/\s/g, '-') as any : 'medium',
-          };
-        });
-        
         return {
           ...baseSegment,
           type: 'broll-voice-continue' as const,
           brollPrompts: seg.brollPrompts || [],
-          brollSlots: brollSlots.length > 0 ? brollSlots : undefined,
           brollImages: [],
-          voiceContinuesFromPrevious: true, // B-roll voice continue means audio extends from previous
         };
       } else if (seg.type === 'broll-montage') {
         return {
           ...baseSegment,
           type: 'broll-montage' as const,
           voiceover: seg.voiceover || '',
-          voiceoverText: seg.voiceover || '', // Also set voiceoverText for consistency
           brollPrompts: seg.brollPrompts || [],
           brollImages: [],
         };
@@ -518,20 +439,19 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
 
           {/* Chat Area */}
           <div className="border rounded-lg bg-background">
-            <ScrollArea className="h-[360px] p-4" ref={scrollRef}>
+            <ScrollArea className="h-[280px] p-4" ref={scrollRef}>
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <Sparkles className="h-8 w-8 mb-3 opacity-50" />
                   <p className="font-medium">Start brainstorming your commercial</p>
                   <p className="text-sm mt-1">
-                    I'll ask questions and suggest options to craft your perfect commercial
+                    Describe your product/service, target audience, and goals
                   </p>
                   <div className="flex flex-wrap gap-2 mt-4 justify-center">
                     {[
                       "I'm launching a fitness app for busy professionals",
                       "We sell eco-friendly cleaning products",
                       "I have a SaaS tool for small businesses",
-                      "I'm a real estate agent who needs testimonial ads",
                     ].map((example, i) => (
                       <Button
                         key={i}
@@ -559,14 +479,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
                             : 'bg-muted'
                         }`}
                       >
-                        {msg.role === 'assistant' ? (
-                          <MessageWithOptions 
-                            content={msg.content} 
-                            onOptionClick={(option) => setInput(option)}
-                          />
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        )}
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                       </div>
                     </div>
                   ))}

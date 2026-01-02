@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { CommercialSegment } from '@/types/testimonialCommercial';
-import { User, Film, Clapperboard, GripVertical, Volume2 } from 'lucide-react';
+import { User, Film, Clapperboard, GripVertical } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TimelinePreviewProps {
@@ -26,46 +26,13 @@ const segmentConfig = {
   },
 };
 
-// Calculate voice continuation groups (speaking + following broll-voice-continue segments)
-function calculateVoiceContinuationGroups(segments: CommercialSegment[]) {
-  const groups: { startIndex: number; endIndex: number; totalDuration: number }[] = [];
-  
-  for (let i = 0; i < segments.length; i++) {
-    if (segments[i].type === 'twin-speaking') {
-      let totalDuration = segments[i].duration || 0;
-      let endIndex = i;
-      
-      // Look for following broll-voice-continue segments
-      for (let j = i + 1; j < segments.length; j++) {
-        if (segments[j].type === 'broll-voice-continue') {
-          totalDuration += segments[j].duration || 0;
-          endIndex = j;
-        } else {
-          break;
-        }
-      }
-      
-      if (endIndex > i) {
-        groups.push({ startIndex: i, endIndex, totalDuration });
-      }
-    }
-  }
-  
-  return groups;
-}
-
 export function TimelinePreview({ segments, onReorder }: TimelinePreviewProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
-  const voiceGroups = useMemo(() => calculateVoiceContinuationGroups(segments), [segments]);
-
   if (segments.length === 0) return null;
 
   const totalDuration = segments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
-  
-  // Check if a segment is part of a voice continuation group
-  const getVoiceGroup = (index: number) => voiceGroups.find(g => index >= g.startIndex && index <= g.endIndex);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -145,12 +112,6 @@ export function TimelinePreview({ segments, onReorder }: TimelinePreviewProps) {
                     `}
                     style={{ width: `${widthPercent}%`, minWidth: widthPercent > 0 ? '32px' : '0' }}
                   >
-                    {/* Voice continuation indicator - show audio wave on broll-voice-continue */}
-                    {segment.type === 'broll-voice-continue' && (
-                      <div className="absolute -top-1 left-1/2 -translate-x-1/2">
-                        <Volume2 className="h-3 w-3 text-white/80" />
-                      </div>
-                    )}
                     {/* Drag handle indicator */}
                     {onReorder && (
                       <GripVertical className="h-3 w-3 text-white/50 absolute left-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -167,41 +128,14 @@ export function TimelinePreview({ segments, onReorder }: TimelinePreviewProps) {
                     )}
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs max-w-[280px]">
+                <TooltipContent side="top" className="text-xs">
                   <div className="font-medium">{config.label}</div>
                   <div className="text-muted-foreground">
                     {segment.duration}s • Segment {index + 1}
                   </div>
-                  {segment.type === 'twin-speaking' && segment.twinName && (
-                    <div className="text-muted-foreground mt-1">
-                      Twin: {segment.twinName}
-                    </div>
-                  )}
-                  {segment.type === 'twin-speaking' && !segment.twinId && segment.personaDescription && (
-                    <div className="text-primary/80 mt-1 italic">
-                      Generated: {segment.personaDescription.slice(0, 80)}...
-                    </div>
-                  )}
                   {segment.type === 'twin-speaking' && segment.script && (
-                    <div className="max-w-[250px] truncate text-muted-foreground mt-1">
-                      "{segment.script.slice(0, 60)}..."
-                    </div>
-                  )}
-                  {(segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') && 
-                   segment.brollPrompts && segment.brollPrompts.length > 0 && (
-                    <div className="text-muted-foreground mt-1">
-                      {segment.brollPrompts.length} B-roll shot{segment.brollPrompts.length !== 1 ? 's' : ''}
-                    </div>
-                  )}
-                  {segment.type === 'broll-voice-continue' && (
-                    <div className="text-amber-400 mt-1 flex items-center gap-1">
-                      <Volume2 className="h-3 w-3" />
-                      Voice continues from previous segment
-                    </div>
-                  )}
-                  {segment.type === 'broll-voice-continue' && segment.brollSlots?.[0]?.movement && (
-                    <div className="text-muted-foreground mt-1">
-                      Camera: {segment.brollSlots[0].movement.replace(/-/g, ' ')}
+                    <div className="max-w-[200px] truncate text-muted-foreground mt-1">
+                      "{segment.script.slice(0, 50)}..."
                     </div>
                   )}
                 </TooltipContent>

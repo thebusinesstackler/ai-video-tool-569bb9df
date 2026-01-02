@@ -11,8 +11,6 @@ interface SegmentTimelineProps {
   onDelete: (id: string) => void;
   onAdd: (type: CommercialSegment['type']) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
-  onGenerateBrollImages?: (segmentId: string) => Promise<void>;
-  isGeneratingImages?: boolean;
 }
 
 export function SegmentTimeline({
@@ -20,9 +18,7 @@ export function SegmentTimeline({
   onUpdate,
   onDelete,
   onAdd,
-  onReorder,
-  onGenerateBrollImages,
-  isGeneratingImages
+  onReorder
 }: SegmentTimelineProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
@@ -111,8 +107,6 @@ export function SegmentTimeline({
               onDragEnd={() => setDragIndex(null)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDrop(index)}
-              onGenerateBrollImages={onGenerateBrollImages}
-              isGeneratingImages={isGeneratingImages}
             />
           ))}
         </div>

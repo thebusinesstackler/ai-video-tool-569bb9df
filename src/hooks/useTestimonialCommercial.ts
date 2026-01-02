@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CommercialSegment, TestimonialCommercial, BrollImageSlot } from '@/types/testimonialCommercial';
+import { CommercialSegment, TestimonialCommercial } from '@/types/testimonialCommercial';
 import { toast } from 'sonner';
 import { testimonialExamples, CommercialTemplate } from '@/data/testimonialExamples';
 
@@ -93,12 +93,7 @@ export function useTestimonialCommercial() {
     setSegments(commercial.segments || []);
   }, []);
 
-  const generateCommercial = useCallback(async (options?: {
-    introLogoUrl?: string | null;
-    introLogoAnimation?: string;
-    outroLogoUrl?: string | null;
-    outroLogoAnimation?: string;
-  }) => {
+  const generateCommercial = useCallback(async () => {
     if (segments.length === 0) {
       toast.error('Add at least one segment');
       return;
@@ -124,7 +119,7 @@ export function useTestimonialCommercial() {
       let currentStep = 0;
 
       // Process each segment - store generated URLs to pass forward
-      const generatedData: { audioUrl?: string; videoUrl?: string; audioDuration?: number }[] = [];
+      const generatedData: { audioUrl?: string; videoUrl?: string }[] = [];
       
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
@@ -134,53 +129,24 @@ export function useTestimonialCommercial() {
         try {
           // Generate audio for speaking/montage segments
           let audioUrl: string | undefined;
-          let audioDuration: number | undefined;
           if (segment.type === 'twin-speaking' || segment.type === 'broll-montage') {
-            const audioResult = await generateAudioForSegment(segment);
-            audioUrl = audioResult.audioUrl;
-            audioDuration = audioResult.duration;
+            audioUrl = await generateAudioForSegment(segment);
             generatedData[i].audioUrl = audioUrl;
-            generatedData[i].audioDuration = audioDuration;
-            updateSegment(segment.id, { audioUrl, duration: audioDuration });
+            updateSegment(segment.id, { audioUrl });
           }
 
           currentStep++;
           setGenerationProgress((currentStep / totalSteps) * 100);
 
-          // Generate video for segment - pass audioUrl and duration directly since state hasn't updated yet
-          const segmentWithAudio = { 
-            ...segment, 
-            audioUrl: audioUrl || segment.audioUrl,
-            duration: audioDuration || segment.duration 
-          };
+          // Generate video for segment - pass audioUrl directly since state hasn't updated yet
+          const segmentWithAudio = { ...segment, audioUrl: audioUrl || segment.audioUrl };
           const previousData = i > 0 ? generatedData[i - 1] : null;
           const videoResult = await generateVideoForSegment(
             segmentWithAudio, 
-            i > 0 ? { ...segments[i - 1], ...previousData } : null,
-            audioDuration
+            i > 0 ? { ...segments[i - 1], ...previousData } : null
           );
           generatedData[i].videoUrl = videoResult;
-          
-          // Update segment and auto-save to database
-          const updatedSegment = { 
-            ...segment, 
-            audioUrl: audioUrl || segment.audioUrl, 
-            videoUrl: videoResult, 
-            duration: audioDuration || segment.duration,
-            status: 'complete' as const 
-          };
-          updateSegment(segment.id, { videoUrl: videoResult, status: 'complete', duration: audioDuration || segment.duration });
-          
-          // Auto-save progress to database
-          if (currentCommercial) {
-            const updatedSegments = segments.map((s, idx) => 
-              idx === i ? updatedSegment : (idx < i ? { ...s, ...generatedData[idx] } : s)
-            );
-            await supabase
-              .from('testimonial_commercials')
-              .update({ segments: JSON.parse(JSON.stringify(updatedSegments)) })
-              .eq('id', currentCommercial.id);
-          }
+          updateSegment(segment.id, { videoUrl: videoResult, status: 'complete' });
 
           currentStep++;
           setGenerationProgress((currentStep / totalSteps) * 100);
@@ -191,14 +157,9 @@ export function useTestimonialCommercial() {
         }
       }
 
-      // Stitch all videos together with intro/outro logos
+      // Stitch all videos together
       toast.info('Stitching commercial...');
-      const finalVideoUrl = await stitchCommercial(segments, {
-        introLogoUrl: options?.introLogoUrl || undefined,
-        introLogoAnimation: options?.introLogoAnimation,
-        outroLogoUrl: options?.outroLogoUrl || undefined,
-        outroLogoAnimation: options?.outroLogoAnimation
-      });
+      const finalVideoUrl = await stitchCommercial(segments);
 
       if (currentCommercial) {
         await supabase
@@ -277,92 +238,6 @@ export function useTestimonialCommercial() {
     return { success: true, name: template.name };
   }, []);
 
-  // Generate B-roll images for a specific segment
-  const generateBrollImagesForSegment = useCallback(async (segmentId: string) => {
-    const segment = segments.find(s => s.id === segmentId);
-    if (!segment) return;
-
-    const prompts = segment.brollPrompts || segment.brollSlots?.map(s => s.prompt).filter(Boolean) || [];
-    if (prompts.length === 0) {
-      toast.error('No prompts to generate images from');
-      return;
-    }
-
-    // Initialize slots with generating status
-    const initialSlots: BrollImageSlot[] = prompts.map((prompt, i) => ({
-      prompt,
-      imageUrl: segment.brollSlots?.[i]?.imageUrl || segment.brollImages?.[i],
-      status: segment.brollSlots?.[i]?.imageUrl || segment.brollImages?.[i] ? 'complete' : 'generating'
-    }));
-    updateSegment(segmentId, { brollSlots: initialSlots });
-
-    const generatedImages: string[] = [];
-
-    for (let i = 0; i < prompts.length; i++) {
-      // Skip if already has image
-      if (initialSlots[i]?.imageUrl) {
-        generatedImages.push(initialSlots[i].imageUrl!);
-        continue;
-      }
-
-      try {
-        const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-          body: { prompt: prompts[i], sceneType: 'commercial' }
-        });
-
-        if (error) throw error;
-
-        const imageUrl = data?.imageUrl;
-        generatedImages.push(imageUrl || '');
-
-        // Update slot with generated image
-        const updatedSlots = [...initialSlots];
-        updatedSlots[i] = { ...updatedSlots[i], imageUrl, status: imageUrl ? 'complete' : 'error' };
-        updateSegment(segmentId, { 
-          brollSlots: updatedSlots,
-          brollImages: updatedSlots.map(s => s.imageUrl).filter(Boolean) as string[]
-        });
-      } catch (error) {
-        console.error(`Failed to generate image for prompt ${i}:`, error);
-        const updatedSlots = [...initialSlots];
-        updatedSlots[i] = { ...updatedSlots[i], status: 'error' };
-        updateSegment(segmentId, { brollSlots: updatedSlots });
-      }
-    }
-
-    toast.success('B-roll images generated');
-  }, [segments, updateSegment]);
-
-  // Generate a single segment
-  const generateSingleSegment = useCallback(async (segmentId: string) => {
-    const segment = segments.find(s => s.id === segmentId);
-    if (!segment) return;
-
-    updateSegment(segmentId, { status: 'generating' });
-
-    try {
-      let audioUrl: string | undefined;
-      let audioDuration: number | undefined;
-
-      if (segment.type === 'twin-speaking' || segment.type === 'broll-montage') {
-        const audioResult = await generateAudioForSegment(segment);
-        audioUrl = audioResult.audioUrl;
-        audioDuration = audioResult.duration;
-        updateSegment(segmentId, { audioUrl, duration: audioDuration });
-      }
-
-      const segmentWithAudio = { ...segment, audioUrl: audioUrl || segment.audioUrl, duration: audioDuration || segment.duration };
-      const videoUrl = await generateVideoForSegment(segmentWithAudio, null, audioDuration);
-      
-      updateSegment(segmentId, { videoUrl, status: 'complete', duration: audioDuration || segment.duration });
-      toast.success('Segment generated!');
-    } catch (error) {
-      console.error('Failed to generate segment:', error);
-      updateSegment(segmentId, { status: 'error' });
-      toast.error('Failed to generate segment');
-    }
-  }, [segments, updateSegment]);
-
   return {
     segments,
     setSegments,
@@ -374,8 +249,6 @@ export function useTestimonialCommercial() {
     loadCommercial,
     loadExampleTemplate,
     generateCommercial,
-    generateBrollImagesForSegment,
-    generateSingleSegment,
     isGenerating,
     generationProgress,
     currentCommercial,
@@ -383,34 +256,24 @@ export function useTestimonialCommercial() {
   };
 }
 
-async function generateAudioForSegment(segment: CommercialSegment): Promise<{ audioUrl: string; duration: number }> {
+async function generateAudioForSegment(segment: CommercialSegment): Promise<string> {
   // Get the twin's voice cloning key
-  const twinId = segment.type === 'twin-speaking' ? segment.twinId : segment.voiceoverId;
-  
-  if (!twinId) {
-    throw new Error('No twin selected for this segment');
-  }
-  
   const { data: twin } = await supabase
     .from('ai_twins')
     .select('voice_cloning_key')
-    .eq('id', twinId)
+    .eq('id', segment.type === 'twin-speaking' ? segment.twinId : segment.voiceoverId)
     .single();
 
   if (!twin?.voice_cloning_key) {
     throw new Error('Twin does not have a cloned voice');
   }
 
-  const text = segment.type === 'twin-speaking' ? segment.script : (segment.voiceoverText || segment.voiceover);
-  
-  // Get current user for audio storage path
-  const { data: { user } } = await supabase.auth.getUser();
+  const text = segment.type === 'twin-speaking' ? segment.script : segment.voiceoverText;
 
   const { data, error } = await supabase.functions.invoke('text-to-speech', {
     body: {
       text,
-      voiceId: twin.voice_cloning_key,
-      userId: user?.id
+      voiceId: twin.voice_cloning_key
     }
   });
 
@@ -418,17 +281,12 @@ async function generateAudioForSegment(segment: CommercialSegment): Promise<{ au
     throw new Error('Failed to generate audio');
   }
 
-  // Return both the URL and estimated duration
-  return {
-    audioUrl: data.audioUrl,
-    duration: data.duration || Math.ceil((text?.length || 0) / 15) // Fallback estimate
-  };
+  return data.audioUrl;
 }
 
 async function generateVideoForSegment(
   segment: CommercialSegment,
-  previousSegment: CommercialSegment | null,
-  audioDuration?: number
+  previousSegment: CommercialSegment | null
 ): Promise<string> {
   // For twin speaking - use infinitetalk lip-sync
   if (segment.type === 'twin-speaking') {
@@ -446,17 +304,13 @@ async function generateVideoForSegment(
       throw new Error('Audio URL is required for lip-sync video');
     }
 
-    // Use actual audio duration for lip-sync video
-    const videoDuration = audioDuration || segment.duration || 10;
-    console.log(`Generating lip-sync video with duration: ${videoDuration}s, audioUrl: ${segment.audioUrl.substring(0, 50)}...`);
-
     const { data, error } = await supabase.functions.invoke('wavespeed-video', {
       body: {
         action: 'create',
         model: 'infinitetalk',
         imageUrls: [twin.reference_images[0]],
         audioUrl: segment.audioUrl,
-        duration: videoDuration
+        duration: segment.duration
       }
     });
 
@@ -465,59 +319,27 @@ async function generateVideoForSegment(
     return await pollForVideo(data.taskId);
   }
 
-  // For B-roll - use existing images if available, otherwise generate
+  // For B-roll - generate image then video
   if (segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') {
-    const prompts = segment.brollPrompts || segment.brollSlots?.map(s => s.prompt).filter(Boolean) || [];
-    const existingImages = segment.brollImages || segment.brollSlots?.map(s => s.imageUrl).filter(Boolean) || [];
+    const prompts = segment.brollPrompts || [];
     const videoUrls: string[] = [];
-    
-    // Get camera movement info from brollSlots
-    const cameraInfo = segment.brollSlots?.[0];
-    const cameraMovement = cameraInfo?.movement || 'slow-zoom-in';
-    const cameraAngle = cameraInfo?.angle || 'medium';
-    
-    // Use audio duration for total B-roll length, divide among clips
-    const totalDuration = audioDuration || segment.duration || 10;
-    const numClips = Math.max(existingImages.length, prompts.length, 1);
-    const clipDuration = Math.max(5, Math.ceil(totalDuration / numClips));
 
-    console.log(`Generating B-roll videos: ${existingImages.length} existing images, ${prompts.length} prompts, camera: ${cameraMovement}`);
+    for (const prompt of prompts.slice(0, 5)) {
+      // Generate image
+      const { data: imageData } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt, sceneType: 'commercial' }
+      });
 
-    for (let i = 0; i < Math.max(existingImages.length, prompts.length); i++) {
-      if (i >= 5) break; // Max 5 clips
+      if (!imageData?.imageUrl) continue;
 
-      let imageUrl = existingImages[i];
-      const basePrompt = prompts[i] || 'Cinematic B-roll footage';
-      
-      // Enhance prompt with camera movement for more dynamic video generation
-      const movementDesc = cameraMovement.replace(/-/g, ' ');
-      const enhancedPrompt = `${basePrompt}. Camera: ${movementDesc}, ${cameraAngle.replace(/-/g, ' ')} shot, cinematic motion.`;
-
-      // Only generate image if we don't have one
-      if (!imageUrl && basePrompt) {
-        console.log(`Generating image for prompt ${i}: ${basePrompt.substring(0, 50)}...`);
-        const { data: imageData } = await supabase.functions.invoke('generate-scene-image', {
-          body: { prompt: basePrompt, sceneType: 'commercial' }
-        });
-        imageUrl = imageData?.imageUrl;
-      }
-
-      if (!imageUrl) {
-        console.warn(`No image available for clip ${i}, skipping`);
-        continue;
-      }
-
-      console.log(`Generating video from image ${i} with camera movement: ${cameraMovement}`);
-
-      // Generate short video from image - WaveSpeed i2v supports 5-10s
-      // Include camera movement in the prompt for the video generation
+      // Generate short video from image
       const { data: videoData } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
           model: 'wan-2.5-i2v',
-          prompt: enhancedPrompt,
-          imageUrls: [imageUrl],
-          duration: Math.min(clipDuration, 10) // Max 10s per clip
+          prompt,
+          imageUrls: [imageData.imageUrl],
+          duration: Math.ceil(segment.duration / prompts.length)
         }
       });
 
@@ -533,8 +355,7 @@ async function generateVideoForSegment(
         body: {
           clips: videoUrls.map((url, i) => ({
             url,
-            duration: totalDuration / videoUrls.length,
-            audioDuration: audioDuration // Pass audio duration for proper sync
+            duration: segment.duration / videoUrls.length
           })),
           audioUrl: segment.audioUrl,
           transition: 'cut'
@@ -590,15 +411,7 @@ async function pollForCreatomate(renderId: string): Promise<string> {
   throw new Error('Video stitching timed out');
 }
 
-async function stitchCommercial(
-  segments: CommercialSegment[],
-  options?: {
-    introLogoUrl?: string;
-    introLogoAnimation?: string;
-    outroLogoUrl?: string;
-    outroLogoAnimation?: string;
-  }
-): Promise<string> {
+async function stitchCommercial(segments: CommercialSegment[]): Promise<string> {
   const clips = segments
     .filter(s => s.videoUrl)
     .map(s => ({
@@ -608,19 +421,7 @@ async function stitchCommercial(
     }));
 
   const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
-    body: { 
-      clips,
-      introLogo: options?.introLogoUrl ? {
-        url: options.introLogoUrl,
-        animation: options.introLogoAnimation || 'fade',
-        duration: 3
-      } : undefined,
-      outroLogo: options?.outroLogoUrl ? {
-        url: options.outroLogoUrl,
-        animation: options.outroLogoAnimation || 'fade',
-        duration: 3
-      } : undefined
-    }
+    body: { clips }
   });
 
   if (error) throw error;

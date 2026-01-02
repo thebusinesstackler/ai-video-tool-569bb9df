@@ -12,13 +12,13 @@ export const testimonialExamples: CommercialTemplate[] = [
   {
     id: 'simple-testimonial',
     name: 'Simple Testimonial',
-    description: 'Single AI Twin delivering an authentic product experience',
+    description: 'Single AI Twin speaking about a product',
     twinCount: 1,
     segments: [
       {
         type: 'twin-speaking',
-        script: "Six months ago, I was drowning in spreadsheets and manual processes. My team was frustrated, deadlines were slipping, and I honestly did not know how much longer we could keep going. Then a colleague introduced me to this platform. Within the first week, we cut our processing time in half. Now my team actually looks forward to Monday mornings. That is not something I ever thought I would say.",
-        duration: 20,
+        script: "I have been using this product for 3 months now and I have to say, it completely changed how I work. The results speak for themselves and I could not be happier with my decision.",
+        duration: 8,
         transition: 'fade-in',
         status: 'pending'
       }
@@ -27,28 +27,28 @@ export const testimonialExamples: CommercialTemplate[] = [
   {
     id: 'testimonial-broll',
     name: 'Testimonial + B-Roll',
-    description: 'Personal story with visual proof while the narrative continues',
+    description: 'AI Twin with B-roll overlay while voice continues',
     twinCount: 1,
     segments: [
       {
         type: 'twin-speaking',
-        script: "I remember the exact moment everything changed for my business. I was sitting at my desk at two in the morning, exhausted, wondering if I should just give up on my dream entirely. That is when I decided to try something different.",
-        duration: 15,
+        script: "Let me tell you about my experience with this amazing service. When I first signed up, I was skeptical...",
+        duration: 5,
         transition: 'fade-in',
         status: 'pending'
       },
       {
         type: 'broll-voice-continue',
-        brollPrompts: ['Entrepreneur working late at night with laptop, soft desk lamp lighting, determined expression, cozy home office with city lights visible through window'],
+        brollPrompts: ['Modern office workspace with laptop and coffee, professional setting, natural lighting, clean desk aesthetic'],
         brollImages: [],
-        duration: 6,
-        transition: 'crossfade',
+        duration: 5,
+        transition: 'cut',
         status: 'pending'
       },
       {
         type: 'twin-speaking',
-        script: "Fast forward to today, and I have tripled my revenue, hired three new team members, and for the first time in years, I actually take weekends off. This platform did not just save my business. It gave me my life back.",
-        duration: 18,
+        script: "...but now I use it every single day. That is why I recommend it to everyone I know.",
+        duration: 5,
         transition: 'cut',
         status: 'pending'
       }
@@ -57,28 +57,20 @@ export const testimonialExamples: CommercialTemplate[] = [
   {
     id: 'multi-twin',
     name: 'Multi-Twin Commercial',
-    description: 'Two perspectives building a compelling case together',
+    description: 'Two different AI Twins each giving testimonials',
     twinCount: 2,
     segments: [
       {
         type: 'twin-speaking',
-        script: "As a startup founder, I have tried every productivity tool on the market. Most of them promise the world and deliver nothing but frustration. When my co-founder suggested we try this one, I rolled my eyes. But here is what surprised me: within forty-eight hours, our entire workflow transformed. We shipped our product two months ahead of schedule.",
-        duration: 22,
+        script: "As a business owner, finding the right tools is everything. This solution saved me hours every week and helped me focus on what matters most.",
+        duration: 8,
         transition: 'fade-in',
         status: 'pending'
       },
       {
-        type: 'broll-voice-continue',
-        brollPrompts: ['Modern tech startup office with team collaborating around a standing desk, whiteboards with product roadmaps, energetic atmosphere, natural sunlight'],
-        brollImages: [],
-        duration: 5,
-        transition: 'crossfade',
-        status: 'pending'
-      },
-      {
         type: 'twin-speaking',
-        script: "What really sets them apart is the support. I had a critical issue at eleven PM on a Sunday night before our biggest launch ever. Real humans got back to me in ten minutes. Ten minutes. That kind of dedication is rare, and it is why we are customers for life.",
-        duration: 20,
+        script: "I agree completely. The customer support alone is worth it. They are always there when you need them, day or night.",
+        duration: 8,
         transition: 'fade-in',
         status: 'pending'
       }
@@ -87,43 +79,43 @@ export const testimonialExamples: CommercialTemplate[] = [
   {
     id: 'full-production',
     name: 'Full Production',
-    description: 'Cinematic commercial with multiple testimonials, B-roll, and closing montage',
+    description: 'Complete commercial with twins, B-roll, and ending montage',
     twinCount: 2,
     segments: [
       {
         type: 'twin-speaking',
-        script: "I still remember telling my husband that our small bakery was not going to make it through the year. We were doing everything by hand, losing orders, missing deliveries. Then I discovered this platform and honestly, it felt like hiring an entire team overnight.",
-        duration: 18,
+        script: "When I first discovered this product, I was skeptical. But now, I cannot imagine my day without it.",
+        duration: 5,
         transition: 'fade-in',
         status: 'pending'
       },
       {
         type: 'broll-voice-continue',
-        brollPrompts: ['Artisan bakery interior with fresh bread and pastries, warm golden lighting, flour dusted surfaces, cozy neighborhood shop atmosphere'],
+        brollPrompts: ['Hands typing on modern keyboard, close-up of productivity app on screen, bright office environment'],
         brollImages: [],
         duration: 5,
-        transition: 'crossfade',
+        transition: 'cut',
         status: 'pending'
       },
       {
         type: 'twin-speaking',
-        script: "Running a restaurant means dealing with chaos every single day. Inventory, staffing, customer complaints, you name it. Since switching to this system, my managers handle ninety percent of what used to land on my desk. Last month, I actually went on vacation. First one in three years.",
-        duration: 20,
+        script: "The quality is outstanding and the price is unbeatable. I tell all my friends about it.",
+        duration: 5,
         transition: 'fade-in',
         status: 'pending'
       },
       {
         type: 'broll-montage',
-        voiceoverText: "Join over fifty thousand businesses who transformed their operations and reclaimed their time. Start your free thirty-day trial today. No credit card required, no complicated setup, just results. Your future self will thank you.",
+        voiceoverText: "Join thousands of satisfied customers today. Start your free trial now and see the difference for yourself.",
         brollPrompts: [
-          'Diverse small business owners smiling confidently outside their storefronts, warm afternoon light, authentic and approachable',
-          'Dashboard analytics showing upward growth trends on a sleek tablet, hands holding device, modern office background',
-          'Team celebrating success with high-fives in a bright collaborative workspace, genuine joy and camaraderie',
-          'Simple call-to-action: Start Free Trial button on clean interface, inviting and professional design'
+          'Happy customers smiling at camera, diverse group, professional setting',
+          'Product packaging with elegant design, studio lighting',
+          'Five star review on phone screen, close-up shot',
+          'Call to action button, subscribe now, vibrant colors'
         ],
         brollImages: [],
-        duration: 15,
-        transition: 'crossfade',
+        duration: 8,
+        transition: 'cut',
         status: 'pending'
       }
     ]

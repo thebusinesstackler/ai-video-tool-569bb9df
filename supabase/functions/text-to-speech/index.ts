@@ -1,218 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Helper to upload base64 audio to Supabase storage and return HTTP URL
-async function uploadAudioToStorage(base64Audio: string, userId?: string): Promise<string> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('Supabase credentials not available, returning base64 URL');
-    return `data:audio/mp3;base64,${base64Audio}`;
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  
-  // Decode base64 to binary
-  const binaryString = atob(base64Audio);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  
-  // Generate unique filename
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(7);
-  const userFolder = userId || 'anonymous';
-  const filePath = `${userFolder}/audio/${timestamp}-${random}.mp3`;
-  
-  // Upload to Supabase storage
-  const { data, error } = await supabase.storage
-    .from('reels')
-    .upload(filePath, bytes, {
-      contentType: 'audio/mpeg',
-      upsert: false
-    });
-  
-  if (error) {
-    console.error('Failed to upload audio to storage:', error);
-    return `data:audio/mp3;base64,${base64Audio}`;
-  }
-  
-  // Get public URL
-  const { data: urlData } = supabase.storage
-    .from('reels')
-    .getPublicUrl(filePath);
-  
-  console.log('Audio uploaded to storage:', urlData.publicUrl);
-  return urlData.publicUrl;
-}
-
-// Estimate audio duration based on text length (approx 2.5 words per second)
-function estimateAudioDuration(text: string): number {
-  const words = text.trim().split(/\s+/).length;
-  return Math.ceil(words / 2.5);
-}
-
-// Clean script text for TTS by removing stage directions (for SSML-capable providers)
-function cleanScriptForTTS(script: string): string {
-  if (!script) return '';
-  
-  return script
-    // Convert breath/inhale markers to natural pauses
-    .replace(/\(inhale\)/gi, '...')
-    .replace(/\(breath\)/gi, '...')
-    .replace(/\(deep breath\)/gi, '... ...')
-    .replace(/\(sigh\)/gi, '...')
-    .replace(/\(exhale\)/gi, '...')
-    // Convert pause markers with timing to appropriate pauses
-    .replace(/\(short pause\)/gi, '...')
-    .replace(/\(pause\)/gi, '...')
-    .replace(/\(long pause\)/gi, '... ...')
-    // Replace [BEAT] and [PAUSE] with ellipsis for natural pauses
-    .replace(/\[BEAT\]/gi, '...')
-    .replace(/\[PAUSE\]/gi, '...')
-    .replace(/\[LONG PAUSE\]/gi, '... ...')
-    .replace(/\[SHORT PAUSE\]/gi, '...')
-    // Remove any other [bracketed] commands
-    .replace(/\[.*?\]/g, '')
-    // Remove parenthetical directions like (slight laugh), (with conviction)
-    .replace(/\([^)]*\)/g, '')
-    // Clean up multiple spaces
-    .replace(/\s+/g, ' ')
-    // Clean up multiple ellipses (more than 2 sets)
-    .replace(/(\.\.\.(\s*)?){3,}/g, '... ...')
-    .replace(/\.\.\.(\s*\.\.\.)+/g, '... ...')
-    // Clean up comma artifacts
-    .replace(/,\s*,/g, ',')
-    .trim();
-}
-
-// Format script for non-SSML TTS providers (Speechify) - optimized for public speaker delivery
-function formatForNonSSMLTTS(script: string): string {
-  if (!script) return '';
-  
-  let formatted = script
-    // Step 1: Convert breath/inhale markers to dramatic pauses with comma for inflection
-    .replace(/\(inhale\)/gi, '...')
-    .replace(/\(breath\)/gi, '...')
-    .replace(/\(deep breath\)/gi, '... ...')
-    .replace(/\(sigh\)/gi, '...')
-    .replace(/\(exhale\)/gi, '...')
-    
-    // Step 2: Convert pause markers
-    .replace(/\(short pause\)/gi, ',')
-    .replace(/\(pause\)/gi, '...')
-    .replace(/\(long pause\)/gi, '... ...')
-    .replace(/\[BEAT\]/gi, '...')
-    .replace(/\[PAUSE\]/gi, '...')
-    .replace(/\[LONG PAUSE\]/gi, '... ...')
-    .replace(/\[SHORT PAUSE\]/gi, ',')
-    
-    // Step 3: Convert **STRONG EMPHASIS** to UPPERCASE with pauses for dramatic effect
-    // This creates natural emphasis through capitalization + surrounding pauses
-    .replace(/\*\*([^*]+)\*\*/g, (_, word) => {
-      const upperWord = word.toUpperCase().trim();
-      return `... ${upperWord}...`;
-    })
-    
-    // Step 4: Convert *moderate emphasis* to word with preceding pause
-    .replace(/\*([^*]+)\*/g, (_, word) => {
-      return `... ${word.trim()}`;
-    })
-    
-    // Step 5: Convert em-dashes to pauses
-    .replace(/—/g, '...')
-    .replace(/--/g, '...')
-    
-    // Step 6: Remove any remaining [bracketed] commands
-    .replace(/\[.*?\]/g, '')
-    
-    // Step 7: Remove any remaining parenthetical directions (but keep the pause effect)
-    .replace(/\([^)]*\)/g, '...')
-    
-    // Step 8: Add slight pauses around question marks and exclamation for inflection
-    .replace(/\?(?!\s*\.\.\.)/g, '?...')
-    .replace(/!(?!\s*\.\.\.)/g, '!...')
-    
-    // Step 9: Clean up - normalize multiple ellipses
-    .replace(/\.{4,}/g, '...')
-    .replace(/(\.\.\.(\s*)?){3,}/g, '... ...')
-    .replace(/\.\.\.(\s*\.\.\.)+/g, '... ...')
-    
-    // Step 10: Clean up multiple spaces and comma artifacts
-    .replace(/\s+/g, ' ')
-    .replace(/,\s*,/g, ',')
-    .replace(/,\s*\.\.\./g, '...')
-    .replace(/\.\.\.\s*,/g, '...')
-    
-    .trim();
-    
-  console.log('Formatted for non-SSML TTS:', formatted.substring(0, 150) + '...');
-  return formatted;
-}
-
-// Convert script to SSML for Google Cloud TTS with precise timing
-function convertToSSML(script: string): string {
-  if (!script) return '<speak></speak>';
-  
-  let ssml = script
-    // Exact pause timings
-    .replace(/\(short pause\)/gi, '<break time="300ms"/>')
-    .replace(/\(pause\)/gi, '<break time="500ms"/>')
-    .replace(/\(long pause\)/gi, '<break time="1s"/>')
-    .replace(/\(breath\)/gi, '<break time="400ms"/>')
-    .replace(/\(inhale\)/gi, '<break time="500ms"/>')
-    .replace(/\(deep breath\)/gi, '<break time="800ms"/>')
-    .replace(/\(sigh\)/gi, '<break time="600ms"/>')
-    .replace(/\(exhale\)/gi, '<break time="400ms"/>')
-    // Beat/pause markers
-    .replace(/\[BEAT\]/gi, '<break time="400ms"/>')
-    .replace(/\[PAUSE\]/gi, '<break time="500ms"/>')
-    .replace(/\[LONG PAUSE\]/gi, '<break time="1s"/>')
-    .replace(/\[SHORT PAUSE\]/gi, '<break time="300ms"/>')
-    // Emphasis markers - strong (**text**)
-    .replace(/\*\*([^*]+)\*\*/g, '<emphasis level="strong">$1</emphasis>')
-    // Emphasis markers - moderate (*text*)
-    .replace(/\*([^*]+)\*/g, '<emphasis level="moderate">$1</emphasis>')
-    // Speaking rate changes
-    .replace(/\(slower\)/gi, '<prosody rate="slow">')
-    .replace(/\(end slower\)/gi, '</prosody>')
-    .replace(/\(faster\)/gi, '<prosody rate="fast">')
-    .replace(/\(end faster\)/gi, '</prosody>')
-    .replace(/\(\/slower\)/gi, '</prosody>')
-    .replace(/\(\/faster\)/gi, '</prosody>')
-    // Remove any remaining parenthetical directions
-    .replace(/\([^)]*\)/g, '')
-    // Remove any remaining bracket commands
-    .replace(/\[.*?\]/g, '')
-    // Clean up multiple spaces
-    .replace(/\s+/g, ' ')
-    .trim();
-    
-  return `<speak>${ssml}</speak>`;
-}
-
-// Check if script has SSML-convertible markers
-function hasSSMLMarkers(script: string): boolean {
-  if (!script) return false;
-  
-  const ssmlPatterns = [
-    /\*\*[^*]+\*\*/,
-    /\*[^*]+\*/,
-    /\(slower\)/i,
-    /\(faster\)/i,
-    /\(short pause\)/i,
-    /\(long pause\)/i,
-  ];
-  
-  return ssmlPatterns.some(pattern => pattern.test(script));
-}
 
 // Voice configuration mapping
 interface VoiceConfig {
@@ -292,21 +83,15 @@ async function generateClonedVoiceTTS(
   }
 }
 
-// Google Cloud TTS - Primary engine for standard voices (with SSML support)
+// Google Cloud TTS - Primary engine for standard voices
 async function generateGoogleTTS(
   text: string, 
   apiKey: string, 
   voiceConfig: VoiceConfig,
-  speakingRate: number = 1.0,
-  useSSML: boolean = false
+  speakingRate: number = 1.0
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
-    // Determine if we should use SSML
-    const shouldUseSSML = useSSML || hasSSMLMarkers(text);
-    const processedText = shouldUseSSML ? convertToSSML(text) : text;
-    const inputType = shouldUseSSML ? 'ssml' : 'text';
-    
-    console.log(`Generating TTS with Google Cloud TTS using voice: ${voiceConfig.name}, SSML: ${shouldUseSSML}`);
+    console.log(`Generating TTS with Google Cloud TTS using voice: ${voiceConfig.name}`);
     
     const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
@@ -314,9 +99,7 @@ async function generateGoogleTTS(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        input: inputType === 'ssml' 
-          ? { ssml: processedText.length > 5000 ? processedText.substring(0, 5000) : processedText }
-          : { text: processedText.length > 5000 ? processedText.substring(0, 5000) : processedText },
+        input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
         voice: {
           languageCode: voiceConfig.languageCode,
           name: voiceConfig.name,
@@ -334,18 +117,12 @@ async function generateGoogleTTS(
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Google TTS error:', response.status, errorText);
-      
-      // If SSML failed, retry without SSML
-      if (shouldUseSSML) {
-        console.log('SSML failed, retrying with plain text...');
-        return generateGoogleTTS(cleanScriptForTTS(text), apiKey, voiceConfig, speakingRate, false);
-      }
       return null;
     }
 
     const data = await response.json();
     if (data.audioContent) {
-      console.log('Google Cloud TTS successful with voice:', voiceConfig.name, shouldUseSSML ? '(SSML)' : '(plain text)');
+      console.log('Google Cloud TTS successful with voice:', voiceConfig.name);
       return {
         audioContent: data.audioContent,
         audioUrl: `data:audio/mp3;base64,${data.audioContent}`
@@ -551,95 +328,72 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey, speechifyVoiceId, voiceId, userId } = await req.json();
+    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey, speechifyVoiceId } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    // Clean the script to remove stage directions before TTS
-    const cleanedText = cleanScriptForTTS(text);
-    console.log(`Cleaned script for TTS: "${text.substring(0, 100)}..." -> "${cleanedText.substring(0, 100)}..."`);
-
-    // Support both voiceCloningKey and voiceId (alias)
-    const effectiveVoiceCloningKey = voiceCloningKey || voiceId;
-
-    console.log(`TTS request - Voice: ${voice}, Text length: ${cleanedText.length}, Has cloning key: ${!!effectiveVoiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
+    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!voiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
 
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
     
-    let result: { audioContent: string; audioUrl: string } | null = null;
-    let provider = 'unknown';
-    let isClonedVoice = false;
-    
     // Priority 1: Speechify cloned voice (new system)
-    // Use non-SSML formatter for Speechify since it doesn't support SSML
     if (speechifyVoiceId && speechifyApiKey) {
       console.log('Attempting Speechify cloned voice generation...');
-      const speechifyFormattedText = formatForNonSSMLTTS(text);
-      result = await generateSpeechifyTTS(speechifyFormattedText, speechifyApiKey, speechifyVoiceId, speed);
-      if (result) {
-        provider = 'speechify';
-        isClonedVoice = true;
-      } else {
-        console.log('Speechify TTS failed, falling back...');
+      const speechifyResult = await generateSpeechifyTTS(text, speechifyApiKey, speechifyVoiceId, speed);
+      if (speechifyResult) {
+        return new Response(
+          JSON.stringify({ ...speechifyResult, isClonedVoice: true, provider: 'speechify' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      console.log('Speechify TTS failed, falling back...');
     }
     
     // Priority 2: Google Cloud cloned voice (legacy system)
-    if (!result && effectiveVoiceCloningKey && googleApiKey) {
+    if (voiceCloningKey && googleApiKey) {
       console.log('Attempting Google cloned voice generation with stored key...');
-      result = await generateClonedVoiceTTS(cleanedText, googleApiKey, effectiveVoiceCloningKey, speed);
-      if (result) {
-        provider = 'google-cloned';
-        isClonedVoice = true;
-      } else {
-        console.log('Cloned voice failed, falling back to standard voice...');
+      const clonedResult = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, speed);
+      if (clonedResult) {
+        return new Response(
+          JSON.stringify({ ...clonedResult, isClonedVoice: true, provider: 'google' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      console.log('Cloned voice failed, falling back to standard voice...');
     }
     
-    // Priority 3: Google Cloud standard TTS
-    if (!result && googleApiKey) {
-      const voiceConfig = GOOGLE_VOICES[voice] || DEFAULT_VOICE;
-      result = await generateGoogleTTS(cleanedText, googleApiKey, voiceConfig, speed);
-      if (result) {
-        provider = 'google';
-      } else {
-        console.log('Google TTS failed, trying fallback...');
+    // Get voice configuration - use selected voice or default
+    const voiceConfig = GOOGLE_VOICES[voice] || DEFAULT_VOICE;
+    
+    // Try Google Cloud TTS first (primary engine for natural voices)
+    if (googleApiKey) {
+      const googleResult = await generateGoogleTTS(text, googleApiKey, voiceConfig, speed);
+      if (googleResult) {
+        return new Response(
+          JSON.stringify(googleResult),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      console.log('Google TTS failed, trying fallback...');
     }
     
-    // Priority 4: WaveSpeed fallback
-    if (!result && waveSpeedApiKey) {
+    // Fallback to WaveSpeed if Google fails
+    if (waveSpeedApiKey) {
       console.log('Attempting WaveSpeed TTS fallback...');
-      result = await generateWaveSpeedTTS(cleanedText, waveSpeedApiKey, speed);
-      if (result) {
-        provider = 'wavespeed';
+      const waveSpeedResult = await generateWaveSpeedTTS(text, waveSpeedApiKey, speed);
+      if (waveSpeedResult) {
+        return new Response(
+          JSON.stringify(waveSpeedResult),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
     
-    if (!result) {
-      throw new Error('No TTS engine available or all attempts failed');
-    }
-    
-    // Upload audio to storage and get HTTP URL
-    const httpAudioUrl = await uploadAudioToStorage(result.audioContent, userId);
-    const estimatedDuration = estimateAudioDuration(text);
-    
-    console.log(`TTS complete - Provider: ${provider}, Duration estimate: ${estimatedDuration}s, URL type: ${httpAudioUrl.startsWith('http') ? 'HTTP' : 'base64'}`);
-    
-    return new Response(
-      JSON.stringify({ 
-        audioContent: result.audioContent,
-        audioUrl: httpAudioUrl,
-        isClonedVoice,
-        provider,
-        duration: estimatedDuration
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    throw new Error('No TTS engine available or all attempts failed');
     
   } catch (error) {
     console.error('TTS error:', error);

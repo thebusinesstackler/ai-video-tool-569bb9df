@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -8,14 +8,10 @@ import { Progress } from '@/components/ui/progress';
 import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
 import { CommercialStrategist } from '@/components/testimonial/CommercialStrategist';
 import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
-import { BrollGenerationProgress, BrollImageStatus } from '@/components/testimonial/BrollGenerationProgress';
-import { GlobalReadinessSummary } from '@/components/testimonial/GlobalReadinessSummary';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Sparkles, User, Film, Users, Clapperboard, Image as ImageIcon } from 'lucide-react';
-import { LogoUploader } from '@/components/LogoUploader';
-import { LogoAnimation } from '@/data/reelTemplates';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Sparkles, User, Film, Users, Clapperboard } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { testimonialExamples } from '@/data/testimonialExamples';
 import {
@@ -40,12 +36,6 @@ export default function TestimonialCommercial() {
   const [name, setName] = useState('Untitled Commercial');
   const [savedCommercials, setSavedCommercials] = useState<TestimonialCommercialType[]>([]);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
-  const [brollImageStatuses, setBrollImageStatuses] = useState<BrollImageStatus[]>([]);
-  const [isGeneratingBroll, setIsGeneratingBroll] = useState(false);
-  const [outroLogoUrl, setOutroLogoUrl] = useState<string | null>(null);
-  const [outroLogoAnimation, setOutroLogoAnimation] = useState<LogoAnimation>('fade');
-  const [introLogoUrl, setIntroLogoUrl] = useState<string | null>(null);
-  const [introLogoAnimation, setIntroLogoAnimation] = useState<LogoAnimation>('fade');
 
   const {
     segments,
@@ -58,8 +48,6 @@ export default function TestimonialCommercial() {
     loadCommercial,
     loadExampleTemplate,
     generateCommercial,
-    generateBrollImagesForSegment,
-    generateSingleSegment,
     isGenerating,
     generationProgress,
     currentCommercial,
@@ -80,79 +68,33 @@ export default function TestimonialCommercial() {
     setFinalVideoUrl(null);
   };
 
-  const handleGenerateBrollImages = useCallback(async (segments: CommercialSegment[]) => {
-    // Build the list of all images to generate
-    const allImageStatuses: BrollImageStatus[] = [];
-    
-    segments.forEach((segment, segmentIndex) => {
+  const handleGenerateBrollImages = async (segments: CommercialSegment[]) => {
+    // Generate images for B-roll segments
+    for (const segment of segments) {
       if ((segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') && segment.brollPrompts && segment.brollPrompts.length > 0) {
-        segment.brollPrompts.forEach((prompt, promptIndex) => {
-          allImageStatuses.push({
-            segmentId: segment.id,
-            segmentIndex,
-            promptIndex,
-            prompt,
-            status: 'pending',
-          });
-        });
-      }
-    });
-
-    if (allImageStatuses.length === 0) return;
-
-    setBrollImageStatuses(allImageStatuses);
-    setIsGeneratingBroll(true);
-
-    // Generate images one by one with real-time updates
-    for (let i = 0; i < allImageStatuses.length; i++) {
-      const imageStatus = allImageStatuses[i];
-      
-      // Update status to generating
-      setBrollImageStatuses(prev => 
-        prev.map((img, idx) => 
-          idx === i ? { ...img, status: 'generating' } : img
-        )
-      );
-
-      try {
-        const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-          body: { prompt: imageStatus.prompt, aspectRatio: '16:9' }
-        });
-
-        if (error) throw error;
+        const generatedImages: string[] = [];
         
-        const imageUrl = data?.imageUrl;
-        
-        // Update status to complete with image URL
-        setBrollImageStatuses(prev => 
-          prev.map((img, idx) => 
-            idx === i ? { ...img, status: 'complete', imageUrl } : img
-          )
-        );
+        for (const prompt of segment.brollPrompts) {
+          try {
+            const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+              body: { prompt, aspectRatio: '16:9' }
+            });
 
-        // Also update the segment with the new image
-        if (imageUrl) {
-          const segment = segments.find(s => s.id === imageStatus.segmentId);
-          if (segment) {
-            const currentImages = segment.brollImages || [];
-            const newImages = [...currentImages];
-            newImages[imageStatus.promptIndex] = imageUrl;
-            updateSegment(imageStatus.segmentId, { brollImages: newImages });
+            if (error) throw error;
+            if (data?.imageUrl) {
+              generatedImages.push(data.imageUrl);
+            }
+          } catch (err) {
+            console.error('Failed to generate B-roll image:', err);
           }
         }
-      } catch (err) {
-        console.error('Failed to generate B-roll image:', err);
-        // Update status to error
-        setBrollImageStatuses(prev => 
-          prev.map((img, idx) => 
-            idx === i ? { ...img, status: 'error' } : img
-          )
-        );
+
+        if (generatedImages.length > 0) {
+          updateSegment(segment.id, { brollImages: generatedImages });
+        }
       }
     }
-
-    setIsGeneratingBroll(false);
-  }, [updateSegment]);
+  };
 
   // Load saved commercials
   useEffect(() => {
@@ -195,12 +137,7 @@ export default function TestimonialCommercial() {
   };
 
   const handleGenerate = async () => {
-    const videoUrl = await generateCommercial({
-      introLogoUrl,
-      introLogoAnimation,
-      outroLogoUrl,
-      outroLogoAnimation
-    });
+    const videoUrl = await generateCommercial();
     if (videoUrl) {
       setFinalVideoUrl(videoUrl);
     }
@@ -291,8 +228,6 @@ export default function TestimonialCommercial() {
                   onDelete={deleteSegment}
                   onAdd={addSegment}
                   onReorder={reorderSegments}
-                  onGenerateBrollImages={generateBrollImagesForSegment}
-                  isGeneratingImages={isGeneratingBroll}
                 />
               </CardContent>
             </Card>
@@ -303,38 +238,36 @@ export default function TestimonialCommercial() {
                 {/* Visual Timeline Preview with drag-and-drop */}
                 <TimelinePreview segments={segments} onReorder={reorderSegments} />
 
-                {/* B-Roll Generation Progress */}
-                <BrollGenerationProgress 
-                  images={brollImageStatuses} 
-                  isGenerating={isGeneratingBroll} 
-                />
-
-                {/* Global Readiness Summary with Generate Button */}
-                <GlobalReadinessSummary
-                  segments={segments}
-                  onGenerateAllBroll={() => handleGenerateBrollImages(segments)}
-                  onGenerateCommercial={handleGenerate}
-                  isGenerating={isGenerating}
-                  isGeneratingBroll={isGeneratingBroll}
-                  generationProgress={generationProgress}
-                />
-
-                {isGenerating && (
-                  <div className="space-y-2">
+                {isGenerating ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Generating commercial...</span>
+                    </div>
                     <Progress value={generationProgress} />
                     <p className="text-sm text-muted-foreground">
                       This may take several minutes depending on the number of segments
                     </p>
                   </div>
-                )}
-
-                {finalVideoUrl && !isGenerating && (
-                  <Button variant="outline" asChild className="w-full">
-                    <a href={finalVideoUrl} download target="_blank" rel="noopener">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Video
-                    </a>
-                  </Button>
+                ) : (
+                  <div className="flex gap-4">
+                    <Button 
+                      onClick={handleGenerate} 
+                      disabled={segments.length === 0}
+                      className="flex-1"
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Generate Commercial
+                    </Button>
+                    {finalVideoUrl && (
+                      <Button variant="outline" asChild>
+                        <a href={finalVideoUrl} download target="_blank" rel="noopener">
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </a>
+                      </Button>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -412,60 +345,16 @@ export default function TestimonialCommercial() {
               </CardContent>
             </Card>
 
-            {/* Intro Logo Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <ImageIcon className="h-4 w-4" />
-                  Intro Logo
-                </CardTitle>
-                <CardDescription>
-                  Add an animated logo to your commercial opening
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <LogoUploader
-                  selectedLogoUrl={introLogoUrl}
-                  selectedAnimation={introLogoAnimation}
-                  onLogoChange={setIntroLogoUrl}
-                  onAnimationChange={setIntroLogoAnimation}
-                  disabled={isGenerating}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Outro Logo Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <ImageIcon className="h-4 w-4" />
-                  Outro Logo
-                </CardTitle>
-                <CardDescription>
-                  Add an animated logo to your commercial ending
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <LogoUploader
-                  selectedLogoUrl={outroLogoUrl}
-                  selectedAnimation={outroLogoAnimation}
-                  onLogoChange={setOutroLogoUrl}
-                  onAnimationChange={setOutroLogoAnimation}
-                  disabled={isGenerating}
-                />
-              </CardContent>
-            </Card>
-
             {/* Tips Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Tips</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>• Add an intro logo for brand recognition</p>
-                <p>• Start with an AI Twin speaking segment</p>
+                <p>• Start with an AI Twin speaking segment for impact</p>
                 <p>• Use B-roll overlays while voice continues</p>
-                <p>• Add an outro logo for a professional ending</p>
+                <p>• End with a montage of quick product shots</p>
+                <p>• Fade-in transitions work best for talking heads</p>
               </CardContent>
             </Card>
           </div>

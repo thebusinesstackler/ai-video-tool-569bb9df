@@ -14,9 +14,7 @@ import {
   Sparkles,
   ChevronDown,
   Volume2,
-  AlertCircle,
-  Mic,
-  MicOff
+  AlertCircle
 } from 'lucide-react';
 
 interface TwinSpeakerProps {
@@ -39,99 +37,6 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [scriptPrompt, setScriptPrompt] = useState('');
-  
-  // Voice-to-text state
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  // Voice-to-text recording functions
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        stream.getTracks().forEach(track => track.stop());
-        await transcribeAudio(audioBlob);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      
-      toast({
-        title: 'Recording started',
-        description: 'Speak your idea, then click stop when done'
-      });
-    } catch (error: any) {
-      console.error('Error starting recording:', error);
-      toast({
-        title: 'Microphone access denied',
-        description: 'Please allow microphone access to use voice input',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const transcribeAudio = async (audioBlob: Blob) => {
-    setIsTranscribing(true);
-    try {
-      // Convert blob to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          resolve(base64);
-        };
-      });
-      reader.readAsDataURL(audioBlob);
-      const base64Audio = await base64Promise;
-
-      // Call speech-to-text edge function
-      const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: { audioBase64: base64Audio }
-      });
-
-      if (error) throw error;
-
-      if (data?.text) {
-        // Append to existing script or set as new
-        setScript(prev => prev ? `${prev} ${data.text}` : data.text);
-        toast({
-          title: 'Transcribed!',
-          description: 'Your speech has been added to the script'
-        });
-      } else {
-        throw new Error('No transcription returned');
-      }
-    } catch (error: any) {
-      console.error('Transcription error:', error);
-      toast({
-        title: 'Transcription failed',
-        description: error.message || 'Failed to transcribe audio',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsTranscribing(false);
-    }
-  };
 
   const generateScript = async () => {
     if (!scriptPrompt.trim()) {
@@ -150,32 +55,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
           messages: [
             {
               role: 'system',
-              content: `You are ${twinName}, a confident public speaker. Generate compelling scripts that sound like YOU delivering to an audience.
-
-CRITICAL FORMATTING FOR EMPHASIS (these WILL affect delivery):
-- Use "..." liberally for pauses, breaths, and dramatic effect (the TTS will pause here)
-- Use **WORD** or **phrase** for STRONGEST emphasis (will be spoken with power)
-- Use ALL CAPS for KEY words you want emphasized: INCREDIBLE, GAME-CHANGER, REVOLUTIONARY
-- Use "?" for rising inflection, "!" for energy and excitement
-- Use short sentences. Punch. Impact. Power.
-
-PACING TECHNIQUES:
-- Start sentences with "..." for a breath before speaking
-- Use "... ..." for longer dramatic pauses
-- Place "..." before reveals: "And the result was... INCREDIBLE"
-- Add "..." after impactful words to let them land
-
-YOUR SPEAKING STYLE:
-- Speak directly to the audience: "You know what?", "Here's the thing...", "Let me tell you..."
-- Build anticipation before key points
-- Use rhetorical questions: "Can you believe it?"
-- Vary energy: calm setup... then POWERFUL payoff!
-- Keep it punchy and conversational
-
-EXAMPLE:
-... You know what the BIGGEST problem is? ... Patient recruitment. It's a nightmare... But here's the thing... Theranovex is **CHANGING THE GAME**! ... They're making it so much more efficient... and the results? ... INCREDIBLE.
-
-Keep it concise (2-4 sentences) unless asked otherwise. Write ONLY the script, no quotes or labels.`
+              content: `You are a script writer for ${twinName}. Generate a natural, conversational script based on the user's request. Keep it concise (2-4 sentences) unless asked otherwise. Write only the script text, no quotes or labels.`
             },
             {
               role: 'user',
@@ -187,13 +67,7 @@ Keep it concise (2-4 sentences) unless asked otherwise. Write ONLY the script, n
 
       if (error) throw error;
 
-      // Support both response formats
-      const generatedScript = data?.choices?.[0]?.message?.content || data?.response || '';
-      
-      if (!generatedScript) {
-        throw new Error('No script was generated');
-      }
-      
+      const generatedScript = data?.choices?.[0]?.message?.content || '';
       setScript(generatedScript);
       setScriptPrompt('');
       
@@ -375,37 +249,11 @@ Keep it concise (2-4 sentences) unless asked otherwise. Write ONLY the script, n
               </div>
             </div>
 
-            {/* Script Text Area with Voice Input */}
+            {/* Script Text Area */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Script</label>
-                <Button
-                  variant={isRecording ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={isTranscribing}
-                  className="gap-2"
-                >
-                  {isTranscribing ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Transcribing...
-                    </>
-                  ) : isRecording ? (
-                    <>
-                      <MicOff className="w-3 h-3" />
-                      Stop Recording
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="w-3 h-3" />
-                      Speak It
-                    </>
-                  )}
-                </Button>
-              </div>
+              <label className="text-sm font-medium">Script</label>
               <Textarea
-                placeholder="Type, generate with AI, or click 'Speak It' to dictate your script..."
+                placeholder="Type or generate what you want your AI Twin to say..."
                 value={script}
                 onChange={(e) => setScript(e.target.value)}
                 className="min-h-[100px] resize-none"
