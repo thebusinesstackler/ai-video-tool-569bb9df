@@ -30,6 +30,22 @@ const Auth = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Clear any stale local session on mount (non-blocking)
+  useEffect(() => {
+    const clearStaleSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          // Clear local storage to stop background refresh retries
+          await supabase.auth.signOut({ scope: 'local' });
+        }
+      } catch {
+        // Ignore errors - just trying to clean up
+      }
+    };
+    clearStaleSession();
+  }, []);
+
   // Redirect authenticated users
   useEffect(() => {
     if (user) {
@@ -104,9 +120,17 @@ const Auth = () => {
 
     setIsLoading(true);
 
+    // Timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Connection Timeout",
+        description: "Auth service is slow. Please try again.",
+        variant: "destructive",
+      });
+    }, 12000);
+
     try {
-      // Clear any stale session before attempting auth
-      await supabase.auth.signOut();
       let result;
       if (mode === 'signUp') {
         result = await signUp(email, password);
@@ -125,6 +149,8 @@ const Auth = () => {
           });
         }
       }
+
+      clearTimeout(timeoutId);
 
       if (result.error) {
         let errorMessage = "An error occurred. Please try again.";
@@ -147,6 +173,7 @@ const Auth = () => {
         });
       }
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('Auth error:', error);
       toast({
         title: "Error",
