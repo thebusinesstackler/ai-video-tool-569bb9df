@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
-import { VideoIcon, Mail, Lock, UserPlus, LogIn, KeyRound, ArrowLeft } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { VideoIcon, Mail, Lock, UserPlus, LogIn, KeyRound, ArrowLeft, AlertTriangle, RefreshCw, Sparkles } from 'lucide-react';
 
 const emailSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -19,18 +20,39 @@ const authSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
-type AuthMode = 'signIn' | 'signUp' | 'forgotPassword';
+type AuthMode = 'signIn' | 'signUp' | 'forgotPassword' | 'magicLink';
+
+// Helper to detect service unavailability errors
+const isServiceUnavailableError = (error: any): boolean => {
+  if (!error) return false;
+  const message = error.message || String(error);
+  const status = error.status || error.code;
+  
+  return (
+    status === 503 ||
+    status === '503' ||
+    error.name === 'AuthRetryableFetchError' ||
+    message.includes('upstream connect error') ||
+    message.includes('503') ||
+    message.includes('fetch failed') ||
+    message.includes('Failed to fetch') ||
+    message.includes('NetworkError') ||
+    message.includes('connection failure')
+  );
+};
 
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const { signUp, signIn, user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Clear any stale local session once auth has finished loading (prevents refresh-token retry loops)
+  // Clear any stale local session once auth has finished loading
   useEffect(() => {
     if (loading) return;
     if (user) return;
@@ -46,6 +68,94 @@ const Auth = () => {
       navigate('/');
     }
   }, [user, navigate]);
+
+  // Handle reset session
+  const handleResetSession = async () => {
+    setIsLoading(true);
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+      setServiceUnavailable(false);
+      toast({
+        title: "Session Cleared",
+        description: "Local session has been reset. You can try again.",
+      });
+    } catch (error) {
+      // Ignore errors during cleanup
+    } finally {
+      setIsLoading(false);
+      window.location.reload();
+    }
+  };
+
+  // Handle magic link sign-in
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      emailSchema.parse({ email });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0]?.message || "Please enter a valid email",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    setServiceUnavailable(false);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (error) {
+        if (isServiceUnavailableError(error)) {
+          setServiceUnavailable(true);
+          toast({
+            title: "Service Temporarily Unavailable",
+            description: "Authentication is temporarily unavailable. Please wait 1-2 minutes and try again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to send magic link",
+            variant: "destructive",
+          });
+        }
+      } else {
+        setMagicLinkSent(true);
+        toast({
+          title: "Check your email",
+          description: "We've sent you a sign-in link. Click it to access your account.",
+        });
+      }
+    } catch (error: any) {
+      if (isServiceUnavailableError(error)) {
+        setServiceUnavailable(true);
+        toast({
+          title: "Service Temporarily Unavailable",
+          description: "Authentication is temporarily unavailable. Please wait 1-2 minutes and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +174,7 @@ const Auth = () => {
     }
 
     setIsLoading(true);
+    setServiceUnavailable(false);
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -71,11 +182,20 @@ const Auth = () => {
       });
 
       if (error) {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
+        if (isServiceUnavailableError(error)) {
+          setServiceUnavailable(true);
+          toast({
+            title: "Service Temporarily Unavailable",
+            description: "Authentication is temporarily unavailable. Please wait 1-2 minutes and try again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Check your email",
@@ -83,13 +203,21 @@ const Auth = () => {
         });
         setMode('signIn');
       }
-    } catch (error) {
-      console.error('Reset password error:', error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      if (isServiceUnavailableError(error)) {
+        setServiceUnavailable(true);
+        toast({
+          title: "Service Temporarily Unavailable",
+          description: "Authentication is temporarily unavailable. Please wait 1-2 minutes and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +226,6 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate input
     try {
       authSchema.parse({ email, password });
     } catch (error) {
@@ -113,71 +240,200 @@ const Auth = () => {
     }
 
     setIsLoading(true);
+    setServiceUnavailable(false);
 
-    // Timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       setIsLoading(false);
+      setServiceUnavailable(true);
       toast({
         title: "Connection Timeout",
-        description: "Auth service is slow. Please try again.",
+        description: "Authentication service is slow or unavailable. Please try again later.",
         variant: "destructive",
       });
-    }, 12000);
+    }, 15000);
 
     try {
       let result;
       if (mode === 'signUp') {
         result = await signUp(email, password);
         if (!result.error) {
+          clearTimeout(timeoutId);
           toast({
             title: "Account Created!",
             description: "Welcome to AI Video Creator! You can now create amazing videos.",
           });
+          return;
         }
       } else {
         result = await signIn(email, password);
         if (!result.error) {
+          clearTimeout(timeoutId);
           toast({
             title: "Welcome Back!",
             description: "Successfully signed in to your account.",
           });
+          return;
         }
       }
 
       clearTimeout(timeoutId);
 
       if (result.error) {
-        let errorMessage = "An error occurred. Please try again.";
-        
-        if (result.error.message?.includes('Invalid login credentials')) {
-          errorMessage = "Invalid email or password. Please check your credentials.";
-        } else if (result.error.message?.includes('User already registered')) {
-          errorMessage = "An account with this email already exists. Try signing in instead.";
-          setMode('signIn');
-        } else if (result.error.message?.includes('Email not confirmed')) {
-          errorMessage = "Please check your email and click the confirmation link.";
-        } else if (result.error.message) {
-          errorMessage = result.error.message;
-        }
+        if (isServiceUnavailableError(result.error)) {
+          setServiceUnavailable(true);
+          toast({
+            title: "Service Temporarily Unavailable",
+            description: "Authentication is temporarily unavailable. Please wait 1-2 minutes and try again.",
+            variant: "destructive",
+          });
+        } else {
+          let errorMessage = "An error occurred. Please try again.";
+          
+          if (result.error.message?.includes('Invalid login credentials')) {
+            errorMessage = "Invalid email or password. Please check your credentials.";
+          } else if (result.error.message?.includes('User already registered')) {
+            errorMessage = "An account with this email already exists. Try signing in instead.";
+            setMode('signIn');
+          } else if (result.error.message?.includes('Email not confirmed')) {
+            errorMessage = "Please check your email and click the confirmation link.";
+          } else if (result.error.message && result.error.message !== '{}') {
+            errorMessage = result.error.message;
+          }
 
+          toast({
+            title: mode === 'signUp' ? "Sign Up Failed" : "Sign In Failed",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (isServiceUnavailableError(error)) {
+        setServiceUnavailable(true);
         toast({
-          title: mode === 'signUp' ? "Sign Up Failed" : "Sign In Failed",
-          description: errorMessage,
+          title: "Service Temporarily Unavailable",
+          description: "Authentication is temporarily unavailable. Please wait 1-2 minutes and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
           variant: "destructive",
         });
       }
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error('Auth error:', error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }
   };
+
+  const renderServiceUnavailableBanner = () => {
+    if (!serviceUnavailable) return null;
+    
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription className="flex flex-col gap-2">
+          <span>Authentication service is temporarily unavailable. This usually resolves within 1-2 minutes.</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetSession}
+            disabled={isLoading}
+            className="w-fit"
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Reset Session & Retry
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
+  const renderMagicLink = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-center flex items-center justify-center gap-2">
+          <Sparkles className="w-5 h-5" />
+          Sign In with Email Link
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {renderServiceUnavailableBanner()}
+        
+        {magicLinkSent ? (
+          <div className="text-center space-y-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <Mail className="w-12 h-12 mx-auto text-primary mb-2" />
+              <p className="font-medium">Check your email!</p>
+              <p className="text-sm text-muted-foreground">
+                We've sent a sign-in link to <strong>{email}</strong>
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setMagicLinkSent(false)}
+              className="w-full"
+            >
+              Send another link
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleMagicLink} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                No password needed. We'll send you a secure sign-in link.
+              </p>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading || !email}
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  Sending...
+                </>
+              ) : (
+                'Send Sign-In Link'
+              )}
+            </Button>
+          </form>
+        )}
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('signIn');
+              setMagicLinkSent(false);
+            }}
+            className="text-sm text-primary hover:underline disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
+            disabled={isLoading}
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Back to Password Sign In
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const renderForgotPassword = () => (
     <Card>
@@ -188,6 +444,8 @@ const Auth = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {renderServiceUnavailableBanner()}
+        
         <form onSubmit={handleForgotPassword} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email" className="flex items-center gap-2">
@@ -257,6 +515,8 @@ const Auth = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {renderServiceUnavailableBanner()}
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email" className="flex items-center gap-2">
@@ -325,6 +585,19 @@ const Auth = () => {
           </Button>
         </form>
 
+        {/* Magic Link Alternative */}
+        <div className="mt-4 pt-4 border-t">
+          <button
+            type="button"
+            onClick={() => setMode('magicLink')}
+            className="w-full text-sm text-muted-foreground hover:text-primary flex items-center justify-center gap-2"
+            disabled={isLoading}
+          >
+            <Sparkles className="w-4 h-4" />
+            Sign in with email link instead (no password)
+          </button>
+        </div>
+
         <div className="mt-4 text-center">
           <button
             type="button"
@@ -340,6 +613,17 @@ const Auth = () => {
       </CardContent>
     </Card>
   );
+
+  const renderCurrentMode = () => {
+    switch (mode) {
+      case 'forgotPassword':
+        return renderForgotPassword();
+      case 'magicLink':
+        return renderMagicLink();
+      default:
+        return renderAuthForm();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
@@ -357,12 +641,14 @@ const Auth = () => {
               ? 'Create your account to get started' 
               : mode === 'forgotPassword'
               ? 'Reset your password'
+              : mode === 'magicLink'
+              ? 'Sign in with a magic link'
               : 'Sign in to your account'}
           </p>
         </div>
 
         {/* Auth Form */}
-        {mode === 'forgotPassword' ? renderForgotPassword() : renderAuthForm()}
+        {renderCurrentMode()}
 
         <div className="text-center text-sm text-muted-foreground">
           <p>Transform your scripts into professional videos with AI</p>
