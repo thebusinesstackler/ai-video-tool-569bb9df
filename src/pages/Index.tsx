@@ -4,8 +4,20 @@ import { Dashboard } from '@/components/Dashboard';
 import { Landing } from '@/pages/Landing';
 import { useAuth } from '@/components/AuthProvider';
 
+// Development bypass: skip auth checks in Lovable preview
+const isDevPreview = window.location.hostname.includes('lovableproject.com');
+
 const Index = () => {
   const { user, loading } = useAuth();
+
+  // Bypass auth in dev preview - show dashboard directly
+  if (isDevPreview) {
+    return (
+      <Layout>
+        <Dashboard />
+      </Layout>
+    );
+  }
 
   if (loading) {
     return (
