@@ -25,129 +25,58 @@ export interface WaveSpeedVideoJob {
 }
 
 // DEPRECATED: ElevenLabs TTS removed - VEO3 Fast and other models now have built-in audio generation
-// This function is kept for backwards compatibility but should not be used
 export async function generateConsistentVoice(text: string, voice: string = 'alloy'): Promise<string> {
   console.warn('generateConsistentVoice is deprecated. Use VEO3 Fast or other models with built-in audio.');
   throw new Error('ElevenLabs TTS has been removed. Please use VEO3 Fast or other models with native audio generation.');
 }
 
 export async function createWaveSpeedVideo(params: WaveSpeedVideoParams): Promise<string> {
-  const apiKey = localStorage.getItem('wavespeed_api_key');
-  
-  if (!apiKey) {
-    throw new Error('WaveSpeed AI API key not configured');
-  }
-
-  const response = await fetch('https://api.wavespeed.ai/v1/video/generate', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt: params.prompt,
-      image_urls: params.imageUrls || [],
-      model: params.model || 'wan-2.2',
-      aspect_ratio: params.aspectRatio || '16:9',
-      seed: params.seeds || Math.floor(Math.random() * 90000) + 10000,
-      enable_fallback: params.enableFallback !== undefined ? params.enableFallback : true,
-      watermark: params.watermark || ''
-    }),
+  const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+    body: {
+      action: 'create',
+      ...params
+    }
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`WaveSpeed AI video creation failed: ${error}`);
+  if (error) {
+    console.error('WaveSpeed video creation error:', error);
+    throw new Error(error.message || 'Failed to create video');
   }
 
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error(`WaveSpeed AI API error: ${data.error || 'Unknown error'}`);
+  if (!data?.taskId) {
+    throw new Error(data?.error || 'Failed to create video task');
   }
   
-  return data.task_id;
+  return data.taskId;
 }
 
 export async function getWaveSpeedVideoJob(taskId: string): Promise<WaveSpeedVideoJob> {
-  const apiKey = localStorage.getItem('wavespeed_api_key');
-  
-  if (!apiKey) {
-    throw new Error('WaveSpeed AI API key not configured');
-  }
-
-  const response = await fetch(`https://api.wavespeed.ai/v1/video/status/${taskId}`, {
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
+  const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+    body: {
+      action: 'status',
+      taskId
+    }
   });
 
-  if (!response.ok) {
+  if (error) {
+    console.error('WaveSpeed status check error:', error);
     throw new Error('Failed to get video job status');
   }
 
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error(`WaveSpeed AI API error: ${data.error || 'Unknown error'}`);
-  }
-
-  const taskData = data.data;
-  let status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
-  
-  // Map WaveSpeed AI status to our status with expanded intermediate states
-  console.log('WaveSpeed AI task status:', taskData.status);
-  
-  if (taskData.status === 'completed' || taskData.status === 'succeeded') {
-    status = 'completed';
-  } else if (taskData.status === 'failed' || taskData.status === 'error' || taskData.status === 'cancelled') {
-    status = 'failed';
-  } else if (
-    taskData.status === 'processing' || 
-    taskData.status === 'generating' ||
-    taskData.status === 'starting' ||
-    taskData.status === 'queued' ||
-    taskData.status === 'initializing' ||
-    taskData.status === 'in_progress' ||
-    taskData.status === 'running'
-  ) {
-    status = 'processing';
-  } else {
-    status = 'pending';
-  }
-
-  // Calculate progress based on specific status
-  let progress = 0;
-  if (status === 'completed') {
-    progress = 100;
-  } else if (status === 'processing') {
-    // More granular progress based on specific status
-    switch (taskData.status) {
-      case 'queued':
-      case 'starting':
-      case 'initializing':
-        progress = 25;
-        break;
-      case 'processing':
-      case 'generating':
-      case 'in_progress':
-      case 'running':
-        progress = 75;
-        break;
-      default:
-        progress = 50;
-    }
+  if (!data) {
+    throw new Error('No status data received');
   }
 
   return {
-    taskId: taskData.task_id || taskId,
-    status,
-    progress,
-    videoUrl: taskData.video_url,
-    error: taskData.error_message || undefined
+    taskId: data.taskId || taskId,
+    status: data.status || 'pending',
+    progress: data.progress,
+    videoUrl: data.videoUrl,
+    error: data.error
   };
 }
 
+// This function now always returns true since we use server-side secrets
 export function isWaveSpeedConfigured(): boolean {
-  return !!localStorage.getItem('wavespeed_api_key');
+  return true;
 }

@@ -5,18 +5,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MAX_MOVIE_IDEA_LENGTH = 2000;
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify authorization header exists (JWT verified by Supabase)
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { movieIdea } = await req.json();
 
+    // Validate input
     if (!movieIdea) {
       return new Response(
         JSON.stringify({ error: 'Movie idea is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof movieIdea !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Movie idea must be a string' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (movieIdea.length > MAX_MOVIE_IDEA_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Movie idea exceeds maximum length of ${MAX_MOVIE_IDEA_LENGTH} characters` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -52,6 +77,9 @@ IMPORTANT: Keep your response SHORT (max 2-3 sentences). Be enthusiastic but con
 
     console.log('Calling Lovable AI Gateway for Pete response...');
     
+    // Sanitize input for prompt (remove control characters)
+    const sanitizedIdea = movieIdea.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+    
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -62,7 +90,7 @@ IMPORTANT: Keep your response SHORT (max 2-3 sentences). Be enthusiastic but con
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `The user shared this movie idea with you: "${movieIdea}". Respond as Pete AI with enthusiasm!` }
+          { role: 'user', content: `The user shared this movie idea with you: "${sanitizedIdea}". Respond as Pete AI with enthusiasm!` }
         ],
       }),
     });
@@ -71,7 +99,6 @@ IMPORTANT: Keep your response SHORT (max 2-3 sentences). Be enthusiastic but con
       const errorText = await response.text();
       console.error('AI Gateway error:', response.status, errorText);
       
-      // Return a fallback response
       return new Response(
         JSON.stringify({ 
           response: "What a fantastic concept! I love the creative direction you're taking. Let's turn this vision into cinematic reality!" 
