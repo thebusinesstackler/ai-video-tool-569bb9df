@@ -8,6 +8,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  clearLocalSession: () => void;
   loading: boolean;
 }
 
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
   signOut: async () => {},
+  clearLocalSession: () => {},
   loading: true,
 });
 
@@ -56,11 +58,10 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       })
       .catch((error) => {
         console.error('Failed to get session:', error);
-        // Still set loading to false so the app doesn't hang
         setLoading(false);
       });
 
-    // Fallback timeout - if auth takes too long, stop loading anyway
+    // Fallback timeout - if auth takes too long, stop loading
     const timeout = setTimeout(() => {
       setLoading(false);
     }, 5000);
@@ -98,12 +99,31 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     await supabase.auth.signOut();
   };
 
+  // Clear local session without requiring server - useful when backend is down
+  const clearLocalSession = () => {
+    // Clear Supabase auth tokens from localStorage
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // Reset state
+    setUser(null);
+    setSession(null);
+    setLoading(false);
+  };
+
   const value = {
     user,
     session,
     signUp,
     signIn,
     signOut,
+    clearLocalSession,
     loading,
   };
 
