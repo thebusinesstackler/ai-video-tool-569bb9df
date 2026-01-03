@@ -1,97 +1,97 @@
 project_id = "aarnfihphqhwvwwcqgoc"
 
 [functions.multi-voice-tts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-story-bible]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-movie-outline]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-movie-scenes]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-scene-image]
-verify_jwt = false
+verify_jwt = true
 
 [functions.edit-scene-image]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-script]
-verify_jwt = false
+verify_jwt = true
 
 [functions.text-to-speech]
-verify_jwt = false
+verify_jwt = true
 
 [functions.wavespeed-video]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-scene-dialogue]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-conversation-dialogue]
-verify_jwt = false
+verify_jwt = true
 
 [functions.openai-tts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-reel-script]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-reel-voiceover]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-reel-video]
-verify_jwt = false
+verify_jwt = true
 
 [functions.creatomate-stitch]
-verify_jwt = false
+verify_jwt = true
 
 [functions.creatomate-status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.merge-audio]
-verify_jwt = false
+verify_jwt = true
 
 [functions.migrate-images-to-storage]
 verify_jwt = true
 
 [functions.analyze-reference-image]
-verify_jwt = false
+verify_jwt = true
 
 [functions.analyze-face-similarity]
-verify_jwt = false
+verify_jwt = true
 
 [functions.clone-voice]
-verify_jwt = false
+verify_jwt = true
 
 [functions.clone-voice-speechify]
-verify_jwt = false
+verify_jwt = true
 
 [functions.upscale-video]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai]
-verify_jwt = false
+verify_jwt = true
 
 [functions.pete-ai-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.analyze-face-description]
-verify_jwt = false
+verify_jwt = true
 
 [functions.migrate-twin-images]
 verify_jwt = true
 
 [functions.upscale-image]
-verify_jwt = false
+verify_jwt = true
 
 [functions.describe-scene]
-verify_jwt = false
+verify_jwt = true
 
 [functions.extract-locations]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-commercial-strategy]
-verify_jwt = false
+verify_jwt = true

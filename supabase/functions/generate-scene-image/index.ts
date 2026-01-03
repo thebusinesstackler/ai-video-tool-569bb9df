@@ -6,27 +6,119 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Validation limits
+const MAX_PROMPT_LENGTH = 2000;
+const MAX_DESCRIPTION_LENGTH = 1000;
+const MAX_URL_LENGTH = 2048;
+const MAX_REFERENCE_IMAGES = 4;
+
+function validateUrl(url: string | undefined): boolean {
+  if (!url) return true;
+  if (url.length > MAX_URL_LENGTH) return false;
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:', 'data:'].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify authorization header exists (JWT verified by Supabase)
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { 
       prompt, 
       referenceImageUrl, 
       referenceImages, 
       characterDescription,
-      locationReference,  // New: Location reference image for background consistency
-      characterBlocking   // New: Character positioning info
+      locationReference,
+      characterBlocking
     } = await req.json();
 
+    // Validate required prompt
     if (!prompt) {
       return new Response(
         JSON.stringify({ error: 'Image prompt is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    if (typeof prompt !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Prompt must be a string' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Prompt exceeds maximum length of ${MAX_PROMPT_LENGTH} characters` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate character description
+    if (characterDescription && typeof characterDescription === 'string' && characterDescription.length > MAX_DESCRIPTION_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Character description exceeds maximum length of ${MAX_DESCRIPTION_LENGTH} characters` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate URLs
+    if (!validateUrl(referenceImageUrl)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid reference image URL' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!validateUrl(locationReference)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid location reference URL' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate reference images array
+    if (referenceImages) {
+      if (!Array.isArray(referenceImages)) {
+        return new Response(
+          JSON.stringify({ error: 'Reference images must be an array' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (referenceImages.length > MAX_REFERENCE_IMAGES) {
+        return new Response(
+          JSON.stringify({ error: `Maximum ${MAX_REFERENCE_IMAGES} reference images allowed` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      for (const img of referenceImages) {
+        if (!validateUrl(img)) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid URL in reference images array' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
+    // Sanitize text inputs
+    const sanitizedPrompt = prompt.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
+    const sanitizedDescription = characterDescription?.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
     
     // Use multiple reference images if provided, otherwise fall back to single reference
     const allReferenceImages: string[] = referenceImages && referenceImages.length > 0 
@@ -38,17 +130,14 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Generating image with prompt:', prompt);
+    console.log('Generating image with prompt length:', sanitizedPrompt.length);
     console.log('Reference images count:', allReferenceImages.length);
-    console.log('Character description:', characterDescription || 'none');
-    console.log('Location reference:', locationReference ? 'provided' : 'none');
-    console.log('Character blocking:', characterBlocking ? JSON.stringify(characterBlocking) : 'none');
 
     // Build blocking instructions if provided
     let blockingInstructions = '';
     if (characterBlocking && Array.isArray(characterBlocking) && characterBlocking.length > 0) {
       blockingInstructions = '\n\nCHARACTER POSITIONING:\n' + characterBlocking.map((block: any) => 
-        `- ${block.characterName}: positioned ${block.startPosition} of frame, facing ${block.facing}${block.movement !== 'Stays stationary' ? `, ${block.movement}` : ''}`
+        `- ${String(block.characterName || 'Character').slice(0, 100)}: positioned ${String(block.startPosition || 'center').slice(0, 50)} of frame, facing ${String(block.facing || 'forward').slice(0, 50)}${block.movement !== 'Stays stationary' ? `, ${String(block.movement || '').slice(0, 100)}` : ''}`
       ).join('\n');
     }
 
@@ -62,7 +151,6 @@ serve(async (req) => {
     }
     
     if (allImages.length > 0) {
-      // Use multi-modal input with reference images for character AND location consistency
       let characterPrompt = `Generate a cinematic, photorealistic image for a movie scene.`;
       
       if (allReferenceImages.length > 0) {
@@ -79,29 +167,25 @@ LOCATION REFERENCE: Use the LAST reference image as the background/environment. 
       
       characterPrompt += `
 
-SCENE TO CREATE: ${prompt}${blockingInstructions}
+SCENE TO CREATE: ${sanitizedPrompt}${blockingInstructions}
 
 Place the reference person(s) naturally into this scene setting. Focus on lighting, composition, and atmosphere while preserving the person's authentic appearance and the location's visual identity.`;
       
-      // Build content array with all reference images (characters first, then location)
       messageContent = [
         { type: 'text', text: characterPrompt },
-        // Add character reference images (up to 4)
         ...allReferenceImages.slice(0, 4).map(imgUrl => ({
           type: 'image_url',
           image_url: { url: imgUrl }
         })),
-        // Add location reference if provided
         ...(locationReference ? [{
           type: 'image_url',
           image_url: { url: locationReference }
         }] : [])
       ];
     } else {
-      // Text-only prompt - can use character description since there's no reference to conflict with
-      let enhancedPrompt = characterDescription 
-        ? `Generate a cinematic, photorealistic movie scene image. ${prompt}. The main character: ${characterDescription}`
-        : `Generate a cinematic, photorealistic movie scene image. ${prompt}`;
+      let enhancedPrompt = sanitizedDescription 
+        ? `Generate a cinematic, photorealistic movie scene image. ${sanitizedPrompt}. The main character: ${sanitizedDescription}`
+        : `Generate a cinematic, photorealistic movie scene image. ${sanitizedPrompt}`;
       
       if (blockingInstructions) {
         enhancedPrompt += blockingInstructions;
@@ -146,29 +230,17 @@ Place the reference person(s) naturally into this scene setting. Focus on lighti
         );
       }
 
-      throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
+      throw new Error(`AI Gateway error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('AI response structure:', JSON.stringify({
-      hasChoices: !!data.choices,
-      choicesLength: data.choices?.length,
-      hasMessage: !!data.choices?.[0]?.message,
-      hasImages: !!data.choices?.[0]?.message?.images,
-      imagesLength: data.choices?.[0]?.message?.images?.length,
-      messageContent: typeof data.choices?.[0]?.message?.content
-    }));
-
-    // Try to extract image from the response
     let imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    // If no image in images array, check if content contains base64 image
     if (!imageUrl) {
       const content = data.choices?.[0]?.message?.content;
       if (typeof content === 'string' && content.startsWith('data:image')) {
         imageUrl = content;
       } else if (Array.isArray(content)) {
-        // Content might be an array with image objects
         const imageItem = content.find((item: any) => 
           item.type === 'image_url' || item.type === 'image'
         );
@@ -178,15 +250,14 @@ Place the reference person(s) naturally into this scene setting. Focus on lighti
       }
     }
 
-    // If model declined to use reference images, retry with text-only prompt
     if (!imageUrl && allImages.length > 0) {
       const refusalContent = data.choices?.[0]?.message?.content;
       if (typeof refusalContent === 'string' && refusalContent.toLowerCase().includes('cannot')) {
         console.log('Model declined reference images, retrying with text-only prompt...');
         
-        const textOnlyPrompt = characterDescription 
-          ? `Generate a cinematic, photorealistic movie scene image. ${prompt}. The main character: ${characterDescription}${blockingInstructions}`
-          : `Generate a cinematic, photorealistic movie scene image. ${prompt}${blockingInstructions}`;
+        const textOnlyPrompt = sanitizedDescription 
+          ? `Generate a cinematic, photorealistic movie scene image. ${sanitizedPrompt}. The main character: ${sanitizedDescription}${blockingInstructions}`
+          : `Generate a cinematic, photorealistic movie scene image. ${sanitizedPrompt}${blockingInstructions}`;
         
         const retryResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
@@ -211,17 +282,12 @@ Place the reference person(s) naturally into this scene setting. Focus on lighti
               imageUrl = retryContent;
             }
           }
-          
-          if (imageUrl) {
-            console.log('Text-only retry successful');
-          }
         }
       }
     }
 
     if (!imageUrl) {
-      console.error('Full AI response:', JSON.stringify(data, null, 2));
-      throw new Error('No image generated in response. The AI may have declined to generate the image or returned text only.');
+      throw new Error('No image generated in response');
     }
 
     console.log('Image generated successfully');

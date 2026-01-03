@@ -5,6 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Validation limits
+const MAX_TEXT_LENGTH = 10000;
+const MIN_SPEED = 0.5;
+const MAX_SPEED = 2.0;
+
 // Voice configuration mapping
 interface VoiceConfig {
   languageCode: string;
@@ -13,22 +18,18 @@ interface VoiceConfig {
 }
 
 const GOOGLE_VOICES: Record<string, VoiceConfig> = {
-  // Female voices
   'en-US-Journey-F': { languageCode: 'en-US', name: 'en-US-Journey-F', ssmlGender: 'FEMALE' },
   'en-US-Neural2-F': { languageCode: 'en-US', name: 'en-US-Neural2-F', ssmlGender: 'FEMALE' },
   'en-US-Studio-O': { languageCode: 'en-US', name: 'en-US-Studio-O', ssmlGender: 'FEMALE' },
   'en-GB-Neural2-F': { languageCode: 'en-GB', name: 'en-GB-Neural2-F', ssmlGender: 'FEMALE' },
-  // Male voices
   'en-US-Journey-D': { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' },
   'en-US-Neural2-D': { languageCode: 'en-US', name: 'en-US-Neural2-D', ssmlGender: 'MALE' },
   'en-US-Studio-Q': { languageCode: 'en-US', name: 'en-US-Studio-Q', ssmlGender: 'MALE' },
   'en-GB-Neural2-D': { languageCode: 'en-GB', name: 'en-GB-Neural2-D', ssmlGender: 'MALE' },
 };
 
-// Default voice if none specified or not found
 const DEFAULT_VOICE: VoiceConfig = { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' };
 
-// Google Cloud TTS with actual voice cloning key (from generateVoiceCloningKey API)
 async function generateClonedVoiceTTS(
   text: string,
   apiKey: string,
@@ -37,21 +38,15 @@ async function generateClonedVoiceTTS(
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
     console.log('Generating TTS with Google Cloud cloned voice');
-    console.log('Voice cloning key length:', voiceCloningKey.length);
 
-    // Use Google Cloud TTS with the actual voice cloning key
     const response = await fetch(`https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
         voice: {
           languageCode: 'en-US',
-          voiceClone: {
-            voiceCloningKey: voiceCloningKey
-          }
+          voiceClone: { voiceCloningKey: voiceCloningKey }
         },
         audioConfig: {
           audioEncoding: 'MP3',
@@ -62,14 +57,12 @@ async function generateClonedVoiceTTS(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google Cloud cloned voice TTS error:', response.status, errorText);
+      console.error('Google Cloud cloned voice TTS error:', response.status);
       return null;
     }
 
     const data = await response.json();
     if (data.audioContent) {
-      console.log('Google Cloud cloned voice TTS successful');
       return {
         audioContent: data.audioContent,
         audioUrl: `data:audio/mp3;base64,${data.audioContent}`
@@ -83,7 +76,6 @@ async function generateClonedVoiceTTS(
   }
 }
 
-// Google Cloud TTS - Primary engine for standard voices
 async function generateGoogleTTS(
   text: string, 
   apiKey: string, 
@@ -95,9 +87,7 @@ async function generateGoogleTTS(
     
     const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
         voice: {
@@ -115,14 +105,12 @@ async function generateGoogleTTS(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google TTS error:', response.status, errorText);
+      console.error('Google TTS error:', response.status);
       return null;
     }
 
     const data = await response.json();
     if (data.audioContent) {
-      console.log('Google Cloud TTS successful with voice:', voiceConfig.name);
       return {
         audioContent: data.audioContent,
         audioUrl: `data:audio/mp3;base64,${data.audioContent}`
@@ -136,57 +124,44 @@ async function generateGoogleTTS(
   }
 }
 
-// Poll for WaveSpeed TTS result (fallback)
 async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempts: number = 60): Promise<string | null> {
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
+        headers: { 'Authorization': `Bearer ${apiKey}` },
       });
 
       if (!response.ok) {
-        console.error('TTS poll error:', response.status);
         await new Promise(resolve => setTimeout(resolve, 1000));
         continue;
       }
 
       const data = await response.json();
-      console.log('TTS poll result:', data.data?.status);
       
       if (data.code === 200 && data.data) {
         if (data.data.status === 'completed' || data.data.status === 'succeeded') {
-          const audioUrl = data.data.outputs?.[0];
-          if (audioUrl) {
-            console.log('TTS completed, audio URL:', audioUrl);
-            return audioUrl;
-          }
+          return data.data.outputs?.[0] || null;
         } else if (data.data.status === 'failed') {
-          console.error('TTS task failed:', data.data.error);
           return null;
         }
       }
       
       await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
-      console.error('TTS poll error:', error);
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
   
-  console.error('TTS polling timed out');
   return null;
 }
 
-// WaveSpeed TTS fallback
 async function generateWaveSpeedTTS(
   text: string, 
   apiKey: string,
   speed: number = 1
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
-    console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD');
+    console.log('Generating TTS with WaveSpeed');
     
     const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
@@ -206,26 +181,21 @@ async function generateWaveSpeedTTS(
     });
 
     if (!ttsResponse.ok) {
-      const errorText = await ttsResponse.text();
-      console.error('WaveSpeed TTS error:', ttsResponse.status, errorText);
       return null;
     }
 
     const ttsData = await ttsResponse.json();
     
     if (ttsData.code !== 200 || !ttsData.data?.id) {
-      console.error('WaveSpeed TTS error:', ttsData.message);
       return null;
     }
 
-    // Poll for result
     const audioUrl = await pollWaveSpeedTTSResult(ttsData.data.id, apiKey);
     
     if (!audioUrl) {
       return null;
     }
 
-    // Fetch the audio file and convert to base64
     const audioResponse = await fetch(audioUrl);
     if (!audioResponse.ok) {
       return null;
@@ -234,7 +204,6 @@ async function generateWaveSpeedTTS(
     const audioArrayBuffer = await audioResponse.arrayBuffer();
     const audioBytes = new Uint8Array(audioArrayBuffer);
     
-    // Convert to base64 in chunks
     let binary = '';
     const chunkSize = 32768;
     for (let i = 0; i < audioBytes.length; i += chunkSize) {
@@ -243,7 +212,6 @@ async function generateWaveSpeedTTS(
     }
     const base64Audio = btoa(binary);
 
-    console.log('WaveSpeed TTS generation successful');
     return { audioContent: base64Audio, audioUrl };
   } catch (error) {
     console.error('WaveSpeed TTS error:', error);
@@ -251,7 +219,6 @@ async function generateWaveSpeedTTS(
   }
 }
 
-// Speechify TTS with cloned voice
 async function generateSpeechifyTTS(
   text: string,
   apiKey: string,
@@ -275,33 +242,24 @@ async function generateSpeechifyTTS(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Speechify TTS error:', response.status, errorText);
+      console.error('Speechify TTS error:', response.status);
       return null;
     }
 
-    // Check content type to determine how to handle response
     const contentType = response.headers.get('content-type') || '';
-    console.log('Speechify response content-type:', contentType);
-    
     let base64Audio: string;
     
     if (contentType.includes('application/json')) {
-      // Speechify returns JSON with audio_data field
       const jsonResponse = await response.json();
-      console.log('Speechify returned JSON response');
       if (jsonResponse.audio_data) {
         base64Audio = jsonResponse.audio_data;
       } else {
-        console.error('Speechify JSON response missing audio_data');
         return null;
       }
     } else {
-      // Speechify returns audio as binary data
       const audioBuffer = await response.arrayBuffer();
       const audioBytes = new Uint8Array(audioBuffer);
       
-      // Convert to base64
       let binary = '';
       const chunkSize = 32768;
       for (let i = 0; i < audioBytes.length; i += chunkSize) {
@@ -311,7 +269,6 @@ async function generateSpeechifyTTS(
       base64Audio = btoa(binary);
     }
 
-    console.log('Speechify TTS successful, audio base64 length:', base64Audio.length);
     return {
       audioContent: base64Audio,
       audioUrl: `data:audio/mp3;base64,${base64Audio}`
@@ -328,63 +285,94 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey, speechifyVoiceId } = await req.json();
-
-    if (!text) {
-      throw new Error('Text is required');
+    // Verify authorization header exists (JWT verified by Supabase)
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}, Has cloning key: ${!!voiceCloningKey}, Has Speechify ID: ${!!speechifyVoiceId}`);
+    const { text, voice = 'en-US-Journey-D', speed = 1, voiceCloningKey, speechifyVoiceId } = await req.json();
+
+    // Validate text
+    if (!text) {
+      return new Response(
+        JSON.stringify({ error: 'Text is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof text !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Text must be a string' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (text.length > MAX_TEXT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Text exceeds maximum length of ${MAX_TEXT_LENGTH} characters` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate speed
+    const validatedSpeed = typeof speed === 'number' ? Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed)) : 1.0;
+
+    // Validate voice
+    if (voice && typeof voice !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Voice must be a string' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}`);
 
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
     
-    // Priority 1: Speechify cloned voice (new system)
+    // Priority 1: Speechify cloned voice
     if (speechifyVoiceId && speechifyApiKey) {
-      console.log('Attempting Speechify cloned voice generation...');
-      const speechifyResult = await generateSpeechifyTTS(text, speechifyApiKey, speechifyVoiceId, speed);
+      const speechifyResult = await generateSpeechifyTTS(text, speechifyApiKey, speechifyVoiceId, validatedSpeed);
       if (speechifyResult) {
         return new Response(
           JSON.stringify({ ...speechifyResult, isClonedVoice: true, provider: 'speechify' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      console.log('Speechify TTS failed, falling back...');
     }
     
-    // Priority 2: Google Cloud cloned voice (legacy system)
+    // Priority 2: Google Cloud cloned voice
     if (voiceCloningKey && googleApiKey) {
-      console.log('Attempting Google cloned voice generation with stored key...');
-      const clonedResult = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, speed);
+      const clonedResult = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, validatedSpeed);
       if (clonedResult) {
         return new Response(
           JSON.stringify({ ...clonedResult, isClonedVoice: true, provider: 'google' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      console.log('Cloned voice failed, falling back to standard voice...');
     }
     
-    // Get voice configuration - use selected voice or default
     const voiceConfig = GOOGLE_VOICES[voice] || DEFAULT_VOICE;
     
-    // Try Google Cloud TTS first (primary engine for natural voices)
+    // Try Google Cloud TTS
     if (googleApiKey) {
-      const googleResult = await generateGoogleTTS(text, googleApiKey, voiceConfig, speed);
+      const googleResult = await generateGoogleTTS(text, googleApiKey, voiceConfig, validatedSpeed);
       if (googleResult) {
         return new Response(
           JSON.stringify(googleResult),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      console.log('Google TTS failed, trying fallback...');
     }
     
-    // Fallback to WaveSpeed if Google fails
+    // Fallback to WaveSpeed
     if (waveSpeedApiKey) {
-      console.log('Attempting WaveSpeed TTS fallback...');
-      const waveSpeedResult = await generateWaveSpeedTTS(text, waveSpeedApiKey, speed);
+      const waveSpeedResult = await generateWaveSpeedTTS(text, waveSpeedApiKey, validatedSpeed);
       if (waveSpeedResult) {
         return new Response(
           JSON.stringify(waveSpeedResult),
@@ -399,10 +387,7 @@ serve(async (req) => {
     console.error('TTS error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

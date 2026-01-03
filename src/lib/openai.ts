@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 interface ScriptParams {
   topic: string;
   duration: string;
@@ -8,53 +10,22 @@ interface ScriptParams {
 }
 
 export async function generateScript(params: ScriptParams): Promise<string> {
-  // For now, we'll create a client-side implementation
-  // In production, this should be moved to a Supabase Edge Function for security
-  
-  const apiKey = localStorage.getItem('openai_api_key');
-  
-  if (!apiKey) {
-    throw new Error('OpenAI API key not found. Please add your API key in settings.');
-  }
-
   const prompt = createScriptPrompt(params);
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert video script writer who creates engaging, concise scripts optimized for social media and marketing videos. Focus on strong hooks, clear messaging, and compelling calls to action.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
-      }),
-    });
+  const { data, error } = await supabase.functions.invoke('ai', {
+    body: { message: prompt }
+  });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to generate script');
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-    
-  } catch (error) {
-    console.error('OpenAI API Error:', error);
-    throw error;
+  if (error) {
+    console.error('Script generation error:', error);
+    throw new Error(error.message || 'Failed to generate script');
   }
+
+  if (!data?.response) {
+    throw new Error('No response received from AI');
+  }
+
+  return data.response;
 }
 
 function createScriptPrompt(params: ScriptParams): string {
@@ -78,7 +49,7 @@ Requirements:
 Please provide a complete, production-ready script that maximizes engagement and retention.`;
 }
 
-// Utility function to check if API key is available
+// This function now always returns true since we use server-side secrets
 export function isOpenAIConfigured(): boolean {
-  return !!localStorage.getItem('openai_api_key');
+  return true;
 }
