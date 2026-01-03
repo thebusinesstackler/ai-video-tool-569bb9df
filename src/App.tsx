@@ -21,9 +21,17 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Development bypass: skip auth checks in Lovable preview
+const isDevPreview = window.location.hostname.includes('lovableproject.com');
+
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuth();
+  
+  // Bypass auth in dev preview
+  if (isDevPreview) {
+    return <>{children}</>;
+  }
   
   if (loading) {
     return (
