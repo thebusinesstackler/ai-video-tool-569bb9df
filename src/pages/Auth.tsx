@@ -90,6 +90,9 @@ const isConnectivityError = (message: string): boolean => {
   return patterns.some((p) => lower.includes(p));
 };
 
+// Development bypass: skip auth checks in Lovable preview
+const isDevPreview = window.location.hostname.includes('lovableproject.com');
+
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
@@ -99,9 +102,9 @@ const Auth = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect authenticated users
+  // Redirect authenticated users OR dev preview bypass
   useEffect(() => {
-    if (user) {
+    if (isDevPreview || user) {
       navigate('/');
     }
   }, [user, navigate]);
