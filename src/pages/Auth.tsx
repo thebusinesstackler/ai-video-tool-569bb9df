@@ -23,36 +23,71 @@ type AuthMode = 'signIn' | 'signUp' | 'forgotPassword';
 
 // Helper to normalize any error into a readable message
 const normalizeAuthError = (err: unknown): string => {
-  if (typeof err === 'string') return err;
-  if (err instanceof Error) return err.message;
+  const fallback = 'Unknown error. Please try again.';
+
+  if (typeof err === 'string') {
+    const s = err.trim();
+    return s ? s : fallback;
+  }
+
+  if (err instanceof Error) {
+    const msg = (err.message ?? '').trim();
+    if (msg) return msg;
+
+    const anyErr = err as any;
+    if (typeof anyErr?.status === 'number') return `Request failed (${anyErr.status})`;
+    if (typeof anyErr?.code === 'string' && anyErr.code.trim()) return anyErr.code.trim();
+    if (typeof err.name === 'string' && err.name.trim()) return err.name.trim();
+
+    return fallback;
+  }
+
   if (err && typeof err === 'object') {
     const obj = err as Record<string, unknown>;
-    if (typeof obj.message === 'string') return obj.message;
-    if (typeof obj.error_description === 'string') return obj.error_description;
-    if (typeof obj.msg === 'string') return obj.msg;
+
+    const candidates = [
+      obj.message,
+      obj.error_description,
+      obj.msg,
+      obj.error,
+    ];
+
+    for (const c of candidates) {
+      if (typeof c === 'string') {
+        const s = c.trim();
+        if (s) return s;
+      }
+    }
+
+    if (typeof obj.status === 'number') return `Request failed (${obj.status})`;
+    if (typeof obj.code === 'string' && obj.code.trim()) return obj.code.trim();
+
     try {
       const str = JSON.stringify(obj);
-      if (str && str !== '{}' && str !== '""') return str;
-    } catch { /* ignore */ }
+      const s = (str ?? '').trim();
+      if (s && s !== '{}' && s !== '""') return s;
+    } catch {
+      // ignore
+    }
   }
-  return 'Unknown error. Please try again.';
+
+  return fallback;
 };
 
 // Check if error is a connectivity/backend issue
 const isConnectivityError = (message: string): boolean => {
   const patterns = [
     'failed to fetch',
-    'fetch',
     'network',
     '503',
     'upstream connect',
     'econnreset',
     'connection',
     'timeout',
-    'unavailable',
+    'service unavailable',
   ];
   const lower = message.toLowerCase();
-  return patterns.some(p => lower.includes(p));
+  return patterns.some((p) => lower.includes(p));
 };
 
 const Auth = () => {
