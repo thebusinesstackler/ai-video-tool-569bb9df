@@ -21,6 +21,40 @@ const authSchema = z.object({
 
 type AuthMode = 'signIn' | 'signUp' | 'forgotPassword';
 
+// Helper to normalize any error into a readable message
+const normalizeAuthError = (err: unknown): string => {
+  if (typeof err === 'string') return err;
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object') {
+    const obj = err as Record<string, unknown>;
+    if (typeof obj.message === 'string') return obj.message;
+    if (typeof obj.error_description === 'string') return obj.error_description;
+    if (typeof obj.msg === 'string') return obj.msg;
+    try {
+      const str = JSON.stringify(obj);
+      if (str && str !== '{}' && str !== '""') return str;
+    } catch { /* ignore */ }
+  }
+  return 'Unknown error. Please try again.';
+};
+
+// Check if error is a connectivity/backend issue
+const isConnectivityError = (message: string): boolean => {
+  const patterns = [
+    'failed to fetch',
+    'fetch',
+    'network',
+    '503',
+    'upstream connect',
+    'econnreset',
+    'connection',
+    'timeout',
+    'unavailable',
+  ];
+  const lower = message.toLowerCase();
+  return patterns.some(p => lower.includes(p));
+};
+
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
@@ -105,8 +139,6 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      // Clear any stale session before attempting auth
-      await supabase.auth.signOut();
       let result;
       if (mode === 'signUp') {
         result = await signUp(email, password);
@@ -127,17 +159,21 @@ const Auth = () => {
       }
 
       if (result.error) {
-        let errorMessage = "An error occurred. Please try again.";
-        
-        if (result.error.message?.includes('Invalid login credentials')) {
+        const rawMessage = normalizeAuthError(result.error);
+        let errorMessage: string;
+
+        // Check for connectivity/backend issues first
+        if (isConnectivityError(rawMessage)) {
+          errorMessage = "Authentication service is temporarily unavailable. Please wait a moment and try again.";
+        } else if (rawMessage.toLowerCase().includes('invalid login credentials')) {
           errorMessage = "Invalid email or password. Please check your credentials.";
-        } else if (result.error.message?.includes('User already registered')) {
+        } else if (rawMessage.toLowerCase().includes('user already registered')) {
           errorMessage = "An account with this email already exists. Try signing in instead.";
           setMode('signIn');
-        } else if (result.error.message?.includes('Email not confirmed')) {
+        } else if (rawMessage.toLowerCase().includes('email not confirmed')) {
           errorMessage = "Please check your email and click the confirmation link.";
-        } else if (result.error.message) {
-          errorMessage = result.error.message;
+        } else {
+          errorMessage = rawMessage;
         }
 
         toast({
@@ -147,10 +183,18 @@ const Auth = () => {
         });
       }
     } catch (error) {
-      console.error('Auth error:', error);
+      const rawMessage = normalizeAuthError(error);
+      let errorMessage: string;
+
+      if (isConnectivityError(rawMessage)) {
+        errorMessage = "Authentication service is temporarily unavailable. Please wait a moment and try again.";
+      } else {
+        errorMessage = rawMessage;
+      }
+
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
