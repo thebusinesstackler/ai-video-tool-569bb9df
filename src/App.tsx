@@ -19,10 +19,9 @@ import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+import { isDevPreview } from '@/lib/devBypass';
 
-// Development bypass: skip auth checks in Lovable preview
-const isDevPreview = window.location.hostname.includes('lovableproject.com');
+const queryClient = new QueryClient();
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
