@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import heroImage from '@/assets/hero-image.jpg';
+import { isDevPreview } from '@/lib/devBypass';
 
 const quickActions = [
   { 
@@ -141,7 +142,8 @@ export const Dashboard = () => {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   };
 
-  if (!user) {
+  // Show welcome view only if not authenticated AND not in dev preview
+  if (!user && !isDevPreview) {
     return (
       <div className="space-y-8 animate-slide-in">
         {/* Welcome Section for Non-Authenticated Users */}

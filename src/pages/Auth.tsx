@@ -90,15 +90,14 @@ const isConnectivityError = (message: string): boolean => {
   return patterns.some((p) => lower.includes(p));
 };
 
-// Development bypass: skip auth checks in Lovable preview
-const isDevPreview = window.location.hostname.includes('lovableproject.com');
+import { isDevPreview } from '@/lib/devBypass';
 
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signIn, user } = useAuth();
+  const { signUp, signIn, user, authServiceDown } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -421,6 +420,16 @@ const Auth = () => {
               : 'Sign in to your account'}
           </p>
         </div>
+
+        {/* Service Status Warning */}
+        {authServiceDown && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-center gap-3">
+            <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+            <p className="text-sm text-destructive">
+              Authentication service is temporarily unavailable. Please try again later.
+            </p>
+          </div>
+        )}
 
         {/* Auth Form */}
         {mode === 'forgotPassword' ? renderForgotPassword() : renderAuthForm()}

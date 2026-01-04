@@ -3,9 +3,7 @@ import { Layout } from '@/components/Layout';
 import { Dashboard } from '@/components/Dashboard';
 import { Landing } from '@/pages/Landing';
 import { useAuth } from '@/components/AuthProvider';
-
-// Development bypass: skip auth checks in Lovable preview
-const isDevPreview = window.location.hostname.includes('lovableproject.com');
+import { isDevPreview } from '@/lib/devBypass';
 
 const Index = () => {
   const { user, loading } = useAuth();

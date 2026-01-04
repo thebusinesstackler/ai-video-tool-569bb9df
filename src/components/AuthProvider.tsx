@@ -10,6 +10,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   clearLocalSession: () => void;
   loading: boolean;
+  authServiceDown: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   clearLocalSession: () => {},
   loading: true,
+  authServiceDown: false,
 });
 
 export const useAuth = () => {
@@ -34,15 +36,33 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Helper to detect service outage from error
+const isServiceDown = (error: unknown): boolean => {
+  if (!error) return false;
+  const msg = String(error).toLowerCase();
+  return msg.includes('503') || 
+         msg.includes('upstream connect') || 
+         msg.includes('service unavailable') ||
+         msg.includes('failed to fetch') ||
+         msg.includes('network');
+};
+
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authServiceDown, setAuthServiceDown] = useState(false);
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // Detect token refresh failures as service issues
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          setAuthServiceDown(true);
+        } else if (session) {
+          setAuthServiceDown(false);
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -55,9 +75,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        if (session) setAuthServiceDown(false);
       })
       .catch((error) => {
         console.error('Failed to get session:', error);
+        if (isServiceDown(error)) {
+          setAuthServiceDown(true);
+        }
         setLoading(false);
       });
 
@@ -125,6 +149,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     signOut,
     clearLocalSession,
     loading,
+    authServiceDown,
   };
 
   return (
