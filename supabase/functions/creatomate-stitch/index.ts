@@ -161,6 +161,7 @@ serve(async (req) => {
       width: 1080,
       height: 1920,
       frame_rate: 30,
+      render_scale: 1, // Force full quality render (not 0.25 preview scale)
       elements
     };
 
