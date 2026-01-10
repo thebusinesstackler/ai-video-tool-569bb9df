@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { VideoPlayer } from '@/components/VideoPlayer';
@@ -25,6 +25,7 @@ import { ReelFeatureSidebar, ReelMode } from '@/components/ReelFeatureSidebar';
 import { VideoUpscaler } from '@/components/VideoUpscaler';
 import { CameraAngleSelector } from '@/components/CameraAngleSelector';
 import { LogoAnimation } from '@/data/reelTemplates';
+import { useReelDraftAutoSave } from '@/hooks/useReelDraftAutoSave';
 import { 
   Sparkles, 
   FileText, 
@@ -50,7 +51,8 @@ import {
   Camera,
   Wand2,
   FolderOpen,
-  Copy
+  Copy,
+  AlertCircle
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -61,6 +63,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScriptGenerator } from '@/components/ScriptGenerator';
 import { ReelEditor } from '@/components/ReelEditor';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -366,6 +369,146 @@ const Reels = () => {
   
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const draftRestoredRef = useRef(false);
+
+  // Auto-save hook
+  const { 
+    saveDraftDebounced, 
+    loadDraft, 
+    clearDraft, 
+    hasDraft, 
+    getDraftAge,
+    notifyDraftRestored 
+  } = useReelDraftAutoSave();
+
+  // State for showing draft recovery banner
+  const [showDraftRecoveryBanner, setShowDraftRecoveryBanner] = useState(false);
+  const [draftAge, setDraftAge] = useState('');
+
+  // Check for draft on mount
+  useEffect(() => {
+    if (draftRestoredRef.current) return;
+    
+    // Don't check for draft if we're coming from Movie Scene Creator
+    const source = searchParams.get('source');
+    if (source === 'movie-scene') return;
+    
+    if (hasDraft()) {
+      setDraftAge(getDraftAge());
+      setShowDraftRecoveryBanner(true);
+    }
+  }, []);
+
+  // Restore draft function
+  const restoreDraft = useCallback(() => {
+    const draft = loadDraft();
+    if (!draft) return;
+
+    draftRestoredRef.current = true;
+    setShowDraftRecoveryBanner(false);
+
+    // Restore all persisted state
+    setTopic(draft.topic || '');
+    setSelectedSceneCount(draft.selectedSceneCount || '4');
+    setSelectedSceneDuration(draft.selectedSceneDuration || '12');
+    setSelectedVoice(draft.selectedVoice || 'en-US-Journey-F');
+    setSelectedVideoSize(draft.selectedVideoSize || '9:16');
+    setTransitionStyle((draft.transitionStyle as any) || 'crossfade');
+    setHookStyle(draft.hookStyle || 'auto');
+    setCharacterDescription(draft.characterDescription || '');
+    setPreSelectedReference(draft.preSelectedReference);
+    setSelectedTwinId(draft.selectedTwinId);
+    setSelectedIntro(draft.selectedIntro || 'none');
+    setSelectedOutro(draft.selectedOutro || 'none');
+    setIntroText(draft.introText || '');
+    setOutroText(draft.outroText || '');
+    setEnableCutScenes(draft.enableCutScenes || false);
+    setEnableLipSync(draft.enableLipSync || false);
+    setPortraitImage(draft.portraitImage);
+    setFeatureToggles(draft.featureToggles || {
+      introOutro: false,
+      cutScenes: false,
+      upscaler: false,
+      lipSync: false,
+      captions: true,
+      backgroundMusic: false
+    });
+
+    // Restore project state
+    if (draft.project) {
+      setProject({
+        topic: draft.project.topic || '',
+        scenes: draft.project.scenes || [],
+        voiceovers: draft.project.voiceovers || [],
+        videoUrl: null, // Don't restore blob URLs
+        videoBlobUrl: null,
+        generatedScenes: draft.project.generatedScenes || [],
+        videoClips: draft.project.videoClips || [],
+        previewScenes: draft.project.previewScenes || [],
+        status: 'idle' // Reset status
+      });
+    }
+
+    notifyDraftRestored();
+  }, [loadDraft, notifyDraftRestored]);
+
+  // Dismiss draft and clear it
+  const dismissDraft = useCallback(() => {
+    setShowDraftRecoveryBanner(false);
+    clearDraft();
+  }, [clearDraft]);
+
+  // Auto-save effect - triggers on key state changes
+  useEffect(() => {
+    // Skip auto-save if we're generating or nothing meaningful to save
+    if (isGenerating) return;
+    
+    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0;
+    if (!hasContent) return;
+
+    saveDraftDebounced({
+      topic,
+      selectedSceneCount,
+      selectedSceneDuration,
+      selectedVoice,
+      selectedVideoSize,
+      transitionStyle,
+      hookStyle,
+      characterDescription,
+      preSelectedReference,
+      selectedTwinId,
+      selectedIntro,
+      selectedOutro,
+      introText,
+      outroText,
+      enableCutScenes,
+      enableLipSync,
+      portraitImage,
+      project: {
+        topic: project.topic,
+        scenes: project.scenes,
+        voiceovers: project.voiceovers,
+        generatedScenes: project.generatedScenes,
+        videoClips: project.videoClips,
+        previewScenes: project.previewScenes,
+        status: project.status
+      },
+      featureToggles
+    });
+  }, [
+    topic, project.topic, project.scenes, project.voiceovers, 
+    project.generatedScenes, project.videoClips, project.previewScenes,
+    selectedSceneCount, selectedSceneDuration, selectedVoice, selectedVideoSize,
+    transitionStyle, hookStyle, characterDescription, preSelectedReference, selectedTwinId,
+    selectedIntro, selectedOutro, introText, outroText, enableCutScenes, enableLipSync,
+    portraitImage, featureToggles, isGenerating, saveDraftDebounced
+  ]);
+
+  // Clear draft when reel is successfully saved to database
+  const handleReelSavedSuccessfully = useCallback(() => {
+    clearDraft();
+    setCurrentReelSaved(true);
+  }, [clearDraft]);
 
   // Auto-analyze reference image for character description
   const analyzeReferenceImage = async (imageUrl: string) => {
@@ -780,7 +923,7 @@ const Reels = () => {
         total_duration: Math.round(totalDuration)
       }]);
 
-      setCurrentReelSaved(true);
+      handleReelSavedSuccessfully();
       fetchSavedReels();
 
       toast({
@@ -1517,6 +1660,8 @@ const Reels = () => {
     resetPreview();
     // Reset save state
     setCurrentReelSaved(false);
+    // Clear auto-saved draft
+    clearDraft();
   };
 
   const handleDownloadVideo = async () => {
@@ -1809,6 +1954,26 @@ const Reels = () => {
                 )}
               </div>
             </div>
+
+            {/* Draft Recovery Banner */}
+            {showDraftRecoveryBanner && (
+              <Alert className="border-primary/50 bg-primary/5">
+                <AlertCircle className="h-4 w-4 text-primary" />
+                <AlertTitle>Unsaved Draft Found</AlertTitle>
+                <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <span>You have an unsaved reel draft from {draftAge}. Would you like to restore it?</span>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="default" onClick={restoreDraft}>
+                      <History className="w-4 h-4 mr-1" />
+                      Restore Draft
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={dismissDraft}>
+                      Dismiss
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Video Upscaler Panel */}
             {showUpscaler && (
