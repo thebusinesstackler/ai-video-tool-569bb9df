@@ -1,11 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Google Cloud TTS voice mapping
+// OpenAI TTS-1-HD voices (higher quality than TTS-1)
+const OPENAI_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+
+// Google Cloud TTS voice mapping (fallback)
 const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
   'nova': { name: 'en-US-Journey-F', languageCode: 'en-US' },
   'alloy': { name: 'en-US-Journey-D', languageCode: 'en-US' },
@@ -14,6 +18,36 @@ const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
   'onyx': { name: 'en-US-Wavenet-A', languageCode: 'en-US' },
   'shimmer': { name: 'en-US-Wavenet-F', languageCode: 'en-US' },
 };
+
+async function generateOpenAITTS(text: string, voice: string, apiKey: string): Promise<string> {
+  // Ensure voice is valid for OpenAI
+  const validVoice = OPENAI_VOICES.includes(voice) ? voice : 'nova';
+  
+  const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'tts-1-hd', // Higher quality model with better prosody
+      input: text,
+      voice: validVoice,
+      response_format: 'mp3',
+      speed: 1.0,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI TTS-1-HD error:', response.status, errorText);
+    throw new Error(`OpenAI TTS error: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  // Use proper base64 encoding to avoid stack overflow with large audio
+  return base64Encode(arrayBuffer);
+}
 
 async function generateGoogleTTS(text: string, voice: string, apiKey: string): Promise<string> {
   const voiceConfig = GOOGLE_VOICES[voice] || GOOGLE_VOICES['nova'];
@@ -65,9 +99,27 @@ serve(async (req) => {
 
     console.log('Generating voiceover for scene:', sceneNumber, 'with voice:', voice);
 
-    // Try Google Cloud TTS first (already configured)
-    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
+    // Try OpenAI TTS-1-HD first (best quality, natural prosody at sentence boundaries)
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
+    if (OPENAI_API_KEY) {
+      try {
+        const base64Audio = await generateOpenAITTS(text, voice, OPENAI_API_KEY);
+        const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
+        
+        console.log('Voiceover generated with OpenAI TTS-1-HD for scene:', sceneNumber);
+        
+        return new Response(
+          JSON.stringify({ audioUrl, sceneNumber }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (openaiError) {
+        console.error('OpenAI TTS-1-HD failed, falling back to Google:', openaiError);
+      }
+    }
+
+    // Fallback to Google Cloud TTS
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     if (GOOGLE_API_KEY) {
       try {
         const base64Audio = await generateGoogleTTS(text, voice, GOOGLE_API_KEY);
@@ -80,51 +132,15 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (googleError) {
-        console.error('Google TTS failed:', googleError);
+        console.error('Google TTS also failed:', googleError);
+        throw googleError;
       }
-    }
-
-    // Fallback to OpenAI TTS if available
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (OPENAI_API_KEY) {
-      const response = await fetch('https://api.openai.com/v1/audio/speech', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'tts-1',
-          input: text,
-          voice: voice,
-          response_format: 'mp3',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI TTS error:', response.status, errorText);
-        throw new Error(`OpenAI TTS error: ${response.status}`);
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const base64Audio = btoa(
-        String.fromCharCode(...new Uint8Array(arrayBuffer))
-      );
-
-      const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
-      console.log('Voiceover generated with OpenAI for scene:', sceneNumber);
-
-      return new Response(
-        JSON.stringify({ audioUrl, sceneNumber }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // No TTS API configured
-    console.error('No TTS API key configured (GOOGLE_CLOUD_TTS_API_KEY or OPENAI_API_KEY)');
+    console.error('No TTS API key configured (OPENAI_API_KEY or GOOGLE_CLOUD_TTS_API_KEY)');
     return new Response(
-      JSON.stringify({ error: 'No TTS API configured. Please add GOOGLE_CLOUD_TTS_API_KEY or OPENAI_API_KEY.' }),
+      JSON.stringify({ error: 'No TTS API configured. Please add OPENAI_API_KEY or GOOGLE_CLOUD_TTS_API_KEY.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
