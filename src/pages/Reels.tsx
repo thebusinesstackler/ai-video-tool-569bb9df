@@ -1441,13 +1441,39 @@ const Reels = () => {
           });
           
           if (result.success && result.videoUrl) {
+            let persistedVideoUrl = result.videoUrl;
+            
+            // Upload Creatomate video to Supabase storage for persistence
+            if (user) {
+              setProgress(92);
+              setProgressStatus('Uploading final video to storage...');
+              try {
+                const response = await fetch(result.videoUrl);
+                const videoBlob = await response.blob();
+                const fileName = `${user.id}/videos/${Date.now()}-stitched.mp4`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from('reels')
+                  .upload(fileName, videoBlob, { contentType: 'video/mp4' });
+                
+                if (!uploadError && uploadData) {
+                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                  persistedVideoUrl = publicUrl.publicUrl;
+                  console.log('Uploaded stitched video to storage:', persistedVideoUrl);
+                } else {
+                  console.warn('Failed to upload to storage, using CDN URL:', uploadError);
+                }
+              } catch (uploadErr) {
+                console.warn('Failed to persist video to storage, using CDN URL:', uploadErr);
+              }
+            }
+            
             setProject(prev => ({
               ...prev,
-              videoUrl: result.videoUrl!,
-              videoBlobUrl: result.videoUrl!,
+              videoUrl: persistedVideoUrl,
+              videoBlobUrl: persistedVideoUrl,
               generatedScenes,
               voiceovers: sortedAudios,
-              videoClips: sortedVideos,
+              videoClips: [], // Clear clips after stitching so single player shows
               status: 'complete'
             }));
 
@@ -1476,7 +1502,7 @@ const Reels = () => {
                 await supabase.from('reels').insert([{
                   user_id: user.id,
                   topic: project.topic,
-                  video_url: result.videoUrl,
+                  video_url: persistedVideoUrl, // Use persisted storage URL
                   audio_url: mergedAudioUrl || null, // Save merged voiceover URL
                   thumbnail_url: thumbnailUrl,
                   scenes: scenesWithAllAssets as unknown as any,
