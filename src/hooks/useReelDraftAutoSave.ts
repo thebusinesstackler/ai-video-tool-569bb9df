@@ -1,8 +1,9 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 const DRAFT_KEY = 'reel-draft-autosave';
 const AUTOSAVE_DEBOUNCE_MS = 2000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface StrategistState {
   niche: string;
@@ -54,71 +55,127 @@ export interface ReelDraftState {
   savedAt: number;
 }
 
+// Helper functions outside the hook to avoid dependency issues
+function cleanProjectForStorage(project: any) {
+  return {
+    ...project,
+    previewScenes: project.previewScenes?.map((scene: any) => ({
+      ...scene,
+      imageUrl: scene.imageUrl?.startsWith('data:') ? null : scene.imageUrl,
+      audioUrl: scene.audioUrl?.startsWith('data:') ? null : scene.audioUrl,
+    })) || [],
+    generatedScenes: project.generatedScenes?.map((scene: any) => ({
+      ...scene,
+      imageUrl: scene.imageUrl?.startsWith('data:') ? null : scene.imageUrl,
+    })) || [],
+    voiceovers: project.voiceovers?.map((v: any) => ({
+      ...v,
+      audioUrl: v.audioUrl?.startsWith('data:') ? (v.storageUrl || null) : v.audioUrl,
+    })) || [],
+  };
+}
+
+function readDraftFromStorage(): ReelDraftState | null {
+  try {
+    const stored = localStorage.getItem(DRAFT_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored) as ReelDraftState;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraftToStorage(draft: ReelDraftState): boolean {
+  try {
+    const draftJson = JSON.stringify(draft);
+    if (draftJson.length > 4 * 1024 * 1024) {
+      console.warn('[AutoSave] Draft too large, skipping save');
+      return false;
+    }
+    localStorage.setItem(DRAFT_KEY, draftJson);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeDraftFromStorage(): void {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Ignore errors
+  }
+}
+
+function calculateDraftAge(savedAt: number): string {
+  const ageMs = Date.now() - savedAt;
+  const seconds = Math.floor(ageMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'just now';
+}
+
 export function useReelDraftAutoSave() {
   const { toast } = useToast();
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaveRef = useRef<number>(0);
 
-  // Clean large data from project before saving
-  const cleanProjectForStorage = useCallback((project: any) => {
-    return {
-      ...project,
-      // Keep only essential data, remove base64 data URLs to save space
-      previewScenes: project.previewScenes?.map((scene: any) => ({
-        ...scene,
-        // Keep image URLs but strip base64 data URIs (they're too large)
-        imageUrl: scene.imageUrl?.startsWith('data:') ? null : scene.imageUrl,
-        audioUrl: scene.audioUrl?.startsWith('data:') ? null : scene.audioUrl,
-      })) || [],
-      generatedScenes: project.generatedScenes?.map((scene: any) => ({
-        ...scene,
-        imageUrl: scene.imageUrl?.startsWith('data:') ? null : scene.imageUrl,
-      })) || [],
-      voiceovers: project.voiceovers?.map((v: any) => ({
-        ...v,
-        // Keep storage URLs, remove base64
-        audioUrl: v.audioUrl?.startsWith('data:') ? (v.storageUrl || null) : v.audioUrl,
-      })) || [],
-    };
+  // Clear draft from localStorage
+  const clearDraft = useCallback(() => {
+    removeDraftFromStorage();
+    lastSaveRef.current = 0;
+    console.log('[AutoSave] Draft cleared');
+  }, []);
+
+  // Load draft from localStorage
+  const loadDraft = useCallback((): ReelDraftState | null => {
+    const draft = readDraftFromStorage();
+    if (!draft) return null;
+
+    // Check if draft is too old (older than 7 days)
+    if (Date.now() - draft.savedAt > SEVEN_DAYS_MS) {
+      console.log('[AutoSave] Draft expired, clearing...');
+      removeDraftFromStorage();
+      return null;
+    }
+
+    return draft;
   }, []);
 
   // Save draft to localStorage
   const saveDraft = useCallback((state: Omit<ReelDraftState, 'savedAt'>) => {
     // Skip if nothing meaningful to save
-    if (!state.topic?.trim() && state.project.scenes.length === 0 && state.project.previewScenes.length === 0) {
+    if (!state.topic?.trim() && state.project.scenes.length === 0 && state.project.previewScenes.length === 0 && !state.strategist?.niche?.trim() && !state.strategist?.strategy) {
       return;
     }
 
     try {
-      // Clean large data to avoid quota issues
       const cleanedProject = cleanProjectForStorage(state.project);
       
       const draft: ReelDraftState = {
         ...state,
         project: cleanedProject,
-        // Also clean portrait image if it's base64
         portraitImage: state.portraitImage?.startsWith('data:') ? null : state.portraitImage,
         preSelectedReference: state.preSelectedReference?.startsWith('data:') ? null : state.preSelectedReference,
         savedAt: Date.now()
       };
       
-      // Check size before saving (localStorage limit is ~5MB)
-      const draftJson = JSON.stringify(draft);
-      if (draftJson.length > 4 * 1024 * 1024) { // 4MB safety limit
-        console.warn('[AutoSave] Draft too large, skipping save');
-        return;
+      if (writeDraftToStorage(draft)) {
+        lastSaveRef.current = draft.savedAt;
+        console.log('[AutoSave] Draft saved at', new Date(draft.savedAt).toLocaleTimeString());
       }
-      
-      localStorage.setItem(DRAFT_KEY, draftJson);
-      lastSaveRef.current = draft.savedAt;
-      console.log('[AutoSave] Draft saved at', new Date(draft.savedAt).toLocaleTimeString());
     } catch (error) {
       console.error('[AutoSave] Failed to save draft:', error);
       // If quota exceeded, clear old draft and try again with minimal data
       if ((error as any)?.name === 'QuotaExceededError') {
         try {
-          localStorage.removeItem(DRAFT_KEY);
-          const minimalDraft = {
+          removeDraftFromStorage();
+          const minimalDraft: ReelDraftState = {
             topic: state.topic,
             selectedSceneCount: state.selectedSceneCount,
             selectedSceneDuration: state.selectedSceneDuration,
@@ -141,14 +198,14 @@ export function useReelDraftAutoSave() {
             strategist: state.strategist,
             savedAt: Date.now()
           };
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(minimalDraft));
+          writeDraftToStorage(minimalDraft);
           console.log('[AutoSave] Saved minimal draft after quota error');
         } catch (e) {
           console.error('[AutoSave] Even minimal save failed:', e);
         }
       }
     }
-  }, [cleanProjectForStorage]);
+  }, []);
 
   // Debounced save
   const saveDraftDebounced = useCallback((state: Omit<ReelDraftState, 'savedAt'>) => {
@@ -161,87 +218,43 @@ export function useReelDraftAutoSave() {
     }, AUTOSAVE_DEBOUNCE_MS);
   }, [saveDraft]);
 
-  // Load draft from localStorage
-  const loadDraft = useCallback((): ReelDraftState | null => {
-    try {
-      const stored = localStorage.getItem(DRAFT_KEY);
-      if (!stored) return null;
-
-      const draft = JSON.parse(stored) as ReelDraftState;
-      
-      // Check if draft is too old (older than 7 days)
-      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-      if (Date.now() - draft.savedAt > SEVEN_DAYS_MS) {
-        console.log('[AutoSave] Draft expired, clearing...');
-        clearDraft();
-        return null;
-      }
-
-      return draft;
-    } catch (error) {
-      console.error('[AutoSave] Failed to load draft:', error);
-      return null;
-    }
-  }, []);
-
-  // Clear draft from localStorage
-  const clearDraft = useCallback(() => {
-    try {
-      localStorage.removeItem(DRAFT_KEY);
-      lastSaveRef.current = 0;
-      console.log('[AutoSave] Draft cleared');
-    } catch (error) {
-      console.error('[AutoSave] Failed to clear draft:', error);
-    }
-  }, []);
-
   // Check if draft exists and has content
   const hasDraft = useCallback((): boolean => {
-    const draft = loadDraft();
+    const draft = readDraftFromStorage();
     if (!draft) return false;
+    
+    // Check if expired
+    if (Date.now() - draft.savedAt > SEVEN_DAYS_MS) {
+      return false;
+    }
     
     // Check if there's meaningful content
     return !!(
       draft.topic?.trim() ||
       draft.project.scenes.length > 0 ||
       draft.project.previewScenes.length > 0 ||
-      draft.project.generatedScenes.length > 0
+      draft.project.generatedScenes.length > 0 ||
+      draft.strategist?.niche?.trim() ||
+      draft.strategist?.strategy
     );
-  }, [loadDraft]);
+  }, []);
 
   // Get draft age for display
   const getDraftAge = useCallback((): string => {
-    const draft = loadDraft();
+    const draft = readDraftFromStorage();
     if (!draft) return '';
-
-    const ageMs = Date.now() - draft.savedAt;
-    const seconds = Math.floor(ageMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    if (minutes > 0) return `${minutes}m ago`;
-    return 'just now';
-  }, [loadDraft]);
+    return calculateDraftAge(draft.savedAt);
+  }, []);
 
   // Notify user when restoring draft
   const notifyDraftRestored = useCallback(() => {
+    const draft = readDraftFromStorage();
+    const age = draft ? calculateDraftAge(draft.savedAt) : '';
     toast({
       title: "Draft Restored",
-      description: `Your unsaved reel draft has been recovered (saved ${getDraftAge()}).`,
+      description: `Your unsaved reel draft has been recovered (saved ${age}).`,
     });
-  }, [toast, getDraftAge]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
+  }, [toast]);
 
   return {
     saveDraft,
