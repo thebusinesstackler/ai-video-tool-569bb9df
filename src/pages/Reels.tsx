@@ -214,6 +214,10 @@ interface DraftState {
   scenes: Scene[];
   previewScenes: PreviewScene[];
   voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[];
+  // Custom audio upload state
+  customAudioMode: 'tts' | 'upload';
+  customAudioUrl: string | null;
+  customAudioDuration: number;
 }
 
 const SCENE_COUNT_OPTIONS = [
@@ -322,6 +326,13 @@ const Reels = () => {
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (Google Cloud TTS voices)
   const [selectedVoice, setSelectedVoice] = useState<string>('en-US-Journey-F');
+  
+  // Custom audio upload for lip sync
+  const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
+  const [customAudioUrl, setCustomAudioUrl] = useState<string | null>(null);
+  const [customAudioDuration, setCustomAudioDuration] = useState<number>(0);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+  const customAudioInputRef = useRef<HTMLInputElement>(null);
   
   // Transition style for video stitching
   const [transitionStyle, setTransitionStyle] = useState<'fade' | 'slide' | 'zoom' | 'crossfade' | 'wipe' | 'blur' | 'dissolve' | 'spin' | 'flip' | 'none'>('crossfade');
@@ -706,6 +717,79 @@ const Reels = () => {
     }
   };
 
+  // Handle custom audio upload for lip sync
+  const handleCustomAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/m4a', 'audio/x-m4a', 'audio/mp4', 'audio/webm'];
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|m4a|webm)$/i)) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an audio file (MP3, WAV, M4A, WebM)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Audio file must be under 50MB",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsUploadingAudio(true);
+    
+    try {
+      // Get duration from file
+      const audioUrl = URL.createObjectURL(file);
+      const duration = await getAudioDuration(audioUrl);
+      URL.revokeObjectURL(audioUrl);
+      
+      // Upload to storage
+      if (user) {
+        const extension = file.name.split('.').pop() || 'mp3';
+        const fileName = `${user.id}/custom-audio/${Date.now()}-custom.${extension}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, file, { contentType: file.type });
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+        setCustomAudioUrl(publicUrl.publicUrl);
+        setCustomAudioDuration(duration);
+        
+        toast({
+          title: "Audio Uploaded",
+          description: `Custom audio ready (${duration.toFixed(1)}s)`
+        });
+      } else {
+        throw new Error('Please sign in to upload audio');
+      }
+    } catch (err: any) {
+      console.error('Custom audio upload error:', err);
+      toast({
+        title: "Upload Failed",
+        description: err.message || "Failed to upload audio file",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  };
+
+  const removeCustomAudio = () => {
+    setCustomAudioUrl(null);
+    setCustomAudioDuration(0);
+    if (customAudioInputRef.current) {
+      customAudioInputRef.current.value = '';
+    }
+  };
+
   // Handle Movie Scene Creator transfers
   useEffect(() => {
     const source = searchParams.get('source');
@@ -949,7 +1033,10 @@ const Reels = () => {
         strategist: strategistState,
         scenes: project.scenes,
         previewScenes: previewScenes.length > 0 ? previewScenes : project.previewScenes,
-        voiceovers: previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers
+        voiceovers: previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers,
+        customAudioMode,
+        customAudioUrl,
+        customAudioDuration
       };
 
       const { error } = await supabase.from('reels').insert([{
@@ -1021,6 +1108,11 @@ const Reels = () => {
       captions: true,
       backgroundMusic: false
     });
+    
+    // Restore custom audio settings
+    setCustomAudioMode(ds.customAudioMode || 'tts');
+    setCustomAudioUrl(ds.customAudioUrl || null);
+    setCustomAudioDuration(ds.customAudioDuration || 0);
 
     // Restore strategist state
     if (ds.strategist) {
@@ -3106,6 +3198,114 @@ const Reels = () => {
                       {lipSyncModel === 'wan-animate' && 'Animated character with lip sync (requires audio)'}
                     </p>
                   </div>
+
+                  {/* Voiceover Source Selection */}
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    <Label className="flex items-center gap-2">
+                      <Mic className="w-3 h-3" />
+                      Voiceover Source
+                    </Label>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant={customAudioMode === 'tts' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCustomAudioMode('tts')}
+                        disabled={isGenerating}
+                        className="justify-start"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        AI Voice
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={customAudioMode === 'upload' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCustomAudioMode('upload')}
+                        disabled={isGenerating}
+                        className="justify-start"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Audio
+                      </Button>
+                    </div>
+
+                    {customAudioMode === 'upload' && (
+                      <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border">
+                        <input
+                          type="file"
+                          ref={customAudioInputRef}
+                          accept=".mp3,.wav,.m4a,.webm,audio/*"
+                          className="hidden"
+                          onChange={handleCustomAudioUpload}
+                        />
+                        
+                        {!customAudioUrl ? (
+                          <div
+                            className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                            onClick={() => customAudioInputRef.current?.click()}
+                          >
+                            {isUploadingAudio ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                <p className="text-sm text-muted-foreground">Uploading...</p>
+                              </div>
+                            ) : (
+                              <>
+                                <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                                <p className="text-sm font-medium">Click to upload audio</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  MP3, WAV, M4A, WebM • Max 50MB
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-border">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <Mic className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium">Custom Audio</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Duration: {customAudioDuration.toFixed(1)}s
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <audio
+                                  src={customAudioUrl}
+                                  controls
+                                  className="h-8 w-32"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={removeCustomAudio}
+                                  className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              This audio will be used for lip sync instead of AI-generated voiceover
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {customAudioMode === 'tts' && (
+                      <p className="text-xs text-muted-foreground">
+                        AI will generate voiceover from your script and sync lips to the audio
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               )}
               </CollapsibleContent>
@@ -3533,6 +3733,10 @@ const Reels = () => {
                         // Pass all reference images from the AI Twin for character consistency
                         const allTwinReferenceImages = selectedTwin?.reference_images || [];
                         
+                        // Pass custom audio if in upload mode
+                        const customAudio = customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined;
+                        const customDuration = customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined;
+                        
                         generatePreview(
                           project.scenes, 
                           user?.id, 
@@ -3541,7 +3745,9 @@ const Reels = () => {
                           characterRefImage || undefined,
                           characterDescription || selectedTwin?.face_description || undefined,
                           speechifyVoiceId,
-                          allTwinReferenceImages
+                          allTwinReferenceImages,
+                          customAudio,
+                          customDuration
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
