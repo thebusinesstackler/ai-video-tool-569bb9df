@@ -618,13 +618,17 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
-  // First normalize apostrophes (curly ' to straight ')
-  let text = narration.replace(/[\u2018\u2019\u0060\u00B4]/g, "'");
+  // First normalize special characters
+  let text = narration
+    // Normalize curly apostrophes to straight
+    .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
+    // Normalize Unicode ellipsis (…) to three periods
+    .replace(/\u2026/g, '...');
   
   return text
     // FIRST: Handle transition phrases WITH their trailing punctuation
-    // This captures "Let me tell you," or "And here's the thing:" and cleans the comma/colon
-    .replace(/(But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\s]*/gi, '$1—\n\n')
+    // This captures "Let me tell you," or "And here's the thing:" or "And here's the thing..." and cleans them
+    .replace(/(But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\.\s]*/gi, '$1—\n\n')
     
     // SECOND: Convert existing ellipses to clean format (remove any period after)
     .replace(/\.{2,}\s*/g, '...\n\n')
