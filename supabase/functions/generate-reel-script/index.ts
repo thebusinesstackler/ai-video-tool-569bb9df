@@ -622,23 +622,23 @@ function formatScriptForTTS(narration: string): string {
   let text = narration
     // Normalize curly apostrophes to straight
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
-    // Normalize Unicode ellipsis (…) to three periods
-    .replace(/\u2026/g, '...');
+    // Normalize Unicode ellipsis (…) directly to em dash
+    .replace(/\u2026/g, '—');
   
   return text
     // FIRST: Handle greeting and transition phrases WITH their trailing punctuation
     // This captures "Hey everyone..," or "Let me tell you," and formats with em dash
     .replace(/(Hey everyone|Hey there|Hello everyone|Hi everyone|Welcome back|Hey guys|Hey folks|But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\.\s]*/gi, '$1—\n\n')
     
-    // SECOND: Convert existing ellipses to clean format (remove any period after)
-    .replace(/\.{2,}\s*/g, '...\n\n')
+    // SECOND: Convert existing ellipses to em dash (remove any period after)
+    .replace(/\.{2,}\s*/g, '—\n\n')
     
     // THIRD: Convert sentence-ending periods to em dashes
     // But NOT if preceded by another period (to avoid hitting ellipses)
     .replace(/([^.])\.(\s|$)/g, '$1—\n\n')
     
-    // Convert commas before conjunctions to ellipses for breath pauses
-    .replace(/,\s+(and|but|so|because|or|if|when|while)\b/gi, '...\n\n$1')
+    // Convert commas before conjunctions to em dashes for breath pauses
+    .replace(/,\s+(and|but|so|because|or|if|when|while)\b/gi, '—\n\n$1')
     
     // Add line breaks after question marks
     .replace(/\?\s+/g, '?\n\n')
