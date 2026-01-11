@@ -19,21 +19,23 @@ const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
   'shimmer': { name: 'en-US-Wavenet-F', languageCode: 'en-US' },
 };
 
-// Clean text to prevent TTS artifacts (doubled sounds, echoes)
+// Clean text to prevent TTS artifacts (doubled sounds, echoes, plural "s" sounds)
 function cleanTextForTTS(text: string): string {
   return text
+    // First, normalize smart quotes and special characters
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
+    .replace(/…/g, '...')
+    // CRITICAL: Convert sentence-ending periods to em dashes to prevent "s" sound artifacts
+    // This is the main fix for words like "workflow." sounding like "workflows"
+    .replace(/\.(\s|$)/g, '—$1')
+    // Keep em dashes as clean pauses (don't convert to spaces)
+    .replace(/–/g, '—')
     // Remove extra whitespace
     .replace(/\s+/g, ' ')
     // Fix doubled letters/words that cause stuttering
     .replace(/(\b\w+\b)\s+\1\b/gi, '$1')
-    // Remove special characters that confuse TTS
-    .replace(/[""]/g, '"')
-    .replace(/['']/g, "'")
-    .replace(/…/g, '...')
-    .replace(/—/g, ' - ')
-    .replace(/–/g, ' - ')
-    // Ensure proper spacing after punctuation
-    .replace(/\.([A-Za-z])/g, '. $1')
+    // Ensure proper spacing after punctuation (but not periods since we converted them)
     .replace(/,([A-Za-z])/g, ', $1')
     // Remove any trailing/leading whitespace
     .trim();
