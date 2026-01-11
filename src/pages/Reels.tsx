@@ -25,7 +25,7 @@ import { ReelFeatureSidebar, ReelMode } from '@/components/ReelFeatureSidebar';
 import { VideoUpscaler } from '@/components/VideoUpscaler';
 import { CameraAngleSelector } from '@/components/CameraAngleSelector';
 import { LogoAnimation } from '@/data/reelTemplates';
-import { useReelDraftAutoSave } from '@/hooks/useReelDraftAutoSave';
+import { useReelDraftAutoSave, StrategistState } from '@/hooks/useReelDraftAutoSave';
 import { 
   Sparkles, 
   FileText, 
@@ -332,6 +332,14 @@ const Reels = () => {
   const [editingReel, setEditingReel] = useState<SavedReel | null>(null);
   const [showUpscaler, setShowUpscaler] = useState(false);
   
+  // Strategist state for persistence
+  const [strategistState, setStrategistState] = useState<StrategistState>({
+    niche: '',
+    videoDuration: 'mix',
+    includePromotional: false,
+    strategy: null
+  });
+  
   // Sync feature toggles with existing state
   const handleFeatureChange = (feature: keyof typeof featureToggles, value: boolean) => {
     setFeatureToggles(prev => ({ ...prev, [feature]: value }));
@@ -450,6 +458,11 @@ const Reels = () => {
       });
     }
 
+    // Restore strategist state
+    if (draft.strategist) {
+      setStrategistState(draft.strategist);
+    }
+
     notifyDraftRestored();
   }, [loadDraft, notifyDraftRestored]);
 
@@ -464,7 +477,7 @@ const Reels = () => {
     // Skip auto-save if we're generating or nothing meaningful to save
     if (isGenerating) return;
     
-    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0;
+    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim();
     if (!hasContent) return;
 
     saveDraftDebounced({
@@ -494,7 +507,8 @@ const Reels = () => {
         previewScenes: project.previewScenes,
         status: project.status
       },
-      featureToggles
+      featureToggles,
+      strategist: strategistState
     });
   }, [
     topic, project.topic, project.scenes, project.voiceovers, 
@@ -502,7 +516,7 @@ const Reels = () => {
     selectedSceneCount, selectedSceneDuration, selectedVoice, selectedVideoSize,
     transitionStyle, hookStyle, characterDescription, preSelectedReference, selectedTwinId,
     selectedIntro, selectedOutro, introText, outroText, enableCutScenes, enableLipSync,
-    portraitImage, featureToggles, isGenerating, saveDraftDebounced
+    portraitImage, featureToggles, strategistState, isGenerating, saveDraftDebounced
   ]);
 
   // Clear draft when reel is successfully saved to database
@@ -2138,6 +2152,8 @@ const Reels = () => {
                     }
                   }}
                   disabled={isGenerating}
+                  initialState={strategistState}
+                  onStateChange={setStrategistState}
                 />
 
                 <div className="space-y-2">

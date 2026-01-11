@@ -53,9 +53,18 @@ interface StrategyResponse {
   weeklySchedule: { day: string; pillar: string; contentType: string }[];
 }
 
+interface StrategistState {
+  niche: string;
+  videoDuration: '30' | '60' | 'mix';
+  includePromotional: boolean;
+  strategy: StrategyResponse | null;
+}
+
 interface TopicStrategistProps {
   onApplyStrategy: (strategy: ContentStrategy) => void;
   disabled?: boolean;
+  initialState?: StrategistState;
+  onStateChange?: (state: StrategistState) => void;
 }
 
 const contentTypeIcons: Record<string, React.ReactNode> = {
@@ -76,16 +85,28 @@ const contentTypeColors: Record<string, string> = {
 
 export const TopicStrategist: React.FC<TopicStrategistProps> = ({
   onApplyStrategy,
-  disabled = false
+  disabled = false,
+  initialState,
+  onStateChange
 }) => {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
-  const [niche, setNiche] = useState('');
-  const [videoDuration, setVideoDuration] = useState<'30' | '60' | 'mix'>('mix');
-  const [includePromotional, setIncludePromotional] = useState(false);
+  const [isOpen, setIsOpen] = useState(!!initialState?.strategy);
+  const [niche, setNiche] = useState(initialState?.niche || '');
+  const [videoDuration, setVideoDuration] = useState<'30' | '60' | 'mix'>(initialState?.videoDuration || 'mix');
+  const [includePromotional, setIncludePromotional] = useState(initialState?.includePromotional || false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [strategy, setStrategy] = useState<StrategyResponse | null>(null);
+  const [strategy, setStrategy] = useState<StrategyResponse | null>(initialState?.strategy || null);
   const [showSchedule, setShowSchedule] = useState(false);
+
+  // Notify parent of state changes for persistence
+  React.useEffect(() => {
+    onStateChange?.({
+      niche,
+      videoDuration,
+      includePromotional,
+      strategy
+    });
+  }, [niche, videoDuration, includePromotional, strategy, onStateChange]);
 
   const generateStrategy = async () => {
     if (!niche.trim()) {
