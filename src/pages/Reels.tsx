@@ -3475,11 +3475,22 @@ const Reels = () => {
 
           <TabsContent value="history" className="space-y-6">
             {loadingReels ? (
-              <Card className="bg-card border-border">
-                <CardContent className="pt-6 flex justify-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="bg-card border-border overflow-hidden animate-pulse">
+                    <div className="aspect-[9/16] bg-muted" />
+                    <CardContent className="p-4 space-y-3">
+                      <div className="h-4 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                      <div className="flex gap-2 pt-2">
+                        <div className="h-8 bg-muted rounded flex-1" />
+                        <div className="h-8 bg-muted rounded flex-1" />
+                        <div className="h-8 bg-muted rounded w-8" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : savedReels.length === 0 ? (
               <Card className="bg-card border-border">
                 <CardContent className="pt-6 text-center">
