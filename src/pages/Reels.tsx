@@ -1421,16 +1421,24 @@ const Reels = () => {
           
           setProgressStatus('Rendering with Creatomate (server-side)...');
           
-          // Build clips with actual audio durations
+          // Build clips with actual audio durations - ensure never undefined
           const clips = sortedVideos.map((v, idx) => {
-            const audioDuration = sortedAudios[idx]?.duration;
+            const voiceover = sortedAudios[idx];
+            const scene = project.scenes[idx];
+            // Use audio duration as primary source of truth, fallback to scene duration
+            const audioDuration = voiceover?.duration || scene?.duration || 5;
+            
+            console.log(`Clip ${idx + 1}: audioDuration=${audioDuration}s (voiceover=${voiceover?.duration}, scene.duration=${scene?.duration})`);
+            
             return {
               url: v.videoUrl,
-              duration: project.scenes[idx]?.duration || 5,
-              audioDuration: audioDuration, // Actual voiceover duration
-              caption: project.scenes[idx]?.narration || ''
+              duration: audioDuration, // Match audio duration for video generation
+              audioDuration: audioDuration, // Ensure never undefined
+              caption: scene?.narration || ''
             };
           });
+          
+          console.log('Clips for Creatomate:', JSON.stringify(clips, null, 2));
           
           const result = await stitchWithCreatomate({
             clips,

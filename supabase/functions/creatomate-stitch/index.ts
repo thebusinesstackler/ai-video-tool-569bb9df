@@ -45,9 +45,8 @@ serve(async (req) => {
     let currentTime = 0;
 
     clips.forEach((clip, index) => {
-      // Use the actual video duration (capped at 8s by WaveSpeed), NOT the audio duration
-      // The merged audio track will continue seamlessly across video clips
-      const videoDuration = Math.min(clip.audioDuration || clip.duration || 5, 8);
+      // Use the actual audio duration - videos are now generated to match audio length
+      const videoDuration = clip.audioDuration || clip.duration || 5;
       console.log(`Clip ${index + 1}: video duration ${videoDuration}s (audio was ${clip.audioDuration}s, preset was ${clip.duration}s)`);
       
       // Build transition animations based on type
@@ -84,7 +83,7 @@ serve(async (req) => {
               duration: duration * 0.5
             }];
           case 'crossfade':
-            // Crossfade: overlap with previous clip
+            // Crossfade: minimal overlap to prevent early scene transitions
             return [{
               type: 'fade',
               fade: 'in',
@@ -96,16 +95,16 @@ serve(async (req) => {
         }
       };
       
-      // For crossfade, start this clip earlier to overlap
-      const overlapTime = transition === 'crossfade' && index > 0 ? transitionDuration * 0.5 : 0;
+      // For crossfade, use minimal overlap (15%) to prevent early scene transitions
+      const overlapTime = transition === 'crossfade' && index > 0 ? Math.min(transitionDuration * 0.15, 0.3) : 0;
       const adjustedTime = Math.max(0, currentTime - overlapTime);
       
-      // Add video element
+      // Add video element - use exact video duration, no extension
       elements.push({
         type: 'video',
         source: clip.url,
         time: adjustedTime,
-        duration: videoDuration + overlapTime, // Extend to cover overlap
+        duration: videoDuration, // Exact duration - no overlap extension
         fit: 'cover',
         animations: getTransitionAnimations()
       });
