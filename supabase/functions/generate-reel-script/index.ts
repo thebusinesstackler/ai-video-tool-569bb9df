@@ -618,7 +618,10 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
-  return narration
+  // First normalize apostrophes (curly ' to straight ')
+  let text = narration.replace(/[\u2018\u2019\u0060\u00B4]/g, "'");
+  
+  return text
     // FIRST: Handle transition phrases WITH their trailing punctuation
     // This captures "Let me tell you," or "And here's the thing:" and cleans the comma/colon
     .replace(/(But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\s]*/gi, '$1—\n\n')
