@@ -709,7 +709,7 @@ const Reels = () => {
     }
   };
 
-  // Load AI twins with retry logic for timeout handling
+  // Load AI twins with retry logic for timeout and network handling
   const loadAiTwins = async (retryCount = 0) => {
     if (!user) return;
     try {
@@ -721,8 +721,8 @@ const Reels = () => {
         .limit(50);
       
       if (error) {
-        if (error.code === '57014' && retryCount < 2) {
-          console.log(`AI Twins query timeout, retrying (${retryCount + 1}/2)...`);
+        if ((error.code === '57014' || error.message?.includes('fetch')) && retryCount < 2) {
+          console.log(`AI Twins query failed, retrying (${retryCount + 1}/2)...`);
           setTimeout(() => loadAiTwins(retryCount + 1), 1000);
           return;
         }
@@ -733,7 +733,13 @@ const Reels = () => {
       if (data) {
         setAiTwins(data.filter(t => t.reference_images && t.reference_images.length > 0));
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Retry on network failures
+      if (err?.message?.includes('fetch') && retryCount < 2) {
+        console.log(`Network error loading AI twins, retrying (${retryCount + 1}/2)...`);
+        setTimeout(() => loadAiTwins(retryCount + 1), 1000);
+        return;
+      }
       console.error('Failed to load AI twins:', err);
     }
   };
@@ -747,10 +753,14 @@ const Reels = () => {
     }
   }, [user]);
 
-  const fetchSavedReels = async () => {
+  const fetchSavedReels = async (retryCount = 0) => {
     if (!user) return;
     
-    setLoadingReels(true);
+    // Only show loading on first attempt
+    if (retryCount === 0) {
+      setLoadingReels(true);
+    }
+    
     try {
       // Fetch all columns including scenes for individual clips display
       const { data, error } = await supabase
@@ -760,7 +770,15 @@ const Reels = () => {
         .order('created_at', { ascending: false })
         .limit(50);
       
-      if (error) throw error;
+      if (error) {
+        // Retry on timeout errors (57014) or network errors
+        if ((error.code === '57014' || error.message?.includes('fetch')) && retryCount < 3) {
+          console.log(`Reels query failed, retrying (${retryCount + 1}/3)...`);
+          setTimeout(() => fetchSavedReels(retryCount + 1), 1000 * (retryCount + 1));
+          return;
+        }
+        throw error;
+      }
       
       // Cast the data to our SavedReel type
       const reels: SavedReel[] = (data || []).map(item => ({
@@ -776,10 +794,24 @@ const Reels = () => {
       }));
       
       setSavedReels(reels);
-    } catch (error) {
+    } catch (error: any) {
+      // Handle network failures with retry
+      if (error?.message?.includes('fetch') && retryCount < 3) {
+        console.log(`Network error, retrying (${retryCount + 1}/3)...`);
+        setTimeout(() => fetchSavedReels(retryCount + 1), 1000 * (retryCount + 1));
+        return;
+      }
+      
       console.error('Error fetching reels:', error);
+      toast({
+        title: "Unable to load reels",
+        description: "Temporary connection issue. Click Refresh to try again.",
+        variant: "destructive"
+      });
     } finally {
-      setLoadingReels(false);
+      if (retryCount === 0 || retryCount >= 3) {
+        setLoadingReels(false);
+      }
     }
   };
 
