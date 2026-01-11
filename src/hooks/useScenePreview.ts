@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[]) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
@@ -130,7 +130,9 @@ export function useScenePreview(): UseScenePreviewResult {
     characterRefImage?: string,
     characterDescription?: string,
     speechifyVoiceId?: string,
-    allReferenceImages?: string[]
+    allReferenceImages?: string[],
+    customAudioUrl?: string,
+    customAudioDuration?: number
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     // Use all reference images if provided, otherwise use just the active reference
@@ -156,100 +158,126 @@ export function useScenePreview(): UseScenePreviewResult {
     const newVoiceovers: typeof voiceovers = [];
 
     try {
-      // Step 1: Generate voiceovers
-      setProgressStatus('Generating voiceovers...');
-      
-      for (let i = 0; i < scenes.length; i++) {
-        const scene = scenes[i];
+      // Step 1: Generate voiceovers OR use custom audio
+      if (customAudioUrl && customAudioDuration) {
+        // Use custom audio - assign same audio to all scenes (single audio for entire reel)
+        setProgressStatus('Using custom audio...');
+        const durationPerScene = customAudioDuration / scenes.length;
         
-        if (!scene.narration?.trim()) {
+        for (let i = 0; i < scenes.length; i++) {
+          const scene = scenes[i];
           newVoiceovers.push({
             sceneNumber: scene.sceneNumber,
-            audioUrl: '',
-            duration: scene.duration || 2
+            audioUrl: customAudioUrl,
+            storageUrl: customAudioUrl,
+            duration: durationPerScene
           });
-          continue;
+          
+          // Update preview scene with custom audio
+          setPreviewScenes(prev => prev.map(ps =>
+            ps.sceneNumber === scene.sceneNumber
+              ? { ...ps, audioUrl: customAudioUrl, audioDuration: durationPerScene }
+              : ps
+          ));
         }
+        
+        setProgress(30);
+      } else {
+        // Generate TTS voiceovers
+        setProgressStatus('Generating voiceovers...');
+        
+        for (let i = 0; i < scenes.length; i++) {
+          const scene = scenes[i];
+          
+          if (!scene.narration?.trim()) {
+            newVoiceovers.push({
+              sceneNumber: scene.sceneNumber,
+              audioUrl: '',
+              duration: scene.duration || 2
+            });
+            continue;
+          }
 
-        try {
-          const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-            body: { 
-              text: scene.narration, 
-              voice: speechifyVoiceId ? undefined : voice,
-              speechifyVoiceId: speechifyVoiceId || undefined
+          try {
+            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+              body: { 
+                text: scene.narration, 
+                voice: speechifyVoiceId ? undefined : voice,
+                speechifyVoiceId: speechifyVoiceId || undefined
+              }
+            });
+
+            if (ttsError) {
+              console.error('TTS error for scene', scene.sceneNumber, ':', ttsError);
+              newVoiceovers.push({
+                sceneNumber: scene.sceneNumber,
+                audioUrl: '',
+                duration: scene.duration || 5
+              });
+              continue;
             }
-          });
 
-          if (ttsError) {
-            console.error('TTS error for scene', scene.sceneNumber, ':', ttsError);
+            if (ttsData?.audioContent || ttsData?.audioUrl) {
+              // Use audioUrl from response if available, otherwise construct from audioContent
+              let audioUrl = ttsData.audioUrl || `data:audio/mp3;base64,${ttsData.audioContent}`;
+              console.log(`Scene ${scene.sceneNumber} TTS received, audio length: ${ttsData.audioContent?.length || 'N/A'}`);
+
+              let storageUrl: string | undefined;
+              if (userId && ttsData.audioContent) {
+                try {
+                  const base64Data = ttsData.audioContent;
+                  const binaryString = atob(base64Data);
+                  const bytes = new Uint8Array(binaryString.length);
+                  for (let j = 0; j < binaryString.length; j++) {
+                    bytes[j] = binaryString.charCodeAt(j);
+                  }
+
+                  const fileName = `${userId}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
+                  const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('reels')
+                    .upload(fileName, bytes, { contentType: 'audio/mp3' });
+
+                  if (!uploadError && uploadData) {
+                    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                    storageUrl = publicUrl.publicUrl;
+                    console.log(`Scene ${scene.sceneNumber} audio uploaded to storage:`, storageUrl);
+                    // Use storage URL for playback (more reliable than base64)
+                    audioUrl = storageUrl;
+                  }
+                } catch (uploadErr) {
+                  console.warn('Voiceover upload failed:', uploadErr);
+                }
+              }
+
+              // Get duration from the audio URL
+              const actualDuration = await getAudioDuration(audioUrl);
+              console.log(`Scene ${scene.sceneNumber} audio duration: ${actualDuration}s`);
+
+              newVoiceovers.push({
+                sceneNumber: scene.sceneNumber,
+                audioUrl,
+                storageUrl,
+                duration: actualDuration
+              });
+
+              // Update preview scene with audio (prefer storage URL)
+              setPreviewScenes(prev => prev.map(ps =>
+                ps.sceneNumber === scene.sceneNumber
+                  ? { ...ps, audioUrl, audioDuration: actualDuration }
+                  : ps
+              ));
+            }
+          } catch (ttsErr) {
+            console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
             newVoiceovers.push({
               sceneNumber: scene.sceneNumber,
               audioUrl: '',
               duration: scene.duration || 5
             });
-            continue;
           }
 
-          if (ttsData?.audioContent || ttsData?.audioUrl) {
-            // Use audioUrl from response if available, otherwise construct from audioContent
-            let audioUrl = ttsData.audioUrl || `data:audio/mp3;base64,${ttsData.audioContent}`;
-            console.log(`Scene ${scene.sceneNumber} TTS received, audio length: ${ttsData.audioContent?.length || 'N/A'}`);
-
-            let storageUrl: string | undefined;
-            if (userId && ttsData.audioContent) {
-              try {
-                const base64Data = ttsData.audioContent;
-                const binaryString = atob(base64Data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let j = 0; j < binaryString.length; j++) {
-                  bytes[j] = binaryString.charCodeAt(j);
-                }
-
-                const fileName = `${userId}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(fileName, bytes, { contentType: 'audio/mp3' });
-
-                if (!uploadError && uploadData) {
-                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                  storageUrl = publicUrl.publicUrl;
-                  console.log(`Scene ${scene.sceneNumber} audio uploaded to storage:`, storageUrl);
-                  // Use storage URL for playback (more reliable than base64)
-                  audioUrl = storageUrl;
-                }
-              } catch (uploadErr) {
-                console.warn('Voiceover upload failed:', uploadErr);
-              }
-            }
-
-            // Get duration from the audio URL
-            const actualDuration = await getAudioDuration(audioUrl);
-            console.log(`Scene ${scene.sceneNumber} audio duration: ${actualDuration}s`);
-
-            newVoiceovers.push({
-              sceneNumber: scene.sceneNumber,
-              audioUrl,
-              storageUrl,
-              duration: actualDuration
-            });
-
-            // Update preview scene with audio (prefer storage URL)
-            setPreviewScenes(prev => prev.map(ps =>
-              ps.sceneNumber === scene.sceneNumber
-                ? { ...ps, audioUrl, audioDuration: actualDuration }
-                : ps
-            ));
-          }
-        } catch (ttsErr) {
-          console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
-          newVoiceovers.push({
-            sceneNumber: scene.sceneNumber,
-            audioUrl: '',
-            duration: scene.duration || 5
-          });
+          setProgress(5 + Math.round(((i + 1) / scenes.length) * 25));
         }
-
-        setProgress(5 + Math.round(((i + 1) / scenes.length) * 25));
       }
 
       setVoiceovers(newVoiceovers);
