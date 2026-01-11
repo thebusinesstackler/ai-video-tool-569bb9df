@@ -203,6 +203,12 @@ Remember:
         }];
       }
 
+      // Apply TTS formatting to podcast scenes before returning
+      scenes = scenes.map((scene: any) => ({
+        ...scene,
+        narration: formatScriptForTTS(scene.narration || '')
+      }));
+
       console.log('Generated podcast scenes:', scenes.length, 'Narration length:', scenes[0]?.narration?.length);
 
       return new Response(
