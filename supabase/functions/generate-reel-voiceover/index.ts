@@ -19,6 +19,26 @@ const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
   'shimmer': { name: 'en-US-Wavenet-F', languageCode: 'en-US' },
 };
 
+// Clean text to prevent TTS artifacts (doubled sounds, echoes)
+function cleanTextForTTS(text: string): string {
+  return text
+    // Remove extra whitespace
+    .replace(/\s+/g, ' ')
+    // Fix doubled letters/words that cause stuttering
+    .replace(/(\b\w+\b)\s+\1\b/gi, '$1')
+    // Remove special characters that confuse TTS
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
+    .replace(/…/g, '...')
+    .replace(/—/g, ' - ')
+    .replace(/–/g, ' - ')
+    // Ensure proper spacing after punctuation
+    .replace(/\.([A-Za-z])/g, '. $1')
+    .replace(/,([A-Za-z])/g, ', $1')
+    // Remove any trailing/leading whitespace
+    .trim();
+}
+
 async function generateOpenAITTS(text: string, voice: string, apiKey: string): Promise<string> {
   // Ensure voice is valid for OpenAI
   const validVoice = OPENAI_VOICES.includes(voice) ? voice : 'nova';
@@ -97,14 +117,18 @@ serve(async (req) => {
       );
     }
 
+    // Clean text to prevent TTS artifacts (doubled sounds, echoes)
+    const cleanedText = cleanTextForTTS(text);
     console.log('Generating voiceover for scene:', sceneNumber, 'with voice:', voice);
+    console.log('Original text:', text);
+    console.log('Cleaned text:', cleanedText);
 
     // Try OpenAI TTS-1-HD first (best quality, natural prosody at sentence boundaries)
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
     if (OPENAI_API_KEY) {
       try {
-        const base64Audio = await generateOpenAITTS(text, voice, OPENAI_API_KEY);
+        const base64Audio = await generateOpenAITTS(cleanedText, voice, OPENAI_API_KEY);
         const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
         
         console.log('Voiceover generated with OpenAI TTS-1-HD for scene:', sceneNumber);
@@ -122,7 +146,7 @@ serve(async (req) => {
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     if (GOOGLE_API_KEY) {
       try {
-        const base64Audio = await generateGoogleTTS(text, voice, GOOGLE_API_KEY);
+        const base64Audio = await generateGoogleTTS(cleanedText, voice, GOOGLE_API_KEY);
         const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
         
         console.log('Voiceover generated with Google TTS for scene:', sceneNumber);
