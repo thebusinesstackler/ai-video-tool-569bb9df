@@ -54,7 +54,9 @@ import {
   FolderOpen,
   Copy,
   AlertCircle,
-  ListChecks
+  ListChecks,
+  Save,
+  FileEdit
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -179,6 +181,39 @@ interface SavedReel {
     background: string;
     position: string;
   };
+  is_draft?: boolean;
+  draft_state?: DraftState | null;
+}
+
+interface DraftState {
+  selectedSceneCount: string;
+  selectedSceneDuration: string;
+  selectedVoice: string;
+  selectedVideoSize: string;
+  transitionStyle: string;
+  hookStyle: string;
+  characterDescription: string;
+  preSelectedReference: string | null;
+  selectedTwinId: string | null;
+  selectedIntro: string;
+  selectedOutro: string;
+  introText: string;
+  outroText: string;
+  enableCutScenes: boolean;
+  enableLipSync: boolean;
+  portraitImage: string | null;
+  featureToggles: {
+    introOutro: boolean;
+    cutScenes: boolean;
+    upscaler: boolean;
+    lipSync: boolean;
+    captions: boolean;
+    backgroundMusic: boolean;
+  };
+  strategist?: StrategistState;
+  scenes: Scene[];
+  previewScenes: PreviewScene[];
+  voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[];
 }
 
 const SCENE_COUNT_OPTIONS = [
@@ -239,10 +274,12 @@ const Reels = () => {
   const [loadingReels, setLoadingReels] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [isSavingReel, setIsSavingReel] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [currentReelSaved, setCurrentReelSaved] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
+  const [draftReels, setDraftReels] = useState<SavedReel[]>([]);
   
   // Movie Scene Creator source tracking
   const [fromMovieScene, setFromMovieScene] = useState(false);
@@ -768,10 +805,10 @@ const Reels = () => {
     }
     
     try {
-      // Fetch all columns including scenes for individual clips display
+      // Fetch all columns including scenes for individual clips display, plus draft info
       const { data, error } = await supabase
         .from('reels')
-        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, scenes, caption_settings, audio_url')
+        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, scenes, caption_settings, audio_url, is_draft, draft_state')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -786,8 +823,8 @@ const Reels = () => {
         throw error;
       }
       
-      // Cast the data to our SavedReel type
-      const reels: SavedReel[] = (data || []).map(item => ({
+      // Cast the data to our SavedReel type and separate drafts from completed reels
+      const allReels: SavedReel[] = (data || []).map(item => ({
         id: item.id,
         topic: item.topic,
         video_url: item.video_url,
@@ -796,10 +833,14 @@ const Reels = () => {
         scenes: (item.scenes as unknown as GeneratedScene[]) || [],
         total_duration: item.total_duration ?? 0,
         created_at: item.created_at,
-        caption_settings: item.caption_settings as SavedReel['caption_settings']
+        caption_settings: item.caption_settings as SavedReel['caption_settings'],
+        is_draft: item.is_draft ?? false,
+        draft_state: item.draft_state as unknown as DraftState | null
       }));
       
-      setSavedReels(reels);
+      // Separate drafts from completed reels
+      setSavedReels(allReels.filter(r => !r.is_draft));
+      setDraftReels(allReels.filter(r => r.is_draft));
     } catch (error: any) {
       // Handle network failures with retry
       if (error?.message?.includes('fetch') && retryCount < 3) {
@@ -818,6 +859,221 @@ const Reels = () => {
       if (retryCount === 0 || retryCount >= 3) {
         setLoadingReels(false);
       }
+    }
+  };
+
+  // Save current work as a draft to the database
+  const saveDraftToDatabase = async () => {
+    if (!user) {
+      toast({
+        title: "Sign In Required",
+        description: "Please sign in to save drafts.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const hasContent = project.scenes.length > 0 || project.previewScenes.length > 0 || previewScenes.length > 0;
+    if (!hasContent && !topic.trim()) {
+      toast({
+        title: "Nothing to Save",
+        description: "Generate some content first before saving as draft.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSavingDraft(true);
+
+    try {
+      // Build scenes data from preview scenes or project scenes
+      const scenesData = previewScenes.length > 0
+        ? previewScenes.map((scene) => ({
+            sceneNumber: scene.sceneNumber,
+            text: scene.narration,
+            imageUrl: scene.imageUrl,
+            videoUrl: null,
+            audioUrl: scene.audioUrl,
+            startTime: 0,
+            endTime: scene.audioDuration
+          }))
+        : project.previewScenes.length > 0
+          ? project.previewScenes.map((scene) => ({
+              sceneNumber: scene.sceneNumber,
+              text: scene.narration,
+              imageUrl: scene.imageUrl,
+              videoUrl: null,
+              audioUrl: scene.audioUrl,
+              startTime: 0,
+              endTime: scene.audioDuration
+            }))
+          : project.generatedScenes.map((scene) => ({
+              sceneNumber: scene.sceneNumber,
+              text: scene.text,
+              imageUrl: scene.imageUrl,
+              videoUrl: scene.videoUrl || null,
+              startTime: scene.startTime,
+              endTime: scene.endTime
+            }));
+
+      const thumbnailUrl = previewScenes[0]?.imageUrl 
+        || project.previewScenes[0]?.imageUrl 
+        || project.generatedScenes[0]?.imageUrl 
+        || null;
+
+      const totalDuration = previewVoiceovers.reduce((acc, a) => acc + a.duration, 0) 
+        || project.voiceovers.reduce((acc, a) => acc + a.duration, 0) 
+        || project.previewScenes.reduce((acc, s) => acc + s.audioDuration, 0)
+        || project.scenes.reduce((acc, s) => acc + s.duration, 0)
+        || 0;
+
+      // Build the draft state with all settings
+      const draftState: DraftState = {
+        selectedSceneCount,
+        selectedSceneDuration,
+        selectedVoice,
+        selectedVideoSize,
+        transitionStyle,
+        hookStyle,
+        characterDescription,
+        preSelectedReference,
+        selectedTwinId,
+        selectedIntro,
+        selectedOutro,
+        introText,
+        outroText,
+        enableCutScenes,
+        enableLipSync,
+        portraitImage,
+        featureToggles,
+        strategist: strategistState,
+        scenes: project.scenes,
+        previewScenes: previewScenes.length > 0 ? previewScenes : project.previewScenes,
+        voiceovers: previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers
+      };
+
+      const { error } = await supabase.from('reels').insert([{
+        user_id: user.id,
+        topic: project.topic || topic || 'Untitled Draft',
+        video_url: null,
+        thumbnail_url: thumbnailUrl,
+        scenes: scenesData as unknown as any,
+        total_duration: Math.round(totalDuration),
+        is_draft: true,
+        draft_state: draftState as unknown as any
+      }]);
+
+      if (error) throw error;
+
+      // Clear local draft since we saved to database
+      clearDraft();
+      fetchSavedReels();
+
+      toast({
+        title: "Draft Saved!",
+        description: "Your work has been saved. Continue editing anytime from the Drafts tab."
+      });
+    } catch (error: any) {
+      console.error('Error saving draft:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save draft.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Restore a draft from the database
+  const restoreDraftFromDatabase = (draft: SavedReel) => {
+    if (!draft.draft_state) {
+      // If no draft_state, just load the topic and scenes like duplicateReel
+      duplicateReel(draft);
+      return;
+    }
+
+    const ds = draft.draft_state;
+    
+    // Restore all settings
+    setTopic(draft.topic);
+    setSelectedSceneCount(ds.selectedSceneCount || '4');
+    setSelectedSceneDuration(ds.selectedSceneDuration || '12');
+    setSelectedVoice(ds.selectedVoice || 'en-US-Journey-F');
+    setSelectedVideoSize(ds.selectedVideoSize || '9:16');
+    setTransitionStyle((ds.transitionStyle as any) || 'crossfade');
+    setHookStyle(ds.hookStyle || 'auto');
+    setCharacterDescription(ds.characterDescription || '');
+    setPreSelectedReference(ds.preSelectedReference);
+    setSelectedTwinId(ds.selectedTwinId);
+    setSelectedIntro(ds.selectedIntro || 'none');
+    setSelectedOutro(ds.selectedOutro || 'none');
+    setIntroText(ds.introText || '');
+    setOutroText(ds.outroText || '');
+    setEnableCutScenes(ds.enableCutScenes || false);
+    setEnableLipSync(ds.enableLipSync || false);
+    setPortraitImage(ds.portraitImage);
+    setFeatureToggles(ds.featureToggles || {
+      introOutro: false,
+      cutScenes: false,
+      upscaler: false,
+      lipSync: false,
+      captions: true,
+      backgroundMusic: false
+    });
+
+    // Restore strategist state
+    if (ds.strategist) {
+      setStrategistState(ds.strategist);
+    }
+
+    // Restore project state with scenes and preview scenes
+    setProject({
+      topic: draft.topic,
+      scenes: ds.scenes || [],
+      voiceovers: ds.voiceovers || [],
+      videoUrl: null,
+      videoBlobUrl: null,
+      generatedScenes: [],
+      videoClips: [],
+      previewScenes: ds.previewScenes || [],
+      status: 'idle'
+    });
+
+    // Switch to create tab
+    setActiveTab('create');
+
+    toast({
+      title: "Draft Restored!",
+      description: "All your settings and scenes have been loaded. Continue editing!"
+    });
+  };
+
+  // Delete a draft reel
+  const deleteDraft = async (draftId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('reels')
+        .delete()
+        .eq('id', draftId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Draft Deleted",
+        description: "The draft has been removed."
+      });
+
+      setDraftReels(prev => prev.filter(d => d.id !== draftId));
+    } catch (error: any) {
+      console.error('Error deleting draft:', error);
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete draft.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -2088,6 +2344,11 @@ const Reels = () => {
                   <span className="hidden sm:inline">Queue {queueCount > 0 ? `(${queueCount})` : ''}</span>
                   <span className="sm:hidden">Queue {queueCount > 0 ? `(${queueCount})` : ''}</span>
                 </TabsTrigger>
+                <TabsTrigger value="drafts" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <FileEdit className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Drafts {draftReels.length > 0 ? `(${draftReels.length})` : ''}</span>
+                  <span className="sm:hidden">Drafts {draftReels.length > 0 ? `(${draftReels.length})` : ''}</span>
+                </TabsTrigger>
                 <TabsTrigger value="history" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <History className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">My Reels ({savedReels.length})</span>
@@ -3318,30 +3579,49 @@ const Reels = () => {
 
             {/* Scene Preview */}
             {previewScenes.length > 0 && !project.videoBlobUrl && (
-              <ScenePreview
-                scenes={previewScenes}
-                onRegenerateImage={(sceneNumber, customPrompt, localRefUrl) => {
-                  const scene = project.scenes.find(s => s.sceneNumber === sceneNumber);
-                  const promptToUse = customPrompt || scene?.visualDescription || '';
-                  
-                  // Use local reference if provided, else fall back to global reference
-                  if (localRefUrl) {
-                    regenerateWithReference(sceneNumber, promptToUse, localRefUrl, characterTransformation);
-                  } else if (referenceImageUrl) {
-                    regenerateWithReference(sceneNumber, promptToUse, referenceImageUrl, characterTransformation);
-                  } else {
-                    regenerateSceneImage(sceneNumber, promptToUse);
-                  }
-                }}
-                onCreateVideo={generateVideo}
-                isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
-                disabled={isGenerating}
-                referenceImageUrl={referenceImageUrl}
-                onSetReference={setSceneAsReference}
-                onClearReference={clearReference}
-                characterTransformation={characterTransformation}
-                onCharacterTransformationChange={setCharacterTransformation}
-              />
+              <div className="space-y-4">
+                <ScenePreview
+                  scenes={previewScenes}
+                  onRegenerateImage={(sceneNumber, customPrompt, localRefUrl) => {
+                    const scene = project.scenes.find(s => s.sceneNumber === sceneNumber);
+                    const promptToUse = customPrompt || scene?.visualDescription || '';
+                    
+                    // Use local reference if provided, else fall back to global reference
+                    if (localRefUrl) {
+                      regenerateWithReference(sceneNumber, promptToUse, localRefUrl, characterTransformation);
+                    } else if (referenceImageUrl) {
+                      regenerateWithReference(sceneNumber, promptToUse, referenceImageUrl, characterTransformation);
+                    } else {
+                      regenerateSceneImage(sceneNumber, promptToUse);
+                    }
+                  }}
+                  onCreateVideo={generateVideo}
+                  isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
+                  disabled={isGenerating}
+                  referenceImageUrl={referenceImageUrl}
+                  onSetReference={setSceneAsReference}
+                  onClearReference={clearReference}
+                  characterTransformation={characterTransformation}
+                  onCharacterTransformationChange={setCharacterTransformation}
+                />
+                
+                {/* Save Draft Button */}
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={saveDraftToDatabase}
+                    disabled={isSavingDraft}
+                    variant="outline"
+                    className="border-primary/50 hover:bg-primary/10"
+                  >
+                    {isSavingDraft ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Save Draft for Later
+                  </Button>
+                </div>
+              </div>
             )}
 
             {/* Final Video / Generated Scenes */}
@@ -3558,6 +3838,125 @@ const Reels = () => {
                 });
               }}
             />
+          </TabsContent>
+
+          <TabsContent value="drafts" className="space-y-6">
+            {loadingReels ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {[...Array(3)].map((_, i) => (
+                  <Card key={i} className="bg-card border-border overflow-hidden animate-pulse">
+                    <div className="aspect-[9/16] bg-muted" />
+                    <CardContent className="p-4 space-y-3">
+                      <div className="h-4 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : draftReels.length === 0 ? (
+              <Card className="bg-card border-border">
+                <CardContent className="pt-6 text-center">
+                  <FileEdit className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium">No Saved Drafts</h3>
+                  <p className="text-muted-foreground mb-4">
+                    When you're working on a reel and want to continue later, click "Save Draft for Later" to save your progress here.
+                  </p>
+                  <Button onClick={() => setActiveTab('create')}>
+                    <Video className="w-4 h-4 mr-2" />
+                    Create a Reel
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {draftReels.map((draft) => {
+                  const sceneCount = draft.scenes?.length || 0;
+                  const hasTwin = draft.draft_state?.selectedTwinId;
+                  const hasStrategist = draft.draft_state?.strategist?.strategy;
+                  
+                  return (
+                    <Card key={draft.id} className="bg-card border-border overflow-hidden">
+                      <div className="aspect-[9/16] bg-black relative">
+                        {draft.thumbnail_url ? (
+                          <img
+                            src={draft.thumbnail_url}
+                            alt={draft.topic}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted/50 to-muted">
+                            <FileEdit className="w-12 h-12" />
+                          </div>
+                        )}
+                        <div className="absolute top-2 left-2 bg-amber-500/90 text-white text-xs px-2 py-1 rounded font-medium">
+                          Draft
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
+                          <p className="text-white text-sm font-medium line-clamp-2">{draft.topic}</p>
+                          <p className="text-white/70 text-xs mt-1">
+                            {new Date(draft.created_at).toLocaleDateString()} • {sceneCount} scenes
+                          </p>
+                        </div>
+                        {/* Feature badges */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-1">
+                          {hasTwin && (
+                            <span className="bg-primary/90 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">
+                              AI Twin
+                            </span>
+                          )}
+                          {hasStrategist && (
+                            <span className="bg-purple-500/90 text-white text-[10px] px-1.5 py-0.5 rounded">
+                              Strategy
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Scene thumbnails grid */}
+                      {sceneCount > 1 && (
+                        <div className="p-3 border-t border-border">
+                          <p className="text-xs text-muted-foreground mb-2">Scenes:</p>
+                          <div className="grid grid-cols-5 gap-1">
+                            {draft.scenes?.slice(0, 5).map((scene, idx) => (
+                              <div
+                                key={idx}
+                                className="aspect-square rounded overflow-hidden bg-muted"
+                              >
+                                {scene.imageUrl ? (
+                                  <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">{idx + 1}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <CardContent className="pt-4">
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => restoreDraftFromDatabase(draft)}
+                            className="flex-1 bg-gradient-primary hover:opacity-90"
+                          >
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Continue Editing
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => deleteDraft(draft.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="history" className="space-y-6">

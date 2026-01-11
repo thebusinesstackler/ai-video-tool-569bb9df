@@ -271,7 +271,9 @@ export type Database = {
           audio_url: string | null
           caption_settings: Json | null
           created_at: string
+          draft_state: Json | null
           id: string
+          is_draft: boolean | null
           scenes: Json | null
           thumbnail_url: string | null
           topic: string
@@ -284,7 +286,9 @@ export type Database = {
           audio_url?: string | null
           caption_settings?: Json | null
           created_at?: string
+          draft_state?: Json | null
           id?: string
+          is_draft?: boolean | null
           scenes?: Json | null
           thumbnail_url?: string | null
           topic: string
@@ -297,7 +301,9 @@ export type Database = {
           audio_url?: string | null
           caption_settings?: Json | null
           created_at?: string
+          draft_state?: Json | null
           id?: string
+          is_draft?: boolean | null
           scenes?: Json | null
           thumbnail_url?: string | null
           topic?: string
