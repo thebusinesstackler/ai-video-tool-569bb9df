@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useVideoQueue, QueuedVideo } from '@/hooks/useVideoQueue';
 import {
   Sparkles,
   Lightbulb,
@@ -24,10 +26,12 @@ import {
   Smile,
   Target,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  ListPlus,
+  Check
 } from 'lucide-react';
 
-interface ContentStrategy {
+export interface ContentStrategy {
   title: string;
   hookText: string;
   hookStyle: string;
@@ -90,6 +94,7 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
   onStateChange
 }) => {
   const { toast } = useToast();
+  const { addToQueue, queueCount } = useVideoQueue();
   const [isOpen, setIsOpen] = useState(!!initialState?.strategy);
   const [niche, setNiche] = useState(initialState?.niche || '');
   const [videoDuration, setVideoDuration] = useState<'30' | '60' | 'mix'>(initialState?.videoDuration || 'mix');
@@ -97,6 +102,7 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [strategy, setStrategy] = useState<StrategyResponse | null>(initialState?.strategy || null);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [selectedIdeas, setSelectedIdeas] = useState<Set<number>>(new Set());
 
   // Notify parent of state changes for persistence
   React.useEffect(() => {
@@ -107,6 +113,50 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
       strategy
     });
   }, [niche, videoDuration, includePromotional, strategy, onStateChange]);
+
+  // Clear selections when strategy changes
+  React.useEffect(() => {
+    setSelectedIdeas(new Set());
+  }, [strategy]);
+
+  const toggleSelection = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIdeas(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (!strategy) return;
+    if (selectedIdeas.size === strategy.videoIdeas.length) {
+      setSelectedIdeas(new Set());
+    } else {
+      setSelectedIdeas(new Set(strategy.videoIdeas.map((_, i) => i)));
+    }
+  };
+
+  const saveSelectedToQueue = () => {
+    if (!strategy || selectedIdeas.size === 0) return;
+    
+    const videosToQueue = Array.from(selectedIdeas).map(idx => ({
+      ...strategy.videoIdeas[idx],
+      niche
+    }));
+    
+    const count = addToQueue(videosToQueue);
+    setSelectedIdeas(new Set());
+    
+    toast({
+      title: 'Added to Queue!',
+      description: `${count} video${count > 1 ? 's' : ''} saved for later generation.`
+    });
+  };
 
   const generateStrategy = async () => {
     if (!niche.trim()) {
@@ -274,17 +324,46 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
 
                 {/* Video Ideas Grid */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Video Ideas ({strategy.videoIdeas.length})</Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowSchedule(!showSchedule)}
-                      className="text-xs"
-                    >
-                      <Calendar className="w-3 h-3 mr-1" />
-                      {showSchedule ? 'Hide' : 'Show'} Weekly Schedule
-                    </Button>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-medium">Video Ideas ({strategy.videoIdeas.length})</Label>
+                      {selectedIdeas.size > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {selectedIdeas.size} selected
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAll}
+                        className="text-xs"
+                      >
+                        <Check className="w-3 h-3 mr-1" />
+                        {selectedIdeas.size === strategy.videoIdeas.length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                      {selectedIdeas.size > 0 && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={saveSelectedToQueue}
+                          className="text-xs"
+                        >
+                          <ListPlus className="w-3 h-3 mr-1" />
+                          Save to Queue ({selectedIdeas.size})
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowSchedule(!showSchedule)}
+                        className="text-xs"
+                      >
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {showSchedule ? 'Hide' : 'Show'} Schedule
+                      </Button>
+                    </div>
                   </div>
 
                   {showSchedule && strategy.weeklySchedule && (
@@ -302,83 +381,99 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
 
                   <ScrollArea className="h-[400px] pr-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {strategy.videoIdeas.map((idea, idx) => (
-                        <Card
-                          key={idx}
-                          className="bg-card hover:bg-accent/50 transition-colors cursor-pointer group"
-                          onClick={() => handleApply(idea)}
-                        >
-                          <CardContent className="p-4 space-y-3">
-                            {/* Header */}
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge variant="secondary" className="text-xs shrink-0">
-                                    #{idea.seriesNumber}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground truncate">
-                                    {idea.seriesPillar}
-                                  </span>
+                      {strategy.videoIdeas.map((idea, idx) => {
+                        const isSelected = selectedIdeas.has(idx);
+                        return (
+                          <Card
+                            key={idx}
+                            className={`bg-card hover:bg-accent/50 transition-colors cursor-pointer group relative ${
+                              isSelected ? 'ring-2 ring-primary border-primary' : ''
+                            }`}
+                            onClick={() => handleApply(idea)}
+                          >
+                            {/* Checkbox */}
+                            <div 
+                              className="absolute top-3 left-3 z-10"
+                              onClick={(e) => toggleSelection(idx, e)}
+                            >
+                              <Checkbox 
+                                checked={isSelected}
+                                className="h-5 w-5 border-2"
+                              />
+                            </div>
+                            
+                            <CardContent className="p-4 pl-10 space-y-3">
+                              {/* Header */}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="secondary" className="text-xs shrink-0">
+                                      #{idea.seriesNumber}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {idea.seriesPillar}
+                                    </span>
+                                  </div>
+                                  <h4 className="font-medium text-sm leading-tight line-clamp-2">
+                                    {idea.title}
+                                  </h4>
                                 </div>
-                                <h4 className="font-medium text-sm leading-tight line-clamp-2">
-                                  {idea.title}
-                                </h4>
+                                <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                               </div>
-                              <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                            </div>
 
-                            {/* Hook Preview */}
-                            <p className="text-xs text-muted-foreground italic line-clamp-2">
-                              "{idea.hookText}"
-                            </p>
-
-                            {/* Metadata */}
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                <Clock className="w-3 h-3 mr-1" />
-                                {idea.targetDuration}s
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                <Layers className="w-3 h-3 mr-1" />
-                                {idea.sceneCount} scenes
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className={`text-xs ${contentTypeColors[idea.contentType] || ''}`}
-                              >
-                                {contentTypeIcons[idea.contentType]}
-                                <span className="ml-1 capitalize">{idea.contentType}</span>
-                              </Badge>
-                            </div>
-
-                            {/* CTA Preview */}
-                            {idea.callToAction && (
-                              <p className="text-xs text-green-400">
-                                CTA: {idea.callToAction}
+                              {/* Hook Preview */}
+                              <p className="text-xs text-muted-foreground italic line-clamp-2">
+                                "{idea.hookText}"
                               </p>
-                            )}
 
-                            {/* Scene Breakdown */}
-                            <div className="flex gap-1 pt-1">
-                              {idea.sceneDurations.map((dur, sIdx) => (
-                                <div
-                                  key={sIdx}
-                                  className="flex-1 h-1.5 bg-primary/30 rounded-full"
-                                  style={{
-                                    flex: dur,
-                                    backgroundColor: sIdx === 0 
-                                      ? 'hsl(var(--primary))' 
-                                      : sIdx === idea.sceneDurations.length - 1 
-                                        ? 'hsl(var(--accent))' 
-                                        : undefined
-                                  }}
-                                  title={`Scene ${sIdx + 1}: ${dur}s`}
-                                />
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                              {/* Metadata */}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  {idea.targetDuration}s
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  <Layers className="w-3 h-3 mr-1" />
+                                  {idea.sceneCount} scenes
+                                </Badge>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs ${contentTypeColors[idea.contentType] || ''}`}
+                                >
+                                  {contentTypeIcons[idea.contentType]}
+                                  <span className="ml-1 capitalize">{idea.contentType}</span>
+                                </Badge>
+                              </div>
+
+                              {/* CTA Preview */}
+                              {idea.callToAction && (
+                                <p className="text-xs text-green-400">
+                                  CTA: {idea.callToAction}
+                                </p>
+                              )}
+
+                              {/* Scene Breakdown */}
+                              <div className="flex gap-1 pt-1">
+                                {idea.sceneDurations.map((dur, sIdx) => (
+                                  <div
+                                    key={sIdx}
+                                    className="flex-1 h-1.5 bg-primary/30 rounded-full"
+                                    style={{
+                                      flex: dur,
+                                      backgroundColor: sIdx === 0 
+                                        ? 'hsl(var(--primary))' 
+                                        : sIdx === idea.sceneDurations.length - 1 
+                                          ? 'hsl(var(--accent))' 
+                                          : undefined
+                                    }}
+                                    title={`Scene ${sIdx + 1}: ${dur}s`}
+                                  />
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 </div>

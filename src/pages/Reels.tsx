@@ -26,6 +26,7 @@ import { VideoUpscaler } from '@/components/VideoUpscaler';
 import { CameraAngleSelector } from '@/components/CameraAngleSelector';
 import { LogoAnimation } from '@/data/reelTemplates';
 import { useReelDraftAutoSave, StrategistState } from '@/hooks/useReelDraftAutoSave';
+import { useVideoQueue, QueuedVideo } from '@/hooks/useVideoQueue';
 import { 
   Sparkles, 
   FileText, 
@@ -52,7 +53,8 @@ import {
   Wand2,
   FolderOpen,
   Copy,
-  AlertCircle
+  AlertCircle,
+  ListChecks
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -64,7 +66,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScriptGenerator } from '@/components/ScriptGenerator';
 import { ReelEditor } from '@/components/ReelEditor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TopicStrategist } from '@/components/TopicStrategist';
+import { TopicStrategist, ContentStrategy } from '@/components/TopicStrategist';
+import { VideoQueue } from '@/components/VideoQueue';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -389,6 +392,9 @@ const Reels = () => {
     getDraftAge,
     notifyDraftRestored 
   } = useReelDraftAutoSave();
+
+  // Video queue hook
+  const { queueCount } = useVideoQueue();
 
   // State for showing draft recovery banner
   const [showDraftRecoveryBanner, setShowDraftRecoveryBanner] = useState(false);
@@ -2043,6 +2049,11 @@ const Reels = () => {
                   <span className="hidden sm:inline">Create Reel</span>
                   <span className="sm:hidden">Create</span>
                 </TabsTrigger>
+                <TabsTrigger value="queue" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <ListChecks className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Queue {queueCount > 0 ? `(${queueCount})` : ''}</span>
+                  <span className="sm:hidden">Queue {queueCount > 0 ? `(${queueCount})` : ''}</span>
+                </TabsTrigger>
                 <TabsTrigger value="history" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <History className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">My Reels ({savedReels.length})</span>
@@ -3471,6 +3482,48 @@ const Reels = () => {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="queue" className="space-y-6">
+            <VideoQueue 
+              onSelectVideo={(video: QueuedVideo) => {
+                // Convert queued video to strategy format and apply it
+                const strategy: ContentStrategy = {
+                  title: video.title,
+                  hookText: video.hookText,
+                  hookStyle: video.hookStyle,
+                  targetDuration: video.targetDuration,
+                  sceneCount: video.sceneCount,
+                  sceneDurations: video.sceneDurations,
+                  contentType: video.contentType,
+                  callToAction: video.callToAction,
+                  outroTemplate: video.outroTemplate,
+                  seriesNumber: video.seriesNumber,
+                  seriesPillar: video.seriesPillar
+                };
+                
+                // Apply the strategy
+                setTopic(strategy.title);
+                setSelectedSceneCount(String(strategy.sceneCount));
+                const totalDuration = strategy.sceneDurations.reduce((a, b) => a + b, 0);
+                const avgDuration = Math.round(totalDuration / strategy.sceneCount);
+                setSelectedSceneDuration(String(avgDuration));
+                if (strategy.hookStyle) {
+                  setHookStyle(strategy.hookStyle);
+                }
+                if (strategy.outroTemplate && strategy.outroTemplate !== 'none') {
+                  setSelectedOutro(strategy.outroTemplate);
+                }
+                
+                // Switch to create tab
+                setActiveTab('create');
+                
+                toast({
+                  title: 'Video Loaded!',
+                  description: `"${strategy.title}" is ready to generate.`
+                });
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="history" className="space-y-6">
