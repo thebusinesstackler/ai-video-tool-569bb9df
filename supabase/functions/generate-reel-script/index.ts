@@ -626,9 +626,9 @@ function formatScriptForTTS(narration: string): string {
     .replace(/\u2026/g, '...');
   
   return text
-    // FIRST: Handle transition phrases WITH their trailing punctuation
-    // This captures "Let me tell you," or "And here's the thing:" or "And here's the thing..." and cleans them
-    .replace(/(But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\.\s]*/gi, '$1—\n\n')
+    // FIRST: Handle greeting and transition phrases WITH their trailing punctuation
+    // This captures "Hey everyone..," or "Let me tell you," and formats with em dash
+    .replace(/(Hey everyone|Hey there|Hello everyone|Hi everyone|Welcome back|Hey guys|Hey folks|But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\.\s]*/gi, '$1—\n\n')
     
     // SECOND: Convert existing ellipses to clean format (remove any period after)
     .replace(/\.{2,}\s*/g, '...\n\n')
