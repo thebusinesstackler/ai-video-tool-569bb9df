@@ -270,6 +270,29 @@ NARRATION RULES:
 - Every word will be spoken slowly - write naturally flowing sentences
 - Use transitional phrases between ideas: "And here's the thing...", "But wait...", "So what does this mean?"
 
+TTS-OPTIMIZED WRITING RULES (CRITICAL FOR NATURAL VOICE DELIVERY):
+- Use ellipses (...) for natural pauses and thinking moments instead of periods
+- Use em dashes (—) instead of periods for abrupt transitions that should NOT echo
+- Break long sentences into short, punchy phrases
+- Put each major thought on its own line for natural pacing
+- Use rhetorical questions liberally: "Right?" "Yeah... me too."
+- Add natural filler pauses: "And here's the thing—", "But wait..."
+- NEVER end a sentence with a period before words that might echo (like "too", "me", "you", "right", "now")
+- Instead of "Yeah. Me too." write "Yeah... me too."
+- Instead of "It's complex. Right?" write "It's complex... right?"
+- Keep sentences conversational, like someone actually speaking
+
+EXAMPLE FORMAT FOR NARRATION:
+"Ever felt overwhelmed by the options out there...
+
+Yeah... me too.
+
+It's like navigating a maze... right?
+
+But here's the truth—what really matters isn't features...
+
+It's connection."
+
 ${cameraInstructions}
 
 ${characterInstructions}
@@ -416,11 +439,12 @@ Return ONLY valid JSON array:
     console.log('Base visual style extracted:', baseVisualStyle);
     console.log('Base background extracted:', baseBackground);
 
-    // Ensure background consistency across all scenes
+    // Ensure background consistency and format narration for TTS across all scenes
     scenes = scenes.map((scene: any, index: number) => {
       const cameraAngle = CAMERA_ANGLES[index] || CAMERA_ANGLES[CAMERA_ANGLES.length - 1];
       return {
         ...scene,
+        narration: formatScriptForTTS(scene.narration || ''),
         visualDescription: ensureBackgroundConsistency(scene.visualDescription, baseBackground, cameraAngle.angle),
         cameraAngle: scene.cameraAngle || cameraAngle.angle
       };
@@ -436,9 +460,10 @@ Return ONLY valid JSON array:
         sceneNumber: index + 2
       }));
 
+      const introNarration = introConfig.introText || getDefaultIntroText(introConfig.introTemplate, topic, hookStyle);
       const introScene = {
         sceneNumber: 1,
-        narration: introConfig.introText || getDefaultIntroText(introConfig.introTemplate, topic, hookStyle),
+        narration: formatScriptForTTS(introNarration),
         visualDescription: getIntroVisualDescription(introConfig.introTemplate, topic, baseVisualStyle),
         duration: 3,
         isIntro: true,
@@ -449,7 +474,7 @@ Return ONLY valid JSON array:
     }
 
     if (hasOutro) {
-      const outroNarration = outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate);
+      const outroNarration = formatScriptForTTS(outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate));
       
       const outroScene = {
         sceneNumber: scenes.length + 1,
@@ -571,6 +596,30 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
   }
   
   return description;
+}
+
+// Format script text for natural TTS delivery - prevent echoes and improve pacing
+function formatScriptForTTS(narration: string): string {
+  if (!narration) return narration;
+  
+  return narration
+    // Convert periods before common echo-prone words to em dashes or ellipses
+    .replace(/\.\s+(too|me|you|we|right|now|yes|no|yeah)\b/gi, '...\n\n$1')
+    // Convert sentence-ending periods followed by new sentences to ellipses with line breaks
+    .replace(/\.\s+([A-Z])/g, '...\n\n$1')
+    // Convert periods at end of rhetorical questions/statements to ellipses
+    .replace(/\?\s+/g, '?\n\n')
+    // Add line breaks after common transition phrases
+    .replace(/(But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is)/gi, '$1—\n\n')
+    // Ensure proper formatting around em dashes (no extra spaces)
+    .replace(/\s*—\s*/g, '—')
+    // Convert "... right?" patterns for better flow
+    .replace(/\.\s+(right\?)/gi, '... $1')
+    // Clean up multiple line breaks
+    .replace(/\n{3,}/g, '\n\n')
+    // Clean up multiple spaces
+    .replace(/  +/g, ' ')
+    .trim();
 }
 
 // Helper functions for intro/outro defaults - now with dynamic hooks

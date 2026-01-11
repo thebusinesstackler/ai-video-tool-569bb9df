@@ -40,6 +40,27 @@ serve(async (req) => {
 4. **Social Proof/B-Roll (15-30 seconds)**: Visual evidence, product shots, happy customers
 5. **Call to Action/Outro (10-15 seconds)**: Clear next step with urgency
 
+## TTS-OPTIMIZED SCRIPT FORMATTING (CRITICAL FOR NATURAL VOICE):
+When writing scripts for AI Twin segments and voiceovers, format them for natural voice delivery:
+- Use ellipses (...) for natural pauses and thinking moments instead of periods
+- Use em dashes (—) instead of periods for abrupt transitions
+- Break into short, punchy lines for natural pacing
+- Use rhetorical questions: "Right?" "Yeah... me too."
+- NEVER end sentences with periods before words like "too", "me", "you", "right", "now"
+- Instead of "Yeah. Me too." write "Yeah... me too."
+- Add natural transitions: "And here's the thing—", "But wait..."
+
+EXAMPLE SCRIPT FORMAT:
+"Ever felt overwhelmed by the sheer number of options out there...
+
+Yeah... me too.
+
+It's like navigating a maze... right?
+
+But here's the truth—what really matters isn't features...
+
+It's how seamlessly it all connects."
+
 ## Available AI Twins for this user:
 ${availableTwins?.length > 0 ? availableTwins.map((t: any) => `- ${t.name}: ${t.description || 'No description'}`).join('\n') : 'No AI Twins created yet - suggest they create some first'}
 
@@ -57,7 +78,7 @@ When the user's idea is ready for implementation, respond with a JSON code block
     {
       "type": "twin-speaking",
       "twinName": "Name of AI Twin to use (must match available twins)",
-      "script": "What the AI Twin will say",
+      "script": "What the AI Twin will say - USE TTS-OPTIMIZED FORMATTING with ellipses and em dashes",
       "duration": 8,
       "transition": "fade-in",
       "notes": "Any production notes"
@@ -71,7 +92,7 @@ When the user's idea is ready for implementation, respond with a JSON code block
     },
     {
       "type": "broll-montage",
-      "voiceover": "Voiceover text for montage",
+      "voiceover": "Voiceover text for montage - USE TTS-OPTIMIZED FORMATTING",
       "brollPrompts": ["Visual 1", "Visual 2", "Visual 3"],
       "duration": 8,
       "transition": "cut",
@@ -97,7 +118,8 @@ When the user's idea is ready for implementation, respond with a JSON code block
 3. Be conversational and helpful, like a real creative director
 4. Only output the JSON when you have a clear, approved concept
 5. Match twin assignments to user's available twins
-6. Keep B-roll prompts detailed and specific for AI image generation`;
+6. Keep B-roll prompts detailed and specific for AI image generation
+7. ALWAYS use TTS-optimized script formatting with ellipses and em dashes for natural voice delivery`;
 
     const allMessages: Message[] = [
       { role: 'system', content: systemPrompt },
