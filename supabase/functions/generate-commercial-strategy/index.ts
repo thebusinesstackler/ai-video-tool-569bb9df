@@ -40,26 +40,31 @@ serve(async (req) => {
 4. **Social Proof/B-Roll (15-30 seconds)**: Visual evidence, product shots, happy customers
 5. **Call to Action/Outro (10-15 seconds)**: Clear next step with urgency
 
-## TTS-OPTIMIZED SCRIPT FORMATTING (CRITICAL FOR NATURAL VOICE):
-When writing scripts for AI Twin segments and voiceovers, format them for natural voice delivery:
-- Use ellipses (...) for natural pauses and thinking moments instead of periods
-- Use em dashes (—) instead of periods for abrupt transitions
-- Break into short, punchy lines for natural pacing
-- Use rhetorical questions: "Right?" "Yeah... me too."
-- NEVER end sentences with periods before words like "too", "me", "you", "right", "now"
-- Instead of "Yeah. Me too." write "Yeah... me too."
-- Add natural transitions: "And here's the thing—", "But wait..."
+## MANDATORY TTS FORMATTING (AI WILL BE REJECTED IF NOT FOLLOWED):
 
-EXAMPLE SCRIPT FORMAT:
-"Ever felt overwhelmed by the sheer number of options out there...
+CRITICAL: NEVER USE PERIODS TO END SENTENCES. Periods cause TTS to add "s" sounds making words plural (e.g., "workflow." sounds like "workflows").
 
-Yeah... me too.
+INSTEAD OF PERIODS, USE:
+- Ellipses (...) for pauses: "It's overwhelming..."
+- Em dashes (—) for abrupt stops: "Not buried in inboxes—"
+- Line breaks between EVERY thought
 
-It's like navigating a maze... right?
+WRONG FORMAT (causes TTS errors):
+"You're wrestling with this. It's complex. You see countless options."
 
-But here's the truth—what really matters isn't features...
+CORRECT FORMAT (write exactly like this):
+"You're wrestling with this...
 
-It's how seamlessly it all connects."
+It's complex—
+
+You see countless options..."
+
+MORE EXAMPLES:
+- Instead of "Yeah. Me too." write "Yeah... me too—"
+- Instead of "workflow." write "workflow—"
+- Instead of "Let me tell you. It boils down to this." write "Let me tell you—it boils down to this..."
+
+EVERY sentence must end with ... or — NEVER with a period.
 
 ## Available AI Twins for this user:
 ${availableTwins?.length > 0 ? availableTwins.map((t: any) => `- ${t.name}: ${t.description || 'No description'}`).join('\n') : 'No AI Twins created yet - suggest they create some first'}

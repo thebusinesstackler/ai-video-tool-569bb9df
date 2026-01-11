@@ -270,28 +270,32 @@ NARRATION RULES:
 - Every word will be spoken slowly - write naturally flowing sentences
 - Use transitional phrases between ideas: "And here's the thing...", "But wait...", "So what does this mean?"
 
-TTS-OPTIMIZED WRITING RULES (CRITICAL FOR NATURAL VOICE DELIVERY):
-- Use ellipses (...) for natural pauses and thinking moments instead of periods
-- Use em dashes (—) instead of periods for abrupt transitions that should NOT echo
-- Break long sentences into short, punchy phrases
-- Put each major thought on its own line for natural pacing
-- Use rhetorical questions liberally: "Right?" "Yeah... me too."
-- Add natural filler pauses: "And here's the thing—", "But wait..."
-- NEVER end a sentence with a period before words that might echo (like "too", "me", "you", "right", "now")
-- Instead of "Yeah. Me too." write "Yeah... me too."
+## MANDATORY TTS FORMATTING (AI WILL BE REJECTED IF NOT FOLLOWED):
+
+CRITICAL: NEVER USE PERIODS TO END SENTENCES. This causes TTS to add "s" sounds making words plural.
+
+INSTEAD OF PERIODS, USE:
+- Ellipses (...) for pauses and transitions: "It's overwhelming..."
+- Em dashes (—) for abrupt stops: "Not buried in inboxes—"
+- Line breaks between EVERY thought for natural pacing
+
+WRONG FORMAT (DO NOT WRITE LIKE THIS - causes TTS errors):
+"You're probably wrestling with which CTMS is right. It's a jungle out there. You see countless options."
+
+CORRECT FORMAT (WRITE EXACTLY LIKE THIS):
+"You're probably wrestling with which CTMS is right...
+
+It's a jungle out there—
+
+You see countless options..."
+
+MORE EXAMPLES OF CORRECT FORMAT:
+- Instead of "Yeah. Me too." write "Yeah... me too—"
 - Instead of "It's complex. Right?" write "It's complex... right?"
-- Keep sentences conversational, like someone actually speaking
+- Instead of "workflow." write "workflow—" (period would make it sound like "workflows")
+- Instead of "Let me tell you. It boils down to this." write "Let me tell you—it boils down to this..."
 
-EXAMPLE FORMAT FOR NARRATION:
-"Ever felt overwhelmed by the options out there...
-
-Yeah... me too.
-
-It's like navigating a maze... right?
-
-But here's the truth—what really matters isn't features...
-
-It's connection."
+EVERY sentence must end with ... or — NEVER with a period.
 
 ${cameraInstructions}
 
@@ -338,11 +342,17 @@ VISUAL RULES:
 - Camera angle should vary per scene for visual interest:
 ${CAMERA_ANGLES.slice(0, sceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
+CRITICAL VALIDATION BEFORE RETURNING:
+- Verify that your narration contains ZERO sentence-ending periods
+- Every sentence must end with ... or —
+- Line breaks between each thought
+- If you see any "." at end of sentence, replace it with "..." or "—"
+
 Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here - engaging hook that's NOT 'stop scrolling'",
+    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here ending with ... or — NEVER periods",
     "visualDescription": "Style: [style]. Subject: [what]. Camera: ${CAMERA_ANGLES[0].angle}. Lighting: [type]. Background: [env - use same for ALL scenes]. Colors: [palette]. Mood: [mood].",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
@@ -598,23 +608,26 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
   return description;
 }
 
-// Format script text for natural TTS delivery - prevent echoes and improve pacing
+// AGGRESSIVE TTS formatter - converts ALL periods to prevent "s" sound artifacts
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
   return narration
-    // Convert periods before common echo-prone words to em dashes or ellipses
-    .replace(/\.\s+(too|me|you|we|right|now|yes|no|yeah)\b/gi, '...\n\n$1')
-    // Convert sentence-ending periods followed by new sentences to ellipses with line breaks
-    .replace(/\.\s+([A-Z])/g, '...\n\n$1')
-    // Convert periods at end of rhetorical questions/statements to ellipses
+    // AGGRESSIVE: Convert ALL sentence-ending periods to em dashes with line breaks
+    // This is the main fix for words like "workflow." sounding like "workflows"
+    .replace(/\.(\s|$)/g, '—\n\n')
+    // Convert commas before conjunctions to ellipses for breath pauses
+    .replace(/,\s+(and|but|so|because|or|if|when|while)\b/gi, '...\n\n$1')
+    // Add line breaks after question marks
     .replace(/\?\s+/g, '?\n\n')
-    // Add line breaks after common transition phrases
-    .replace(/(But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is)/gi, '$1—\n\n')
+    // Add line breaks after exclamation marks
+    .replace(/!\s+/g, '!\n\n')
+    // Add pauses after common transition phrases
+    .replace(/(But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's)/gi, '$1—\n\n')
+    // Clean up double em dashes
+    .replace(/—\s*—/g, '—')
     // Ensure proper formatting around em dashes (no extra spaces)
-    .replace(/\s*—\s*/g, '—')
-    // Convert "... right?" patterns for better flow
-    .replace(/\.\s+(right\?)/gi, '... $1')
+    .replace(/\s*—\s*/g, '—\n\n')
     // Clean up multiple line breaks
     .replace(/\n{3,}/g, '\n\n')
     // Clean up multiple spaces
