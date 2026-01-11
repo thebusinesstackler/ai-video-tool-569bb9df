@@ -399,18 +399,52 @@ serve(async (req) => {
           // Lip sync models require audio input - use provided audio or generate voiceover
           let sceneAudioUrl = audioUrl;
           
-          // Check if we have valid pre-generated audio (storage URL or base64)
-          const hasValidAudio = sceneAudioUrl && 
-            (sceneAudioUrl.startsWith('http') || sceneAudioUrl.startsWith('data:'));
+          // WaveSpeed lip sync models require HTTP URLs, not base64 data URIs
+          // If we have base64 audio, we need to upload it to storage first
+          const isHttpUrl = sceneAudioUrl?.startsWith('http');
+          const isBase64 = sceneAudioUrl?.startsWith('data:audio');
           
           console.log(`Scene ${scene.sceneNumber}: Pre-generated audio check:`, {
             audioUrl: sceneAudioUrl ? sceneAudioUrl.substring(0, 50) + '...' : 'none',
-            hasValidAudio
+            isHttpUrl,
+            isBase64
           });
           
-          // ONLY generate WaveSpeed TTS if no pre-generated audio was provided
-          // This prevents double-voice issue when frontend has already generated Google Cloud TTS
-          if (!hasValidAudio && scene.narration && WAVESPEED_API_KEY) {
+          // If audio is base64, upload it to storage to get HTTP URL
+          if (isBase64 && supabase) {
+            console.log(`Scene ${scene.sceneNumber}: Converting base64 audio to storage URL`);
+            try {
+              // Extract base64 data
+              const base64Data = sceneAudioUrl!.split(',')[1];
+              const audioBytes = base64ToUint8Array(base64Data);
+              
+              // Upload to storage
+              const fileName = `voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('reels')
+                .upload(fileName, audioBytes, { contentType: 'audio/mp3', upsert: true });
+              
+              if (!uploadError && uploadData) {
+                const { data: publicUrl } = supabase.storage
+                  .from('reels')
+                  .getPublicUrl(fileName);
+                sceneAudioUrl = publicUrl.publicUrl;
+                console.log(`Scene ${scene.sceneNumber}: Uploaded audio to storage:`, sceneAudioUrl);
+              } else {
+                console.error(`Scene ${scene.sceneNumber}: Audio upload failed:`, uploadError);
+                sceneAudioUrl = undefined; // Clear so we fall back to WaveSpeed TTS
+              }
+            } catch (uploadErr) {
+              console.error(`Scene ${scene.sceneNumber}: Audio upload error:`, uploadErr);
+              sceneAudioUrl = undefined;
+            }
+          }
+          
+          // Check if we now have a valid HTTP URL for audio
+          const hasValidHttpAudio = sceneAudioUrl?.startsWith('http');
+          
+          // Generate WaveSpeed TTS if no valid HTTP audio was provided
+          if (!hasValidHttpAudio && scene.narration && WAVESPEED_API_KEY) {
             console.log(`Scene ${scene.sceneNumber}: Generating voiceover via WaveSpeed MiniMax TTS`);
             
             try {

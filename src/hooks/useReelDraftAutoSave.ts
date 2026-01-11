@@ -59,6 +59,29 @@ export function useReelDraftAutoSave() {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSaveRef = useRef<number>(0);
 
+  // Clean large data from project before saving
+  const cleanProjectForStorage = useCallback((project: any) => {
+    return {
+      ...project,
+      // Keep only essential data, remove base64 data URLs to save space
+      previewScenes: project.previewScenes?.map((scene: any) => ({
+        ...scene,
+        // Keep image URLs but strip base64 data URIs (they're too large)
+        imageUrl: scene.imageUrl?.startsWith('data:') ? null : scene.imageUrl,
+        audioUrl: scene.audioUrl?.startsWith('data:') ? null : scene.audioUrl,
+      })) || [],
+      generatedScenes: project.generatedScenes?.map((scene: any) => ({
+        ...scene,
+        imageUrl: scene.imageUrl?.startsWith('data:') ? null : scene.imageUrl,
+      })) || [],
+      voiceovers: project.voiceovers?.map((v: any) => ({
+        ...v,
+        // Keep storage URLs, remove base64
+        audioUrl: v.audioUrl?.startsWith('data:') ? (v.storageUrl || null) : v.audioUrl,
+      })) || [],
+    };
+  }, []);
+
   // Save draft to localStorage
   const saveDraft = useCallback((state: Omit<ReelDraftState, 'savedAt'>) => {
     // Skip if nothing meaningful to save
@@ -67,17 +90,65 @@ export function useReelDraftAutoSave() {
     }
 
     try {
+      // Clean large data to avoid quota issues
+      const cleanedProject = cleanProjectForStorage(state.project);
+      
       const draft: ReelDraftState = {
         ...state,
+        project: cleanedProject,
+        // Also clean portrait image if it's base64
+        portraitImage: state.portraitImage?.startsWith('data:') ? null : state.portraitImage,
+        preSelectedReference: state.preSelectedReference?.startsWith('data:') ? null : state.preSelectedReference,
         savedAt: Date.now()
       };
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      
+      // Check size before saving (localStorage limit is ~5MB)
+      const draftJson = JSON.stringify(draft);
+      if (draftJson.length > 4 * 1024 * 1024) { // 4MB safety limit
+        console.warn('[AutoSave] Draft too large, skipping save');
+        return;
+      }
+      
+      localStorage.setItem(DRAFT_KEY, draftJson);
       lastSaveRef.current = draft.savedAt;
       console.log('[AutoSave] Draft saved at', new Date(draft.savedAt).toLocaleTimeString());
     } catch (error) {
       console.error('[AutoSave] Failed to save draft:', error);
+      // If quota exceeded, clear old draft and try again with minimal data
+      if ((error as any)?.name === 'QuotaExceededError') {
+        try {
+          localStorage.removeItem(DRAFT_KEY);
+          const minimalDraft = {
+            topic: state.topic,
+            selectedSceneCount: state.selectedSceneCount,
+            selectedSceneDuration: state.selectedSceneDuration,
+            selectedVoice: state.selectedVoice,
+            selectedVideoSize: state.selectedVideoSize,
+            transitionStyle: state.transitionStyle,
+            hookStyle: state.hookStyle,
+            characterDescription: state.characterDescription,
+            preSelectedReference: null,
+            selectedTwinId: state.selectedTwinId,
+            selectedIntro: state.selectedIntro,
+            selectedOutro: state.selectedOutro,
+            introText: state.introText,
+            outroText: state.outroText,
+            enableCutScenes: state.enableCutScenes,
+            enableLipSync: state.enableLipSync,
+            portraitImage: null,
+            project: { topic: state.project.topic, scenes: [], voiceovers: [], generatedScenes: [], videoClips: [], previewScenes: [], status: state.project.status },
+            featureToggles: state.featureToggles,
+            strategist: state.strategist,
+            savedAt: Date.now()
+          };
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(minimalDraft));
+          console.log('[AutoSave] Saved minimal draft after quota error');
+        } catch (e) {
+          console.error('[AutoSave] Even minimal save failed:', e);
+        }
+      }
     }
-  }, []);
+  }, [cleanProjectForStorage]);
 
   // Debounced save
   const saveDraftDebounced = useCallback((state: Omit<ReelDraftState, 'savedAt'>) => {
