@@ -64,6 +64,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScriptGenerator } from '@/components/ScriptGenerator';
 import { ReelEditor } from '@/components/ReelEditor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { TopicStrategist } from '@/components/TopicStrategist';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -2108,6 +2109,37 @@ const Reels = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* AI Topic Strategist */}
+                <TopicStrategist
+                  onApplyStrategy={(strategy) => {
+                    // Build topic with title and hook
+                    setTopic(`${strategy.title}\n\nHook: ${strategy.hookText}`);
+                    
+                    // Set scene count
+                    setSelectedSceneCount(strategy.sceneCount.toString());
+                    
+                    // Calculate average scene duration
+                    const avgDuration = Math.round(strategy.targetDuration / strategy.sceneCount);
+                    setSelectedSceneDuration(avgDuration.toString());
+                    
+                    // Set hook style
+                    setHookStyle(strategy.hookStyle);
+                    
+                    // Set outro template if available
+                    if (strategy.outroTemplate) {
+                      setSelectedOutro(strategy.outroTemplate);
+                    }
+                    
+                    // Set CTA text for promotional content
+                    if (strategy.callToAction) {
+                      setOutroText(strategy.callToAction);
+                      setFeatureToggles(prev => ({ ...prev, introOutro: true }));
+                      setTemplateSectionOpen(true);
+                    }
+                  }}
+                  disabled={isGenerating}
+                />
+
                 <div className="space-y-2">
                   <Label htmlFor="topic">Topic / Idea</Label>
                   <div className="relative">

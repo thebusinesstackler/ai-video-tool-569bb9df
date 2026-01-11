@@ -95,3 +95,6 @@ verify_jwt = true
 
 [functions.generate-commercial-strategy]
 verify_jwt = true
+
+[functions.generate-content-strategy]
+verify_jwt = false
