@@ -4,6 +4,17 @@ import { useToast } from '@/hooks/use-toast';
 const DRAFT_KEY = 'reel-draft-autosave';
 const AUTOSAVE_DEBOUNCE_MS = 2000;
 
+export interface StrategistState {
+  niche: string;
+  videoDuration: '30' | '60' | 'mix';
+  includePromotional: boolean;
+  strategy: {
+    contentPillars: { name: string; description: string; color: string }[];
+    videoIdeas: any[];
+    weeklySchedule: { day: string; pillar: string; contentType: string }[];
+  } | null;
+}
+
 export interface ReelDraftState {
   topic: string;
   selectedSceneCount: string;
@@ -39,6 +50,7 @@ export interface ReelDraftState {
     captions: boolean;
     backgroundMusic: boolean;
   };
+  strategist?: StrategistState;
   savedAt: number;
 }
 
