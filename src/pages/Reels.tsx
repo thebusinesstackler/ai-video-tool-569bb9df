@@ -889,10 +889,10 @@ const Reels = () => {
     }
     
     try {
-      // Fetch all columns including scenes for individual clips display, plus draft info
+      // Fetch lightweight columns first - exclude heavy scenes/draft_state to avoid JSON parse failures on large responses
       const { data, error } = await supabase
         .from('reels')
-        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, scenes, caption_settings, audio_url, is_draft, draft_state')
+        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, caption_settings, audio_url, is_draft')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -914,12 +914,12 @@ const Reels = () => {
         video_url: item.video_url,
         thumbnail_url: item.thumbnail_url,
         audio_url: item.audio_url,
-        scenes: (item.scenes as unknown as GeneratedScene[]) || [],
+        scenes: [],
         total_duration: item.total_duration ?? 0,
         created_at: item.created_at,
         caption_settings: item.caption_settings as SavedReel['caption_settings'],
         is_draft: item.is_draft ?? false,
-        draft_state: item.draft_state as unknown as DraftState | null
+        draft_state: null
       }));
       
       // Separate drafts from completed reels
@@ -1073,14 +1073,26 @@ const Reels = () => {
   };
 
   // Restore a draft from the database
-  const restoreDraftFromDatabase = (draft: SavedReel) => {
-    if (!draft.draft_state) {
-      // If no draft_state, just load the topic and scenes like duplicateReel
-      duplicateReel(draft);
-      return;
-    }
+  const restoreDraftFromDatabase = async (draft: SavedReel) => {
+    // Fetch full draft data (scenes + draft_state) on demand to avoid large list queries
+    try {
+      const { data: fullDraft, error } = await supabase
+        .from('reels')
+        .select('scenes, draft_state')
+        .eq('id', draft.id)
+        .single();
+      
+      if (error) throw error;
+      
+      const draftState = fullDraft?.draft_state as unknown as DraftState | null;
+      
+      if (!draftState) {
+        // If no draft_state, just load the topic and scenes like duplicateReel
+        duplicateReel({ ...draft, scenes: (fullDraft?.scenes as unknown as GeneratedScene[]) || [] });
+        return;
+      }
 
-    const ds = draft.draft_state;
+    const ds = draftState;
     
     // Restore all settings
     setTopic(draft.topic);
@@ -1139,6 +1151,14 @@ const Reels = () => {
       title: "Draft Restored!",
       description: "All your settings and scenes have been loaded. Continue editing!"
     });
+    } catch (err: any) {
+      console.error('Error restoring draft:', err);
+      toast({
+        title: "Restore Failed",
+        description: err.message || "Failed to load draft data.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Delete a draft reel
