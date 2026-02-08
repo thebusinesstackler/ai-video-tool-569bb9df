@@ -2928,41 +2928,45 @@ const Reels = () => {
               </CardContent>
             </Card>
 
-            {/* Voice Selection - Always Visible */}
-            {selectedTwinId && aiTwins.find(t => t.id === selectedTwinId)?.voice_cloning_key ? (
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    AI Twin Cloned Voice Active
-                  </CardTitle>
-                  <CardDescription>
-                    Using cloned voice from "{aiTwins.find(t => t.id === selectedTwinId)?.name}"
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setSelectedTwinId(null);
-                      setSelectedVoice('en-US-Journey-D');
-                      toast({
-                        title: "Voice Reset",
-                        description: "Switched to standard voice selection",
-                      });
-                    }}
-                  >
-                    Switch to Standard Voice
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <VoiceSelector 
-                selectedVoice={selectedVoice}
-                onVoiceSelect={setSelectedVoice}
-                disabled={isGenerating}
-              />
+            {/* Voice Selection - Hidden when using uploaded audio */}
+            {customAudioMode !== 'upload' && (
+              <>
+                {selectedTwinId && aiTwins.find(t => t.id === selectedTwinId)?.voice_cloning_key ? (
+                  <Card className="bg-card border-border">
+                    <CardHeader>
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        AI Twin Cloned Voice Active
+                      </CardTitle>
+                      <CardDescription>
+                        Using cloned voice from "{aiTwins.find(t => t.id === selectedTwinId)?.name}"
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedTwinId(null);
+                          setSelectedVoice('en-US-Journey-D');
+                          toast({
+                            title: "Voice Reset",
+                            description: "Switched to standard voice selection",
+                          });
+                        }}
+                      >
+                        Switch to Standard Voice
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <VoiceSelector 
+                    selectedVoice={selectedVoice}
+                    onVoiceSelect={setSelectedVoice}
+                    disabled={isGenerating}
+                  />
+                )}
+              </>
             )}
 
             {/* Lip Sync Mode - Expandable */}
