@@ -496,7 +496,13 @@ const Movies = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">{scene.description}</p>
                       {scene.dialogue && (
-                        <p className="text-sm text-muted-foreground italic mt-2">"{scene.dialogue}"</p>
+                        <p className="text-sm text-muted-foreground italic mt-2">
+                          "{typeof scene.dialogue === 'string' 
+                            ? scene.dialogue 
+                            : Array.isArray(scene.dialogue) 
+                              ? (scene.dialogue as any[]).map((d: any) => d.line).join(' ') 
+                              : ''}"
+                        </p>
                       )}
                     </div>
                     
