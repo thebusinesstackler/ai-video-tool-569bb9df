@@ -203,7 +203,11 @@ export const VideoProcessingStatus: React.FC<VideoProcessingStatusProps> = ({
               )}
               
               <div className="text-xs text-muted-foreground truncate">
-                "{segment.dialogue}"
+                "{typeof segment.dialogue === 'string' 
+                  ? segment.dialogue 
+                  : Array.isArray(segment.dialogue) 
+                    ? (segment.dialogue as any[]).map((d: any) => d.line).join(' ') 
+                    : ''}"
               </div>
             </div>
           ))}
