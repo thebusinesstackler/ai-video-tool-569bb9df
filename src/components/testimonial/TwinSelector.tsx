@@ -8,7 +8,6 @@ import { User } from 'lucide-react';
 interface AITwin {
   id: string;
   name: string;
-  reference_images: string[] | null;
   voice_cloning_key: string | null;
 }
 
@@ -29,7 +28,7 @@ export function TwinSelector({ value, onSelect, label = "Select AI Twin" }: Twin
 
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('id, name, reference_images, voice_cloning_key')
+        .select('id, name, voice_cloning_key')
         .eq('user_id', user.id)
         .order('name');
 
@@ -56,7 +55,6 @@ export function TwinSelector({ value, onSelect, label = "Select AI Twin" }: Twin
             {selectedTwin && (
               <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src={selectedTwin.reference_images?.[0]} />
                   <AvatarFallback><User className="h-3 w-3" /></AvatarFallback>
                 </Avatar>
                 <span>{selectedTwin.name}</span>
@@ -74,7 +72,6 @@ export function TwinSelector({ value, onSelect, label = "Select AI Twin" }: Twin
               <SelectItem key={twin.id} value={twin.id}>
                 <div className="flex items-center gap-2">
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={twin.reference_images?.[0]} />
                     <AvatarFallback><User className="h-3 w-3" /></AvatarFallback>
                   </Avatar>
                   <span>{twin.name}</span>
