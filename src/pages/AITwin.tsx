@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Plus, 
@@ -39,6 +40,7 @@ interface AITwin {
 
 const AITwin = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [twins, setTwins] = useState<AITwin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,8 +54,15 @@ const AITwin = () => {
   const [currentMigratingTwin, setCurrentMigratingTwin] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user?.id) {
+      setTwins([]);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
+
     loadTwins();
-  }, []);
+  }, [user?.id]);
 
   // Check for twins with base64 images
   useEffect(() => {
@@ -62,36 +71,38 @@ const AITwin = () => {
         twin.reference_images?.some(img => img.startsWith('data:'))
       );
       setTwinsWithBase64(needsMigration);
+      return;
     }
+
+    setTwinsWithBase64([]);
   }, [twins]);
 
   const loadTwins = async () => {
+    if (!user?.id) {
+      setTwins([]);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setLoadError(null);
-      // Only select minimal fields to avoid loading huge base64 strings initially
+
       const { data, error } = await supabase
         .from('ai_twins')
         .select('id, user_id, name, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, created_at, updated_at')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Now fetch reference_images separately for each twin (in parallel)
-      const twinsWithImages = await Promise.all((data || []).map(async (twin) => {
-        const { data: imageData, error: imgError } = await supabase
-          .from('ai_twins')
-          .select('reference_images')
-          .eq('id', twin.id)
-          .single();
-        
-        return {
-          ...twin,
-          reference_images: imgError ? [] : (imageData?.reference_images || [])
-        } as AITwin;
-      }));
-      
-      setTwins(twinsWithImages);
+
+      const twinsWithoutHeavyImages = (data || []).map((twin) => ({
+        ...twin,
+        reference_images: []
+      })) as AITwin[];
+
+      setTwins(twinsWithoutHeavyImages);
     } catch (error: any) {
       console.error('Error loading twins:', error);
       setLoadError(error.message || 'Failed to load AI Twins');

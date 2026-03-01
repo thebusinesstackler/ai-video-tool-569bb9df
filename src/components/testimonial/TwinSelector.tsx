@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 
 interface AITwin {
@@ -23,19 +23,32 @@ export function TwinSelector({ value, onSelect, label = "Select AI Twin" }: Twin
 
   useEffect(() => {
     async function fetchTwins() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setTwins([]);
+          return;
+        }
 
-      const { data, error } = await supabase
-        .from('ai_twins')
-        .select('id, name, voice_cloning_key')
-        .eq('user_id', user.id)
-        .order('name');
+        const { data, error } = await supabase
+          .from('ai_twins')
+          .select('id, name, voice_cloning_key')
+          .eq('user_id', user.id)
+          .order('name');
 
-      if (!error && data) {
-        setTwins(data);
+        if (error) {
+          console.error('Error loading AI twins:', error);
+          setTwins([]);
+          return;
+        }
+
+        setTwins(data || []);
+      } catch (error) {
+        console.error('Error loading AI twins:', error);
+        setTwins([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     fetchTwins();

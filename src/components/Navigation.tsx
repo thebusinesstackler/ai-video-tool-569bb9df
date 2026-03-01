@@ -62,7 +62,11 @@ export const Navigation = () => {
   useEffect(() => {
     if (user) {
       loadUsageStats();
+      return;
     }
+
+    setVideosCount(0);
+    setIsLoading(false);
   }, [user]);
 
   // Close mobile menu on route change
@@ -76,16 +80,15 @@ export const Navigation = () => {
   }, [isCollapsed]);
 
   const loadUsageStats = async () => {
+    if (!user) return;
+
     try {
       setIsLoading(true);
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      
-      if (!currentUser) return;
 
       const { data: projects, error } = await supabase
         .from('projects')
         .select('id')
-        .eq('user_id', currentUser.id);
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Error loading usage stats:', error);
