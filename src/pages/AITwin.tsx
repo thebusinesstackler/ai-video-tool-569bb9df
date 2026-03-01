@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,9 @@ import {
   RefreshCw,
   AlertCircle,
   AlertTriangle,
-  Database
+  Database,
+  WifiOff,
+  LogOut
 } from 'lucide-react';
 import { TwinCreationWizard } from '@/components/ai-twin/TwinCreationWizard';
 import { TwinCard } from '@/components/ai-twin/TwinCard';
@@ -38,14 +40,48 @@ interface AITwin {
   updated_at: string;
 }
 
+const CACHE_KEY = 'ai_twins_cache';
+
+function getCachedTwins(): AITwin[] | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function setCachedTwins(twins: AITwin[]) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(twins));
+  } catch { /* ignore quota errors */ }
+}
+
+type ErrorKind = 'connectivity' | 'auth' | 'generic';
+
+function classifyError(error: unknown): ErrorKind {
+  const msg = String(error).toLowerCase();
+  if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('503') || msg.includes('timeout') || msg.includes('upstream')) {
+    return 'connectivity';
+  }
+  if (msg.includes('jwt') || msg.includes('401') || msg.includes('auth') || msg.includes('refresh')) {
+    return 'auth';
+  }
+  return 'generic';
+}
+
 const AITwin = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, clearLocalSession, authServiceDown } = useAuth();
   const [twins, setTwins] = useState<AITwin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<ErrorKind>('generic');
+  const [isStale, setIsStale] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
+  const toastShownRef = useRef(false);
   
   // Migration state
   const [twinsWithBase64, setTwinsWithBase64] = useState<AITwin[]>([]);
@@ -53,31 +89,7 @@ const AITwin = () => {
   const [migrationProgress, setMigrationProgress] = useState(0);
   const [currentMigratingTwin, setCurrentMigratingTwin] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user?.id) {
-      setTwins([]);
-      setLoadError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    loadTwins();
-  }, [user?.id]);
-
-  // Check for twins with base64 images
-  useEffect(() => {
-    if (twins.length > 0) {
-      const needsMigration = twins.filter(twin => 
-        twin.reference_images?.some(img => img.startsWith('data:'))
-      );
-      setTwinsWithBase64(needsMigration);
-      return;
-    }
-
-    setTwinsWithBase64([]);
-  }, [twins]);
-
-  const loadTwins = async () => {
+  const loadTwins = useCallback(async (isUserRetry = false) => {
     if (!user?.id) {
       setTwins([]);
       setLoadError(null);
@@ -88,33 +100,83 @@ const AITwin = () => {
     try {
       setIsLoading(true);
       setLoadError(null);
+      setIsStale(false);
+
+      // Race the fetch against a timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
 
       const { data, error } = await supabase
         .from('ai_twins')
         .select('id, user_id, name, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, created_at, updated_at')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .abortSignal(controller.signal);
+
+      clearTimeout(timeout);
 
       if (error) throw error;
 
-      const twinsWithoutHeavyImages = (data || []).map((twin) => ({
+      const twinsData = (data || []).map((twin) => ({
         ...twin,
         reference_images: []
       })) as AITwin[];
 
-      setTwins(twinsWithoutHeavyImages);
+      setTwins(twinsData);
+      setCachedTwins(twinsData);
+      toastShownRef.current = false;
     } catch (error: any) {
       console.error('Error loading twins:', error);
-      setLoadError(error.message || 'Failed to load AI Twins');
-      toast({
-        title: 'Error',
-        description: 'Failed to load AI Twins. Click retry to try again.',
-        variant: 'destructive'
-      });
+      const kind = classifyError(error);
+      setErrorKind(kind);
+
+      // Fall back to cache
+      const cached = getCachedTwins();
+      if (cached && cached.length > 0) {
+        setTwins(cached);
+        setIsStale(true);
+        setLoadError(null);
+      } else {
+        setLoadError(error.message || 'Failed to load AI Twins');
+      }
+
+      // Only toast on user-initiated retry or first failure
+      if (isUserRetry || !toastShownRef.current) {
+        toastShownRef.current = true;
+        toast({
+          title: kind === 'connectivity' ? 'Connection Issue' : 'Error',
+          description: kind === 'connectivity'
+            ? 'Backend is unreachable. Showing cached data if available.'
+            : 'Failed to load AI Twins.',
+          variant: 'destructive'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id, toast]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setTwins([]);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
+    loadTwins();
+  }, [user?.id, loadTwins]);
+
+  // Check for twins with base64 images
+  useEffect(() => {
+    if (twins.length > 0) {
+      const needsMigration = twins.filter(twin => 
+        twin.reference_images?.some(img => img.startsWith('data:'))
+      );
+      setTwinsWithBase64(needsMigration);
+    } else {
+      setTwinsWithBase64([]);
+    }
+  }, [twins]);
 
   const migrateAllTwins = async () => {
     if (twinsWithBase64.length === 0) return;
@@ -148,12 +210,11 @@ const AITwin = () => {
     setIsMigrating(false);
     setCurrentMigratingTwin(null);
     
-    // Reload twins to reflect changes
     await loadTwins();
     
     toast({
       title: 'Migration Complete',
-      description: `Migrated images for ${migrated} AI Twins. Pages should load faster now.`
+      description: `Migrated images for ${migrated} AI Twins.`
     });
   };
 
@@ -166,24 +227,26 @@ const AITwin = () => {
 
       if (error) throw error;
 
-      setTwins(prev => prev.filter(t => t.id !== id));
-      toast({
-        title: 'Deleted',
-        description: 'AI Twin has been removed'
+      setTwins(prev => {
+        const updated = prev.filter(t => t.id !== id);
+        setCachedTwins(updated);
+        return updated;
       });
+      toast({ title: 'Deleted', description: 'AI Twin has been removed' });
     } catch (error: any) {
       console.error('Error deleting twin:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete AI Twin',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: 'Failed to delete AI Twin', variant: 'destructive' });
     }
   };
 
   const handleWizardComplete = () => {
     setShowWizard(false);
     loadTwins();
+  };
+
+  const handleClearSessionRetry = () => {
+    clearLocalSession();
+    window.location.reload();
   };
 
   return (
@@ -208,6 +271,41 @@ const AITwin = () => {
             Create AI Twin
           </Button>
         </div>
+
+        {/* Backend down banner */}
+        {authServiceDown && (
+          <Alert variant="destructive">
+            <WifiOff className="h-4 w-4" />
+            <AlertTitle>Backend Unavailable</AlertTitle>
+            <AlertDescription>
+              <p className="text-sm mb-3">The backend is currently unreachable. Your data is safe — try again shortly.</p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => loadTwins(true)}>
+                  <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleClearSessionRetry}>
+                  <LogOut className="w-3 h-3 mr-1" /> Clear Session & Retry
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Stale data indicator */}
+        {isStale && !isLoading && (
+          <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
+            <WifiOff className="h-4 w-4 text-amber-500" />
+            <AlertTitle className="text-amber-600 dark:text-amber-400">Showing Cached Data</AlertTitle>
+            <AlertDescription>
+              <p className="text-sm text-muted-foreground mb-2">
+                Live data couldn't be loaded. You're seeing previously loaded twins.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => loadTwins(true)}>
+                <RefreshCw className="w-3 h-3 mr-1" /> Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Migration Alert Banner */}
         {twinsWithBase64.length > 0 && !isLoading && (
@@ -247,15 +345,31 @@ const AITwin = () => {
         ) : loadError ? (
           <Card className="border-destructive">
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <AlertCircle className="w-16 h-16 text-destructive mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Failed to Load</h3>
+              {errorKind === 'connectivity' ? (
+                <WifiOff className="w-16 h-16 text-destructive mb-4" />
+              ) : (
+                <AlertCircle className="w-16 h-16 text-destructive mb-4" />
+              )}
+              <h3 className="text-xl font-semibold mb-2">
+                {errorKind === 'connectivity' ? 'Connection Failed' : 'Failed to Load'}
+              </h3>
               <p className="text-muted-foreground text-center max-w-md mb-6">
-                {loadError}
+                {errorKind === 'connectivity' 
+                  ? 'The backend is unreachable. Your data is safe — try again in a moment.'
+                  : loadError}
               </p>
-              <Button onClick={loadTwins} variant="outline">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={() => loadTwins(true)} variant="outline">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+                {errorKind !== 'generic' && (
+                  <Button onClick={handleClearSessionRetry} variant="ghost">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Clear Session & Retry
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ) : twins.length === 0 ? (

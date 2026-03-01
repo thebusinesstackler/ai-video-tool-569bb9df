@@ -60,6 +60,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         // Detect token refresh failures as service issues
         if (event === 'TOKEN_REFRESHED' && !session) {
           setAuthServiceDown(true);
+        } else if (event === 'SIGNED_OUT') {
+          setAuthServiceDown(false);
         } else if (session) {
           setAuthServiceDown(false);
         }
@@ -71,7 +73,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
     // THEN check for existing session
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+      .then(({ data: { session }, error }) => {
+        // Handle returned errors (not thrown) — e.g. refresh failures
+        if (error) {
+          console.error('Session fetch returned error:', error);
+          if (isServiceDown(error)) {
+            setAuthServiceDown(true);
+          }
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
