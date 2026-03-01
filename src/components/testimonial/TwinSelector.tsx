@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -18,22 +19,23 @@ interface TwinSelectorProps {
 }
 
 export function TwinSelector({ value, onSelect, label = "Select AI Twin" }: TwinSelectorProps) {
+  const { user } = useAuth();
   const [twins, setTwins] = useState<AITwin[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user?.id) {
+      setTwins([]);
+      setLoading(false);
+      return;
+    }
+
     async function fetchTwins() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setTwins([]);
-          return;
-        }
-
         const { data, error } = await supabase
           .from('ai_twins')
           .select('id, name, voice_cloning_key')
-          .eq('user_id', user.id)
+          .eq('user_id', user!.id)
           .order('name');
 
         if (error) {
@@ -52,7 +54,7 @@ export function TwinSelector({ value, onSelect, label = "Select AI Twin" }: Twin
     }
 
     fetchTwins();
-  }, []);
+  }, [user?.id]);
 
   const selectedTwin = twins.find(t => t.id === value);
 

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Send, Sparkles, Wand2, ChevronDown, ChevronUp, Music, Clock, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { CommercialSegment } from '@/types/testimonialCommercial';
 
@@ -123,6 +124,7 @@ Just return the voiceover text directly, no JSON, no quotes, just the script its
 }
 
 export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }: CommercialStrategistProps) {
+  const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -135,21 +137,23 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
 
   // Fetch user's AI twins
   useEffect(() => {
-    async function fetchTwins() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!user?.id) {
+      setTwins([]);
+      return;
+    }
 
+    async function fetchTwins() {
       const { data } = await supabase
         .from('ai_twins')
         .select('id, name, description, voice_cloning_key')
-        .eq('user_id', user.id);
+        .eq('user_id', user!.id);
 
       if (data) {
         setTwins(data);
       }
     }
     fetchTwins();
-  }, []);
+  }, [user?.id]);
 
   // Auto-scroll to bottom
   useEffect(() => {
