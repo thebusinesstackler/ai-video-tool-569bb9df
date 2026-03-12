@@ -19,18 +19,11 @@ import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
 import NotFound from "./pages/NotFound";
 
-import { isDevPreview } from '@/lib/devBypass';
-
 const queryClient = new QueryClient();
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuth();
-  
-  // Bypass auth in dev preview
-  if (isDevPreview) {
-    return <>{children}</>;
-  }
   
   if (loading) {
     return (

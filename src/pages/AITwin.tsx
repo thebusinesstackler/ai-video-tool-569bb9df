@@ -119,7 +119,7 @@ const AITwin = () => {
 
       const twinsData = (data || []).map((twin) => ({
         ...twin,
-        reference_images: []
+        reference_images: twin.reference_images || []
       })) as AITwin[];
 
       setTwins(twinsData);
