@@ -1352,6 +1352,7 @@ const MovieSceneCreator = () => {
 
       // Auto-save
       setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+      setCurrentStep(3); // Auto-advance to Scenes step
 
     } catch (error: any) {
       console.error('Error in generateAll:', error);
