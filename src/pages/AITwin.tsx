@@ -108,7 +108,7 @@ const AITwin = () => {
 
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('id, user_id, name, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, created_at, updated_at')
+        .select('id, user_id, name, reference_images, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, created_at, updated_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .abortSignal(controller.signal);
@@ -119,7 +119,7 @@ const AITwin = () => {
 
       const twinsData = (data || []).map((twin) => ({
         ...twin,
-        reference_images: []
+        reference_images: twin.reference_images || []
       })) as AITwin[];
 
       setTwins(twinsData);
