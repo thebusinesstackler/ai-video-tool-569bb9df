@@ -1,95 +1,77 @@
 
-Goal: stop the AI Twin area from getting stuck/failing repeatedly and make it recover gracefully when the backend connection is unstable.
 
-What I found
-1. The failure pattern is backend connectivity/auth-refresh related, not a JSX/UI rendering bug:
-   - Repeated `Failed to fetch` on token refresh and `ai_twins` reads.
-   - Backend SQL inspection attempts also timed out (status 544), which points to backend saturation/connection instability.
-2. The AI Twin page already has lightweight list queries (good), but current failure handling is still brittle:
-   - User sees repeated load failures without enough guided recovery.
-   - If requests hang, UX can feel like “just loading”.
-3. Auth state resilience is incomplete:
-   - Initial session bootstrap handles thrown exceptions, but not all returned auth errors from session fetch pathways.
-   - This can leave the app in a confusing state where protected data calls keep failing but recovery signals are weak.
-4. Data access rules look correct for AI twins:
-   - `ai_twins` is user-scoped via row-level policies (`auth.uid() = user_id`), so no policy looseness is needed.
-   - No database schema changes are required for this fix.
+# Redesign Movie Scene Creator as a Step-by-Step Wizard
 
-Implementation plan
+## Problem
+The current page is a 4000-line vertical scroll with everything visible at once — movie idea, character selection, story bible, outline, locations, scenes, and export all stacked on top of each other. It's overwhelming and hard to follow.
 
-Phase 1 — Harden auth/outage detection (foundation)
-Files:
-- `src/components/AuthProvider.tsx`
-- (optional small helper in existing utility file if needed)
+## Solution
+Reorganize the UI into a **numbered stepper/wizard layout** using tabs with clear step indicators. Each step focuses on one task, making the workflow intuitive and scannable.
 
-Changes:
-1. Improve session bootstrap handling so both thrown errors and returned auth errors are treated as connectivity/service outages.
-2. Ensure `authServiceDown` is set consistently when refresh/session retrieval fails.
-3. Keep `clearLocalSession` as the primary emergency recovery path, but make sure downstream pages can trust `authServiceDown`.
+## Steps Layout
 
-Why first:
-- Every data page depends on stable auth state. Fixing this first prevents cascading retries/confusion.
+```text
+┌──────────────────────────────────────────────────────┐
+│  Step 1        Step 2        Step 3       Step 4     │
+│  ● Concept     ○ Story       ○ Outline    ○ Scenes   │
+│  ─────────     Bible         & Locations  & Export   │
+└──────────────────────────────────────────────────────┘
+```
 
-Phase 2 — Make AI Twin loading fail-safe and recoverable
-File:
-- `src/pages/AITwin.tsx`
+### Step 1: Concept & Cast
+- Pete AI Assistant (movie idea input)
+- Quick Start sample buttons
+- Movie Length selector
+- Character/Twin selection panel
+- "Generate Complete Movie" one-click button
+- "or step by step" divider with Story Bible / Outline buttons
 
-Changes:
-1. Add request timeout guard for the twins fetch (so spinner can’t run indefinitely on hung requests).
-2. Add explicit connectivity-aware error classification:
-   - Backend unavailable
-   - Session/auth issue
-   - Generic query failure
-3. Show a dedicated recovery UI state with clear actions:
-   - Retry
-   - Clear Session & Retry (reuse existing auth context method)
-4. Prevent repeated noisy toasts on repeated automatic failures (only toast on user-triggered retries or first failure).
-5. Add a small local cache fallback for last successful twin list metadata:
-   - If live fetch fails, render cached twins with a “stale data” indicator.
-   - This ensures users can still see previously loaded twins during temporary outages.
-6. Keep list fetch lightweight, but restore detail behavior by lazy-loading full twin details (including reference images) only when opening a twin detail panel.
+### Step 2: Story Bible
+- Story bible card (characters, three-act structure, wardrobe, voice assignments)
+- Only accessible once story bible is generated
+- "Next: Outline" button at bottom
 
-Why this fixes your specific pain:
-- The tab won’t feel stuck.
-- Failures become actionable instead of opaque.
-- Existing twins remain visible during transient backend issues.
+### Step 3: Outline & Locations
+- Editable outline textarea
+- Location Manager
+- "Generate Scenes from Outline" button
+- "Next: Scenes" button
 
-Phase 3 — Remove avoidable auth pressure in twin-related selectors
-Files:
-- `src/components/testimonial/TwinSelector.tsx`
-- `src/components/testimonial/CommercialStrategist.tsx`
-- (optionally) `src/components/Dashboard.tsx` for consistency
+### Step 4: Scenes & Export
+- Scene timeline
+- Keyframe scene cards with coverage/blocking tools
+- Regenerate dialogue / Stitch videos buttons
+- Stitched video player and download
 
-Changes:
-1. Replace direct `auth.getUser()` calls with the already-available auth context user where possible.
-2. Avoid issuing twin queries when no authenticated user is present.
-3. Add clearer empty/error states in selectors (“Sign in to load AI Twins” vs generic empty list).
+## Implementation
 
-Why:
-- Reduces extra auth round-trips.
-- Lowers chance of lock/contention patterns during unstable periods.
-- Keeps lip-sync and testimonial twin pickers aligned with the resilient loading model.
+### File: `src/pages/MovieSceneCreator.tsx`
 
-Phase 4 — Verification checklist (end-to-end)
-1. `/ai-twin` with healthy backend:
-   - Twins list loads quickly.
-   - Detail panel loads full images only on selection.
-2. `/ai-twin` with simulated connectivity outage:
-   - Spinner exits within timeout window.
-   - Recovery state appears with Retry + Clear Session.
-   - Cached twins (if available) are shown and labeled stale.
-3. Lip-sync/twin selector flow:
-   - Twin dropdown loads without hanging.
-   - Clear messaging when not authenticated or backend unavailable.
-4. Confirm no new security regressions:
-   - User-scoped data only.
-   - No RLS changes required.
+1. **Add step state**: `const [currentStep, setCurrentStep] = useState(0);`
 
-Operational note (parallel to code fix)
-- If backend timeouts continue after these resilience changes, instance sizing/health in Lovable Cloud should be adjusted. The code changes above will still improve UX and recovery, but persistent infrastructure timeouts can still block live reads.
+2. **Add a stepper header component** at the top (below the page title) showing 4 numbered steps with labels, highlighting the active one and marking completed ones with checkmarks.
 
-Expected outcome
-- AI Twin tab no longer “keeps failing” in a confusing way.
-- Users get reliable recovery actions.
-- Previously created twins remain visible via cache during temporary outages.
-- Lip sync twin loading is more stable and consistent with AI Twin page behavior.
+3. **Wrap each section group** in conditional renders based on `currentStep`:
+   - `currentStep === 0`: Pete AI, Quick Start, Character Selection, Movie Idea card with generate buttons
+   - `currentStep === 1`: Story Bible card (full expanded view)
+   - `currentStep === 2`: Outline textarea + Location Manager
+   - `currentStep === 3`: Scenes list, timeline, stitch, export
+
+4. **Add Next/Back navigation buttons** at the bottom of each step. Auto-advance to next step when key actions complete (e.g., after story bible generates, move to step 1; after scenes generate, move to step 3).
+
+5. **Simplify the header**: Remove the 6 feature highlight badges (they clutter). Keep the title, project name, and action buttons (template selector, storyboard export, transfer to reels, save/load).
+
+6. **Move project action buttons** (New, Load, Save) into the header row instead of a separate section.
+
+7. **Move the "How It Works" info card** into Step 1 as a collapsible helper, rather than sitting at the very bottom.
+
+8. **Step indicators show completion state**: Step gets a checkmark when its data exists (movie idea → step 1 done, story bible → step 2 done, outline → step 3 done, scenes → step 4 done). Users can click any completed step to go back.
+
+### Auto-navigation triggers
+- `generateStoryBible` success → `setCurrentStep(1)`
+- `generateOutline` success → `setCurrentStep(2)`
+- `generateScenes` success → `setCurrentStep(3)`
+- `generateAll` success → `setCurrentStep(3)`
+
+This keeps the existing 4000 lines of logic untouched — only the JSX render section (~lines 2890-4006) gets restructured with step conditionals and the stepper UI.
+
