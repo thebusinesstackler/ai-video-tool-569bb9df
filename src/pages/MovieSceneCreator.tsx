@@ -915,6 +915,7 @@ const MovieSceneCreator = () => {
       if (error) throw error;
 
       setOutline(data.outline);
+      setCurrentStep(2); // Auto-advance to Outline step
       toast({
         title: "Outline Generated!",
         description: "Your movie outline is ready. Review it and generate scenes.",
