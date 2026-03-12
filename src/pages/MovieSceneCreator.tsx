@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, ChevronLeft, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, ChevronLeft, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard, Download } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
 import { useToast } from '@/hooks/use-toast';
@@ -3568,60 +3568,74 @@ const MovieSceneCreator = () => {
           </div>
         )}
 
+
         {/* ============ STEP 4: Scenes & Export ============ */}
         {currentStep === 3 && (
           <div className="space-y-6">
             {scenes.length > 0 ? (
               <div className="space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h2 className="text-2xl font-bold text-foreground">Generated Scenes ({scenes.length})</h2>
-                  <div className="flex items-center gap-2">
-                    <Button onClick={regenerateAllDialogue} disabled={isRegeneratingDialogue} variant="outline" size="sm" className="gap-2">
-                      {isRegeneratingDialogue ? (<><Sparkles className="w-4 h-4 animate-spin" />Regenerating...</>) : (<><Volume2 className="w-4 h-4" />Regenerate All Dialogue</>)}
-                    </Button>
-                    {scenes.some(s => s.generatedVideo) && (
-                      <Button onClick={stitchAllVideos} disabled={isStitching} size="lg" className="gap-2">
-                        {isStitching ? (<><Sparkles className="w-5 h-5 animate-spin" />Stitching {stitchProgress}%...</>) : (<><Video className="w-5 h-5" />Stitch All Videos into Movie</>)}
-                      </Button>
-                    )}
+                {/* Clean header with scene count and primary action */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground">Scenes</h2>
+                    <p className="text-sm text-muted-foreground">{scenes.length} scenes • {scenes.filter(s => s.generatedVideo).length} videos ready</p>
                   </div>
+                  {scenes.some(s => s.generatedVideo) && (
+                    <Button onClick={stitchAllVideos} disabled={isStitching} className="gap-2">
+                      {isStitching ? (<><Sparkles className="w-4 h-4 animate-spin" />Stitching {stitchProgress}%...</>) : (<><Video className="w-4 h-4" />Build Movie</>)}
+                    </Button>
+                  )}
                 </div>
 
+                {/* Collapsible bulk actions */}
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Bulk Actions
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-muted/50">
+                      <Button onClick={regenerateAllDialogue} disabled={isRegeneratingDialogue} variant="outline" size="sm" className="gap-2">
+                        {isRegeneratingDialogue ? (<><Sparkles className="w-3.5 h-3.5 animate-spin" />Regenerating...</>) : (<><Volume2 className="w-3.5 h-3.5" />Regenerate All Dialogue</>)}
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Stitching progress */}
                 {isStitching && (
-                  <Card className="bg-primary/5 border-primary/20">
-                    <CardContent className="pt-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                          <Sparkles className="w-6 h-6 text-primary animate-spin" />
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-foreground">Stitching Videos</h3>
-                            <p className="text-sm text-muted-foreground">Combining all scene videos into a complete movie...</p>
-                          </div>
-                        </div>
-                        <Progress value={stitchProgress} className="h-2" />
-                        <p className="text-sm text-center text-muted-foreground">{stitchProgress}% complete</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                    <Sparkles className="w-5 h-5 text-primary animate-spin shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <p className="text-sm font-medium text-foreground">Stitching videos into movie...</p>
+                      <Progress value={stitchProgress} className="h-1.5" />
+                    </div>
+                    <span className="text-sm font-mono text-muted-foreground">{stitchProgress}%</span>
+                  </div>
                 )}
 
+                {/* Completed movie player */}
                 {stitchedVideoUrl && (
                   <Card className="bg-primary/5 border-primary/20">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2"><Video className="w-5 h-5 text-primary" />Complete Movie</CardTitle>
-                      <CardDescription>All {scenes.filter(s => s.generatedVideo).length} scene videos stitched together</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <video src={stitchedVideoUrl} controls className="w-full rounded-lg border border-border" />
-                      <div className="mt-4 flex gap-2">
-                        <Button onClick={() => { const a = document.createElement('a'); a.href = stitchedVideoUrl; a.download = `${projectTitle || 'movie'}.mp4`; a.click(); }} variant="outline" className="flex-1">
-                          Download Movie
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Video className="w-5 h-5 text-primary" />
+                          <h3 className="font-semibold text-foreground">Complete Movie</h3>
+                        </div>
+                        <Button onClick={() => { const a = document.createElement('a'); a.href = stitchedVideoUrl; a.download = `${projectTitle || 'movie'}.mp4`; a.click(); }} variant="outline" size="sm" className="gap-2">
+                          <Download className="w-3.5 h-3.5" /> Download
                         </Button>
                       </div>
+                      <video src={stitchedVideoUrl} controls className="w-full rounded-lg border border-border" />
                     </CardContent>
                   </Card>
                 )}
 
+                {/* Scene timeline */}
                 <SceneTimeline
                   scenes={scenes as MovieSceneWithKeyframes[]}
                   activeSceneIndex={activeSceneIndex}
@@ -3630,32 +3644,15 @@ const MovieSceneCreator = () => {
                   onToggleAutoLink={() => setAutoLinkScenes(!autoLinkScenes)}
                 />
 
-                <div className="space-y-4">
+                {/* Scene cards — tools hidden inside each card's collapsible */}
+                <div className="space-y-3">
                   {scenes.map((scene, index) => {
                     const charactersInScene = storyBible?.sceneDialogueMap?.find(s => s.sceneNumber === scene.sceneNumber)?.charactersPresent || (scene.charactersInScene || []);
                     const sceneCoverage = sceneCoverages.get(scene.sceneNumber);
                     const sceneBlocking = sceneBlockings.get(scene.sceneNumber) || [];
                     
                     return (
-                      <div key={scene.sceneNumber} className="space-y-2">
-                        {charactersInScene.length > 0 && (
-                          <div className="flex items-center gap-2 px-2">
-                            <span className="text-xs text-muted-foreground">Scene {scene.sceneNumber} tools:</span>
-                            <CoverageSelector
-                              sceneNumber={scene.sceneNumber} sceneTitle={scene.title} charactersInScene={charactersInScene}
-                              locationId={locations.find(l => scene.location?.toLowerCase().includes(l.name.toLowerCase()))?.id}
-                              coverage={sceneCoverage} onCoverageChange={updateSceneCoverage} onGenerateCoverage={generateCoverageShots} isGenerating={isGeneratingCoverage}
-                            />
-                            <CharacterBlockingEditor sceneNumber={scene.sceneNumber} charactersInScene={charactersInScene} blocking={sceneBlocking} onBlockingChange={(blocking) => updateSceneBlocking(scene.sceneNumber, blocking)} />
-                            {locations.length > 0 && (
-                              <Badge variant="outline" className="text-xs gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {locations.find(l => scene.location?.toLowerCase().includes(l.name.toLowerCase()))?.name || 'No location match'}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                        
+                      <div key={scene.sceneNumber}>
                         <KeyframeSceneCard
                           scene={{
                             ...scene,
@@ -3685,6 +3682,35 @@ const MovieSceneCreator = () => {
                           onLinkToPreviousScene={linkToPreviousScene}
                           previousSceneEndFrame={index > 0 ? scenes[index - 1]?.endFrame : undefined}
                         />
+                        
+                        {/* Advanced scene tools — collapsible */}
+                        {charactersInScene.length > 0 && (
+                          <Collapsible>
+                            <CollapsibleTrigger asChild>
+                              <button className="flex items-center gap-1.5 mt-1 ml-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                                <Camera className="w-3 h-3" />
+                                Coverage & Blocking
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="flex items-center gap-2 mt-2 ml-2 p-2 rounded-md bg-muted/30">
+                                <CoverageSelector
+                                  sceneNumber={scene.sceneNumber} sceneTitle={scene.title} charactersInScene={charactersInScene}
+                                  locationId={locations.find(l => scene.location?.toLowerCase().includes(l.name.toLowerCase()))?.id}
+                                  coverage={sceneCoverage} onCoverageChange={updateSceneCoverage} onGenerateCoverage={generateCoverageShots} isGenerating={isGeneratingCoverage}
+                                />
+                                <CharacterBlockingEditor sceneNumber={scene.sceneNumber} charactersInScene={charactersInScene} blocking={sceneBlocking} onBlockingChange={(blocking) => updateSceneBlocking(scene.sceneNumber, blocking)} />
+                                {locations.length > 0 && (
+                                  <Badge variant="outline" className="text-xs gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {locations.find(l => scene.location?.toLowerCase().includes(l.name.toLowerCase()))?.name || 'No match'}
+                                  </Badge>
+                                )}
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
                       </div>
                     );
                   })}
