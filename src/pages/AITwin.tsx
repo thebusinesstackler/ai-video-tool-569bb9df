@@ -104,7 +104,7 @@ const AITwin = () => {
 
       // Race the fetch against a timeout
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 30000);
 
       const { data, error } = await supabase
         .from('ai_twins')
