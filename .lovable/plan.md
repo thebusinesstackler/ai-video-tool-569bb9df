@@ -1,72 +1,95 @@
 
-# Migration Plan: Move to Your Own Supabase Project
+Goal: stop the AI Twin area from getting stuck/failing repeatedly and make it recover gracefully when the backend connection is unstable.
 
-## Overview
-Migrate your database schema, edge functions, storage, and secrets from Lovable Cloud to your own Supabase project, then update the app to point at it.
+What I found
+1. The failure pattern is backend connectivity/auth-refresh related, not a JSX/UI rendering bug:
+   - Repeated `Failed to fetch` on token refresh and `ai_twins` reads.
+   - Backend SQL inspection attempts also timed out (status 544), which points to backend saturation/connection instability.
+2. The AI Twin page already has lightweight list queries (good), but current failure handling is still brittle:
+   - User sees repeated load failures without enough guided recovery.
+   - If requests hang, UX can feel like “just loading”.
+3. Auth state resilience is incomplete:
+   - Initial session bootstrap handles thrown exceptions, but not all returned auth errors from session fetch pathways.
+   - This can leave the app in a confusing state where protected data calls keep failing but recovery signals are weak.
+4. Data access rules look correct for AI twins:
+   - `ai_twins` is user-scoped via row-level policies (`auth.uid() = user_id`), so no policy looseness is needed.
+   - No database schema changes are required for this fix.
 
----
+Implementation plan
 
-## Step 1: Connect to GitHub
-- Go to **Settings > Connectors > GitHub** in Lovable and create a repository
-- This gives you full ownership of the source code
+Phase 1 — Harden auth/outage detection (foundation)
+Files:
+- `src/components/AuthProvider.tsx`
+- (optional small helper in existing utility file if needed)
 
-## Step 2: Migrate Database Schema
-- Run all 24 migration SQL files (in `supabase/migrations/`) against your new Supabase project **in order**
-- You can do this via the Supabase Dashboard SQL Editor or using the Supabase CLI:
-  ```
-  supabase db push --db-url postgresql://postgres:[password]@[host]:5432/postgres
-  ```
-- This recreates all tables, RLS policies, triggers, and functions
+Changes:
+1. Improve session bootstrap handling so both thrown errors and returned auth errors are treated as connectivity/service outages.
+2. Ensure `authServiceDown` is set consistently when refresh/session retrieval fails.
+3. Keep `clearLocalSession` as the primary emergency recovery path, but make sure downstream pages can trust `authServiceDown`.
 
-## Step 3: Deploy Edge Functions
-- Install the [Supabase CLI](https://supabase.com/docs/guides/cli)
-- Link your project: `supabase link --project-ref YOUR_PROJECT_REF`
-- Deploy all 30+ edge functions at once:
-  ```
-  supabase functions deploy
-  ```
+Why first:
+- Every data page depends on stable auth state. Fixing this first prevents cascading retries/confusion.
 
-## Step 4: Configure Secrets in Your Supabase Project
-Set these secrets in your new Supabase project (Dashboard > Settings > Edge Functions > Secrets, or via CLI):
-- `WAVESPEED_API_KEY`
-- `GOOGLE_CLOUD_TTS_API_KEY`
-- `GOOGLE_CLOUD_SERVICE_ACCOUNT`
-- `SPEECHIFY_API_KEY`
-- `CREATOMATE_API_KEY`
-- `CHIRP3_API_KEY`
-- `LOVABLE_API_KEY` (if using Lovable AI features -- these will need a replacement strategy since Lovable AI is tied to Lovable Cloud)
+Phase 2 — Make AI Twin loading fail-safe and recoverable
+File:
+- `src/pages/AITwin.tsx`
 
-You can find the current secret values in your Lovable Cloud settings to copy them over.
+Changes:
+1. Add request timeout guard for the twins fetch (so spinner can’t run indefinitely on hung requests).
+2. Add explicit connectivity-aware error classification:
+   - Backend unavailable
+   - Session/auth issue
+   - Generic query failure
+3. Show a dedicated recovery UI state with clear actions:
+   - Retry
+   - Clear Session & Retry (reuse existing auth context method)
+4. Prevent repeated noisy toasts on repeated automatic failures (only toast on user-triggered retries or first failure).
+5. Add a small local cache fallback for last successful twin list metadata:
+   - If live fetch fails, render cached twins with a “stale data” indicator.
+   - This ensures users can still see previously loaded twins during temporary outages.
+6. Keep list fetch lightweight, but restore detail behavior by lazy-loading full twin details (including reference images) only when opening a twin detail panel.
 
-## Step 5: Recreate Storage Buckets
-- In your new Supabase Dashboard, create the same storage buckets (e.g., `reels`) with matching public/private settings and RLS policies
+Why this fixes your specific pain:
+- The tab won’t feel stuck.
+- Failures become actionable instead of opaque.
+- Existing twins remain visible during transient backend issues.
 
-## Step 6: Migrate Data (Optional)
-- Export data from Lovable Cloud (Cloud View > Database > Tables > Export)
-- Import into your new Supabase project via CSV import or SQL inserts
+Phase 3 — Remove avoidable auth pressure in twin-related selectors
+Files:
+- `src/components/testimonial/TwinSelector.tsx`
+- `src/components/testimonial/CommercialStrategist.tsx`
+- (optionally) `src/components/Dashboard.tsx` for consistency
 
-## Step 7: Update Environment Variables for Deployment
-In your hosting platform (Netlify, Vercel, etc.), set:
-- `VITE_SUPABASE_URL` = your new Supabase project URL
-- `VITE_SUPABASE_PUBLISHABLE_KEY` = your new Supabase anon key
-- `VITE_SUPABASE_PROJECT_ID` = your new project ID
+Changes:
+1. Replace direct `auth.getUser()` calls with the already-available auth context user where possible.
+2. Avoid issuing twin queries when no authenticated user is present.
+3. Add clearer empty/error states in selectors (“Sign in to load AI Twins” vs generic empty list).
 
-## Step 8: Deploy the App
-- Connect your GitHub repo to Netlify or Vercel
-- Build command: `npm run build`
-- Output directory: `dist`
-- Add the environment variables from Step 7
-- Deploy
+Why:
+- Reduces extra auth round-trips.
+- Lowers chance of lock/contention patterns during unstable periods.
+- Keeps lip-sync and testimonial twin pickers aligned with the resilient loading model.
 
----
+Phase 4 — Verification checklist (end-to-end)
+1. `/ai-twin` with healthy backend:
+   - Twins list loads quickly.
+   - Detail panel loads full images only on selection.
+2. `/ai-twin` with simulated connectivity outage:
+   - Spinner exits within timeout window.
+   - Recovery state appears with Retry + Clear Session.
+   - Cached twins (if available) are shown and labeled stale.
+3. Lip-sync/twin selector flow:
+   - Twin dropdown loads without hanging.
+   - Clear messaging when not authenticated or backend unavailable.
+4. Confirm no new security regressions:
+   - User-scoped data only.
+   - No RLS changes required.
 
-## What I Can Do For You (code changes)
-Once you have your Supabase project URL and anon key, I can:
-1. **Update edge function imports** if any need adjustments for standalone Supabase
-2. **Add a configuration helper** so the app reads Supabase credentials from environment variables (it already does this, so minimal changes needed)
-3. **Verify all edge functions** compile and have correct CORS headers for external hosting
+Operational note (parallel to code fix)
+- If backend timeouts continue after these resilience changes, instance sizing/health in Lovable Cloud should be adjusted. The code changes above will still improve UX and recovery, but persistent infrastructure timeouts can still block live reads.
 
-## Important Notes
-- **Lovable AI calls** (via the `ai` edge function using `LOVABLE_API_KEY`) are tied to Lovable Cloud. You'll need to replace these with direct OpenAI/Google API calls and add those API keys as secrets.
-- **Lovable Cloud cannot be disconnected** from this project, but once deployed externally with your own Supabase credentials, the app will use your infrastructure entirely.
-- The app code itself requires **zero changes** to work with a different Supabase project -- it's all driven by environment variables.
+Expected outcome
+- AI Twin tab no longer “keeps failing” in a confusing way.
+- Users get reliable recovery actions.
+- Previously created twins remain visible via cache during temporary outages.
+- Lip sync twin loading is more stable and consistent with AI Twin page behavior.
