@@ -1077,6 +1077,7 @@ const MovieSceneCreator = () => {
       );
 
       setScenes(scenesWithDialogue);
+      setCurrentStep(3); // Auto-advance to Scenes step
       toast({
         title: "Complete!",
         description: `Generated ${generatedScenes.length} scenes with dialogue for all characters.`,
