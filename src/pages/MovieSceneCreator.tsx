@@ -859,6 +859,7 @@ const MovieSceneCreator = () => {
 
       setStoryBible(storyBibleWithVoices);
       setShowStoryBibleEditor(true);
+      setCurrentStep(1); // Auto-advance to Story Bible step
       
       const assignedCount = storyBibleWithVoices.characters?.filter((c: any) => c.assignedTwinId).length || 0;
       toast({
