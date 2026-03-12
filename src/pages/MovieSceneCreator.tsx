@@ -285,6 +285,9 @@ const MovieSceneCreator = () => {
   const [generateAllStep, setGenerateAllStep] = useState('');
   const [generateAllProgress, setGenerateAllProgress] = useState(0);
   
+  // Wizard step state
+  const [currentStep, setCurrentStep] = useState(0);
+  
   const { toast } = useToast();
 
   // Helper to toggle twin selection
