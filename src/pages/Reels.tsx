@@ -1413,6 +1413,7 @@ const Reels = () => {
       return;
     }
 
+    if (abortRef.current?.signal.aborted) return null;
     setIsGenerating(true);
     setProject(prev => ({ ...prev, status: 'generating-script', topic }));
     setProgress(10);
