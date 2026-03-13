@@ -614,9 +614,23 @@ const Reels = () => {
       
       if (data?.description) {
         setCharacterDescription(data.description);
+        
+        // Auto-detect gender from the analysis and set matching voice
+        const descLower = data.description.toLowerCase();
+        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'sister'];
+        const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'brother'];
+        const isFemale = femaleKeywords.some(k => descLower.includes(k));
+        const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
+        
+        if (isFemale) {
+          setSelectedVoice('en-US-Journey-F');
+        } else if (isMale) {
+          setSelectedVoice('en-US-Journey-D');
+        }
+        
         toast({
           title: "Character Detected",
-          description: `Auto-filled: ${data.description}`,
+          description: `Auto-filled: ${data.description}${isFemale ? ' (female voice set)' : isMale ? ' (male voice set)' : ''}`,
         });
       }
     } catch (error: any) {
@@ -2199,7 +2213,22 @@ const Reels = () => {
         setPreSelectedReference(imageUrl);
         setCharacterDescription(generateCharacterPrompt);
         setShowGenerateCharacter(false);
-        toast({ title: "Character Generated!", description: "Portrait set as reference for your reel." });
+        
+        // Auto-detect gender from description and set matching voice
+        const descLower = generateCharacterPrompt.toLowerCase();
+        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
+        const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr'];
+        const isFemale = femaleKeywords.some(k => descLower.includes(k));
+        const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
+        
+        if (isFemale) {
+          setSelectedVoice('en-US-Journey-F');
+        } else if (isMale) {
+          setSelectedVoice('en-US-Journey-D');
+        }
+        // If ambiguous, keep current voice
+        
+        toast({ title: "Character Generated!", description: `Portrait set as reference.${isFemale ? ' Female voice auto-selected.' : isMale ? ' Male voice auto-selected.' : ''}` });
       } else {
         throw new Error('No image returned');
       }
@@ -3761,9 +3790,22 @@ const Reels = () => {
                                             description: 'Cloned voice will be used for voiceovers',
                                           });
                                         } else {
+                                          // Auto-match voice to twin's gender
+                                          const twinGender = (twin as any).gender?.toLowerCase();
+                                          const descLower = (twin.face_description || twin.name || '').toLowerCase();
+                                          const femaleHints = ['woman', 'female', 'girl', 'lady', 'she', 'her'];
+                                          const isFemale = twinGender === 'female' || femaleHints.some(k => descLower.includes(k));
+                                          const isMale = twinGender === 'male' || (!isFemale && ['man', 'male', 'boy', 'guy'].some(k => descLower.includes(k)));
+                                          
+                                          if (isFemale) {
+                                            setSelectedVoice('en-US-Journey-F');
+                                          } else if (isMale) {
+                                            setSelectedVoice('en-US-Journey-D');
+                                          }
+                                          
                                           toast({
                                             title: `AI Twin "${twin.name}" Selected`,
-                                            description: 'Reference image applied (no cloned voice)',
+                                            description: `Reference image applied${isFemale ? ', female voice set' : isMale ? ', male voice set' : ' (no cloned voice)'}`,
                                           });
                                         }
                                         // Apply face description if available
