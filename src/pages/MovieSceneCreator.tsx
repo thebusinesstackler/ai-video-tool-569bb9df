@@ -1665,7 +1665,7 @@ const MovieSceneCreator = () => {
     }
   };
 
-
+  const generateSceneImage = async (sceneNumber: number, imagePrompt: string) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     
     // Enhance prompt with camera angle and lighting if selected
