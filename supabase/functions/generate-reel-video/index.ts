@@ -166,26 +166,26 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
       Topic: ${topic}
       Style: Portrait orientation, clear face, well-lit, professional look, direct eye contact with camera.
       The subject should be centered in frame, neutral or engaging expression.
-      High quality, photorealistic, suitable for lip sync animation.`;
+      High quality, photorealistic, suitable for lip sync animation.
+      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words anywhere in the image. The person should have a CLOSED MOUTH or slight smile - NOT speaking or moving lips.`;
   }
 
   if (scene.isIntro) {
     const basePrompt = scene.visualDescription || 'Modern social media intro background';
-    // Don't include text in image - we'll overlay it with HTML
-    return `${basePrompt}. Topic: ${topic}. Style: Clean background design, vibrant colors, vertical 9:16 format, eye-catching social media intro screen. Abstract or thematic background without any text or words. Suitable for text overlay.`;
+    return `${basePrompt}. Topic: ${topic}. Style: Clean background design, vibrant colors, vertical 9:16 format, eye-catching social media intro screen. Abstract or thematic background. CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words of any kind in the image. Pure visual design only. Suitable for text overlay.`;
   }
   
   if (scene.isOutro) {
     const basePrompt = scene.visualDescription || 'Social media call-to-action background';
-    // Don't include text in image - we'll overlay it with HTML
-    return `${basePrompt}. Style: Engaging background design, vertical 9:16 format, social media outro screen. Abstract or thematic background without any text or words. Suitable for text overlay.`;
+    return `${basePrompt}. Style: Engaging background design, vertical 9:16 format, social media outro screen. CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words of any kind in the image. Pure visual background only. Suitable for text overlay.`;
   }
   
   return `Generate a vibrant, eye-catching image for a social media reel. 
     Scene: ${scene.visualDescription}
     Topic: ${topic}
     Style: Modern, engaging, vertical format (9:16 aspect ratio), suitable for Instagram/TikTok.
-    The image should be visually striking and attention-grabbing. Do not include any text in the image.`;
+    The image should be visually striking and attention-grabbing.
+    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words anywhere in the image. If showing people, they should NOT appear to be speaking or have open mouths - use natural poses, closed mouths, or slight smiles instead.`;
 }
 
 serve(async (req) => {
