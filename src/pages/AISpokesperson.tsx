@@ -522,6 +522,235 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
     }
   };
 
+  // Generate a single scene shot image
+  const generateSingleShot = async (angleLabel: string, anglePrompt: string): Promise<SceneShot | null> => {
+    if (!selectedTwin || !generatedScript) return null;
+    
+    const portraitImage = selectedTwin.reference_images[0];
+    const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
+    const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
+
+    const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video.
+
+CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
+GENDER: ${selectedTwin.gender || 'unspecified'}
+CAMERA: ${anglePrompt}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4
+SETTING: ${setting?.prompt || 'professional studio'}
+EXPRESSION: ${mood?.prompt || 'confident'}, closed mouth, natural micro-expression
+LIGHTING: Hollywood-grade 3-point setup, warm tungsten key light at 45°, soft fill, crisp rim light
+QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Person has CLOSED MOUTH.`;
+
+    const imageMessages = [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: portraitImage } },
+        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${imagePrompt}` }
+      ]
+    }];
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+    const imageResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: imageMessages,
+        model: selectedQuality === 'nano-banana' ? 'google/nano-banana-2/edit' : 'google/gemini-3.1-flash-image-preview',
+        modalities: ['image', 'text']
+      })
+    });
+
+    if (!imageResponse.ok) return null;
+
+    const imageData = await imageResponse.json();
+    const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!imgUrl) return null;
+
+    // Upload base64 to storage
+    let finalUrl = imgUrl;
+    if (imgUrl.startsWith('data:') && user) {
+      try {
+        const matches = imgUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          const imgBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+          const imgFileName = `${user.id}/spokesperson/${Date.now()}-${angleLabel.replace(/\s+/g, '-').toLowerCase()}.png`;
+          const { data: imgUpload, error: imgUploadErr } = await supabase.storage
+            .from('reels')
+            .upload(imgFileName, imgBytes, { contentType: matches[1], upsert: true });
+          if (!imgUploadErr && imgUpload) {
+            const { data: imgPublicUrl } = supabase.storage.from('reels').getPublicUrl(imgFileName);
+            finalUrl = imgPublicUrl.publicUrl;
+          }
+        }
+      } catch { /* fallback */ }
+    }
+
+    return {
+      id: crypto.randomUUID(),
+      imageUrl: finalUrl,
+      angleLabel,
+      prompt: imagePrompt,
+      selected: true
+    };
+  };
+
+  // Generate multiple scene shots for Kling 3.0 flow
+  const generateMultipleShots = async () => {
+    if (!selectedTwin || !generatedScript) return;
+    
+    setIsGeneratingShots(true);
+    setShowSceneGallery(true);
+    setSceneShots([]);
+
+    const shotAngles = [
+      { label: 'Medium Close-Up', prompt: 'Medium close-up shot, eye level, centered framing, professional broadcast feel' },
+      { label: 'Low Angle Hero', prompt: 'Low angle shot looking up, powerful and authoritative, dramatic perspective' },
+      { label: 'Over-the-Shoulder', prompt: 'Slight over-the-shoulder angle, intimate and conversational, shallow depth of field' },
+    ];
+
+    const results: SceneShot[] = [];
+    for (const angle of shotAngles) {
+      try {
+        const shot = await generateSingleShot(angle.label, angle.prompt);
+        if (shot) {
+          results.push(shot);
+          setSceneShots([...results]);
+        }
+      } catch (err) {
+        console.warn('Shot generation failed:', err);
+      }
+    }
+
+    setIsGeneratingShots(false);
+    if (results.length > 0) {
+      toast({ title: `${results.length} shots generated!`, description: 'Select your favorite or add more angles.' });
+    }
+  };
+
+  // Add an additional custom shot
+  const addCustomShot = async (customAngle: string) => {
+    setIsAddingShot(true);
+    try {
+      const shot = await generateSingleShot(customAngle, `${customAngle} camera angle, cinematic composition, professional lighting`);
+      if (shot) {
+        setSceneShots(prev => [...prev, shot]);
+        toast({ title: 'New shot added!' });
+      }
+    } catch (err) {
+      console.warn('Custom shot failed:', err);
+    } finally {
+      setIsAddingShot(false);
+    }
+  };
+
+  // Generate video from a selected shot (Kling flow)
+  const generateVideoFromShot = async (shot: SceneShot) => {
+    if (!generatedScript || !selectedTwin) return;
+    
+    setIsGenerating(true);
+    setProgress(5);
+    setProgressStatus('Loop AI: Generating voiceover...');
+    setVideoUrl(null);
+    setShowSceneGallery(false);
+
+    try {
+      // Step 1: Generate voiceover
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: generatedScript.narration,
+          voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
+          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
+          speakingRate: 0.92
+        }
+      });
+
+      if (ttsError) throw ttsError;
+      if (!ttsData?.audioContent) throw new Error('No audio generated');
+
+      // Upload audio
+      let storageAudioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+      if (user) {
+        try {
+          const bytes = Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0));
+          const fileName = `${user.id}/spokesperson/${Date.now()}-voiceover.mp3`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('reels')
+            .upload(fileName, bytes, { contentType: 'audio/mp3' });
+          if (!uploadError && uploadData) {
+            const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+            storageAudioUrl = publicUrl.publicUrl;
+          }
+        } catch (uploadErr) {
+          console.warn('Audio upload failed:', uploadErr);
+        }
+      }
+
+      setAudioUrl(storageAudioUrl);
+      setProgress(40);
+      setProgressStatus('Loop AI: Creating lip-sync video with Kling 3.0...');
+
+      // Step 2: Generate video
+      const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
+      const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
+      const videoPromptText = `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. Smooth, natural lip-sync delivery with subtle head movements. ${setting?.prompt || 'Professional studio'}. Premium broadcast quality. NO jump cuts — one continuous smooth take.`;
+
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          model: 'kling-v3.0-pro',
+          imageUrls: [shot.imageUrl],
+          audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
+          prompt: videoPromptText,
+          aspectRatio: '9:16',
+          duration: parseInt(selectedDuration)
+        }
+      });
+
+      if (videoError) throw videoError;
+      if (!videoData?.taskId) throw new Error('No video task created');
+
+      setVideoTask({ taskId: videoData.taskId, status: 'processing' });
+      setProgress(50);
+      setProgressStatus('Loop AI: Rendering Kling 3.0 video (2-5 minutes)...');
+
+      // Poll for completion
+      let attempts = 0;
+      const maxAttempts = 150;
+      while (attempts < maxAttempts) {
+        attempts++;
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          const { data: statusData } = await supabase.functions.invoke('wavespeed-video', {
+            body: { action: 'status', taskId: videoData.taskId }
+          });
+          if (statusData?.status === 'completed' && statusData?.videoUrl) {
+            setVideoUrl(statusData.videoUrl);
+            setVideoTask({ taskId: videoData.taskId, status: 'completed', videoUrl: statusData.videoUrl });
+            setProgress(100);
+            setProgressStatus('Video ready! 🎬');
+            toast({ title: '🎬 Video Ready!', description: 'Your Kling 3.0 Pro video has been generated.' });
+            return;
+          } else if (statusData?.status === 'failed') {
+            throw new Error(statusData?.error || 'Video generation failed');
+          }
+          setProgress(Math.min(50 + (attempts / maxAttempts) * 45, 95));
+        } catch (pollErr) {
+          console.warn('Poll error:', pollErr);
+        }
+      }
+      throw new Error('Video generation timed out');
+    } catch (err: any) {
+      console.error('Video generation error:', err);
+      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleBeginnerGenerate = async () => {
     if (!message.trim()) {
       toast({ title: 'Message Required', description: 'Enter the message you want delivered.', variant: 'destructive' });
@@ -536,10 +765,15 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
     await generateScript();
   };
 
-  // Auto-start video after script generation in beginner mode
+  // Auto-start video after script generation in beginner mode (NOT for kling-pro)
   useEffect(() => {
     if (isBeginner && generatedScript && !isGenerating && !videoUrl) {
-      generateVideo();
+      if (selectedQuality === 'kling-pro') {
+        // For Kling: generate multiple shots instead of auto-starting video
+        generateMultipleShots();
+      } else {
+        generateVideo();
+      }
     }
   }, [generatedScript, isBeginner]);
 
@@ -551,6 +785,8 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
     setProgress(0);
     setProgressStatus('');
     setMessage('');
+    setSceneShots([]);
+    setShowSceneGallery(false);
   };
 
   return (
