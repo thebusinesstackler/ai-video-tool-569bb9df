@@ -3444,8 +3444,8 @@ const MovieSceneCreator = () => {
           </DialogContent>
         </Dialog>
 
-        {/* ===== STEP 1: Concept — Hero Input + Make My Movie ===== */}
-        {currentStep === 0 && (
+        {/* ===== STEP 1: Concept — Hero Input + Make My Movie (Advanced only) ===== */}
+        {isAdvanced && currentStep === 0 && (
           <div className="space-y-6">
             {/* Hero Card */}
             <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
