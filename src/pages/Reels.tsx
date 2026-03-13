@@ -3028,7 +3028,8 @@ const Reels = () => {
               </>
             )}
 
-            {/* Lip Sync Mode - Expandable */}
+            {/* Lip Sync Mode - Expandable (Advanced only) */}
+            {isAdvanced && (
             <Collapsible open={lipSyncExpanded} onOpenChange={setLipSyncExpanded}>
               <Card className="bg-card border-border overflow-hidden">
                 <CollapsibleTrigger asChild>
