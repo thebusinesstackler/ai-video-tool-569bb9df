@@ -374,7 +374,7 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here ending with ... or — NEVER periods",
-    "visualDescription": "Style: [style]. Subject: [what]. Camera: ${CAMERA_ANGLES[0].angle}. Lighting: [type]. Background: [env - use same for ALL scenes]. Colors: [palette]. Mood: [mood].",
+    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: [exact character description, pose, expression - closed mouth]. LIGHTING: [specific setup e.g. warm golden hour key light, cool blue rim]. BACKGROUND: [consistent environment for ALL scenes]. COLOR GRADE: [palette e.g. warm amber tones, rich cinematic]. ATMOSPHERE: [bokeh, haze, particles]. Camera: ${CAMERA_ANGLES[0].angle}.",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }
