@@ -442,13 +442,16 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
       setProgressStatus('Loop AI: Creating lip-sync video...');
 
       // Step 3: Generate video with lip sync
+      const videoModel = selectedQuality === 'kling-pro' ? 'kling-v3.0-pro' : 'infinitetalk';
+      const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`;
+      
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'infinitetalk',
+          model: videoModel,
           imageUrls: [generatedImageUrl],
           audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
-          prompt: `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`,
+          prompt: videoPromptText,
           aspectRatio: '9:16',
           duration: parseInt(selectedDuration)
         }
