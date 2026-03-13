@@ -2124,8 +2124,8 @@ const Reels = () => {
     
     const generatedScenes = await generateScripts();
     if (generatedScenes && generatedScenes.length > 0) {
-      // Pass overrides to ensure lip sync state is used even before React re-renders
-      await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel });
+      // Pass scenes directly to avoid stale state issues
+      await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel, scenesOverride: generatedScenes });
     }
   };
 
