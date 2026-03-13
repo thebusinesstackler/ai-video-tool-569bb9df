@@ -855,8 +855,105 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
           </Card>
         )}
 
+        {/* ===== KLING 3.0 SCENE GALLERY ===== */}
+        {showSceneGallery && !videoUrl && !isGenerating && (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-primary" />
+                Scene Shots — Choose Your Angle
+              </CardTitle>
+              <CardDescription>
+                {isGeneratingShots 
+                  ? 'Generating multiple camera angles...' 
+                  : 'Select a shot to create your video, or add more angles.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Shot Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {sceneShots.map((shot) => (
+                  <div
+                    key={shot.id}
+                    className="relative group rounded-lg border border-border overflow-hidden bg-card hover:border-primary/50 transition-all"
+                  >
+                    <div className="aspect-[9/16] bg-muted">
+                      <img
+                        src={shot.imageUrl}
+                        alt={shot.angleLabel}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="p-2 space-y-2">
+                      <Badge variant="secondary" className="text-[10px]">{shot.angleLabel}</Badge>
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => generateVideoFromShot(shot)}
+                      >
+                        <Play className="w-3 h-3 mr-1" />
+                        Create Video
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Loading placeholders */}
+                {isGeneratingShots && sceneShots.length < 3 && (
+                  Array.from({ length: 3 - sceneShots.length }).map((_, i) => (
+                    <div key={`loading-${i}`} className="rounded-lg border border-border bg-muted animate-pulse">
+                      <div className="aspect-[9/16] flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+                      </div>
+                      <div className="p-2">
+                        <div className="h-4 bg-muted-foreground/10 rounded w-2/3" />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add More Shots */}
+              {!isGeneratingShots && sceneShots.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Add another angle:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      'Wide Establishing Shot',
+                      'Extreme Close-Up',
+                      'Dutch Angle',
+                      'High Angle',
+                      'Profile Side View',
+                      'Bird\'s Eye View'
+                    ]
+                      .filter(a => !sceneShots.some(s => s.angleLabel === a))
+                      .map(angle => (
+                        <Button
+                          key={angle}
+                          variant="outline"
+                          size="sm"
+                          disabled={isAddingShot}
+                          onClick={() => addCustomShot(angle)}
+                        >
+                          {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
+                          {angle}
+                        </Button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { setShowSceneGallery(false); setSceneShots([]); }}>
+                  ← Back
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ===== BEGINNER MODE ===== */}
-        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && (
+        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && (
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <CardContent className="pt-8 pb-8 space-y-6">
               <div className="text-center space-y-2">
