@@ -1928,10 +1928,77 @@ const Reels = () => {
               description: `Created ${sortedVideos.length}-scene video with synced audio and saved to library!`
             });
           } else {
-            // Creatomate stitching failed - fall back to individual clips instead of failing entirely
-            console.warn('Creatomate stitching failed:', result.error);
+            // Creatomate stitching failed - automatically fall back to browser-based stitching
+            console.warn('Creatomate stitching failed, falling back to browser stitching:', result.error);
+            setProgressStatus('Server stitching failed, trying browser stitching...');
             
-            if (sortedVideos.length > 0) {
+            try {
+              const videoUrls = sortedVideos.map(v => v.videoUrl);
+              const audioUrls = sortedAudios.map(a => a.audioUrl);
+              
+              const finalBlob = await stitchVideosWithAudio({
+                videoUrls,
+                audioUrls,
+                onProgress: (p) => {
+                  setProgress(75 + Math.round(p * 0.2));
+                  setProgressStatus(`Stitching in browser... ${Math.round(p)}%`);
+                }
+              });
+              
+              const blobUrl = URL.createObjectURL(finalBlob);
+              videoBlobRef.current = finalBlob;
+              
+              let persistedVideoUrl = blobUrl;
+              if (user) {
+                try {
+                  const fileName = `${user.id}/videos/${Date.now()}-stitched.mp4`;
+                  const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('reels')
+                    .upload(fileName, finalBlob, { contentType: 'video/mp4' });
+                  if (!uploadError && uploadData) {
+                    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                    persistedVideoUrl = publicUrl.publicUrl;
+                  }
+                } catch (e) { console.warn('Upload failed:', e); }
+              }
+              
+              setProject(prev => ({
+                ...prev,
+                videoUrl: persistedVideoUrl,
+                videoBlobUrl: persistedVideoUrl,
+                generatedScenes,
+                voiceovers: sortedAudios,
+                videoClips: [],
+                status: 'complete'
+              }));
+
+              if (user) {
+                try {
+                  const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                  const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
+                  const scenesWithAllAssets = generatedScenes.map((scene) => {
+                    const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                    const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                    return { ...scene, videoUrl: video?.videoUrl || null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
+                  });
+                  await supabase.from('reels').insert([{
+                    user_id: user.id,
+                    topic: project.topic,
+                    video_url: persistedVideoUrl,
+                    thumbnail_url: thumbnailUrl,
+                    scenes: scenesWithAllAssets as unknown as any,
+                    total_duration: totalDuration
+                  }]);
+                  fetchSavedReels();
+                } catch (saveError) { console.error('Auto-save failed:', saveError); }
+              }
+
+              setProgress(100);
+              setProgressStatus('Complete!');
+              toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video using browser stitching.` });
+            } catch (browserErr) {
+              console.error('Browser stitching also failed:', browserErr);
+              // Final fallback: show individual clips
               setProject(prev => ({
                 ...prev,
                 videoUrl: sortedVideos[0]?.videoUrl,
@@ -1941,48 +2008,9 @@ const Reels = () => {
                 videoClips: sortedVideos,
                 status: 'complete'
               }));
-
-              // Still save to library with individual clip URLs
-              if (user) {
-                try {
-                  const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                  const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
-                  const scenesWithAllAssets = generatedScenes.map((scene) => {
-                    const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
-                    const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
-                    return {
-                      ...scene,
-                      videoUrl: video?.videoUrl || null,
-                      audioUrl: audio?.storageUrl || null,
-                      audioDuration: audio?.duration || null
-                    };
-                  });
-                  await supabase.from('reels').insert([{
-                    user_id: user.id,
-                    topic: project.topic,
-                    video_url: sortedVideos[0]?.videoUrl,
-                    thumbnail_url: thumbnailUrl,
-                    scenes: scenesWithAllAssets as unknown as any,
-                    total_duration: totalDuration
-                  }]);
-                  fetchSavedReels();
-                } catch (saveError) {
-                  console.error('Auto-save failed:', saveError);
-                }
-              }
-
               setProgress(100);
               setProgressStatus('Complete (individual clips)');
-              
-              const isCreditsError = result.error?.toLowerCase().includes('credit') || result.error?.toLowerCase().includes('402');
-              toast({
-                title: "Videos Generated!",
-                description: isCreditsError 
-                  ? `Generated ${sortedVideos.length} video clips. Stitching credits exhausted — use clip navigation below.`
-                  : `Generated ${sortedVideos.length} video clips. Stitching unavailable — use clip navigation below.`,
-              });
-            } else {
-              throw new Error(result.error || 'Creatomate rendering failed');
+              toast({ title: "Videos Generated!", description: `Generated ${sortedVideos.length} clips. Stitching unavailable — use clip navigation below.` });
             }
           }
         } else {
