@@ -1396,39 +1396,55 @@ const MovieSceneCreator = () => {
       setScenes(scenesWithDialogue);
       setGenerateAllProgress(75);
 
-      // Step 6: Generate first scene's start frame (90%)
-      if (scenesWithDialogue.length > 0) {
-        setGenerateAllStep('Generating First Frame...');
-        const firstScene = scenesWithDialogue[0];
-        
-        // Build prompt for first frame
-        let enhancedPrompt = firstScene.imagePrompt;
-        const referenceImages = selectedTwins.length > 0 
-          ? selectedTwins.flatMap(twin => twin.reference_images || []) 
-          : [];
-        const charDescription = selectedTwins.length > 0
-          ? selectedTwins.map(twin => {
-              const genderText = twin.gender || 'person';
-              const faceDesc = twin.face_description || twin.description || '';
-              return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
-            }).join('\n\n')
-          : undefined;
+      // Step 6: Generate start frame images for ALL scenes (75% → 85%)
+      setGenerateAllStep('Generating scene images...');
+      const referenceImages = selectedTwins.length > 0 
+        ? selectedTwins.flatMap(twin => twin.reference_images || []) 
+        : [];
+      const charDescription = selectedTwins.length > 0
+        ? selectedTwins.map(twin => {
+            const genderText = twin.gender || 'person';
+            const faceDesc = twin.face_description || twin.description || '';
+            return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
+          }).join('\n\n')
+        : undefined;
+
+      for (let i = 0; i < scenesWithDialogue.length; i++) {
+        const scene = scenesWithDialogue[i];
+        setGenerateAllStep(`Generating image ${i + 1}/${scenesWithDialogue.length}...`);
+        setGenerateAllProgress(75 + Math.floor((i / scenesWithDialogue.length) * 10));
 
         try {
           const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
             body: { 
-              prompt: enhancedPrompt,
+              prompt: scene.imagePrompt,
               referenceImages,
               characterDescription: charDescription
             }
           });
 
           if (!imageError && imageData?.imageUrl) {
-            scenesWithDialogue[0] = {
-              ...scenesWithDialogue[0],
+            // Convert base64 to storage URL
+            let imageUrl = imageData.imageUrl;
+            if (imageUrl && imageUrl.startsWith('data:')) {
+              try {
+                const { data: userData } = await supabase.auth.getUser();
+                if (userData?.user?.id) {
+                  const storageUrl = await convertBase64ToStorageUrl(imageUrl, userData.user.id, 'reels');
+                  if (storageUrl && !storageUrl.startsWith('data:')) {
+                    imageUrl = storageUrl;
+                  }
+                }
+              } catch (uploadErr) {
+                console.warn('Failed to upload to storage, using base64:', uploadErr);
+              }
+            }
+
+            scenesWithDialogue[i] = {
+              ...scenesWithDialogue[i],
               startFrame: {
-                imagePrompt: enhancedPrompt,
-                generatedImage: imageData.imageUrl,
+                imagePrompt: scene.imagePrompt,
+                generatedImage: imageUrl,
                 position: 'center',
                 cameraAngle: 'eye-level'
               }
@@ -1436,19 +1452,97 @@ const MovieSceneCreator = () => {
             setScenes([...scenesWithDialogue]);
           }
         } catch (frameError) {
-          console.error('Error generating first frame:', frameError);
+          console.error(`Error generating image for scene ${scene.sceneNumber}:`, frameError);
+        }
+      }
+
+      setGenerateAllProgress(85);
+      setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+
+      // Step 7: Generate lip-sync videos for ALL scenes (85% → 97%)
+      setGenerateAllStep('Generating scene videos...');
+      let videoErrors = 0;
+
+      for (let i = 0; i < scenesWithDialogue.length; i++) {
+        const scene = scenesWithDialogue[i];
+        const imageToUse = scene.startFrame?.generatedImage || scene.generatedImage;
+        
+        if (!imageToUse) {
+          console.warn(`Skipping video for scene ${scene.sceneNumber} — no image`);
+          videoErrors++;
+          continue;
+        }
+
+        setGenerateAllStep(`Generating video ${i + 1}/${scenesWithDialogue.length}...`);
+        setGenerateAllProgress(85 + Math.floor((i / scenesWithDialogue.length) * 12));
+
+        try {
+          const result = await generateSceneVideoAndWait(scene, scenesWithDialogue);
+          scenesWithDialogue[i] = {
+            ...scenesWithDialogue[i],
+            generatedVideo: result.videoUrl,
+            transitionAudioContent: result.audioContent
+          };
+          setScenes([...scenesWithDialogue]);
+          setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+        } catch (videoErr: any) {
+          console.error(`Error generating video for scene ${scene.sceneNumber}:`, videoErr);
+          videoErrors++;
+          // Check for credit errors - stop immediately
+          if (videoErr.message?.includes('credits') || videoErr.message?.includes('Insufficient')) {
+            toast({
+              title: "Video Credits Exhausted",
+              description: "Your video generation credits have run out. Videos generated so far are saved.",
+              variant: "destructive"
+            });
+            break;
+          }
+        }
+      }
+
+      setGenerateAllProgress(97);
+      setScenes([...scenesWithDialogue]);
+
+      // Step 8: Auto-stitch all videos into final movie (97% → 100%)
+      const scenesWithVideos = scenesWithDialogue.filter(s => s.generatedVideo);
+      if (scenesWithVideos.length >= 2) {
+        setGenerateAllStep('Stitching final movie...');
+        try {
+          const videosToStitch = scenesWithVideos.map(s => s.generatedVideo as string);
+          const audiosToStitch = scenesWithVideos
+            .map(s => (s as any).transitionAudioContent)
+            .filter(Boolean)
+            .map(audioBase64 => `data:audio/mp3;base64,${audioBase64}`);
+
+          const stitchedBlob = await stitchVideosWithAudio({
+            videoUrls: videosToStitch,
+            audioUrls: audiosToStitch.length > 0 ? audiosToStitch : undefined,
+            onProgress: () => {}
+          });
+
+          const url = URL.createObjectURL(stitchedBlob);
+          setStitchedVideoUrl(url);
+
+          if (currentProjectId) {
+            await supabase
+              .from('movie_projects')
+              .update({ stitched_video_url: url, updated_at: new Date().toISOString() })
+              .eq('id', currentProjectId);
+          }
+        } catch (stitchErr) {
+          console.error('Error stitching final movie:', stitchErr);
         }
       }
 
       setGenerateAllProgress(100);
       setGenerateAllStep('Complete!');
 
+      const successCount = scenesWithDialogue.filter(s => s.generatedVideo).length;
       toast({
-        title: "Movie Generated!",
-        description: `Created ${scenesWithDialogue.length} scenes with dialogue and first frame. Review and customize as needed.`,
+        title: "🎬 Movie Complete!",
+        description: `Generated ${successCount}/${scenesWithDialogue.length} scene videos${scenesWithVideos.length >= 2 ? ' and stitched your movie' : ''}. ${videoErrors > 0 ? `${videoErrors} scene(s) had errors.` : ''}`,
       });
 
-      // Auto-save
       setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
       setCurrentStep(3); // Auto-advance to Scenes step
 
