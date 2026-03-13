@@ -2800,8 +2800,7 @@ const Reels = () => {
                     </div>
                     <VoiceSelector
                       selectedVoice={selectedVoice}
-                      onVoiceChange={setSelectedVoice}
-                      aiTwins={aiTwins}
+                      onVoiceSelect={setSelectedVoice}
                     />
                     <Button
                       variant="outline"
