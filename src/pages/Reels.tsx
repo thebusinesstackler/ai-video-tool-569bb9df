@@ -2375,7 +2375,19 @@ const Reels = () => {
             description: "All clips merged and saved to My Reels."
           });
         } else {
-          throw new Error(result.error || 'Stitching failed');
+          // Stitching failed - show specific error and fall back to individual clips
+          const errorMsg = result.error || 'Stitching failed';
+          console.warn('Creatomate stitching failed:', errorMsg);
+          
+          toast({
+            title: "Stitching Unavailable",
+            description: errorMsg.includes('402') || errorMsg.includes('credits') 
+              ? "Stitching service credits exhausted. Your individual clips are still available below."
+              : `Stitching failed: ${errorMsg}. Your individual clips are still available below.`,
+          });
+
+          setProgress(100);
+          setProgressStatus('Complete (individual clips)');
         }
       } else {
         // Use browser-based stitching with ffmpeg

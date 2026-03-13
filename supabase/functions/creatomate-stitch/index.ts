@@ -198,9 +198,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in creatomate-stitch:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    // Return 200 with error details so the client can read the message
+    // (supabase.functions.invoke swallows non-2xx response bodies)
     return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: message }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

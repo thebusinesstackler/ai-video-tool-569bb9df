@@ -44,8 +44,14 @@ export function useCreatomate() {
         throw new Error(startError.message || 'Failed to start Creatomate render');
       }
 
-      if (!startData?.success || !startData?.renderId) {
-        throw new Error(startData?.error || 'No render ID returned');
+      if (!startData?.success) {
+        // Surface the actual error from the edge function (e.g. insufficient credits)
+        const errorMsg = startData?.error || 'No render ID returned';
+        throw new Error(errorMsg);
+      }
+
+      if (!startData?.renderId) {
+        throw new Error('No render ID returned from stitching service');
       }
 
       const renderId = startData.renderId;
