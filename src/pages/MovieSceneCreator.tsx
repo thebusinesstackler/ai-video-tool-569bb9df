@@ -1308,12 +1308,16 @@ const MovieSceneCreator = () => {
         
         // Build prompt for first frame
         let enhancedPrompt = firstScene.imagePrompt;
-        const referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
-        const charDescription = selectedTwins.map(twin => {
-          const genderText = twin.gender || 'person';
-          const faceDesc = twin.face_description || twin.description || '';
-          return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
-        }).join('\n\n');
+        const referenceImages = selectedTwins.length > 0 
+          ? selectedTwins.flatMap(twin => twin.reference_images || []) 
+          : [];
+        const charDescription = selectedTwins.length > 0
+          ? selectedTwins.map(twin => {
+              const genderText = twin.gender || 'person';
+              const faceDesc = twin.face_description || twin.description || '';
+              return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
+            }).join('\n\n')
+          : undefined;
 
         try {
           const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
