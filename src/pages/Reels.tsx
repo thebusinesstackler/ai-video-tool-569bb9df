@@ -26,6 +26,7 @@ import { useCreatorMode } from '@/hooks/useCreatorMode';
 import { CreatorModeToggle } from '@/components/CreatorModeToggle';
 import { VideoUpscaler } from '@/components/VideoUpscaler';
 import { CameraAngleSelector } from '@/components/CameraAngleSelector';
+import { CAMERA_ANGLES } from '@/data/cameraAngles';
 import { LogoAnimation } from '@/data/reelTemplates';
 import { useReelDraftAutoSave, StrategistState } from '@/hooks/useReelDraftAutoSave';
 import { useVideoQueue, QueuedVideo } from '@/hooks/useVideoQueue';
