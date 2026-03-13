@@ -375,7 +375,7 @@ const Reels = () => {
   const [showGenerateCharacter, setShowGenerateCharacter] = useState(false);
   const [generateCharacterPrompt, setGenerateCharacterPrompt] = useState('');
   const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
-  
+  const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3 | 4>(1); // 1=topic, 2=script review, 3=character, 4=voice+generate
   // Voice preview state
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
