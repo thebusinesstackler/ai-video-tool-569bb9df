@@ -1687,8 +1687,15 @@ const Reels = () => {
         }
 
         // Step 4: All videos completed - stitch them together with audio
-        const sortedVideos = completedVideos.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        // Filter out failed scenes (empty URLs) before stitching
+        const sortedVideos = completedVideos
+          .filter(v => v.videoUrl && v.videoUrl.trim() !== '')
+          .sort((a, b) => a.sceneNumber - b.sceneNumber);
         const sortedAudios = voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        
+        if (sortedVideos.length === 0) {
+          throw new Error('All video scenes failed to generate. Please try again.');
+        }
         
         setProgress(75);
         setProgressStatus('Stitching video clips with voiceover...');
