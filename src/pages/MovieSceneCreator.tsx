@@ -1242,7 +1242,7 @@ const MovieSceneCreator = () => {
               : undefined;
             
             // For 2+ characters, use conversation dialogue with rich context
-            if (selectedTwins.length >= 2) {
+            if (characterNames.length >= 2) {
               const { data: convData, error: convError } = await supabase.functions.invoke('generate-conversation-dialogue', {
                 body: {
                   sceneDescription: scene.description,
