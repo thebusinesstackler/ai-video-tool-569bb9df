@@ -167,7 +167,8 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
     const angleNote = cameraAngleModifier ? `\n      CAMERA ANGLE: ${cameraAngleModifier}` : '';
     return `Generate a premium cinematic portrait photo for a high-end social media video.
       Scene context: ${scene.visualDescription}
-      Topic: ${topic}${charDesc}${refImageNote}${angleNote}
+      Topic: ${topic}
+      NARRATION THIS SCENE WILL DELIVER: "${scene.narration}"${charDesc}${refImageNote}${angleNote}
       CINEMATOGRAPHY: Shot on RED V-RAPTOR, 85mm lens, f/1.4 shallow depth of field.
       LIGHTING: Professional 3-point studio lighting with soft key light, subtle rim light creating depth, warm color temperature.
       COMPOSITION: Rule of thirds, subject centered, clean bokeh background, magazine-quality portrait.
@@ -179,6 +180,7 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
   if (scene.isIntro) {
     const basePrompt = scene.visualDescription || 'Modern social media intro background';
     return `${basePrompt}. Topic: ${topic}. 
+      CONTEXT: This is the opening shot for a reel about "${topic}".
       STYLE: Premium cinematic intro - think Apple keynote quality. Rich colors, sophisticated gradient lighting, volumetric atmosphere.
       QUALITY: 8K resolution, professional color grading, lens flare accents, subtle particle effects.
       Vertical 9:16 format, abstract or thematic background.
@@ -188,6 +190,7 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
   if (scene.isOutro) {
     const basePrompt = scene.visualDescription || 'Social media call-to-action background';
     return `${basePrompt}. 
+      CONTEXT: This is the closing shot for a reel about "${topic}".
       STYLE: Premium cinematic outro - elegant, sophisticated, high-end brand feel. Deep colors, atmospheric lighting.
       QUALITY: 8K resolution, professional color grading, subtle depth effects.
       Vertical 9:16 format.
@@ -198,7 +201,8 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
   
   return `Generate a PREMIUM cinematic image for a high-end social media reel.
     Scene: ${scene.visualDescription}
-    Topic: ${topic}${charDesc}${refImageNote}${angleModifier}
+    Topic: ${topic}
+    NARRATION THIS SCENE WILL DELIVER: "${scene.narration}"${charDesc}${refImageNote}${angleModifier}
     CINEMATOGRAPHY: Shot on RED V-RAPTOR or ARRI Alexa, cinematic lens, shallow depth of field with beautiful bokeh.
     LIGHTING: Professional cinematic lighting - motivated light sources, volumetric atmosphere, rich shadows and highlights.
     COLOR: Professional color grading - rich, vibrant but natural tones. Think high-end commercial or film production.
