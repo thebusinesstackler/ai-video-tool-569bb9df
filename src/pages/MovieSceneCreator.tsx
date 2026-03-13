@@ -3668,8 +3668,8 @@ const MovieSceneCreator = () => {
           </div>
         )}
 
-        {/* ===== STEP 2: Story Bible — Read-Only Summary ===== */}
-        {currentStep === 1 && (
+        {/* ===== STEP 2: Story Bible — Read-Only Summary (Advanced only) ===== */}
+        {isAdvanced && currentStep === 1 && (
           <div className="space-y-6">
             {storyBible ? (
               <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
