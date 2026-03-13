@@ -17,9 +17,11 @@ import { useCreatorMode } from '@/hooks/useCreatorMode';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import {
   Sparkles, User, Loader2, Wand2, Camera, Video, Download,
-  Mic, Settings2, Film, ChevronDown, RefreshCw, Play
+  Mic, Settings2, Film, ChevronDown, RefreshCw, Play, 
+  Lightbulb, MessageCircle, Send, Check, Bot
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 
 interface AITwin {
   id: string;
@@ -93,7 +95,13 @@ const AISpokesperson = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoTask, setVideoTask] = useState<VideoTask | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-
+  
+  // AI Enhancement
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ title: string; enhanced: string }[]>([]);
+  const [refineInput, setRefineInput] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   // Load twins
   useEffect(() => {
     if (!user?.id) return;
@@ -127,6 +135,87 @@ const AISpokesperson = () => {
   const selectedSettingData = SETTINGS.find(s => s.id === selectedSetting);
   const selectedMoodData = MOODS.find(m => m.id === selectedMood);
   const selectedAngle = CAMERA_ANGLES.find(a => a.id === selectedCameraAngle);
+
+  // Enhance prompt with AI suggestions
+  const enhancePrompt = async () => {
+    if (!message.trim()) return;
+    setIsEnhancing(true);
+    setSuggestions([]);
+    setShowSuggestions(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are a creative strategist for spokesperson videos. Given a user's message idea, generate 3 enhanced variations that strengthen the story, hook, and delivery.
+
+Return ONLY a JSON array of objects:
+[
+  { "title": "Short label (3-5 words)", "enhanced": "The full enhanced message prompt" }
+]
+
+Each variation should:
+- Keep the core message but make it more compelling
+- Add emotional hooks, specific details, or storytelling angles
+- Vary in tone: one more emotional, one more data-driven, one more story-driven
+- Be 2-4 sentences, written as what the spokesperson should convey (not the literal script)`
+            },
+            { role: 'user', content: `Enhance this spokesperson message idea:\n\n"${message}"` }
+          ]
+        }
+      });
+
+      if (error) throw error;
+      
+      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        setSuggestions(parsed);
+      }
+    } catch (err) {
+      console.error('Enhance error:', err);
+      toast({ title: 'Enhancement failed', description: 'Try again or proceed with your original message.', variant: 'destructive' });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  // Refine message via chat
+  const refineMessage = async () => {
+    if (!refineInput.trim() || !message.trim()) return;
+    setIsRefining(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are helping refine a spokesperson video message. The user will tell you how to change their current message. Return ONLY the updated message text, nothing else. Keep it as a prompt/brief (not a literal script).`
+            },
+            { role: 'user', content: `Current message:\n"${message}"\n\nUser wants to:\n"${refineInput}"\n\nReturn the refined message:` }
+          ]
+        }
+      });
+
+      if (error) throw error;
+      
+      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      if (content) {
+        setMessage(content.replace(/^["']|["']$/g, '').trim());
+        setRefineInput('');
+        toast({ title: 'Message refined!', description: 'Your message has been updated.' });
+      }
+    } catch (err) {
+      console.error('Refine error:', err);
+      toast({ title: 'Refinement failed', variant: 'destructive' });
+    } finally {
+      setIsRefining(false);
+    }
+  };
 
   // Generate script
   const generateScript = async () => {
@@ -533,10 +622,69 @@ CRITICAL: NO text, NO captions, NO watermarks. Person has CLOSED MOUTH - NOT spe
               <Textarea
                 placeholder="E.g., Introduce our new product launch, explain our company values, deliver a keynote summary..."
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => { setMessage(e.target.value); setShowSuggestions(false); setSuggestions([]); }}
                 className="min-h-[120px] bg-background border-border resize-none text-base"
                 disabled={isGenerating || isGeneratingScript}
               />
+
+              {/* AI Enhance + Refine Row */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={enhancePrompt}
+                  variant="outline"
+                  disabled={isEnhancing || !message.trim() || isGenerating}
+                  className="flex-1"
+                >
+                  {isEnhancing ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enhancing...</>
+                  ) : (
+                    <><Lightbulb className="w-4 h-4 mr-2" />Enhance with AI</>
+                  )}
+                </Button>
+              </div>
+
+              {/* AI Refine Chat */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ask AI to change something... e.g. 'Make it more emotional' or 'Add urgency'"
+                  value={refineInput}
+                  onChange={(e) => setRefineInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); refineMessage(); } }}
+                  disabled={isRefining || !message.trim()}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={refineMessage}
+                  disabled={isRefining || !refineInput.trim() || !message.trim()}
+                  size="icon"
+                  variant="outline"
+                >
+                  {isRefining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              {/* AI Suggestions */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-primary" />
+                    Loop AI suggests these stronger angles:
+                  </p>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setMessage(s.enhanced); setShowSuggestions(false); setSuggestions([]); toast({ title: `Applied: ${s.title}` }); }}
+                      className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all space-y-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{s.title}</Badge>
+                        <Check className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{s.enhanced}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <Button
                 onClick={handleBeginnerGenerate}
