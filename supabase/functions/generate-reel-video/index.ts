@@ -158,7 +158,7 @@ async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempt
 }
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
-function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean, characterDescription?: string, referenceImages?: string[]): string {
+function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean, characterDescription?: string, referenceImages?: string[], cameraAngleModifier?: string): string {
   const charDesc = characterDescription ? `\nCHARACTER: ${characterDescription}. Maintain EXACT same appearance in every frame.` : '';
   const refImageNote = referenceImages?.length ? `\nIMPORTANT: Match the person's appearance exactly from the reference - same face shape, skin tone, hair, features.` : '';
   
