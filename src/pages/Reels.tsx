@@ -258,6 +258,7 @@ const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner } = useCreatorMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [topic, setTopic] = useState('');
   const [selectedSceneCount, setSelectedSceneCount] = useState('4');
