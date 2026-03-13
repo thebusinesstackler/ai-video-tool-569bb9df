@@ -17,6 +17,7 @@ import Reels from "./pages/Reels";
 import Gallery from "./pages/Gallery";
 import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
+import AISpokesperson from "./pages/AISpokesperson";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
