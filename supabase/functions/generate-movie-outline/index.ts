@@ -78,7 +78,7 @@ serve(async (req) => {
   }
 
   try {
-    const { movieIdea, characterDescription, movieLength = 'quick-reel' } = await req.json();
+    const { movieIdea, characterDescription, movieLength = 'quick-reel', storyBible } = await req.json();
 
     if (!movieIdea) {
       return new Response(
