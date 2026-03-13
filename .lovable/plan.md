@@ -1,33 +1,33 @@
 
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-# Browser-Based Video Stitching (No Creatomate)
+## Status: ✅ Implemented
 
-## Current State
-You already have browser-based stitching via FFmpeg.wasm in `src/lib/videoStitch.ts`, and the Reels page has a `useServerStitching` toggle. The infrastructure exists but:
-1. The toggle defaults to `true` (Creatomate), so browser stitching is never used unless manually switched
-2. There's no UI toggle exposed to the user to switch methods
-3. When Creatomate fails, it shows an error instead of automatically falling back to browser stitching
-4. The Testimonial Commercial flow (`useTestimonialCommercial.ts`) hardcodes Creatomate with no fallback
+## Changes Made
 
-## Plan
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-### 1. Default to browser-based stitching
-Change `useServerStitching` default from `true` to `false` in `src/pages/Reels.tsx`, making FFmpeg.wasm the primary method.
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-### 2. Add automatic fallback in all stitching paths
-In **Reels.tsx** — when Creatomate fails (during generation or manual stitch), instead of showing "Stitching Unavailable" toast, automatically attempt browser-based `stitchVideosWithAudio()` before giving up.
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-In **useTestimonialCommercial.ts** — wrap Creatomate calls with try/catch and fall back to `stitchVideosWithAudio()`.
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-### 3. Add a stitching method toggle in the UI
-Add a simple switch in the Reels feature sidebar or settings area: "Use cloud rendering" (on/off). This lets you opt into Creatomate when credits are available, but defaults to browser stitching.
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-### 4. Improve browser stitching progress feedback
-Update progress status messages during browser-based stitching to be clearer: "Stitching in browser..." with percentage updates.
-
-### Technical Notes
-- FFmpeg.wasm runs entirely in the browser — no API credits needed
-- It handles video concatenation, audio merging, and basic transitions (fade, dissolve, wipe)
-- Limitation: slower than server-side for long videos, and requires downloading all clips to browser memory
-- The existing `stitchVideosWithAudio` function already supports transitions and audio merging
-
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view

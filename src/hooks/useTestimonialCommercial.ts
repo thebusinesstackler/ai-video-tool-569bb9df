@@ -351,19 +351,30 @@ async function generateVideoForSegment(
 
     // If montage, stitch b-roll clips with audio
     if (segment.type === 'broll-montage' && videoUrls.length > 0) {
-      const { data } = await supabase.functions.invoke('creatomate-stitch', {
-        body: {
-          clips: videoUrls.map((url, i) => ({
-            url,
-            duration: segment.duration / videoUrls.length
-          })),
-          audioUrl: segment.audioUrl,
-          transition: 'cut'
-        }
-      });
+      try {
+        const { data } = await supabase.functions.invoke('creatomate-stitch', {
+          body: {
+            clips: videoUrls.map((url, i) => ({
+              url,
+              duration: segment.duration / videoUrls.length
+            })),
+            audioUrl: segment.audioUrl,
+            transition: 'cut'
+          }
+        });
 
-      if (data?.renderId) {
-        return await pollForCreatomate(data.renderId);
+        if (data?.success === false) {
+          throw new Error(data?.error || 'Creatomate failed');
+        }
+
+        if (data?.renderId) {
+          return await pollForCreatomate(data.renderId);
+        }
+      } catch (creatomateErr) {
+        console.warn('Creatomate montage stitch failed, falling back to browser:', creatomateErr);
+        const { stitchVideosWithAudio } = await import('@/lib/videoStitch');
+        const blob = await stitchVideosWithAudio({ videoUrls, audioUrls: segment.audioUrl ? [segment.audioUrl] : [] });
+        return URL.createObjectURL(blob);
       }
     }
 
@@ -420,11 +431,20 @@ async function stitchCommercial(segments: CommercialSegment[]): Promise<string> 
       transition: s.transition
     }));
 
-  const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
-    body: { clips }
-  });
+  try {
+    const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
+      body: { clips }
+    });
 
-  if (error) throw error;
+    if (error) throw error;
+    if (data?.success === false) throw new Error(data?.error || 'Creatomate failed');
 
-  return await pollForCreatomate(data.renderId);
+    return await pollForCreatomate(data.renderId);
+  } catch (creatomateErr) {
+    console.warn('Creatomate commercial stitch failed, falling back to browser:', creatomateErr);
+    const { stitchVideosWithAudio } = await import('@/lib/videoStitch');
+    const videoUrls = clips.map(c => c.url);
+    const blob = await stitchVideosWithAudio({ videoUrls, audioUrls: [] });
+    return URL.createObjectURL(blob);
+  }
 }
