@@ -2088,6 +2088,10 @@ const Reels = () => {
 
   const generateAll = async () => {
     // In beginner mode, auto-select the first AI Twin for character consistency
+    // Use local variables since React state updates are async and won't be available immediately
+    let shouldEnableLipSync = enableLipSync;
+    let activeLipSyncModel = lipSyncModel;
+    
     if (isBeginner && aiTwins.length > 0 && !selectedTwinId) {
       const twin = aiTwins[0];
       setSelectedTwinId(twin.id);
@@ -2100,13 +2104,16 @@ const Reels = () => {
         setCharacterDescription(twin.face_description);
       }
       // Enable lip sync for talking head style
+      shouldEnableLipSync = true;
+      activeLipSyncModel = 'infinitetalk';
       setEnableLipSync(true);
       setLipSyncModel('infinitetalk');
     }
     
     await generateScripts();
     if (project.scenes.length > 0) {
-      await generateVideo();
+      // Pass overrides to ensure lip sync state is used even before React re-renders
+      await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel });
     }
   };
 
