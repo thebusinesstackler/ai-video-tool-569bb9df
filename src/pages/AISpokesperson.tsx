@@ -327,7 +327,8 @@ Return ONLY a JSON object:
         body: {
           text: generatedScript.narration,
           voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
-          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined
+          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
+          speakingRate: 0.92
         }
       });
 
