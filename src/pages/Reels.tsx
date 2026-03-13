@@ -2715,25 +2715,6 @@ const Reels = () => {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        Rendering Mode
-                        {useServerStitching ? (
-                          <Cloud className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Monitor className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </Label>
-                      <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-border bg-background">
-                        <span className={`text-sm ${!useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Browser</span>
-                        <Switch
-                          checked={useServerStitching}
-                          onCheckedChange={setUseServerStitching}
-                          disabled={isGenerating}
-                        />
-                        <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
-                      </div>
-                    </div>
                   </div>
                 ) : (
                   // Normal Reel Mode Settings
