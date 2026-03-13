@@ -597,6 +597,82 @@ export const CharacterManager = () => {
         </Dialog>
       </div>
 
+      {/* Character Templates */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <LayoutTemplateIcon className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Character Templates</CardTitle>
+          </div>
+          <p className="text-sm text-muted-foreground">Quick-start with pre-made characters — click to use as a starting point</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {CHARACTER_TEMPLATES.map((template, i) => (
+              <button
+                key={i}
+                className="group text-left rounded-lg border border-border bg-card p-2 hover:border-primary/50 hover:shadow-md transition-all"
+                onClick={async () => {
+                  const { data: user } = await supabase.auth.getUser();
+                  if (!user.user) {
+                    toast({ title: 'Sign in required', variant: 'destructive' });
+                    return;
+                  }
+                  // Convert template image to base64 for storage
+                  try {
+                    const resp = await fetch(template.image);
+                    const blob = await resp.blob();
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                      const base64 = e.target?.result as string;
+                      const { data, error } = await supabase
+                        .from('characters')
+                        .insert({
+                          user_id: user.user!.id,
+                          name: template.name,
+                          description: template.description,
+                          reference_images: [base64],
+                          voice_type: template.voiceType,
+                          personality: template.personality,
+                        })
+                        .select()
+                        .single();
+                      if (error) {
+                        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                        return;
+                      }
+                      setCharacters(prev => [{
+                        id: data.id,
+                        name: data.name,
+                        description: data.description || '',
+                        referenceImages: data.reference_images || [],
+                        voiceType: data.voice_type,
+                        kieVoiceId: data.kie_voice_id || '',
+                        personality: data.personality || '',
+                        createdAt: data.created_at,
+                      }, ...prev]);
+                      toast({ title: 'Character Created', description: `${template.name} added to your characters.` });
+                    };
+                    reader.readAsDataURL(blob);
+                  } catch (err) {
+                    console.error('Template error:', err);
+                    toast({ title: 'Error', description: 'Failed to create from template.', variant: 'destructive' });
+                  }
+                }}
+              >
+                <img 
+                  src={template.image} 
+                  alt={template.name} 
+                  className="w-full aspect-square object-cover rounded-md mb-2 group-hover:scale-[1.02] transition-transform" 
+                />
+                <p className="text-sm font-medium truncate">{template.name}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{template.description}</p>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Characters Grid */}
       {characters.length === 0 ? (
         <Card className="glass">
@@ -604,7 +680,7 @@ export const CharacterManager = () => {
             <UserIcon className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-foreground mb-2">No Characters Yet</h3>
             <p className="text-muted-foreground mb-6 max-w-md">
-              Create your first AI character to get started with personalized video content.
+              Create your first AI character or use a template above to get started.
             </p>
             <Button onClick={() => setIsCreateDialogOpen(true)}>
               <PlusIcon className="w-4 h-4 mr-2" />
