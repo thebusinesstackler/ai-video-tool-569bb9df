@@ -131,6 +131,14 @@ const AISpokesperson = () => {
   const [showSceneGallery, setShowSceneGallery] = useState(false);
   const [isAddingShot, setIsAddingShot] = useState(false);
   
+  // Caption overlay
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [captionText, setCaptionText] = useState('');
+  
+  // Continuation scenes
+  const [continuationVideos, setContinuationVideos] = useState<string[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
   // AI Enhancement
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [suggestions, setSuggestions] = useState<{ title: string; enhanced: string }[]>([]);
