@@ -1597,7 +1597,7 @@ const Reels = () => {
       
       // Step 2: Generate scene images and start video tasks via backend
       // Pass actual audio durations so WaveSpeed generates correct length videos
-      const scenesWithAudioDurations = project.scenes.map(scene => {
+      const scenesWithAudioDurations = activeScenes.map(scene => {
         const voiceover = voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
         return {
           ...scene,
