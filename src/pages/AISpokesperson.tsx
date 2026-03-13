@@ -715,6 +715,49 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
                 </div>
               )}
 
+              {/* Video Quality Selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-muted-foreground">Video Quality</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setSelectedQuality('standard')}
+                    className={`p-3 rounded-lg border text-center transition-all ${
+                      selectedQuality === 'standard'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <Video className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
+                    <p className="text-xs font-semibold">Standard</p>
+                    <p className="text-[10px] text-muted-foreground">InfiniteTalk</p>
+                  </button>
+                  <button
+                    onClick={() => setSelectedQuality('nano-banana')}
+                    className={`p-3 rounded-lg border text-center transition-all ${
+                      selectedQuality === 'nano-banana'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <Sparkles className="w-5 h-5 mx-auto mb-1 text-amber-500" />
+                    <p className="text-xs font-semibold">Nano Banana 2</p>
+                    <p className="text-[10px] text-muted-foreground">Enhanced image</p>
+                  </button>
+                  <button
+                    onClick={() => setSelectedQuality('kling-pro')}
+                    className={`p-3 rounded-lg border text-center transition-all ${
+                      selectedQuality === 'kling-pro'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <Film className="w-5 h-5 mx-auto mb-1 text-emerald-500" />
+                    <p className="text-xs font-semibold">Kling 3.0 Pro</p>
+                    <p className="text-[10px] text-muted-foreground">Premium video</p>
+                  </button>
+                </div>
+              </div>
+
               <Button
                 onClick={handleBeginnerGenerate}
                 disabled={isGenerating || isGeneratingScript || !message.trim() || !selectedTwinId}
