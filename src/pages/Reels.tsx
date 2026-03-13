@@ -2403,19 +2403,48 @@ const Reels = () => {
             description: "All clips merged and saved to My Reels."
           });
         } else {
-          // Stitching failed - show specific error and fall back to individual clips
-          const errorMsg = result.error || 'Stitching failed';
-          console.warn('Creatomate stitching failed:', errorMsg);
+          // Creatomate failed - automatically fall back to browser stitching
+          console.warn('Creatomate manual stitch failed, falling back to browser:', result.error);
+          setProgressStatus('Server failed, trying browser stitching...');
           
-          toast({
-            title: "Stitching Unavailable",
-            description: errorMsg.includes('402') || errorMsg.includes('credits') 
-              ? "Stitching service credits exhausted. Your individual clips are still available below."
-              : `Stitching failed: ${errorMsg}. Your individual clips are still available below.`,
+          const videoUrls = sortedVideos.map(v => v.videoUrl);
+          const stitchedBlob = await stitchVideosWithAudio({
+            videoUrls,
+            audioUrls: [mergedAudioUrl],
+            onProgress: (percent) => {
+              setProgress(40 + percent * 0.5);
+              setProgressStatus(`Stitching in browser... ${Math.round(percent)}%`);
+            }
           });
 
-          setProgress(100);
-          setProgressStatus('Complete (individual clips)');
+          videoBlobRef.current = stitchedBlob;
+          const blobUrl = URL.createObjectURL(stitchedBlob);
+          let savedVideoUrl = blobUrl;
+          
+          if (user) {
+            try {
+              const fileName = `${user.id}/${Date.now()}-stitched.mp4`;
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('reels')
+                .upload(fileName, stitchedBlob, { contentType: 'video/mp4' });
+              if (!uploadError && uploadData) {
+                const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                savedVideoUrl = publicUrl.publicUrl;
+              }
+              const thumbnailUrl = project.generatedScenes[0]?.imageUrl || null;
+              const totalDuration = project.voiceovers.reduce((acc, a) => acc + a.duration, 0);
+              const scenesWithAllAssets = project.generatedScenes.map((scene) => {
+                const video = project.videoClips.find(v => v.sceneNumber === scene.sceneNumber);
+                const audio = project.voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
+                return { ...scene, videoUrl: video?.videoUrl || null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
+              });
+              await supabase.from('reels').insert([{ user_id: user.id, topic: project.topic, video_url: savedVideoUrl, thumbnail_url: thumbnailUrl, scenes: scenesWithAllAssets as unknown as any, total_duration: totalDuration }]);
+              fetchSavedReels();
+            } catch (e) { console.error('Failed to save:', e); }
+          }
+
+          setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
+          toast({ title: "Videos Stitched & Saved!", description: "Merged using browser stitching and saved to My Reels." });
         }
       } else {
         // Use browser-based stitching with ffmpeg

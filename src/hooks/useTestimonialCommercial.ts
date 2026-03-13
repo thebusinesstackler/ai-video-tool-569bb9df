@@ -431,11 +431,20 @@ async function stitchCommercial(segments: CommercialSegment[]): Promise<string> 
       transition: s.transition
     }));
 
-  const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
-    body: { clips }
-  });
+  try {
+    const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
+      body: { clips }
+    });
 
-  if (error) throw error;
+    if (error) throw error;
+    if (data?.success === false) throw new Error(data?.error || 'Creatomate failed');
 
-  return await pollForCreatomate(data.renderId);
+    return await pollForCreatomate(data.renderId);
+  } catch (creatomateErr) {
+    console.warn('Creatomate commercial stitch failed, falling back to browser:', creatomateErr);
+    const { stitchVideosWithAudio } = await import('@/lib/videoStitch');
+    const videoUrls = clips.map(c => c.url);
+    const blob = await stitchVideosWithAudio({ videoUrls, audioUrls: [] });
+    return URL.createObjectURL(blob);
+  }
 }
