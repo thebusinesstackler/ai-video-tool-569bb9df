@@ -2105,54 +2105,200 @@ const Reels = () => {
     }));
   };
 
-  // Generate a character on-demand using AI image generation
-  const generateCharacter = async () => {
-    if (!generateCharacterPrompt.trim()) {
-      toast({ title: "Missing Description", description: "Please describe the person you want to generate.", variant: "destructive" });
-      return;
-    }
-    setIsGeneratingCharacter(true);
+  // Auto-derive a character prompt from the topic using AI
+  const deriveCharacterFromTopic = async (topicText: string): Promise<string> => {
     try {
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
           messages: [{
             role: 'user',
-            content: `Generate a professional headshot portrait photo of: ${generateCharacterPrompt}. 
-              The person should be looking directly at the camera with a natural confident expression, slight smile.
-              Professional studio lighting, clean background, high quality portrait suitable for video production.
-              Photorealistic, 8K quality. On a solid white background.`
+            content: `Based on this social media reel topic, describe the ideal person/character who should present it. Return ONLY a short physical description (2 sentences max) suitable for AI image generation. Include gender, approximate age, ethnicity/skin tone, hair, attire, and vibe.
+
+Topic: "${topicText}"
+
+Example output: "A confident Black woman in her early 30s with natural curls, wearing a sleek blazer over a white tee. Warm smile, professional but approachable energy."`
           }],
+          model: 'google/gemini-3-flash-preview'
+        }
+      });
+      if (error) throw error;
+      const desc = data?.choices?.[0]?.message?.content?.trim();
+      return desc || 'A confident professional person in their 30s with a natural smile';
+    } catch {
+      return 'A confident professional person in their 30s with a natural smile';
+    }
+  };
+
+  // Generate a character on-demand using AI image generation — creates 5 angle shots and saves as AI Twin
+  const generateCharacter = async () => {
+    // If prompt is empty, auto-derive from topic
+    let charPrompt = generateCharacterPrompt.trim();
+    if (!charPrompt && topic.trim()) {
+      setIsGeneratingCharacter(true);
+      toast({ title: "Analyzing topic...", description: "AI is creating the perfect character for your reel." });
+      charPrompt = await deriveCharacterFromTopic(topic);
+      setGenerateCharacterPrompt(charPrompt);
+    }
+    
+    if (!charPrompt) {
+      toast({ title: "Missing Description", description: "Please describe the person or enter a topic first.", variant: "destructive" });
+      return;
+    }
+    
+    setIsGeneratingCharacter(true);
+    
+    const ANGLE_PROMPTS = [
+      { label: 'Front Portrait', prompt: `Front-facing professional portrait of: ${charPrompt}. Looking directly at camera, natural confident expression, slight smile. Shot on 85mm lens, f/1.4, professional studio lighting, clean bokeh background. Photorealistic, 8K quality.` },
+      { label: '3/4 Profile', prompt: `3/4 angle profile portrait of: ${charPrompt}. Same person as reference — EXACT same face, features, skin tone, hair. Turned slightly to the right, natural expression. Shot on 50mm lens, soft rim light, warm tones. Photorealistic, 8K quality.` },
+      { label: 'Side Profile', prompt: `Side profile portrait of: ${charPrompt}. Same person as reference — EXACT same face, features, skin tone, hair. Looking to the right, confident jawline visible. Shot on 85mm lens, dramatic side lighting. Photorealistic, 8K quality.` },
+      { label: 'Low Angle Hero', prompt: `Low angle hero shot of: ${charPrompt}. Same person as reference — EXACT same face, features, skin tone, hair. Shot from below, powerful and commanding presence. 35mm wide lens, dramatic lighting from above. Photorealistic, 8K quality.` },
+      { label: 'Casual Wide', prompt: `Medium-wide environmental portrait of: ${charPrompt}. Same person as reference — EXACT same face, features, skin tone, hair. In a professional/lifestyle setting, natural relaxed pose. 35mm lens, shallow depth of field. Photorealistic, 8K quality.` },
+    ];
+    
+    try {
+      const generatedImages: string[] = [];
+      
+      // Generate first image (front portrait — the reference)
+      toast({ title: "Generating character...", description: "Creating front portrait (1/5)..." });
+      
+      const { data: firstData, error: firstError } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{ role: 'user', content: ANGLE_PROMPTS[0].prompt + ' On a solid white background.' }],
           model: 'google/gemini-3.1-flash-image-preview',
           modalities: ['image', 'text']
         }
       });
-      if (error) throw error;
-      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (imageUrl) {
-        setPortraitImage(imageUrl);
-        setPortraitPreview(imageUrl);
-        setPreSelectedReference(imageUrl);
-        setCharacterDescription(generateCharacterPrompt);
-        setShowGenerateCharacter(false);
+      if (firstError) throw firstError;
+      
+      const firstImageUrl = firstData?.imageUrl || firstData?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!firstImageUrl) throw new Error('No image returned for front portrait');
+      generatedImages.push(firstImageUrl);
+      
+      // Set the first image immediately so the user sees progress
+      setPortraitImage(firstImageUrl);
+      setPortraitPreview(firstImageUrl);
+      setPreSelectedReference(firstImageUrl);
+      setCharacterDescription(charPrompt);
+      
+      // Generate remaining 4 angles using the first image as reference for consistency
+      for (let i = 1; i < ANGLE_PROMPTS.length; i++) {
+        toast({ title: "Generating character...", description: `Creating ${ANGLE_PROMPTS[i].label} (${i + 1}/5)...` });
         
-        // Auto-detect gender from description and set matching voice
-        const descLower = generateCharacterPrompt.toLowerCase();
-        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
-        const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr'];
-        const isFemale = femaleKeywords.some(k => descLower.includes(k));
-        const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
-        
-        if (isFemale) {
-          setSelectedVoice('English_compelling_lady1');
-        } else if (isMale) {
-          setSelectedVoice('English_magnetic_voiced_man');
+        try {
+          const { data: angleData, error: angleError } = await supabase.functions.invoke('ai', {
+            body: {
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'image_url', image_url: { url: firstImageUrl } },
+                  { type: 'text', text: `Using this person as the EXACT character reference — match their face, features, skin tone, hair, and build precisely.\n\n${ANGLE_PROMPTS[i].prompt}` }
+                ]
+              }],
+              model: 'google/gemini-3.1-flash-image-preview',
+              modalities: ['image', 'text']
+            }
+          });
+          
+          if (!angleError) {
+            const angleImageUrl = angleData?.imageUrl || angleData?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+            if (angleImageUrl) {
+              generatedImages.push(angleImageUrl);
+            }
+          }
+        } catch (angleErr) {
+          console.warn(`Angle ${ANGLE_PROMPTS[i].label} generation failed:`, angleErr);
         }
-        // If ambiguous, keep current voice
-        
-        toast({ title: "Character Generated!", description: `Portrait set as reference.${isFemale ? ' Female voice auto-selected.' : isMale ? ' Male voice auto-selected.' : ''}` });
-      } else {
-        throw new Error('No image returned');
       }
+      
+      // Auto-detect gender for voice matching
+      const descLower = charPrompt.toLowerCase();
+      const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
+      const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr'];
+      const isFemale = femaleKeywords.some(k => descLower.includes(k));
+      const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
+      const detectedGender = isFemale ? 'female' : 'male';
+      
+      if (isFemale) {
+        setSelectedVoice('English_compelling_lady1');
+      } else if (isMale) {
+        setSelectedVoice('English_magnetic_voiced_man');
+      }
+      
+      // Save as AI Twin to database
+      if (user) {
+        toast({ title: "Saving character...", description: "Adding to your AI Twin library..." });
+        
+        // Upload images to storage first
+        const storedImageUrls: string[] = [];
+        for (let i = 0; i < generatedImages.length; i++) {
+          const img = generatedImages[i];
+          if (img.startsWith('data:')) {
+            try {
+              const base64Data = img.split(',')[1];
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let j = 0; j < binaryString.length; j++) bytes[j] = binaryString.charCodeAt(j);
+              const fileName = `${user.id}/twins/${Date.now()}-angle-${i}.png`;
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('reels')
+                .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+              if (!uploadError && uploadData) {
+                const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                storedImageUrls.push(publicUrl.publicUrl);
+              } else {
+                storedImageUrls.push(img); // fallback to base64
+              }
+            } catch { storedImageUrls.push(img); }
+          } else {
+            storedImageUrls.push(img);
+          }
+        }
+        
+        // Extract a short name from the description
+        const twinName = charPrompt.length > 40 ? charPrompt.substring(0, 40) + '...' : charPrompt;
+        
+        const { data: twinData, error: twinError } = await supabase
+          .from('ai_twins')
+          .insert({
+            user_id: user.id,
+            name: twinName,
+            description: charPrompt,
+            face_description: charPrompt,
+            gender: detectedGender,
+            reference_images: storedImageUrls
+          })
+          .select()
+          .single();
+        
+        if (!twinError && twinData) {
+          // Update local state — add to twins list and select it
+          setAiTwins(prev => [...prev, {
+            id: twinData.id,
+            name: twinData.name,
+            reference_images: twinData.reference_images || [],
+            voice_cloning_key: null,
+            voice_sample_url: null,
+            face_description: twinData.face_description
+          }]);
+          setSelectedTwinId(twinData.id);
+          
+          // Update portrait to use the stored URL
+          if (storedImageUrls[0]) {
+            setPortraitImage(storedImageUrls[0]);
+            setPortraitPreview(storedImageUrls[0]);
+            setPreSelectedReference(storedImageUrls[0]);
+          }
+          
+          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created and saved as AI Twin.` });
+        } else {
+          console.error('Failed to save AI Twin:', twinError);
+          toast({ title: "Character Generated!", description: `${generatedImages.length} shots created. Could not save to library.` });
+        }
+      } else {
+        toast({ title: "Character Generated!", description: `${generatedImages.length} shots created.${isFemale ? ' Female voice auto-selected.' : isMale ? ' Male voice auto-selected.' : ''}` });
+      }
+      
+      setShowGenerateCharacter(false);
     } catch (err: any) {
       toast({ title: "Generation Failed", description: err.message, variant: "destructive" });
     } finally {
@@ -2613,20 +2759,36 @@ const Reels = () => {
                     </div>
                     
                     {portraitPreview ? (
-                      <div className="flex items-center gap-3">
-                        <img src={portraitPreview} alt="Character" className="w-16 h-16 rounded-lg object-cover border border-border" />
-                        <div className="flex-1">
-                          <p className="text-sm text-foreground font-medium">Character ready!</p>
-                          <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <img src={portraitPreview} alt="Character" className="w-16 h-16 rounded-lg object-cover border border-border" />
+                          <div className="flex-1">
+                            <p className="text-sm text-foreground font-medium">Character ready! ✨</p>
+                            <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
+                            {selectedTwinId && <p className="text-[10px] text-primary">Saved to AI Twins</p>}
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); }}>
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); }}>
-                          <X className="w-4 h-4" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); generateCharacter(); }}
+                          disabled={isGenerating || isGeneratingCharacter}
+                        >
+                          {isGeneratingCharacter ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerating...</>
+                          ) : (
+                            <><RefreshCw className="w-4 h-4 mr-2" />Regenerate Character</>
+                          )}
                         </Button>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Input
-                          placeholder="Describe your character (e.g., professional businessman in his 30s, confident woman entrepreneur)"
+                          placeholder="Describe your character or leave blank — AI will pick one from your topic"
                           value={generateCharacterPrompt}
                           onChange={(e) => setGenerateCharacterPrompt(e.target.value)}
                           disabled={isGenerating || isGeneratingCharacter}
@@ -2636,15 +2798,17 @@ const Reels = () => {
                           variant="outline"
                           className="w-full"
                           onClick={generateCharacter}
-                          disabled={isGenerating || isGeneratingCharacter || !generateCharacterPrompt.trim()}
+                          disabled={isGenerating || isGeneratingCharacter || (!generateCharacterPrompt.trim() && !topic.trim())}
                         >
                           {isGeneratingCharacter ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating Character...</>
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating 5 shots...</>
                           ) : (
-                            <><Wand2 className="w-4 h-4 mr-2" />Generate Character</>
+                            <><Wand2 className="w-4 h-4 mr-2" />Generate Character (5 Shots)</>
                           )}
                         </Button>
-                        <p className="text-xs text-muted-foreground text-center">AI will create a portrait and auto-match the voice</p>
+                        <p className="text-xs text-muted-foreground text-center">
+                          {generateCharacterPrompt.trim() ? 'AI will create 5 angle shots and save as AI Twin' : 'Leave blank — AI will derive the character from your topic'}
+                        </p>
                       </div>
                     )}
                   </div>
