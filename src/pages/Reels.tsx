@@ -2472,8 +2472,8 @@ const Reels = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Mobile Mode Selector */}
-              {isMobile && (
+              {/* Mobile Mode Selector (Advanced only) */}
+              {isMobile && isAdvanced && (
                 <div className="flex flex-wrap gap-2">
                   <Select value={activeMode} onValueChange={(value) => handleModeChange(value as ReelMode)}>
                     <SelectTrigger className="bg-card border-border w-full">
