@@ -2094,9 +2094,9 @@ const Reels = () => {
         const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
         
         if (isFemale) {
-          setSelectedVoice('en-US-Journey-F');
+          setSelectedVoice('English_compelling_lady1');
         } else if (isMale) {
-          setSelectedVoice('en-US-Journey-D');
+          setSelectedVoice('English_magnetic_voiced_man');
         }
         // If ambiguous, keep current voice
         
