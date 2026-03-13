@@ -614,9 +614,23 @@ const Reels = () => {
       
       if (data?.description) {
         setCharacterDescription(data.description);
+        
+        // Auto-detect gender from the analysis and set matching voice
+        const descLower = data.description.toLowerCase();
+        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'sister'];
+        const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'brother'];
+        const isFemale = femaleKeywords.some(k => descLower.includes(k));
+        const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
+        
+        if (isFemale) {
+          setSelectedVoice('en-US-Journey-F');
+        } else if (isMale) {
+          setSelectedVoice('en-US-Journey-D');
+        }
+        
         toast({
           title: "Character Detected",
-          description: `Auto-filled: ${data.description}`,
+          description: `Auto-filled: ${data.description}${isFemale ? ' (female voice set)' : isMale ? ' (male voice set)' : ''}`,
         });
       }
     } catch (error: any) {
