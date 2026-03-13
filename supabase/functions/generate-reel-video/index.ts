@@ -158,34 +158,73 @@ async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempt
 }
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
-function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean): string {
+function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean, characterDescription?: string, referenceImages?: string[]): string {
+  const charDesc = characterDescription ? `\nCHARACTER: ${characterDescription}. Maintain EXACT same appearance in every frame.` : '';
+  const refImageNote = referenceImages?.length ? `\nIMPORTANT: Match the person's appearance exactly from the reference - same face shape, skin tone, hair, features.` : '';
+  
   // For lip sync mode, generate front-facing portrait suitable for talking head
   if (enableLipSync && !scene.isIntro && !scene.isOutro) {
-    return `Generate a front-facing portrait photo suitable for a talking head video.
+    return `Generate a premium cinematic portrait photo for a high-end social media video.
       Scene context: ${scene.visualDescription}
-      Topic: ${topic}
-      Style: Portrait orientation, clear face, well-lit, professional look, direct eye contact with camera.
-      The subject should be centered in frame, neutral or engaging expression.
-      High quality, photorealistic, suitable for lip sync animation.
-      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words anywhere in the image. The person should have a CLOSED MOUTH or slight smile - NOT speaking or moving lips.`;
+      Topic: ${topic}${charDesc}${refImageNote}
+      CINEMATOGRAPHY: Shot on RED V-RAPTOR, 85mm lens, f/1.4 shallow depth of field.
+      LIGHTING: Professional 3-point studio lighting with soft key light, subtle rim light creating depth, warm color temperature.
+      COMPOSITION: Rule of thirds, subject centered, clean bokeh background, magazine-quality portrait.
+      The subject has a natural, confident expression - slight smile, relaxed posture, direct eye contact with camera.
+      Ultra high quality, photorealistic, 8K detail, professional color grading.
+      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. CLOSED MOUTH or slight smile only - NOT speaking.`;
   }
 
   if (scene.isIntro) {
     const basePrompt = scene.visualDescription || 'Modern social media intro background';
-    return `${basePrompt}. Topic: ${topic}. Style: Clean background design, vibrant colors, vertical 9:16 format, eye-catching social media intro screen. Abstract or thematic background. CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words of any kind in the image. Pure visual design only. Suitable for text overlay.`;
+    return `${basePrompt}. Topic: ${topic}. 
+      STYLE: Premium cinematic intro - think Apple keynote quality. Rich colors, sophisticated gradient lighting, volumetric atmosphere.
+      QUALITY: 8K resolution, professional color grading, lens flare accents, subtle particle effects.
+      Vertical 9:16 format, abstract or thematic background.
+      CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words. Pure visual design only.`;
   }
   
   if (scene.isOutro) {
     const basePrompt = scene.visualDescription || 'Social media call-to-action background';
-    return `${basePrompt}. Style: Engaging background design, vertical 9:16 format, social media outro screen. CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words of any kind in the image. Pure visual background only. Suitable for text overlay.`;
+    return `${basePrompt}. 
+      STYLE: Premium cinematic outro - elegant, sophisticated, high-end brand feel. Deep colors, atmospheric lighting.
+      QUALITY: 8K resolution, professional color grading, subtle depth effects.
+      Vertical 9:16 format.
+      CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words. Pure visual background only.`;
   }
   
-  return `Generate a vibrant, eye-catching image for a social media reel. 
+  return `Generate a PREMIUM cinematic image for a high-end social media reel.
     Scene: ${scene.visualDescription}
-    Topic: ${topic}
-    Style: Modern, engaging, vertical format (9:16 aspect ratio), suitable for Instagram/TikTok.
-    The image should be visually striking and attention-grabbing.
-    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words anywhere in the image. If showing people, they should NOT appear to be speaking or have open mouths - use natural poses, closed mouths, or slight smiles instead.`;
+    Topic: ${topic}${charDesc}${refImageNote}
+    CINEMATOGRAPHY: Shot on RED V-RAPTOR or ARRI Alexa, cinematic lens, shallow depth of field with beautiful bokeh.
+    LIGHTING: Professional cinematic lighting - motivated light sources, volumetric atmosphere, rich shadows and highlights.
+    COLOR: Professional color grading - rich, vibrant but natural tones. Think high-end commercial or film production.
+    COMPOSITION: Rule of thirds, leading lines, dynamic framing. Vertical 9:16 format.
+    QUALITY: Ultra-high resolution, photorealistic, magazine/commercial quality, sharp details.
+    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. If showing people, they should have CLOSED MOUTHS or slight smiles - NOT speaking. Natural confident poses.`;
+}
+
+// Build image generation messages with reference images for character consistency
+function buildImageGenMessages(prompt: string, referenceImages?: string[]) {
+  if (referenceImages && referenceImages.length > 0) {
+    // Use multimodal message with reference image for character consistency
+    const content: any[] = [];
+    
+    // Add the first reference image
+    content.push({
+      type: 'image_url',
+      image_url: { url: referenceImages[0] }
+    });
+    
+    content.push({
+      type: 'text',
+      text: `Using this person as the EXACT character reference - match their face, features, skin tone, and appearance precisely in the generated image.\n\n${prompt}`
+    });
+    
+    return [{ role: 'user', content }];
+  }
+  
+  return [{ role: 'user', content: prompt }];
 }
 
 serve(async (req) => {

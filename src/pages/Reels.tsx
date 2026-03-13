@@ -2080,6 +2080,23 @@ const Reels = () => {
   };
 
   const generateAll = async () => {
+    // In beginner mode, auto-select the first AI Twin for character consistency
+    if (isBeginner && aiTwins.length > 0 && !selectedTwinId) {
+      const twin = aiTwins[0];
+      setSelectedTwinId(twin.id);
+      if (twin.reference_images?.[0]) {
+        setPortraitImage(twin.reference_images[0]);
+        setPortraitPreview(twin.reference_images[0]);
+        setPreSelectedReference(twin.reference_images[0]);
+      }
+      if (twin.face_description) {
+        setCharacterDescription(twin.face_description);
+      }
+      // Enable lip sync for talking head style
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
+    }
+    
     await generateScripts();
     if (project.scenes.length > 0) {
       await generateVideo();
