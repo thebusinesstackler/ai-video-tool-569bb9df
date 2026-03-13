@@ -3423,8 +3423,8 @@ const Reels = () => {
               </Collapsible>
             )}
 
-            {/* Generated Scenes */}
-            {project.scenes.length > 0 && (
+            {/* Generated Scenes (Advanced only - beginner skips straight to video) */}
+            {isAdvanced && project.scenes.length > 0 && (
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
