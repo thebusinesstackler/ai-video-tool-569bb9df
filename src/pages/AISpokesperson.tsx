@@ -105,6 +105,12 @@ const AISpokesperson = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedQuality, setSelectedQuality] = useState<'standard' | 'nano-banana' | 'kling-pro'>('standard');
   
+  // Multi-scene shots (Kling 3.0 flow)
+  const [sceneShots, setSceneShots] = useState<SceneShot[]>([]);
+  const [isGeneratingShots, setIsGeneratingShots] = useState(false);
+  const [showSceneGallery, setShowSceneGallery] = useState(false);
+  const [isAddingShot, setIsAddingShot] = useState(false);
+  
   // AI Enhancement
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [suggestions, setSuggestions] = useState<{ title: string; enhanced: string }[]>([]);
