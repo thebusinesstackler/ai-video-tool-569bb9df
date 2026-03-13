@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, ChevronLeft, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard, Download } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, ChevronLeft, ChevronDown, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard, Download, MoreVertical, Pencil, Settings2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
 import { useToast } from '@/hooks/use-toast';
@@ -1105,15 +1106,6 @@ const MovieSceneCreator = () => {
       return;
     }
 
-    if (selectedTwins.length === 0) {
-      toast({
-        title: "Select AI Twins",
-        description: "Please select at least one AI Twin to star in your movie.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
 
@@ -1122,10 +1114,12 @@ const MovieSceneCreator = () => {
       setGenerateAllStep('Creating Story Bible...');
       setGenerateAllProgress(5);
 
-      let characterDescription = selectedTwins.map(twin => {
-        const genderText = twin.gender ? `${twin.gender} ` : '';
-        return `${twin.name} (${genderText}character): ${twin.face_description || twin.description || 'No description'}`;
-      }).join('\n\n');
+      let characterDescription = selectedTwins.length > 0
+        ? selectedTwins.map(twin => {
+            const genderText = twin.gender ? `${twin.gender} ` : '';
+            return `${twin.name} (${genderText}character): ${twin.face_description || twin.description || 'No description'}`;
+          }).join('\n\n')
+        : undefined;
 
       const { data: storyBibleData, error: storyBibleError } = await supabase.functions.invoke('generate-story-bible', {
         body: { movieIdea, characterDescription }
@@ -1160,14 +1154,16 @@ const MovieSceneCreator = () => {
       // Step 2: Generate Outline (25%)
       setGenerateAllStep('Generating Outline...');
       
-      const pronounsDesc = selectedTwins.map(twin => {
-        const genderText = twin.gender ? `${twin.gender} ` : '';
-        const pronouns = twin.gender === 'female' ? 'she/her' : twin.gender === 'male' ? 'he/him' : 'they/them';
-        return `${twin.name} (${genderText}character, pronouns: ${pronouns}): ${twin.face_description || twin.description || 'No description'}`;
-      }).join('\n\n');
+      const pronounsDesc = selectedTwins.length > 0
+        ? selectedTwins.map(twin => {
+            const genderText = twin.gender ? `${twin.gender} ` : '';
+            const pronouns = twin.gender === 'female' ? 'she/her' : twin.gender === 'male' ? 'he/him' : 'they/them';
+            return `${twin.name} (${genderText}character, pronouns: ${pronouns}): ${twin.face_description || twin.description || 'No description'}`;
+          }).join('\n\n')
+        : undefined;
 
       const { data: outlineData, error: outlineError } = await supabase.functions.invoke('generate-movie-outline', {
-        body: { movieIdea, characterDescription: pronounsDesc, movieLength }
+        body: { movieIdea, characterDescription: pronounsDesc || undefined, movieLength }
       });
 
       if (outlineError) throw outlineError;
@@ -1209,16 +1205,20 @@ const MovieSceneCreator = () => {
 
       // Step 5: Generate Conversation Dialogue for each scene (75%)
       setGenerateAllStep('Creating Blockbuster Dialogue...');
-      const characterNames = selectedTwins.map(t => t.name);
+      const characterNames = selectedTwins.length > 0 
+        ? selectedTwins.map(t => t.name) 
+        : (storyBibleWithVoices?.characters?.map((c: any) => c.name) || []);
       
       // Build character personalities from story bible or twin descriptions
       const characterPersonalities: Record<string, string> = {};
       selectedTwins.forEach(twin => {
         characterPersonalities[twin.name] = twin.description || twin.face_description || '';
       });
-      if (storyBibleData?.characters) {
-        storyBibleData.characters.forEach((char: StoryBibleCharacter) => {
-          if (characterPersonalities[char.name] !== undefined) {
+      if (storyBibleWithVoices?.characters) {
+        storyBibleWithVoices.characters.forEach((char: StoryBibleCharacter) => {
+          if (!characterPersonalities[char.name]) {
+            characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
+          } else {
             characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
           }
         });
@@ -1243,7 +1243,7 @@ const MovieSceneCreator = () => {
               : undefined;
             
             // For 2+ characters, use conversation dialogue with rich context
-            if (selectedTwins.length >= 2) {
+            if (characterNames.length >= 2) {
               const { data: convData, error: convError } = await supabase.functions.invoke('generate-conversation-dialogue', {
                 body: {
                   sceneDescription: scene.description,
@@ -1309,12 +1309,16 @@ const MovieSceneCreator = () => {
         
         // Build prompt for first frame
         let enhancedPrompt = firstScene.imagePrompt;
-        const referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
-        const charDescription = selectedTwins.map(twin => {
-          const genderText = twin.gender || 'person';
-          const faceDesc = twin.face_description || twin.description || '';
-          return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
-        }).join('\n\n');
+        const referenceImages = selectedTwins.length > 0 
+          ? selectedTwins.flatMap(twin => twin.reference_images || []) 
+          : [];
+        const charDescription = selectedTwins.length > 0
+          ? selectedTwins.map(twin => {
+              const genderText = twin.gender || 'person';
+              const faceDesc = twin.face_description || twin.description || '';
+              return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
+            }).join('\n\n')
+          : undefined;
 
         try {
           const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
@@ -2898,71 +2902,26 @@ const MovieSceneCreator = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Film className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">Movie Scene Creator Studio</h1>
-                {currentProjectId && projectTitle && (
-                  <p className="text-sm text-primary">Currently editing: {projectTitle}</p>
-                )}
-              </div>
+        {/* ===== HEADER — Clean: Title + Save + Overflow ===== */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Film className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Movie Studio</h1>
+              {currentProjectId && projectTitle && (
+                <p className="text-sm text-primary">{projectTitle}</p>
+              )}
             </div>
           </div>
 
-          {/* Action Buttons Row */}
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2">
             {userId && (
               <>
-                <Button onClick={startNewProject} variant="outline" size="sm">
-                  <Film className="w-4 h-4 mr-1" />
-                  New
-                </Button>
-                <Dialog open={isLoadDialogOpen} onOpenChange={setIsLoadDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <FolderOpen className="w-4 h-4 mr-1" />
-                      Load
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Load Project</DialogTitle>
-                      <DialogDescription>Select a project to continue working on</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-2">
-                      {savedProjects.length === 0 ? (
-                        <p className="text-muted-foreground text-center py-8">No saved projects yet</p>
-                      ) : (
-                        savedProjects.map((project) => (
-                          <Card key={project.id} className="cursor-pointer hover:bg-accent/50 transition-colors">
-                            <CardContent className="p-4 flex items-center justify-between">
-                              <div className="flex-1" onClick={() => loadProject(project.id)}>
-                                <h3 className="font-semibold">{project.title}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  {new Date(project.updated_at).toLocaleDateString()} • {project.scenes?.length || 0} scenes
-                                </p>
-                              </div>
-                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}>
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        ))
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
                 <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Save className="w-4 h-4 mr-1" />
-                      Save
-                    </Button>
+                    <Button size="sm"><Save className="w-4 h-4 mr-1" />Save</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
@@ -2976,30 +2935,65 @@ const MovieSceneCreator = () => {
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={saveProject}>
-                        <Save className="w-4 h-4 mr-2" />
-                        {currentProjectId ? 'Update' : 'Save'}
-                      </Button>
+                      <Button onClick={saveProject}><Save className="w-4 h-4 mr-2" />{currentProjectId ? 'Update' : 'Save'}</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-9 w-9"><MoreVertical className="w-4 h-4" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={startNewProject}><Film className="w-4 h-4 mr-2" />New Project</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsLoadDialogOpen(true)}><FolderOpen className="w-4 h-4 mr-2" />Load Project</DropdownMenuItem>
+                    <DropdownMenuItem onClick={transferToReels} disabled={isTransferring || !movieIdea.trim()}><ArrowRight className="w-4 h-4 mr-2" />Transfer to Reels</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
-            <CommercialTemplateSelector onApplyTemplate={applyCommercialTemplate} />
             <StoryboardExport scenes={scenes as MovieSceneWithKeyframes[]} projectTitle={projectTitle || 'Movie Storyboard'} />
-            <Button onClick={transferToReels} disabled={isTransferring || !movieIdea.trim()} variant="outline" className="gap-2">
-              {isTransferring ? (<><Sparkles className="w-4 h-4 animate-spin" />Transferring...</>) : (<>Transfer to Reels<ArrowRight className="w-4 h-4" /></>)}
-            </Button>
           </div>
         </div>
 
-        {/* ============ STEPPER ============ */}
+        {/* Load Dialog (rendered separately) */}
+        <Dialog open={isLoadDialogOpen} onOpenChange={setIsLoadDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Load Project</DialogTitle>
+              <DialogDescription>Select a project to continue working on</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              {savedProjects.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No saved projects yet</p>
+              ) : (
+                savedProjects.map((project) => (
+                  <Card key={project.id} className="cursor-pointer hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex-1" onClick={() => loadProject(project.id)}>
+                        <h3 className="font-semibold">{project.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(project.updated_at).toLocaleDateString()} • {project.scenes?.length || 0} scenes
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}>
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ===== STEPPER ===== */}
         {(() => {
           const steps = [
-            { label: 'Concept & Cast', icon: Lightbulb, done: !!movieIdea.trim() },
+            { label: 'Concept', icon: Lightbulb, done: !!movieIdea.trim() },
             { label: 'Story Bible', icon: BookOpen, done: !!storyBible },
-            { label: 'Outline & Locations', icon: FileText, done: !!outline.trim() },
-            { label: 'Scenes & Export', icon: Clapperboard, done: scenes.length > 0 },
+            { label: 'Outline', icon: FileText, done: !!outline.trim() },
+            { label: 'Scenes', icon: Clapperboard, done: scenes.length > 0 },
           ];
           return (
             <div className="flex items-center gap-1 bg-muted/50 rounded-xl p-2 overflow-x-auto">
@@ -3070,148 +3064,160 @@ const MovieSceneCreator = () => {
           </DialogContent>
         </Dialog>
 
-        {/* ============ STEP 1: Concept & Cast ============ */}
+        {/* ===== STEP 1: Concept — Hero Input + Make My Movie ===== */}
         {currentStep === 0 && (
           <div className="space-y-6">
-            {/* AI Twins Panel */}
-            {selectedTwins.length > 0 && (
-              <Card className="border-primary bg-gradient-to-r from-primary/5 to-primary/10">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <User className="w-5 h-5 text-primary" />
-                      Starring: {selectedTwins.map(t => t.name).join(' & ')}
-                    </CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedTwins([])}>
-                      <X className="w-4 h-4" />
+            {/* Hero Card */}
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+              <CardContent className="pt-8 pb-8 space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">What's your movie about?</h2>
+                  <p className="text-muted-foreground">Describe your movie idea and AI will create the entire thing for you.</p>
+                </div>
+
+                <Textarea
+                  placeholder="A sci-fi thriller about a detective who discovers she's living in a simulated reality..."
+                  value={movieIdea}
+                  onChange={(e) => setMovieIdea(e.target.value)}
+                  rows={5}
+                  className="resize-none text-base"
+                />
+
+                {/* Quick Start Chips */}
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {SAMPLE_MOVIES.map((movie) => (
+                    <Button 
+                      key={movie.value} 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => { setMovieIdea(movie.description); setPeteInputValue(movie.description); }}
+                      className="text-xs rounded-full"
+                    >
+                      {movie.label}
                     </Button>
-                  </div>
-                  <CardDescription>
-                    {selectedTwins.length === 1 
-                      ? "This AI Twin will be featured in your movie with their cloned voice and reference images."
-                      : `These ${selectedTwins.length} AI Twins will star together in your movie.`}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-4">
-                    {selectedTwins.map((twin) => (
-                      <div key={twin.id} className="flex items-start gap-3 p-2 rounded-lg bg-background/50">
-                        <div className="flex -space-x-2">
-                          {twin.reference_images?.slice(0, 3).map((img, imgIdx) => (
-                            <img key={imgIdx} src={img} alt={`Reference ${imgIdx + 1}`} className="w-10 h-10 rounded-full border-2 border-background object-cover" />
-                          ))}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm">{twin.name}</p>
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {twin.voice_cloning_key ? (
-                              <Button variant="default" size="sm" className="h-5 text-[10px] px-1.5 gap-0.5" onClick={() => previewTwinVoice(twin)} disabled={previewingVoiceFor === twin.id}>
-                                {previewingVoiceFor === twin.id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Volume2 className="w-2.5 h-2.5" />}
-                                {previewingVoiceFor === twin.id ? "Playing..." : "Preview Voice"}
-                              </Button>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px]"><Volume2 className="w-2.5 h-2.5 mr-0.5" />No Voice</Badge>
-                            )}
-                            <Badge variant="outline" className="text-[10px]"><ImageIcon className="w-2.5 h-2.5 mr-0.5" />{twin.reference_images?.length || 0}</Badge>
-                            {twin.gender && <Badge variant="outline" className="text-[10px] capitalize">{twin.gender}</Badge>}
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setSelectedTwins(prev => prev.filter(t => t.id !== twin.id))}>
-                          <X className="w-3 h-3" />
-                        </Button>
+                  ))}
+                </div>
+
+                {/* Make My Movie Button — always visible when idea exists */}
+                <Button 
+                  onClick={generateAll} 
+                  disabled={isGeneratingAll || !movieIdea.trim()} 
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
+                  size="lg"
+                >
+                  {isGeneratingAll ? (
+                    <div className="flex items-center gap-3 w-full">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <div className="flex-1 text-left">
+                        <p className="font-medium">{generateAllStep}</p>
+                        <Progress value={generateAllProgress} className="h-1.5 mt-1" />
                       </div>
+                      <span className="text-sm">{generateAllProgress}%</span>
+                    </div>
+                  ) : (
+                    <><Sparkles className="w-5 h-5 mr-2" />Make My Movie ✨</>
+                  )}
+                </Button>
+
+                {/* Selected Twins Summary (compact) */}
+                {selectedTwins.length > 0 && (
+                  <div className="flex items-center gap-2 justify-center flex-wrap">
+                    <span className="text-xs text-muted-foreground">Starring:</span>
+                    {selectedTwins.map((twin) => (
+                      <Badge key={twin.id} variant="secondary" className="gap-1 text-xs">
+                        {twin.reference_images?.[0] && <img src={twin.reference_images[0]} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                        {twin.name}
+                        <button onClick={() => setSelectedTwins(prev => prev.filter(t => t.id !== twin.id))} className="ml-0.5 hover:text-destructive">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </CardContent>
+            </Card>
 
-            {/* Pete AI Assistant */}
-            <PeteAIAssistant 
-              onMovieIdeaCaptured={handleMovieIdeaCaptured}
-              currentIdea={movieIdea}
-              inputValue={peteInputValue}
-              onInputChange={setPeteInputValue}
-            />
+            {/* Advanced Options — Collapsible */}
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between gap-2 text-muted-foreground hover:text-foreground">
+                  <span className="flex items-center gap-2">
+                    <Settings2 className="w-4 h-4" />
+                    Advanced Options
+                  </span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-2">
+                {/* Movie Length */}
+                <div className="space-y-2">
+                  <Label>Movie Length</Label>
+                  <Select value={movieLength} onValueChange={setMovieLength}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MOVIE_LENGTH_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{opt.label}</span>
+                            <span className="text-xs text-muted-foreground">{opt.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Quick Start Samples */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">Quick Start Ideas</p>
-              <div className="flex flex-wrap gap-2">
-                {SAMPLE_MOVIES.map((movie) => (
-                  <Button key={movie.value} variant="outline" size="sm" onClick={() => handleSampleSelect(movie.value)} className="text-xs">
-                    {movie.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Character Selection */}
-              {userId && (
-                <Card className="bg-card border-border">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-primary" />
-                      <div>
-                        <CardTitle className="text-base">Main Character</CardTitle>
-                        <CardDescription className="text-xs">Select who will star in your movie</CardDescription>
+                {/* Character Selection */}
+                {userId && (
+                  <Card className="bg-card border-border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2"><User className="w-4 h-4 text-primary" />Cast Characters</CardTitle>
+                      <CardDescription className="text-xs">Optional — AI will create characters if none selected</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant={characterSourceTab === 'twins' ? 'default' : 'outline'} onClick={() => setCharacterSourceTab('twins')} className="flex-1">AI Twins ({aiTwins.length})</Button>
+                        <Button size="sm" variant={characterSourceTab === 'characters' ? 'default' : 'outline'} onClick={() => setCharacterSourceTab('characters')} className="flex-1">Characters ({characters.length})</Button>
+                        <Button size="sm" variant={characterSourceTab === 'gallery' ? 'default' : 'outline'} onClick={() => setCharacterSourceTab('gallery')} className="flex-1">Gallery ({galleryImages.length})</Button>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex gap-2">
-                      <Button size="sm" variant={characterSourceTab === 'twins' ? 'default' : 'outline'} onClick={() => setCharacterSourceTab('twins')} className="flex-1">AI Twins ({aiTwins.length})</Button>
-                      <Button size="sm" variant={characterSourceTab === 'characters' ? 'default' : 'outline'} onClick={() => setCharacterSourceTab('characters')} className="flex-1">Characters ({characters.length})</Button>
-                      <Button size="sm" variant={characterSourceTab === 'gallery' ? 'default' : 'outline'} onClick={() => setCharacterSourceTab('gallery')} className="flex-1">Gallery ({galleryImages.length})</Button>
-                    </div>
 
-                    {characterSourceTab === 'twins' && (
-                      <div className="space-y-3">
-                        {aiTwins.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">No AI Twins yet. Create one in the AI Twin section.</p>
-                        ) : (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                            {aiTwins.map(twin => {
-                              const isSelected = selectedTwins.some(t => t.id === twin.id);
-                              return (
-                                <div key={twin.id} onClick={() => toggleTwinSelection(twin)}
-                                  className={`cursor-pointer p-2 rounded-lg border transition-all ${isSelected ? 'border-primary bg-primary/10 ring-2 ring-primary' : 'border-border hover:border-primary/50'}`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {twin.reference_images?.[0] ? (
-                                      <img src={twin.reference_images[0]} alt={twin.name} className="w-10 h-10 rounded-full object-cover" />
-                                    ) : (
-                                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"><User className="w-5 h-5 text-muted-foreground" /></div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium truncate">{twin.name}</p>
-                                      <div className="flex items-center gap-1">
-                                        {twin.gender && <Badge variant="outline" className="text-[10px] capitalize px-1 py-0">{twin.gender}</Badge>}
-                                        {twin.voice_cloning_key && (
-                                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { e.stopPropagation(); previewTwinVoice(twin); }} disabled={previewingVoiceFor === twin.id}>
-                                            {previewingVoiceFor === twin.id ? <Loader2 className="w-3 h-3 animate-spin text-primary" /> : <Volume2 className="w-3 h-3 text-primary" />}
-                                          </Button>
-                                        )}
+                      {characterSourceTab === 'twins' && (
+                        <div className="space-y-3">
+                          {aiTwins.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">No AI Twins yet. Create one in the AI Twin section.</p>
+                          ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                              {aiTwins.map(twin => {
+                                const isSelected = selectedTwins.some(t => t.id === twin.id);
+                                return (
+                                  <div key={twin.id} onClick={() => toggleTwinSelection(twin)}
+                                    className={`cursor-pointer p-2 rounded-lg border transition-all ${isSelected ? 'border-primary bg-primary/10 ring-2 ring-primary' : 'border-border hover:border-primary/50'}`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      {twin.reference_images?.[0] ? (
+                                        <img src={twin.reference_images[0]} alt={twin.name} className="w-10 h-10 rounded-full object-cover" />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"><User className="w-5 h-5 text-muted-foreground" /></div>
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{twin.name}</p>
                                         {isSelected && <Badge variant="default" className="text-[10px] px-1 py-0">✓</Badge>}
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                    {characterSourceTab === 'characters' && (
-                      <div className="space-y-3">
-                        {characters.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">No characters yet. Create one in the Characters section.</p>
-                        ) : (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                            {characters.map(char => (
+                      {characterSourceTab === 'characters' && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                          {characters.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4 col-span-full">No characters yet.</p>
+                          ) : (
+                            characters.map(char => (
                               <div key={char.id} onClick={() => { setSelectedCharacterId(char.id); setSelectedTwins([]); setSelectedGalleryImage(null); }}
                                 className={`cursor-pointer p-2 rounded-lg border transition-all ${selectedCharacterId === char.id ? 'border-primary bg-primary/10 ring-2 ring-primary' : 'border-border hover:border-primary/50'}`}
                               >
@@ -3221,147 +3227,53 @@ const MovieSceneCreator = () => {
                                   ) : (
                                     <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"><User className="w-5 h-5 text-muted-foreground" /></div>
                                   )}
-                                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{char.name}</p></div>
+                                  <p className="text-sm font-medium truncate">{char.name}</p>
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                            ))
+                          )}
+                        </div>
+                      )}
 
-                    {characterSourceTab === 'gallery' && (
-                      <div className="space-y-3">
-                        {galleryImages.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">No gallery images yet. Generate some in the Reels or Movies section.</p>
-                        ) : (
-                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto">
-                            {galleryImages.map(img => (
+                      {characterSourceTab === 'gallery' && (
+                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-48 overflow-y-auto">
+                          {galleryImages.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4 col-span-full">No gallery images yet.</p>
+                          ) : (
+                            galleryImages.map(img => (
                               <div key={img.id} onClick={() => { setSelectedGalleryImage(img); setSelectedTwins([]); setSelectedCharacterId(null); }}
                                 className={`cursor-pointer rounded-lg border overflow-hidden transition-all ${selectedGalleryImage?.id === img.id ? 'border-primary ring-2 ring-primary' : 'border-border hover:border-primary/50'}`}
                               >
                                 <img src={img.image_url} alt="Gallery" className="w-full aspect-square object-cover" />
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {(selectedTwins.length > 0 || selectedCharacter || selectedGalleryImage) && (
-                      <Button size="sm" variant="ghost" onClick={() => { setSelectedTwins([]); setSelectedCharacterId(null); setSelectedGalleryImage(null); }} className="w-full text-muted-foreground">
-                        <X className="w-4 h-4 mr-2" />Clear Selection (AI will create character)
-                      </Button>
-                    )}
-
-                    {selectedGalleryImage && (
-                      <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 flex items-start gap-3">
-                        <img src={selectedGalleryImage.image_url} alt="Selected" className="w-16 h-16 rounded-lg object-cover border border-border" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground">Gallery Image</p>
-                          {selectedGalleryImage.prompt && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{selectedGalleryImage.prompt}</p>}
-                          <p className="text-[10px] text-primary mt-1">This image will be used as character reference</p>
+                            ))
+                          )}
                         </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                      )}
 
-              {/* Movie Idea + Generate */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Film className="w-5 h-5 text-primary" />
-                    Current Movie Idea
-                  </CardTitle>
-                  <CardDescription>Your movie concept captured from Pete AI</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="min-h-[120px] p-4 bg-muted/50 rounded-lg border border-border">
-                    {movieIdea ? (
-                      <p className="text-foreground whitespace-pre-wrap">{movieIdea}</p>
-                    ) : (
-                      <p className="text-muted-foreground italic">Type your movie idea in Pete AI above or click a Quick Start sample to get started...</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Movie Length</Label>
-                    <Select value={movieLength} onValueChange={setMovieLength}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder="Select movie length" /></SelectTrigger>
-                      <SelectContent>
-                        {MOVIE_LENGTH_OPTIONS.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{option.label}</span>
-                              <span className="text-xs text-muted-foreground">({option.description})</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      {(selectedTwins.length > 0 || selectedCharacter || selectedGalleryImage) && (
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedTwins([]); setSelectedCharacterId(null); setSelectedGalleryImage(null); }} className="w-full text-muted-foreground">
+                          <X className="w-4 h-4 mr-2" />Clear Selection
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
-                  {selectedTwins.length >= 1 && (
-                    <Button onClick={generateAll} disabled={isGeneratingAll || !movieIdea.trim()} className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" size="lg">
-                      {isGeneratingAll ? (
-                        <div className="flex items-center gap-3 w-full">
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <div className="flex-1 text-left">
-                            <p className="font-medium">{generateAllStep}</p>
-                            <Progress value={generateAllProgress} className="h-1.5 mt-1" />
-                          </div>
-                          <span className="text-sm">{generateAllProgress}%</span>
-                        </div>
-                      ) : (<><Wand2 className="w-5 h-5 mr-2" />Generate Complete Movie</>)}
-                    </Button>
-                  )}
-                  
-                  {selectedTwins.length === 0 && (
-                    <div className="p-3 bg-muted/50 rounded-lg border border-dashed text-center">
-                      <p className="text-sm text-muted-foreground">Select AI Twins above to enable one-click movie generation</p>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-px bg-border" />
-                    <span className="text-xs text-muted-foreground px-2">or step by step</span>
-                    <div className="flex-1 h-px bg-border" />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button onClick={generateStoryBible} disabled={isGeneratingStoryBible || !movieIdea.trim() || isGeneratingAll} variant="outline" size="sm" className="w-full">
-                      {isGeneratingStoryBible ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Story Bible...</>) : (<><User className="w-4 h-4 mr-2" />Story Bible</>)}
-                    </Button>
-                    <Button onClick={generateOutline} disabled={isGenerating || !movieIdea.trim() || isGeneratingAll} variant="outline" size="sm" className="w-full">
-                      {isGenerating ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Outline...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Generate Outline</>)}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* How It Works - Collapsible helper */}
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  How It Works
-                  <ChevronRight className="w-4 h-4 ml-auto" />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <Card className="bg-muted/30 border-border mt-2">
-                  <CardContent className="pt-4">
-                    <ol className="text-sm text-muted-foreground space-y-2">
-                      <li><strong>1. Describe Your Movie:</strong> Write about your plot, characters, genre, and setting.</li>
-                      <li><strong>2. Generate Outline:</strong> AI creates a structured outline with acts, sequences, and key scenes.</li>
-                      <li><strong>3. Create Scenes:</strong> Transform outline beats into detailed scenes with image prompts.</li>
-                      <li><strong>4. Generate Videos:</strong> Use each scene with the image prompts to bring your movie to life.</li>
-                    </ol>
-                  </CardContent>
-                </Card>
+                {/* Step-by-step buttons */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground px-2">or step by step</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={generateStoryBible} disabled={isGeneratingStoryBible || !movieIdea.trim() || isGeneratingAll} variant="outline" size="sm">
+                    {isGeneratingStoryBible ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Story Bible...</>) : (<><BookOpen className="w-4 h-4 mr-2" />Story Bible</>)}
+                  </Button>
+                  <Button onClick={generateOutline} disabled={isGenerating || !movieIdea.trim() || isGeneratingAll} variant="outline" size="sm">
+                    {isGenerating ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Outline...</>) : (<><FileText className="w-4 h-4 mr-2" />Outline</>)}
+                  </Button>
+                </div>
               </CollapsibleContent>
             </Collapsible>
 
@@ -3376,25 +3288,20 @@ const MovieSceneCreator = () => {
           </div>
         )}
 
-        {/* ============ STEP 2: Story Bible ============ */}
+        {/* ===== STEP 2: Story Bible — Read-Only Summary ===== */}
         {currentStep === 1 && (
           <div className="space-y-6">
             {storyBible ? (
               <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="w-5 h-5 text-primary" />
-                      Story Bible
-                    </CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => setShowStoryBibleEditor(!showStoryBibleEditor)}>
-                      {showStoryBibleEditor ? 'Collapse' : 'Expand'}
-                    </Button>
-                  </div>
-                  <CardDescription>{storyBible.logline}</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    Story Bible
+                  </CardTitle>
+                  <CardDescription className="text-base">{storyBible.logline}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Characters Grid */}
+                  {/* Characters Summary */}
                   <div>
                     <Label className="text-sm font-semibold mb-2 block">Characters ({storyBible.characters.length})</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -3413,79 +3320,70 @@ const MovieSceneCreator = () => {
                     </div>
                   </div>
 
-                  {showStoryBibleEditor && (
-                    <>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Three-Act Structure</Label>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div className="p-2 bg-primary/5 rounded border border-primary/10">
-                            <p className="font-medium text-primary">Setup</p>
-                            <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.setup}</p>
-                          </div>
-                          <div className="p-2 bg-accent/50 rounded border border-accent">
-                            <p className="font-medium text-accent-foreground">Confrontation</p>
-                            <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.confrontation}</p>
-                          </div>
-                          <div className="p-2 bg-destructive/5 rounded border border-destructive/10">
-                            <p className="font-medium text-destructive">Resolution</p>
-                            <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.resolution}</p>
-                          </div>
-                        </div>
-                      </div>
+                  {/* Three-Act Structure — always visible as summary */}
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="p-2 bg-primary/5 rounded border border-primary/10">
+                      <p className="font-medium text-primary">Setup</p>
+                      <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.setup}</p>
+                    </div>
+                    <div className="p-2 bg-accent/50 rounded border border-accent">
+                      <p className="font-medium text-accent-foreground">Confrontation</p>
+                      <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.confrontation}</p>
+                    </div>
+                    <div className="p-2 bg-destructive/5 rounded border border-destructive/10">
+                      <p className="font-medium text-destructive">Resolution</p>
+                      <p className="text-muted-foreground line-clamp-3">{storyBible.threeActStructure.resolution}</p>
+                    </div>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Character Wardrobes (Consistent Throughout)</Label>
-                        <div className="space-y-3 max-h-60 overflow-y-auto">
-                          {storyBible.characters.map((char, idx) => (
-                            <div key={idx} className="p-3 bg-muted/30 rounded-lg border text-sm">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="font-medium">{char.name}</span>
-                                <Badge variant="outline" className="text-xs capitalize">{char.role}</Badge>
-                              </div>
-                              <p className="text-xs mb-1"><span className="font-medium">Appearance:</span> {char.appearance}</p>
-                              <p className="text-xs text-primary mb-1"><span className="font-medium">Wardrobe:</span> {char.wardrobe}</p>
-                              <p className="text-xs text-muted-foreground mb-2"><span className="font-medium">Voice Style:</span> {char.voiceStyle}</p>
-                              
-                              <div className="flex items-center gap-2 pt-2 border-t border-border">
-                                <Volume2 className="w-4 h-4 text-primary" />
-                                <Select
-                                  value={char.assignedTwinId || 'default'}
-                                  onValueChange={(value) => {
-                                    const twin = aiTwins.find(t => t.id === value);
-                                    setStoryBible(prev => {
-                                      if (!prev) return prev;
-                                      const updatedCharacters = [...prev.characters];
-                                      updatedCharacters[idx] = {
-                                        ...updatedCharacters[idx],
-                                        assignedTwinId: value === 'default' ? undefined : value,
-                                        assignedTwinName: twin?.name,
-                                        assignedVoiceCloningKey: twin?.voice_cloning_key || undefined
-                                      };
-                                      return { ...prev, characters: updatedCharacters };
-                                    });
-                                  }}
-                                >
-                                  <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Assign voice..." /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="default"><span className="flex items-center gap-2"><Volume2 className="w-3 h-3" />Default AI Voice</span></SelectItem>
-                                    {aiTwins.filter(t => t.voice_cloning_key).map(twin => (
-                                      <SelectItem key={twin.id} value={twin.id}>
-                                        <span className="flex items-center gap-2">
-                                          {twin.reference_images?.[0] && <img src={twin.reference_images[0]} alt={twin.name} className="w-4 h-4 rounded-full object-cover" />}
-                                          {twin.name}'s Voice
-                                        </span>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {char.assignedTwinName && <Badge variant="default" className="text-[10px]">{char.assignedTwinName}</Badge>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                  {/* Edit toggle for voice assignments */}
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit Voice Assignments
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {storyBible.characters.map((char, idx) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg border text-sm">
+                            <span className="font-medium flex-shrink-0">{char.name}</span>
+                            <Select
+                              value={char.assignedTwinId || 'default'}
+                              onValueChange={(value) => {
+                                const twin = aiTwins.find(t => t.id === value);
+                                setStoryBible(prev => {
+                                  if (!prev) return prev;
+                                  const updatedCharacters = [...prev.characters];
+                                  updatedCharacters[idx] = {
+                                    ...updatedCharacters[idx],
+                                    assignedTwinId: value === 'default' ? undefined : value,
+                                    assignedTwinName: twin?.name,
+                                    assignedVoiceCloningKey: twin?.voice_cloning_key || undefined
+                                  };
+                                  return { ...prev, characters: updatedCharacters };
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Assign voice..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="default">Default AI Voice</SelectItem>
+                                {aiTwins.filter(t => t.voice_cloning_key).map(twin => (
+                                  <SelectItem key={twin.id} value={twin.id}>{twin.name}'s Voice</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
                       </div>
-                    </>
-                  )}
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* Primary CTA */}
+                  <Button onClick={() => setCurrentStep(2)} className="w-full gap-2" size="lg">
+                    Looks good, continue <ChevronRight className="w-4 h-4" />
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -3494,7 +3392,7 @@ const MovieSceneCreator = () => {
                   <BookOpen className="w-12 h-12 mx-auto text-muted-foreground/50" />
                   <div>
                     <h3 className="font-semibold text-foreground">No Story Bible Yet</h3>
-                    <p className="text-sm text-muted-foreground mt-1">Go back to Step 1 and generate a Story Bible from your movie idea.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Go back to Step 1 and generate your movie.</p>
                   </div>
                   <Button variant="outline" onClick={() => setCurrentStep(0)}>
                     <ChevronLeft className="w-4 h-4 mr-2" />Back to Concept
@@ -3503,114 +3401,109 @@ const MovieSceneCreator = () => {
               </Card>
             )}
 
-            {/* Step navigation */}
             <div className="flex justify-between">
               <Button variant="outline" onClick={() => setCurrentStep(0)} className="gap-2">
                 <ChevronLeft className="w-4 h-4" /> Back
               </Button>
               <Button onClick={() => setCurrentStep(2)} className="gap-2" disabled={!storyBible && !outline}>
-                Next: Outline & Locations <ChevronRight className="w-4 h-4" />
+                Next: Outline <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* ============ STEP 3: Outline & Locations ============ */}
+        {/* ===== STEP 3: Outline — Read-Only with Edit Toggle ===== */}
         {currentStep === 2 && (
           <div className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Outline */}
-              <Card>
-                <CardHeader>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" />
-                    Generated Outline
+                    Movie Outline
                   </CardTitle>
-                  <CardDescription>AI-generated movie structure with act breakdowns and key scenes</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="outline">Outline</Label>
-                    <Textarea id="outline" placeholder="Your movie outline will appear here after generation..." value={outline} onChange={(e) => setOutline(e.target.value)} rows={12} className="resize-none" />
-                  </div>
-                  {!outline.trim() && (
-                    <Button onClick={generateOutline} disabled={isGenerating || !movieIdea.trim()} className="w-full" variant="outline">
-                      {isGenerating ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Generating...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Generate Outline</>)}
+                  {outline.trim() && (
+                    <Button variant="ghost" size="sm" onClick={() => setShowStoryBibleEditor(!showStoryBibleEditor)} className="gap-1 text-muted-foreground">
+                      <Pencil className="w-3.5 h-3.5" />
+                      {showStoryBibleEditor ? 'View' : 'Edit'}
                     </Button>
                   )}
-                  <Button onClick={generateScenes} disabled={!outline.trim() || isGeneratingScenes} className="w-full" variant="secondary">
-                    {isGeneratingScenes ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Generating Scenes...</>) : (<><ChevronRight className="w-4 h-4 mr-2" />Generate Scenes from Outline</>)}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {outline.trim() ? (
+                  showStoryBibleEditor ? (
+                    <Textarea value={outline} onChange={(e) => setOutline(e.target.value)} rows={12} className="resize-none" />
+                  ) : (
+                    <div className="p-4 bg-muted/30 rounded-lg border max-h-80 overflow-y-auto">
+                      <p className="text-sm whitespace-pre-wrap text-foreground">{outline}</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center py-8 space-y-3">
+                    <FileText className="w-10 h-10 mx-auto text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No outline generated yet.</p>
+                    <Button onClick={generateOutline} disabled={isGenerating || !movieIdea.trim()} variant="outline">
+                      {isGenerating ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Generating...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Generate Outline</>)}
+                    </Button>
+                  </div>
+                )}
+
+                {outline.trim() && (
+                  <Button onClick={generateScenes} disabled={!outline.trim() || isGeneratingScenes} className="w-full" size="lg">
+                    {isGeneratingScenes ? (<><Sparkles className="w-4 h-4 mr-2 animate-spin" />Generating Scenes...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Generate Scenes</>)}
                   </Button>
-                </CardContent>
-              </Card>
+                )}
+              </CardContent>
+            </Card>
 
-              {/* Location Manager */}
-              {outline && (
-                <LocationManager
-                  locations={locations}
-                  onLocationsChange={setLocations}
-                  outline={outline}
-                  onExtractLocations={extractLocationsFromOutline}
-                  isExtracting={isExtractingLocations}
-                />
-              )}
-            </div>
-
-            {/* Step navigation */}
             <div className="flex justify-between">
               <Button variant="outline" onClick={() => setCurrentStep(1)} className="gap-2">
                 <ChevronLeft className="w-4 h-4" /> Back
               </Button>
               <Button onClick={() => setCurrentStep(3)} className="gap-2" disabled={scenes.length === 0}>
-                Next: Scenes & Export <ChevronRight className="w-4 h-4" />
+                Next: Scenes <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         )}
 
-
-        {/* ============ STEP 4: Scenes & Export ============ */}
+        {/* ===== STEP 4: Scenes — Simplified ===== */}
         {currentStep === 3 && (
           <div className="space-y-6">
             {scenes.length > 0 ? (
               <div className="space-y-4">
-                {/* Clean header with scene count and primary action */}
+                {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">Scenes</h2>
+                    <h2 className="text-2xl font-bold text-foreground">Your Movie</h2>
                     <p className="text-sm text-muted-foreground">{scenes.length} scenes • {scenes.filter(s => s.generatedVideo).length} videos ready</p>
                   </div>
-                  {scenes.some(s => s.generatedVideo) && (
-                    <Button onClick={stitchAllVideos} disabled={isStitching} className="gap-2">
-                      {isStitching ? (<><Sparkles className="w-4 h-4 animate-spin" />Stitching {stitchProgress}%...</>) : (<><Video className="w-4 h-4" />Build Movie</>)}
-                    </Button>
-                  )}
-                </div>
-
-                {/* Collapsible bulk actions */}
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-                      <Wand2 className="w-3.5 h-3.5" />
-                      Bulk Actions
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-muted/50">
-                      <Button onClick={regenerateAllDialogue} disabled={isRegeneratingDialogue} variant="outline" size="sm" className="gap-2">
-                        {isRegeneratingDialogue ? (<><Sparkles className="w-3.5 h-3.5 animate-spin" />Regenerating...</>) : (<><Volume2 className="w-3.5 h-3.5" />Regenerate All Dialogue</>)}
+                  <div className="flex items-center gap-2">
+                    {scenes.some(s => s.generatedVideo) && (
+                      <Button onClick={stitchAllVideos} disabled={isStitching} className="gap-2">
+                        {isStitching ? (<><Sparkles className="w-4 h-4 animate-spin" />Building {stitchProgress}%...</>) : (<><Video className="w-4 h-4" />Build & Download</>)}
                       </Button>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-9 w-9"><MoreVertical className="w-4 h-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={regenerateAllDialogue} disabled={isRegeneratingDialogue}>
+                          <Volume2 className="w-4 h-4 mr-2" />Regenerate All Dialogue
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
 
                 {/* Stitching progress */}
                 {isStitching && (
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
                     <Sparkles className="w-5 h-5 text-primary animate-spin shrink-0" />
                     <div className="flex-1 space-y-2">
-                      <p className="text-sm font-medium text-foreground">Stitching videos into movie...</p>
+                      <p className="text-sm font-medium text-foreground">Building your movie...</p>
                       <Progress value={stitchProgress} className="h-1.5" />
                     </div>
                     <span className="text-sm font-mono text-muted-foreground">{stitchProgress}%</span>
@@ -3644,76 +3537,40 @@ const MovieSceneCreator = () => {
                   onToggleAutoLink={() => setAutoLinkScenes(!autoLinkScenes)}
                 />
 
-                {/* Scene cards — tools hidden inside each card's collapsible */}
+                {/* Scene cards */}
                 <div className="space-y-3">
-                  {scenes.map((scene, index) => {
-                    const charactersInScene = storyBible?.sceneDialogueMap?.find(s => s.sceneNumber === scene.sceneNumber)?.charactersPresent || (scene.charactersInScene || []);
-                    const sceneCoverage = sceneCoverages.get(scene.sceneNumber);
-                    const sceneBlocking = sceneBlockings.get(scene.sceneNumber) || [];
-                    
-                    return (
-                      <div key={scene.sceneNumber}>
-                        <KeyframeSceneCard
-                          scene={{
-                            ...scene,
-                            startFrame: scene.startFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
-                            endFrame: scene.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
-                            transitionAction: scene.transitionAction || '',
-                            transitionCameraMovement: scene.transitionCameraMovement || 'static',
-                            dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join('\n') : null
-                          } as MovieSceneWithKeyframes}
-                          sceneIndex={index} totalScenes={scenes.length}
-                          isGeneratingImage={generatingImageFor === scene.sceneNumber || (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
-                          isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
-                          isDescribingScene={describingSceneFor?.sceneNumber === scene.sceneNumber}
-                          characterName={selectedTwins.length > 0 ? selectedTwins[0]?.name : selectedCharacter?.name}
-                          secondCharacterName={selectedTwins.length > 1 ? selectedTwins[1]?.name : undefined}
-                          onUpdateScene={(sceneNum, updates) => { setScenes(prev => prev.map(s => s.sceneNumber === sceneNum ? { ...s, ...updates } : s)); }}
-                          onUpdateKeyframe={updateKeyframe}
-                          onGenerateStartImage={(sceneNum) => generateKeyframeImage(sceneNum, 'start')}
-                          onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
-                          onGenerateVideo={generateLipSyncVideo}
-                          onGenerateTransitionVideo={generateTransitionVideo}
-                          onGenerateDialogue={generateDialogue}
-                          onDescribeScene={describeScene}
-                          onDescribeAndGenerate={describeAndGenerateScene}
-                          onDuplicate={duplicateScene}
-                          onDelete={deleteScene}
-                          onLinkToPreviousScene={linkToPreviousScene}
-                          previousSceneEndFrame={index > 0 ? scenes[index - 1]?.endFrame : undefined}
-                        />
-                        
-                        {/* Advanced scene tools — collapsible */}
-                        {charactersInScene.length > 0 && (
-                          <Collapsible>
-                            <CollapsibleTrigger asChild>
-                              <button className="flex items-center gap-1.5 mt-1 ml-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                                <Camera className="w-3 h-3" />
-                                Coverage & Blocking
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <div className="flex items-center gap-2 mt-2 ml-2 p-2 rounded-md bg-muted/30">
-                                <CoverageSelector
-                                  sceneNumber={scene.sceneNumber} sceneTitle={scene.title} charactersInScene={charactersInScene}
-                                  locationId={locations.find(l => scene.location?.toLowerCase().includes(l.name.toLowerCase()))?.id}
-                                  coverage={sceneCoverage} onCoverageChange={updateSceneCoverage} onGenerateCoverage={generateCoverageShots} isGenerating={isGeneratingCoverage}
-                                />
-                                <CharacterBlockingEditor sceneNumber={scene.sceneNumber} charactersInScene={charactersInScene} blocking={sceneBlocking} onBlockingChange={(blocking) => updateSceneBlocking(scene.sceneNumber, blocking)} />
-                                {locations.length > 0 && (
-                                  <Badge variant="outline" className="text-xs gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {locations.find(l => scene.location?.toLowerCase().includes(l.name.toLowerCase()))?.name || 'No match'}
-                                  </Badge>
-                                )}
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {scenes.map((scene, index) => (
+                    <KeyframeSceneCard
+                      key={scene.sceneNumber}
+                      scene={{
+                        ...scene,
+                        startFrame: scene.startFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
+                        endFrame: scene.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
+                        transitionAction: scene.transitionAction || '',
+                        transitionCameraMovement: scene.transitionCameraMovement || 'static',
+                        dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join('\n') : null
+                      } as MovieSceneWithKeyframes}
+                      sceneIndex={index} totalScenes={scenes.length}
+                      isGeneratingImage={generatingImageFor === scene.sceneNumber || (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
+                      isGeneratingVideo={generatingVideoFor === scene.sceneNumber}
+                      isDescribingScene={describingSceneFor?.sceneNumber === scene.sceneNumber}
+                      characterName={selectedTwins.length > 0 ? selectedTwins[0]?.name : selectedCharacter?.name}
+                      secondCharacterName={selectedTwins.length > 1 ? selectedTwins[1]?.name : undefined}
+                      onUpdateScene={(sceneNum, updates) => { setScenes(prev => prev.map(s => s.sceneNumber === sceneNum ? { ...s, ...updates } : s)); }}
+                      onUpdateKeyframe={updateKeyframe}
+                      onGenerateStartImage={(sceneNum) => generateKeyframeImage(sceneNum, 'start')}
+                      onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
+                      onGenerateVideo={generateLipSyncVideo}
+                      onGenerateTransitionVideo={generateTransitionVideo}
+                      onGenerateDialogue={generateDialogue}
+                      onDescribeScene={describeScene}
+                      onDescribeAndGenerate={describeAndGenerateScene}
+                      onDuplicate={duplicateScene}
+                      onDelete={deleteScene}
+                      onLinkToPreviousScene={linkToPreviousScene}
+                      previousSceneEndFrame={index > 0 ? scenes[index - 1]?.endFrame : undefined}
+                    />
+                  ))}
                 </div>
               </div>
             ) : (
@@ -3731,7 +3588,6 @@ const MovieSceneCreator = () => {
               </Card>
             )}
 
-            {/* Step navigation */}
             <div className="flex justify-start">
               <Button variant="outline" onClick={() => setCurrentStep(2)} className="gap-2">
                 <ChevronLeft className="w-4 h-4" /> Back

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { 
   Film, Copy, Trash2, ChevronDown, ChevronRight, Image, Play, 
   ArrowRight, Link, Camera, Lightbulb, Music, User, Wand2, 
-  Loader2, Video, Volume2, Expand, X, MessageSquare
+  Loader2, Video, Volume2, Expand, X, MessageSquare, Settings2, Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 export interface KeyframeData {
   imagePrompt: string;
   generatedImage?: string;
-  position: string; // e.g., "standing left", "seated center"
+  position: string;
   cameraAngle: string;
 }
 
@@ -31,15 +31,11 @@ export interface MovieSceneWithKeyframes {
   description: string;
   dialogue: string | null;
   otherCharacterDialogue?: string | null;
-  
-  // New keyframe fields
   startFrame: KeyframeData;
   endFrame: KeyframeData;
-  transitionAction: string; // What happens between frames
-  transitionCameraMovement: string; // How camera moves
-  
-  // Existing fields
-  imagePrompt: string; // Keep for backward compatibility
+  transitionAction: string;
+  transitionCameraMovement: string;
+  imagePrompt: string;
   generatedImage?: string;
   generatedVideo?: string;
   videoTaskId?: string;
@@ -152,11 +148,14 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   previousSceneEndFrame,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState<'keyframes' | 'audio' | 'settings'>('keyframes');
+  const [showCustomize, setShowCustomize] = useState(false);
   const [viewingImage, setViewingImage] = useState<{ src: string; title: string } | null>(null);
   const [viewingVideo, setViewingVideo] = useState<{ src: string; title: string } | null>(null);
 
   const canLinkToPrevious = sceneIndex > 0 && previousSceneEndFrame?.generatedImage;
+  const hasStartFrame = !!scene.startFrame?.generatedImage;
+  const hasEndFrame = !!scene.endFrame?.generatedImage;
+  const hasVideo = !!scene.generatedVideo;
 
   return (
     <Card className="overflow-hidden border-border/50">
@@ -164,719 +163,313 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
       <CardHeader className="py-3 px-4 bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-            </Collapsible>
-            
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-mono">
-                {scene.sceneNumber}/{totalScenes}
-              </Badge>
-              <Input
-                value={scene.title}
-                onChange={(e) => onUpdateScene(scene.sceneNumber, { title: e.target.value })}
-                className="h-8 w-64 font-medium bg-transparent border-transparent hover:border-border focus:border-border"
-              />
-            </div>
-            
-            {scene.mood && (
-              <Badge variant="secondary" className="capitalize">
-                {MOOD_ICONS[scene.mood] || '🎬'} {scene.mood}
-              </Badge>
-            )}
+            <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 hover:bg-accent rounded">
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+            <Badge variant="outline" className="font-mono">{scene.sceneNumber}/{totalScenes}</Badge>
+            <span className="font-medium text-sm truncate max-w-[200px]">{scene.title}</span>
+            {scene.mood && <span className="text-sm">{MOOD_ICONS[scene.mood] || '🎬'}</span>}
           </div>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {scene.location} • {scene.timeOfDay}
-            </span>
-            <Button variant="ghost" size="sm" onClick={() => onDuplicate(scene.sceneNumber)}>
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onDelete(scene.sceneNumber)}>
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground hidden sm:inline">{scene.location} • {scene.timeOfDay}</span>
+            {hasStartFrame && <Badge variant="secondary" className="text-[10px]">📸</Badge>}
+            {hasVideo && <Badge variant="default" className="text-[10px]">🎬</Badge>}
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onDuplicate(scene.sceneNumber)}><Copy className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onDelete(scene.sceneNumber)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
           </div>
         </div>
       </CardHeader>
       
-      <Collapsible open={isExpanded}>
-        <CollapsibleContent>
-          <CardContent className="p-4 space-y-4">
-            {/* Tab Navigation */}
-            <div className="flex gap-2 border-b border-border pb-2">
-              <Button
-                variant={activeTab === 'keyframes' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setActiveTab('keyframes')}
-              >
-                <Film className="w-4 h-4 mr-1" />
-                Keyframes
-              </Button>
-              <Button
-                variant={activeTab === 'audio' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setActiveTab('audio')}
-              >
-                <Volume2 className="w-4 h-4 mr-1" />
-                Audio & Dialogue
-              </Button>
-              <Button
-                variant={activeTab === 'settings' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setActiveTab('settings')}
-              >
-                <Lightbulb className="w-4 h-4 mr-1" />
-                Settings
-              </Button>
+      {isExpanded && (
+        <CardContent className="p-4 space-y-4">
+          {/* Description — 2 lines */}
+          <p className="text-sm text-muted-foreground line-clamp-2">{scene.description}</p>
+
+          {/* Main Content: Start Frame Image + Video + Generate Scene Button */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Start Frame Preview */}
+            <div 
+              className={cn(
+                "aspect-video bg-muted rounded-lg overflow-hidden relative group",
+                hasStartFrame && "cursor-pointer"
+              )}
+              onClick={() => hasStartFrame && setViewingImage({ 
+                src: scene.startFrame.generatedImage!, 
+                title: `Scene ${scene.sceneNumber} - Start Frame` 
+              })}
+            >
+              {hasStartFrame ? (
+                <>
+                  <img src={scene.startFrame.generatedImage} alt="Start frame" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                  <Image className="w-8 h-8 mb-1" />
+                  <span className="text-xs">No image yet</span>
+                </div>
+              )}
             </div>
 
-            {/* Keyframes Tab */}
-            {activeTab === 'keyframes' && (
-              <div className="space-y-4">
-                {/* Keyframe Timeline */}
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-stretch">
-                  {/* START FRAME */}
-                  <div className="space-y-3 p-4 rounded-lg bg-green-500/5 border border-green-500/20">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold text-green-600 dark:text-green-400 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        START FRAME
-                      </Label>
-                      {canLinkToPrevious && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => onLinkToPreviousScene?.(scene.sceneNumber)}
-                        >
-                          <Link className="w-3 h-3 mr-1" />
-                          Link to Prev
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {/* Image Preview */}
-                    <div 
-                      className={cn(
-                        "aspect-video bg-muted rounded-lg overflow-hidden relative group",
-                        scene.startFrame?.generatedImage && "cursor-pointer"
-                      )}
-                      onClick={() => scene.startFrame?.generatedImage && setViewingImage({ 
-                        src: scene.startFrame.generatedImage, 
-                        title: `Scene ${scene.sceneNumber} - Start Frame` 
-                      })}
-                    >
-                      {scene.startFrame?.generatedImage ? (
-                        <>
-                          <img 
-                            src={scene.startFrame.generatedImage} 
-                            alt="Start frame"
-                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                            <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </>
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Image className="w-8 h-8 text-muted-foreground/50" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Start Frame Controls */}
-                    <div className="space-y-2">
-                      <div className="flex gap-1">
-                        <Textarea
-                          placeholder="Describe the starting visual..."
-                          value={scene.startFrame?.imagePrompt || ''}
-                          onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'start', { imagePrompt: e.target.value })}
-                          rows={2}
-                          className="text-xs resize-none flex-1"
-                        />
-                        {onDescribeScene && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-auto px-2"
-                            onClick={() => onDescribeScene(scene.sceneNumber, 'start')}
-                            disabled={isDescribingScene}
-                            title="Auto-describe this frame"
-                          >
-                            {isDescribingScene ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Wand2 className="w-3 h-3" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={scene.startFrame?.cameraAngle || 'eye-level'}
-                          onValueChange={(v) => onUpdateKeyframe(scene.sceneNumber, 'start', { cameraAngle: v })}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <Camera className="w-3 h-3 mr-1" />
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CAMERA_ANGLES_SIMPLE.map(a => (
-                              <SelectItem key={a.id} value={a.id} className="text-xs">
-                                {a.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        <Input
-                          placeholder="Position (e.g., standing left)"
-                          value={scene.startFrame?.position || ''}
-                          onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'start', { position: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => onGenerateStartImage(scene.sceneNumber)}
-                          disabled={isGeneratingImage || !scene.startFrame?.imagePrompt}
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                        >
-                          {isGeneratingImage ? (
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                          ) : (
-                            <Image className="w-4 h-4 mr-1" />
-                          )}
-                          Generate
-                        </Button>
-                        
-                        {onDescribeAndGenerate && (
-                          <Button
-                            onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'start')}
-                            disabled={isGeneratingImage || isDescribingScene}
-                            size="sm"
-                            className="flex-1"
-                          >
-                            {(isGeneratingImage || isDescribingScene) ? (
-                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                              <Wand2 className="w-4 h-4 mr-1" />
-                            )}
-                            Auto-Generate
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+            {/* Video Preview or Generate Button */}
+            <div 
+              className={cn(
+                "aspect-video bg-muted rounded-lg overflow-hidden relative",
+                hasVideo && "cursor-pointer group"
+              )}
+              onClick={() => hasVideo && setViewingVideo({ 
+                src: scene.generatedVideo!, 
+                title: `Scene ${scene.sceneNumber} - ${scene.title}` 
+              })}
+            >
+              {hasVideo ? (
+                <>
+                  <video src={scene.generatedVideo} className="w-full h-full object-cover" controls onClick={(e) => e.stopPropagation()} />
+                  <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Expand className="w-3 h-3" />Fullscreen
                   </div>
-
-                  {/* TRANSITION (Center) */}
-                  <div className="flex flex-col items-center justify-center min-w-[200px] space-y-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <div className="text-center">
-                      <Label className="text-sm font-semibold text-primary">TRANSITION</Label>
-                    </div>
-                    
-                    <ArrowRight className="w-8 h-8 text-primary/50" />
-                    
-                    {/* Action Description */}
-                    <div className="w-full space-y-2">
-                      <Label className="text-xs text-muted-foreground">Action</Label>
-                      <Textarea
-                        placeholder="What happens between frames..."
-                        value={scene.transitionAction || ''}
-                        onChange={(e) => onUpdateScene(scene.sceneNumber, { transitionAction: e.target.value })}
-                        rows={2}
-                        className="text-xs resize-none"
-                      />
-                    </div>
-                    
-                    {/* Camera Movement */}
-                    <div className="w-full space-y-2">
-                      <Label className="text-xs text-muted-foreground">Camera Movement</Label>
-                      <Select
-                        value={scene.transitionCameraMovement || 'static'}
-                        onValueChange={(v) => onUpdateScene(scene.sceneNumber, { transitionCameraMovement: v })}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CAMERA_MOVEMENTS.map(m => (
-                            <SelectItem key={m.id} value={m.id} className="text-xs">
-                              <div>
-                                <div>{m.name}</div>
-                                <div className="text-muted-foreground text-[10px]">{m.description}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* END FRAME */}
-                  <div className="space-y-3 p-4 rounded-lg bg-red-500/5 border border-red-500/20">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-red-500" />
-                        END FRAME
-                      </Label>
-                    </div>
-                    
-                    {/* Image Preview */}
-                    <div 
-                      className={cn(
-                        "aspect-video bg-muted rounded-lg overflow-hidden relative group",
-                        scene.endFrame?.generatedImage && "cursor-pointer"
-                      )}
-                      onClick={() => scene.endFrame?.generatedImage && setViewingImage({ 
-                        src: scene.endFrame.generatedImage, 
-                        title: `Scene ${scene.sceneNumber} - End Frame` 
-                      })}
-                    >
-                      {scene.endFrame?.generatedImage ? (
-                        <>
-                          <img 
-                            src={scene.endFrame.generatedImage} 
-                            alt="End frame"
-                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                            <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </>
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Image className="w-8 h-8 text-muted-foreground/50" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* End Frame Controls */}
-                    <div className="space-y-2">
-                      <div className="flex gap-1">
-                        <Textarea
-                          placeholder="Describe the ending visual..."
-                          value={scene.endFrame?.imagePrompt || ''}
-                          onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'end', { imagePrompt: e.target.value })}
-                          rows={2}
-                          className="text-xs resize-none flex-1"
-                        />
-                        {onDescribeScene && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-auto px-2"
-                            onClick={() => onDescribeScene(scene.sceneNumber, 'end')}
-                            disabled={isDescribingScene}
-                            title="Auto-describe this frame"
-                          >
-                            {isDescribingScene ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Wand2 className="w-3 h-3" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={scene.endFrame?.cameraAngle || 'eye-level'}
-                          onValueChange={(v) => onUpdateKeyframe(scene.sceneNumber, 'end', { cameraAngle: v })}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <Camera className="w-3 h-3 mr-1" />
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CAMERA_ANGLES_SIMPLE.map(a => (
-                              <SelectItem key={a.id} value={a.id} className="text-xs">
-                                {a.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        <Input
-                          placeholder="Position (e.g., walking away)"
-                          value={scene.endFrame?.position || ''}
-                          onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'end', { position: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => onGenerateEndImage(scene.sceneNumber)}
-                          disabled={isGeneratingImage || !scene.endFrame?.imagePrompt}
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                        >
-                          {isGeneratingImage ? (
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                          ) : (
-                            <Image className="w-4 h-4 mr-1" />
-                          )}
-                          Generate
-                        </Button>
-                        
-                        {onDescribeAndGenerate && (
-                          <Button
-                            onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'end')}
-                            disabled={isGeneratingImage || isDescribingScene}
-                            size="sm"
-                            className="flex-1"
-                          >
-                            {(isGeneratingImage || isDescribingScene) ? (
-                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                              <Wand2 className="w-4 h-4 mr-1" />
-                            )}
-                            Auto-Generate
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                </>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                  <Video className="w-8 h-8 mb-1" />
+                  <span className="text-xs">No video yet</span>
                 </div>
-                
-                {/* Video Generation */}
-                <div className="p-4 bg-muted/50 rounded-lg space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Video className="w-5 h-5 text-primary" />
-                      <span className="font-semibold">Scene Video</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {scene.generatedVideo ? 'Video generated' : 
-                       scene.startFrame?.generatedImage && scene.endFrame?.generatedImage 
-                         ? 'Ready for transition video' 
-                         : 'Generate frames first'}
-                    </p>
-                  </div>
-                  
-                  {/* Large Video Preview */}
-                  <div 
-                    className={cn(
-                      "aspect-video bg-muted rounded-lg overflow-hidden relative group",
-                      scene.generatedVideo && "cursor-pointer"
-                    )}
-                    onClick={() => scene.generatedVideo && setViewingVideo({ 
-                      src: scene.generatedVideo, 
-                      title: `Scene ${scene.sceneNumber} - ${scene.title}` 
-                    })}
-                  >
-                    {scene.generatedVideo ? (
-                      <>
-                        <video 
-                          src={scene.generatedVideo} 
-                          className="w-full h-full object-cover"
-                          controls
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Expand className="w-3 h-3" />
-                          Fullscreen
-                        </div>
-                      </>
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
-                        <Video className="w-12 h-12 mb-2" />
-                        <span className="text-sm">No video generated</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Video Generation Options */}
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => onGenerateVideo(scene.sceneNumber)}
-                      disabled={isGeneratingVideo || !scene.startFrame?.generatedImage}
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      {isGeneratingVideo ? (
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                      ) : (
-                        <Play className="w-4 h-4 mr-1" />
-                      )}
-                      Lip-Sync Video
+              )}
+            </div>
+          </div>
+
+          {/* Primary Action: Generate Scene ✨ */}
+          {onDescribeAndGenerate && !hasStartFrame && (
+            <Button
+              onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'start')}
+              disabled={isGeneratingImage || isDescribingScene}
+              className="w-full"
+              size="lg"
+            >
+              {(isGeneratingImage || isDescribingScene) ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating Scene...</>
+              ) : (
+                <><Sparkles className="w-4 h-4 mr-2" />Generate Scene ✨</>
+              )}
+            </Button>
+          )}
+
+          {/* After start frame exists: show video generation buttons */}
+          {hasStartFrame && !hasVideo && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => onGenerateVideo(scene.sceneNumber)}
+                disabled={isGeneratingVideo}
+                size="sm"
+                variant="outline"
+                className="flex-1"
+              >
+                {isGeneratingVideo ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
+                Lip-Sync Video
+              </Button>
+              {onGenerateTransitionVideo && hasEndFrame && (
+                <Button
+                  onClick={() => onGenerateTransitionVideo(scene.sceneNumber)}
+                  disabled={isGeneratingVideo}
+                  size="sm"
+                  className="flex-1"
+                >
+                  {isGeneratingVideo ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-1" />}
+                  Transition Video
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Dialogue — Read-Only Chat Bubbles */}
+          {scene.dialogue && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                  <MessageSquare className="w-3 h-3" /> Dialogue
+                </Label>
+                <Button onClick={() => onGenerateDialogue(scene.sceneNumber)} variant="ghost" size="sm" className="h-6 text-xs">
+                  <Wand2 className="w-3 h-3 mr-1" />Regenerate
+                </Button>
+              </div>
+              <div className="p-3 bg-muted/30 rounded-lg border max-h-32 overflow-y-auto">
+                <p className="text-sm italic text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                  {typeof scene.dialogue === 'string' ? scene.dialogue : ''}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ===== Customize — All Advanced Controls ===== */}
+          <Collapsible open={showCustomize} onOpenChange={setShowCustomize}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground hover:text-foreground">
+                <span className="flex items-center gap-2">
+                  <Settings2 className="w-3.5 h-3.5" />
+                  Customize
+                </span>
+                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showCustomize && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3 space-y-4">
+              {/* Start & End Frame Controls */}
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-stretch">
+                {/* START FRAME */}
+                <div className="space-y-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                  <Label className="text-xs font-semibold text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" /> START
+                  </Label>
+                  {canLinkToPrevious && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs w-full" onClick={() => onLinkToPreviousScene?.(scene.sceneNumber)}>
+                      <Link className="w-3 h-3 mr-1" />Link to Prev
                     </Button>
-                    
-                    {onGenerateTransitionVideo && (
-                      <Button
-                        onClick={() => onGenerateTransitionVideo(scene.sceneNumber)}
-                        disabled={isGeneratingVideo || !scene.startFrame?.generatedImage || !scene.endFrame?.generatedImage}
-                        size="sm"
-                        className="flex-1"
-                      >
-                        {isGeneratingVideo ? (
-                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                          <ArrowRight className="w-4 h-4 mr-1" />
-                        )}
-                        Transition Video
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {scene.startFrame?.generatedImage && scene.endFrame?.generatedImage && (
-                    <p className="text-xs text-muted-foreground text-center">
-                      💡 Transition video will interpolate between your start and end frames
-                    </p>
                   )}
-                </div>
-              </div>
-            )}
-
-            {/* Audio Tab */}
-            {activeTab === 'audio' && (
-              <div className="space-y-4">
-                {/* Conversation-style dialogue (array format) */}
-                {Array.isArray(scene.dialogue) && scene.dialogue.length > 0 ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label className="text-sm font-semibold flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4 text-primary" />
-                        Conversation ({scene.dialogue.length} lines)
-                      </Label>
-                      <Button
-                        onClick={() => onGenerateDialogue(scene.sceneNumber)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Wand2 className="w-3 h-3 mr-1" />
-                        Regenerate
+                  <Textarea
+                    placeholder="Describe the starting visual..."
+                    value={scene.startFrame?.imagePrompt || ''}
+                    onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'start', { imagePrompt: e.target.value })}
+                    rows={2} className="text-xs resize-none"
+                  />
+                  <div className="grid grid-cols-2 gap-1">
+                    <Select value={scene.startFrame?.cameraAngle || 'eye-level'} onValueChange={(v) => onUpdateKeyframe(scene.sceneNumber, 'start', { cameraAngle: v })}>
+                      <SelectTrigger className="h-7 text-xs"><Camera className="w-3 h-3 mr-1" /><SelectValue /></SelectTrigger>
+                      <SelectContent>{CAMERA_ANGLES_SIMPLE.map(a => <SelectItem key={a.id} value={a.id} className="text-xs">{a.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input placeholder="Position" value={scene.startFrame?.position || ''} onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'start', { position: e.target.value })} className="h-7 text-xs" />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button onClick={() => onGenerateStartImage(scene.sceneNumber)} disabled={isGeneratingImage || !scene.startFrame?.imagePrompt} size="sm" variant="outline" className="flex-1 h-7 text-xs">
+                      {isGeneratingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3 mr-1" />}Generate
+                    </Button>
+                    {onDescribeAndGenerate && (
+                      <Button onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'start')} disabled={isGeneratingImage || isDescribingScene} size="sm" className="flex-1 h-7 text-xs">
+                        {(isGeneratingImage || isDescribingScene) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}Auto
                       </Button>
-                    </div>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {scene.dialogue.map((entry: any, idx: number) => {
-                        // Determine if this is char1 (primary) or char2 (secondary)
-                        const isFirstChar = characterName && entry.character?.toLowerCase().includes(characterName.toLowerCase().split(' ')[0]) ||
-                                           entry.character === characterName;
-                        const isSecondChar = secondCharacterName && entry.character?.toLowerCase().includes(secondCharacterName.toLowerCase().split(' ')[0]) ||
-                                            entry.character === secondCharacterName;
-                        
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-3 rounded-lg border ${
-                              isFirstChar 
-                                ? 'bg-primary/10 border-primary/30 ml-0 mr-6' 
-                                : isSecondChar
-                                  ? 'bg-orange-500/10 border-orange-500/30 ml-6 mr-0'
-                                  : idx % 2 === 0 
-                                    ? 'bg-primary/5 border-primary/20 ml-0 mr-6' 
-                                    : 'bg-orange-500/5 border-orange-500/20 ml-6 mr-0'
-                            }`}
-                          >
-                            <p className={`text-xs font-bold mb-1 ${
-                              isFirstChar ? 'text-primary' : isSecondChar ? 'text-orange-500' : 'text-muted-foreground'
-                            }`}>
-                              {entry.character}
-                            </p>
-                            <p className="text-sm leading-relaxed">"{entry.line}"</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Main Character Dialogue (legacy string format) */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-sm font-semibold flex items-center gap-2">
-                          <User className="w-4 h-4 text-primary" />
-                          {characterName || 'Main Character'} Dialogue
-                        </Label>
-                        <Button
-                          onClick={() => onGenerateDialogue(scene.sceneNumber)}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Wand2 className="w-3 h-3 mr-1" />
-                          Generate
-                        </Button>
-                      </div>
-                      <Textarea
-                        value={typeof scene.dialogue === 'string' ? scene.dialogue : ''}
-                        onChange={(e) => onUpdateScene(scene.sceneNumber, { dialogue: e.target.value })}
-                        rows={3}
-                        className="resize-none italic"
-                        placeholder={`Enter what ${characterName || 'the main character'} will say...`}
-                      />
-                    </div>
-
-                    {/* Second Character Dialogue - always show when there are 2 characters */}
-                    {(scene.otherCharacterDialogue !== undefined || secondCharacterName) && (
-                      <div>
-                        <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
-                          <User className="w-4 h-4 text-orange-500" />
-                          {secondCharacterName || 'Other Character'} Dialogue
-                        </Label>
-                        <Textarea
-                          value={scene.otherCharacterDialogue || ''}
-                          onChange={(e) => onUpdateScene(scene.sceneNumber, { otherCharacterDialogue: e.target.value })}
-                          rows={3}
-                          className="resize-none italic"
-                          placeholder={`Enter what ${secondCharacterName || 'the other character'} will say...`}
-                        />
-                      </div>
                     )}
-                  </>
-                )}
-
-                {/* Music Suggestion */}
-                {scene.suggestedMusic && (
-                  <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Music className="w-4 h-4 text-primary" />
-                      <span className="font-medium text-sm">Suggested Music</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{scene.suggestedMusic}</p>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
 
-            {/* Settings Tab */}
-            {activeTab === 'settings' && (
-              <div className="grid grid-cols-2 gap-4">
+                {/* TRANSITION */}
+                <div className="flex flex-col items-center justify-center min-w-[140px] space-y-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <Label className="text-xs font-semibold text-primary">TRANSITION</Label>
+                  <ArrowRight className="w-6 h-6 text-primary/50" />
+                  <Textarea placeholder="What happens..." value={scene.transitionAction || ''} onChange={(e) => onUpdateScene(scene.sceneNumber, { transitionAction: e.target.value })} rows={2} className="text-xs resize-none" />
+                  <Select value={scene.transitionCameraMovement || 'static'} onValueChange={(v) => onUpdateScene(scene.sceneNumber, { transitionCameraMovement: v })}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{CAMERA_MOVEMENTS.map(m => <SelectItem key={m.id} value={m.id} className="text-xs">{m.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+
+                {/* END FRAME */}
+                <div className="space-y-2 p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                  <Label className="text-xs font-semibold text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500" /> END
+                  </Label>
+                  {hasEndFrame && (
+                    <div className="aspect-video bg-muted rounded overflow-hidden cursor-pointer" onClick={() => setViewingImage({ src: scene.endFrame.generatedImage!, title: `Scene ${scene.sceneNumber} - End Frame` })}>
+                      <img src={scene.endFrame.generatedImage} alt="End frame" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <Textarea placeholder="Describe the ending visual..." value={scene.endFrame?.imagePrompt || ''} onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'end', { imagePrompt: e.target.value })} rows={2} className="text-xs resize-none" />
+                  <div className="grid grid-cols-2 gap-1">
+                    <Select value={scene.endFrame?.cameraAngle || 'eye-level'} onValueChange={(v) => onUpdateKeyframe(scene.sceneNumber, 'end', { cameraAngle: v })}>
+                      <SelectTrigger className="h-7 text-xs"><Camera className="w-3 h-3 mr-1" /><SelectValue /></SelectTrigger>
+                      <SelectContent>{CAMERA_ANGLES_SIMPLE.map(a => <SelectItem key={a.id} value={a.id} className="text-xs">{a.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input placeholder="Position" value={scene.endFrame?.position || ''} onChange={(e) => onUpdateKeyframe(scene.sceneNumber, 'end', { position: e.target.value })} className="h-7 text-xs" />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button onClick={() => onGenerateEndImage(scene.sceneNumber)} disabled={isGeneratingImage || !scene.endFrame?.imagePrompt} size="sm" variant="outline" className="flex-1 h-7 text-xs">
+                      {isGeneratingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3 mr-1" />}Generate
+                    </Button>
+                    {onDescribeAndGenerate && (
+                      <Button onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'end')} disabled={isGeneratingImage || isDescribingScene} size="sm" className="flex-1 h-7 text-xs">
+                        {(isGeneratingImage || isDescribingScene) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}Auto
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Scene Settings */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-sm font-semibold mb-2 block">Location</Label>
-                  <Input
-                    value={scene.location}
-                    onChange={(e) => onUpdateScene(scene.sceneNumber, { location: e.target.value })}
-                  />
+                  <Label className="text-xs mb-1 block">Location</Label>
+                  <Input value={scene.location} onChange={(e) => onUpdateScene(scene.sceneNumber, { location: e.target.value })} className="h-8 text-xs" />
                 </div>
                 <div>
-                  <Label className="text-sm font-semibold mb-2 block">Time of Day</Label>
-                  <Input
-                    value={scene.timeOfDay}
-                    onChange={(e) => onUpdateScene(scene.sceneNumber, { timeOfDay: e.target.value })}
-                  />
+                  <Label className="text-xs mb-1 block">Time of Day</Label>
+                  <Input value={scene.timeOfDay} onChange={(e) => onUpdateScene(scene.sceneNumber, { timeOfDay: e.target.value })} className="h-8 text-xs" />
+                </div>
+                <div>
+                  <Label className="text-xs mb-1 block">Lighting</Label>
+                  <Select value={scene.selectedLighting || 'natural'} onValueChange={(v) => onUpdateScene(scene.sceneNumber, { selectedLighting: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{LIGHTING_STYLES_SIMPLE.map(l => <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs mb-1 block">Mood</Label>
+                  <Select value={scene.mood || 'peaceful'} onValueChange={(v) => onUpdateScene(scene.sceneNumber, { mood: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{Object.entries(MOOD_ICONS).map(([mood, icon]) => <SelectItem key={mood} value={mood}>{icon} {mood.charAt(0).toUpperCase() + mood.slice(1)}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-sm font-semibold mb-2 block">Scene Description</Label>
-                  <Textarea
-                    value={scene.description}
-                    onChange={(e) => onUpdateScene(scene.sceneNumber, { description: e.target.value })}
-                    rows={3}
-                    className="resize-none"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">Lighting Style</Label>
-                  <Select
-                    value={scene.selectedLighting || 'natural'}
-                    onValueChange={(v) => onUpdateScene(scene.sceneNumber, { selectedLighting: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LIGHTING_STYLES_SIMPLE.map(l => (
-                        <SelectItem key={l.id} value={l.id}>
-                          <div>
-                            <div>{l.name}</div>
-                            <div className="text-xs text-muted-foreground">{l.description}</div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">Scene Mood</Label>
-                  <Select
-                    value={scene.mood || 'peaceful'}
-                    onValueChange={(v) => onUpdateScene(scene.sceneNumber, { mood: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(MOOD_ICONS).map(([mood, icon]) => (
-                        <SelectItem key={mood} value={mood}>
-                          {icon} {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs mb-1 block">Description</Label>
+                  <Textarea value={scene.description} onChange={(e) => onUpdateScene(scene.sceneNumber, { description: e.target.value })} rows={2} className="resize-none text-xs" />
                 </div>
               </div>
-            )}
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
 
-      {/* Image Lightbox Dialog */}
+              {/* Dialogue editing */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">Dialogue</Label>
+                  <Button onClick={() => onGenerateDialogue(scene.sceneNumber)} variant="outline" size="sm" className="h-6 text-xs">
+                    <Wand2 className="w-3 h-3 mr-1" />Generate
+                  </Button>
+                </div>
+                <Textarea
+                  value={typeof scene.dialogue === 'string' ? scene.dialogue : ''}
+                  onChange={(e) => onUpdateScene(scene.sceneNumber, { dialogue: e.target.value })}
+                  rows={3} className="resize-none text-xs italic"
+                  placeholder={`Enter dialogue for ${characterName || 'the character'}...`}
+                />
+              </div>
+
+              {scene.suggestedMusic && (
+                <div className="p-2 bg-primary/5 rounded border border-primary/20 flex items-center gap-2">
+                  <Music className="w-3 h-3 text-primary" />
+                  <span className="text-xs text-muted-foreground">{scene.suggestedMusic}</span>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      )}
+
+      {/* Image Lightbox */}
       <Dialog open={!!viewingImage} onOpenChange={(open) => !open && setViewingImage(null)}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background/95 backdrop-blur">
           <DialogTitle className="sr-only">{viewingImage?.title || 'Image Preview'}</DialogTitle>
           <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
-              onClick={() => setViewingImage(null)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            {viewingImage && (
-              <img 
-                src={viewingImage.src} 
-                alt={viewingImage.title}
-                className="w-full h-auto max-h-[80vh] object-contain"
-              />
-            )}
-            <div className="p-4 border-t border-border">
-              <p className="text-sm text-muted-foreground text-center">{viewingImage?.title}</p>
-            </div>
+            <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 bg-background/80" onClick={() => setViewingImage(null)}><X className="h-4 w-4" /></Button>
+            {viewingImage && <img src={viewingImage.src} alt={viewingImage.title} className="w-full h-auto max-h-[80vh] object-contain" />}
+            <div className="p-4 border-t border-border"><p className="text-sm text-muted-foreground text-center">{viewingImage?.title}</p></div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Video Lightbox Dialog */}
+      {/* Video Lightbox */}
       <Dialog open={!!viewingVideo} onOpenChange={(open) => !open && setViewingVideo(null)}>
         <DialogContent className="max-w-5xl p-0 overflow-hidden bg-background/95 backdrop-blur">
           <DialogTitle className="sr-only">{viewingVideo?.title || 'Video Preview'}</DialogTitle>
           <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
-              onClick={() => setViewingVideo(null)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            {viewingVideo && (
-              <video 
-                src={viewingVideo.src}
-                controls
-                autoPlay
-                className="w-full h-auto max-h-[80vh]"
-              />
-            )}
-            <div className="p-4 border-t border-border">
-              <p className="text-sm text-muted-foreground text-center">{viewingVideo?.title}</p>
-            </div>
+            <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 bg-background/80" onClick={() => setViewingVideo(null)}><X className="h-4 w-4" /></Button>
+            {viewingVideo && <video src={viewingVideo.src} controls autoPlay className="w-full h-auto max-h-[80vh]" />}
+            <div className="p-4 border-t border-border"><p className="text-sm text-muted-foreground text-center">{viewingVideo?.title}</p></div>
           </div>
         </DialogContent>
       </Dialog>
