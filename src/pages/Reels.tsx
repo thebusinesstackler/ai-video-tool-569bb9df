@@ -2468,17 +2468,18 @@ const Reels = () => {
           });
         } else {
           // Creatomate failed - automatically fall back to browser stitching
-          console.warn('Creatomate manual stitch failed, falling back to browser:', result.error);
-          setProgressStatus('Server failed, trying browser stitching...');
+          console.warn('Creatomate manual stitch failed, falling back to canvas stitcher:', result.error);
+          setProgressStatus('Server failed, stitching with built-in engine...');
           
           const videoUrls = sortedVideos.map(v => v.videoUrl);
-          const stitchedBlob = await stitchVideosWithAudio({
+          const stitchedBlob = await canvasStitchVideos({
             videoUrls,
-            audioUrls: [mergedAudioUrl],
+            audioUrls: mergedAudioUrl ? [mergedAudioUrl] : [],
             onProgress: (percent) => {
               setProgress(40 + percent * 0.5);
-              setProgressStatus(`Stitching in browser... ${Math.round(percent)}%`);
-            }
+              setProgressStatus(`Stitching... ${Math.round(percent)}%`);
+            },
+            onStatus: (s) => setProgressStatus(s)
           });
 
           videoBlobRef.current = stitchedBlob;
