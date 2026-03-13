@@ -313,7 +313,13 @@ serve(async (req) => {
       }
       
       try {
-        const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync, characterDescription, referenceImages);
+        // Get camera angle modifier for this scene (rotate through provided angles)
+        const sceneIndex = (scenes as Scene[]).indexOf(scene);
+        const cameraAngleModifier = cameraAngles?.length > 0 
+          ? cameraAngles[sceneIndex % cameraAngles.length] 
+          : undefined;
+        
+        const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync, characterDescription, referenceImages, cameraAngleModifier);
         const messages = buildImageGenMessages(imagePrompt, (!scene.isIntro && !scene.isOutro) ? referenceImages : undefined);
         
         const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
