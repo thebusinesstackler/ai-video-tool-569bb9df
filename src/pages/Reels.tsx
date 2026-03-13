@@ -2121,8 +2121,8 @@ const Reels = () => {
       setLipSyncModel('infinitetalk');
     }
     
-    await generateScripts();
-    if (project.scenes.length > 0) {
+    const generatedScenes = await generateScripts();
+    if (generatedScenes && generatedScenes.length > 0) {
       // Pass overrides to ensure lip sync state is used even before React re-renders
       await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel });
     }
