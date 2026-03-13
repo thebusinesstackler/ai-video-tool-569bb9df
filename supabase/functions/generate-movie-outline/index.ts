@@ -253,10 +253,10 @@ IMPORTANT RULES:
     console.log('Generating movie outline with Lovable AI...');
 
     const requestBody = JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'google/gemini-2.5-pro',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Create a cohesive ${movieLength.replace('-', ' ')} outline (${lengthConfig.sceneRange} scenes, ${lengthConfig.duration}) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout. Use proper 3-act structure.` }
+        { role: 'user', content: `Create a cohesive ${movieLength.replace('-', ' ')} outline (${lengthConfig.sceneRange} scenes, ${lengthConfig.duration}) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout. Use proper 3-act structure. Every scene MUST connect to the next — each scene ending should set up the next scene's beginning. The entire story should feel like ONE cohesive narrative, not disconnected vignettes.${storyBible ? '\n\nFollow the Story Bible provided in the system prompt for character arcs, three-act structure, and scene flow.' : ''}` }
       ],
     });
 
