@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, ChevronLeft, ChevronDown, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard, Download, MoreVertical, Pencil, Settings2 } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, ChevronLeft, ChevronDown, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard, Download, MoreVertical, Pencil, Settings2, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
@@ -287,6 +287,8 @@ const MovieSceneCreator = () => {
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [generateAllStep, setGenerateAllStep] = useState('');
   const [generateAllProgress, setGenerateAllProgress] = useState(0);
+  const [isPreviewingBeforeVideo, setIsPreviewingBeforeVideo] = useState(false);
+  const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
   
   // Wizard step state
   const [currentStep, setCurrentStep] = useState(0);
@@ -1525,13 +1527,56 @@ const MovieSceneCreator = () => {
       setGenerateAllProgress(85);
       setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
 
-      // Step 7: Generate lip-sync videos for ALL scenes (85% → 97%)
-      setGenerateAllStep('Generating scene videos...');
-      let videoErrors = 0;
+      // PAUSE: Show preview before video generation
+      setIsGeneratingAll(false);
+      setGenerateAllStep('');
+      setGenerateAllProgress(0);
+      setIsPreviewingBeforeVideo(true);
+      setPendingVideoGeneration(scenesWithDialogue);
+      
+      // Switch to scenes step so user can see them
+      if (isBeginner) {
+        // beginner mode shows scenes inline
+      } else {
+        setCurrentStep(3);
+      }
 
+      toast({
+        title: "🎬 Scenes Ready for Preview!",
+        description: "Review your scenes, dialogue, and images before generating videos.",
+      });
+
+    } catch (error: any) {
+      console.error('Error in generateAll:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate movie. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingAll(false);
+      setGenerateAllStep('');
+      setGenerateAllProgress(0);
+    }
+  };
+
+  // Continue video generation after user previews scenes
+  const continueVideoGeneration = async () => {
+    const scenesWithDialogue = pendingVideoGeneration;
+    if (!scenesWithDialogue) return;
+
+    setIsPreviewingBeforeVideo(false);
+    setPendingVideoGeneration(null);
+    setIsGeneratingAll(true);
+    setGenerateAllStep('Generating scene videos...');
+    setGenerateAllProgress(85);
+
+    let videoErrors = 0;
+
+    try {
       for (let i = 0; i < scenesWithDialogue.length; i++) {
         const scene = scenesWithDialogue[i];
-        const imageToUse = scene.startFrame?.generatedImage || scene.generatedImage;
+        const imageToUse = (scene as any).startFrame?.generatedImage || scene.generatedImage;
         
         if (!imageToUse) {
           console.warn(`Skipping video for scene ${scene.sceneNumber} — no image`);
@@ -1551,7 +1596,6 @@ const MovieSceneCreator = () => {
         } catch (videoErr: any) {
           console.error(`Error generating video for scene ${scene.sceneNumber}:`, videoErr);
           videoErrors++;
-          // Check for credit errors - stop immediately
           if (videoErr.message?.includes('credits') || videoErr.message?.includes('Insufficient')) {
             toast({
               title: "Video Credits Exhausted",
@@ -1566,7 +1610,7 @@ const MovieSceneCreator = () => {
       setGenerateAllProgress(97);
       setScenes([...scenesWithDialogue]);
 
-      // Step 8: Auto-stitch all videos into final movie (97% → 100%)
+      // Auto-stitch all videos into final movie
       const scenesWithVideos = scenesWithDialogue.filter(s => s.generatedVideo);
       if (scenesWithVideos.length >= 2) {
         setGenerateAllStep('Stitching final movie...');
@@ -1575,7 +1619,7 @@ const MovieSceneCreator = () => {
           const audiosToStitch = scenesWithVideos
             .map(s => (s as any).transitionAudioContent)
             .filter(Boolean)
-            .map(audioBase64 => `data:audio/mp3;base64,${audioBase64}`);
+            .map((audioBase64: string) => `data:audio/mp3;base64,${audioBase64}`);
 
           const stitchedBlob = await stitchVideosWithAudio({
             videoUrls: videosToStitch,
@@ -1607,13 +1651,11 @@ const MovieSceneCreator = () => {
       });
 
       setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
-      setCurrentStep(3); // Auto-advance to Scenes step
-
     } catch (error: any) {
-      console.error('Error in generateAll:', error);
+      console.error('Error in video generation:', error);
       toast({
-        title: "Generation Failed",
-        description: error.message || "Failed to generate movie. Please try again.",
+        title: "Video Generation Failed",
+        description: error.message || "Failed to generate videos.",
         variant: "destructive"
       });
     } finally {
@@ -3389,6 +3431,30 @@ const MovieSceneCreator = () => {
                   </div>
                 )}
 
+                {/* Preview banner before video generation */}
+                {isPreviewingBeforeVideo && (
+                  <Card className="border-primary bg-gradient-to-r from-primary/5 to-primary/10">
+                    <CardContent className="py-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-5 h-5 text-primary" />
+                        <h3 className="font-semibold text-foreground">Preview Your Scenes</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Review the scenes, dialogue, and images below. When you're happy, click "Generate Videos" to bring them to life.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button onClick={continueVideoGeneration} className="gap-2 bg-gradient-to-r from-primary to-primary/80">
+                          <Video className="w-4 h-4" />
+                          Generate Videos
+                        </Button>
+                        <Button variant="outline" onClick={() => { setIsPreviewingBeforeVideo(false); setPendingVideoGeneration(null); }}>
+                          Edit First
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {scenes.map((scene) => (
                     <Card key={scene.sceneNumber} className="overflow-hidden">
@@ -3407,6 +3473,26 @@ const MovieSceneCreator = () => {
                           </div>
                           <h4 className="text-sm font-medium truncate">{scene.title}</h4>
                           <p className="text-xs text-muted-foreground line-clamp-2">{scene.description}</p>
+                          {scene.dialogue && (
+                            <div className="mt-1.5 space-y-0.5">
+                              {(Array.isArray(scene.dialogue) 
+                                ? scene.dialogue.slice(0, 2).map((d: any, i: number) => (
+                                    <p key={i} className="text-[11px] text-foreground/70 truncate">
+                                      <span className="font-semibold">{d.character}:</span> "{d.line}"
+                                    </p>
+                                  ))
+                                : typeof scene.dialogue === 'string'
+                                  ? scene.dialogue.split('\n').slice(0, 2).map((line, i) => (
+                                      <p key={i} className="text-[11px] text-foreground/70 italic truncate">"{line}"</p>
+                                    ))
+                                  : null
+                              )}
+                              {((Array.isArray(scene.dialogue) && scene.dialogue.length > 2) || 
+                                (typeof scene.dialogue === 'string' && scene.dialogue.split('\n').length > 2)) && (
+                                <p className="text-[10px] text-muted-foreground">+ more lines...</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -3890,6 +3976,30 @@ const MovieSceneCreator = () => {
                   </div>
                 )}
 
+                {/* Preview banner before video generation */}
+                {isPreviewingBeforeVideo && (
+                  <Card className="border-primary bg-gradient-to-r from-primary/5 to-primary/10">
+                    <CardContent className="py-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-5 h-5 text-primary" />
+                        <h3 className="font-semibold text-foreground">Preview Your Scenes</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Review the scenes, dialogue, and images below. When you're happy, click "Generate Videos" to bring them to life.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button onClick={continueVideoGeneration} className="gap-2 bg-gradient-to-r from-primary to-primary/80">
+                          <Video className="w-4 h-4" />
+                          Generate Videos
+                        </Button>
+                        <Button variant="outline" onClick={() => { setIsPreviewingBeforeVideo(false); setPendingVideoGeneration(null); }}>
+                          Edit First
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Completed movie player */}
                 {stitchedVideoUrl && (
                   <Card className="bg-primary/5 border-primary/20">
@@ -3928,7 +4038,7 @@ const MovieSceneCreator = () => {
                         endFrame: scene.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
                         transitionAction: scene.transitionAction || '',
                         transitionCameraMovement: scene.transitionCameraMovement || 'static',
-                        dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join('\n') : null
+                      dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : Array.isArray(scene.dialogue) ? scene.dialogue.map((d: any) => `${d.character}: ${d.line}`).join('\n') : null
                       } as MovieSceneWithKeyframes}
                       sceneIndex={index} totalScenes={scenes.length}
                       isGeneratingImage={generatingImageFor === scene.sceneNumber || (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
