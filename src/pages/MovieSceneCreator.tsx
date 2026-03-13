@@ -19,6 +19,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { PeteAIAssistant } from '@/components/PeteAIAssistant';
+import { useCreatorMode } from '@/hooks/useCreatorMode';
+import { CreatorModeToggle } from '@/components/CreatorModeToggle';
 import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEMENTS } from '@/components/KeyframeSceneCard';
 import { SceneTimeline } from '@/components/SceneTimeline';
 import { StoryboardExport } from '@/components/StoryboardExport';
