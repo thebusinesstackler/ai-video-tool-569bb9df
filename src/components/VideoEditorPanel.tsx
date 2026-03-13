@@ -297,7 +297,7 @@ export const VideoEditorPanel: React.FC<VideoEditorPanelProps> = ({
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Recent Edits</p>
                   {editHistory.slice(0, 3).map((edit, idx) => (
                     <div key={idx} className="flex items-center gap-2 p-1.5 rounded bg-muted/30 border border-border">
-                      <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
+                      <Check className="w-3 h-3 text-primary flex-shrink-0" />
                       <p className="text-[10px] text-muted-foreground truncate">{edit}</p>
                     </div>
                   ))}
