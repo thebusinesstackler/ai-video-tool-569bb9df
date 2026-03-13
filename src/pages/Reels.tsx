@@ -1466,6 +1466,8 @@ const Reels = () => {
           ? `Podcast script (~${Math.round(sceneDuration / 60)} min) created.`
           : `${sceneCount} scene scripts (${selectedSceneDuration}s each) created for your reel.`
       });
+      
+      return data.scenes as Scene[];
     } catch (error: any) {
       console.error('Script generation error:', error);
       toast({
