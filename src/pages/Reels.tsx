@@ -1442,7 +1442,7 @@ const Reels = () => {
     }
   };
 
-  const generateVideo = async () => {
+  const generateVideo = async (overrides?: { forceEnableLipSync?: boolean; forceLipSyncModel?: string }) => {
     if (project.scenes.length === 0) {
       toast({
         title: "Missing Scripts",
@@ -1573,6 +1573,9 @@ const Reels = () => {
       const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
       const twinReferenceImages = selectedTwin?.reference_images || [];
       
+      const effectiveLipSync = overrides?.forceEnableLipSync ?? enableLipSync;
+      const effectiveLipSyncModel = overrides?.forceLipSyncModel ?? lipSyncModel;
+      
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: scenesWithAudioDurations,
@@ -1580,9 +1583,9 @@ const Reels = () => {
           addCaptions: true,
           useWaveSpeed: true,
           // Lip sync configuration
-          enableLipSync,
-          lipSyncModel: enableLipSync ? lipSyncModel : undefined,
-          portraitImage: enableLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
+          enableLipSync: effectiveLipSync,
+          lipSyncModel: effectiveLipSync ? effectiveLipSyncModel : undefined,
+          portraitImage: effectiveLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
           voice: selectedVoice,
           // Pass voiceover storage URLs for lip sync
           voiceovers: voiceovers.map(v => ({
@@ -2088,6 +2091,10 @@ const Reels = () => {
 
   const generateAll = async () => {
     // In beginner mode, auto-select the first AI Twin for character consistency
+    // Use local variables since React state updates are async and won't be available immediately
+    let shouldEnableLipSync = enableLipSync;
+    let activeLipSyncModel = lipSyncModel;
+    
     if (isBeginner && aiTwins.length > 0 && !selectedTwinId) {
       const twin = aiTwins[0];
       setSelectedTwinId(twin.id);
@@ -2100,13 +2107,16 @@ const Reels = () => {
         setCharacterDescription(twin.face_description);
       }
       // Enable lip sync for talking head style
+      shouldEnableLipSync = true;
+      activeLipSyncModel = 'infinitetalk';
       setEnableLipSync(true);
       setLipSyncModel('infinitetalk');
     }
     
     await generateScripts();
     if (project.scenes.length > 0) {
-      await generateVideo();
+      // Pass overrides to ensure lip sync state is used even before React re-renders
+      await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel });
     }
   };
 
