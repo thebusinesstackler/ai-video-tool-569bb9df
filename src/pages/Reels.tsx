@@ -58,7 +58,11 @@ import {
   AlertCircle,
   ListChecks,
   Save,
-  FileEdit
+  FileEdit,
+  Pencil,
+  ChevronUp,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
