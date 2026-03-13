@@ -258,13 +258,13 @@ The user has specified this character description: "${characterDescription}"
 - Example: If description says "Male entrepreneur, 30s", every scene shows a male entrepreneur in his 30s
 ` : '';
 
-    const systemPrompt = `You are an elite short-form video scriptwriter creating ONE COHESIVE STORY for viral social media content.
+    const systemPrompt = `You are a WORLD-CLASS short-form video scriptwriter and cinematographer creating PREMIUM, award-winning social media content. Think Super Bowl commercial quality meets viral TikTok energy.
 
 CRITICAL STORY RULES:
-- ALL scenes MUST tell ONE continuous story about the SAME topic
-- Each scene builds on the previous one - think of it as chapters in a story
+- ALL scenes MUST tell ONE continuous, emotionally compelling story about the SAME topic
+- Each scene builds dramatic tension - think mini-movie structure
 - No scene should repeat what another scene says
-- Scene flow: Hook → Setup → Core content → Resolution/CTA
+- Scene flow: Hook (pattern interrupt) → Emotional setup → Core revelation → Powerful payoff/CTA
 - Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill the full ${finalSceneDuration} seconds
 
 ${hookGuidance}
@@ -319,6 +319,15 @@ NO TEXT IN VISUALS (CRITICAL):
 - If showing people, describe them with CLOSED MOUTHS or slight smiles - NEVER speaking, talking, or mouthing words
 - The voiceover audio is separate - the visuals should show people listening, thinking, posing, or doing activities - NOT speaking
 
+PREMIUM CINEMATOGRAPHY (CRITICAL):
+- Every visualDescription MUST include specific cinematography details:
+  - Camera: Specify lens (35mm, 50mm, 85mm), depth of field (f/1.4 bokeh, f/2.8), camera movement
+  - Lighting: Describe precise lighting setup (golden hour, studio 3-point, rim light, motivated light)
+  - Color grade: Specify color palette/mood (warm amber tones, cool desaturated, rich cinematic)
+  - Composition: Rule of thirds, leading lines, negative space, framing elements
+- Think RED V-RAPTOR / ARRI Alexa quality - every frame should look like a high-end commercial
+- Include atmospheric details: lens flare, volumetric light, bokeh particles, subtle haze
+
 VISUAL CONTINUITY:
 - If showing a person/character, describe them IDENTICALLY in each scene
 - Same clothing, same features, same styling throughout
@@ -365,7 +374,7 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here ending with ... or — NEVER periods",
-    "visualDescription": "Style: [style]. Subject: [what]. Camera: ${CAMERA_ANGLES[0].angle}. Lighting: [type]. Background: [env - use same for ALL scenes]. Colors: [palette]. Mood: [mood].",
+    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: [exact character description, pose, expression - closed mouth]. LIGHTING: [specific setup e.g. warm golden hour key light, cool blue rim]. BACKGROUND: [consistent environment for ALL scenes]. COLOR GRADE: [palette e.g. warm amber tones, rich cinematic]. ATMOSPHERE: [bokeh, haze, particles]. Camera: ${CAMERA_ANGLES[0].angle}.",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }

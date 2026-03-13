@@ -1569,6 +1569,10 @@ const Reels = () => {
         ? previewScenes.map(ps => ({ sceneNumber: ps.sceneNumber, imageUrl: ps.imageUrl }))
         : undefined;
       
+      // Get AI Twin reference images for character consistency
+      const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+      const twinReferenceImages = selectedTwin?.reference_images || [];
+      
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: scenesWithAudioDurations,
@@ -1578,7 +1582,7 @@ const Reels = () => {
           // Lip sync configuration
           enableLipSync,
           lipSyncModel: enableLipSync ? lipSyncModel : undefined,
-          portraitImage: enableLipSync ? portraitImage : undefined,
+          portraitImage: enableLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
           voice: selectedVoice,
           // Pass voiceover storage URLs for lip sync
           voiceovers: voiceovers.map(v => ({
@@ -1587,7 +1591,10 @@ const Reels = () => {
             duration: v.duration
           })),
           // Pass pre-generated images from preview
-          preGeneratedImages
+          preGeneratedImages,
+          // Character consistency data
+          referenceImages: twinReferenceImages,
+          characterDescription: characterDescription || selectedTwin?.face_description || ''
         }
       });
 
@@ -2080,6 +2087,23 @@ const Reels = () => {
   };
 
   const generateAll = async () => {
+    // In beginner mode, auto-select the first AI Twin for character consistency
+    if (isBeginner && aiTwins.length > 0 && !selectedTwinId) {
+      const twin = aiTwins[0];
+      setSelectedTwinId(twin.id);
+      if (twin.reference_images?.[0]) {
+        setPortraitImage(twin.reference_images[0]);
+        setPortraitPreview(twin.reference_images[0]);
+        setPreSelectedReference(twin.reference_images[0]);
+      }
+      if (twin.face_description) {
+        setCharacterDescription(twin.face_description);
+      }
+      // Enable lip sync for talking head style
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
+    }
+    
     await generateScripts();
     if (project.scenes.length > 0) {
       await generateVideo();
