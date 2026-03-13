@@ -26,7 +26,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { message, messages } = body;
+    const { message, messages, model, modalities } = body;
 
     // Validate inputs
     if (!message && (!messages || !Array.isArray(messages) || messages.length === 0)) {
