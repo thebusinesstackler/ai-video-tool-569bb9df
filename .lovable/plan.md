@@ -1,33 +1,50 @@
 
-# Simplify Movie Scene Creator — AI-First, One-Click UX
+Diagnosis from code + logs:
+- The failing calls are image-generation requests to `ai` using `google/gemini-3.1-flash-image-preview`.
+- Edge logs show the model returned `choices[0].message.content = null` (with reasoning metadata), and the function treated this as fatal, returning 500 `"No response from AI"`.
+- This means the parser is still too strict for some valid multimodal/image responses (or empty-but-nonfatal outputs).
 
-## Status: ✅ Implemented
+Implementation plan:
+1) Harden `supabase/functions/ai/index.ts` output parsing
+- Expand extraction to support more image payload shapes:
+  - `message.images[*].image_url.url`
+  - `message.images[*].url`
+  - `message.images[*].b64_json` / `base64` / `data` (convert to `data:image/png;base64,...` when needed)
+  - content-part types beyond current ones (`output_text`, `output_image`, etc.).
+- Keep text extraction robust for string and part-based content.
 
-## Changes Made
+2) Make empty-output handling modality-aware (critical fix)
+- If request includes image modality/model and no text is returned:
+  - do not return 500 immediately;
+  - return a safe 200 payload with `response: ""`, `imageUrl: null`, `choices`, and `warning: "empty_ai_output"`.
+- Keep 500 for true hard failures (gateway non-OK, malformed upstream response, exceptions).
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+3) Keep API contract backward-compatible
+- Continue returning:
+  - `response`
+  - `imageUrl`
+  - `choices`
+- Add optional diagnostics fields (`warning`, compact `debug`) without breaking existing callers.
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+4) Frontend resilience updates
+- In `AISpokesperson.tsx` and `CommercialStudio.tsx`:
+  - check `error` from function calls consistently;
+  - if `warning: "empty_ai_output"` or no `imageUrl`, fall back to reference image and continue pipeline (no crash).
+- Keep existing `data.response`-first parsing in text flows.
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+5) Ensure latest function deployment is active
+- Redeploy `ai` function and verify requests are hitting the newest deployment version (to avoid stale behavior from older runtime versions).
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+Verification checklist:
+- Reproduce previous failing flow (AI Spokesperson image step) and confirm no 500 from `/functions/v1/ai`.
+- Confirm image call returns either usable `imageUrl` or warning payload with graceful fallback.
+- Confirm text-only calls (enhance/refine/script) still return `response`.
+- Confirm rate/credit errors (429/402) still surface correctly in UI.
+- End-to-end test: Beginner mode message → script → image step → lip-sync video completes without blank-screen runtime error.
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
-
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+Technical details:
+- Files to update:
+  - `supabase/functions/ai/index.ts` (primary)
+  - `src/pages/AISpokesperson.tsx` (fallback + warning handling)
+  - `src/pages/CommercialStudio.tsx` (fallback + error handling consistency)
+- No database/auth schema changes required.
