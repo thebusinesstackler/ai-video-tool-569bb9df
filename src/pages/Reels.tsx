@@ -22,6 +22,8 @@ import { getAudioDuration } from '@/lib/audioUtils';
 import { TemplateSelector } from '@/components/TemplateSelector';
 import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
 import { ReelFeatureSidebar, ReelMode } from '@/components/ReelFeatureSidebar';
+import { useCreatorMode } from '@/hooks/useCreatorMode';
+import { CreatorModeToggle } from '@/components/CreatorModeToggle';
 import { VideoUpscaler } from '@/components/VideoUpscaler';
 import { CameraAngleSelector } from '@/components/CameraAngleSelector';
 import { LogoAnimation } from '@/data/reelTemplates';
