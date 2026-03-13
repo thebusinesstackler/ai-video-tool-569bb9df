@@ -4233,8 +4233,8 @@ const Reels = () => {
                   })()}
                 </SheetContent>
               </Sheet>
+              </>
             )}
-          </TabsContent>
 
           <TabsContent value="queue" className="space-y-6">
             <VideoQueue 
