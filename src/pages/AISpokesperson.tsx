@@ -65,6 +65,10 @@ interface SceneShot {
   angleLabel: string;
   prompt: string;
   selected: boolean;
+  type: 'speaking' | 'broll' | 'transition';
+  sfx?: string;
+  music?: string;
+  narrationSegment?: string;
 }
 
 const SETTINGS = [
