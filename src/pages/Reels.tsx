@@ -376,6 +376,9 @@ const Reels = () => {
   const [generateCharacterPrompt, setGenerateCharacterPrompt] = useState('');
   const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
   
+  // Voice preview state
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
   // Intro/CTA slide state
   const [showIntroSlideForm, setShowIntroSlideForm] = useState(false);
   const [showCtaSlideForm, setShowCtaSlideForm] = useState(false);
@@ -2239,7 +2242,42 @@ const Reels = () => {
     }
   };
 
-  // Insert an intro or CTA slide into the scene sequence
+  // Preview the selected voice with a TTS sample
+  const previewVoice = async () => {
+    // Stop any currently playing preview
+    if (voicePreviewAudio) {
+      voicePreviewAudio.pause();
+      voicePreviewAudio.currentTime = 0;
+      setVoicePreviewAudio(null);
+      setIsPreviewingVoice(false);
+      return;
+    }
+
+    const sampleText = project.scenes[0]?.narration 
+      || "Hello! This is a preview of how your voiceover will sound in the final video.";
+    
+    setIsPreviewingVoice(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: sampleText.slice(0, 200), voice: selectedVoice }
+      });
+      if (error) throw error;
+      const audioUrl = data?.audioUrl || data?.url;
+      if (!audioUrl) throw new Error('No audio returned');
+      
+      const audio = new Audio(audioUrl);
+      audio.onended = () => {
+        setIsPreviewingVoice(false);
+        setVoicePreviewAudio(null);
+      };
+      setVoicePreviewAudio(audio);
+      await audio.play();
+    } catch (err: any) {
+      toast({ title: "Voice Preview Failed", description: err.message, variant: "destructive" });
+      setIsPreviewingVoice(false);
+    }
+  };
+
   const insertSlide = async (position: 'intro' | 'cta', headline: string, subtitle: string) => {
     if (!headline.trim()) {
       toast({ title: "Missing Headline", description: "Please enter a headline for the slide.", variant: "destructive" });
@@ -3105,11 +3143,32 @@ const Reels = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  <VoiceSelector 
-                    selectedVoice={selectedVoice}
-                    onVoiceSelect={setSelectedVoice}
-                    disabled={isGenerating}
-                  />
+                  <div className="space-y-2">
+                    <VoiceSelector 
+                      selectedVoice={selectedVoice}
+                      onVoiceSelect={setSelectedVoice}
+                      disabled={isGenerating}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={previewVoice}
+                      disabled={isGenerating || selectedVoice.startsWith('clone:')}
+                    >
+                      {isPreviewingVoice ? (
+                        <>
+                          <MicOff className="w-3 h-3 mr-1" />
+                          Stop Preview
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3 h-3 mr-1" />
+                          Preview Voice
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 )}
               </>
             )}
