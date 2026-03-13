@@ -968,37 +968,54 @@ Return ONLY the JSON object.`
           </Card>
         )}
 
-        {/* Video Result */}
+        {/* Video Result — Side-by-side with AI Editor */}
         {videoUrl && (
-          <Card className="border-primary/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="w-5 h-5 text-primary" />
-                Your Spokesperson Video
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                <video
-                  src={videoUrl}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-                <Button variant="outline" onClick={resetAll}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Create Another
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
+            {/* Left: Video Player */}
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="w-5 h-5 text-primary" />
+                  Your Spokesperson Video
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                  <video
+                    src={videoUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex gap-2 justify-center">
+                  <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button variant="outline" onClick={resetAll}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Create Another
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Right: AI Editor Panel */}
+            <div className="h-[640px]">
+              <VideoEditorPanel
+                sceneShots={sceneShots}
+                onGenerateShot={addCustomShot}
+                onSelectShot={toggleShotSelection}
+                onCreateVideoFromShot={generateVideoFromShot}
+                isAddingShot={isAddingShot}
+                isGeneratingShots={isGeneratingShots}
+                musicSuggestion={generatedScript?.musicSuggestion}
+                onAiEditRequest={handleAiEditRequest}
+              />
+            </div>
+          </div>
         )}
 
         {/* ===== KLING 3.0 SCENE GALLERY ===== */}
