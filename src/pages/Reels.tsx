@@ -2362,8 +2362,8 @@ const Reels = () => {
   return (
     <Layout>
       <div className={`flex h-full ${isMobile ? '' : '-m-6'}`}>
-        {/* Feature Sidebar - Hidden on Mobile */}
-        {!isMobile && (
+        {/* Feature Sidebar - Hidden on Mobile and Beginner mode */}
+        {!isMobile && isAdvanced && (
           <ReelFeatureSidebar
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
