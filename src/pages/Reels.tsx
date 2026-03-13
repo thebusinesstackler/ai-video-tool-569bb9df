@@ -1509,7 +1509,7 @@ const Reels = () => {
         setProgressStatus('Generating voiceovers...');
       
       // Step 1: Generate voiceovers for each scene using OpenAI TTS and get actual durations
-      for (const scene of project.scenes) {
+      for (const scene of activeScenes) {
         // Skip silent CTA scenes (no narration needed)
         if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
           console.log(`Scene ${scene.sceneNumber} is silent CTA - skipping voiceover`);
