@@ -3848,8 +3848,8 @@ const MovieSceneCreator = () => {
           </div>
         )}
 
-        {/* ===== STEP 4: Scenes — Simplified ===== */}
-        {currentStep === 3 && (
+        {/* ===== STEP 4: Scenes (Advanced only) ===== */}
+        {isAdvanced && currentStep === 3 && (
           <div className="space-y-6">
             {scenes.length > 0 ? (
               <div className="space-y-4">
