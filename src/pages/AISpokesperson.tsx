@@ -1292,6 +1292,7 @@ Return ONLY the JSON object.`
                     controls
                     autoPlay
                     playsInline
+                    crossOrigin="anonymous"
                     className="w-full h-full object-contain"
                   />
                   {captionsEnabled && captionText && (
