@@ -3431,6 +3431,30 @@ const MovieSceneCreator = () => {
                   </div>
                 )}
 
+                {/* Preview banner before video generation */}
+                {isPreviewingBeforeVideo && (
+                  <Card className="border-primary bg-gradient-to-r from-primary/5 to-primary/10">
+                    <CardContent className="py-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-5 h-5 text-primary" />
+                        <h3 className="font-semibold text-foreground">Preview Your Scenes</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Review the scenes, dialogue, and images below. When you're happy, click "Generate Videos" to bring them to life.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button onClick={continueVideoGeneration} className="gap-2 bg-gradient-to-r from-primary to-primary/80">
+                          <Video className="w-4 h-4" />
+                          Generate Videos
+                        </Button>
+                        <Button variant="outline" onClick={() => { setIsPreviewingBeforeVideo(false); setPendingVideoGeneration(null); }}>
+                          Edit First
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {scenes.map((scene) => (
                     <Card key={scene.sceneNumber} className="overflow-hidden">
