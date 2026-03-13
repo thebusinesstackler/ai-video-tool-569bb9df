@@ -1580,7 +1580,7 @@ const Reels = () => {
         body: { 
           scenes: scenesWithAudioDurations,
           topic: project.topic,
-          addCaptions: true,
+          addCaptions: featureToggles.captions,
           useWaveSpeed: true,
           // Lip sync configuration
           enableLipSync: effectiveLipSync,
@@ -1660,7 +1660,18 @@ const Reels = () => {
                 });
                 setProgressStatus(`Generated ${completedVideos.length}/${videoTasks.length} video clips...`);
               } else if (statusData.status === 'failed') {
-                throw new Error(`Video generation failed for scene ${task.sceneNumber}: ${statusData.error || 'Unknown error'}`);
+                // Log the failure but don't throw - skip this scene and continue with others
+                console.error(`Scene ${task.sceneNumber} video failed:`, statusData.error);
+                // Mark as "completed" with empty URL so we don't poll forever
+                completedVideos.push({
+                  sceneNumber: task.sceneNumber,
+                  videoUrl: '' // Will be filtered out later
+                });
+                toast({
+                  title: `Scene ${task.sceneNumber} Failed`,
+                  description: statusData.error || 'Video generation failed for this scene. Other scenes will continue.',
+                  variant: "destructive"
+                });
               }
             } catch (pollError) {
               console.error('Polling error:', pollError);
@@ -1676,8 +1687,15 @@ const Reels = () => {
         }
 
         // Step 4: All videos completed - stitch them together with audio
-        const sortedVideos = completedVideos.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        // Filter out failed scenes (empty URLs) before stitching
+        const sortedVideos = completedVideos
+          .filter(v => v.videoUrl && v.videoUrl.trim() !== '')
+          .sort((a, b) => a.sceneNumber - b.sceneNumber);
         const sortedAudios = voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        
+        if (sortedVideos.length === 0) {
+          throw new Error('All video scenes failed to generate. Please try again.');
+        }
         
         setProgress(75);
         setProgressStatus('Stitching video clips with voiceover...');
@@ -1815,7 +1833,7 @@ const Reels = () => {
               url: v.videoUrl,
               duration: audioDuration, // Match audio duration for video generation
               audioDuration: audioDuration, // Ensure never undefined
-              caption: scene?.narration || ''
+              caption: featureToggles.captions ? (scene?.narration || '') : ''
             };
           });
           
@@ -1873,17 +1891,15 @@ const Reels = () => {
             if (user) {
               try {
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                // Use actual audio durations for total duration
                 const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
-                // Build complete scene data with all URLs (image, video, audio)
                 const scenesWithAllAssets = generatedScenes.map((scene) => {
                   const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
                   const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
                   return {
                     ...scene,
                     videoUrl: video?.videoUrl || null,
-                    audioUrl: audio?.storageUrl || null, // Use storage URL for persistence
+                    audioUrl: audio?.storageUrl || null,
                     audioDuration: audio?.duration || null
                   };
                 });
@@ -1891,8 +1907,8 @@ const Reels = () => {
                 await supabase.from('reels').insert([{
                   user_id: user.id,
                   topic: project.topic,
-                  video_url: persistedVideoUrl, // Use persisted storage URL
-                  audio_url: mergedAudioUrl || null, // Save merged voiceover URL
+                  video_url: persistedVideoUrl,
+                  audio_url: mergedAudioUrl || null,
                   thumbnail_url: thumbnailUrl,
                   scenes: scenesWithAllAssets as unknown as any,
                   total_duration: totalDuration
@@ -1912,7 +1928,62 @@ const Reels = () => {
               description: `Created ${sortedVideos.length}-scene video with synced audio and saved to library!`
             });
           } else {
-            throw new Error(result.error || 'Creatomate rendering failed');
+            // Creatomate stitching failed - fall back to individual clips instead of failing entirely
+            console.warn('Creatomate stitching failed:', result.error);
+            
+            if (sortedVideos.length > 0) {
+              setProject(prev => ({
+                ...prev,
+                videoUrl: sortedVideos[0]?.videoUrl,
+                videoBlobUrl: sortedVideos[0]?.videoUrl,
+                generatedScenes,
+                voiceovers: sortedAudios,
+                videoClips: sortedVideos,
+                status: 'complete'
+              }));
+
+              // Still save to library with individual clip URLs
+              if (user) {
+                try {
+                  const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                  const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
+                  const scenesWithAllAssets = generatedScenes.map((scene) => {
+                    const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                    const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                    return {
+                      ...scene,
+                      videoUrl: video?.videoUrl || null,
+                      audioUrl: audio?.storageUrl || null,
+                      audioDuration: audio?.duration || null
+                    };
+                  });
+                  await supabase.from('reels').insert([{
+                    user_id: user.id,
+                    topic: project.topic,
+                    video_url: sortedVideos[0]?.videoUrl,
+                    thumbnail_url: thumbnailUrl,
+                    scenes: scenesWithAllAssets as unknown as any,
+                    total_duration: totalDuration
+                  }]);
+                  fetchSavedReels();
+                } catch (saveError) {
+                  console.error('Auto-save failed:', saveError);
+                }
+              }
+
+              setProgress(100);
+              setProgressStatus('Complete (individual clips)');
+              
+              const isCreditsError = result.error?.toLowerCase().includes('credit') || result.error?.toLowerCase().includes('402');
+              toast({
+                title: "Videos Generated!",
+                description: isCreditsError 
+                  ? `Generated ${sortedVideos.length} video clips. Stitching credits exhausted — use clip navigation below.`
+                  : `Generated ${sortedVideos.length} video clips. Stitching unavailable — use clip navigation below.`,
+              });
+            } else {
+              throw new Error(result.error || 'Creatomate rendering failed');
+            }
           }
         } else {
           // Use client-side FFmpeg stitching
