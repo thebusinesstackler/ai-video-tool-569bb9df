@@ -131,6 +131,14 @@ const AISpokesperson = () => {
   const [showSceneGallery, setShowSceneGallery] = useState(false);
   const [isAddingShot, setIsAddingShot] = useState(false);
   
+  // Caption overlay
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [captionText, setCaptionText] = useState('');
+  
+  // Continuation scenes
+  const [continuationVideos, setContinuationVideos] = useState<string[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
   // AI Enhancement
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [suggestions, setSuggestions] = useState<{ title: string; enhanced: string }[]>([]);
@@ -962,32 +970,44 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     shotSpec?: { angleLabel: string; type: string; sfx?: string; music?: string };
   }>({ active: false, instruction: '', stage: 'interpreting', stageLabel: '' });
 
-  // AI edit request from editor panel — interprets instruction and generates appropriate shot
+  // AI edit request from editor panel — interprets instruction and generates appropriate shot/action
   const handleAiEditRequest = async (instruction: string) => {
     if (!selectedTwin || !generatedScript) return;
 
     setEditStatus({ active: true, instruction, stage: 'interpreting', stageLabel: '🧠 AI Director is interpreting your request...' });
 
     try {
-      // Ask AI to interpret the instruction into a shot spec
+      // Ask AI to classify the action type
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
           messages: [
             {
               role: 'system',
-              content: `You are a video director AI. The user wants to add a new shot to their spokesperson video. Interpret their request and return a JSON object:
+              content: `You are a video director AI. Classify the user's edit request and return a JSON object.
+
+Action types:
+1. "add-shot" — new camera angle, B-roll, slide, or cutaway
+2. "continue-scene" — extend the video with MORE narration/script (e.g. "add more talking", "continue", "add another point")
+3. "add-captions" — add captions/subtitles to the video
+4. "style-edit" — visual tweaks like color grading
+
+Return ONLY this JSON:
 {
-  "angleLabel": "Short descriptive label for the shot",
-  "cameraAngle": "Detailed camera angle and composition description",
-  "type": "speaking" or "broll",
-  "sfx": "suggested sound effect or null",
-  "music": "suggested music mood or null"
+  "action": "add-shot" | "continue-scene" | "add-captions" | "style-edit",
+  "angleLabel": "Short label (add-shot only)",
+  "cameraAngle": "Camera description (add-shot only)",
+  "type": "speaking" or "broll" (add-shot only),
+  "sfx": "suggested SFX or null",
+  "music": "suggested music or null",
+  "continuationScript": "New narration text the spokesperson should say next (continue-scene only, 2-4 sentences)",
+  "captionStyle": "karaoke" | "typewriter" | "spotlight" (add-captions only)
 }
 
 Current video context:
 - Spokesperson: ${selectedTwin.face_description || selectedTwin.name}
 - Setting: ${SETTINGS.find(s => s.id === selectedSetting)?.prompt || 'professional studio'}
 - Mood: ${MOODS.find(m => m.id === selectedMood)?.prompt || 'confident'}
+- Original narration: ${generatedScript.narration.substring(0, 200)}
 - Existing shots: ${sceneShots.map(s => s.angleLabel).join(', ')}
 
 Return ONLY the JSON object.`
@@ -1002,30 +1022,127 @@ Return ONLY the JSON object.`
       const content = data?.response || data?.choices?.[0]?.message?.content || '';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       let spec: any = null;
-      
-      if (jsonMatch) {
-        spec = JSON.parse(jsonMatch[0]);
+      if (jsonMatch) spec = JSON.parse(jsonMatch[0]);
+
+      const action = spec?.action || 'add-shot';
+
+      // === ADD CAPTIONS ===
+      if (action === 'add-captions') {
+        setEditStatus({ active: true, instruction, stage: 'generating-image', stageLabel: '📝 Adding captions to your video...' });
+        setCaptionsEnabled(true);
+        setCaptionText(generatedScript.narration);
+        toast({ title: '📝 Captions Added', description: 'Captions are now overlaid on your video.' });
+        setEditStatus(prev => ({ ...prev, active: false, stage: 'done', stageLabel: '✅ Captions enabled!' }));
+        return;
       }
 
+      // === CONTINUE SCENE ===
+      if (action === 'continue-scene') {
+        const continuationText = spec?.continuationScript || instruction;
+        setEditStatus({
+          active: true, instruction, stage: 'generating-image',
+          stageLabel: '🎬 Capturing last frame & preparing continuation...',
+          shotSpec: { angleLabel: 'Scene Continuation', type: 'speaking' },
+        });
+
+        // Capture last frame from current video
+        let lastFrameUrl = '';
+        if (videoRef.current) {
+          const video = videoRef.current;
+          video.currentTime = Math.max(0, video.duration - 0.1);
+          await new Promise(r => setTimeout(r, 600));
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 720;
+          canvas.height = video.videoHeight || 1280;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0);
+            lastFrameUrl = canvas.toDataURL('image/jpeg', 0.9);
+          }
+        }
+        if (!lastFrameUrl && sceneShots.length > 0) {
+          lastFrameUrl = sceneShots[sceneShots.length - 1].imageUrl;
+        }
+
+        // Generate voiceover for continuation
+        setEditStatus(prev => ({ ...prev, stageLabel: '🎤 Generating continuation voiceover...' }));
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+          body: {
+            text: continuationText,
+            voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
+            clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
+            speakingRate: 0.92
+          }
+        });
+        if (ttsError) throw ttsError;
+
+        let contAudioUrl = '';
+        if (ttsData?.audioContent && user) {
+          try {
+            const bytes = Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0));
+            const fileName = `${user.id}/spokesperson/${Date.now()}-continuation.mp3`;
+            const { error: uploadError } = await supabase.storage.from('reels').upload(fileName, bytes, { contentType: 'audio/mp3' });
+            if (!uploadError) {
+              const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+              contAudioUrl = publicUrl.publicUrl;
+            }
+          } catch (e) { console.warn('Audio upload failed:', e); }
+        }
+
+        // Generate continuation video using infinitetalk with last frame
+        setEditStatus(prev => ({ ...prev, stageLabel: '🎥 Rendering continuation video (2-5 min)...' }));
+        const estDuration = Math.min(15, Math.max(5, Math.ceil(continuationText.split(' ').length / 2.5)));
+        const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+          body: {
+            action: 'create',
+            model: 'infinitetalk',
+            imageUrls: [lastFrameUrl || sceneShots[0]?.imageUrl],
+            audioUrl: contAudioUrl || undefined,
+            prompt: `Cinematic continuation — spokesperson continues speaking naturally. Same setting, same lighting, seamless transition. Natural lip-sync. ${SETTINGS.find(s => s.id === selectedSetting)?.prompt || 'Professional studio'}.`,
+            aspectRatio: '9:16',
+            duration: estDuration
+          }
+        });
+        if (videoError) throw videoError;
+        if (!videoData?.taskId) throw new Error('No continuation task created');
+
+        // Poll for completion
+        let attempts = 0;
+        while (attempts < 150) {
+          attempts++;
+          await new Promise(r => setTimeout(r, 3000));
+          try {
+            const { data: statusData } = await supabase.functions.invoke('wavespeed-video', {
+              body: { action: 'status', taskId: videoData.taskId }
+            });
+            if (statusData?.status === 'completed' && statusData?.videoUrl) {
+              setContinuationVideos(prev => [...prev, statusData.videoUrl]);
+              setGeneratedScript(prev => prev ? { ...prev, narration: prev.narration + '\n\n' + continuationText } : prev);
+              toast({ title: '🎬 Continuation Ready!', description: 'Your scene has been extended with new narration.' });
+              setEditStatus(prev => ({ ...prev, active: false, stage: 'done', stageLabel: '✅ Continuation added!' }));
+              return;
+            }
+            if (statusData?.status === 'failed') throw new Error('Continuation generation failed');
+          } catch (pollErr) { console.warn('Poll error:', pollErr); }
+          setEditStatus(prev => ({ ...prev, stageLabel: `🎥 Rendering continuation... (${Math.min(95, Math.round(attempts / 150 * 100))}%)` }));
+        }
+        throw new Error('Continuation timed out');
+      }
+
+      // === DEFAULT: ADD SHOT ===
       const shotLabel = spec?.angleLabel || instruction.substring(0, 30);
       const shotType = spec?.type === 'speaking' ? 'speaking' : 'broll' as const;
-
       setEditStatus({
-        active: true,
-        instruction,
-        stage: 'generating-image',
+        active: true, instruction, stage: 'generating-image',
         stageLabel: `📸 Generating ${shotType === 'speaking' ? 'speaking' : 'B-roll'} shot...`,
         shotSpec: spec ? { angleLabel: spec.angleLabel, type: spec.type, sfx: spec.sfx, music: spec.music } : { angleLabel: shotLabel, type: shotType },
       });
-
       await addCustomShot(shotLabel, shotType);
-
       setEditStatus(prev => ({ ...prev, active: false, stage: 'done', stageLabel: '✅ Shot added!' }));
-    } catch (err) {
-      console.warn('AI edit request failed, falling back:', err);
-      setEditStatus({ active: true, instruction, stage: 'generating-image', stageLabel: '📸 Generating fallback shot...' });
-      await addCustomShot(instruction.substring(0, 30), 'broll');
-      setEditStatus(prev => ({ ...prev, active: false, stage: 'done', stageLabel: '✅ Shot added!' }));
+    } catch (err: any) {
+      console.warn('AI edit request failed:', err);
+      toast({ title: 'Edit Failed', description: err.message || 'Could not process your edit.', variant: 'destructive' });
+      setEditStatus(prev => ({ ...prev, active: false, stage: 'error', stageLabel: '❌ Edit failed' }));
     }
   };
 
@@ -1165,15 +1282,39 @@ Return ONLY the JSON object.`
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center relative">
                   <video
+                    ref={videoRef}
                     src={videoUrl}
                     controls
                     autoPlay
                     playsInline
                     className="w-full h-full object-contain"
                   />
+                  {captionsEnabled && captionText && (
+                    <div className="absolute bottom-12 left-2 right-2 pointer-events-none">
+                      <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
+                        <p className="text-sm font-semibold text-white drop-shadow-lg leading-snug">
+                          {captionText.substring(0, 100)}...
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Continuation videos */}
+                {continuationVideos.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      🎬 Scene Continuations ({continuationVideos.length})
+                    </p>
+                    {continuationVideos.map((url, idx) => (
+                      <div key={idx} className="aspect-[9/16] max-h-[300px] mx-auto bg-black rounded-lg overflow-hidden">
+                        <video src={url} controls playsInline className="w-full h-full object-contain" />
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-2 justify-center">
                   <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
                     <Download className="w-4 h-4 mr-2" />
