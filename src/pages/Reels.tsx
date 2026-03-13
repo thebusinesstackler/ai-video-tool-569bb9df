@@ -1948,13 +1948,27 @@ const Reels = () => {
     return null;
   };
 
+  const stopGeneration = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    setIsGenerating(false);
+    setProgress(0);
+    setProgressStatus('');
+    setProject(prev => ({ ...prev, status: 'idle' }));
+    toast({ title: "Generation Stopped", description: "The reel generation was cancelled." });
+  };
+
   const generateAll = async () => {
-    // In beginner mode, auto-select the first AI Twin for character consistency
+    // Create a fresh AbortController for this generation run
+    abortRef.current = new AbortController();
+    
     // Use local variables since React state updates are async and won't be available immediately
     let shouldEnableLipSync = enableLipSync;
     let activeLipSyncModel = lipSyncModel;
     
-    if (isBeginner && aiTwins.length > 0 && !selectedTwinId) {
+    // Only auto-select a twin if the user hasn't already set a character image
+    if (isBeginner && aiTwins.length > 0 && !selectedTwinId && !portraitImage) {
       const twin = aiTwins[0];
       setSelectedTwinId(twin.id);
       if (twin.reference_images?.[0]) {
@@ -1970,26 +1984,42 @@ const Reels = () => {
       activeLipSyncModel = 'infinitetalk';
       setEnableLipSync(true);
       setLipSyncModel('infinitetalk');
-      
-      // Auto-match voice to twin's gender from face description, gender field, or name
-      const twinGender = (twin as any).gender?.toLowerCase() || '';
-      const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
-      const genderText = `${twinGender} ${twinDesc}`;
-      const detectedVoice = detectGenderVoice(genderText);
-      if (detectedVoice) {
-        setSelectedVoice(detectedVoice);
-      }
+    }
+
+    // If user already has a portrait, enable lip sync
+    if (isBeginner && portraitImage) {
+      shouldEnableLipSync = true;
+      activeLipSyncModel = 'infinitetalk';
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
     }
     
-    // Also detect gender from the topic itself if no twin and voice hasn't been manually changed
-    if (isBeginner && (!aiTwins.length || !selectedTwinId)) {
-      const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
-      if (topicVoice) {
-        setSelectedVoice(topicVoice);
+    // Only auto-detect voice if user left it on 'ai-auto' — preserve manual voice selection
+    let resolvedVoice = selectedVoice;
+    if (selectedVoice === 'ai-auto') {
+      // Try to detect from twin gender
+      if (selectedTwinId && aiTwins.length > 0) {
+        const twin = aiTwins.find(t => t.id === selectedTwinId) || aiTwins[0];
+        const twinGender = (twin as any).gender?.toLowerCase() || '';
+        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
+        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
+        if (detectedVoice) resolvedVoice = detectedVoice;
       }
+      // Fallback: detect from topic/character description
+      if (resolvedVoice === 'ai-auto') {
+        const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
+        if (topicVoice) resolvedVoice = topicVoice;
+      }
+      // Final fallback
+      if (resolvedVoice === 'ai-auto') resolvedVoice = 'English_magnetic_voiced_man';
     }
+
+    if (abortRef.current.signal.aborted) return;
     
     const generatedScenes = await generateScripts();
+    
+    if (abortRef.current.signal.aborted) return;
+    
     if (generatedScenes && generatedScenes.length > 0) {
       // Pass scenes directly to avoid stale state issues
       await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel, scenesOverride: generatedScenes });
