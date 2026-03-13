@@ -1660,7 +1660,18 @@ const Reels = () => {
                 });
                 setProgressStatus(`Generated ${completedVideos.length}/${videoTasks.length} video clips...`);
               } else if (statusData.status === 'failed') {
-                throw new Error(`Video generation failed for scene ${task.sceneNumber}: ${statusData.error || 'Unknown error'}`);
+                // Log the failure but don't throw - skip this scene and continue with others
+                console.error(`Scene ${task.sceneNumber} video failed:`, statusData.error);
+                // Mark as "completed" with empty URL so we don't poll forever
+                completedVideos.push({
+                  sceneNumber: task.sceneNumber,
+                  videoUrl: '' // Will be filtered out later
+                });
+                toast({
+                  title: `Scene ${task.sceneNumber} Failed`,
+                  description: statusData.error || 'Video generation failed for this scene. Other scenes will continue.',
+                  variant: "destructive"
+                });
               }
             } catch (pollError) {
               console.error('Polling error:', pollError);
