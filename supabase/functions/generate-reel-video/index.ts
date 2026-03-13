@@ -158,15 +158,16 @@ async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempt
 }
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
-function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean, characterDescription?: string, referenceImages?: string[]): string {
+function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean, characterDescription?: string, referenceImages?: string[], cameraAngleModifier?: string): string {
   const charDesc = characterDescription ? `\nCHARACTER: ${characterDescription}. Maintain EXACT same appearance in every frame.` : '';
   const refImageNote = referenceImages?.length ? `\nIMPORTANT: Match the person's appearance exactly from the reference - same face shape, skin tone, hair, features.` : '';
   
   // For lip sync mode, generate front-facing portrait suitable for talking head
   if (enableLipSync && !scene.isIntro && !scene.isOutro) {
+    const angleNote = cameraAngleModifier ? `\n      CAMERA ANGLE: ${cameraAngleModifier}` : '';
     return `Generate a premium cinematic portrait photo for a high-end social media video.
       Scene context: ${scene.visualDescription}
-      Topic: ${topic}${charDesc}${refImageNote}
+      Topic: ${topic}${charDesc}${refImageNote}${angleNote}
       CINEMATOGRAPHY: Shot on RED V-RAPTOR, 85mm lens, f/1.4 shallow depth of field.
       LIGHTING: Professional 3-point studio lighting with soft key light, subtle rim light creating depth, warm color temperature.
       COMPOSITION: Rule of thirds, subject centered, clean bokeh background, magazine-quality portrait.
@@ -193,9 +194,11 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
       CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words. Pure visual background only.`;
   }
   
+  const angleModifier = cameraAngleModifier ? `\n    CAMERA ANGLE: ${cameraAngleModifier}` : '';
+  
   return `Generate a PREMIUM cinematic image for a high-end social media reel.
     Scene: ${scene.visualDescription}
-    Topic: ${topic}${charDesc}${refImageNote}
+    Topic: ${topic}${charDesc}${refImageNote}${angleModifier}
     CINEMATOGRAPHY: Shot on RED V-RAPTOR or ARRI Alexa, cinematic lens, shallow depth of field with beautiful bokeh.
     LIGHTING: Professional cinematic lighting - motivated light sources, volumetric atmosphere, rich shadows and highlights.
     COLOR: Professional color grading - rich, vibrant but natural tones. Think high-end commercial or film production.
@@ -245,7 +248,8 @@ serve(async (req) => {
       voice = 'nova',
       preGeneratedImages = [],
       referenceImages = [],
-      characterDescription = ''
+      characterDescription = '',
+      cameraAngles = []
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -265,7 +269,7 @@ serve(async (req) => {
     console.log('Voice:', voice);
     console.log('Voiceovers provided:', voiceovers?.length || 0);
     console.log('Pre-generated images:', preGeneratedImages?.length || 0);
-
+    console.log('Camera angles provided:', cameraAngles?.length || 0);
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
@@ -310,7 +314,13 @@ serve(async (req) => {
       }
       
       try {
-        const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync, characterDescription, referenceImages);
+        // Get camera angle modifier for this scene (rotate through provided angles)
+        const sceneIndex = (scenes as Scene[]).indexOf(scene);
+        const cameraAngleModifier = cameraAngles?.length > 0 
+          ? cameraAngles[sceneIndex % cameraAngles.length] 
+          : undefined;
+        
+        const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync, characterDescription, referenceImages, cameraAngleModifier);
         const messages = buildImageGenMessages(imagePrompt, (!scene.isIntro && !scene.isOutro) ? referenceImages : undefined);
         
         const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {

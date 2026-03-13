@@ -26,6 +26,7 @@ import { useCreatorMode } from '@/hooks/useCreatorMode';
 import { CreatorModeToggle } from '@/components/CreatorModeToggle';
 import { VideoUpscaler } from '@/components/VideoUpscaler';
 import { CameraAngleSelector } from '@/components/CameraAngleSelector';
+import { CAMERA_ANGLES } from '@/data/cameraAngles';
 import { LogoAnimation } from '@/data/reelTemplates';
 import { useReelDraftAutoSave, StrategistState } from '@/hooks/useReelDraftAutoSave';
 import { useVideoQueue, QueuedVideo } from '@/hooks/useVideoQueue';
@@ -369,6 +370,19 @@ const Reels = () => {
   const [selectedCameraAngle, setSelectedCameraAngle] = useState('eye-level');
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [selectedLogoAnimation, setSelectedLogoAnimation] = useState<LogoAnimation>('fade');
+  
+  // Generate Character state
+  const [showGenerateCharacter, setShowGenerateCharacter] = useState(false);
+  const [generateCharacterPrompt, setGenerateCharacterPrompt] = useState('');
+  const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
+  
+  // Intro/CTA slide state
+  const [showIntroSlideForm, setShowIntroSlideForm] = useState(false);
+  const [showCtaSlideForm, setShowCtaSlideForm] = useState(false);
+  const [introSlideHeadline, setIntroSlideHeadline] = useState('');
+  const [introSlideSubtitle, setIntroSlideSubtitle] = useState('');
+  const [ctaSlideHeadline, setCtaSlideHeadline] = useState('');
+  const [ctaSlideSubtitle, setCtaSlideSubtitle] = useState('');
   
   // Video size state
   const [selectedVideoSize, setSelectedVideoSize] = useState('9:16');
@@ -1582,6 +1596,15 @@ const Reels = () => {
       const effectiveLipSync = overrides?.forceEnableLipSync ?? enableLipSync;
       const effectiveLipSyncModel = overrides?.forceLipSyncModel ?? lipSyncModel;
       
+      // Build camera angle rotation for variety across scenes
+      const diverseAngles = ['eye-level', 'three-quarter', 'low-angle', 'medium-shot', 'closeup', 'profile-shot', 'golden-hour', 'cinematic'];
+      const cameraAngleRotation = scenesWithAudioDurations.map((scene, idx) => {
+        if (scene.isIntro || scene.isOutro) return undefined; // No angle for intro/outro
+        const angleId = diverseAngles[idx % diverseAngles.length];
+        const angle = CAMERA_ANGLES.find(a => a.id === angleId);
+        return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier;
+      }).filter(Boolean);
+      
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: scenesWithAudioDurations,
@@ -1603,7 +1626,9 @@ const Reels = () => {
           preGeneratedImages,
           // Character consistency data
           referenceImages: twinReferenceImages,
-          characterDescription: characterDescription || selectedTwin?.face_description || ''
+          characterDescription: characterDescription || selectedTwin?.face_description || '',
+          // Camera angle variety per scene
+          cameraAngles: cameraAngleRotation
         }
       });
 
@@ -2143,6 +2168,110 @@ const Reels = () => {
         scene.sceneNumber === sceneNumber ? { ...scene, narration } : scene
       )
     }));
+  };
+
+  // Generate a character on-demand using AI image generation
+  const generateCharacter = async () => {
+    if (!generateCharacterPrompt.trim()) {
+      toast({ title: "Missing Description", description: "Please describe the person you want to generate.", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingCharacter(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{
+            role: 'user',
+            content: `Generate a professional headshot portrait photo of: ${generateCharacterPrompt}. 
+              The person should be looking directly at the camera with a natural confident expression, slight smile.
+              Professional studio lighting, clean background, high quality portrait suitable for video production.
+              Photorealistic, 8K quality. On a solid white background.`
+          }],
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        }
+      });
+      if (error) throw error;
+      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (imageUrl) {
+        setPortraitImage(imageUrl);
+        setPortraitPreview(imageUrl);
+        setPreSelectedReference(imageUrl);
+        setCharacterDescription(generateCharacterPrompt);
+        setShowGenerateCharacter(false);
+        toast({ title: "Character Generated!", description: "Portrait set as reference for your reel." });
+      } else {
+        throw new Error('No image returned');
+      }
+    } catch (err: any) {
+      toast({ title: "Generation Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsGeneratingCharacter(false);
+    }
+  };
+
+  // Insert an intro or CTA slide into the scene sequence
+  const insertSlide = async (position: 'intro' | 'cta', headline: string, subtitle: string) => {
+    if (!headline.trim()) {
+      toast({ title: "Missing Headline", description: "Please enter a headline for the slide.", variant: "destructive" });
+      return;
+    }
+    toast({ title: `Generating ${position === 'intro' ? 'Intro' : 'CTA'} Slide...` });
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{
+            role: 'user',
+            content: `Generate a premium social media ${position === 'intro' ? 'intro' : 'call-to-action'} slide background.
+              Style: Modern, premium, cinematic gradient background suitable for overlay text.
+              Theme hint: "${headline}" ${subtitle ? `- "${subtitle}"` : ''}
+              CRITICAL: Do NOT include any text, letters, words, or typography. Pure visual background design only.
+              Vertical 9:16 format, rich colors, depth, professional quality.`
+          }],
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        }
+      });
+      if (error) throw error;
+      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!imageUrl) throw new Error('No image generated');
+
+      const newScene: GeneratedScene = {
+        sceneNumber: position === 'intro' ? 0 : 999,
+        text: subtitle ? `${headline}\n${subtitle}` : headline,
+        imageUrl,
+        startTime: 0,
+        endTime: 3,
+        isIntro: position === 'intro',
+        isOutro: position === 'cta'
+      };
+
+      setProject(prev => {
+        let scenes = [...prev.generatedScenes];
+        if (position === 'intro') {
+          // Renumber existing scenes
+          scenes = scenes.map(s => ({ ...s, sceneNumber: s.sceneNumber + 1 }));
+          scenes.unshift({ ...newScene, sceneNumber: 1 });
+        } else {
+          const maxNum = Math.max(...scenes.map(s => s.sceneNumber), 0);
+          scenes.push({ ...newScene, sceneNumber: maxNum + 1 });
+        }
+        return { ...prev, generatedScenes: scenes };
+      });
+
+      if (position === 'intro') {
+        setShowIntroSlideForm(false);
+        setIntroSlideHeadline('');
+        setIntroSlideSubtitle('');
+      } else {
+        setShowCtaSlideForm(false);
+        setCtaSlideHeadline('');
+        setCtaSlideSubtitle('');
+      }
+      toast({ title: `${position === 'intro' ? 'Intro' : 'CTA'} Slide Added!` });
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
   };
 
   // Manual stitch videos together
@@ -3053,6 +3182,51 @@ const Reels = () => {
                       </p>
                     )}
                   </div>
+
+                  {/* Generate Character On-Demand */}
+                  <div className="relative flex items-center my-2">
+                    <div className="flex-1 border-t border-border" />
+                    <span className="px-3 text-xs text-muted-foreground">or generate a character</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+
+                  {!showGenerateCharacter ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setShowGenerateCharacter(true)}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      Generate a Person with AI
+                    </Button>
+                  ) : (
+                    <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
+                      <Label className="text-xs">Describe the person</Label>
+                      <Textarea
+                        value={generateCharacterPrompt}
+                        onChange={(e) => setGenerateCharacterPrompt(e.target.value)}
+                        placeholder="e.g. Professional woman in her 30s, dark hair, business attire, warm smile"
+                        rows={2}
+                        className="text-xs"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={generateCharacter}
+                          disabled={isGeneratingCharacter || !generateCharacterPrompt.trim()}
+                          className="flex-1"
+                        >
+                          {isGeneratingCharacter ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                          Generate
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setShowGenerateCharacter(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="relative flex items-center my-2">
                     <div className="flex-1 border-t border-border" />
@@ -4025,6 +4199,98 @@ const Reels = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Intro/CTA Slide Buttons */}
+                  {project.generatedScenes.length > 0 && !project.videoBlobUrl && (
+                    <div className="flex justify-center gap-2 mb-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowIntroSlideForm(true)}
+                      >
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Add Intro Slide
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowCtaSlideForm(true)}
+                      >
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Add CTA Slide
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Intro Slide Form Dialog */}
+                  <Dialog open={showIntroSlideForm} onOpenChange={setShowIntroSlideForm}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add Intro Slide</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Headline</Label>
+                          <Input
+                            value={introSlideHeadline}
+                            onChange={(e) => setIntroSlideHeadline(e.target.value)}
+                            placeholder="e.g. 5 Tips to Grow Your Business"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Subtitle (optional)</Label>
+                          <Input
+                            value={introSlideSubtitle}
+                            onChange={(e) => setIntroSlideSubtitle(e.target.value)}
+                            placeholder="e.g. Watch until the end!"
+                          />
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={() => insertSlide('intro', introSlideHeadline, introSlideSubtitle)}
+                          disabled={!introSlideHeadline.trim()}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate & Insert Intro
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* CTA Slide Form Dialog */}
+                  <Dialog open={showCtaSlideForm} onOpenChange={setShowCtaSlideForm}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add Call-to-Action Slide</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Headline</Label>
+                          <Input
+                            value={ctaSlideHeadline}
+                            onChange={(e) => setCtaSlideHeadline(e.target.value)}
+                            placeholder="e.g. Follow for more tips!"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Subtitle (optional)</Label>
+                          <Input
+                            value={ctaSlideSubtitle}
+                            onChange={(e) => setCtaSlideSubtitle(e.target.value)}
+                            placeholder="e.g. Link in bio 👇"
+                          />
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={() => insertSlide('cta', ctaSlideHeadline, ctaSlideSubtitle)}
+                          disabled={!ctaSlideHeadline.trim()}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate & Insert CTA
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
 
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
