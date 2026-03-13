@@ -124,8 +124,7 @@ export function ReelFeatureSidebar({
   onFeatureChange,
   disabled = false
 }: ReelFeatureSidebarProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const isExpanded = isHovered || !collapsed;
+  const isExpanded = !collapsed;
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -134,8 +133,6 @@ export function ReelFeatureSidebar({
           "h-full bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out",
           isExpanded ? "w-56" : "w-14"
         )}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Header */}
         <div className={cn(
