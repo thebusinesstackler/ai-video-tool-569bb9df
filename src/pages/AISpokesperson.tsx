@@ -1053,13 +1053,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
                             {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Film className="w-3 h-3 mr-1" />}
                             {angle}
                           </Button>
-                        ))}
-                          onClick={() => addCustomShot(angle)}
-                        >
-                          {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
-                          {angle}
-                        </Button>
-                      ))}
+                    </div>
                   </div>
                 </div>
               )}
