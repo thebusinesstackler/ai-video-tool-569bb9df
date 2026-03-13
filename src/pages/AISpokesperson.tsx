@@ -174,8 +174,16 @@ Return ONLY a JSON object:
 
       if (error) throw error;
       
-      const content = data?.choices?.[0]?.message?.content || data?.content;
-      if (!content) throw new Error('No content in response');
+      // Handle multiple response formats from AI gateway
+      const content = data?.choices?.[0]?.message?.content 
+        || data?.content 
+        || (typeof data === 'string' ? data : null)
+        || data?.message?.content
+        || data?.result;
+      if (!content) {
+        console.error('AI response shape:', JSON.stringify(data).substring(0, 500));
+        throw new Error('No content in AI response. Please try again.');
+      }
       
       // Parse JSON
       let parsed: GeneratedScript;
