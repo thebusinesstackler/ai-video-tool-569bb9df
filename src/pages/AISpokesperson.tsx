@@ -972,7 +972,10 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
   // AI edit request from editor panel — interprets instruction and generates appropriate shot/action
   const handleAiEditRequest = async (instruction: string) => {
-    if (!selectedTwin || !generatedScript) return;
+    if (!selectedTwin || !generatedScript) {
+      toast({ title: 'Not Ready', description: 'Generate a video first before using AI Edit.', variant: 'destructive' });
+      return;
+    }
 
     setEditStatus({ active: true, instruction, stage: 'interpreting', stageLabel: '🧠 AI Director is interpreting your request...' });
 
