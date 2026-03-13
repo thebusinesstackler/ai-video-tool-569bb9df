@@ -3825,6 +3825,7 @@ const Reels = () => {
 
             {/* Final Video / Generated Scenes */}
             {(project.videoBlobUrl || project.generatedScenes.length > 0) && (
+              <>
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
