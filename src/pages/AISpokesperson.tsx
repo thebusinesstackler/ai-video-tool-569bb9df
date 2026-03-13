@@ -782,15 +782,16 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
         ? `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. NATURAL LIP-SYNC: Character speaks directly to camera with fluid mouth movements, subtle eyebrow raises, natural blinks, and gentle head tilts. Breathing pauses between sentences. Micro-expressions of genuine emotion. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Premium broadcast quality — warm cinematic lighting, shallow depth of field. Gentle camera drift. NO jump cuts — one continuous smooth take.`
         : `Cinematic B-roll — ${shot.angleLabel}. ${mood?.prompt || 'contemplative'}. Character is NOT speaking — mouth closed, natural and candid. Subtle movements: turning head, adjusting posture, walking, or gazing thoughtfully. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Rich atmospheric cinematography — slow camera movement, volumetric lighting, environmental storytelling. Film grain, shallow depth of field, editorial quality.`;
 
+      // Only pass audio for speaking shots (lip-sync), not for B-roll
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
           model: 'kling-v3.0-pro',
           imageUrls: [shot.imageUrl],
-          audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
+          audioUrl: isSpeakingShot && storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
           prompt: videoPromptText,
           aspectRatio: '9:16',
-          duration: parseInt(selectedDuration)
+          duration: isSpeakingShot ? parseInt(selectedDuration) : Math.min(5, parseInt(selectedDuration))
         }
       });
 
