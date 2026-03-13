@@ -256,15 +256,40 @@ export function ReelFeatureSidebar({
           })}
         </div>
 
-        {/* Footer */}
-        {isExpanded && (
-          <div className="p-3 border-t border-sidebar-border">
-            <div className="flex items-center gap-2 text-xs text-sidebar-foreground/50">
+        {/* Footer with collapse button */}
+        <div className="mt-auto p-2 border-t border-sidebar-border">
+          {isExpanded && (
+            <div className="flex items-center gap-2 text-xs text-sidebar-foreground/50 px-2 mb-2">
               <Sparkles className="w-3 h-3" />
               <span>AI-powered generation</span>
             </div>
-          </div>
-        )}
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onCollapsedChange(!collapsed)}
+                className={cn(
+                  "w-full flex items-center gap-2 rounded-md px-3 py-2 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors",
+                  !isExpanded && "justify-center px-0"
+                )}
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronLeft className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">Collapse</span>
+                  </>
+                ) : (
+                  <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                )}
+              </button>
+            </TooltipTrigger>
+            {!isExpanded && (
+              <TooltipContent side="right" className="bg-popover text-popover-foreground border-border">
+                Expand sidebar
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </div>
       </div>
     </TooltipProvider>
   );
