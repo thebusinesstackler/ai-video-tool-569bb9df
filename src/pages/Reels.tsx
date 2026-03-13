@@ -1197,6 +1197,19 @@ const Reels = () => {
       status: 'idle'
     });
 
+    // Restore beginner step based on progress
+    if (isBeginner) {
+      const hasScenes = (ds.scenes?.length || 0) > 0;
+      const hasCharacter = !!ds.portraitImage || !!ds.selectedTwinId;
+      if (hasCharacter) {
+        setBeginnerStep(4);
+      } else if (hasScenes) {
+        setBeginnerStep(2);
+      } else {
+        setBeginnerStep(1);
+      }
+    }
+
     // Switch to create tab
     setActiveTab('create');
 
