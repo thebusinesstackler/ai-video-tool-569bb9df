@@ -3830,8 +3830,8 @@ const Reels = () => {
               </Card>
             )}
 
-            {/* Preview Progress */}
-            {isGeneratingPreview && (
+            {/* Preview Progress (Advanced only) */}
+            {isAdvanced && isGeneratingPreview && (
               <Card className="bg-card border-border">
                 <CardContent className="pt-6">
                   <div className="space-y-2">
