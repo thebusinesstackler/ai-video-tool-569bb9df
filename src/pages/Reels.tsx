@@ -1659,9 +1659,13 @@ const Reels = () => {
 
       const generatedScenes = data.scenes || [];
       const videoTasks = data.videoTasks || [];
-      // Track if videos have embedded audio (true only for actual lip sync/VEO3, NOT image-to-video fallback)
+      // Track per-scene embedded audio info (VEO 3 scenes have voice baked in, Kling scenes don't)
       const hasEmbeddedAudio = data.hasEmbeddedAudio || false;
-      console.log('Video generation response:', { videoTasks: videoTasks.length, hasEmbeddedAudio });
+      const perSceneEmbeddedAudio: Record<number, boolean> = {};
+      for (const task of videoTasks) {
+        perSceneEmbeddedAudio[task.sceneNumber] = task.hasEmbeddedAudio || false;
+      }
+      console.log('Video generation response:', { videoTasks: videoTasks.length, hasEmbeddedAudio, perSceneEmbeddedAudio });
       
       const scenesWithImages = generatedScenes.filter((s: GeneratedScene) => s.imageUrl);
       
