@@ -465,7 +465,7 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
         },
         body: JSON.stringify({
           messages: imageMessages,
-          model: selectedQuality === 'nano-banana' ? 'google/nano-banana-2/edit' : 'google/gemini-3.1-flash-image-preview',
+           model: 'google/gemini-3.1-flash-image-preview',
           modalities: ['image', 'text']
         })
       });
