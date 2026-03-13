@@ -620,7 +620,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       },
       body: JSON.stringify({
         messages: imageMessages,
-        model: selectedQuality === 'nano-banana' ? 'google/nano-banana-2/edit' : 'google/gemini-3.1-flash-image-preview',
+        model: 'google/gemini-3.1-flash-image-preview',
         modalities: ['image', 'text']
       })
     });
