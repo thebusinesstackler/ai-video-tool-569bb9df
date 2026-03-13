@@ -264,7 +264,8 @@ Return ONLY a JSON object:
       if (error) throw error;
       
       // Handle multiple response formats from AI gateway
-      const content = data?.choices?.[0]?.message?.content 
+      const content = data?.response
+        || data?.choices?.[0]?.message?.content 
         || data?.content 
         || (typeof data === 'string' ? data : null)
         || data?.message?.content
