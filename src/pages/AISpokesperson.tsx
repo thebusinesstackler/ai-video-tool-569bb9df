@@ -20,6 +20,7 @@ import {
   Mic, Settings2, Film, ChevronDown, RefreshCw, Play, 
   Lightbulb, MessageCircle, Send, Check, Bot
 } from 'lucide-react';
+import { VideoEditorPanel } from '@/components/VideoEditorPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 
