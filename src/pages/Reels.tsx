@@ -2048,7 +2048,7 @@ const Reels = () => {
 
               setProgress(100);
               setProgressStatus('Complete!');
-              toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video using browser stitching.` });
+              toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video using built-in stitcher.` });
             } catch (browserErr) {
               console.error('Browser stitching also failed:', browserErr);
               // Final fallback: show individual clips
