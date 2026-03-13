@@ -58,7 +58,11 @@ import {
   AlertCircle,
   ListChecks,
   Save,
-  FileEdit
+  FileEdit,
+  Pencil,
+  ChevronUp,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -67,6 +71,7 @@ import { VoiceSelector } from '@/components/VoiceSelector';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScriptGenerator } from '@/components/ScriptGenerator';
 import { ReelEditor } from '@/components/ReelEditor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -298,9 +303,10 @@ const Reels = () => {
   const [outroText, setOutroText] = useState('');
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
   
-  // Server-side stitching with Creatomate
-  const [useServerStitching, setUseServerStitching] = useState(false);
+  // Server-side stitching with Creatomate (always server-first)
   const [isManualStitching, setIsManualStitching] = useState(false);
+  const [editingSceneNumber, setEditingSceneNumber] = useState<number | null>(null);
+  const [editSceneText, setEditSceneText] = useState('');
   const { stitchWithCreatomate, isStitching: isCreatomateStitching, progress: creatomateProgress, status: creatomateStatus } = useCreatomate();
   
   // Scene preview hook
@@ -1700,8 +1706,8 @@ const Reels = () => {
         setProgress(75);
         setProgressStatus('Stitching video clips with voiceover...');
         
-        // Choose stitching method
-        if (useServerStitching) {
+        // Always use server-side (Creatomate) first, with browser fallback
+        {
           // Use Creatomate for server-side stitching
           setProgressStatus('Uploading voiceovers and merging audio...');
           
@@ -2013,152 +2019,6 @@ const Reels = () => {
               toast({ title: "Videos Generated!", description: `Generated ${sortedVideos.length} clips. Stitching unavailable — use clip navigation below.` });
             }
           }
-        } else {
-          // Use client-side FFmpeg stitching
-          try {
-            setProgressStatus('Stitching in browser...');
-            const videoUrls = sortedVideos.map(v => v.videoUrl);
-            const audioUrls = sortedAudios.map(a => a.audioUrl);
-            
-            console.log('Stitching', videoUrls.length, 'videos with', audioUrls.length, 'audio tracks');
-            
-            const finalBlob = await stitchVideosWithAudio({
-              videoUrls,
-              audioUrls,
-              onProgress: (p) => {
-                setProgress(75 + Math.round(p * 0.2));
-                setProgressStatus(`Stitching in browser... ${Math.round(p)}%`);
-              }
-            });
-            
-            // Create blob URL for playback
-            const blobUrl = URL.createObjectURL(finalBlob);
-            videoBlobRef.current = finalBlob;
-            
-            setProject(prev => ({
-              ...prev,
-              videoUrl: blobUrl,
-              videoBlobUrl: blobUrl,
-              generatedScenes,
-              voiceovers: sortedAudios,
-              videoClips: sortedVideos,
-              status: 'complete'
-            }));
-
-            // Auto-save to library
-            setProgress(95);
-            setProgressStatus('Saving to library...');
-
-            if (user) {
-              try {
-                // Upload the final video to storage
-                const fileName = `${user.id}/${Date.now()}-reel.mp4`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(fileName, finalBlob, { contentType: 'video/mp4' });
-                
-                let savedVideoUrl = blobUrl;
-                if (!uploadError && uploadData) {
-                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                  savedVideoUrl = publicUrl.publicUrl;
-                }
-                
-                const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
-
-                // Build complete scene data with all URLs
-                const scenesWithAllAssets = generatedScenes.map((scene) => {
-                  const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
-                  const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
-                  return {
-                    ...scene,
-                    videoUrl: video?.videoUrl || null,
-                    audioUrl: audio?.storageUrl || null,
-                    audioDuration: audio?.duration || null
-                  };
-                });
-
-                await supabase.from('reels').insert([{
-                  user_id: user.id,
-                  topic: project.topic,
-                  video_url: savedVideoUrl,
-                  thumbnail_url: thumbnailUrl,
-                  scenes: scenesWithAllAssets as unknown as any,
-                  total_duration: totalDuration
-                }]);
-
-                fetchSavedReels();
-              } catch (saveError) {
-                console.error('Auto-save failed:', saveError);
-              }
-            }
-
-            setProgress(100);
-            setProgressStatus('Complete!');
-
-            toast({
-              title: "Video Generated!",
-              description: `Created ${sortedVideos.length}-scene video with voiceover and saved to library!`
-            });
-            
-          } catch (stitchError: any) {
-            console.error('Stitching failed:', stitchError);
-            
-            // Fallback: store all video clips so user can view them individually
-            if (sortedVideos.length > 0) {
-              setProject(prev => ({
-                ...prev,
-                videoUrl: sortedVideos[0]?.videoUrl,
-                videoBlobUrl: sortedVideos[0]?.videoUrl,
-                generatedScenes,
-                voiceovers: sortedAudios,
-                videoClips: sortedVideos,
-                status: 'complete'
-              }));
-
-              // Still save to library with all URLs
-              if (user) {
-                try {
-                  const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                  const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
-
-                  // Build complete scene data with all URLs
-                  const scenesWithAllAssets = generatedScenes.map((scene) => {
-                    const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
-                    const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
-                    return {
-                      ...scene,
-                      videoUrl: video?.videoUrl || null,
-                      audioUrl: audio?.storageUrl || null,
-                      audioDuration: audio?.duration || null
-                    };
-                  });
-
-                  await supabase.from('reels').insert([{
-                    user_id: user.id,
-                    topic: project.topic,
-                    video_url: sortedVideos[0]?.videoUrl,
-                    thumbnail_url: thumbnailUrl,
-                    scenes: scenesWithAllAssets as unknown as any,
-                    total_duration: totalDuration
-                  }]);
-                  fetchSavedReels();
-                } catch (saveError) {
-                  console.error('Auto-save failed:', saveError);
-                }
-              }
-              
-              setProgress(100);
-              setProgressStatus('Complete (individual clips)');
-              
-              toast({
-                title: "Videos Generated",
-                description: `Generated ${sortedVideos.length} video clips. Browser stitching unavailable - use clip navigation below.`,
-              });
-            } else {
-              throw stitchError;
-            }
-          }
         }
       } else {
         // Fallback: No video tasks, just show images
@@ -2327,8 +2187,7 @@ const Reels = () => {
       setProgressStatus('Stitching video clips...');
       setProgress(40);
 
-      if (useServerStitching) {
-        // Use Creatomate for server-side stitching
+      // Always use Creatomate (server-side) first, with browser fallback
         const clips = sortedVideos.map((clip, index) => {
           const audio = sortedAudios.find(a => a.sceneNumber === clip.sceneNumber);
           const scene = project.generatedScenes.find(s => s.sceneNumber === clip.sceneNumber);
@@ -2450,77 +2309,6 @@ const Reels = () => {
           setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
           toast({ title: "Videos Stitched & Saved!", description: "Merged using browser stitching and saved to My Reels." });
         }
-      } else {
-        // Use browser-based stitching with ffmpeg
-        const videoUrls = sortedVideos.map(v => v.videoUrl);
-        
-        const stitchedBlob = await stitchVideosWithAudio({
-          videoUrls,
-          audioUrls: [mergedAudioUrl],
-          onProgress: (percent) => {
-            setProgress(40 + percent * 0.5);
-            setProgressStatus(`Stitching: ${Math.round(percent)}%`);
-          }
-        });
-
-        videoBlobRef.current = stitchedBlob;
-        const blobUrl = URL.createObjectURL(stitchedBlob);
-
-        // Save to storage and database
-        let savedVideoUrl = blobUrl;
-        if (user) {
-          try {
-            const fileName = `${user.id}/${Date.now()}-stitched.mp4`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from('reels')
-              .upload(fileName, stitchedBlob, { contentType: 'video/mp4' });
-
-            if (!uploadError && uploadData) {
-              const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-              savedVideoUrl = publicUrl.publicUrl;
-            }
-
-            const thumbnailUrl = project.generatedScenes[0]?.imageUrl || null;
-            const totalDuration = project.voiceovers.reduce((acc, a) => acc + a.duration, 0);
-
-            const scenesWithAllAssets = project.generatedScenes.map((scene) => {
-              const video = project.videoClips.find(v => v.sceneNumber === scene.sceneNumber);
-              const audio = project.voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
-              return {
-                ...scene,
-                videoUrl: video?.videoUrl || null,
-                audioUrl: audio?.storageUrl || null,
-                audioDuration: audio?.duration || null
-              };
-            });
-
-            await supabase.from('reels').insert([{
-              user_id: user.id,
-              topic: project.topic,
-              video_url: savedVideoUrl,
-              thumbnail_url: thumbnailUrl,
-              scenes: scenesWithAllAssets as unknown as any,
-              total_duration: totalDuration
-            }]);
-
-            fetchSavedReels();
-          } catch (e) {
-            console.error('Failed to save stitched video:', e);
-          }
-        }
-
-        setProject(prev => ({
-          ...prev,
-          videoBlobUrl: savedVideoUrl,
-          videoClips: [],
-          status: 'complete'
-        }));
-
-        toast({
-          title: "Videos Stitched & Saved!",
-          description: "All clips merged and saved to My Reels."
-        });
-      }
 
       setProgress(100);
       setProgressStatus('Complete!');
@@ -2932,25 +2720,6 @@ const Reels = () => {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        Rendering Mode
-                        {useServerStitching ? (
-                          <Cloud className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Monitor className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </Label>
-                      <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-border bg-background">
-                        <span className={`text-sm ${!useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Browser</span>
-                        <Switch
-                          checked={useServerStitching}
-                          onCheckedChange={setUseServerStitching}
-                          disabled={isGenerating}
-                        />
-                        <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
-                      </div>
-                    </div>
                   </div>
                 ) : (
                   // Normal Reel Mode Settings
@@ -3010,25 +2779,6 @@ const Reels = () => {
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        Rendering Mode
-                        {useServerStitching ? (
-                          <Cloud className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Monitor className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </Label>
-                      <div className="flex items-center gap-3 h-10 px-3 rounded-md border border-border bg-background">
-                        <span className={`text-sm ${!useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Browser</span>
-                        <Switch
-                          checked={useServerStitching}
-                          onCheckedChange={setUseServerStitching}
-                          disabled={isGenerating}
-                        />
-                        <span className={`text-sm ${useServerStitching ? 'text-foreground' : 'text-muted-foreground'}`}>Server</span>
-                      </div>
-                    </div>
                     
                     <div className="space-y-2">
                       <Label>Transition Style</Label>
@@ -4075,6 +3825,7 @@ const Reels = () => {
 
             {/* Final Video / Generated Scenes */}
             {(project.videoBlobUrl || project.generatedScenes.length > 0) && (
+              <>
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -4134,7 +3885,7 @@ const Reels = () => {
                   {/* Scene Images/Videos Gallery - show only if no stitched video */}
                   {!project.videoBlobUrl && project.generatedScenes.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {project.generatedScenes.map((scene) => (
+                      {project.generatedScenes.map((scene, idx) => (
                         <div key={scene.sceneNumber} className="relative group">
                           <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
                             {scene.videoUrl ? (
@@ -4185,6 +3936,90 @@ const Reels = () => {
                                 <Video className="w-3 h-3" />
                               </div>
                             )}
+                            {/* Edit overlay - shown on hover */}
+                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingSceneNumber(scene.sceneNumber);
+                                  setEditSceneText(scene.text);
+                                }}
+                              >
+                                <Pencil className="w-3 h-3 mr-1" />
+                                Edit
+                              </Button>
+                              <div className="flex gap-1">
+                                {idx > 0 && (
+                                  <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Swap with previous scene
+                                      setProject(prev => {
+                                        const scenes = [...prev.generatedScenes];
+                                        const clips = [...prev.videoClips];
+                                        const vos = [...prev.voiceovers];
+                                        // Swap scene numbers
+                                        const prevNum = scenes[idx - 1].sceneNumber;
+                                        const currNum = scenes[idx].sceneNumber;
+                                        scenes[idx - 1] = { ...scenes[idx - 1], sceneNumber: currNum };
+                                        scenes[idx] = { ...scenes[idx], sceneNumber: prevNum };
+                                        [scenes[idx - 1], scenes[idx]] = [scenes[idx], scenes[idx - 1]];
+                                        // Also swap video clips
+                                        const ci = clips.findIndex(c => c.sceneNumber === currNum);
+                                        const pi = clips.findIndex(c => c.sceneNumber === prevNum);
+                                        if (ci >= 0) clips[ci] = { ...clips[ci], sceneNumber: prevNum };
+                                        if (pi >= 0) clips[pi] = { ...clips[pi], sceneNumber: currNum };
+                                        // Swap voiceovers
+                                        const vi = vos.findIndex(v => v.sceneNumber === currNum);
+                                        const pvi = vos.findIndex(v => v.sceneNumber === prevNum);
+                                        if (vi >= 0) vos[vi] = { ...vos[vi], sceneNumber: prevNum };
+                                        if (pvi >= 0) vos[pvi] = { ...vos[pvi], sceneNumber: currNum };
+                                        return { ...prev, generatedScenes: scenes, videoClips: clips, voiceovers: vos };
+                                      });
+                                    }}
+                                  >
+                                    <ArrowUp className="w-3 h-3" />
+                                  </Button>
+                                )}
+                                {idx < project.generatedScenes.length - 1 && (
+                                  <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setProject(prev => {
+                                        const scenes = [...prev.generatedScenes];
+                                        const clips = [...prev.videoClips];
+                                        const vos = [...prev.voiceovers];
+                                        const nextNum = scenes[idx + 1].sceneNumber;
+                                        const currNum = scenes[idx].sceneNumber;
+                                        scenes[idx + 1] = { ...scenes[idx + 1], sceneNumber: currNum };
+                                        scenes[idx] = { ...scenes[idx], sceneNumber: nextNum };
+                                        [scenes[idx], scenes[idx + 1]] = [scenes[idx + 1], scenes[idx]];
+                                        const ci = clips.findIndex(c => c.sceneNumber === currNum);
+                                        const ni = clips.findIndex(c => c.sceneNumber === nextNum);
+                                        if (ci >= 0) clips[ci] = { ...clips[ci], sceneNumber: nextNum };
+                                        if (ni >= 0) clips[ni] = { ...clips[ni], sceneNumber: currNum };
+                                        const vi = vos.findIndex(v => v.sceneNumber === currNum);
+                                        const nvi = vos.findIndex(v => v.sceneNumber === nextNum);
+                                        if (vi >= 0) vos[vi] = { ...vos[vi], sceneNumber: nextNum };
+                                        if (nvi >= 0) vos[nvi] = { ...vos[nvi], sceneNumber: currNum };
+                                        return { ...prev, generatedScenes: scenes, videoClips: clips, voiceovers: vos };
+                                      });
+                                    }}
+                                  >
+                                    <ArrowDown className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -4194,18 +4029,31 @@ const Reels = () => {
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
                     {project.videoClips.length > 1 && (
-                      <Button 
-                        onClick={stitchVideos}
-                        disabled={isManualStitching || isCreatomateStitching}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
-                      >
-                        {isManualStitching || isCreatomateStitching ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Layers className="w-4 h-4 mr-2" />
+                      <div className="w-full space-y-3">
+                        <div className="flex justify-center">
+                          <Button 
+                            onClick={stitchVideos}
+                            disabled={isManualStitching || isCreatomateStitching}
+                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+                          >
+                            {isManualStitching || isCreatomateStitching ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Layers className="w-4 h-4 mr-2" />
+                            )}
+                            Stitch All Clips Together
+                          </Button>
+                        </div>
+                        {(isManualStitching || isCreatomateStitching) && (
+                          <div className="space-y-2 px-4">
+                            <Progress value={isManualStitching ? progress : creatomateProgress} className="h-2" />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>{isManualStitching ? progressStatus : creatomateStatus}</span>
+                              <span>{Math.round(isManualStitching ? progress : creatomateProgress)}%</span>
+                            </div>
+                          </div>
                         )}
-                        Stitch All Clips Together
-                      </Button>
+                      </div>
                     )}
                     {project.videoBlobUrl && project.videoClips.length === 0 && (
                       <Button 
@@ -4244,6 +4092,148 @@ const Reels = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Edit Scene Sheet */}
+              <Sheet open={editingSceneNumber !== null} onOpenChange={(open) => { if (!open) setEditingSceneNumber(null); }}>
+                <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Edit Scene {editingSceneNumber}</SheetTitle>
+                  </SheetHeader>
+                  {editingSceneNumber !== null && (() => {
+                    const scene = project.generatedScenes.find(s => s.sceneNumber === editingSceneNumber);
+                    if (!scene) return null;
+                    return (
+                      <div className="space-y-4 mt-4">
+                        {/* Scene preview */}
+                        {scene.imageUrl && (
+                          <div className="aspect-[9/16] rounded-lg overflow-hidden bg-black">
+                            <img src={scene.imageUrl} alt={`Scene ${scene.sceneNumber}`} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        
+                        {/* Edit script */}
+                        <div className="space-y-2">
+                          <Label>Scene Script</Label>
+                          <Textarea
+                            value={editSceneText}
+                            onChange={(e) => setEditSceneText(e.target.value)}
+                            rows={4}
+                            className="text-sm"
+                          />
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setProject(prev => ({
+                                ...prev,
+                                generatedScenes: prev.generatedScenes.map(s => 
+                                  s.sceneNumber === editingSceneNumber ? { ...s, text: editSceneText } : s
+                                ),
+                                scenes: prev.scenes.map(s =>
+                                  s.sceneNumber === editingSceneNumber ? { ...s, narration: editSceneText } : s
+                                )
+                              }));
+                              toast({ title: "Script Updated", description: `Scene ${editingSceneNumber} script saved.` });
+                            }}
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            Save Script
+                          </Button>
+                        </div>
+
+                        {/* Regenerate image */}
+                        <div className="space-y-2">
+                          <Label>Regenerate Image</Label>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={async () => {
+                              const sceneData = project.scenes.find(s => s.sceneNumber === editingSceneNumber);
+                              if (!sceneData) return;
+                              toast({ title: "Regenerating Image...", description: `Scene ${editingSceneNumber}` });
+                              try {
+                                const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+                                  body: {
+                                    prompt: sceneData.visualDescription || editSceneText,
+                                    sceneNumber: editingSceneNumber,
+                                    aspectRatio: '9:16'
+                                  }
+                                });
+                                if (error) throw error;
+                                if (data?.imageUrl) {
+                                  setProject(prev => ({
+                                    ...prev,
+                                    generatedScenes: prev.generatedScenes.map(s =>
+                                      s.sceneNumber === editingSceneNumber ? { ...s, imageUrl: data.imageUrl, videoUrl: undefined } : s
+                                    ),
+                                    videoClips: prev.videoClips.filter(c => c.sceneNumber !== editingSceneNumber)
+                                  }));
+                                  toast({ title: "Image Regenerated!", description: `Scene ${editingSceneNumber} image updated.` });
+                                }
+                              } catch (err: any) {
+                                toast({ title: "Failed", description: err.message, variant: "destructive" });
+                              }
+                            }}
+                          >
+                            <ImageIcon className="w-3 h-3 mr-1" />
+                            Regenerate Image
+                          </Button>
+                        </div>
+
+                        {/* Regenerate video */}
+                        {scene.imageUrl && (
+                          <div className="space-y-2">
+                            <Label>Regenerate Video</Label>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full"
+                              onClick={async () => {
+                                const voiceover = project.voiceovers.find(v => v.sceneNumber === editingSceneNumber);
+                                toast({ title: "Regenerating Video...", description: `Scene ${editingSceneNumber}` });
+                                try {
+                                  const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+                                    body: {
+                                      imageUrl: scene.imageUrl,
+                                      duration: voiceover?.duration || 5,
+                                      model: 'seedance'
+                                    }
+                                  });
+                                  if (error) throw error;
+                                  if (data?.videoUrl) {
+                                    setProject(prev => ({
+                                      ...prev,
+                                      generatedScenes: prev.generatedScenes.map(s =>
+                                        s.sceneNumber === editingSceneNumber ? { ...s, videoUrl: data.videoUrl } : s
+                                      ),
+                                      videoClips: [
+                                        ...prev.videoClips.filter(c => c.sceneNumber !== editingSceneNumber),
+                                        { sceneNumber: editingSceneNumber!, videoUrl: data.videoUrl }
+                                      ]
+                                    }));
+                                    toast({ title: "Video Regenerated!", description: `Scene ${editingSceneNumber} video updated.` });
+                                  }
+                                } catch (err: any) {
+                                  toast({ title: "Failed", description: err.message, variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <Video className="w-3 h-3 mr-1" />
+                              Regenerate Video
+                            </Button>
+                          </div>
+                        )}
+
+                        <Button className="w-full" onClick={() => setEditingSceneNumber(null)}>
+                          Done
+                        </Button>
+                      </div>
+                    );
+                  })()}
+                </SheetContent>
+              </Sheet>
+              </>
             )}
           </TabsContent>
 

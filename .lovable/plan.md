@@ -1,35 +1,33 @@
 
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Plan: Fix Stitching, Add Progress Bar, and Clip Editing
+## Status: ✅ Implemented
 
-### Problem Analysis
-1. **Stitching fails**: FFmpeg.wasm times out after 180s loading from CDN. Browser-based stitching is unreliable. The manual stitch button doesn't fall back to server-side (Creatomate) — it only uses Creatomate when `useServerStitching` toggle is on.
-2. **No progress bar on button**: The stitch button shows a spinner but no progress percentage or bar.
-3. **No clip editing**: Individual clips can't be edited (change script, re-generate image/video, swap order) before stitching.
+## Changes Made
 
-### Plan
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-#### 1. Fix stitching — default to server-side with browser fallback
-- In the `stitchVideos` function, **reverse the priority**: try Creatomate (server) first by default, then fall back to browser FFmpeg only if server fails.
-- Remove the `useServerStitching` toggle — always attempt server first.
-- This avoids the FFmpeg.wasm CDN loading timeout that's currently blocking users.
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-#### 2. Add progress bar to the stitch button area
-- When `isManualStitching` is true, render a `<Progress>` bar below the stitch button showing `progress` percentage and `progressStatus` text.
-- The progress states already exist (`progress`, `progressStatus`) — just need to display them in the stitch button section (around line 4196).
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-#### 3. Add clip editing capabilities
-- Add an "Edit" button overlay on each scene card in the gallery grid (around line 4136).
-- Clicking edit opens a dialog/sheet for that scene where the user can:
-  - **Edit the script text** for that scene
-  - **Re-generate the image** (triggers `generate-scene-image` for that scene)
-  - **Re-generate the video** (triggers `wavespeed-video` for that scene)
-  - **Swap the image** from gallery
-  - **Reorder scenes** via drag or up/down arrows
-- Update `project.generatedScenes`, `project.videoClips`, and `project.voiceovers` arrays when edits are made.
-- Reuse existing scene regeneration patterns from `ReelEditor` component.
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-### Files to modify
-- `src/pages/Reels.tsx` — reverse stitch priority, add progress UI, add edit overlays and edit dialog
-- `src/lib/videoStitch.ts` — no changes needed (kept as fallback)
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
