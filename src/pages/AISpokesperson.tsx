@@ -904,10 +904,14 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
   };
 
   // Auto-start video after script generation in beginner mode (NOT for kling-pro)
+  // Skip if script was restored from draft (don't auto-regenerate)
   useEffect(() => {
+    if (scriptFromDraft.current) {
+      scriptFromDraft.current = false;
+      return;
+    }
     if (isBeginner && generatedScript && !isGenerating && !videoUrl) {
       if (selectedQuality === 'kling-pro') {
-        // For Kling: generate multiple shots instead of auto-starting video
         generateMultipleShots();
       } else {
         generateVideo();
