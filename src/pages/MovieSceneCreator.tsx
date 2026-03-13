@@ -289,6 +289,8 @@ const MovieSceneCreator = () => {
   const [generateAllProgress, setGenerateAllProgress] = useState(0);
   const [isPreviewingBeforeVideo, setIsPreviewingBeforeVideo] = useState(false);
   const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
+  const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
+  const [recoveryProjectId, setRecoveryProjectId] = useState<string | null>(null);
   
   // Wizard step state
   const [currentStep, setCurrentStep] = useState(0);
@@ -735,6 +737,101 @@ const MovieSceneCreator = () => {
 
     return () => clearInterval(interval);
   }, [userId, scenes, outline, currentProjectId, movieIdea, projectTitle, storyBible]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Check for interrupted generation on mount
+  useEffect(() => {
+    if (!userId) return;
+    const saved = localStorage.getItem('movie-generation-active');
+    if (saved) {
+      try {
+        const { projectId } = JSON.parse(saved);
+        if (projectId) {
+          setRecoveryProjectId(projectId);
+          setShowRecoveryBanner(true);
+        }
+      } catch { /* ignore */ }
+    }
+  }, [userId]);
+
+  // Helper to save/clear generation tracking
+  const trackGenerationStart = (projectId: string) => {
+    localStorage.setItem('movie-generation-active', JSON.stringify({ projectId, startedAt: Date.now() }));
+  };
+  const trackGenerationEnd = () => {
+    localStorage.removeItem('movie-generation-active');
+  };
+
+  // Send browser notification
+  const sendNotification = (title: string, body: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' });
+    }
+  };
+
+  // Recover interrupted project
+  const recoverProject = async () => {
+    if (!recoveryProjectId) return;
+    setShowRecoveryBanner(false);
+    trackGenerationEnd();
+    
+    try {
+      const { data, error } = await supabase
+        .from('movie_projects')
+        .select('*')
+        .eq('id', recoveryProjectId)
+        .single();
+
+      if (error) throw error;
+
+      setCurrentProjectId(data.id);
+      setProjectTitle(data.title);
+      setMovieIdea(data.movie_idea);
+      setOutline(data.outline || '');
+      const loadedScenes = (data.scenes as any) || [];
+      setScenes(loadedScenes);
+      setStitchedVideoUrl((data as any).stitched_video_url || null);
+      setStoryBible((data as any).story_bible || null);
+
+      // Check if project has scenes with images but no videos — offer to continue
+      const hasUnfinishedScenes = loadedScenes.some((s: any) => 
+        (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo
+      );
+      if (hasUnfinishedScenes) {
+        setIsPreviewingBeforeVideo(true);
+        setPendingVideoGeneration(loadedScenes);
+        if (isAdvanced) setCurrentStep(3);
+        toast({
+          title: "Project Recovered",
+          description: `"${data.title}" loaded. Review your scenes and continue generating videos.`,
+        });
+      } else {
+        toast({
+          title: "Project Loaded",
+          description: `"${data.title}" loaded.`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error recovering project:', error);
+      toast({
+        title: "Recovery Failed",
+        description: "Couldn't load the interrupted project.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const dismissRecovery = () => {
+    setShowRecoveryBanner(false);
+    setRecoveryProjectId(null);
+    trackGenerationEnd();
+  };
 
   const loadCharacters = async () => {
     if (!userId) return;
@@ -1270,7 +1367,8 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
-
+    // Track generation so user can recover if they leave
+    if (currentProjectId) trackGenerationStart(currentProjectId);
     try {
       // Step 1: Generate Story Bible (5%)
       setGenerateAllStep('Creating Story Bible...');
@@ -1525,7 +1623,12 @@ const MovieSceneCreator = () => {
       }
 
       setGenerateAllProgress(85);
-      setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+      setTimeout(() => {
+        autoSaveProject(scenesWithDialogue);
+        // Update tracking with project ID (may have been created during auto-save)
+        if (currentProjectId) trackGenerationStart(currentProjectId);
+      }, 500);
+      sendNotification('🎬 Scenes Ready!', 'Your scenes, dialogue, and images are ready for preview.');
 
       // PAUSE: Show preview before video generation
       setIsGeneratingAll(false);
@@ -1645,6 +1748,8 @@ const MovieSceneCreator = () => {
       setGenerateAllStep('Complete!');
 
       const successCount = scenesWithDialogue.filter(s => s.generatedVideo).length;
+      trackGenerationEnd();
+      sendNotification('🎬 Movie Complete!', `Generated ${successCount} scene videos. Your movie is ready!`);
       toast({
         title: "🎬 Movie Complete!",
         description: `Generated ${successCount}/${scenesWithDialogue.length} scene videos${scenesWithVideos.length >= 2 ? ' and stitched your movie' : ''}. ${videoErrors > 0 ? `${videoErrors} scene(s) had errors.` : ''}`,
@@ -3249,6 +3354,34 @@ const MovieSceneCreator = () => {
             <StoryboardExport scenes={scenes as MovieSceneWithKeyframes[]} projectTitle={projectTitle || 'Movie Storyboard'} />
           </div>
         </div>
+
+        {/* Recovery banner for interrupted generation */}
+        {showRecoveryBanner && recoveryProjectId && (
+          <Card className="border-amber-500/50 bg-amber-500/5">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/10 rounded-full">
+                    <Film className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Unfinished Movie Detected</h3>
+                    <p className="text-sm text-muted-foreground">You have a movie that was interrupted. Pick up where you left off?</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button onClick={recoverProject} size="sm" className="gap-2">
+                    <Play className="w-3.5 h-3.5" />
+                    Continue
+                  </Button>
+                  <Button onClick={dismissRecovery} variant="ghost" size="sm">
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Load Dialog (rendered separately) */}
         <Dialog open={isLoadDialogOpen} onOpenChange={setIsLoadDialogOpen}>
