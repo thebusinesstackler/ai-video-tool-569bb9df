@@ -95,6 +95,7 @@ const AISpokesperson = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoTask, setVideoTask] = useState<VideoTask | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState<'standard' | 'nano-banana' | 'kling-pro'>('standard');
   
   // AI Enhancement
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -404,7 +405,7 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
         },
         body: JSON.stringify({
           messages: imageMessages,
-          model: 'google/gemini-3.1-flash-image-preview',
+          model: selectedQuality === 'nano-banana' ? 'google/nano-banana-2/edit' : 'google/gemini-3.1-flash-image-preview',
           modalities: ['image', 'text']
         })
       });
@@ -441,13 +442,16 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
       setProgressStatus('Loop AI: Creating lip-sync video...');
 
       // Step 3: Generate video with lip sync
+      const videoModel = selectedQuality === 'kling-pro' ? 'kling-v3.0-pro' : 'infinitetalk';
+      const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`;
+      
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'infinitetalk',
+          model: videoModel,
           imageUrls: [generatedImageUrl],
           audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
-          prompt: `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`,
+          prompt: videoPromptText,
           aspectRatio: '9:16',
           duration: parseInt(selectedDuration)
         }
@@ -710,6 +714,49 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
                   ))}
                 </div>
               )}
+
+              {/* Video Quality Selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-muted-foreground">Video Quality</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setSelectedQuality('standard')}
+                    className={`p-3 rounded-lg border text-center transition-all ${
+                      selectedQuality === 'standard'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <Video className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
+                    <p className="text-xs font-semibold">Standard</p>
+                    <p className="text-[10px] text-muted-foreground">InfiniteTalk</p>
+                  </button>
+                  <button
+                    onClick={() => setSelectedQuality('nano-banana')}
+                    className={`p-3 rounded-lg border text-center transition-all ${
+                      selectedQuality === 'nano-banana'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <Sparkles className="w-5 h-5 mx-auto mb-1 text-amber-500" />
+                    <p className="text-xs font-semibold">Nano Banana 2</p>
+                    <p className="text-[10px] text-muted-foreground">Enhanced image</p>
+                  </button>
+                  <button
+                    onClick={() => setSelectedQuality('kling-pro')}
+                    className={`p-3 rounded-lg border text-center transition-all ${
+                      selectedQuality === 'kling-pro'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <Film className="w-5 h-5 mx-auto mb-1 text-emerald-500" />
+                    <p className="text-xs font-semibold">Kling 3.0 Pro</p>
+                    <p className="text-[10px] text-muted-foreground">Premium video</p>
+                  </button>
+                </div>
+              </div>
 
               <Button
                 onClick={handleBeginnerGenerate}
