@@ -95,7 +95,13 @@ const AISpokesperson = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoTask, setVideoTask] = useState<VideoTask | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-
+  
+  // AI Enhancement
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ title: string; enhanced: string }[]>([]);
+  const [refineInput, setRefineInput] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   // Load twins
   useEffect(() => {
     if (!user?.id) return;
