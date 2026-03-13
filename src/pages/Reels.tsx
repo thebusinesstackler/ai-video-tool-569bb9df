@@ -1403,7 +1403,7 @@ const Reels = () => {
     }
   };
 
-  const generateScripts = async () => {
+  const generateScripts = async (): Promise<Scene[] | null> => {
     if (!topic.trim()) {
       toast({
         title: "Topic Required",
@@ -1466,6 +1466,8 @@ const Reels = () => {
           ? `Podcast script (~${Math.round(sceneDuration / 60)} min) created.`
           : `${sceneCount} scene scripts (${selectedSceneDuration}s each) created for your reel.`
       });
+      
+      return data.scenes as Scene[];
     } catch (error: any) {
       console.error('Script generation error:', error);
       toast({
@@ -1474,6 +1476,7 @@ const Reels = () => {
         variant: "destructive"
       });
       setProject(prev => ({ ...prev, status: 'idle' }));
+      return null;
     } finally {
       setIsGenerating(false);
     }
@@ -2118,8 +2121,8 @@ const Reels = () => {
       setLipSyncModel('infinitetalk');
     }
     
-    await generateScripts();
-    if (project.scenes.length > 0) {
+    const generatedScenes = await generateScripts();
+    if (generatedScenes && generatedScenes.length > 0) {
       // Pass overrides to ensure lip sync state is used even before React re-renders
       await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel });
     }
