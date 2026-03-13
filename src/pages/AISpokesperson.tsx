@@ -946,13 +946,19 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Camera className="w-5 h-5 text-primary" />
-                Scene Shots — Choose Your Angle
+                Scene Shots — Your Video Breakdown
               </CardTitle>
               <CardDescription>
                 {isGeneratingShots 
-                  ? 'Generating multiple camera angles...' 
-                  : 'Select a shot to create your video, or add more angles.'}
+                  ? 'AI is creating your scene breakdown with speaking shots, B-roll, and transitions...' 
+                  : `${sceneShots.filter(s => s.type === 'speaking').length} speaking shots, ${sceneShots.filter(s => s.type !== 'speaking').length} B-roll/transitions. Pick any shot to create its video.`}
               </CardDescription>
+              {generatedScript?.musicSuggestion && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <span>🎵</span>
+                  <span>Suggested music: {generatedScript.musicSuggestion}</span>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Shot Grid */}
@@ -960,32 +966,52 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
                 {sceneShots.map((shot) => (
                   <div
                     key={shot.id}
-                    className="relative group rounded-lg border border-border overflow-hidden bg-card hover:border-primary/50 transition-all"
+                    className={`relative group rounded-lg border overflow-hidden bg-card transition-all ${
+                      shot.type === 'speaking' ? 'border-primary/30 hover:border-primary' : 'border-border hover:border-muted-foreground'
+                    }`}
                   >
-                    <div className="aspect-[9/16] bg-muted">
+                    <div className="aspect-[9/16] bg-muted relative">
                       <img
                         src={shot.imageUrl}
                         alt={shot.angleLabel}
                         className="w-full h-full object-cover"
                       />
+                      {/* Shot type overlay badge */}
+                      <div className="absolute top-2 left-2">
+                        <Badge 
+                          variant={shot.type === 'speaking' ? 'default' : 'secondary'}
+                          className="text-[10px]"
+                        >
+                          {shot.type === 'speaking' ? '🎤 Lip-Sync' : shot.type === 'broll' ? '🎬 B-Roll' : '🔄 Transition'}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="p-2 space-y-2">
-                      <Badge variant="secondary" className="text-[10px]">{shot.angleLabel}</Badge>
+                    <div className="p-2 space-y-1.5">
+                      <p className="text-[10px] text-muted-foreground line-clamp-2">{shot.angleLabel}</p>
+                      {/* SFX/Music indicators */}
+                      <div className="flex flex-wrap gap-1">
+                        {shot.sfx && (
+                          <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded">🔊 {shot.sfx.substring(0, 20)}</span>
+                        )}
+                        {shot.music && (
+                          <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded">🎵 {shot.music.substring(0, 20)}</span>
+                        )}
+                      </div>
                       <Button
                         size="sm"
                         className="w-full"
                         onClick={() => generateVideoFromShot(shot)}
                       >
                         <Play className="w-3 h-3 mr-1" />
-                        Create Video
+                        {shot.type === 'speaking' ? 'Create Lip-Sync' : 'Create B-Roll'}
                       </Button>
                     </div>
                   </div>
                 ))}
 
                 {/* Loading placeholders */}
-                {isGeneratingShots && sceneShots.length < 3 && (
-                  Array.from({ length: 3 - sceneShots.length }).map((_, i) => (
+                {isGeneratingShots && sceneShots.length < 5 && (
+                  Array.from({ length: Math.min(3, 5 - sceneShots.length) }).map((_, i) => (
                     <div key={`loading-${i}`} className="rounded-lg border border-border bg-muted animate-pulse">
                       <div className="aspect-[9/16] flex items-center justify-center">
                         <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
@@ -1000,24 +1026,34 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
               {/* Add More Shots */}
               {!isGeneratingShots && sceneShots.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Add another angle:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      'Wide Establishing Shot',
-                      'Extreme Close-Up',
-                      'Dutch Angle',
-                      'High Angle',
-                      'Profile Side View',
-                      'Bird\'s Eye View'
-                    ]
-                      .filter(a => !sceneShots.some(s => s.angleLabel === a))
-                      .map(angle => (
-                        <Button
-                          key={angle}
-                          variant="outline"
-                          size="sm"
-                          disabled={isAddingShot}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Add more scenes:</p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">🎤 Speaking shots (with lip-sync):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {['Close-Up Direct', 'Low Angle Power', 'Over Shoulder Intimate']
+                        .filter(a => !sceneShots.some(s => s.angleLabel.includes(a)))
+                        .map(angle => (
+                          <Button key={angle} variant="outline" size="sm" disabled={isAddingShot}
+                            onClick={() => addCustomShot(angle, 'speaking')}>
+                            {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Mic className="w-3 h-3 mr-1" />}
+                            {angle}
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">🎬 B-roll shots (cinematic, no talking):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {['Wide Establishing', 'Walking Away', 'Contemplative Profile', 'Hands Detail', 'Environment Pan']
+                        .filter(a => !sceneShots.some(s => s.angleLabel.includes(a)))
+                        .map(angle => (
+                          <Button key={angle} variant="outline" size="sm" disabled={isAddingShot}
+                            onClick={() => addCustomShot(angle, 'broll')}>
+                            {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Film className="w-3 h-3 mr-1" />}
+                            {angle}
+                          </Button>
+                        ))}
                           onClick={() => addCustomShot(angle)}
                         >
                           {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
