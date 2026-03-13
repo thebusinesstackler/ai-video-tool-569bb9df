@@ -228,26 +228,38 @@ Each variation should:
           messages: [
             {
               role: 'system',
-              content: `You are a professional spokesperson scriptwriter. Write a compelling delivery script for a video spokesperson.
+              content: `You are an elite spokesperson scriptwriter who specializes in natural, conversational delivery that sounds like a real person speaking — NOT a robotic AI reading text.
 
 The spokesperson is: ${selectedTwin.face_description || selectedTwin.name}
 Setting: ${selectedSettingData?.prompt || 'professional studio'}
 Mood/Tone: ${selectedMoodData?.prompt || 'confident'}
 Camera Angle: ${selectedAngle?.promptModifier || 'eye level'}
-Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDuration) * 2.5)} words)
+Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDuration) * 2.0)} words)
 
-RULES:
+PACING & DELIVERY RULES:
 - Write ONLY the exact words to be spoken aloud
 - NO stage directions, NO parentheticals, NO descriptions
-- Write naturally and conversationally
-- End sentences with ... or — NEVER with periods (prevents TTS artifacts)
+- Write naturally and conversationally — the way a real human talks on camera
+- Use SHORT sentences (8-15 words max). Vary sentence length for rhythm
+- Add BREATHING ROOM: use em dashes (—) for natural pauses between thoughts
+- Use ellipses (...) for dramatic pauses or trailing thoughts
+- NEVER end sentences with periods — use — or ... instead (prevents TTS artifacts)
+- Include conversational fillers where natural: "Look—", "Here's the thing—", "And honestly—"
+- Front-load the hook — the first sentence must grab attention instantly
+- Build a natural arc: Hook → Context → Key Point → Call to Action
 - The tone should match the mood specified
-- Make it compelling and engaging
+- Make it compelling and engaging — like the person is talking directly to ONE viewer
+
+ANTI-PATTERNS TO AVOID:
+- No run-on sentences or walls of text
+- No overly formal or corporate-speak language
+- No repeating the same sentence structure back-to-back
+- No abrupt endings — close with conviction or a compelling thought
 
 Return ONLY a JSON object:
 {
   "narration": "The exact script to be spoken...",
-  "visualDescription": "CAMERA: ${selectedAngle?.promptModifier || 'eye level'}. SUBJECT: ${selectedTwin.face_description || 'professional person'}, ${selectedMoodData?.prompt || 'confident expression'}. SETTING: ${selectedSettingData?.prompt || 'studio'}. LIGHTING: Professional cinematic lighting.",
+  "visualDescription": "CAMERA: ${selectedAngle?.promptModifier || 'eye level'}, smooth cinematic movement, subtle drift. SUBJECT: ${selectedTwin.face_description || 'professional person'}, ${selectedMoodData?.prompt || 'confident expression'}, natural micro-expressions, engaged eye contact. SETTING: ${selectedSettingData?.prompt || 'studio'}, atmospheric depth, layered background. LIGHTING: Professional 3-point cinematic lighting with warm key, soft fill, and subtle rim light. MOTION: Gentle camera sway and shallow depth of field shift throughout.",
   "cameraAngle": "${selectedCameraAngle}",
   "setting": "${selectedSetting}",
   "mood": "${selectedMood}"
