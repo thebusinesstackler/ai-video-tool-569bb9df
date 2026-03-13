@@ -136,6 +136,87 @@ const AISpokesperson = () => {
   const selectedMoodData = MOODS.find(m => m.id === selectedMood);
   const selectedAngle = CAMERA_ANGLES.find(a => a.id === selectedCameraAngle);
 
+  // Enhance prompt with AI suggestions
+  const enhancePrompt = async () => {
+    if (!message.trim()) return;
+    setIsEnhancing(true);
+    setSuggestions([]);
+    setShowSuggestions(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are a creative strategist for spokesperson videos. Given a user's message idea, generate 3 enhanced variations that strengthen the story, hook, and delivery.
+
+Return ONLY a JSON array of objects:
+[
+  { "title": "Short label (3-5 words)", "enhanced": "The full enhanced message prompt" }
+]
+
+Each variation should:
+- Keep the core message but make it more compelling
+- Add emotional hooks, specific details, or storytelling angles
+- Vary in tone: one more emotional, one more data-driven, one more story-driven
+- Be 2-4 sentences, written as what the spokesperson should convey (not the literal script)`
+            },
+            { role: 'user', content: `Enhance this spokesperson message idea:\n\n"${message}"` }
+          ]
+        }
+      });
+
+      if (error) throw error;
+      
+      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        setSuggestions(parsed);
+      }
+    } catch (err) {
+      console.error('Enhance error:', err);
+      toast({ title: 'Enhancement failed', description: 'Try again or proceed with your original message.', variant: 'destructive' });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  // Refine message via chat
+  const refineMessage = async () => {
+    if (!refineInput.trim() || !message.trim()) return;
+    setIsRefining(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are helping refine a spokesperson video message. The user will tell you how to change their current message. Return ONLY the updated message text, nothing else. Keep it as a prompt/brief (not a literal script).`
+            },
+            { role: 'user', content: `Current message:\n"${message}"\n\nUser wants to:\n"${refineInput}"\n\nReturn the refined message:` }
+          ]
+        }
+      });
+
+      if (error) throw error;
+      
+      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      if (content) {
+        setMessage(content.replace(/^["']|["']$/g, '').trim());
+        setRefineInput('');
+        toast({ title: 'Message refined!', description: 'Your message has been updated.' });
+      }
+    } catch (err) {
+      console.error('Refine error:', err);
+      toast({ title: 'Refinement failed', variant: 'destructive' });
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   // Generate script
   const generateScript = async () => {
     if (!message.trim() || !selectedTwin) return;
