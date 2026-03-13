@@ -1,33 +1,41 @@
 
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
+# Reduce Sidebar Navigation — Combined Approach
 
-## Changes Made
+## Strategy: Spacing reduction + collapsible groups
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+With 13 nav items at 701px viewport height, both approaches together will definitively eliminate the scrollbar.
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+### 1. Reduce spacing (same as before)
+- Nav items: `py-3` → `py-2`, `space-y-2` → `space-y-1`
+- Logo: `mb-8` → `mb-4`
+- Usage stats: `p-4` → `p-3`, `mt-4` → `mt-2`
+- Sign-out: `mt-4` → `mt-2`
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+### 2. Group items under collapsible sections
+Organize the 13 items into logical groups using `Collapsible` from Radix (already installed):
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+**Create** (default open if any child is active route)
+- Movie Scene Creator
+- Movies
+- Script Generator
+- Reels & Stories
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+**AI Tools** (collapsible)
+- AI Twin
+- AI Spokesperson
+- Testimonial Ads
+- Commercial Studio
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+**Manage** (collapsible)
+- Image Gallery
+- Characters
+- Projects
+
+**Dashboard** and **Settings** stay as standalone top/bottom items (not grouped).
+
+Each group header is clickable to expand/collapse, showing a chevron. The group containing the active route auto-expands. This reduces visible items from 13 to ~5-7 at any time.
+
+### Files changed
+- `src/components/Navigation.tsx` — restructure nav items into groups, reduce spacing, add collapsible wrappers
+
