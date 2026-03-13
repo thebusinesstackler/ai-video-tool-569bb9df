@@ -2033,9 +2033,17 @@ const Reels = () => {
 
     if (abortRef.current.signal.aborted) return;
     
-    const generatedScenes = await generateScripts();
+    // In beginner mode, scripts may already be generated (from step 2 review)
+    // Only generate scripts if we don't have them
+    let generatedScenes: Scene[] | null = null;
+    if (project.scenes.length > 0 && isBeginner) {
+      console.log('Beginner mode: using pre-generated scripts from review step');
+      generatedScenes = project.scenes;
+    } else {
+      generatedScenes = await generateScripts();
+    }
     
-    if (abortRef.current.signal.aborted) return;
+    if (abortRef.current?.signal.aborted) return;
     
     if (generatedScenes && generatedScenes.length > 0) {
       // Pass scenes directly to avoid stale state issues
