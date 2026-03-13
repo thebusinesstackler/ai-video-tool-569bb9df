@@ -289,6 +289,8 @@ const MovieSceneCreator = () => {
   const [generateAllProgress, setGenerateAllProgress] = useState(0);
   const [isPreviewingBeforeVideo, setIsPreviewingBeforeVideo] = useState(false);
   const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
+  const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
+  const [recoveryProjectId, setRecoveryProjectId] = useState<string | null>(null);
   
   // Wizard step state
   const [currentStep, setCurrentStep] = useState(0);
