@@ -1423,7 +1423,7 @@ const MovieSceneCreator = () => {
         : undefined;
 
       const { data: outlineData, error: outlineError } = await supabase.functions.invoke('generate-movie-outline', {
-        body: { movieIdea, characterDescription: pronounsDesc || undefined, movieLength }
+        body: { movieIdea, characterDescription: pronounsDesc || undefined, movieLength, storyBible: storyBibleWithVoices }
       });
 
       if (outlineError) throw outlineError;
@@ -1484,9 +1484,13 @@ const MovieSceneCreator = () => {
         });
       }
       
-      const scenesWithDialogue = await Promise.all(
-        generatedScenes.map(async (scene, index) => {
-          try {
+      // Generate dialogue SEQUENTIALLY for narrative continuity
+      const scenesWithDialogue: MovieScene[] = [];
+      const previousDialogues: { sceneTitle: string; summary: string }[] = [];
+      
+      for (let index = 0; index < generatedScenes.length; index++) {
+        const scene = generatedScenes[index];
+        try {
             setGenerateAllProgress(55 + Math.floor((index / generatedScenes.length) * 20));
             
             // Determine scene position for context
@@ -1497,9 +1501,9 @@ const MovieSceneCreator = () => {
             else if (index === Math.floor(totalScenes / 2)) scenePosition = 'midpoint';
             else if (index === Math.floor(totalScenes * 0.75)) scenePosition = 'climax';
             
-            // Get previous scene summary for continuity
-            const previousSceneSummary = index > 0 
-              ? `${generatedScenes[index - 1].title}: ${generatedScenes[index - 1].description.substring(0, 150)}...`
+            // Build cumulative story context from ALL previous scenes
+            const previousSceneSummary = previousDialogues.length > 0
+              ? previousDialogues.map(p => `${p.sceneTitle}: ${p.summary}`).join(' → ')
               : undefined;
             
             // For 2+ characters, use conversation dialogue with rich context
@@ -1512,7 +1516,6 @@ const MovieSceneCreator = () => {
                   timeOfDay: scene.timeOfDay,
                   characterNames,
                   tone: scene.mood || 'dramatic',
-                  // NEW: Pass rich story context for blockbuster dialogue
                   movieIdea: movieIdea,
                   storyBible: storyBibleData ? {
                     theme: storyBibleData.theme,
@@ -1527,11 +1530,16 @@ const MovieSceneCreator = () => {
               });
 
               if (!convError && convData?.conversation) {
-                return {
+                const sceneWithDialogue = {
                   ...scene,
-                  dialogue: convData.conversation, // Array of {character, line}
+                  dialogue: convData.conversation,
                   charactersInScene: characterNames
                 };
+                scenesWithDialogue.push(sceneWithDialogue);
+                // Track dialogue for next scene's context
+                const dialogueSummary = convData.conversation.slice(0, 3).map((d: any) => `${d.character}: "${d.line}"`).join('; ');
+                previousDialogues.push({ sceneTitle: scene.title, summary: `${scene.description.substring(0, 100)}. Dialogue: ${dialogueSummary}` });
+                continue;
               }
             }
 
@@ -1548,16 +1556,18 @@ const MovieSceneCreator = () => {
             });
 
             if (!dialogueError && dialogueData?.dialogue) {
-              return { ...scene, dialogue: dialogueData.dialogue };
+              scenesWithDialogue.push({ ...scene, dialogue: dialogueData.dialogue });
+              previousDialogues.push({ sceneTitle: scene.title, summary: scene.description.substring(0, 150) });
+            } else {
+              scenesWithDialogue.push(scene);
+              previousDialogues.push({ sceneTitle: scene.title, summary: scene.description.substring(0, 150) });
             }
-
-            return scene;
           } catch (err) {
             console.error(`Error generating dialogue for scene ${scene.sceneNumber}:`, err);
-            return scene;
+            scenesWithDialogue.push(scene);
+            previousDialogues.push({ sceneTitle: scene.title, summary: scene.description.substring(0, 150) });
           }
-        })
-      );
+        }
       
       setScenes(scenesWithDialogue);
       setGenerateAllProgress(75);

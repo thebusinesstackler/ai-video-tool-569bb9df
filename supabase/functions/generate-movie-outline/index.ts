@@ -78,7 +78,7 @@ serve(async (req) => {
   }
 
   try {
-    const { movieIdea, characterDescription, movieLength = 'quick-reel' } = await req.json();
+    const { movieIdea, characterDescription, movieLength = 'quick-reel', storyBible } = await req.json();
 
     if (!movieIdea) {
       return new Response(
@@ -103,8 +103,34 @@ serve(async (req) => {
       ? `\n\nIMPORTANT - MAIN CHARACTER(S): ${characterDescription}. Keep these characters consistent throughout ALL scenes - same appearance, clothing style, and characteristics.`
       : '';
 
-    const systemPrompt = `You are an expert screenwriter, cinematographer, and story structure consultant. Your job is to take a movie idea and create a cohesive, complete story outline with detailed cinematography directions.
+    // Build story bible context for narrative cohesion
+    let storyBibleContext = '';
+    if (storyBible) {
+      storyBibleContext = `\n\nSTORY BIBLE (use this to ensure narrative cohesion):`;
+      if (storyBible.logline) storyBibleContext += `\nLogline: ${storyBible.logline}`;
+      if (storyBible.theme) storyBibleContext += `\nTheme: ${storyBible.theme}`;
+      if (storyBible.threeActStructure) {
+        storyBibleContext += `\nAct 1 (Setup): ${storyBible.threeActStructure.setup}`;
+        storyBibleContext += `\nAct 2 (Confrontation): ${storyBible.threeActStructure.confrontation}`;
+        storyBibleContext += `\nAct 3 (Resolution): ${storyBible.threeActStructure.resolution}`;
+      }
+      if (storyBible.emotionalArc) storyBibleContext += `\nEmotional Arc: ${storyBible.emotionalArc.join(' → ')}`;
+      if (storyBible.characters && Array.isArray(storyBible.characters)) {
+        storyBibleContext += `\nCharacters:`;
+        storyBible.characters.forEach((char: any) => {
+          storyBibleContext += `\n- ${char.name} (${char.role}): ${char.personality}. Arc: ${char.arc}. Wardrobe: ${char.wardrobe}`;
+        });
+      }
+      if (storyBible.sceneDialogueMap && Array.isArray(storyBible.sceneDialogueMap)) {
+        storyBibleContext += `\nPlanned Scene Flow:`;
+        storyBible.sceneDialogueMap.forEach((scene: any) => {
+          storyBibleContext += `\n- Scene ${scene.sceneNumber} "${scene.title}": ${scene.charactersPresent?.join(', ')} - ${scene.conflict}`;
+        });
+      }
+    }
 
+    const systemPrompt = `You are an expert screenwriter, cinematographer, and story structure consultant. Your job is to take a movie idea and create a cohesive, complete story outline with detailed cinematography directions.
+${storyBibleContext}
 ${lengthConfig.actStructure}
 
 TARGET: ${lengthConfig.sceneRange} scenes total, approximately ${lengthConfig.duration} runtime.
@@ -227,10 +253,10 @@ IMPORTANT RULES:
     console.log('Generating movie outline with Lovable AI...');
 
     const requestBody = JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'google/gemini-2.5-pro',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Create a cohesive ${movieLength.replace('-', ' ')} outline (${lengthConfig.sceneRange} scenes, ${lengthConfig.duration}) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout. Use proper 3-act structure.` }
+        { role: 'user', content: `Create a cohesive ${movieLength.replace('-', ' ')} outline (${lengthConfig.sceneRange} scenes, ${lengthConfig.duration}) for this idea:\n\n${movieIdea}\n\nRemember: The story must have a clear opening and closing, with the same character appearing consistently throughout. Use proper 3-act structure. Every scene MUST connect to the next — each scene ending should set up the next scene's beginning. The entire story should feel like ONE cohesive narrative, not disconnected vignettes.${storyBible ? '\n\nFollow the Story Bible provided in the system prompt for character arcs, three-act structure, and scene flow.' : ''}` }
       ],
     });
 
