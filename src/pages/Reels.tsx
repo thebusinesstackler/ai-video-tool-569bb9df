@@ -283,6 +283,7 @@ const Reels = () => {
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
   const [savedReels, setSavedReels] = useState<SavedReel[]>([]);
   const [loadingReels, setLoadingReels] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
