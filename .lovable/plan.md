@@ -1,33 +1,33 @@
 
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
+## Issues Identified
 
-## Changes Made
+1. **Character/voice overridden on generate**: `generateAll()` at line 1956-1989 unconditionally overwrites the user's selected character and voice. If the user already generated a character and picked a voice in Steps 2-3, clicking "Make My Reel" replaces them with the first AI Twin or re-detects gender from the topic text.
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+2. **No way to cancel generation**: There is no abort/cancel mechanism. Once the user clicks "Make My Reel", they must wait for the entire pipeline to complete.
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+## Plan
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+### Fix 1: Preserve user's character and voice selections in `generateAll`
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+Modify `generateAll()` to skip the auto-selection logic when the user has already set values:
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+- **Character**: Only auto-select an AI Twin if `portraitImage` is already null (user hasn't generated or selected one).
+- **Voice**: Only auto-detect gender voice if `selectedVoice` is still `'ai-auto'` (user hasn't manually changed it). When voice is `'ai-auto'`, resolve it to a concrete voice using gender detection but store it in a local variable passed to the pipeline — don't overwrite the state so the UI still shows "AI Auto-Select".
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+### Fix 2: Add cancel/stop generation button
+
+- Add an `AbortController` ref (`abortRef`) to the component.
+- Create it fresh at the start of `generateAll`, `generateScripts`, and `generateVideo`.
+- Pass its signal to fetch calls (edge function invocations can't be aborted, but we can check `abortRef.current.signal.aborted` between pipeline steps to bail out early).
+- Add a "Stop Generation" button that appears during generation, which calls `abortRef.current.abort()` and resets `isGenerating` to false.
+- Between each major step (script gen → image gen → voiceover → video gen → stitching), check if aborted and return early.
+
+### Fix 3: UI — show stop button in beginner mode
+
+Replace the disabled "Creating your reel..." button with a red "Stop Generation" button when `isGenerating` is true. Also show it in the progress bar card.
+
+### Files to modify
+
+- **`src/pages/Reels.tsx`** — All three fixes above
+
