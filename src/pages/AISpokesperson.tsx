@@ -32,12 +32,25 @@ interface AITwin {
   gender: string | null;
 }
 
+interface SceneDirection {
+  type: 'speaking' | 'broll' | 'transition';
+  description: string;
+  cameraAngle: string;
+  duration: number;
+  sfx?: string;
+  music?: string;
+  narrationSegment?: string;
+}
+
 interface GeneratedScript {
   narration: string;
   visualDescription: string;
   cameraAngle: string;
   setting: string;
   mood: string;
+  scenes?: SceneDirection[];
+  musicSuggestion?: string;
+  sfxCues?: string[];
 }
 
 interface VideoTask {
