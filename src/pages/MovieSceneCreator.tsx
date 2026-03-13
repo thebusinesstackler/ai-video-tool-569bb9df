@@ -1095,7 +1095,101 @@ const MovieSceneCreator = () => {
     }
   };
 
-  // One-click Generate All - chains story bible, outline, locations, scenes with dialogue, and first frame
+  // Helper: generate a lip-sync video for a scene and wait for completion
+  const generateSceneVideoAndWait = async (scene: MovieSceneWithKeyframes, scenesSnapshot: MovieSceneWithKeyframes[]): Promise<{ videoUrl: string; audioContent?: string }> => {
+    const imageToUse = scene.startFrame?.generatedImage || scene.generatedImage;
+    if (!imageToUse) throw new Error(`Scene ${scene.sceneNumber} has no image`);
+
+    // Build dialogue text
+    let textForAudio = '';
+    if (scene.dialogue) {
+      if (Array.isArray(scene.dialogue)) {
+        textForAudio = scene.dialogue.map(d => d.line).join(' ');
+      } else {
+        textForAudio = scene.dialogue;
+      }
+    }
+    textForAudio = cleanDialogueForTTS(textForAudio);
+    if (!textForAudio) textForAudio = "This moment is everything. I have to keep going.";
+
+    // Determine voice
+    let voiceParams: any = {};
+    if (storyBible?.characters) {
+      if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
+        const firstSpeaker = scene.dialogue[0].character;
+        const assignedChar = storyBible.characters.find(c => c.name.toLowerCase() === firstSpeaker.toLowerCase());
+        if (assignedChar?.assignedTwinId) {
+          const twin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
+          if (twin?.voice_cloning_key) {
+            const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+            voiceParams = {
+              speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
+              voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
+            };
+          }
+        }
+      } else {
+        const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
+        if (protagonist?.assignedTwinId) {
+          const twin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
+          if (twin?.voice_cloning_key) {
+            const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+            voiceParams = {
+              speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
+              voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
+            };
+          }
+        }
+      }
+    }
+    if (!voiceParams.speechifyVoiceId && !voiceParams.voiceCloningKey) {
+      const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
+      if (twinWithVoice?.voice_cloning_key) {
+        const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
+        voiceParams = {
+          speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
+          voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
+        };
+      }
+    }
+
+    // Generate TTS audio
+    const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+      body: { text: textForAudio, voice: 'en-US-Journey-D', ...voiceParams }
+    });
+    if (ttsError) throw ttsError;
+
+    // Generate lip-sync video
+    const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+      body: {
+        action: 'create',
+        model: 'infinitetalk',
+        imageUrls: [imageToUse],
+        audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
+        duration: 5
+      }
+    });
+    if (videoError) throw videoError;
+
+    // Poll for completion
+    const maxPollTime = 180000; // 3 min per scene
+    const startTime = Date.now();
+    while (true) {
+      if (Date.now() - startTime > maxPollTime) throw new Error(`Scene ${scene.sceneNumber} video timed out`);
+      await new Promise(r => setTimeout(r, 3000));
+      
+      const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId: videoData.taskId }
+      });
+      if (statusError) throw statusError;
+      if (statusData.status === 'completed' && statusData.videoUrl) {
+        return { videoUrl: statusData.videoUrl, audioContent: ttsData.audioContent };
+      }
+      if (statusData.status === 'failed') throw new Error(`Scene ${scene.sceneNumber} video failed`);
+    }
+  };
+
+  // One-click Generate All - chains story bible → outline → scenes → dialogue → images → videos → stitch
   const generateAll = async () => {
     if (!movieIdea.trim()) {
       toast({
@@ -1110,7 +1204,7 @@ const MovieSceneCreator = () => {
     setGenerateAllProgress(0);
 
     try {
-      // Step 1: Generate Story Bible (10%)
+      // Step 1: Generate Story Bible (5%)
       setGenerateAllStep('Creating Story Bible...');
       setGenerateAllProgress(5);
 
