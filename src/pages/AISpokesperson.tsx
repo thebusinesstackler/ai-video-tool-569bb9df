@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import {
   Mic, Settings2, Film, ChevronDown, RefreshCw, Play, 
   Lightbulb, MessageCircle, Send, Check, Bot
 } from 'lucide-react';
+import { VideoEditorPanel } from '@/components/VideoEditorPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 
@@ -876,9 +878,67 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setShowSceneGallery(false);
   };
 
+  // Toggle shot selection for editor panel
+  const toggleShotSelection = (shotId: string) => {
+    setSceneShots(prev => prev.map(s => s.id === shotId ? { ...s, selected: !s.selected } : s));
+  };
+
+  // AI edit request from editor panel — interprets instruction and generates appropriate shot
+  const handleAiEditRequest = async (instruction: string) => {
+    if (!selectedTwin || !generatedScript) return;
+
+    try {
+      // Ask AI to interpret the instruction into a shot spec
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are a video director AI. The user wants to add a new shot to their spokesperson video. Interpret their request and return a JSON object:
+{
+  "angleLabel": "Short descriptive label for the shot",
+  "cameraAngle": "Detailed camera angle and composition description",
+  "type": "speaking" or "broll",
+  "sfx": "suggested sound effect or null",
+  "music": "suggested music mood or null"
+}
+
+Current video context:
+- Spokesperson: ${selectedTwin.face_description || selectedTwin.name}
+- Setting: ${SETTINGS.find(s => s.id === selectedSetting)?.prompt || 'professional studio'}
+- Mood: ${MOODS.find(m => m.id === selectedMood)?.prompt || 'confident'}
+- Existing shots: ${sceneShots.map(s => s.angleLabel).join(', ')}
+
+Return ONLY the JSON object.`
+            },
+            { role: 'user', content: instruction }
+          ]
+        }
+      });
+
+      if (error) throw error;
+
+      const content = data?.response || data?.choices?.[0]?.message?.content || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const spec = JSON.parse(jsonMatch[0]);
+        await addCustomShot(
+          spec.angleLabel || instruction.substring(0, 30),
+          spec.type === 'speaking' ? 'speaking' : 'broll'
+        );
+      } else {
+        // Fallback: generate as broll with the instruction as the angle
+        await addCustomShot(instruction.substring(0, 30), 'broll');
+      }
+    } catch (err) {
+      console.warn('AI edit request failed, falling back:', err);
+      await addCustomShot(instruction.substring(0, 30), 'broll');
+    }
+  };
+
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className={cn("mx-auto space-y-6", videoUrl ? "max-w-6xl" : "max-w-4xl")}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -909,37 +969,54 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
           </Card>
         )}
 
-        {/* Video Result */}
+        {/* Video Result — Side-by-side with AI Editor */}
         {videoUrl && (
-          <Card className="border-primary/30">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="w-5 h-5 text-primary" />
-                Your Spokesperson Video
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                <video
-                  src={videoUrl}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-                <Button variant="outline" onClick={resetAll}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Create Another
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
+            {/* Left: Video Player */}
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="w-5 h-5 text-primary" />
+                  Your Spokesperson Video
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                  <video
+                    src={videoUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex gap-2 justify-center">
+                  <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button variant="outline" onClick={resetAll}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Create Another
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Right: AI Editor Panel */}
+            <div className="h-[640px]">
+              <VideoEditorPanel
+                sceneShots={sceneShots}
+                onGenerateShot={addCustomShot}
+                onSelectShot={toggleShotSelection}
+                onCreateVideoFromShot={generateVideoFromShot}
+                isAddingShot={isAddingShot}
+                isGeneratingShots={isGeneratingShots}
+                musicSuggestion={generatedScript?.musicSuggestion}
+                onAiEditRequest={handleAiEditRequest}
+              />
+            </div>
+          </div>
         )}
 
         {/* ===== KLING 3.0 SCENE GALLERY ===== */}
