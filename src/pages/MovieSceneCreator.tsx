@@ -3287,7 +3287,7 @@ const MovieSceneCreator = () => {
               })}
             </div>
           );
-        })())}
+        })() : null}
 
         {/* ===== BEGINNER MODE: Simplified single-page flow ===== */}
         {isBeginner && (
