@@ -371,6 +371,19 @@ const Reels = () => {
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [selectedLogoAnimation, setSelectedLogoAnimation] = useState<LogoAnimation>('fade');
   
+  // Generate Character state
+  const [showGenerateCharacter, setShowGenerateCharacter] = useState(false);
+  const [generateCharacterPrompt, setGenerateCharacterPrompt] = useState('');
+  const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
+  
+  // Intro/CTA slide state
+  const [showIntroSlideForm, setShowIntroSlideForm] = useState(false);
+  const [showCtaSlideForm, setShowCtaSlideForm] = useState(false);
+  const [introSlideHeadline, setIntroSlideHeadline] = useState('');
+  const [introSlideSubtitle, setIntroSlideSubtitle] = useState('');
+  const [ctaSlideHeadline, setCtaSlideHeadline] = useState('');
+  const [ctaSlideSubtitle, setCtaSlideSubtitle] = useState('');
+  
   // Video size state
   const [selectedVideoSize, setSelectedVideoSize] = useState('9:16');
   
