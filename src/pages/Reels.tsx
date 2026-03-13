@@ -1592,7 +1592,7 @@ const Reels = () => {
         setProgressStatus('Using cached voiceovers. Creating images...');
       } else {
         setProgress(15);
-        setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
+        setProgressStatus(`Generated ${voiceovers.length}/${activeScenes.length} voiceovers. Creating images...`);
       }
       
       // Step 2: Generate scene images and start video tasks via backend
