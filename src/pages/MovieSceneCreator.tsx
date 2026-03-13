@@ -3321,6 +3321,34 @@ const MovieSceneCreator = () => {
           </div>
         </div>
 
+        {/* Recovery banner for interrupted generation */}
+        {showRecoveryBanner && recoveryProjectId && (
+          <Card className="border-amber-500/50 bg-amber-500/5">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/10 rounded-full">
+                    <Film className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Unfinished Movie Detected</h3>
+                    <p className="text-sm text-muted-foreground">You have a movie that was interrupted. Pick up where you left off?</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button onClick={recoverProject} size="sm" className="gap-2">
+                    <Play className="w-3.5 h-3.5" />
+                    Continue
+                  </Button>
+                  <Button onClick={dismissRecovery} variant="ghost" size="sm">
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Load Dialog (rendered separately) */}
         <Dialog open={isLoadDialogOpen} onOpenChange={setIsLoadDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
