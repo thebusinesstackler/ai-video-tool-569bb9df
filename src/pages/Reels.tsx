@@ -1833,7 +1833,7 @@ const Reels = () => {
               url: v.videoUrl,
               duration: audioDuration, // Match audio duration for video generation
               audioDuration: audioDuration, // Ensure never undefined
-              caption: scene?.narration || ''
+              caption: featureToggles.captions ? (scene?.narration || '') : ''
             };
           });
           
