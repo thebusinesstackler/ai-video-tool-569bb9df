@@ -4091,6 +4091,147 @@ const Reels = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Edit Scene Sheet */}
+              <Sheet open={editingSceneNumber !== null} onOpenChange={(open) => { if (!open) setEditingSceneNumber(null); }}>
+                <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Edit Scene {editingSceneNumber}</SheetTitle>
+                  </SheetHeader>
+                  {editingSceneNumber !== null && (() => {
+                    const scene = project.generatedScenes.find(s => s.sceneNumber === editingSceneNumber);
+                    if (!scene) return null;
+                    return (
+                      <div className="space-y-4 mt-4">
+                        {/* Scene preview */}
+                        {scene.imageUrl && (
+                          <div className="aspect-[9/16] rounded-lg overflow-hidden bg-black">
+                            <img src={scene.imageUrl} alt={`Scene ${scene.sceneNumber}`} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        
+                        {/* Edit script */}
+                        <div className="space-y-2">
+                          <Label>Scene Script</Label>
+                          <Textarea
+                            value={editSceneText}
+                            onChange={(e) => setEditSceneText(e.target.value)}
+                            rows={4}
+                            className="text-sm"
+                          />
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setProject(prev => ({
+                                ...prev,
+                                generatedScenes: prev.generatedScenes.map(s => 
+                                  s.sceneNumber === editingSceneNumber ? { ...s, text: editSceneText } : s
+                                ),
+                                scenes: prev.scenes.map(s =>
+                                  s.sceneNumber === editingSceneNumber ? { ...s, narration: editSceneText } : s
+                                )
+                              }));
+                              toast({ title: "Script Updated", description: `Scene ${editingSceneNumber} script saved.` });
+                            }}
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            Save Script
+                          </Button>
+                        </div>
+
+                        {/* Regenerate image */}
+                        <div className="space-y-2">
+                          <Label>Regenerate Image</Label>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={async () => {
+                              const sceneData = project.scenes.find(s => s.sceneNumber === editingSceneNumber);
+                              if (!sceneData) return;
+                              toast({ title: "Regenerating Image...", description: `Scene ${editingSceneNumber}` });
+                              try {
+                                const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+                                  body: {
+                                    prompt: sceneData.visualDescription || editSceneText,
+                                    sceneNumber: editingSceneNumber,
+                                    aspectRatio: '9:16'
+                                  }
+                                });
+                                if (error) throw error;
+                                if (data?.imageUrl) {
+                                  setProject(prev => ({
+                                    ...prev,
+                                    generatedScenes: prev.generatedScenes.map(s =>
+                                      s.sceneNumber === editingSceneNumber ? { ...s, imageUrl: data.imageUrl, videoUrl: undefined } : s
+                                    ),
+                                    videoClips: prev.videoClips.filter(c => c.sceneNumber !== editingSceneNumber)
+                                  }));
+                                  toast({ title: "Image Regenerated!", description: `Scene ${editingSceneNumber} image updated.` });
+                                }
+                              } catch (err: any) {
+                                toast({ title: "Failed", description: err.message, variant: "destructive" });
+                              }
+                            }}
+                          >
+                            <ImageIcon className="w-3 h-3 mr-1" />
+                            Regenerate Image
+                          </Button>
+                        </div>
+
+                        {/* Regenerate video */}
+                        {scene.imageUrl && (
+                          <div className="space-y-2">
+                            <Label>Regenerate Video</Label>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full"
+                              onClick={async () => {
+                                const voiceover = project.voiceovers.find(v => v.sceneNumber === editingSceneNumber);
+                                toast({ title: "Regenerating Video...", description: `Scene ${editingSceneNumber}` });
+                                try {
+                                  const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+                                    body: {
+                                      imageUrl: scene.imageUrl,
+                                      duration: voiceover?.duration || 5,
+                                      model: 'seedance'
+                                    }
+                                  });
+                                  if (error) throw error;
+                                  if (data?.videoUrl) {
+                                    setProject(prev => ({
+                                      ...prev,
+                                      generatedScenes: prev.generatedScenes.map(s =>
+                                        s.sceneNumber === editingSceneNumber ? { ...s, videoUrl: data.videoUrl } : s
+                                      ),
+                                      videoClips: [
+                                        ...prev.videoClips.filter(c => c.sceneNumber !== editingSceneNumber),
+                                        { sceneNumber: editingSceneNumber!, videoUrl: data.videoUrl }
+                                      ]
+                                    }));
+                                    toast({ title: "Video Regenerated!", description: `Scene ${editingSceneNumber} video updated.` });
+                                  }
+                                } catch (err: any) {
+                                  toast({ title: "Failed", description: err.message, variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <Video className="w-3 h-3 mr-1" />
+                              Regenerate Video
+                            </Button>
+                          </div>
+                        )}
+
+                        <Button className="w-full" onClick={() => setEditingSceneNumber(null)}>
+                          Done
+                        </Button>
+                      </div>
+                    );
+                  })()}
+                </SheetContent>
+              </Sheet>
             )}
           </TabsContent>
 
