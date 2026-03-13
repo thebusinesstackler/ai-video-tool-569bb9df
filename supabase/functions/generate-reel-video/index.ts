@@ -531,11 +531,11 @@ serve(async (req) => {
           // Use Alibaba Wan-2.5 I2V for flexible duration (up to 60s) and 1080p quality
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
           
-          let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style. No text, no captions, no subtitles, no watermarks in the video. People should not appear to be speaking or mouthing words.`;
+          let motionPrompt = `${scene.visualDescription}. Premium cinematic motion - smooth camera movement, subtle parallax depth, professional color grading. Photorealistic, high-end commercial quality. Absolutely no text, no captions, no subtitles, no watermarks. People have closed mouths - not speaking or mouthing words.`;
           if (scene.isIntro) {
-            motionPrompt = 'Cinematic intro animation with subtle zoom in, elegant motion, attention-grabbing professional intro. High quality, smooth motion. No text, no captions, no subtitles, no watermarks, no written words.';
+            motionPrompt = 'Premium cinematic intro - elegant slow zoom in with shallow depth of field, volumetric light rays, smooth professional motion. Ultra high quality, film-grade. No text, no captions, no subtitles, no watermarks.';
           } else if (scene.isOutro) {
-            motionPrompt = 'Professional outro with gentle zoom out or pulse effect, smooth and elegant motion. High quality ending. No text, no captions, no subtitles, no watermarks, no written words.';
+            motionPrompt = 'Premium cinematic outro - elegant slow zoom out with atmospheric lighting, smooth professional motion, film-grade quality. No text, no captions, no subtitles, no watermarks.';
           }
           
           // Wan-2.5 I2V supports flexible duration - use actual audio duration
