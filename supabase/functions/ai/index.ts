@@ -3,12 +3,47 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Input validation limits
 const MAX_MESSAGE_LENGTH = 5000;
 const MAX_MESSAGES_COUNT = 50;
+
+// Extract text from various response shapes
+function extractText(message: any): string | null {
+  if (!message) return null;
+  if (typeof message.content === 'string' && message.content.trim()) {
+    return message.content;
+  }
+  // content can be an array of parts
+  if (Array.isArray(message.content)) {
+    const textParts = message.content
+      .filter((p: any) => p.type === 'text' && p.text)
+      .map((p: any) => p.text);
+    if (textParts.length > 0) return textParts.join('\n');
+  }
+  return null;
+}
+
+// Extract image URL from various response shapes
+function extractImageUrl(message: any): string | null {
+  if (!message) return null;
+  // images array (Gemini image models)
+  if (message.images && Array.isArray(message.images) && message.images.length > 0) {
+    const img = message.images[0];
+    if (typeof img === 'string') return img;
+    if (img?.image_url?.url) return img.image_url.url;
+    if (img?.url) return img.url;
+  }
+  // content parts with image_url
+  if (Array.isArray(message.content)) {
+    for (const part of message.content) {
+      if (part.type === 'image_url' && part.image_url?.url) return part.image_url.url;
+      if (part.type === 'image' && part.url) return part.url;
+    }
+  }
+  return null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -16,7 +51,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authorization header exists (JWT verified by Supabase)
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -28,7 +62,6 @@ serve(async (req) => {
     const body = await req.json();
     const { message, messages, model, modalities } = body;
 
-    // Validate inputs
     if (!message && (!messages || !Array.isArray(messages) || messages.length === 0)) {
       return new Response(JSON.stringify({ error: "Message or messages array is required" }), {
         status: 400,
@@ -36,7 +69,6 @@ serve(async (req) => {
       });
     }
 
-    // Validate single message
     if (message) {
       if (typeof message !== 'string') {
         return new Response(JSON.stringify({ error: "Message must be a string" }), {
@@ -52,7 +84,6 @@ serve(async (req) => {
       }
     }
 
-    // Validate messages array
     if (messages) {
       if (messages.length > MAX_MESSAGES_COUNT) {
         return new Response(JSON.stringify({ error: `Messages array exceeds maximum of ${MAX_MESSAGES_COUNT} messages` }), {
@@ -77,7 +108,6 @@ serve(async (req) => {
     }
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
-
     if (!apiKey) {
       console.error("LOVABLE_API_KEY not found in environment");
       return new Response(JSON.stringify({ error: "AI service unavailable" }), {
@@ -93,10 +123,7 @@ serve(async (req) => {
             role: "system",
             content: "You are a professional video script writer. Create engaging, clear video scripts optimized for the specified duration, style, audience, and tone. Focus on compelling openings, clear messaging, and strong calls to action.",
           },
-          {
-            role: "user",
-            content: message,
-          },
+          { role: "user", content: message },
         ];
 
     const requestBody: any = {
@@ -117,14 +144,20 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      console.error("AI Gateway error:", await response.text());
+      const errText = await response.text();
+      console.error("AI Gateway error:", response.status, errText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Payment required / quota exceeded" }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ error: "Failed to get AI response" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -132,17 +165,35 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const aiMessage = data.choices?.[0]?.message?.content;
+    const aiMessage = data.choices?.[0]?.message;
 
-    if (!aiMessage) {
-      console.error("No response from AI. Full data:", JSON.stringify(data).substring(0, 500));
-      return new Response(JSON.stringify({ error: "No response from AI", debug: JSON.stringify(data).substring(0, 300) }), {
+    // Extract text and image from the response
+    const textContent = extractText(aiMessage);
+    const imageUrl = extractImageUrl(aiMessage);
+
+    // Only fail if we got absolutely nothing
+    if (!textContent && !imageUrl) {
+      console.error("No text or image in AI response. finish_reason:", data.choices?.[0]?.finish_reason, "model:", data.model, "keys:", aiMessage ? Object.keys(aiMessage) : 'no message');
+      return new Response(JSON.stringify({ 
+        error: "No response from AI",
+        debug: {
+          finish_reason: data.choices?.[0]?.finish_reason,
+          model: data.model,
+          hasMessage: !!aiMessage,
+          messageKeys: aiMessage ? Object.keys(aiMessage) : [],
+        }
+      }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ response: aiMessage }), {
+    // Return unified payload — backward compatible
+    return new Response(JSON.stringify({ 
+      response: textContent || '',
+      imageUrl: imageUrl || null,
+      choices: data.choices,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

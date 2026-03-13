@@ -395,7 +395,8 @@ CRITICAL: NO text, NO captions, NO watermarks. Person has CLOSED MOUTH - NOT spe
       let generatedImageUrl = portraitImage; // Fallback to reference
       if (imageResponse.ok) {
         const imageData = await imageResponse.json();
-        const imgUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        // Use unified imageUrl first, fallback to legacy choices path
+        const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
         if (imgUrl) {
           // Upload to storage
           if (imgUrl.startsWith('data:') && user) {
