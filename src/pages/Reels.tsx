@@ -3028,7 +3028,8 @@ const Reels = () => {
               </>
             )}
 
-            {/* Lip Sync Mode - Expandable */}
+            {/* Lip Sync Mode - Expandable (Advanced only) */}
+            {isAdvanced && (
             <Collapsible open={lipSyncExpanded} onOpenChange={setLipSyncExpanded}>
               <Card className="bg-card border-border overflow-hidden">
                 <CollapsibleTrigger asChild>
@@ -3374,9 +3375,10 @@ const Reels = () => {
               </CollapsibleContent>
               </Card>
             </Collapsible>
+            )}
 
-            {/* Intro/Outro Templates - Only visible when enabled from sidebar */}
-            {featureToggles.introOutro && (
+            {/* Intro/Outro Templates - Only visible when enabled from sidebar (Advanced only) */}
+            {isAdvanced && featureToggles.introOutro && (
               <Collapsible open={templateSectionOpen} onOpenChange={setTemplateSectionOpen}>
                 <Card className="bg-card border-border">
                   <CollapsibleTrigger asChild>
@@ -3421,8 +3423,8 @@ const Reels = () => {
               </Collapsible>
             )}
 
-            {/* Generated Scenes */}
-            {project.scenes.length > 0 && (
+            {/* Generated Scenes (Advanced only - beginner skips straight to video) */}
+            {isAdvanced && project.scenes.length > 0 && (
               <Card className="bg-card border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -3828,8 +3830,8 @@ const Reels = () => {
               </Card>
             )}
 
-            {/* Preview Progress */}
-            {isGeneratingPreview && (
+            {/* Preview Progress (Advanced only) */}
+            {isAdvanced && isGeneratingPreview && (
               <Card className="bg-card border-border">
                 <CardContent className="pt-6">
                   <div className="space-y-2">
@@ -3846,8 +3848,8 @@ const Reels = () => {
               </Card>
             )}
 
-            {/* Scene Preview */}
-            {previewScenes.length > 0 && !project.videoBlobUrl && (
+            {/* Scene Preview (Advanced only) */}
+            {isAdvanced && previewScenes.length > 0 && !project.videoBlobUrl && (
               <div className="space-y-4">
                 <ScenePreview
                   scenes={previewScenes}
