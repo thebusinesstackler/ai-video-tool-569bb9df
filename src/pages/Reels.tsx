@@ -1494,6 +1494,7 @@ const Reels = () => {
       return;
     }
 
+    if (abortRef.current?.signal.aborted) return;
     setIsGenerating(true);
     setVideoError(null);
     setProject(prev => ({ ...prev, status: 'generating-video' }));
