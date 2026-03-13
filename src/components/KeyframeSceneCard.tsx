@@ -283,7 +283,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
             </div>
           )}
 
-          {/* Dialogue — Read-Only Chat Bubbles */}
+          {/* Dialogue — Formatted Chat Bubbles */}
           {scene.dialogue && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -294,10 +294,55 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                   <Wand2 className="w-3 h-3 mr-1" />Regenerate
                 </Button>
               </div>
-              <div className="p-3 bg-muted/30 rounded-lg border max-h-32 overflow-y-auto">
-                <p className="text-sm italic text-muted-foreground whitespace-pre-wrap line-clamp-4">
-                  {typeof scene.dialogue === 'string' ? scene.dialogue : ''}
-                </p>
+              <div className="p-3 bg-muted/30 rounded-lg border max-h-52 overflow-y-auto space-y-2">
+                {(() => {
+                  const raw = typeof scene.dialogue === 'string' ? scene.dialogue : '';
+                  // Parse lines like: Sarah: "Hello there" or SARAH: Hello there
+                  const lines = raw.split('\n').filter(l => l.trim());
+                  const parsed = lines.map(line => {
+                    const match = line.match(/^([A-Za-z\s]+?):\s*"?(.+?)"?\s*$/);
+                    if (match) return { character: match[1].trim(), text: match[2].trim() };
+                    return { character: '', text: line.trim() };
+                  });
+                  // Assign alternating colors per unique character
+                  const charColors = new Map<string, number>();
+                  let colorIdx = 0;
+                  parsed.forEach(p => {
+                    if (p.character && !charColors.has(p.character.toLowerCase())) {
+                      charColors.set(p.character.toLowerCase(), colorIdx++);
+                    }
+                  });
+                  const bubbleStyles = [
+                    'bg-primary/10 border-primary/20',
+                    'bg-accent border-accent/50',
+                    'bg-secondary border-secondary/50',
+                    'bg-muted border-border',
+                  ];
+                  return parsed.map((p, i) => {
+                    if (!p.character) {
+                      // Stage direction or action line
+                      return (
+                        <p key={i} className="text-xs text-muted-foreground/70 italic text-center px-4">
+                          {p.text}
+                        </p>
+                      );
+                    }
+                    const cIdx = charColors.get(p.character.toLowerCase()) || 0;
+                    const isEven = cIdx % 2 === 0;
+                    return (
+                      <div key={i} className={`flex ${isEven ? 'justify-start' : 'justify-end'}`}>
+                        <div className={`max-w-[85%] rounded-xl px-3 py-2 border ${bubbleStyles[cIdx % bubbleStyles.length]}`}>
+                          <p className="text-[10px] font-bold text-foreground/70 uppercase tracking-wider mb-0.5">
+                            {p.character}
+                          </p>
+                          <p className="text-sm text-foreground leading-relaxed">
+                            "{p.text}"
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
