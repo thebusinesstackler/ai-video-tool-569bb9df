@@ -498,7 +498,7 @@ const Reels = () => {
     setTopic(draft.topic || '');
     setSelectedSceneCount(draft.selectedSceneCount || '4');
     setSelectedSceneDuration(draft.selectedSceneDuration || '12');
-    setSelectedVoice(draft.selectedVoice || 'en-US-Journey-F');
+    setSelectedVoice(draft.selectedVoice || 'ai-auto');
     setSelectedVideoSize(draft.selectedVideoSize || '9:16');
     setTransitionStyle((draft.transitionStyle as any) || 'crossfade');
     setHookStyle(draft.hookStyle || 'auto');
