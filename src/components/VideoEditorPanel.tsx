@@ -83,10 +83,13 @@ export const VideoEditorPanel: React.FC<VideoEditorPanelProps> = ({
   const [aiInput, setAiInput] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [activeTab, setActiveTab] = useState('shots');
+  const [editHistory, setEditHistory] = useState<string[]>([]);
 
   const handleAiSubmit = async () => {
     if (!aiInput.trim()) return;
     setIsAiThinking(true);
+    const instruction = aiInput;
+    setEditHistory(prev => [instruction, ...prev]);
     try {
       await onAiEditRequest(aiInput);
       setAiInput('');
