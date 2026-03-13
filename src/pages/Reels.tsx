@@ -375,7 +375,7 @@ const Reels = () => {
   const [showGenerateCharacter, setShowGenerateCharacter] = useState(false);
   const [generateCharacterPrompt, setGenerateCharacterPrompt] = useState('');
   const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
-  
+  const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3 | 4>(1); // 1=topic, 2=script review, 3=character, 4=voice+generate
   // Voice preview state
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
@@ -2033,9 +2033,17 @@ const Reels = () => {
 
     if (abortRef.current.signal.aborted) return;
     
-    const generatedScenes = await generateScripts();
+    // In beginner mode, scripts may already be generated (from step 2 review)
+    // Only generate scripts if we don't have them
+    let generatedScenes: Scene[] | null = null;
+    if (project.scenes.length > 0 && isBeginner) {
+      console.log('Beginner mode: using pre-generated scripts from review step');
+      generatedScenes = project.scenes;
+    } else {
+      generatedScenes = await generateScripts();
+    }
     
-    if (abortRef.current.signal.aborted) return;
+    if (abortRef.current?.signal.aborted) return;
     
     if (generatedScenes && generatedScenes.length > 0) {
       // Pass scenes directly to avoid stale state issues
@@ -2077,6 +2085,7 @@ const Reels = () => {
     setCurrentReelSaved(false);
     // Clear auto-saved draft
     clearDraft();
+    setBeginnerStep(1);
   };
 
   const handleDownloadVideo = async () => {
@@ -2718,153 +2727,298 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             {isBeginner && (
               <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
                 <CardContent className="pt-8 pb-8 space-y-6">
-                  {/* Step 1: Topic */}
-                  <div className="text-center space-y-2">
-                    <h2 className="text-2xl font-bold text-foreground">What's your reel about?</h2>
-                    <p className="text-muted-foreground">Type a topic, then generate a character for your reel.</p>
-                  </div>
-
-                  <Textarea
-                    placeholder="E.g., 5 productivity tips for remote workers, How to make the perfect coffee..."
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    className="min-h-[100px] bg-background border-border resize-none text-base"
-                    disabled={isGenerating}
-                  />
-
-                  {/* Hook Style Selector */}
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Hook Style (First Scene)</Label>
-                    <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Choose a hook style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">🤖 Auto (AI picks best)</SelectItem>
-                        <SelectItem value="question">❓ Question Hook</SelectItem>
-                        <SelectItem value="bold-claim">💥 Bold Claim</SelectItem>
-                        <SelectItem value="story">📖 Story / Personal</SelectItem>
-                        <SelectItem value="statistic">📊 Shocking Statistic</SelectItem>
-                        <SelectItem value="myth-buster">🔥 Myth Buster</SelectItem>
-                        <SelectItem value="challenge">🎯 Challenge / Dare</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Step 2: Generate Character */}
-                  <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-primary" />
-                      <Label className="text-sm font-medium">Step 2: Your Character</Label>
-                    </div>
-                    
-                    {portraitPreview ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <img src={portraitPreview} alt="Character" className="w-16 h-16 rounded-lg object-cover border border-border" />
-                          <div className="flex-1">
-                            <p className="text-sm text-foreground font-medium">Character ready! ✨</p>
-                            <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
-                            {selectedTwinId && <p className="text-[10px] text-primary">Saved to AI Twins</p>}
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); }}>
-                            <X className="w-4 h-4" />
-                          </Button>
+                  {/* Step indicator */}
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    {[1, 2, 3, 4].map(step => (
+                      <div key={step} className="flex items-center gap-1">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                          beginnerStep === step ? 'bg-primary text-primary-foreground scale-110' :
+                          beginnerStep > step ? 'bg-primary/30 text-primary' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {beginnerStep > step ? '✓' : step}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); generateCharacter(); }}
-                          disabled={isGenerating || isGeneratingCharacter}
-                        >
-                          {isGeneratingCharacter ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerating...</>
-                          ) : (
-                            <><RefreshCw className="w-4 h-4 mr-2" />Regenerate Character</>
-                          )}
-                        </Button>
+                        {step < 4 && <div className={`w-6 h-0.5 ${beginnerStep > step ? 'bg-primary/50' : 'bg-muted'}`} />}
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Describe your character or leave blank — AI will pick one from your topic"
-                          value={generateCharacterPrompt}
-                          onChange={(e) => setGenerateCharacterPrompt(e.target.value)}
-                          disabled={isGenerating || isGeneratingCharacter}
-                          className="bg-background"
-                        />
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={generateCharacter}
-                          disabled={isGenerating || isGeneratingCharacter || (!generateCharacterPrompt.trim() && !topic.trim())}
-                        >
-                          {isGeneratingCharacter ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating 5 shots...</>
-                          ) : (
-                            <><Wand2 className="w-4 h-4 mr-2" />Generate Character (5 Shots)</>
-                          )}
-                        </Button>
-                        <p className="text-xs text-muted-foreground text-center">
-                          {generateCharacterPrompt.trim() ? 'AI will create 5 angle shots and save as AI Twin' : 'Leave blank — AI will derive the character from your topic'}
-                        </p>
-                      </div>
-                    )}
+                    ))}
                   </div>
 
-                  {/* Step 3: Voice (AI auto-selects but user can change) */}
-                  <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <Mic className="w-4 h-4 text-primary" />
-                      <Label className="text-sm font-medium">Step 3: Voice</Label>
-                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                        {selectedVoice === 'ai-auto' ? 'AI Auto-Select' : 'Custom'}
-                      </Badge>
-                    </div>
-                    
-                    <VoiceSelector
-                      selectedVoice={selectedVoice}
-                      onVoiceSelect={setSelectedVoice}
-                      compact
-                    />
-                    
-                    {selectedVoice !== 'ai-auto' && !selectedVoice.startsWith('clone:') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={previewVoice}
+                  {/* ===== STEP 1: Topic & Hook ===== */}
+                  {beginnerStep === 1 && (
+                    <>
+                      <div className="text-center space-y-2">
+                        <h2 className="text-2xl font-bold text-foreground">What's your reel about?</h2>
+                        <p className="text-muted-foreground">Enter your topic and we'll build the script for you.</p>
+                      </div>
+
+                      <Textarea
+                        placeholder="E.g., 5 productivity tips for remote workers, How to make the perfect coffee..."
+                        value={topic}
+                        onChange={(e) => setTopic(e.target.value)}
+                        className="min-h-[100px] bg-background border-border resize-none text-base"
                         disabled={isGenerating}
+                      />
+
+                      <div className="space-y-2">
+                        <Label className="text-sm text-muted-foreground">Hook Style (First Scene)</Label>
+                        <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
+                          <SelectTrigger className="bg-background">
+                            <SelectValue placeholder="Choose a hook style" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">🤖 Auto (AI picks best)</SelectItem>
+                            <SelectItem value="question">❓ Question Hook</SelectItem>
+                            <SelectItem value="bold-claim">💥 Bold Claim</SelectItem>
+                            <SelectItem value="story">📖 Story / Personal</SelectItem>
+                            <SelectItem value="statistic">📊 Shocking Statistic</SelectItem>
+                            <SelectItem value="myth-buster">🔥 Myth Buster</SelectItem>
+                            <SelectItem value="challenge">🎯 Challenge / Dare</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Button
+                        onClick={async () => {
+                          const scenes = await generateScripts();
+                          if (scenes && scenes.length > 0) {
+                            setBeginnerStep(2);
+                          }
+                        }}
+                        disabled={isGenerating || !topic.trim()}
+                        className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                        size="lg"
                       >
-                        {isPreviewingVoice ? (
-                          <><MicOff className="w-3 h-3 mr-1" />Stop Preview</>
+                        {isGenerating ? (
+                          <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Building your script...</>
                         ) : (
-                          <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                          <><FileText className="w-5 h-5 mr-2" />Generate Script ✨</>
                         )}
                       </Button>
-                    )}
-                  </div>
+                    </>
+                  )}
 
-                  {/* Generate / Stop Button */}
-                  {isGenerating ? (
-                    <Button 
-                      onClick={stopGeneration} 
-                      variant="destructive"
-                      className="w-full" 
-                      size="lg"
-                    >
-                      <X className="w-5 h-5 mr-2" />Stop Generation
-                    </Button>
-                  ) : (
-                    <Button 
-                      onClick={generateAll} 
-                      disabled={!topic.trim()} 
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
-                      size="lg"
-                    >
-                      <Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨
-                    </Button>
+                  {/* ===== STEP 2: Script Review ===== */}
+                  {beginnerStep === 2 && project.scenes.length > 0 && (
+                    <>
+                      <div className="text-center space-y-2">
+                        <h2 className="text-2xl font-bold text-foreground">Review Your Script</h2>
+                        <p className="text-muted-foreground">
+                          {project.scenes.length} scenes • {project.scenes.reduce((acc, s) => acc + (s.duration || 0), 0)}s total duration
+                        </p>
+                      </div>
+
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                        {project.scenes.map((scene, idx) => (
+                          <div key={idx} className="p-3 rounded-lg border border-border bg-background space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline" className="text-[10px]">
+                                {(scene as any).isIntro ? '🎬 Intro' : (scene as any).isOutro ? '📢 Outro' : (scene as any).isCutScene ? '🎞️ Cut' : `Scene ${scene.sceneNumber}`}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground">{scene.duration}s</span>
+                            </div>
+                            {scene.narration ? (
+                              <Textarea
+                                value={scene.narration}
+                                onChange={(e) => {
+                                  const newNarration = e.target.value;
+                                  setProject(prev => ({
+                                    ...prev,
+                                    scenes: prev.scenes.map((s, i) => i === idx ? { ...s, narration: newNarration } : s)
+                                  }));
+                                }}
+                                className="text-sm bg-muted/30 border-0 resize-none min-h-[60px]"
+                                rows={2}
+                              />
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">Silent scene</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground line-clamp-1">📷 {(scene as any).visualDescription?.substring(0, 80)}...</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setBeginnerStep(1)}
+                          className="flex-1"
+                        >
+                          ← Back
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={async () => {
+                            const scenes = await generateScripts();
+                            if (scenes && scenes.length > 0) {
+                              toast({ title: "Script Regenerated", description: "New script created. Review and continue." });
+                            }
+                          }}
+                          disabled={isGenerating}
+                          className="flex-1"
+                        >
+                          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                          Regenerate
+                        </Button>
+                        <Button
+                          onClick={() => setBeginnerStep(3)}
+                          className="flex-[2] bg-gradient-to-r from-primary to-primary/80"
+                        >
+                          Looks Good, Continue →
+                        </Button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ===== STEP 3: Character ===== */}
+                  {beginnerStep === 3 && (
+                    <>
+                      <div className="text-center space-y-2">
+                        <h2 className="text-2xl font-bold text-foreground">Choose Your Character</h2>
+                        <p className="text-muted-foreground">Generate a character or leave blank to skip.</p>
+                      </div>
+
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                        {portraitPreview ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              <img src={portraitPreview} alt="Character" className="w-16 h-16 rounded-lg object-cover border border-border" />
+                              <div className="flex-1">
+                                <p className="text-sm text-foreground font-medium">Character ready! ✨</p>
+                                <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
+                                {selectedTwinId && <p className="text-[10px] text-primary">Saved to AI Twins</p>}
+                              </div>
+                              <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); }}>
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); generateCharacter(); }}
+                              disabled={isGenerating || isGeneratingCharacter}
+                            >
+                              {isGeneratingCharacter ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerating...</>
+                              ) : (
+                                <><RefreshCw className="w-4 h-4 mr-2" />Regenerate Character</>
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Input
+                              placeholder="Describe your character or leave blank — AI will pick one from your topic"
+                              value={generateCharacterPrompt}
+                              onChange={(e) => setGenerateCharacterPrompt(e.target.value)}
+                              disabled={isGenerating || isGeneratingCharacter}
+                              className="bg-background"
+                            />
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={generateCharacter}
+                              disabled={isGenerating || isGeneratingCharacter || (!generateCharacterPrompt.trim() && !topic.trim())}
+                            >
+                              {isGeneratingCharacter ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating 5 shots...</>
+                              ) : (
+                                <><Wand2 className="w-4 h-4 mr-2" />Generate Character (5 Shots)</>
+                              )}
+                            </Button>
+                            <p className="text-xs text-muted-foreground text-center">
+                              {generateCharacterPrompt.trim() ? 'AI will create 5 angle shots and save as AI Twin' : 'Leave blank — AI will derive the character from your topic'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setBeginnerStep(2)} className="flex-1">
+                          ← Back
+                        </Button>
+                        <Button
+                          onClick={() => setBeginnerStep(4)}
+                          className="flex-[2] bg-gradient-to-r from-primary to-primary/80"
+                          disabled={isGeneratingCharacter}
+                        >
+                          {portraitPreview ? 'Continue →' : 'Skip Character →'}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ===== STEP 4: Voice & Generate ===== */}
+                  {beginnerStep === 4 && (
+                    <>
+                      <div className="text-center space-y-2">
+                        <h2 className="text-2xl font-bold text-foreground">Voice & Generate</h2>
+                        <p className="text-muted-foreground">Pick a voice, then create your reel.</p>
+                      </div>
+
+                      <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Mic className="w-4 h-4 text-primary" />
+                          <Label className="text-sm font-medium">Voice</Label>
+                          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                            {selectedVoice === 'ai-auto' ? 'AI Auto-Select' : 'Custom'}
+                          </Badge>
+                        </div>
+                        
+                        <VoiceSelector
+                          selectedVoice={selectedVoice}
+                          onVoiceSelect={setSelectedVoice}
+                          compact
+                        />
+                        
+                        {selectedVoice !== 'ai-auto' && !selectedVoice.startsWith('clone:') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={previewVoice}
+                            disabled={isGenerating}
+                          >
+                            {isPreviewingVoice ? (
+                              <><MicOff className="w-3 h-3 mr-1" />Stop Preview</>
+                            ) : (
+                              <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Summary */}
+                      <div className="p-3 rounded-lg bg-muted/30 border border-border text-sm space-y-1">
+                        <p className="text-muted-foreground">📝 <span className="text-foreground font-medium">{project.scenes.length} scenes</span> • {project.scenes.reduce((acc, s) => acc + (s.duration || 0), 0)}s total</p>
+                        {portraitPreview && <p className="text-muted-foreground">👤 <span className="text-foreground font-medium">Character set</span></p>}
+                        <p className="text-muted-foreground">🎙️ <span className="text-foreground font-medium">{selectedVoice === 'ai-auto' ? 'AI Auto-Select voice' : selectedVoice.replace(/_/g, ' ')}</span></p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setBeginnerStep(3)} className="flex-1">
+                          ← Back
+                        </Button>
+                        {isGenerating ? (
+                          <Button 
+                            onClick={stopGeneration} 
+                            variant="destructive"
+                            className="flex-[2]" 
+                            size="lg"
+                          >
+                            <X className="w-5 h-5 mr-2" />Stop Generation
+                          </Button>
+                        ) : (
+                          <Button 
+                            onClick={generateAll} 
+                            disabled={!topic.trim()} 
+                            className="flex-[2] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
+                            size="lg"
+                          >
+                            <Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨
+                          </Button>
+                        )}
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>
