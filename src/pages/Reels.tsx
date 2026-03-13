@@ -1765,23 +1765,33 @@ const Reels = () => {
           // Collect audio URLs for stitching
           let audioUrlsForStitch: string[] = [];
           
-          // IMPORTANT: Only skip audio overlay if videos ACTUALLY have embedded audio
-          const shouldSkipAudioOverlay = hasEmbeddedAudio;
+          // HYBRID AUDIO: VEO 3 scenes have embedded audio, Kling scenes need TTS overlay
+          // Check if ALL scenes have embedded audio (pure VEO 3) or if we need per-scene handling
+          const allScenesHaveEmbeddedAudio = hasEmbeddedAudio && videoTasks.every((t: any) => t.hasEmbeddedAudio);
+          const someScenesNeedAudio = !allScenesHaveEmbeddedAudio;
           
           console.log('Audio overlay decision:', { 
-            hasEmbeddedAudio, 
-            enableLipSync,
-            shouldSkipAudioOverlay,
-            reason: shouldSkipAudioOverlay ? 'Videos have embedded audio from lip sync' : 'Videos need audio overlay'
+            hasEmbeddedAudio,
+            allScenesHaveEmbeddedAudio,
+            someScenesNeedAudio,
+            perSceneEmbeddedAudio,
+            reason: allScenesHaveEmbeddedAudio ? 'All videos have embedded audio (VEO 3)' : 'Some scenes need TTS audio overlay'
           });
           
-          if (!shouldSkipAudioOverlay) {
-            // Generate voiceovers if needed
-            if (sortedAudios.length === 0 || sortedAudios.every(a => !a.audioUrl || a.audioUrl.trim() === '')) {
-              console.log('No voiceovers available, generating now...');
-              setProgressStatus('Generating voiceovers...');
+          if (someScenesNeedAudio) {
+            // Generate voiceovers ONLY for scenes that DON'T have embedded audio
+            const scenesNeedingAudio = activeScenes.filter(scene => !perSceneEmbeddedAudio[scene.sceneNumber]);
+            
+            if (scenesNeedingAudio.length > 0 && (sortedAudios.length === 0 || sortedAudios.every(a => !a.audioUrl || a.audioUrl.trim() === ''))) {
+              console.log(`Generating voiceovers for ${scenesNeedingAudio.length} scenes without embedded audio...`);
+              setProgressStatus('Generating voiceovers for non-VEO scenes...');
               
               for (const scene of activeScenes) {
+                // Skip scenes with embedded audio (VEO 3 scenes)
+                if (perSceneEmbeddedAudio[scene.sceneNumber]) {
+                  voiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 5 });
+                  continue;
+                }
                 if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
                   voiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 2 });
                   continue;
@@ -1815,8 +1825,9 @@ const Reels = () => {
               sortedAudios.push(...voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber));
             }
             
+            // Only include audio for scenes that need overlay (non-VEO 3 scenes)
             audioUrlsForStitch = sortedAudios
-              .filter(a => a.audioUrl && a.audioUrl.trim() !== '')
+              .filter(a => a.audioUrl && a.audioUrl.trim() !== '' && !perSceneEmbeddedAudio[a.sceneNumber])
               .map(a => a.storageUrl || a.audioUrl);
           }
 
