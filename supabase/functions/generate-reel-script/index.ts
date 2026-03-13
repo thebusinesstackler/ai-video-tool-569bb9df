@@ -313,6 +313,12 @@ BACKGROUND CONSISTENCY (CRITICAL):
 - Only change camera angle and character pose, NOT the environment
 - Example: If scene 1 is in a modern office, ALL scenes must be in that same modern office
 
+NO TEXT IN VISUALS (CRITICAL):
+- Visual descriptions must NEVER include text, captions, subtitles, titles, or written words
+- Do NOT describe text overlays, text animations, or any form of written content in visualDescription
+- If showing people, describe them with CLOSED MOUTHS or slight smiles - NEVER speaking, talking, or mouthing words
+- The voiceover audio is separate - the visuals should show people listening, thinking, posing, or doing activities - NOT speaking
+
 VISUAL CONTINUITY:
 - If showing a person/character, describe them IDENTICALLY in each scene
 - Same clothing, same features, same styling throughout
