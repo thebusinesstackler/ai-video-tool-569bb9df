@@ -3378,7 +3378,7 @@ const Reels = () => {
             )}
 
             {/* Intro/Outro Templates - Only visible when enabled from sidebar (Advanced only) */}
-            {featureToggles.introOutro && (
+            {isAdvanced && featureToggles.introOutro && (
               <Collapsible open={templateSectionOpen} onOpenChange={setTemplateSectionOpen}>
                 <Card className="bg-card border-border">
                   <CollapsibleTrigger asChild>
