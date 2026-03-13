@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { downloadVideo } from '@/lib/reelVideoCreator';
-import { stitchVideosWithAudio } from '@/lib/videoStitch';
+import { canvasStitchVideos } from '@/lib/canvasStitch';
 import { useCreatomate } from '@/hooks/useCreatomate';
 import { getAudioDuration } from '@/lib/audioUtils';
 import { TemplateSelector } from '@/components/TemplateSelector';
