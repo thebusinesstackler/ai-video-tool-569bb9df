@@ -1105,15 +1105,6 @@ const MovieSceneCreator = () => {
       return;
     }
 
-    if (selectedTwins.length === 0) {
-      toast({
-        title: "Select AI Twins",
-        description: "Please select at least one AI Twin to star in your movie.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
 
