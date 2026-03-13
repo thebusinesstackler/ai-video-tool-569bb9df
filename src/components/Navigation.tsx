@@ -41,6 +41,7 @@ const navigationItems = [
   { name: 'AI Twin', href: '/ai-twin', icon: ScanFace },
   { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation },
   { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote },
+  { name: 'Commercial Studio', href: '/commercial-studio', icon: Film },
   { name: 'Characters', href: '/characters', icon: UsersIcon },
   { name: 'Projects', href: '/projects', icon: PlayCircleIcon },
   { name: 'Settings', href: '/settings', icon: SettingsIcon },
