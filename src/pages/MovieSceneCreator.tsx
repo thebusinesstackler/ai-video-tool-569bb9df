@@ -1560,7 +1560,112 @@ const MovieSceneCreator = () => {
     }
   };
 
-  const generateSceneImage = async (sceneNumber: number, imagePrompt: string) => {
+  // Continue video generation after user previews scenes
+  const continueVideoGeneration = async () => {
+    const scenesWithDialogue = pendingVideoGeneration;
+    if (!scenesWithDialogue) return;
+
+    setIsPreviewingBeforeVideo(false);
+    setPendingVideoGeneration(null);
+    setIsGeneratingAll(true);
+    setGenerateAllStep('Generating scene videos...');
+    setGenerateAllProgress(85);
+
+    let videoErrors = 0;
+
+    try {
+      for (let i = 0; i < scenesWithDialogue.length; i++) {
+        const scene = scenesWithDialogue[i];
+        const imageToUse = (scene as any).startFrame?.generatedImage || scene.generatedImage;
+        
+        if (!imageToUse) {
+          console.warn(`Skipping video for scene ${scene.sceneNumber} — no image`);
+          videoErrors++;
+          continue;
+        }
+
+        setGenerateAllStep(`Generating video ${i + 1}/${scenesWithDialogue.length}...`);
+        setGenerateAllProgress(85 + Math.floor((i / scenesWithDialogue.length) * 12));
+
+        try {
+          const result = await generateSceneVideoAndWait(scenesWithDialogue[i] as MovieSceneWithKeyframes, scenesWithDialogue as MovieSceneWithKeyframes[]);
+          (scenesWithDialogue[i] as any).generatedVideo = result.videoUrl;
+          (scenesWithDialogue[i] as any).transitionAudioContent = result.audioContent;
+          setScenes([...scenesWithDialogue]);
+          setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+        } catch (videoErr: any) {
+          console.error(`Error generating video for scene ${scene.sceneNumber}:`, videoErr);
+          videoErrors++;
+          if (videoErr.message?.includes('credits') || videoErr.message?.includes('Insufficient')) {
+            toast({
+              title: "Video Credits Exhausted",
+              description: "Your video generation credits have run out. Videos generated so far are saved.",
+              variant: "destructive"
+            });
+            break;
+          }
+        }
+      }
+
+      setGenerateAllProgress(97);
+      setScenes([...scenesWithDialogue]);
+
+      // Auto-stitch all videos into final movie
+      const scenesWithVideos = scenesWithDialogue.filter(s => s.generatedVideo);
+      if (scenesWithVideos.length >= 2) {
+        setGenerateAllStep('Stitching final movie...');
+        try {
+          const videosToStitch = scenesWithVideos.map(s => s.generatedVideo as string);
+          const audiosToStitch = scenesWithVideos
+            .map(s => (s as any).transitionAudioContent)
+            .filter(Boolean)
+            .map((audioBase64: string) => `data:audio/mp3;base64,${audioBase64}`);
+
+          const stitchedBlob = await stitchVideosWithAudio({
+            videoUrls: videosToStitch,
+            audioUrls: audiosToStitch.length > 0 ? audiosToStitch : undefined,
+            onProgress: () => {}
+          });
+
+          const url = URL.createObjectURL(stitchedBlob);
+          setStitchedVideoUrl(url);
+
+          if (currentProjectId) {
+            await supabase
+              .from('movie_projects')
+              .update({ stitched_video_url: url, updated_at: new Date().toISOString() })
+              .eq('id', currentProjectId);
+          }
+        } catch (stitchErr) {
+          console.error('Error stitching final movie:', stitchErr);
+        }
+      }
+
+      setGenerateAllProgress(100);
+      setGenerateAllStep('Complete!');
+
+      const successCount = scenesWithDialogue.filter(s => s.generatedVideo).length;
+      toast({
+        title: "🎬 Movie Complete!",
+        description: `Generated ${successCount}/${scenesWithDialogue.length} scene videos${scenesWithVideos.length >= 2 ? ' and stitched your movie' : ''}. ${videoErrors > 0 ? `${videoErrors} scene(s) had errors.` : ''}`,
+      });
+
+      setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+    } catch (error: any) {
+      console.error('Error in video generation:', error);
+      toast({
+        title: "Video Generation Failed",
+        description: error.message || "Failed to generate videos.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingAll(false);
+      setGenerateAllStep('');
+      setGenerateAllProgress(0);
+    }
+  };
+
+
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     
     // Enhance prompt with camera angle and lighting if selected
