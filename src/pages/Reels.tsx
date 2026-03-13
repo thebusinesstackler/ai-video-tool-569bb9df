@@ -2252,129 +2252,49 @@ const Reels = () => {
       setProgressStatus('Stitching video clips...');
       setProgress(40);
 
-      // Always use Creatomate (server-side) first, with browser fallback
-        const clips = sortedVideos.map((clip, index) => {
-          const audio = sortedAudios.find(a => a.sceneNumber === clip.sceneNumber);
-          const scene = project.generatedScenes.find(s => s.sceneNumber === clip.sceneNumber);
-          return {
-            url: clip.videoUrl,
-            duration: audio?.duration || 5,
-            caption: scene?.text || '',
-            audioDuration: audio?.duration
-          };
-        });
+      const videoUrls = sortedVideos.map(v => v.videoUrl);
+      const audioUrlsForStitch = sortedAudios
+        .filter(a => a.audioUrl && a.audioUrl.trim() !== '')
+        .map(a => a.audioUrl);
 
-        const result = await stitchWithCreatomate({
-          clips,
-          audioUrl: mergedAudioUrl,
-          transition: transitionStyle,
-          captionStyle: 'bottom',
-          transitionDuration: transitionStyle === 'crossfade' ? 1.0 : 0.6
-        });
+      const stitchedBlob = await canvasStitchVideos({
+        videoUrls,
+        audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+        onProgress: (percent) => {
+          setProgress(40 + percent * 0.5);
+          setProgressStatus(`Stitching... ${Math.round(percent)}%`);
+        },
+        onStatus: (s) => setProgressStatus(s)
+      });
 
-        if (result.success && result.videoUrl) {
-          // Save to storage
-          let savedVideoUrl = result.videoUrl;
-          if (user) {
-            try {
-              const videoResponse = await fetch(result.videoUrl);
-              const videoBlob = await videoResponse.blob();
-              const fileName = `videos/${Date.now()}-stitched.mp4`;
-              
-              await supabase.storage.from('reels').upload(fileName, videoBlob, {
-                contentType: 'video/mp4',
-                upsert: true
-              });
-              
-              const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-              savedVideoUrl = publicUrl.publicUrl;
-              
-              // Save to database
-              const thumbnailUrl = project.generatedScenes[0]?.imageUrl || null;
-              const totalDuration = project.voiceovers.reduce((acc, a) => acc + a.duration, 0);
-              
-              const scenesWithAllAssets = project.generatedScenes.map((scene) => {
-                const video = project.videoClips.find(v => v.sceneNumber === scene.sceneNumber);
-                const audio = project.voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
-                return {
-                  ...scene,
-                  videoUrl: video?.videoUrl || null,
-                  audioUrl: audio?.storageUrl || null,
-                  audioDuration: audio?.duration || null
-                };
-              });
-
-              await supabase.from('reels').insert([{
-                user_id: user.id,
-                topic: project.topic,
-                video_url: savedVideoUrl,
-                thumbnail_url: thumbnailUrl,
-                scenes: scenesWithAllAssets as unknown as any,
-                total_duration: totalDuration
-              }]);
-
-              fetchSavedReels();
-            } catch (e) {
-              console.error('Failed to save stitched video:', e);
-            }
+      videoBlobRef.current = stitchedBlob;
+      const blobUrl = URL.createObjectURL(stitchedBlob);
+      let savedVideoUrl = blobUrl;
+      
+      if (user) {
+        try {
+          const fileName = `${user.id}/${Date.now()}-stitched.mp4`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('reels')
+            .upload(fileName, stitchedBlob, { contentType: 'video/mp4' });
+          if (!uploadError && uploadData) {
+            const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+            savedVideoUrl = publicUrl.publicUrl;
           }
-
-          setProject(prev => ({
-            ...prev,
-            videoBlobUrl: savedVideoUrl,
-            videoClips: [], // Clear clips since we have stitched video
-            status: 'complete'
-          }));
-
-          toast({
-            title: "Videos Stitched & Saved!",
-            description: "All clips merged and saved to My Reels."
+          const thumbnailUrl = project.generatedScenes[0]?.imageUrl || null;
+          const totalDuration = project.voiceovers.reduce((acc, a) => acc + a.duration, 0);
+          const scenesWithAllAssets = project.generatedScenes.map((scene) => {
+            const video = project.videoClips.find(v => v.sceneNumber === scene.sceneNumber);
+            const audio = project.voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
+            return { ...scene, videoUrl: video?.videoUrl || null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
           });
-        } else {
-          // Creatomate failed - automatically fall back to browser stitching
-          console.warn('Creatomate manual stitch failed, falling back to canvas stitcher:', result.error);
-          setProgressStatus('Server failed, stitching with built-in engine...');
-          
-          const videoUrls = sortedVideos.map(v => v.videoUrl);
-          const stitchedBlob = await canvasStitchVideos({
-            videoUrls,
-            audioUrls: mergedAudioUrl ? [mergedAudioUrl] : [],
-            onProgress: (percent) => {
-              setProgress(40 + percent * 0.5);
-              setProgressStatus(`Stitching... ${Math.round(percent)}%`);
-            },
-            onStatus: (s) => setProgressStatus(s)
-          });
+          await supabase.from('reels').insert([{ user_id: user.id, topic: project.topic, video_url: savedVideoUrl, thumbnail_url: thumbnailUrl, scenes: scenesWithAllAssets as unknown as any, total_duration: totalDuration }]);
+          fetchSavedReels();
+        } catch (e) { console.error('Failed to save:', e); }
+      }
 
-          videoBlobRef.current = stitchedBlob;
-          const blobUrl = URL.createObjectURL(stitchedBlob);
-          let savedVideoUrl = blobUrl;
-          
-          if (user) {
-            try {
-              const fileName = `${user.id}/${Date.now()}-stitched.mp4`;
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('reels')
-                .upload(fileName, stitchedBlob, { contentType: 'video/mp4' });
-              if (!uploadError && uploadData) {
-                const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                savedVideoUrl = publicUrl.publicUrl;
-              }
-              const thumbnailUrl = project.generatedScenes[0]?.imageUrl || null;
-              const totalDuration = project.voiceovers.reduce((acc, a) => acc + a.duration, 0);
-              const scenesWithAllAssets = project.generatedScenes.map((scene) => {
-                const video = project.videoClips.find(v => v.sceneNumber === scene.sceneNumber);
-                const audio = project.voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
-                return { ...scene, videoUrl: video?.videoUrl || null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
-              });
-              await supabase.from('reels').insert([{ user_id: user.id, topic: project.topic, video_url: savedVideoUrl, thumbnail_url: thumbnailUrl, scenes: scenesWithAllAssets as unknown as any, total_duration: totalDuration }]);
-              fetchSavedReels();
-            } catch (e) { console.error('Failed to save:', e); }
-          }
-
-          setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
-          toast({ title: "Videos Stitched & Saved!", description: "Merged using built-in stitcher and saved to My Reels." });
-        }
+      setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
+      toast({ title: "Videos Stitched & Saved!", description: "Merged and saved to My Reels." });
 
       setProgress(100);
       setProgressStatus('Complete!');
