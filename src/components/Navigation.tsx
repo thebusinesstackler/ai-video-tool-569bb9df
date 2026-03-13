@@ -18,7 +18,8 @@ import {
   X,
   ChevronLeft,
   MessageSquareQuote,
-  ChevronRight
+  ChevronRight,
+  Presentation
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
@@ -38,6 +39,7 @@ const navigationItems = [
   { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
   { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
   { name: 'AI Twin', href: '/ai-twin', icon: ScanFace },
+  { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation },
   { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote },
   { name: 'Characters', href: '/characters', icon: UsersIcon },
   { name: 'Projects', href: '/projects', icon: PlayCircleIcon },
