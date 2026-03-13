@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  VideoIcon, 
   FileTextIcon, 
   UsersIcon,
   SettingsIcon,
@@ -15,11 +14,14 @@ import {
   ImageIcon,
   ScanFace,
   Menu,
-  X,
   ChevronLeft,
   MessageSquareQuote,
   ChevronRight,
-  Presentation
+  Presentation,
+  ChevronDown,
+  Wand2,
+  FolderOpen,
+  Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
@@ -30,20 +32,57 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-const navigationItems = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+}
+
+interface NavGroup {
+  label: string;
+  icon: React.ElementType;
+  items: NavItem[];
+}
+
+const standaloneTop: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard },
-  { name: 'Movies', href: '/movies', icon: Film },
-  { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
-  { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
-  { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
-  { name: 'AI Twin', href: '/ai-twin', icon: ScanFace },
-  { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation },
-  { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote },
-  { name: 'Commercial Studio', href: '/commercial-studio', icon: Film },
-  { name: 'Characters', href: '/characters', icon: UsersIcon },
-  { name: 'Projects', href: '/projects', icon: PlayCircleIcon },
+];
+
+const navGroups: NavGroup[] = [
+  {
+    label: 'Create',
+    icon: Layers,
+    items: [
+      { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard },
+      { name: 'Movies', href: '/movies', icon: Film },
+      { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
+      { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
+    ],
+  },
+  {
+    label: 'AI Tools',
+    icon: Wand2,
+    items: [
+      { name: 'AI Twin', href: '/ai-twin', icon: ScanFace },
+      { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation },
+      { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote },
+      { name: 'Commercial Studio', href: '/commercial-studio', icon: Film },
+    ],
+  },
+  {
+    label: 'Manage',
+    icon: FolderOpen,
+    items: [
+      { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
+      { name: 'Characters', href: '/characters', icon: UsersIcon },
+      { name: 'Projects', href: '/projects', icon: PlayCircleIcon },
+    ],
+  },
+];
+
+const standaloneBottom: NavItem[] = [
   { name: 'Settings', href: '/settings', icon: SettingsIcon },
 ];
 
@@ -67,37 +106,30 @@ export const Navigation = () => {
       loadUsageStats();
       return;
     }
-
     setVideosCount(0);
     setIsLoading(false);
   }, [user]);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  // Persist collapse state
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
   }, [isCollapsed]);
 
   const loadUsageStats = async () => {
     if (!user) return;
-
     try {
       setIsLoading(true);
-
       const { data: projects, error } = await supabase
         .from('projects')
         .select('id')
         .eq('user_id', user.id);
-
       if (error) {
         console.error('Error loading usage stats:', error);
         return;
       }
-
       setVideosCount(projects?.length || 0);
     } catch (error) {
       console.error('Error loading usage stats:', error);
@@ -109,31 +141,87 @@ export const Navigation = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast({
-        title: "Signed Out",
-        description: "You have been successfully signed out."
-      });
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 100);
+      toast({ title: "Signed Out", description: "You have been successfully signed out." });
+      setTimeout(() => { window.location.href = '/'; }, 100);
     } catch (error: any) {
       console.error('Sign out error:', error);
-      toast({
-        title: "Sign Out Failed",
-        description: error.message,
-        variant: "destructive"
-      });
+      toast({ title: "Sign Out Failed", description: error.message, variant: "destructive" });
     }
   };
 
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
+  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
+
+  const renderNavLink = (item: NavItem, collapsed: boolean) => {
+    const isActive = location.pathname === item.href;
+    const link = (
+      <Link
+        key={item.name}
+        to={item.href}
+        className={cn(
+          "flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300",
+          "hover:bg-accent/10 hover:shadow-glow/20 group",
+          isActive && "bg-gradient-accent border border-primary/20 shadow-ai",
+          collapsed && "justify-center px-3"
+        )}
+      >
+        <item.icon
+          className={cn(
+            "w-5 h-5 transition-colors flex-shrink-0",
+            isActive ? "text-primary" : "text-muted-foreground group-hover:text-white"
+          )}
+        />
+        {!collapsed && (
+          <span className={cn(
+            "font-medium transition-colors text-sm",
+            isActive ? "text-primary" : "text-muted-foreground group-hover:text-white"
+          )}>
+            {item.name}
+          </span>
+        )}
+      </Link>
+    );
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.name}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right" className="bg-popover border-border">{item.name}</TooltipContent>
+        </Tooltip>
+      );
+    }
+    return link;
+  };
+
+  const renderGroup = (group: NavGroup, collapsed: boolean) => {
+    const hasActiveChild = group.items.some(i => location.pathname === i.href);
+
+    if (collapsed) {
+      // In collapsed mode, just show group items as icon-only tooltips
+      return (
+        <div key={group.label} className="space-y-1">
+          {group.items.map(item => renderNavLink(item, true))}
+        </div>
+      );
+    }
+
+    return (
+      <Collapsible key={group.label} defaultOpen={hasActiveChild}>
+        <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
+          <group.icon className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1 text-left">{group.label}</span>
+          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 [&[data-state=open]]:rotate-0 [[data-state=closed]_&]:rotate-0" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-0.5 mt-0.5">
+          {group.items.map(item => renderNavLink(item, false))}
+        </CollapsibleContent>
+      </Collapsible>
+    );
   };
 
   const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div className="p-4 h-full flex flex-col">
       {/* Logo */}
-      <div className={cn("flex items-center mb-8", collapsed ? "justify-center" : "justify-between")}>
+      <div className={cn("flex items-center mb-4", collapsed ? "justify-center" : "justify-between")}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow flex-shrink-0">
             <SparklesIcon className="w-6 h-6 text-primary-foreground" />
@@ -143,64 +231,31 @@ export const Navigation = () => {
         {!collapsed && <ThemeToggle />}
       </div>
 
-      {/* Navigation Items */}
-      <div className="space-y-2 flex-1 overflow-y-auto">
+      {/* Navigation */}
+      <div className="space-y-1 flex-1 overflow-y-auto">
         <TooltipProvider delayDuration={0}>
-          {navigationItems.map((item) => {
-            const isActive = location.pathname === item.href;
-            const linkContent = (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300",
-                  "hover:bg-accent/10 hover:shadow-glow/20 group",
-                  isActive && "bg-gradient-accent border border-primary/20 shadow-ai",
-                  collapsed && "justify-center px-3"
-                )}
-              >
-                <item.icon 
-                  className={cn(
-                    "w-5 h-5 transition-colors flex-shrink-0",
-                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-white"
-                  )}
-                />
-                {!collapsed && (
-                  <span 
-                    className={cn(
-                      "font-medium transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-white"
-                    )}
-                  >
-                    {item.name}
-                  </span>
-                )}
-              </Link>
-            );
+          {/* Dashboard */}
+          {standaloneTop.map(item => renderNavLink(item, collapsed))}
 
-            if (collapsed) {
-              return (
-                <Tooltip key={item.name}>
-                  <TooltipTrigger asChild>
-                    {linkContent}
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-popover border-border">
-                    {item.name}
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
+          {/* Separator */}
+          <div className="h-px bg-border my-2" />
 
-            return linkContent;
-          })}
+          {/* Groups */}
+          {navGroups.map(group => renderGroup(group, collapsed))}
+
+          {/* Separator */}
+          <div className="h-px bg-border my-2" />
+
+          {/* Settings */}
+          {standaloneBottom.map(item => renderNavLink(item, collapsed))}
         </TooltipProvider>
       </div>
 
-      {/* Usage Stats - only show when expanded */}
+      {/* Usage Stats */}
       {!collapsed && (
-        <div className="mt-4 p-4 bg-card border border-border rounded-lg shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Monthly Usage</h3>
-          <div className="space-y-2 text-sm">
+        <div className="mt-2 p-3 bg-card border border-border rounded-lg shadow-sm">
+          <h3 className="text-sm font-semibold text-foreground mb-2">Monthly Usage</h3>
+          <div className="space-y-1.5 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Videos Generated</span>
               <span className="text-primary font-semibold">
@@ -208,40 +263,29 @@ export const Navigation = () => {
               </span>
             </div>
             <div className="w-full bg-secondary rounded-full h-2">
-              <div 
-                className="bg-gradient-primary h-2 rounded-full animate-glow transition-all duration-300" 
+              <div
+                className="bg-gradient-primary h-2 rounded-full animate-glow transition-all duration-300"
                 style={{ width: `${Math.min((videosCount / 500) * 100, 100)}%` }}
-              ></div>
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* Sign Out Button */}
-      <div className="mt-4">
+      {/* Sign Out */}
+      <div className="mt-2">
         <TooltipProvider delayDuration={0}>
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  onClick={handleSignOut}
-                  variant="ghost"
-                  size="icon"
-                  className="w-full text-muted-foreground hover:text-foreground"
-                >
+                <Button onClick={handleSignOut} variant="ghost" size="icon" className="w-full text-muted-foreground hover:text-foreground">
                   <LogOut className="w-5 h-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover border-border">
-                Sign Out
-              </TooltipContent>
+              <TooltipContent side="right" className="bg-popover border-border">Sign Out</TooltipContent>
             </Tooltip>
           ) : (
-            <Button
-              onClick={handleSignOut}
-              variant="ghost"
-              className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
-            >
+            <Button onClick={handleSignOut} variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground">
               <LogOut className="w-5 h-5" />
               Sign Out
             </Button>
@@ -251,55 +295,44 @@ export const Navigation = () => {
     </div>
   );
 
-  // Mobile: Sheet drawer
   if (isMobile) {
     return (
-      <>
-        {/* Mobile Header */}
-        <header className="fixed top-0 left-0 right-0 h-16 bg-[hsl(222_47%_6%)] border-b border-[hsl(222_47%_12%)] z-50 flex items-center px-4">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="mr-3">
-                <Menu className="w-6 h-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0 bg-[hsl(222_47%_6%)] border-[hsl(222_47%_12%)]">
-              <NavContent collapsed={false} />
-            </SheetContent>
-          </Sheet>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <SparklesIcon className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold gradient-text">VideoAI Pro</span>
+      <header className="fixed top-0 left-0 right-0 h-16 bg-[hsl(222_47%_6%)] border-b border-[hsl(222_47%_12%)] z-50 flex items-center px-4">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="mr-3">
+              <Menu className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 p-0 bg-[hsl(222_47%_6%)] border-[hsl(222_47%_12%)]">
+            <NavContent collapsed={false} />
+          </SheetContent>
+        </Sheet>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+            <SparklesIcon className="w-5 h-5 text-primary-foreground" />
           </div>
-        </header>
-      </>
+          <span className="font-bold gradient-text">VideoAI Pro</span>
+        </div>
+      </header>
     );
   }
 
-  // Desktop: Fixed sidebar with collapse toggle
   return (
-    <nav 
+    <nav
       className={cn(
         "fixed left-0 top-0 h-full bg-[hsl(222_47%_6%)] border-r border-[hsl(222_47%_12%)] z-50 backdrop-blur-xl transition-all duration-300",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
       <NavContent collapsed={isCollapsed} />
-      
-      {/* Collapse Toggle Button */}
       <Button
         onClick={toggleCollapse}
         variant="ghost"
         size="icon"
         className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-background border border-border shadow-md hover:bg-accent"
       >
-        {isCollapsed ? (
-          <ChevronRight className="w-4 h-4" />
-        ) : (
-          <ChevronLeft className="w-4 h-4" />
-        )}
+        {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </Button>
     </nav>
   );
