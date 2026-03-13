@@ -540,22 +540,35 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
   };
 
   // Generate a single scene shot image
-  const generateSingleShot = async (angleLabel: string, anglePrompt: string): Promise<SceneShot | null> => {
+  const generateSingleShot = async (angleLabel: string, anglePrompt: string, shotType: 'speaking' | 'broll' | 'transition' = 'speaking', sfx?: string, music?: string, narrationSegment?: string): Promise<SceneShot | null> => {
     if (!selectedTwin || !generatedScript) return null;
     
     const portraitImage = selectedTwin.reference_images[0];
     const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
     const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
 
-    const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video.
+    const expressionGuide = shotType === 'speaking' 
+      ? `${mood?.prompt || 'confident'}, mouth slightly open as if mid-sentence, natural speaking expression, engaged eye contact`
+      : `${mood?.prompt || 'confident'}, closed mouth, contemplative micro-expression, natural and candid — NOT posed`;
+
+    const motionGuide = shotType === 'broll'
+      ? 'Cinematic B-roll feel — character in motion or natural activity, environmental storytelling, atmospheric depth'
+      : shotType === 'transition'
+      ? 'Dynamic transition moment — character turning, walking, or shifting position, motion blur elements'
+      : 'Direct-to-camera spokesperson framing, professional broadcast composition';
+
+    const imagePrompt = `Generate a PREMIUM cinematic ${shotType === 'broll' ? 'B-roll' : 'portrait'} of this EXACT person for a professional video.
 
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: ${anglePrompt}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4
 SETTING: ${setting?.prompt || 'professional studio'}
-EXPRESSION: ${mood?.prompt || 'confident'}, closed mouth, natural micro-expression
+EXPRESSION: ${expressionGuide}
+MOTION FEEL: ${motionGuide}
 LIGHTING: Hollywood-grade 3-point setup, warm tungsten key light at 45°, soft fill, crisp rim light
-QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Person has CLOSED MOUTH.`;
+${sfx ? `ATMOSPHERE: Scene should evoke the sound of: ${sfx}` : ''}
+${music ? `MOOD/ENERGY: Visual energy should match this music style: ${music}` : ''}
+QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
     const imageMessages = [{
       role: 'user',
