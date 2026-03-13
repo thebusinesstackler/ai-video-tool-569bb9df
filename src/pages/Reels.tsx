@@ -283,6 +283,7 @@ const Reels = () => {
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
   const [savedReels, setSavedReels] = useState<SavedReel[]>([]);
   const [loadingReels, setLoadingReels] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
@@ -1412,6 +1413,7 @@ const Reels = () => {
       return;
     }
 
+    if (abortRef.current?.signal.aborted) return null;
     setIsGenerating(true);
     setProject(prev => ({ ...prev, status: 'generating-script', topic }));
     setProgress(10);
@@ -1492,6 +1494,7 @@ const Reels = () => {
       return;
     }
 
+    if (abortRef.current?.signal.aborted) return;
     setIsGenerating(true);
     setVideoError(null);
     setProject(prev => ({ ...prev, status: 'generating-video' }));
@@ -1947,13 +1950,27 @@ const Reels = () => {
     return null;
   };
 
+  const stopGeneration = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    setIsGenerating(false);
+    setProgress(0);
+    setProgressStatus('');
+    setProject(prev => ({ ...prev, status: 'idle' }));
+    toast({ title: "Generation Stopped", description: "The reel generation was cancelled." });
+  };
+
   const generateAll = async () => {
-    // In beginner mode, auto-select the first AI Twin for character consistency
+    // Create a fresh AbortController for this generation run
+    abortRef.current = new AbortController();
+    
     // Use local variables since React state updates are async and won't be available immediately
     let shouldEnableLipSync = enableLipSync;
     let activeLipSyncModel = lipSyncModel;
     
-    if (isBeginner && aiTwins.length > 0 && !selectedTwinId) {
+    // Only auto-select a twin if the user hasn't already set a character image
+    if (isBeginner && aiTwins.length > 0 && !selectedTwinId && !portraitImage) {
       const twin = aiTwins[0];
       setSelectedTwinId(twin.id);
       if (twin.reference_images?.[0]) {
@@ -1969,26 +1986,42 @@ const Reels = () => {
       activeLipSyncModel = 'infinitetalk';
       setEnableLipSync(true);
       setLipSyncModel('infinitetalk');
-      
-      // Auto-match voice to twin's gender from face description, gender field, or name
-      const twinGender = (twin as any).gender?.toLowerCase() || '';
-      const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
-      const genderText = `${twinGender} ${twinDesc}`;
-      const detectedVoice = detectGenderVoice(genderText);
-      if (detectedVoice) {
-        setSelectedVoice(detectedVoice);
-      }
+    }
+
+    // If user already has a portrait, enable lip sync
+    if (isBeginner && portraitImage) {
+      shouldEnableLipSync = true;
+      activeLipSyncModel = 'infinitetalk';
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
     }
     
-    // Also detect gender from the topic itself if no twin and voice hasn't been manually changed
-    if (isBeginner && (!aiTwins.length || !selectedTwinId)) {
-      const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
-      if (topicVoice) {
-        setSelectedVoice(topicVoice);
+    // Only auto-detect voice if user left it on 'ai-auto' — preserve manual voice selection
+    let resolvedVoice = selectedVoice;
+    if (selectedVoice === 'ai-auto') {
+      // Try to detect from twin gender
+      if (selectedTwinId && aiTwins.length > 0) {
+        const twin = aiTwins.find(t => t.id === selectedTwinId) || aiTwins[0];
+        const twinGender = (twin as any).gender?.toLowerCase() || '';
+        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
+        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
+        if (detectedVoice) resolvedVoice = detectedVoice;
       }
+      // Fallback: detect from topic/character description
+      if (resolvedVoice === 'ai-auto') {
+        const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
+        if (topicVoice) resolvedVoice = topicVoice;
+      }
+      // Final fallback
+      if (resolvedVoice === 'ai-auto') resolvedVoice = 'English_magnetic_voiced_man';
     }
+
+    if (abortRef.current.signal.aborted) return;
     
     const generatedScenes = await generateScripts();
+    
+    if (abortRef.current.signal.aborted) return;
+    
     if (generatedScenes && generatedScenes.length > 0) {
       // Pass scenes directly to avoid stale state issues
       await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel, scenesOverride: generatedScenes });
@@ -2467,7 +2500,7 @@ const Reels = () => {
             {(isGenerating || isManualStitching) && (
               <Card className="bg-card border-border">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground flex items-center gap-2">
                         {project.status === 'generating-script' && 'Generating scripts...'}
@@ -2480,6 +2513,16 @@ const Reels = () => {
                       </span>
                     </div>
                     <Progress value={progress} className="h-2" />
+                    {isGenerating && (
+                      <Button 
+                        onClick={stopGeneration} 
+                        variant="destructive" 
+                        size="sm"
+                        className="w-full"
+                      >
+                        <X className="w-4 h-4 mr-2" />Stop Generation
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -2624,19 +2667,26 @@ const Reels = () => {
                     )}
                   </div>
 
-                  {/* Generate Button */}
-                  <Button 
-                    onClick={generateAll} 
-                    disabled={isGenerating || !topic.trim()} 
-                    className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
-                    size="lg"
-                  >
-                    {isGenerating ? (
-                      <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Creating your reel...</>
-                    ) : (
-                      <><Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨</>
-                    )}
-                  </Button>
+                  {/* Generate / Stop Button */}
+                  {isGenerating ? (
+                    <Button 
+                      onClick={stopGeneration} 
+                      variant="destructive"
+                      className="w-full" 
+                      size="lg"
+                    >
+                      <X className="w-5 h-5 mr-2" />Stop Generation
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={generateAll} 
+                      disabled={!topic.trim()} 
+                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
+                      size="lg"
+                    >
+                      <Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
