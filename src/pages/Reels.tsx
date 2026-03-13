@@ -2498,7 +2498,7 @@ const Reels = () => {
             {(isGenerating || isManualStitching) && (
               <Card className="bg-card border-border">
                 <CardContent className="pt-6">
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground flex items-center gap-2">
                         {project.status === 'generating-script' && 'Generating scripts...'}
@@ -2511,6 +2511,16 @@ const Reels = () => {
                       </span>
                     </div>
                     <Progress value={progress} className="h-2" />
+                    {isGenerating && (
+                      <Button 
+                        onClick={stopGeneration} 
+                        variant="destructive" 
+                        size="sm"
+                        className="w-full"
+                      >
+                        <X className="w-4 h-4 mr-2" />Stop Generation
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
