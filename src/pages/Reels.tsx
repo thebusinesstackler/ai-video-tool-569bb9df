@@ -3848,8 +3848,8 @@ const Reels = () => {
               </Card>
             )}
 
-            {/* Scene Preview */}
-            {previewScenes.length > 0 && !project.videoBlobUrl && (
+            {/* Scene Preview (Advanced only) */}
+            {isAdvanced && previewScenes.length > 0 && !project.videoBlobUrl && (
               <div className="space-y-4">
                 <ScenePreview
                   scenes={previewScenes}
