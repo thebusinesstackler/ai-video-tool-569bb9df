@@ -1873,17 +1873,15 @@ const Reels = () => {
             if (user) {
               try {
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
-                // Use actual audio durations for total duration
                 const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
 
-                // Build complete scene data with all URLs (image, video, audio)
                 const scenesWithAllAssets = generatedScenes.map((scene) => {
                   const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
                   const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
                   return {
                     ...scene,
                     videoUrl: video?.videoUrl || null,
-                    audioUrl: audio?.storageUrl || null, // Use storage URL for persistence
+                    audioUrl: audio?.storageUrl || null,
                     audioDuration: audio?.duration || null
                   };
                 });
@@ -1891,8 +1889,8 @@ const Reels = () => {
                 await supabase.from('reels').insert([{
                   user_id: user.id,
                   topic: project.topic,
-                  video_url: persistedVideoUrl, // Use persisted storage URL
-                  audio_url: mergedAudioUrl || null, // Save merged voiceover URL
+                  video_url: persistedVideoUrl,
+                  audio_url: mergedAudioUrl || null,
                   thumbnail_url: thumbnailUrl,
                   scenes: scenesWithAllAssets as unknown as any,
                   total_duration: totalDuration
@@ -1912,7 +1910,62 @@ const Reels = () => {
               description: `Created ${sortedVideos.length}-scene video with synced audio and saved to library!`
             });
           } else {
-            throw new Error(result.error || 'Creatomate rendering failed');
+            // Creatomate stitching failed - fall back to individual clips instead of failing entirely
+            console.warn('Creatomate stitching failed:', result.error);
+            
+            if (sortedVideos.length > 0) {
+              setProject(prev => ({
+                ...prev,
+                videoUrl: sortedVideos[0]?.videoUrl,
+                videoBlobUrl: sortedVideos[0]?.videoUrl,
+                generatedScenes,
+                voiceovers: sortedAudios,
+                videoClips: sortedVideos,
+                status: 'complete'
+              }));
+
+              // Still save to library with individual clip URLs
+              if (user) {
+                try {
+                  const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                  const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
+                  const scenesWithAllAssets = generatedScenes.map((scene) => {
+                    const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                    const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                    return {
+                      ...scene,
+                      videoUrl: video?.videoUrl || null,
+                      audioUrl: audio?.storageUrl || null,
+                      audioDuration: audio?.duration || null
+                    };
+                  });
+                  await supabase.from('reels').insert([{
+                    user_id: user.id,
+                    topic: project.topic,
+                    video_url: sortedVideos[0]?.videoUrl,
+                    thumbnail_url: thumbnailUrl,
+                    scenes: scenesWithAllAssets as unknown as any,
+                    total_duration: totalDuration
+                  }]);
+                  fetchSavedReels();
+                } catch (saveError) {
+                  console.error('Auto-save failed:', saveError);
+                }
+              }
+
+              setProgress(100);
+              setProgressStatus('Complete (individual clips)');
+              
+              const isCreditsError = result.error?.toLowerCase().includes('credit') || result.error?.toLowerCase().includes('402');
+              toast({
+                title: "Videos Generated!",
+                description: isCreditsError 
+                  ? `Generated ${sortedVideos.length} video clips. Stitching credits exhausted — use clip navigation below.`
+                  : `Generated ${sortedVideos.length} video clips. Stitching unavailable — use clip navigation below.`,
+              });
+            } else {
+              throw new Error(result.error || 'Creatomate rendering failed');
+            }
           }
         } else {
           // Use client-side FFmpeg stitching
