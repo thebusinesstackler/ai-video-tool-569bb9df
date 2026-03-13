@@ -130,7 +130,7 @@ serve(async (req) => {
     }
 
     const systemPrompt = `You are an expert screenwriter, cinematographer, and story structure consultant. Your job is to take a movie idea and create a cohesive, complete story outline with detailed cinematography directions.
-
+${storyBibleContext}
 ${lengthConfig.actStructure}
 
 TARGET: ${lengthConfig.sceneRange} scenes total, approximately ${lengthConfig.duration} runtime.
