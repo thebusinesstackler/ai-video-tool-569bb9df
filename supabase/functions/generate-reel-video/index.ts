@@ -164,9 +164,10 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
   
   // For lip sync mode, generate front-facing portrait suitable for talking head
   if (enableLipSync && !scene.isIntro && !scene.isOutro) {
+    const angleNote = cameraAngleModifier ? `\n      CAMERA ANGLE: ${cameraAngleModifier}` : '';
     return `Generate a premium cinematic portrait photo for a high-end social media video.
       Scene context: ${scene.visualDescription}
-      Topic: ${topic}${charDesc}${refImageNote}
+      Topic: ${topic}${charDesc}${refImageNote}${angleNote}
       CINEMATOGRAPHY: Shot on RED V-RAPTOR, 85mm lens, f/1.4 shallow depth of field.
       LIGHTING: Professional 3-point studio lighting with soft key light, subtle rim light creating depth, warm color temperature.
       COMPOSITION: Rule of thirds, subject centered, clean bokeh background, magazine-quality portrait.
