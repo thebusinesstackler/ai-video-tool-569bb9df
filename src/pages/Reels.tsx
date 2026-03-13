@@ -1941,8 +1941,8 @@ const Reels = () => {
     const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr', 'masculine'];
     const isFemale = femaleKeywords.some(k => lower.includes(k));
     const isMale = maleKeywords.some(k => lower.includes(k));
-    if (isFemale && !isMale) return 'en-US-Journey-F';
-    if (isMale && !isFemale) return 'en-US-Journey-D';
+    if (isFemale && !isMale) return 'English_compelling_lady1';
+    if (isMale && !isFemale) return 'English_magnetic_voiced_man';
     return null;
   };
 
