@@ -1484,9 +1484,13 @@ const MovieSceneCreator = () => {
         });
       }
       
-      const scenesWithDialogue = await Promise.all(
-        generatedScenes.map(async (scene, index) => {
-          try {
+      // Generate dialogue SEQUENTIALLY for narrative continuity
+      const scenesWithDialogue: MovieScene[] = [];
+      const previousDialogues: { sceneTitle: string; summary: string }[] = [];
+      
+      for (let index = 0; index < generatedScenes.length; index++) {
+        const scene = generatedScenes[index];
+        try {
             setGenerateAllProgress(55 + Math.floor((index / generatedScenes.length) * 20));
             
             // Determine scene position for context
@@ -1497,9 +1501,9 @@ const MovieSceneCreator = () => {
             else if (index === Math.floor(totalScenes / 2)) scenePosition = 'midpoint';
             else if (index === Math.floor(totalScenes * 0.75)) scenePosition = 'climax';
             
-            // Get previous scene summary for continuity
-            const previousSceneSummary = index > 0 
-              ? `${generatedScenes[index - 1].title}: ${generatedScenes[index - 1].description.substring(0, 150)}...`
+            // Build cumulative story context from ALL previous scenes
+            const previousSceneSummary = previousDialogues.length > 0
+              ? previousDialogues.map(p => `${p.sceneTitle}: ${p.summary}`).join(' → ')
               : undefined;
             
             // For 2+ characters, use conversation dialogue with rich context
