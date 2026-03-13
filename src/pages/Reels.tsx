@@ -303,11 +303,10 @@ const Reels = () => {
   const [outroText, setOutroText] = useState('');
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
   
-  // Server-side stitching with Creatomate (always server-first)
+  // Stitching state
   const [isManualStitching, setIsManualStitching] = useState(false);
   const [editingSceneNumber, setEditingSceneNumber] = useState<number | null>(null);
   const [editSceneText, setEditSceneText] = useState('');
-  const { stitchWithCreatomate, isStitching: isCreatomateStitching, progress: creatomateProgress, status: creatomateStatus } = useCreatomate();
   
   // Scene preview hook
   const { 
