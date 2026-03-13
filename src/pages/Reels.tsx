@@ -3143,11 +3143,32 @@ const Reels = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  <VoiceSelector 
-                    selectedVoice={selectedVoice}
-                    onVoiceSelect={setSelectedVoice}
-                    disabled={isGenerating}
-                  />
+                  <div className="space-y-2">
+                    <VoiceSelector 
+                      selectedVoice={selectedVoice}
+                      onVoiceSelect={setSelectedVoice}
+                      disabled={isGenerating}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={previewVoice}
+                      disabled={isGenerating || selectedVoice.startsWith('clone:')}
+                    >
+                      {isPreviewingVoice ? (
+                        <>
+                          <MicOff className="w-3 h-3 mr-1" />
+                          Stop Preview
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3 h-3 mr-1" />
+                          Preview Voice
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 )}
               </>
             )}
