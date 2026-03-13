@@ -503,7 +503,9 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
 
       // Step 3: Generate video with lip sync
       const videoModel = selectedQuality === 'kling-pro' ? 'kling-v3.0-pro' : 'infinitetalk';
-      const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`;
+      const sfxHints = generatedScript.sfxCues?.join(', ') || '';
+      const musicHint = generatedScript.musicSuggestion || '';
+      const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. NATURAL LIP-SYNC: Character speaks with fluid, natural mouth movements synchronized to audio. Subtle eyebrow raises, natural blinks, gentle head tilts between sentences. Micro-expressions of genuine emotion and engagement. Natural breathing pauses — NOT robotic or mechanical delivery. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. ${sfxHints ? `Ambient sound atmosphere: ${sfxHints}.` : ''} ${musicHint ? `Background music energy: ${musicHint}.` : ''} Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take.`;
       
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
