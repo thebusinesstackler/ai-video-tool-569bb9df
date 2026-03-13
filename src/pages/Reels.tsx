@@ -1482,8 +1482,9 @@ const Reels = () => {
     }
   };
 
-  const generateVideo = async (overrides?: { forceEnableLipSync?: boolean; forceLipSyncModel?: string }) => {
-    if (project.scenes.length === 0) {
+  const generateVideo = async (overrides?: { forceEnableLipSync?: boolean; forceLipSyncModel?: string; scenesOverride?: Scene[] }) => {
+    const activeScenes = overrides?.scenesOverride || project.scenes;
+    if (activeScenes.length === 0) {
       toast({
         title: "Missing Scripts",
         description: "Please generate scripts first.",
