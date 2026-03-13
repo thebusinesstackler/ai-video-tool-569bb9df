@@ -1423,7 +1423,7 @@ const MovieSceneCreator = () => {
         : undefined;
 
       const { data: outlineData, error: outlineError } = await supabase.functions.invoke('generate-movie-outline', {
-        body: { movieIdea, characterDescription: pronounsDesc || undefined, movieLength }
+        body: { movieIdea, characterDescription: pronounsDesc || undefined, movieLength, storyBible: storyBibleWithVoices }
       });
 
       if (outlineError) throw outlineError;
