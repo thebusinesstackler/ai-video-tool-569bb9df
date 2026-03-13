@@ -2526,6 +2526,25 @@ const Reels = () => {
                     disabled={isGenerating}
                   />
 
+                  {/* Hook Style Selector */}
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Hook Style (First Scene)</Label>
+                    <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Choose a hook style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">🤖 Auto (AI picks best)</SelectItem>
+                        <SelectItem value="question">❓ Question Hook</SelectItem>
+                        <SelectItem value="bold-claim">💥 Bold Claim</SelectItem>
+                        <SelectItem value="story">📖 Story / Personal</SelectItem>
+                        <SelectItem value="statistic">📊 Shocking Statistic</SelectItem>
+                        <SelectItem value="myth-buster">🔥 Myth Buster</SelectItem>
+                        <SelectItem value="challenge">🎯 Challenge / Dare</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Button 
                     onClick={generateAll} 
                     disabled={isGenerating || !topic.trim()} 
