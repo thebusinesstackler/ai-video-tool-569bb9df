@@ -463,7 +463,7 @@ CRITICAL: NO text, NO captions, NO watermarks. Person has CLOSED MOUTH - NOT spe
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden">
-                <VideoPlayer src={videoUrl} />
+                <VideoPlayer videoUrl={videoUrl} title="AI Spokesperson" />
               </div>
               <div className="flex gap-2 justify-center">
                 <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
