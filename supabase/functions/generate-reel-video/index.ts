@@ -568,32 +568,34 @@ People should have closed mouths — not speaking or mouthing words.`,
             console.log('WaveSpeed task created for scene', scene.sceneNumber, ':', videoData);
             
             if (videoData.code === 200 && videoData.data?.id) {
-              // Determine if this model has embedded audio
-              // Lip sync models (infinitetalk, wan-lipsync, avatar-omni) have embedded audio
-              // Regular image-to-video does NOT have embedded audio
-              const isActualLipSync = enableLipSync && !scene.isIntro && !scene.isOutro && 
-                (apiEndpoint.includes('infinitetalk') || apiEndpoint.includes('avatar-omni') || 
-                 (apiEndpoint.includes('wan-animate') && requestBody.audio));
-              const hasEmbeddedAudio = isActualLipSync;
-              
-              console.log(`Scene ${scene.sceneNumber}: Model=${apiEndpoint.split('/').pop()}, hasEmbeddedAudio=${hasEmbeddedAudio}`);
+              console.log(`Scene ${scene.sceneNumber}: Model=${apiEndpoint.split('/').pop()}, hasEmbeddedAudio=${sceneHasEmbeddedAudio}`);
               
               videoTasks.push({
                 sceneNumber: scene.sceneNumber,
                 taskId: videoData.data.id,
                 model: apiEndpoint,
-                hasEmbeddedAudio
+                hasEmbeddedAudio: sceneHasEmbeddedAudio
               });
             }
           } else {
             const errorText = await videoResponse.text();
             console.error('WaveSpeed error for scene', scene.sceneNumber, ':', errorText);
             
-            // Fallback to regular image-to-video if lip sync fails
-            if (enableLipSync) {
-              console.log('Falling back to regular image-to-video for scene', scene.sceneNumber);
-              
-              const fallbackResponse = await fetch('https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video', {
+            // Check for credit errors
+            if (errorText.includes('Insufficient credits') || errorText.includes('insufficient_credits')) {
+              console.error('Credit error detected for scene', scene.sceneNumber);
+            }
+            
+            // Fallback: try Kling I2V if VEO 3 failed, or Wan-2.5 I2V as last resort
+            console.log('Falling back for scene', scene.sceneNumber);
+            
+            const fallbackEndpoint = imageUrl 
+              ? 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video'
+              : 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
+            const klingDuration = clipDuration <= 7 ? 5 : 10;
+            
+            try {
+              const fallbackResponse = await fetch(fallbackEndpoint, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
@@ -601,25 +603,25 @@ People should have closed mouths — not speaking or mouthing words.`,
                 },
                 body: JSON.stringify({
                   image: imageUrl,
-                  prompt: `${scene.visualDescription}. Dynamic motion, cinematic, engaging. No text, no captions, no subtitles, no watermarks. People should not appear to be speaking.`,
-                  resolution: "1080p",
-                  duration: clipDuration
+                  prompt: `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks. People should not appear to be speaking.`,
+                  duration: klingDuration
                 }),
               });
               
               if (fallbackResponse.ok) {
                 const fallbackData = await fallbackResponse.json();
                 if (fallbackData.code === 200 && fallbackData.data?.id) {
-                  // Fallback is always image-to-video which has NO embedded audio
-                  console.log(`Scene ${scene.sceneNumber}: Fallback to image-to-video (NO embedded audio)`);
+                  console.log(`Scene ${scene.sceneNumber}: Fallback to ${fallbackEndpoint.split('/').pop()} (NO embedded audio)`);
                   videoTasks.push({
                     sceneNumber: scene.sceneNumber,
                     taskId: fallbackData.data.id,
-                    model: 'alibaba/wan-2.5/image-to-video',
+                    model: fallbackEndpoint,
                     hasEmbeddedAudio: false
                   });
                 }
               }
+            } catch (fallbackErr) {
+              console.error('Fallback also failed for scene', scene.sceneNumber, fallbackErr);
             }
           }
         } catch (videoError) {
