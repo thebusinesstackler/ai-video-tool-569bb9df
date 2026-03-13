@@ -2099,6 +2099,18 @@ const Reels = () => {
     }
   };
 
+  // Helper to detect gender from text and return matching voice
+  const detectGenderVoice = (text: string): string | null => {
+    const lower = text.toLowerCase();
+    const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss', 'feminine'];
+    const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr', 'masculine'];
+    const isFemale = femaleKeywords.some(k => lower.includes(k));
+    const isMale = maleKeywords.some(k => lower.includes(k));
+    if (isFemale && !isMale) return 'en-US-Journey-F';
+    if (isMale && !isFemale) return 'en-US-Journey-D';
+    return null;
+  };
+
   const generateAll = async () => {
     // In beginner mode, auto-select the first AI Twin for character consistency
     // Use local variables since React state updates are async and won't be available immediately
@@ -2121,6 +2133,23 @@ const Reels = () => {
       activeLipSyncModel = 'infinitetalk';
       setEnableLipSync(true);
       setLipSyncModel('infinitetalk');
+      
+      // Auto-match voice to twin's gender from face description, gender field, or name
+      const twinGender = (twin as any).gender?.toLowerCase() || '';
+      const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
+      const genderText = `${twinGender} ${twinDesc}`;
+      const detectedVoice = detectGenderVoice(genderText);
+      if (detectedVoice) {
+        setSelectedVoice(detectedVoice);
+      }
+    }
+    
+    // Also detect gender from the topic itself if no twin and voice hasn't been manually changed
+    if (isBeginner && (!aiTwins.length || !selectedTwinId)) {
+      const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
+      if (topicVoice) {
+        setSelectedVoice(topicVoice);
+      }
     }
     
     const generatedScenes = await generateScripts();
