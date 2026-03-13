@@ -135,8 +135,8 @@ serve(async (req) => {
     const aiMessage = data.choices?.[0]?.message?.content;
 
     if (!aiMessage) {
-      console.error("No response from AI", data);
-      return new Response(JSON.stringify({ error: "No response from AI" }), {
+      console.error("No response from AI. Full data:", JSON.stringify(data).substring(0, 500));
+      return new Response(JSON.stringify({ error: "No response from AI", debug: JSON.stringify(data).substring(0, 300) }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
