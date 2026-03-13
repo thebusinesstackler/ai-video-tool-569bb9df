@@ -94,8 +94,10 @@ SCENE DETAILS:
 - Location: ${location || 'Unknown'}
 - Time: ${timeOfDay || 'Day'}
 - Mood/Tone: ${tone || 'dramatic'}
+- Scene Position: ${scenePosition || 'middle of story'}
 ${transitionAction ? `- What happens: ${transitionAction}` : ''}
 ${sceneTypeGuidance ? `\n${sceneTypeGuidance}` : ''}
+${previousSceneSummary ? `\nSTORY SO FAR (dialogue must continue this narrative thread):\n${previousSceneSummary}` : ''}
 
 SCENE DESCRIPTION:
 ${sceneDescription}
