@@ -876,6 +876,64 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setShowSceneGallery(false);
   };
 
+  // Toggle shot selection for editor panel
+  const toggleShotSelection = (shotId: string) => {
+    setSceneShots(prev => prev.map(s => s.id === shotId ? { ...s, selected: !s.selected } : s));
+  };
+
+  // AI edit request from editor panel — interprets instruction and generates appropriate shot
+  const handleAiEditRequest = async (instruction: string) => {
+    if (!selectedTwin || !generatedScript) return;
+
+    try {
+      // Ask AI to interpret the instruction into a shot spec
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are a video director AI. The user wants to add a new shot to their spokesperson video. Interpret their request and return a JSON object:
+{
+  "angleLabel": "Short descriptive label for the shot",
+  "cameraAngle": "Detailed camera angle and composition description",
+  "type": "speaking" or "broll",
+  "sfx": "suggested sound effect or null",
+  "music": "suggested music mood or null"
+}
+
+Current video context:
+- Spokesperson: ${selectedTwin.face_description || selectedTwin.name}
+- Setting: ${SETTINGS.find(s => s.id === selectedSetting)?.prompt || 'professional studio'}
+- Mood: ${MOODS.find(m => m.id === selectedMood)?.prompt || 'confident'}
+- Existing shots: ${sceneShots.map(s => s.angleLabel).join(', ')}
+
+Return ONLY the JSON object.`
+            },
+            { role: 'user', content: instruction }
+          ]
+        }
+      });
+
+      if (error) throw error;
+
+      const content = data?.response || data?.choices?.[0]?.message?.content || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const spec = JSON.parse(jsonMatch[0]);
+        await addCustomShot(
+          spec.angleLabel || instruction.substring(0, 30),
+          spec.type === 'speaking' ? 'speaking' : 'broll'
+        );
+      } else {
+        // Fallback: generate as broll with the instruction as the angle
+        await addCustomShot(instruction.substring(0, 30), 'broll');
+      }
+    } catch (err) {
+      console.warn('AI edit request failed, falling back:', err);
+      await addCustomShot(instruction.substring(0, 30), 'broll');
+    }
+  };
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-6">
