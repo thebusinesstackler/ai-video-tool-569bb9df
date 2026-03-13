@@ -2509,7 +2509,7 @@ const Reels = () => {
           }
 
           setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
-          toast({ title: "Videos Stitched & Saved!", description: "Merged using browser stitching and saved to My Reels." });
+          toast({ title: "Videos Stitched & Saved!", description: "Merged using built-in stitcher and saved to My Reels." });
         }
 
       setProgress(100);
