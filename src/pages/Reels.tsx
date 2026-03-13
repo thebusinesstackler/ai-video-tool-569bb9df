@@ -2016,6 +2016,7 @@ const Reels = () => {
         } else {
           // Use client-side FFmpeg stitching
           try {
+            setProgressStatus('Stitching in browser...');
             const videoUrls = sortedVideos.map(v => v.videoUrl);
             const audioUrls = sortedAudios.map(a => a.audioUrl);
             
@@ -2024,7 +2025,10 @@ const Reels = () => {
             const finalBlob = await stitchVideosWithAudio({
               videoUrls,
               audioUrls,
-              onProgress: (p) => setProgress(75 + Math.round(p * 0.2))
+              onProgress: (p) => {
+                setProgress(75 + Math.round(p * 0.2));
+                setProgressStatus(`Stitching in browser... ${Math.round(p)}%`);
+              }
             });
             
             // Create blob URL for playback
