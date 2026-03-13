@@ -287,6 +287,8 @@ const MovieSceneCreator = () => {
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [generateAllStep, setGenerateAllStep] = useState('');
   const [generateAllProgress, setGenerateAllProgress] = useState(0);
+  const [isPreviewingBeforeVideo, setIsPreviewingBeforeVideo] = useState(false);
+  const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
   
   // Wizard step state
   const [currentStep, setCurrentStep] = useState(0);
