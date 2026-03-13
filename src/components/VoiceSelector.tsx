@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Mic, Loader2, Volume2, Square, Sparkles } from 'lucide-react';
+import { Mic, Loader2, Volume2, Square, Sparkles, Wand2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -11,82 +11,95 @@ interface VoiceSelectorProps {
   selectedVoice: string;
   onVoiceSelect: (voice: string) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
-// Google Cloud TTS Neural2/Journey/Studio voices
+// WaveSpeed MiniMax Speech-02-HD voices - high quality
 const VOICE_OPTIONS = {
   female: [
     { 
-      value: 'en-US-Journey-F', 
-      label: 'Journey F', 
-      desc: 'Warm & Conversational', 
-      tier: 'Journey',
-      sample: 'Hello! I\'m Journey, a warm and conversational voice designed to sound natural and engaging.' 
+      value: 'English_compelling_lady1', 
+      label: 'Compelling Lady', 
+      desc: 'Professional & Confident', 
+      tier: 'Pro',
+      sample: 'Hello! I bring a compelling and confident energy to your content, perfect for professional voiceovers.' 
     },
     { 
-      value: 'en-US-Neural2-F', 
-      label: 'Neural2 F', 
-      desc: 'Expressive & Clear', 
-      tier: 'Neural2',
-      sample: 'Hi there! I\'m Neural2, an expressive and clear voice perfect for professional content.' 
+      value: 'English_radiant_girl', 
+      label: 'Radiant Girl', 
+      desc: 'Bright & Energetic', 
+      tier: 'Pro',
+      sample: 'Hey there! I have a bright and energetic voice that brings your content to life with enthusiasm.' 
     },
     { 
-      value: 'en-US-Studio-O', 
-      label: 'Studio O', 
-      desc: 'Professional Broadcast', 
-      tier: 'Studio',
-      sample: 'Good day! I\'m Studio O, a professional broadcast-quality voice for premium productions.' 
+      value: 'Calm_Woman', 
+      label: 'Calm Woman', 
+      desc: 'Soothing & Relaxed', 
+      tier: 'HD',
+      sample: 'Hi, I offer a calm and soothing voice perfect for storytelling, meditation, and relaxed content.' 
     },
     { 
-      value: 'en-GB-Neural2-F', 
-      label: 'British F', 
-      desc: 'British Accent', 
-      tier: 'Neural2',
-      sample: 'Hello! I\'m a British Neural2 voice, bringing an elegant accent to your narration.' 
+      value: 'Inspirational_girl', 
+      label: 'Inspirational', 
+      desc: 'Motivational & Warm', 
+      tier: 'HD',
+      sample: 'Hello! My voice is warm and motivational, designed to inspire and uplift your audience.' 
     },
   ],
   male: [
     { 
-      value: 'en-US-Journey-D', 
-      label: 'Journey D', 
-      desc: 'Natural & Friendly', 
-      tier: 'Journey',
-      sample: 'Hey there! I\'m Journey D, designed to sound natural and friendly in every conversation.' 
+      value: 'English_magnetic_voiced_man', 
+      label: 'Magnetic Man', 
+      desc: 'Deep & Authoritative', 
+      tier: 'Pro',
+      sample: 'Greetings. I bring a deep, magnetic quality to your narration with authority and presence.' 
     },
     { 
-      value: 'en-US-Neural2-D', 
-      label: 'Neural2 D', 
-      desc: 'Authoritative & Clear', 
-      tier: 'Neural2',
-      sample: 'Greetings. I\'m Neural2 D, an authoritative and clear voice for impactful content.' 
+      value: 'English_Trustworth_Man', 
+      label: 'Trustworthy', 
+      desc: 'Warm & Reliable', 
+      tier: 'Pro',
+      sample: 'Hey there! I have a warm, trustworthy voice perfect for building connection with your audience.' 
     },
     { 
-      value: 'en-US-Studio-Q', 
-      label: 'Studio Q', 
-      desc: 'Deep & Professional', 
-      tier: 'Studio',
-      sample: 'Hello! I\'m Studio Q, offering a deep and professional tone for your projects.' 
+      value: 'Casual_Guy', 
+      label: 'Casual Guy', 
+      desc: 'Friendly & Natural', 
+      tier: 'HD',
+      sample: 'What\'s up! I have a casual, friendly tone that feels natural and conversational.' 
     },
     { 
-      value: 'en-GB-Neural2-D', 
-      label: 'British D', 
-      desc: 'British Accent', 
-      tier: 'Neural2',
-      sample: 'Good day! I\'m a British Neural2 voice, perfect for distinguished narration.' 
+      value: 'Deep_Voice_Man', 
+      label: 'Deep Voice', 
+      desc: 'Rich & Cinematic', 
+      tier: 'HD',
+      sample: 'Hello. My voice carries a rich, cinematic depth ideal for dramatic narration and premium content.' 
     },
   ],
 };
 
+// AI auto-select option
+const AI_AUTO_VOICE = {
+  value: 'ai-auto',
+  label: 'AI Auto-Select',
+  desc: 'AI picks the perfect voice for your content',
+  tier: 'AI',
+  sample: ''
+};
+
+export const VOICE_LIST = VOICE_OPTIONS;
+
 const tierColors: Record<string, string> = {
-  'Journey': 'bg-primary/20 text-primary border-primary/30',
-  'Neural2': 'bg-secondary text-secondary-foreground border-secondary',
-  'Studio': 'bg-accent text-accent-foreground border-accent',
+  'Pro': 'bg-primary/20 text-primary border-primary/30',
+  'HD': 'bg-secondary text-secondary-foreground border-secondary',
+  'AI': 'bg-accent text-accent-foreground border-accent',
 };
 
 export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   selectedVoice,
   onVoiceSelect,
   disabled = false,
+  compact = false,
 }) => {
   const { toast } = useToast();
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
@@ -103,15 +116,14 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   };
 
   const previewVoice = async (voiceValue: string, sampleText: string) => {
-    // If already playing this voice, stop it
+    if (voiceValue === 'ai-auto') return;
+    
     if (playingVoice === voiceValue) {
       stopCurrentAudio();
       return;
     }
 
-    // Stop any currently playing audio
     stopCurrentAudio();
-
     setPreviewingVoice(voiceValue);
 
     try {
@@ -160,6 +172,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
     const isSelected = selectedVoice === voice.value;
     const isPreviewing = previewingVoice === voice.value;
     const isPlaying = playingVoice === voice.value;
+    const isAiAuto = voice.value === 'ai-auto';
 
     return (
       <div
@@ -176,6 +189,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           className={`flex-1 text-left ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
           <div className="flex items-center gap-2 mb-0.5">
+            {isAiAuto && <Wand2 className="w-3.5 h-3.5 text-primary" />}
             <span className={`font-medium text-sm ${isSelected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
               {voice.label}
             </span>
@@ -186,24 +200,26 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           <div className="text-xs text-muted-foreground">{voice.desc}</div>
         </button>
         
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`h-8 w-8 shrink-0 ${isPlaying ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            previewVoice(voice.value, voice.sample);
-          }}
-          disabled={disabled || isPreviewing}
-        >
-          {isPreviewing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : isPlaying ? (
-            <Square className="h-4 w-4 fill-current" />
-          ) : (
-            <Volume2 className="h-4 w-4" />
-          )}
-        </Button>
+        {!isAiAuto && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-8 w-8 shrink-0 ${isPlaying ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              previewVoice(voice.value, voice.sample);
+            }}
+            disabled={disabled || isPreviewing}
+          >
+            {isPreviewing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isPlaying ? (
+              <Square className="h-4 w-4 fill-current" />
+            ) : (
+              <Volume2 className="h-4 w-4" />
+            )}
+          </Button>
+        )}
       </div>
     );
   };
@@ -216,14 +232,21 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           Narrator Voice
           <Badge variant="outline" className="ml-auto text-xs bg-primary/10 text-primary border-primary/30">
             <Sparkles className="w-3 h-3 mr-1" />
-            Google Cloud TTS
+            HD Voices
           </Badge>
         </CardTitle>
-        <CardDescription>
-          Choose a natural-sounding voice. Click <Volume2 className="inline h-3 w-3" /> to preview.
-        </CardDescription>
+        {!compact && (
+          <CardDescription>
+            Choose a natural-sounding voice. Click <Volume2 className="inline h-3 w-3" /> to preview.
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-4 pt-0">
+        {/* AI Auto option */}
+        <div className="space-y-1.5">
+          {renderVoiceButton(AI_AUTO_VOICE)}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           {/* Female Voices */}
           <div className="space-y-2">
