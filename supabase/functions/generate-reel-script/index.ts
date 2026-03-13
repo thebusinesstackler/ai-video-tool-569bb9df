@@ -319,6 +319,15 @@ NO TEXT IN VISUALS (CRITICAL):
 - If showing people, describe them with CLOSED MOUTHS or slight smiles - NEVER speaking, talking, or mouthing words
 - The voiceover audio is separate - the visuals should show people listening, thinking, posing, or doing activities - NOT speaking
 
+PREMIUM CINEMATOGRAPHY (CRITICAL):
+- Every visualDescription MUST include specific cinematography details:
+  - Camera: Specify lens (35mm, 50mm, 85mm), depth of field (f/1.4 bokeh, f/2.8), camera movement
+  - Lighting: Describe precise lighting setup (golden hour, studio 3-point, rim light, motivated light)
+  - Color grade: Specify color palette/mood (warm amber tones, cool desaturated, rich cinematic)
+  - Composition: Rule of thirds, leading lines, negative space, framing elements
+- Think RED V-RAPTOR / ARRI Alexa quality - every frame should look like a high-end commercial
+- Include atmospheric details: lens flare, volumetric light, bokeh particles, subtle haze
+
 VISUAL CONTINUITY:
 - If showing a person/character, describe them IDENTICALLY in each scene
 - Same clothing, same features, same styling throughout
