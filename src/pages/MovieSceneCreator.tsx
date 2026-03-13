@@ -1153,14 +1153,16 @@ const MovieSceneCreator = () => {
       // Step 2: Generate Outline (25%)
       setGenerateAllStep('Generating Outline...');
       
-      const pronounsDesc = selectedTwins.map(twin => {
-        const genderText = twin.gender ? `${twin.gender} ` : '';
-        const pronouns = twin.gender === 'female' ? 'she/her' : twin.gender === 'male' ? 'he/him' : 'they/them';
-        return `${twin.name} (${genderText}character, pronouns: ${pronouns}): ${twin.face_description || twin.description || 'No description'}`;
-      }).join('\n\n');
+      const pronounsDesc = selectedTwins.length > 0
+        ? selectedTwins.map(twin => {
+            const genderText = twin.gender ? `${twin.gender} ` : '';
+            const pronouns = twin.gender === 'female' ? 'she/her' : twin.gender === 'male' ? 'he/him' : 'they/them';
+            return `${twin.name} (${genderText}character, pronouns: ${pronouns}): ${twin.face_description || twin.description || 'No description'}`;
+          }).join('\n\n')
+        : undefined;
 
       const { data: outlineData, error: outlineError } = await supabase.functions.invoke('generate-movie-outline', {
-        body: { movieIdea, characterDescription: pronounsDesc, movieLength }
+        body: { movieIdea, characterDescription: pronounsDesc || undefined, movieLength }
       });
 
       if (outlineError) throw outlineError;
