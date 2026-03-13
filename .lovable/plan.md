@@ -1,95 +1,75 @@
 
-Goal: stop the AI Twin area from getting stuck/failing repeatedly and make it recover gracefully when the backend connection is unstable.
 
-What I found
-1. The failure pattern is backend connectivity/auth-refresh related, not a JSX/UI rendering bug:
-   - Repeated `Failed to fetch` on token refresh and `ai_twins` reads.
-   - Backend SQL inspection attempts also timed out (status 544), which points to backend saturation/connection instability.
-2. The AI Twin page already has lightweight list queries (good), but current failure handling is still brittle:
-   - User sees repeated load failures without enough guided recovery.
-   - If requests hang, UX can feel like “just loading”.
-3. Auth state resilience is incomplete:
-   - Initial session bootstrap handles thrown exceptions, but not all returned auth errors from session fetch pathways.
-   - This can leave the app in a confusing state where protected data calls keep failing but recovery signals are weak.
-4. Data access rules look correct for AI twins:
-   - `ai_twins` is user-scoped via row-level policies (`auth.uid() = user_id`), so no policy looseness is needed.
-   - No database schema changes are required for this fix.
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-Implementation plan
+## Core Problem
+The current UI has too many buttons, options, and manual steps. Users don't know what to do. The "Generate Complete Movie" button only appears if you select an AI Twin first — most users never find it. Each scene card has 3 tabs, 10+ buttons, manual prompt editing, camera angle selectors, and position inputs. It reads like a professional editing suite, not something approachable.
 
-Phase 1 — Harden auth/outage detection (foundation)
-Files:
-- `src/components/AuthProvider.tsx`
-- (optional small helper in existing utility file if needed)
+## Design Philosophy
+**Make the default path require exactly 2 actions: type an idea → click "Make My Movie."** Everything else becomes optional advanced controls hidden behind a single "Customize" toggle.
 
-Changes:
-1. Improve session bootstrap handling so both thrown errors and returned auth errors are treated as connectivity/service outages.
-2. Ensure `authServiceDown` is set consistently when refresh/session retrieval fails.
-3. Keep `clearLocalSession` as the primary emergency recovery path, but make sure downstream pages can trust `authServiceDown`.
+## Changes
 
-Why first:
-- Every data page depends on stable auth state. Fixing this first prevents cascading retries/confusion.
+### 1. Redesign Step 1 — Single Hero Input (MovieSceneCreator.tsx)
 
-Phase 2 — Make AI Twin loading fail-safe and recoverable
-File:
-- `src/pages/AITwin.tsx`
+**Current**: Pete AI chat box + Quick Start buttons + Character selection card with 3 tabs (Twins/Characters/Gallery) + Movie Idea display card + Movie Length selector + "Generate Complete Movie" button (only if twin selected) + "or step by step" divider + Story Bible / Outline buttons + How It Works collapsible.
 
-Changes:
-1. Add request timeout guard for the twins fetch (so spinner can’t run indefinitely on hung requests).
-2. Add explicit connectivity-aware error classification:
-   - Backend unavailable
-   - Session/auth issue
-   - Generic query failure
-3. Show a dedicated recovery UI state with clear actions:
-   - Retry
-   - Clear Session & Retry (reuse existing auth context method)
-4. Prevent repeated noisy toasts on repeated automatic failures (only toast on user-triggered retries or first failure).
-5. Add a small local cache fallback for last successful twin list metadata:
-   - If live fetch fails, render cached twins with a “stale data” indicator.
-   - This ensures users can still see previously loaded twins during temporary outages.
-6. Keep list fetch lightweight, but restore detail behavior by lazy-loading full twin details (including reference images) only when opening a twin detail panel.
+**New layout**:
+- Large centered hero card: "What's your movie about?" with a big textarea and a prominent **"Make My Movie ✨"** button below it
+- The button triggers `generateAll` regardless of whether a twin is selected — if no twin, it just skips the voice-assignment steps and uses default voices
+- Quick Start sample chips below the textarea (same as now, but styled as pill buttons)
+- **Collapsible "Advanced Options"** section below containing: Movie Length selector, Character/Twin selection, and step-by-step buttons
+- Remove the separate "Current Movie Idea" card — the textarea IS the idea
+- Remove the Pete AI chat assistant from the main flow (move it into a floating help button or remove entirely — it adds confusion)
 
-Why this fixes your specific pain:
-- The tab won’t feel stuck.
-- Failures become actionable instead of opaque.
-- Existing twins remain visible during transient backend issues.
+### 2. Auto-generate without requiring twin selection (MovieSceneCreator.tsx)
 
-Phase 3 — Remove avoidable auth pressure in twin-related selectors
-Files:
-- `src/components/testimonial/TwinSelector.tsx`
-- `src/components/testimonial/CommercialStrategist.tsx`
-- (optionally) `src/components/Dashboard.tsx` for consistency
+**Current**: `generateAll` is gated behind `selectedTwins.length >= 1`. Users who haven't created an AI Twin see a dashed box saying "Select AI Twins above to enable one-click movie generation" — a dead end.
 
-Changes:
-1. Replace direct `auth.getUser()` calls with the already-available auth context user where possible.
-2. Avoid issuing twin queries when no authenticated user is present.
-3. Add clearer empty/error states in selectors (“Sign in to load AI Twins” vs generic empty list).
+**Fix**: Allow `generateAll` to run with zero twins. In the function, skip voice-assignment steps when no twins are selected. The button becomes always visible when `movieIdea.trim()` is truthy.
 
-Why:
-- Reduces extra auth round-trips.
-- Lowers chance of lock/contention patterns during unstable periods.
-- Keeps lip-sync and testimonial twin pickers aligned with the resilient loading model.
+### 3. Simplify KeyframeSceneCard — Default to Auto Mode (KeyframeSceneCard.tsx)
 
-Phase 4 — Verification checklist (end-to-end)
-1. `/ai-twin` with healthy backend:
-   - Twins list loads quickly.
-   - Detail panel loads full images only on selection.
-2. `/ai-twin` with simulated connectivity outage:
-   - Spinner exits within timeout window.
-   - Recovery state appears with Retry + Clear Session.
-   - Cached twins (if available) are shown and labeled stale.
-3. Lip-sync/twin selector flow:
-   - Twin dropdown loads without hanging.
-   - Clear messaging when not authenticated or backend unavailable.
-4. Confirm no new security regressions:
-   - User-scoped data only.
-   - No RLS changes required.
+**Current**: Each scene card shows 3 tabs (Keyframes, Audio, Settings) with manual prompt textareas, camera angle selectors, position inputs, "Generate" and "Auto-Generate" buttons per frame, plus transition controls.
 
-Operational note (parallel to code fix)
-- If backend timeouts continue after these resilience changes, instance sizing/health in Lovable Cloud should be adjusted. The code changes above will still improve UX and recovery, but persistent infrastructure timeouts can still block live reads.
+**New default view**:
+- Scene card shows: title, description (2 lines), start frame image (or placeholder), and a single **"Generate Scene ✨"** button that calls `onDescribeAndGenerate` for both frames + auto-generates video
+- Dialogue shown as read-only chat bubbles (already exists)
+- Generated video shown inline when ready
+- All manual controls (prompt editing, camera angles, position inputs, lighting, mood, transition settings) hidden behind a **"Customize"** collapsible
+- Remove the 3-tab navigation entirely from default view — merge into: main view (images + video + dialogue) and collapsible advanced section
 
-Expected outcome
-- AI Twin tab no longer “keeps failing” in a confusing way.
-- Users get reliable recovery actions.
-- Previously created twins remain visible via cache during temporary outages.
-- Lip sync twin loading is more stable and consistent with AI Twin page behavior.
+### 4. Simplify Step 4 header (MovieSceneCreator.tsx)
+
+**Current**: "Scenes" header + "Build Movie" button + collapsible "Bulk Actions" + scene timeline + per-scene coverage/blocking collapsibles.
+
+**New**:
+- Header: "Your Movie" + scene count + "Build & Download" button
+- Remove the Bulk Actions collapsible entirely (regenerate dialogue can go into an overflow menu)
+- Remove per-scene Coverage & Blocking collapsibles — these are pro features that confuse casual users. Put them behind a single "Director Mode" toggle at the top that reveals all advanced per-scene tools
+- Scene timeline stays but simplified
+
+### 5. Clean up the header bar (MovieSceneCreator.tsx)
+
+**Current**: Title + New/Load/Save buttons + CommercialTemplateSelector + StoryboardExport + "Transfer to Reels" button — 6+ action items.
+
+**New**: Title + Save button + overflow menu (⋮) containing: New, Load, Export Storyboard, Transfer to Reels, Templates. Reduces visual noise from 6 buttons to 2.
+
+### 6. Simplify Steps 2 & 3 — Make them feel automatic
+
+- Step 2 (Story Bible): Show as a read-only summary card. Characters, logline, and structure displayed cleanly. Voice assignment dropdowns only shown if user has AI Twins. Add a "Looks good, continue →" button prominently.
+- Step 3 (Outline): Show outline as read-only formatted text (not an editable textarea by default). Add "Edit" toggle for power users. The "Generate Scenes" button should be the hero CTA. Remove Location Manager from default view — auto-extract locations silently during generateAll.
+
+## Summary of Removals
+- Pete AI Assistant from main flow (confusing extra step)
+- 3-tab navigation in scene cards (Keyframes/Audio/Settings)
+- Manual prompt textareas as default (hidden in Customize)
+- Twin-required gate on one-click generation
+- Bulk Actions collapsible
+- Coverage & Blocking tools from default view
+- 6 header buttons → 2
+
+## Files Modified
+1. `src/pages/MovieSceneCreator.tsx` — Steps 1-4 JSX restructure, header cleanup, `generateAll` ungating
+2. `src/components/KeyframeSceneCard.tsx` — Simplified default view with "Generate Scene" CTA, manual controls in collapsible
+
