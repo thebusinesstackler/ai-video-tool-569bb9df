@@ -1282,15 +1282,39 @@ Return ONLY the JSON object.`
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center relative">
                   <video
+                    ref={videoRef}
                     src={videoUrl}
                     controls
                     autoPlay
                     playsInline
                     className="w-full h-full object-contain"
                   />
+                  {captionsEnabled && captionText && (
+                    <div className="absolute bottom-12 left-2 right-2 pointer-events-none">
+                      <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
+                        <p className="text-sm font-semibold text-white drop-shadow-lg leading-snug">
+                          {captionText.substring(0, 100)}...
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Continuation videos */}
+                {continuationVideos.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      🎬 Scene Continuations ({continuationVideos.length})
+                    </p>
+                    {continuationVideos.map((url, idx) => (
+                      <div key={idx} className="aspect-[9/16] max-h-[300px] mx-auto bg-black rounded-lg overflow-hidden">
+                        <video src={url} controls playsInline className="w-full h-full object-contain" />
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-2 justify-center">
                   <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
                     <Download className="w-4 h-4 mr-2" />

@@ -62,6 +62,8 @@ const QUICK_ANGLES = {
 };
 
 const AI_EDIT_SUGGESTIONS = [
+  'Continue the scene — add more talking points',
+  'Add captions / subtitles to the video',
   'Add a dramatic B-roll opening',
   'Create a cinematic closing shot',
   'Add a slide with key stats',
