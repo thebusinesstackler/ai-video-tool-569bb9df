@@ -268,7 +268,7 @@ serve(async (req) => {
     console.log('Voice:', voice);
     console.log('Voiceovers provided:', voiceovers?.length || 0);
     console.log('Pre-generated images:', preGeneratedImages?.length || 0);
-
+    console.log('Camera angles provided:', cameraAngles?.length || 0);
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
