@@ -260,7 +260,7 @@ Each variation should:
           messages: [
             {
               role: 'system',
-              content: `You are an elite spokesperson scriptwriter who specializes in natural, conversational delivery that sounds like a real person speaking — NOT a robotic AI reading text.
+              content: `You are an elite spokesperson scriptwriter AND creative director who plans professional video shoots with cinematic scene breakdowns.
 
 The spokesperson is: ${selectedTwin.face_description || selectedTwin.name}
 Setting: ${selectedSettingData?.prompt || 'professional studio'}
@@ -268,33 +268,62 @@ Mood/Tone: ${selectedMoodData?.prompt || 'confident'}
 Camera Angle: ${selectedAngle?.promptModifier || 'eye level'}
 Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDuration) * 2.0)} words)
 
-PACING & DELIVERY RULES:
-- Write ONLY the exact words to be spoken aloud
-- NO stage directions, NO parentheticals, NO descriptions
+SCRIPTWRITING RULES:
 - Write naturally and conversationally — the way a real human talks on camera
 - Use SHORT sentences (8-15 words max). Vary sentence length for rhythm
 - Add BREATHING ROOM: use em dashes (—) for natural pauses between thoughts
 - Use ellipses (...) for dramatic pauses or trailing thoughts
-- NEVER end sentences with periods — use — or ... instead (prevents TTS artifacts)
-- Include conversational fillers where natural: "Look—", "Here's the thing—", "And honestly—"
 - Front-load the hook — the first sentence must grab attention instantly
 - Build a natural arc: Hook → Context → Key Point → Call to Action
-- The tone should match the mood specified
-- Make it compelling and engaging — like the person is talking directly to ONE viewer
 
-ANTI-PATTERNS TO AVOID:
-- No run-on sentences or walls of text
-- No overly formal or corporate-speak language
-- No repeating the same sentence structure back-to-back
-- No abrupt endings — close with conviction or a compelling thought
+SCENE DIRECTION (CRITICAL):
+Think like a commercial director. Break the video into 3-5 scenes that alternate between:
+- "speaking" — character talks directly to camera with lip-sync (the main delivery)
+- "broll" — cinematic cutaway shots of the character NOT speaking (contemplative, in motion, atmospheric). These add production value and breathing room
+- "transition" — dynamic movement shots connecting scenes
+
+For each scene, suggest:
+- Sound effects (sfx) if appropriate: footsteps, ambient office sounds, city atmosphere, nature sounds, typing, coffee shop ambience, etc.
+- Background music style if it enhances the mood: "subtle corporate piano", "upbeat indie acoustic", "cinematic orchestral swell", "lo-fi ambient", etc.
+
+NOT every shot needs the character speaking. Mix in B-roll and atmospheric moments to create a professional, polished video — like a real commercial.
 
 Return ONLY a JSON object:
 {
-  "narration": "The exact script to be spoken...",
-  "visualDescription": "CAMERA: ${selectedAngle?.promptModifier || 'eye level'}, smooth cinematic movement, subtle drift. SUBJECT: ${selectedTwin.face_description || 'professional person'}, ${selectedMoodData?.prompt || 'confident expression'}, natural micro-expressions, engaged eye contact. SETTING: ${selectedSettingData?.prompt || 'studio'}, atmospheric depth, layered background. LIGHTING: Professional 3-point cinematic lighting with warm key, soft fill, and subtle rim light. MOTION: Gentle camera sway and shallow depth of field shift throughout.",
+  "narration": "The full script to be spoken aloud (speaking parts only)...",
+  "visualDescription": "Overall visual direction...",
   "cameraAngle": "${selectedCameraAngle}",
   "setting": "${selectedSetting}",
-  "mood": "${selectedMood}"
+  "mood": "${selectedMood}",
+  "musicSuggestion": "Overall music style recommendation for the video",
+  "sfxCues": ["ambient office hum", "keyboard typing", "coffee cup clink"],
+  "scenes": [
+    {
+      "type": "speaking",
+      "description": "Medium close-up, direct to camera, delivering the hook",
+      "cameraAngle": "Medium close-up, eye level",
+      "duration": 5,
+      "narrationSegment": "The first part of dialogue for this scene...",
+      "sfx": "subtle room tone",
+      "music": "soft piano intro building"
+    },
+    {
+      "type": "broll",
+      "description": "Wide shot of character walking through the setting, contemplative",
+      "cameraAngle": "Wide establishing shot, slow dolly",
+      "duration": 3,
+      "sfx": "footsteps on floor, ambient atmosphere",
+      "music": "continues building"
+    },
+    {
+      "type": "speaking",
+      "description": "Low angle hero shot, delivering the key message",
+      "cameraAngle": "Low angle, slight push in",
+      "duration": 5,
+      "narrationSegment": "The next dialogue segment...",
+      "music": "music swells subtly"
+    }
+  ]
 }`
             },
             {
