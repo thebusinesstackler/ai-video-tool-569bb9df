@@ -3403,7 +3403,7 @@ const MovieSceneCreator = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
-                            {scene.generatedVideo && <Badge variant="default" className="text-[10px] bg-green-600">✓ Video</Badge>}
+                            {scene.generatedVideo && <Badge className="text-[10px] bg-primary text-primary-foreground">✓ Video</Badge>}
                           </div>
                           <h4 className="text-sm font-medium truncate">{scene.title}</h4>
                           <p className="text-xs text-muted-foreground line-clamp-2">{scene.description}</p>
