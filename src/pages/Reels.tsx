@@ -3776,9 +3776,22 @@ const Reels = () => {
                                             description: 'Cloned voice will be used for voiceovers',
                                           });
                                         } else {
+                                          // Auto-match voice to twin's gender
+                                          const twinGender = (twin as any).gender?.toLowerCase();
+                                          const descLower = (twin.face_description || twin.name || '').toLowerCase();
+                                          const femaleHints = ['woman', 'female', 'girl', 'lady', 'she', 'her'];
+                                          const isFemale = twinGender === 'female' || femaleHints.some(k => descLower.includes(k));
+                                          const isMale = twinGender === 'male' || (!isFemale && ['man', 'male', 'boy', 'guy'].some(k => descLower.includes(k)));
+                                          
+                                          if (isFemale) {
+                                            setSelectedVoice('en-US-Journey-F');
+                                          } else if (isMale) {
+                                            setSelectedVoice('en-US-Journey-D');
+                                          }
+                                          
                                           toast({
                                             title: `AI Twin "${twin.name}" Selected`,
-                                            description: 'Reference image applied (no cloned voice)',
+                                            description: `Reference image applied${isFemale ? ', female voice set' : isMale ? ', male voice set' : ' (no cloned voice)'}`,
                                           });
                                         }
                                         // Apply face description if available
