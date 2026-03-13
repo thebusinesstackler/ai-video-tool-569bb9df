@@ -3792,8 +3792,8 @@ const MovieSceneCreator = () => {
           </div>
         )}
 
-        {/* ===== STEP 3: Outline — Read-Only with Edit Toggle ===== */}
-        {currentStep === 2 && (
+        {/* ===== STEP 3: Outline (Advanced only) ===== */}
+        {isAdvanced && currentStep === 2 && (
           <div className="space-y-6">
             <Card>
               <CardHeader>
