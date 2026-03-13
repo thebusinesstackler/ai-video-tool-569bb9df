@@ -17,10 +17,54 @@ import {
   VolumeXIcon,
   PlayIcon,
   ImageIcon,
-  UploadIcon
+  UploadIcon,
+  LayoutTemplateIcon
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import templateProduct1 from '@/assets/template-char-product1.jpg';
+import templateProduct2 from '@/assets/template-char-product2.jpg';
+import templateProduct3 from '@/assets/template-char-product3.jpg';
+import templateCar from '@/assets/template-char-car.jpg';
+
+interface CharacterTemplate {
+  name: string;
+  description: string;
+  image: string;
+  voiceType: string;
+  personality: string;
+}
+
+const CHARACTER_TEMPLATES: CharacterTemplate[] = [
+  {
+    name: 'Sarah – Product Ambassador',
+    description: 'Professional businesswoman holding a skincare/beauty product. Great for cosmetics, wellness, and lifestyle brand commercials.',
+    image: templateProduct1,
+    voiceType: 'professional-female',
+    personality: 'confident, trustworthy',
+  },
+  {
+    name: 'Jake – Tech Reviewer',
+    description: 'Friendly tech enthusiast showcasing a gadget. Perfect for electronics, SaaS, and tech product demos.',
+    image: templateProduct2,
+    voiceType: 'casual-male',
+    personality: 'enthusiastic, knowledgeable',
+  },
+  {
+    name: 'Maya – Fitness Influencer',
+    description: 'Energetic fitness instructor holding a supplement bottle. Ideal for health, fitness, and nutrition brand promotions.',
+    image: templateProduct3,
+    voiceType: 'energetic-female',
+    personality: 'energetic, motivating',
+  },
+  {
+    name: 'Carlos – Luxury Lifestyle',
+    description: 'Stylish man in a luxury car interior. Perfect for automotive, real estate, finance, and premium lifestyle content.',
+    image: templateCar,
+    voiceType: 'authoritative-male',
+    personality: 'sophisticated, aspirational',
+  },
+];
 
 interface Character {
   id: string;
