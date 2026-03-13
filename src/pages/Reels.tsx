@@ -4235,6 +4235,7 @@ const Reels = () => {
               </Sheet>
               </>
             )}
+          </TabsContent>
 
           <TabsContent value="queue" className="space-y-6">
             <VideoQueue 
