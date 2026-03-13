@@ -24,6 +24,14 @@ interface SceneShot {
   narrationSegment?: string;
 }
 
+interface EditStatus {
+  active: boolean;
+  instruction: string;
+  stage: 'interpreting' | 'generating-image' | 'done' | 'error';
+  stageLabel: string;
+  shotSpec?: { angleLabel: string; type: string; sfx?: string; music?: string };
+}
+
 interface VideoEditorPanelProps {
   sceneShots: SceneShot[];
   onGenerateShot: (angle: string, type: 'speaking' | 'broll') => Promise<void>;
@@ -33,6 +41,7 @@ interface VideoEditorPanelProps {
   isGeneratingShots: boolean;
   musicSuggestion?: string;
   onAiEditRequest: (instruction: string) => Promise<void>;
+  editStatus?: EditStatus;
 }
 
 const QUICK_ANGLES = {
