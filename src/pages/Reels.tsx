@@ -1701,8 +1701,8 @@ const Reels = () => {
         setProgress(75);
         setProgressStatus('Stitching video clips with voiceover...');
         
-        // Choose stitching method
-        if (useServerStitching) {
+        // Always use server-side (Creatomate) first, with browser fallback
+        {
           // Use Creatomate for server-side stitching
           setProgressStatus('Uploading voiceovers and merging audio...');
           
