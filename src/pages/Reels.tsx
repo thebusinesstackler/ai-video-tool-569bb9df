@@ -1573,6 +1573,9 @@ const Reels = () => {
       const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
       const twinReferenceImages = selectedTwin?.reference_images || [];
       
+      const effectiveLipSync = overrides?.forceEnableLipSync ?? enableLipSync;
+      const effectiveLipSyncModel = overrides?.forceLipSyncModel ?? lipSyncModel;
+      
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: scenesWithAudioDurations,
@@ -1580,9 +1583,9 @@ const Reels = () => {
           addCaptions: true,
           useWaveSpeed: true,
           // Lip sync configuration
-          enableLipSync,
-          lipSyncModel: enableLipSync ? lipSyncModel : undefined,
-          portraitImage: enableLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
+          enableLipSync: effectiveLipSync,
+          lipSyncModel: effectiveLipSync ? effectiveLipSyncModel : undefined,
+          portraitImage: effectiveLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
           voice: selectedVoice,
           // Pass voiceover storage URLs for lip sync
           voiceovers: voiceovers.map(v => ({
