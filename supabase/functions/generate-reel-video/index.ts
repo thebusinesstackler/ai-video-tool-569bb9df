@@ -421,146 +421,134 @@ serve(async (req) => {
         const sceneVoiceover = (voiceovers as VoiceoverData[])?.find(v => v.sceneNumber === scene.sceneNumber);
         const audioUrl = sceneVoiceover?.audioUrl;
         
-        // Determine API endpoint and body based on mode
+        // Determine API endpoint and body based on scene type
         let apiEndpoint: string;
         let requestBody: any;
+        let sceneHasEmbeddedAudio = false;
         
         // Use actual audio duration if provided, otherwise fall back to scene duration
         const targetDuration = scene.audioDuration || scene.duration;
-        // Round to nearest valid integer (3-10), clamp to range
+        // VEO 3 produces 8s clips; Kling 3.0 Pro supports 5s or 10s
         const clipDuration = Math.max(3, Math.min(10, Math.round(targetDuration)));
         
         console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
         
-        // LIP SYNC MODE: For lip sync scenes (not intro/outro), use the lip sync model
-        if (enableLipSync && !scene.isIntro && !scene.isOutro && scene.narration) {
-          // Use lip sync model with native voice or provided audio
-          console.log(`Using lip sync model ${lipSyncModel} for scene ${scene.sceneNumber}`);
+        // Build rich character context for prompts
+        const charContext = characterDescription ? `Character: ${characterDescription}.` : '';
+        const topicContext = `Topic: ${topic}.`;
+        
+        // ====== SCENE TYPE ROUTING ======
+        // Speaking/narrator scenes → VEO 3 (generates voice + video from prompt)
+        // B-roll, intro, outro → Kling 3.0 Pro (highest quality visuals, silent)
+        
+        const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
+        
+        if (isNarratorScene && enableLipSync) {
+          // ====== VEO 3: Speaking scenes with AI-generated voice ======
+          // VEO 3 generates synchronized audio + video from text prompt
+          // No separate TTS needed — the AI assumes the character's voice from context
+          console.log(`Scene ${scene.sceneNumber}: Using VEO 3 for narrator scene with AI voice`);
           
-          if (lipSyncModel === 'infinitetalk') {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
-          } else if (lipSyncModel === 'avatar-omni-human-1.5') {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/avatar-omni-human-1.5';
-          } else if (lipSyncModel === 'wan-animate') {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-animate';
-          } else {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
-          }
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/text-to-video';
+          sceneHasEmbeddedAudio = true;
           
-          // Lip sync models require audio input - use provided audio or generate voiceover
-          let sceneAudioUrl = audioUrl;
+          // Build a rich, detailed prompt that gives VEO 3 full context for voice + visuals
+          const genderHint = characterDescription?.toLowerCase().includes('woman') || 
+                            characterDescription?.toLowerCase().includes('female') || 
+                            characterDescription?.toLowerCase().includes('girl') ||
+                            characterDescription?.toLowerCase().includes('lady')
+                            ? 'female' : 'male';
           
-          // WaveSpeed lip sync models require HTTP URLs, not base64 data URIs
-          // If we have base64 audio, we need to upload it to storage first
-          const isHttpUrl = sceneAudioUrl?.startsWith('http');
-          const isBase64 = sceneAudioUrl?.startsWith('data:audio');
+          const veo3Prompt = `A ${genderHint} narrator speaks directly to camera in a professional social media video.
+${charContext}
+${topicContext}
+
+THE NARRATOR SAYS (speak this dialogue naturally with emotion and conviction):
+"${scene.narration}"
+
+VISUAL SCENE: ${scene.visualDescription}
+MOOD: Confident, engaging, authentic — like a top content creator delivering valuable insight.
+CINEMATOGRAPHY: Close-up to medium shot, shallow depth of field, professional studio or lifestyle setting.
+LIGHTING: Soft, flattering key light with warm tones. Professional social media quality.
+AUDIO: Clear, professional voice. Natural speaking pace with emphasis on key points. No background music.
+The speaker maintains eye contact with the camera, uses subtle hand gestures, and has genuine facial expressions.
+CRITICAL: No on-screen text, no captions, no watermarks. Portrait 9:16 vertical format.`;
           
-          console.log(`Scene ${scene.sceneNumber}: Pre-generated audio check:`, {
-            audioUrl: sceneAudioUrl ? sceneAudioUrl.substring(0, 50) + '...' : 'none',
-            isHttpUrl,
-            isBase64
-          });
-          
-          // If audio is base64, upload it to storage to get HTTP URL
-          if (isBase64 && supabase) {
-            console.log(`Scene ${scene.sceneNumber}: Converting base64 audio to storage URL`);
-            try {
-              // Extract base64 data
-              const base64Data = sceneAudioUrl!.split(',')[1];
-              const audioBytes = base64ToUint8Array(base64Data);
-              
-              // Upload to storage
-              const fileName = `voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('reels')
-                .upload(fileName, audioBytes, { contentType: 'audio/mp3', upsert: true });
-              
-              if (!uploadError && uploadData) {
-                const { data: publicUrl } = supabase.storage
-                  .from('reels')
-                  .getPublicUrl(fileName);
-                sceneAudioUrl = publicUrl.publicUrl;
-                console.log(`Scene ${scene.sceneNumber}: Uploaded audio to storage:`, sceneAudioUrl);
-              } else {
-                console.error(`Scene ${scene.sceneNumber}: Audio upload failed:`, uploadError);
-                sceneAudioUrl = undefined; // Clear so we fall back to WaveSpeed TTS
-              }
-            } catch (uploadErr) {
-              console.error(`Scene ${scene.sceneNumber}: Audio upload error:`, uploadErr);
-              sceneAudioUrl = undefined;
-            }
-          }
-          
-          // Check if we now have a valid HTTP URL for audio
-          const hasValidHttpAudio = sceneAudioUrl?.startsWith('http');
-          
-          // Generate WaveSpeed TTS if no valid HTTP audio was provided
-          if (!hasValidHttpAudio && scene.narration && WAVESPEED_API_KEY) {
-            console.log(`Scene ${scene.sceneNumber}: Generating voiceover via WaveSpeed MiniMax TTS`);
-            
-            try {
-              // Start TTS generation with target duration from scene
-              const targetDuration = scene.duration || 8;
-              const ttsResult = await generateWaveSpeedTTS(scene.narration, WAVESPEED_API_KEY, 'neutral', targetDuration);
-              
-              if (ttsResult?.taskId) {
-                // Poll for result
-                const generatedAudioUrl = await pollWaveSpeedTTSResult(ttsResult.taskId, WAVESPEED_API_KEY);
-                
-                if (generatedAudioUrl) {
-                  sceneAudioUrl = generatedAudioUrl;
-                  console.log(`Scene ${scene.sceneNumber}: WaveSpeed TTS completed:`, sceneAudioUrl);
-                }
-              }
-            } catch (ttsError) {
-              console.error(`Scene ${scene.sceneNumber}: WaveSpeed TTS error:`, ttsError);
-            }
-          }
-          
-          // Now build request with audio
-          if (sceneAudioUrl) {
-            requestBody = {
-              image: imageUrl,
-              audio: sceneAudioUrl,
-              duration: clipDuration
-            };
-            console.log(`Scene ${scene.sceneNumber}: Using audio for lip sync`);
-          } else {
-            // No audio available - fall back to regular video
-            console.log(`Scene ${scene.sceneNumber}: No audio available, falling back to image-to-video`);
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. Person with engaging expression, natural pose, slight head movement. No text, no captions, no subtitles, no watermarks. Person should NOT appear to be speaking or mouthing words.`,
-              resolution: "1080p",
-              duration: clipDuration
-            };
-          }
-          
-          // Add prompt for wan-animate
-          if (lipSyncModel === 'wan-animate') {
-            requestBody.prompt = `${scene.visualDescription}. Speaking naturally, engaging expression.`;
-          }
-        } else {
-          // Use Alibaba Wan-2.5 I2V for flexible duration (up to 60s) and 1080p quality
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
-          
-          let motionPrompt = `${scene.visualDescription}. Premium cinematic motion - smooth camera movement, subtle parallax depth, professional color grading. Photorealistic, high-end commercial quality. Absolutely no text, no captions, no subtitles, no watermarks. People have closed mouths - not speaking or mouthing words.`;
-          if (scene.isIntro) {
-            motionPrompt = 'Premium cinematic intro - elegant slow zoom in with shallow depth of field, volumetric light rays, smooth professional motion. Ultra high quality, film-grade. No text, no captions, no subtitles, no watermarks.';
-          } else if (scene.isOutro) {
-            motionPrompt = 'Premium cinematic outro - elegant slow zoom out with atmospheric lighting, smooth professional motion, film-grade quality. No text, no captions, no subtitles, no watermarks.';
-          }
-          
-          // Wan-2.5 I2V supports flexible duration - use actual audio duration
           requestBody = {
-            image: imageUrl,
-            prompt: motionPrompt,
-            resolution: "1080p",
-            duration: clipDuration
+            prompt: veo3Prompt,
+            duration: Math.min(clipDuration, 8), // VEO 3 max 8s
+            aspect_ratio: '9:16'
           };
           
-          console.log(`Using Wan-2.5 I2V for ${scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'scene'} ${scene.sceneNumber} (1080p, ${clipDuration}s)`);
+        } else if (isNarratorScene && !enableLipSync) {
+          // ====== KLING 3.0 PRO: Narrator scene WITHOUT lip sync ======
+          // Use Kling for cinematic visuals, TTS audio will be overlaid by client
+          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for narrator scene (no lip sync, TTS overlay)`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+          
+          // Kling only supports 5 or 10 second durations
+          const klingDuration = clipDuration <= 7 ? 5 : 10;
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Context: The narrator is saying "${scene.narration}" over this visual.
+Premium cinematic motion — smooth parallax camera movement, subtle depth shifts, professional color grading.
+The visual should emotionally match the narration content. Photorealistic, high-end commercial quality.
+If showing a person: natural expression, slight smile, confident pose — NOT speaking or mouthing words. Closed mouth.
+Absolutely no text, no captions, no subtitles, no watermarks.`,
+            duration: klingDuration
+          };
+          
+        } else if (scene.isIntro) {
+          // ====== KLING 3.0 PRO: Intro scene ======
+          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for intro`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+          const klingDuration = clipDuration <= 7 ? 5 : 10;
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: `Premium cinematic intro for a reel about "${topic}".
+Elegant slow zoom in with shallow depth of field, volumetric light rays, smooth professional motion.
+Ultra high quality, film-grade. Atmospheric, sets the mood for the content ahead.
+No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
+            duration: klingDuration
+          };
+          
+        } else if (scene.isOutro) {
+          // ====== KLING 3.0 PRO: Outro scene ======
+          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for outro`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+          const klingDuration = clipDuration <= 7 ? 5 : 10;
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: `Premium cinematic outro for a reel about "${topic}".
+Elegant slow zoom out with atmospheric lighting, smooth professional motion, film-grade quality.
+Warm, inviting feel that encourages engagement. Sophisticated ending.
+No text, no captions, no subtitles, no watermarks.`,
+            duration: klingDuration
+          };
+          
+        } else {
+          // ====== KLING 3.0 PRO: B-roll / fallback ======
+          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for B-roll`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+          const klingDuration = clipDuration <= 7 ? 5 : 10;
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${topicContext}
+Premium cinematic B-roll — smooth camera movement, subtle parallax depth, professional color grading.
+Photorealistic, high-end commercial quality. Emotionally resonant visuals.
+Absolutely no text, no captions, no subtitles, no watermarks.
+People should have closed mouths — not speaking or mouthing words.`,
+            duration: klingDuration
+          };
         }
         
         try {
