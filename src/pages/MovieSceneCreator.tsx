@@ -1589,7 +1589,12 @@ const MovieSceneCreator = () => {
       }
 
       setGenerateAllProgress(85);
-      setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
+      setTimeout(() => {
+        autoSaveProject(scenesWithDialogue);
+        // Update tracking with project ID (may have been created during auto-save)
+        if (currentProjectId) trackGenerationStart(currentProjectId);
+      }, 500);
+      sendNotification('🎬 Scenes Ready!', 'Your scenes, dialogue, and images are ready for preview.');
 
       // PAUSE: Show preview before video generation
       setIsGeneratingAll(false);
