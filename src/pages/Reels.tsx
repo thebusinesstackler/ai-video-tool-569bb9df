@@ -1476,6 +1476,7 @@ const Reels = () => {
         variant: "destructive"
       });
       setProject(prev => ({ ...prev, status: 'idle' }));
+      return null;
     } finally {
       setIsGenerating(false);
     }
