@@ -1981,20 +1981,21 @@ const Reels = () => {
             });
           } else {
             // Creatomate stitching failed - automatically fall back to browser-based stitching
-            console.warn('Creatomate stitching failed, falling back to browser stitching:', result.error);
-            setProgressStatus('Server stitching failed, trying browser stitching...');
+            console.warn('Creatomate stitching failed, falling back to canvas stitching:', result.error);
+            setProgressStatus('Server failed, stitching with built-in engine...');
             
             try {
               const videoUrls = sortedVideos.map(v => v.videoUrl);
-              const audioUrls = sortedAudios.map(a => a.audioUrl);
+              const audioUrlList = sortedAudios.map(a => a.audioUrl);
               
-              const finalBlob = await stitchVideosWithAudio({
+              const finalBlob = await canvasStitchVideos({
                 videoUrls,
-                audioUrls,
+                audioUrls: audioUrlList,
                 onProgress: (p) => {
                   setProgress(75 + Math.round(p * 0.2));
-                  setProgressStatus(`Stitching in browser... ${Math.round(p)}%`);
-                }
+                  setProgressStatus(`Stitching... ${Math.round(p)}%`);
+                },
+                onStatus: (s) => setProgressStatus(s)
               });
               
               const blobUrl = URL.createObjectURL(finalBlob);
