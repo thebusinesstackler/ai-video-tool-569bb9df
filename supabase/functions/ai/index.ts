@@ -15,10 +15,9 @@ function extractText(message: any): string | null {
   if (typeof message.content === 'string' && message.content.trim()) {
     return message.content;
   }
-  // content can be an array of parts
   if (Array.isArray(message.content)) {
     const textParts = message.content
-      .filter((p: any) => p.type === 'text' && p.text)
+      .filter((p: any) => (p.type === 'text' && p.text) || (p.type === 'output_text' && p.text))
       .map((p: any) => p.text);
     if (textParts.length > 0) return textParts.join('\n');
   }
@@ -28,21 +27,40 @@ function extractText(message: any): string | null {
 // Extract image URL from various response shapes
 function extractImageUrl(message: any): string | null {
   if (!message) return null;
+
   // images array (Gemini image models)
   if (message.images && Array.isArray(message.images) && message.images.length > 0) {
     const img = message.images[0];
     if (typeof img === 'string') return img;
     if (img?.image_url?.url) return img.image_url.url;
     if (img?.url) return img.url;
+    // base64 variants
+    if (img?.b64_json) return `data:image/png;base64,${img.b64_json}`;
+    if (img?.base64) return `data:image/png;base64,${img.base64}`;
+    if (img?.data) return `data:image/png;base64,${img.data}`;
   }
-  // content parts with image_url
+
+  // content parts with image_url or output_image
   if (Array.isArray(message.content)) {
     for (const part of message.content) {
       if (part.type === 'image_url' && part.image_url?.url) return part.image_url.url;
       if (part.type === 'image' && part.url) return part.url;
+      if (part.type === 'output_image' && part.url) return part.url;
+      if (part.type === 'output_image' && part.image_url?.url) return part.image_url.url;
+      // base64 in content parts
+      if (part.type === 'image' && part.b64_json) return `data:image/png;base64,${part.b64_json}`;
+      if (part.type === 'output_image' && part.b64_json) return `data:image/png;base64,${part.b64_json}`;
     }
   }
   return null;
+}
+
+// Check if the request is for image/multimodal generation
+function isImageRequest(body: any): boolean {
+  if (body.modalities && Array.isArray(body.modalities) && body.modalities.includes('image')) return true;
+  const model = (body.model || '').toLowerCase();
+  if (model.includes('image')) return true;
+  return false;
 }
 
 serve(async (req) => {
@@ -171,16 +189,31 @@ serve(async (req) => {
     const textContent = extractText(aiMessage);
     const imageUrl = extractImageUrl(aiMessage);
 
-    // Only fail if we got absolutely nothing
+    // For image/multimodal requests, empty output is not a hard failure — 
+    // the model may have returned nothing useful but the request itself succeeded.
+    // Only return 500 for pure text requests that got nothing back.
     if (!textContent && !imageUrl) {
-      console.error("No text or image in AI response. finish_reason:", data.choices?.[0]?.finish_reason, "model:", data.model, "keys:", aiMessage ? Object.keys(aiMessage) : 'no message');
+      const imageReq = isImageRequest(body);
+      if (imageReq) {
+        // Return 200 with warning — let frontend handle gracefully
+        console.warn("Empty AI output for image request. finish_reason:", data.choices?.[0]?.finish_reason, "model:", data.model);
+        return new Response(JSON.stringify({ 
+          response: '',
+          imageUrl: null,
+          choices: data.choices,
+          warning: 'empty_ai_output',
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // True failure for text-only requests
+      console.error("No text in AI response. finish_reason:", data.choices?.[0]?.finish_reason, "model:", data.model);
       return new Response(JSON.stringify({ 
         error: "No response from AI",
         debug: {
           finish_reason: data.choices?.[0]?.finish_reason,
           model: data.model,
-          hasMessage: !!aiMessage,
-          messageKeys: aiMessage ? Object.keys(aiMessage) : [],
         }
       }), {
         status: 500,
@@ -188,7 +221,6 @@ serve(async (req) => {
       });
     }
 
-    // Return unified payload — backward compatible
     return new Response(JSON.stringify({ 
       response: textContent || '',
       imageUrl: imageUrl || null,
