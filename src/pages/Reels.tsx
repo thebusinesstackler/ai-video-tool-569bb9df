@@ -4213,10 +4213,10 @@ const Reels = () => {
                         <div className="flex justify-center">
                           <Button 
                             onClick={stitchVideos}
-                            disabled={isManualStitching || isCreatomateStitching}
+                            disabled={isManualStitching}
                             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
                           >
-                            {isManualStitching || isCreatomateStitching ? (
+                            {isManualStitching ? (
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
                               <Layers className="w-4 h-4 mr-2" />
@@ -4224,12 +4224,12 @@ const Reels = () => {
                             Stitch All Clips Together
                           </Button>
                         </div>
-                        {(isManualStitching || isCreatomateStitching) && (
+                        {isManualStitching && (
                           <div className="space-y-2 px-4">
-                            <Progress value={isManualStitching ? progress : creatomateProgress} className="h-2" />
+                            <Progress value={progress} className="h-2" />
                             <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>{isManualStitching ? progressStatus : creatomateStatus}</span>
-                              <span>{Math.round(isManualStitching ? progress : creatomateProgress)}%</span>
+                              <span>{progressStatus}</span>
+                              <span>{Math.round(progress)}%</span>
                             </div>
                           </div>
                         )}
