@@ -2394,6 +2394,7 @@ const Reels = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <CreatorModeToggle mode={creatorMode} onModeChange={setCreatorMode} />
                 {showUpscaler && (
                   <Button 
                     variant="outline" 
