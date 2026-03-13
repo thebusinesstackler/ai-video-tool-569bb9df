@@ -317,7 +317,17 @@ export const VideoEditorPanel: React.FC<VideoEditorPanelProps> = ({
                   {AI_EDIT_SUGGESTIONS.map(suggestion => (
                     <button
                       key={suggestion}
-                      onClick={() => { setAiInput(suggestion); }}
+                      onClick={async () => {
+                        setAiInput(suggestion);
+                        setIsAiThinking(true);
+                        setEditHistory(prev => [suggestion, ...prev]);
+                        try {
+                          await onAiEditRequest(suggestion);
+                        } finally {
+                          setIsAiThinking(false);
+                          setAiInput('');
+                        }
+                      }}
                       disabled={isAiThinking}
                       className={cn(
                         "w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-xs text-muted-foreground",
