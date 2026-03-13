@@ -446,7 +446,7 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
           model: 'infinitetalk',
           imageUrls: [generatedImageUrl],
           audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
-          prompt: `${angle?.promptModifier || 'professional spokesperson'}. ${mood?.prompt || 'confident'}. Premium cinematic quality.`,
+          prompt: `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`,
           aspectRatio: '9:16',
           duration: parseInt(selectedDuration)
         }
