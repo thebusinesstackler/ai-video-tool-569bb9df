@@ -46,6 +46,14 @@ interface VideoTask {
   videoUrl?: string;
 }
 
+interface SceneShot {
+  id: string;
+  imageUrl: string;
+  angleLabel: string;
+  prompt: string;
+  selected: boolean;
+}
+
 const SETTINGS = [
   { id: 'modern-office', name: 'Modern Office', prompt: 'sleek modern office with floor-to-ceiling windows, city skyline view, minimalist desk, warm ambient lighting' },
   { id: 'studio', name: 'Professional Studio', prompt: 'professional broadcast studio, clean backdrop, soft studio lighting, teleprompter setup' },
