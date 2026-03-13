@@ -3167,7 +3167,8 @@ const MovieSceneCreator = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <CreatorModeToggle mode={creatorMode} onModeChange={setCreatorMode} />
             {userId && (
               <>
                 <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
