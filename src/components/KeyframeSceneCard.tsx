@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { 
   Film, Copy, Trash2, ChevronDown, ChevronRight, Image, Play, 
   ArrowRight, Link, Camera, Lightbulb, Music, User, Wand2, 
-  Loader2, Video, Volume2, Expand, X, MessageSquare, Settings2
+  Loader2, Video, Volume2, Expand, X, MessageSquare, Settings2, Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
