@@ -3884,7 +3884,7 @@ const Reels = () => {
                   {/* Scene Images/Videos Gallery - show only if no stitched video */}
                   {!project.videoBlobUrl && project.generatedScenes.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {project.generatedScenes.map((scene) => (
+                      {project.generatedScenes.map((scene, idx) => (
                         <div key={scene.sceneNumber} className="relative group">
                           <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
                             {scene.videoUrl ? (
@@ -3935,6 +3935,90 @@ const Reels = () => {
                                 <Video className="w-3 h-3" />
                               </div>
                             )}
+                            {/* Edit overlay - shown on hover */}
+                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingSceneNumber(scene.sceneNumber);
+                                  setEditSceneText(scene.text);
+                                }}
+                              >
+                                <Pencil className="w-3 h-3 mr-1" />
+                                Edit
+                              </Button>
+                              <div className="flex gap-1">
+                                {idx > 0 && (
+                                  <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Swap with previous scene
+                                      setProject(prev => {
+                                        const scenes = [...prev.generatedScenes];
+                                        const clips = [...prev.videoClips];
+                                        const vos = [...prev.voiceovers];
+                                        // Swap scene numbers
+                                        const prevNum = scenes[idx - 1].sceneNumber;
+                                        const currNum = scenes[idx].sceneNumber;
+                                        scenes[idx - 1] = { ...scenes[idx - 1], sceneNumber: currNum };
+                                        scenes[idx] = { ...scenes[idx], sceneNumber: prevNum };
+                                        [scenes[idx - 1], scenes[idx]] = [scenes[idx], scenes[idx - 1]];
+                                        // Also swap video clips
+                                        const ci = clips.findIndex(c => c.sceneNumber === currNum);
+                                        const pi = clips.findIndex(c => c.sceneNumber === prevNum);
+                                        if (ci >= 0) clips[ci] = { ...clips[ci], sceneNumber: prevNum };
+                                        if (pi >= 0) clips[pi] = { ...clips[pi], sceneNumber: currNum };
+                                        // Swap voiceovers
+                                        const vi = vos.findIndex(v => v.sceneNumber === currNum);
+                                        const pvi = vos.findIndex(v => v.sceneNumber === prevNum);
+                                        if (vi >= 0) vos[vi] = { ...vos[vi], sceneNumber: prevNum };
+                                        if (pvi >= 0) vos[pvi] = { ...vos[pvi], sceneNumber: currNum };
+                                        return { ...prev, generatedScenes: scenes, videoClips: clips, voiceovers: vos };
+                                      });
+                                    }}
+                                  >
+                                    <ArrowUp className="w-3 h-3" />
+                                  </Button>
+                                )}
+                                {idx < project.generatedScenes.length - 1 && (
+                                  <Button
+                                    size="icon"
+                                    variant="secondary"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setProject(prev => {
+                                        const scenes = [...prev.generatedScenes];
+                                        const clips = [...prev.videoClips];
+                                        const vos = [...prev.voiceovers];
+                                        const nextNum = scenes[idx + 1].sceneNumber;
+                                        const currNum = scenes[idx].sceneNumber;
+                                        scenes[idx + 1] = { ...scenes[idx + 1], sceneNumber: currNum };
+                                        scenes[idx] = { ...scenes[idx], sceneNumber: nextNum };
+                                        [scenes[idx], scenes[idx + 1]] = [scenes[idx + 1], scenes[idx]];
+                                        const ci = clips.findIndex(c => c.sceneNumber === currNum);
+                                        const ni = clips.findIndex(c => c.sceneNumber === nextNum);
+                                        if (ci >= 0) clips[ci] = { ...clips[ci], sceneNumber: nextNum };
+                                        if (ni >= 0) clips[ni] = { ...clips[ni], sceneNumber: currNum };
+                                        const vi = vos.findIndex(v => v.sceneNumber === currNum);
+                                        const nvi = vos.findIndex(v => v.sceneNumber === nextNum);
+                                        if (vi >= 0) vos[vi] = { ...vos[vi], sceneNumber: nextNum };
+                                        if (nvi >= 0) vos[nvi] = { ...vos[nvi], sceneNumber: currNum };
+                                        return { ...prev, generatedScenes: scenes, videoClips: clips, voiceovers: vos };
+                                      });
+                                    }}
+                                  >
+                                    <ArrowDown className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -3944,18 +4028,31 @@ const Reels = () => {
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
                     {project.videoClips.length > 1 && (
-                      <Button 
-                        onClick={stitchVideos}
-                        disabled={isManualStitching || isCreatomateStitching}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
-                      >
-                        {isManualStitching || isCreatomateStitching ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Layers className="w-4 h-4 mr-2" />
+                      <div className="w-full space-y-3">
+                        <div className="flex justify-center">
+                          <Button 
+                            onClick={stitchVideos}
+                            disabled={isManualStitching || isCreatomateStitching}
+                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+                          >
+                            {isManualStitching || isCreatomateStitching ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Layers className="w-4 h-4 mr-2" />
+                            )}
+                            Stitch All Clips Together
+                          </Button>
+                        </div>
+                        {(isManualStitching || isCreatomateStitching) && (
+                          <div className="space-y-2 px-4">
+                            <Progress value={isManualStitching ? progress : creatomateProgress} className="h-2" />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>{isManualStitching ? progressStatus : creatomateStatus}</span>
+                              <span>{Math.round(isManualStitching ? progress : creatomateProgress)}%</span>
+                            </div>
+                          </div>
                         )}
-                        Stitch All Clips Together
-                      </Button>
+                      </div>
                     )}
                     {project.videoBlobUrl && project.videoClips.length === 0 && (
                       <Button 
