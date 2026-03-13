@@ -738,6 +738,67 @@ const MovieSceneCreator = () => {
     return () => clearInterval(interval);
   }, [userId, scenes, outline, currentProjectId, movieIdea, projectTitle, storyBible]);
 
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Check for interrupted generation on mount
+  useEffect(() => {
+    if (!userId) return;
+    const saved = localStorage.getItem('movie-generation-active');
+    if (saved) {
+      try {
+        const { projectId } = JSON.parse(saved);
+        if (projectId) {
+          setRecoveryProjectId(projectId);
+          setShowRecoveryBanner(true);
+        }
+      } catch { /* ignore */ }
+    }
+  }, [userId]);
+
+  // Helper to save/clear generation tracking
+  const trackGenerationStart = (projectId: string) => {
+    localStorage.setItem('movie-generation-active', JSON.stringify({ projectId, startedAt: Date.now() }));
+  };
+  const trackGenerationEnd = () => {
+    localStorage.removeItem('movie-generation-active');
+  };
+
+  // Send browser notification
+  const sendNotification = (title: string, body: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' });
+    }
+  };
+
+  // Recover interrupted project
+  const recoverProject = async () => {
+    if (!recoveryProjectId) return;
+    setShowRecoveryBanner(false);
+    await loadProject(recoveryProjectId);
+    trackGenerationEnd();
+    
+    // Check if project has scenes with images but no videos — offer to continue
+    setTimeout(() => {
+      const hasUnfinishedScenes = scenes.some(s => (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo);
+      if (hasUnfinishedScenes) {
+        setIsPreviewingBeforeVideo(true);
+        setPendingVideoGeneration(scenes);
+        if (isAdvanced) setCurrentStep(3);
+      }
+    }, 1000);
+  };
+
+  const dismissRecovery = () => {
+    setShowRecoveryBanner(false);
+    setRecoveryProjectId(null);
+    trackGenerationEnd();
+  };
+
   const loadCharacters = async () => {
     if (!userId) return;
     try {
