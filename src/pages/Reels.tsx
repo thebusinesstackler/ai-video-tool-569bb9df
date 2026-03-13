@@ -332,8 +332,8 @@ const Reels = () => {
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5' | 'wan-animate'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
-  // Voice selection for TTS (Google Cloud TTS voices)
-  const [selectedVoice, setSelectedVoice] = useState<string>('en-US-Journey-F');
+  // Voice selection for TTS (WaveSpeed MiniMax HD voices)
+  const [selectedVoice, setSelectedVoice] = useState<string>('ai-auto');
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
