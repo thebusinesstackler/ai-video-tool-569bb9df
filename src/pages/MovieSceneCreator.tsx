@@ -3288,7 +3288,135 @@ const MovieSceneCreator = () => {
               })}
             </div>
           );
-        })()}
+        })())}
+
+        {/* ===== BEGINNER MODE: Simplified single-page flow ===== */}
+        {isBeginner && (
+          <div className="space-y-6">
+            {/* Hero Input */}
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+              <CardContent className="pt-8 pb-8 space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">What's your movie about?</h2>
+                  <p className="text-muted-foreground">Describe your idea and we'll create the entire movie for you.</p>
+                </div>
+
+                <Textarea
+                  placeholder="A sci-fi thriller about a detective who discovers she's living in a simulated reality..."
+                  value={movieIdea}
+                  onChange={(e) => setMovieIdea(e.target.value)}
+                  rows={4}
+                  className="resize-none text-base"
+                />
+
+                {/* Quick Start Chips */}
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {SAMPLE_MOVIES.map((movie) => (
+                    <Button 
+                      key={movie.value} 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setMovieIdea(movie.description)}
+                      className="text-xs rounded-full"
+                    >
+                      {movie.label}
+                    </Button>
+                  ))}
+                </div>
+
+                <Button 
+                  onClick={generateAll} 
+                  disabled={isGeneratingAll || !movieIdea.trim()} 
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
+                  size="lg"
+                >
+                  {isGeneratingAll ? (
+                    <div className="flex items-center gap-3 w-full">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <div className="flex-1 text-left">
+                        <p className="font-medium">{generateAllStep}</p>
+                        <Progress value={generateAllProgress} className="h-1.5 mt-1" />
+                      </div>
+                      <span className="text-sm">{generateAllProgress}%</span>
+                    </div>
+                  ) : (
+                    <><Sparkles className="w-5 h-5 mr-2" />Make My Movie ✨</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Completed movie player (beginner) */}
+            {stitchedVideoUrl && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="pt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Video className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold text-foreground">Your Movie</h3>
+                    </div>
+                    <Button onClick={() => { const a = document.createElement('a'); a.href = stitchedVideoUrl; a.download = `${projectTitle || 'movie'}.mp4`; a.click(); }} variant="outline" size="sm" className="gap-2">
+                      <Download className="w-3.5 h-3.5" /> Download
+                    </Button>
+                  </div>
+                  <video src={stitchedVideoUrl} controls className="w-full rounded-lg border border-border" />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Scene summary cards (beginner — read-only) */}
+            {scenes.length > 0 && !stitchedVideoUrl && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">Your Scenes</h2>
+                    <p className="text-sm text-muted-foreground">{scenes.length} scenes • {scenes.filter(s => s.generatedVideo).length} videos ready</p>
+                  </div>
+                  {scenes.some(s => s.generatedVideo) && (
+                    <Button onClick={stitchAllVideos} disabled={isStitching} className="gap-2">
+                      {isStitching ? (<><Sparkles className="w-4 h-4 animate-spin" />Building...</>) : (<><Video className="w-4 h-4" />Build Movie</>)}
+                    </Button>
+                  )}
+                </div>
+
+                {isStitching && (
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                    <Sparkles className="w-5 h-5 text-primary animate-spin shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <p className="text-sm font-medium text-foreground">Building your movie...</p>
+                      <Progress value={stitchProgress} className="h-1.5" />
+                    </div>
+                    <span className="text-sm font-mono text-muted-foreground">{stitchProgress}%</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {scenes.map((scene) => (
+                    <Card key={scene.sceneNumber} className="overflow-hidden">
+                      <div className="flex gap-3 p-3">
+                        {(scene.startFrame?.generatedImage || scene.generatedImage) && (
+                          <img 
+                            src={scene.startFrame?.generatedImage || scene.generatedImage} 
+                            alt={`Scene ${scene.sceneNumber}`} 
+                            className="w-20 h-20 rounded-lg object-cover flex-shrink-0" 
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
+                            {scene.generatedVideo && <Badge variant="default" className="text-[10px] bg-green-600">✓ Video</Badge>}
+                          </div>
+                          <h4 className="text-sm font-medium truncate">{scene.title}</h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{scene.description}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Save Preset Dialog (always rendered) */}
         <Dialog open={isSavePresetDialogOpen} onOpenChange={setIsSavePresetDialogOpen}>
