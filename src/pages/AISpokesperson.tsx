@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { useSpokespersonDraft } from '@/hooks/useSpokespersonDraft';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -136,6 +137,54 @@ const AISpokesperson = () => {
   const [refineInput, setRefineInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const scriptFromDraft = useRef(false);
+
+  const { saveDraft, loadDraft, clearDraft } = useSpokespersonDraft();
+
+  // Restore draft on mount
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setMessage(draft.message || '');
+      setSelectedTwinId(draft.selectedTwinId);
+      setSelectedSetting(draft.selectedSetting || 'studio');
+      setSelectedMood(draft.selectedMood || 'confident');
+      setSelectedCameraAngle(draft.selectedCameraAngle || 'low-angle');
+      setSelectedDuration(draft.selectedDuration || '15');
+      setSelectedQuality(draft.selectedQuality || 'standard');
+      if (draft.generatedScript) {
+        scriptFromDraft.current = true;
+        setGeneratedScript(draft.generatedScript);
+      }
+      if (draft.sceneShots?.length > 0) {
+        setSceneShots(draft.sceneShots.filter((s: any) => s.imageUrl));
+        setShowSceneGallery(draft.showSceneGallery || false);
+      }
+      if (draft.videoUrl) setVideoUrl(draft.videoUrl);
+      if (draft.audioUrl) setAudioUrl(draft.audioUrl);
+      setDraftRestored(true);
+    }
+  }, []);
+
+  // Auto-save draft on state changes
+  useEffect(() => {
+    saveDraft({
+      message,
+      selectedTwinId,
+      selectedSetting,
+      selectedMood,
+      selectedCameraAngle,
+      selectedDuration,
+      selectedQuality,
+      generatedScript,
+      sceneShots,
+      showSceneGallery,
+      videoUrl,
+      audioUrl,
+    });
+  }, [message, selectedTwinId, selectedSetting, selectedMood, selectedCameraAngle, selectedDuration, selectedQuality, generatedScript, sceneShots, showSceneGallery, videoUrl, audioUrl]);
+
   // Load twins
   useEffect(() => {
     if (!user?.id) return;
@@ -566,7 +615,15 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
       await poll();
     } catch (err: any) {
       console.error('Video generation error:', err);
-      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+      toast({ 
+        title: 'Generation Failed', 
+        description: `${err.message}. Your progress has been saved — you can retry.`, 
+        variant: 'destructive' 
+      });
+      // Keep script + scene shots so user can retry
+      if (generatedScript && selectedQuality === 'kling-pro') {
+        setShowSceneGallery(true);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -834,7 +891,13 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       throw new Error('Video generation timed out');
     } catch (err: any) {
       console.error('Video generation error:', err);
-      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+      toast({ 
+        title: 'Generation Failed', 
+        description: `${err.message}. Your progress has been saved — you can retry from the scene gallery.`, 
+        variant: 'destructive' 
+      });
+      // Restore scene gallery so user can retry
+      setShowSceneGallery(true);
     } finally {
       setIsGenerating(false);
     }
@@ -855,10 +918,14 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
   };
 
   // Auto-start video after script generation in beginner mode (NOT for kling-pro)
+  // Skip if script was restored from draft (don't auto-regenerate)
   useEffect(() => {
+    if (scriptFromDraft.current) {
+      scriptFromDraft.current = false;
+      return;
+    }
     if (isBeginner && generatedScript && !isGenerating && !videoUrl) {
       if (selectedQuality === 'kling-pro') {
-        // For Kling: generate multiple shots instead of auto-starting video
         generateMultipleShots();
       } else {
         generateVideo();
@@ -876,6 +943,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setMessage('');
     setSceneShots([]);
     setShowSceneGallery(false);
+    clearDraft();
   };
 
   // Toggle shot selection for editor panel
@@ -1142,6 +1210,46 @@ Return ONLY the JSON object.`
                 <Button variant="outline" onClick={() => { setShowSceneGallery(false); setSceneShots([]); }}>
                   ← Back
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Draft Recovery / Retry Banner */}
+        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && generatedScript && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">You have a saved script ready</p>
+                    <p className="text-xs text-muted-foreground">Pick up where you left off or start fresh.</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={resetAll}
+                  >
+                    Start Fresh
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (selectedQuality === 'kling-pro') {
+                        generateMultipleShots();
+                      } else {
+                        generateVideo();
+                      }
+                    }}
+                    disabled={!selectedTwin}
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    Retry Generation
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
