@@ -1714,6 +1714,8 @@ const MovieSceneCreator = () => {
       setGenerateAllStep('Complete!');
 
       const successCount = scenesWithDialogue.filter(s => s.generatedVideo).length;
+      trackGenerationEnd();
+      sendNotification('🎬 Movie Complete!', `Generated ${successCount} scene videos. Your movie is ready!`);
       toast({
         title: "🎬 Movie Complete!",
         description: `Generated ${successCount}/${scenesWithDialogue.length} scene videos${scenesWithVideos.length >= 2 ? ' and stitched your movie' : ''}. ${videoErrors > 0 ? `${videoErrors} scene(s) had errors.` : ''}`,
