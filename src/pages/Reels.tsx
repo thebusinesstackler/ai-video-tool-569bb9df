@@ -299,7 +299,7 @@ const Reels = () => {
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
   
   // Server-side stitching with Creatomate
-  const [useServerStitching, setUseServerStitching] = useState(true);
+  const [useServerStitching, setUseServerStitching] = useState(false);
   const [isManualStitching, setIsManualStitching] = useState(false);
   const { stitchWithCreatomate, isStitching: isCreatomateStitching, progress: creatomateProgress, status: creatomateStatus } = useCreatomate();
   
