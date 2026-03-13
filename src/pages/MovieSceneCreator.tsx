@@ -1096,7 +1096,7 @@ const MovieSceneCreator = () => {
   };
 
   // Helper: generate a lip-sync video for a scene and wait for completion
-  const generateSceneVideoAndWait = async (scene: MovieSceneWithKeyframes, scenesSnapshot: MovieSceneWithKeyframes[]): Promise<{ videoUrl: string; audioContent?: string }> => {
+  const generateSceneVideoAndWait = async (scene: any, scenesSnapshot: any[]): Promise<{ videoUrl: string; audioContent?: string }> => {
     const imageToUse = scene.startFrame?.generatedImage || scene.generatedImage;
     if (!imageToUse) throw new Error(`Scene ${scene.sceneNumber} has no image`);
 
