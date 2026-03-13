@@ -2565,7 +2565,41 @@ const Reels = () => {
               </Card>
             )}
 
-            {/* Input Section */}
+            {/* ===== BEGINNER MODE: Simple topic + one button ===== */}
+            {isBeginner && (
+              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+                <CardContent className="pt-8 pb-8 space-y-6">
+                  <div className="text-center space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">What's your reel about?</h2>
+                    <p className="text-muted-foreground">Type a topic and we'll create the entire reel for you.</p>
+                  </div>
+
+                  <Textarea
+                    placeholder="E.g., 5 productivity tips for remote workers, How to make the perfect coffee..."
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    className="min-h-[100px] bg-background border-border resize-none text-base"
+                    disabled={isGenerating}
+                  />
+
+                  <Button 
+                    onClick={generateAll} 
+                    disabled={isGenerating || !topic.trim()} 
+                    className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
+                    size="lg"
+                  >
+                    {isGenerating ? (
+                      <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Creating your reel...</>
+                    ) : (
+                      <><Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨</>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ===== ADVANCED MODE: Full controls ===== */}
+            {isAdvanced && (
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
