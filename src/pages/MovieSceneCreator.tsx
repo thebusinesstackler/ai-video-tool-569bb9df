@@ -1516,7 +1516,6 @@ const MovieSceneCreator = () => {
                   timeOfDay: scene.timeOfDay,
                   characterNames,
                   tone: scene.mood || 'dramatic',
-                  // NEW: Pass rich story context for blockbuster dialogue
                   movieIdea: movieIdea,
                   storyBible: storyBibleData ? {
                     theme: storyBibleData.theme,
@@ -1531,11 +1530,16 @@ const MovieSceneCreator = () => {
               });
 
               if (!convError && convData?.conversation) {
-                return {
+                const sceneWithDialogue = {
                   ...scene,
-                  dialogue: convData.conversation, // Array of {character, line}
+                  dialogue: convData.conversation,
                   charactersInScene: characterNames
                 };
+                scenesWithDialogue.push(sceneWithDialogue);
+                // Track dialogue for next scene's context
+                const dialogueSummary = convData.conversation.slice(0, 3).map((d: any) => `${d.character}: "${d.line}"`).join('; ');
+                previousDialogues.push({ sceneTitle: scene.title, summary: `${scene.description.substring(0, 100)}. Dialogue: ${dialogueSummary}` });
+                continue;
               }
             }
 
@@ -1552,16 +1556,18 @@ const MovieSceneCreator = () => {
             });
 
             if (!dialogueError && dialogueData?.dialogue) {
-              return { ...scene, dialogue: dialogueData.dialogue };
+              scenesWithDialogue.push({ ...scene, dialogue: dialogueData.dialogue });
+              previousDialogues.push({ sceneTitle: scene.title, summary: scene.description.substring(0, 150) });
+            } else {
+              scenesWithDialogue.push(scene);
+              previousDialogues.push({ sceneTitle: scene.title, summary: scene.description.substring(0, 150) });
             }
-
-            return scene;
           } catch (err) {
             console.error(`Error generating dialogue for scene ${scene.sceneNumber}:`, err);
-            return scene;
+            scenesWithDialogue.push(scene);
+            previousDialogues.push({ sceneTitle: scene.title, summary: scene.description.substring(0, 150) });
           }
-        })
-      );
+        }
       
       setScenes(scenesWithDialogue);
       setGenerateAllProgress(75);
