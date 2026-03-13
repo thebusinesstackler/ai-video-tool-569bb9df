@@ -169,7 +169,7 @@ Each variation should:
 
       if (error) throw error;
       
-      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const content = data?.response || data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
