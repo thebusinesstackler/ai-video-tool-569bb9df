@@ -19,6 +19,7 @@ import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
 import AISpokesperson from "./pages/AISpokesperson";
 import CommercialStudio from "./pages/CommercialStudio";
+import Videos from "./pages/Videos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
