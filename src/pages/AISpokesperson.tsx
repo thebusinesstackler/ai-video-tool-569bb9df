@@ -228,26 +228,38 @@ Each variation should:
           messages: [
             {
               role: 'system',
-              content: `You are a professional spokesperson scriptwriter. Write a compelling delivery script for a video spokesperson.
+              content: `You are an elite spokesperson scriptwriter who specializes in natural, conversational delivery that sounds like a real person speaking — NOT a robotic AI reading text.
 
 The spokesperson is: ${selectedTwin.face_description || selectedTwin.name}
 Setting: ${selectedSettingData?.prompt || 'professional studio'}
 Mood/Tone: ${selectedMoodData?.prompt || 'confident'}
 Camera Angle: ${selectedAngle?.promptModifier || 'eye level'}
-Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDuration) * 2.5)} words)
+Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDuration) * 2.0)} words)
 
-RULES:
+PACING & DELIVERY RULES:
 - Write ONLY the exact words to be spoken aloud
 - NO stage directions, NO parentheticals, NO descriptions
-- Write naturally and conversationally
-- End sentences with ... or — NEVER with periods (prevents TTS artifacts)
+- Write naturally and conversationally — the way a real human talks on camera
+- Use SHORT sentences (8-15 words max). Vary sentence length for rhythm
+- Add BREATHING ROOM: use em dashes (—) for natural pauses between thoughts
+- Use ellipses (...) for dramatic pauses or trailing thoughts
+- NEVER end sentences with periods — use — or ... instead (prevents TTS artifacts)
+- Include conversational fillers where natural: "Look—", "Here's the thing—", "And honestly—"
+- Front-load the hook — the first sentence must grab attention instantly
+- Build a natural arc: Hook → Context → Key Point → Call to Action
 - The tone should match the mood specified
-- Make it compelling and engaging
+- Make it compelling and engaging — like the person is talking directly to ONE viewer
+
+ANTI-PATTERNS TO AVOID:
+- No run-on sentences or walls of text
+- No overly formal or corporate-speak language
+- No repeating the same sentence structure back-to-back
+- No abrupt endings — close with conviction or a compelling thought
 
 Return ONLY a JSON object:
 {
   "narration": "The exact script to be spoken...",
-  "visualDescription": "CAMERA: ${selectedAngle?.promptModifier || 'eye level'}. SUBJECT: ${selectedTwin.face_description || 'professional person'}, ${selectedMoodData?.prompt || 'confident expression'}. SETTING: ${selectedSettingData?.prompt || 'studio'}. LIGHTING: Professional cinematic lighting.",
+  "visualDescription": "CAMERA: ${selectedAngle?.promptModifier || 'eye level'}, smooth cinematic movement, subtle drift. SUBJECT: ${selectedTwin.face_description || 'professional person'}, ${selectedMoodData?.prompt || 'confident expression'}, natural micro-expressions, engaged eye contact. SETTING: ${selectedSettingData?.prompt || 'studio'}, atmospheric depth, layered background. LIGHTING: Professional 3-point cinematic lighting with warm key, soft fill, and subtle rim light. MOTION: Gentle camera sway and shallow depth of field shift throughout.",
   "cameraAngle": "${selectedCameraAngle}",
   "setting": "${selectedSetting}",
   "mood": "${selectedMood}"
@@ -315,7 +327,8 @@ Return ONLY a JSON object:
         body: {
           text: generatedScript.narration,
           voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
-          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined
+          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
+          speakingRate: 0.92
         }
       });
 
@@ -352,20 +365,24 @@ Return ONLY a JSON object:
       const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
       const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
 
-      const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video.
+      const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video. The image must look like a still frame from a high-end commercial — NOT a posed headshot.
 
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 
-CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR, shallow depth of field f/1.4
-SETTING: ${setting?.prompt || 'professional studio'}
-EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, closed mouth, natural confident expression
-LIGHTING: Professional 3-point cinematic lighting, warm key light, subtle rim light, soft fill
+CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4, ultra shallow depth of field with natural bokeh
+CAMERA FEEL: Slight off-center framing for cinematic tension — NOT perfectly centered. Subject placed at golden ratio intersection point
+SETTING: ${setting?.prompt || 'professional studio'}, atmospheric haze, environmental depth layers (foreground blur element, subject, layered background)
+EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, closed mouth, natural micro-expression — as if mid-thought, genuine and human
+BODY LANGUAGE: Natural posture, slight lean or gesture that conveys ${mood?.prompt || 'confidence'}, hands visible if waist-up shot
 
-COMPOSITION: Vertical 9:16 format, rule of thirds, subject positioned for impact
-QUALITY: Ultra photorealistic, 8K, magazine/commercial quality, professional color grading
+LIGHTING: Hollywood-grade 3-point setup — warm tungsten key light (3200K) at 45° creating gentle shadow modeling, large soft fill from opposite side, crisp rim/hair light separating subject from background. Subtle practical lights in background for depth
+COLOR SCIENCE: Shot on ARRI LogC, graded with rich skin tones, teal-orange color harmony in shadows/highlights, subtle film grain
 
-CRITICAL: NO text, NO captions, NO watermarks. Person has CLOSED MOUTH - NOT speaking.`;
+COMPOSITION: Vertical 9:16 format, rule of thirds with dynamic negative space, environmental storytelling in background
+QUALITY: Ultra photorealistic, 8K, Vogue/GQ editorial quality, professional color grading with lifted blacks
+
+CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH — NOT speaking. Must look like a real photograph, NOT AI-generated.`;
 
       // Build multimodal message with reference
       const imageMessages: any[] = [{
@@ -430,7 +447,7 @@ CRITICAL: NO text, NO captions, NO watermarks. Person has CLOSED MOUTH - NOT spe
           model: 'infinitetalk',
           imageUrls: [generatedImageUrl],
           audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
-          prompt: `${angle?.promptModifier || 'professional spokesperson'}. ${mood?.prompt || 'confident'}. Premium cinematic quality.`,
+          prompt: `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`,
           aspectRatio: '9:16',
           duration: parseInt(selectedDuration)
         }
