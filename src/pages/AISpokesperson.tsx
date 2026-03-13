@@ -364,20 +364,24 @@ Return ONLY a JSON object:
       const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
       const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
 
-      const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video.
+      const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video. The image must look like a still frame from a high-end commercial — NOT a posed headshot.
 
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 
-CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR, shallow depth of field f/1.4
-SETTING: ${setting?.prompt || 'professional studio'}
-EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, closed mouth, natural confident expression
-LIGHTING: Professional 3-point cinematic lighting, warm key light, subtle rim light, soft fill
+CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4, ultra shallow depth of field with natural bokeh
+CAMERA FEEL: Slight off-center framing for cinematic tension — NOT perfectly centered. Subject placed at golden ratio intersection point
+SETTING: ${setting?.prompt || 'professional studio'}, atmospheric haze, environmental depth layers (foreground blur element, subject, layered background)
+EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, closed mouth, natural micro-expression — as if mid-thought, genuine and human
+BODY LANGUAGE: Natural posture, slight lean or gesture that conveys ${mood?.prompt || 'confidence'}, hands visible if waist-up shot
 
-COMPOSITION: Vertical 9:16 format, rule of thirds, subject positioned for impact
-QUALITY: Ultra photorealistic, 8K, magazine/commercial quality, professional color grading
+LIGHTING: Hollywood-grade 3-point setup — warm tungsten key light (3200K) at 45° creating gentle shadow modeling, large soft fill from opposite side, crisp rim/hair light separating subject from background. Subtle practical lights in background for depth
+COLOR SCIENCE: Shot on ARRI LogC, graded with rich skin tones, teal-orange color harmony in shadows/highlights, subtle film grain
 
-CRITICAL: NO text, NO captions, NO watermarks. Person has CLOSED MOUTH - NOT speaking.`;
+COMPOSITION: Vertical 9:16 format, rule of thirds with dynamic negative space, environmental storytelling in background
+QUALITY: Ultra photorealistic, 8K, Vogue/GQ editorial quality, professional color grading with lifted blacks
+
+CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH — NOT speaking. Must look like a real photograph, NOT AI-generated.`;
 
       // Build multimodal message with reference
       const imageMessages: any[] = [{
