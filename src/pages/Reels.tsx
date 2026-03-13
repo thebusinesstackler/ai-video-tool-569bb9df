@@ -376,6 +376,9 @@ const Reels = () => {
   const [generateCharacterPrompt, setGenerateCharacterPrompt] = useState('');
   const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
   
+  // Voice preview state
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
   // Intro/CTA slide state
   const [showIntroSlideForm, setShowIntroSlideForm] = useState(false);
   const [showCtaSlideForm, setShowCtaSlideForm] = useState(false);
