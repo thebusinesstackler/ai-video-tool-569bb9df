@@ -242,8 +242,10 @@ serve(async (req) => {
       lipSyncModel = 'infinitetalk',
       portraitImage = null,
       voiceovers = [],
-      voice = 'nova', // Voice for TTS
-      preGeneratedImages = [] // Pre-generated images from preview
+      voice = 'nova',
+      preGeneratedImages = [],
+      referenceImages = [],
+      characterDescription = ''
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
