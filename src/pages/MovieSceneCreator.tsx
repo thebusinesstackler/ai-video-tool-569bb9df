@@ -1477,12 +1477,9 @@ const MovieSceneCreator = () => {
         setGenerateAllProgress(85 + Math.floor((i / scenesWithDialogue.length) * 12));
 
         try {
-          const result = await generateSceneVideoAndWait(scene, scenesWithDialogue);
-          scenesWithDialogue[i] = {
-            ...scenesWithDialogue[i],
-            generatedVideo: result.videoUrl,
-            transitionAudioContent: result.audioContent
-          };
+          const result = await generateSceneVideoAndWait(scenesWithDialogue[i] as MovieSceneWithKeyframes, scenesWithDialogue as MovieSceneWithKeyframes[]);
+          (scenesWithDialogue[i] as any).generatedVideo = result.videoUrl;
+          (scenesWithDialogue[i] as any).transitionAudioContent = result.audioContent;
           setScenes([...scenesWithDialogue]);
           setTimeout(() => autoSaveProject(scenesWithDialogue), 500);
         } catch (videoErr: any) {
