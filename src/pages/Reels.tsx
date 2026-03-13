@@ -2085,6 +2085,7 @@ const Reels = () => {
     setCurrentReelSaved(false);
     // Clear auto-saved draft
     clearDraft();
+    setBeginnerStep(1);
   };
 
   const handleDownloadVideo = async () => {
