@@ -2199,7 +2199,22 @@ const Reels = () => {
         setPreSelectedReference(imageUrl);
         setCharacterDescription(generateCharacterPrompt);
         setShowGenerateCharacter(false);
-        toast({ title: "Character Generated!", description: "Portrait set as reference for your reel." });
+        
+        // Auto-detect gender from description and set matching voice
+        const descLower = generateCharacterPrompt.toLowerCase();
+        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
+        const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr'];
+        const isFemale = femaleKeywords.some(k => descLower.includes(k));
+        const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
+        
+        if (isFemale) {
+          setSelectedVoice('en-US-Journey-F');
+        } else if (isMale) {
+          setSelectedVoice('en-US-Journey-D');
+        }
+        // If ambiguous, keep current voice
+        
+        toast({ title: "Character Generated!", description: `Portrait set as reference.${isFemale ? ' Female voice auto-selected.' : isMale ? ' Male voice auto-selected.' : ''}` });
       } else {
         throw new Error('No image returned');
       }
