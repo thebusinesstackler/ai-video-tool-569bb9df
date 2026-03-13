@@ -622,10 +622,69 @@ CRITICAL: NO text, NO captions, NO watermarks. Person has CLOSED MOUTH - NOT spe
               <Textarea
                 placeholder="E.g., Introduce our new product launch, explain our company values, deliver a keynote summary..."
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => { setMessage(e.target.value); setShowSuggestions(false); setSuggestions([]); }}
                 className="min-h-[120px] bg-background border-border resize-none text-base"
                 disabled={isGenerating || isGeneratingScript}
               />
+
+              {/* AI Enhance + Refine Row */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={enhancePrompt}
+                  variant="outline"
+                  disabled={isEnhancing || !message.trim() || isGenerating}
+                  className="flex-1"
+                >
+                  {isEnhancing ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enhancing...</>
+                  ) : (
+                    <><Lightbulb className="w-4 h-4 mr-2" />Enhance with AI</>
+                  )}
+                </Button>
+              </div>
+
+              {/* AI Refine Chat */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ask AI to change something... e.g. 'Make it more emotional' or 'Add urgency'"
+                  value={refineInput}
+                  onChange={(e) => setRefineInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); refineMessage(); } }}
+                  disabled={isRefining || !message.trim()}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={refineMessage}
+                  disabled={isRefining || !refineInput.trim() || !message.trim()}
+                  size="icon"
+                  variant="outline"
+                >
+                  {isRefining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              {/* AI Suggestions */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-primary" />
+                    Loop AI suggests these stronger angles:
+                  </p>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setMessage(s.enhanced); setShowSuggestions(false); setSuggestions([]); toast({ title: `Applied: ${s.title}` }); }}
+                      className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-all space-y-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{s.title}</Badge>
+                        <Check className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{s.enhanced}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <Button
                 onClick={handleBeginnerGenerate}
