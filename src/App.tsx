@@ -19,6 +19,7 @@ import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
 import AISpokesperson from "./pages/AISpokesperson";
 import CommercialStudio from "./pages/CommercialStudio";
+import Videos from "./pages/Videos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/ai-twin" element={<ProtectedRoute><AITwin /></ProtectedRoute>} />
             <Route path="/testimonial-commercial" element={<ProtectedRoute><TestimonialCommercial /></ProtectedRoute>} />
             <Route path="/ai-spokesperson" element={<ProtectedRoute><AISpokesperson /></ProtectedRoute>} />
+            <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
             <Route path="/commercial-studio" element={<ProtectedRoute><CommercialStudio /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
