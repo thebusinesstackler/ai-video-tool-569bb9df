@@ -3407,6 +3407,26 @@ const MovieSceneCreator = () => {
                           </div>
                           <h4 className="text-sm font-medium truncate">{scene.title}</h4>
                           <p className="text-xs text-muted-foreground line-clamp-2">{scene.description}</p>
+                          {scene.dialogue && (
+                            <div className="mt-1.5 space-y-0.5">
+                              {(Array.isArray(scene.dialogue) 
+                                ? scene.dialogue.slice(0, 2).map((d: any, i: number) => (
+                                    <p key={i} className="text-[11px] text-foreground/70 truncate">
+                                      <span className="font-semibold">{d.character}:</span> "{d.line}"
+                                    </p>
+                                  ))
+                                : typeof scene.dialogue === 'string'
+                                  ? scene.dialogue.split('\n').slice(0, 2).map((line, i) => (
+                                      <p key={i} className="text-[11px] text-foreground/70 italic truncate">"{line}"</p>
+                                    ))
+                                  : null
+                              )}
+                              {((Array.isArray(scene.dialogue) && scene.dialogue.length > 2) || 
+                                (typeof scene.dialogue === 'string' && scene.dialogue.split('\n').length > 2)) && (
+                                <p className="text-[10px] text-muted-foreground">+ more lines...</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card>
