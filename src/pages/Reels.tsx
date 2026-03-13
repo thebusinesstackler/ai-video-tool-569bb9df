@@ -1482,8 +1482,9 @@ const Reels = () => {
     }
   };
 
-  const generateVideo = async (overrides?: { forceEnableLipSync?: boolean; forceLipSyncModel?: string }) => {
-    if (project.scenes.length === 0) {
+  const generateVideo = async (overrides?: { forceEnableLipSync?: boolean; forceLipSyncModel?: string; scenesOverride?: Scene[] }) => {
+    const activeScenes = overrides?.scenesOverride || project.scenes;
+    if (activeScenes.length === 0) {
       toast({
         title: "Missing Scripts",
         description: "Please generate scripts first.",
@@ -1508,7 +1509,7 @@ const Reels = () => {
         setProgressStatus('Generating voiceovers...');
       
       // Step 1: Generate voiceovers for each scene using OpenAI TTS and get actual durations
-      for (const scene of project.scenes) {
+      for (const scene of activeScenes) {
         // Skip silent CTA scenes (no narration needed)
         if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
           console.log(`Scene ${scene.sceneNumber} is silent CTA - skipping voiceover`);
@@ -1591,12 +1592,12 @@ const Reels = () => {
         setProgressStatus('Using cached voiceovers. Creating images...');
       } else {
         setProgress(15);
-        setProgressStatus(`Generated ${voiceovers.length}/${project.scenes.length} voiceovers. Creating images...`);
+        setProgressStatus(`Generated ${voiceovers.length}/${activeScenes.length} voiceovers. Creating images...`);
       }
       
       // Step 2: Generate scene images and start video tasks via backend
       // Pass actual audio durations so WaveSpeed generates correct length videos
-      const scenesWithAudioDurations = project.scenes.map(scene => {
+      const scenesWithAudioDurations = activeScenes.map(scene => {
         const voiceover = voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
         return {
           ...scene,
@@ -1779,7 +1780,7 @@ const Reels = () => {
               console.log('WARNING: No voiceovers available but videos need audio. Generating now...');
               setProgressStatus('Generating voiceovers (late generation)...');
               
-              for (const scene of project.scenes) {
+              for (const scene of activeScenes) {
                 if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
                   voiceovers.push({
                     sceneNumber: scene.sceneNumber,
@@ -1874,7 +1875,7 @@ const Reels = () => {
           // Build clips with actual audio durations - ensure never undefined
           const clips = sortedVideos.map((v, idx) => {
             const voiceover = sortedAudios[idx];
-            const scene = project.scenes[idx];
+            const scene = activeScenes[idx];
             // Use audio duration as primary source of truth, fallback to scene duration
             const audioDuration = voiceover?.duration || scene?.duration || 5;
             
@@ -2123,8 +2124,8 @@ const Reels = () => {
     
     const generatedScenes = await generateScripts();
     if (generatedScenes && generatedScenes.length > 0) {
-      // Pass overrides to ensure lip sync state is used even before React re-renders
-      await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel });
+      // Pass scenes directly to avoid stale state issues
+      await generateVideo({ forceEnableLipSync: shouldEnableLipSync, forceLipSyncModel: activeLipSyncModel, scenesOverride: generatedScenes });
     }
   };
 
