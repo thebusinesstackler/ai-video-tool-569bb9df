@@ -2170,6 +2170,110 @@ const Reels = () => {
     }));
   };
 
+  // Generate a character on-demand using AI image generation
+  const generateCharacter = async () => {
+    if (!generateCharacterPrompt.trim()) {
+      toast({ title: "Missing Description", description: "Please describe the person you want to generate.", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingCharacter(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{
+            role: 'user',
+            content: `Generate a professional headshot portrait photo of: ${generateCharacterPrompt}. 
+              The person should be looking directly at the camera with a natural confident expression, slight smile.
+              Professional studio lighting, clean background, high quality portrait suitable for video production.
+              Photorealistic, 8K quality. On a solid white background.`
+          }],
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        }
+      });
+      if (error) throw error;
+      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (imageUrl) {
+        setPortraitImage(imageUrl);
+        setPortraitPreview(imageUrl);
+        setPreSelectedReference(imageUrl);
+        setCharacterDescription(generateCharacterPrompt);
+        setShowGenerateCharacter(false);
+        toast({ title: "Character Generated!", description: "Portrait set as reference for your reel." });
+      } else {
+        throw new Error('No image returned');
+      }
+    } catch (err: any) {
+      toast({ title: "Generation Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsGeneratingCharacter(false);
+    }
+  };
+
+  // Insert an intro or CTA slide into the scene sequence
+  const insertSlide = async (position: 'intro' | 'cta', headline: string, subtitle: string) => {
+    if (!headline.trim()) {
+      toast({ title: "Missing Headline", description: "Please enter a headline for the slide.", variant: "destructive" });
+      return;
+    }
+    toast({ title: `Generating ${position === 'intro' ? 'Intro' : 'CTA'} Slide...` });
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{
+            role: 'user',
+            content: `Generate a premium social media ${position === 'intro' ? 'intro' : 'call-to-action'} slide background.
+              Style: Modern, premium, cinematic gradient background suitable for overlay text.
+              Theme hint: "${headline}" ${subtitle ? `- "${subtitle}"` : ''}
+              CRITICAL: Do NOT include any text, letters, words, or typography. Pure visual background design only.
+              Vertical 9:16 format, rich colors, depth, professional quality.`
+          }],
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        }
+      });
+      if (error) throw error;
+      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!imageUrl) throw new Error('No image generated');
+
+      const newScene: GeneratedScene = {
+        sceneNumber: position === 'intro' ? 0 : 999,
+        text: subtitle ? `${headline}\n${subtitle}` : headline,
+        imageUrl,
+        startTime: 0,
+        endTime: 3,
+        isIntro: position === 'intro',
+        isOutro: position === 'cta'
+      };
+
+      setProject(prev => {
+        let scenes = [...prev.generatedScenes];
+        if (position === 'intro') {
+          // Renumber existing scenes
+          scenes = scenes.map(s => ({ ...s, sceneNumber: s.sceneNumber + 1 }));
+          scenes.unshift({ ...newScene, sceneNumber: 1 });
+        } else {
+          const maxNum = Math.max(...scenes.map(s => s.sceneNumber), 0);
+          scenes.push({ ...newScene, sceneNumber: maxNum + 1 });
+        }
+        return { ...prev, generatedScenes: scenes };
+      });
+
+      if (position === 'intro') {
+        setShowIntroSlideForm(false);
+        setIntroSlideHeadline('');
+        setIntroSlideSubtitle('');
+      } else {
+        setShowCtaSlideForm(false);
+        setCtaSlideHeadline('');
+        setCtaSlideSubtitle('');
+      }
+      toast({ title: `${position === 'intro' ? 'Intro' : 'CTA'} Slide Added!` });
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   // Manual stitch videos together
   const stitchVideos = async () => {
     if (project.videoClips.length < 2) {
