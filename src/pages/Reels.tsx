@@ -2759,20 +2759,36 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     </div>
                     
                     {portraitPreview ? (
-                      <div className="flex items-center gap-3">
-                        <img src={portraitPreview} alt="Character" className="w-16 h-16 rounded-lg object-cover border border-border" />
-                        <div className="flex-1">
-                          <p className="text-sm text-foreground font-medium">Character ready!</p>
-                          <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <img src={portraitPreview} alt="Character" className="w-16 h-16 rounded-lg object-cover border border-border" />
+                          <div className="flex-1">
+                            <p className="text-sm text-foreground font-medium">Character ready! ✨</p>
+                            <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
+                            {selectedTwinId && <p className="text-[10px] text-primary">Saved to AI Twins</p>}
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); }}>
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); }}>
-                          <X className="w-4 h-4" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); generateCharacter(); }}
+                          disabled={isGenerating || isGeneratingCharacter}
+                        >
+                          {isGeneratingCharacter ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerating...</>
+                          ) : (
+                            <><RefreshCw className="w-4 h-4 mr-2" />Regenerate Character</>
+                          )}
                         </Button>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Input
-                          placeholder="Describe your character (e.g., professional businessman in his 30s, confident woman entrepreneur)"
+                          placeholder="Describe your character or leave blank — AI will pick one from your topic"
                           value={generateCharacterPrompt}
                           onChange={(e) => setGenerateCharacterPrompt(e.target.value)}
                           disabled={isGenerating || isGeneratingCharacter}
@@ -2782,15 +2798,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           variant="outline"
                           className="w-full"
                           onClick={generateCharacter}
-                          disabled={isGenerating || isGeneratingCharacter || !generateCharacterPrompt.trim()}
+                          disabled={isGenerating || isGeneratingCharacter || (!generateCharacterPrompt.trim() && !topic.trim())}
                         >
                           {isGeneratingCharacter ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating Character...</>
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating 5 shots...</>
                           ) : (
-                            <><Wand2 className="w-4 h-4 mr-2" />Generate Character</>
+                            <><Wand2 className="w-4 h-4 mr-2" />Generate Character (5 Shots)</>
                           )}
                         </Button>
-                        <p className="text-xs text-muted-foreground text-center">AI will create a portrait and auto-match the voice</p>
+                        <p className="text-xs text-muted-foreground text-center">
+                          {generateCharacterPrompt.trim() ? 'AI will create 5 angle shots and save as AI Twin' : 'Leave blank — AI will derive the character from your topic'}
+                        </p>
                       </div>
                     )}
                   </div>
