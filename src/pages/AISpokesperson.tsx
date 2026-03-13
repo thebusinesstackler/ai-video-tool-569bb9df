@@ -95,6 +95,7 @@ const AISpokesperson = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoTask, setVideoTask] = useState<VideoTask | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState<'standard' | 'nano-banana' | 'kling-pro'>('standard');
   
   // AI Enhancement
   const [isEnhancing, setIsEnhancing] = useState(false);
