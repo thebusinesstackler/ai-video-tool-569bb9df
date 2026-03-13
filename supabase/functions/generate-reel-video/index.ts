@@ -247,7 +247,8 @@ serve(async (req) => {
       voice = 'nova',
       preGeneratedImages = [],
       referenceImages = [],
-      characterDescription = ''
+      characterDescription = '',
+      cameraAngles = []
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
