@@ -1403,7 +1403,7 @@ const Reels = () => {
     }
   };
 
-  const generateScripts = async () => {
+  const generateScripts = async (): Promise<Scene[] | null> => {
     if (!topic.trim()) {
       toast({
         title: "Topic Required",
