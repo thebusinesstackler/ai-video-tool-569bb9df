@@ -2328,8 +2328,7 @@ const Reels = () => {
       setProgressStatus('Stitching video clips...');
       setProgress(40);
 
-      {
-        // Always use Creatomate (server-side) first
+      // Always use Creatomate (server-side) first, with browser fallback
         const clips = sortedVideos.map((clip, index) => {
           const audio = sortedAudios.find(a => a.sceneNumber === clip.sceneNumber);
           const scene = project.generatedScenes.find(s => s.sceneNumber === clip.sceneNumber);
