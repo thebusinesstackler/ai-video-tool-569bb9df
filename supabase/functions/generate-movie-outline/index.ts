@@ -103,6 +103,32 @@ serve(async (req) => {
       ? `\n\nIMPORTANT - MAIN CHARACTER(S): ${characterDescription}. Keep these characters consistent throughout ALL scenes - same appearance, clothing style, and characteristics.`
       : '';
 
+    // Build story bible context for narrative cohesion
+    let storyBibleContext = '';
+    if (storyBible) {
+      storyBibleContext = `\n\nSTORY BIBLE (use this to ensure narrative cohesion):`;
+      if (storyBible.logline) storyBibleContext += `\nLogline: ${storyBible.logline}`;
+      if (storyBible.theme) storyBibleContext += `\nTheme: ${storyBible.theme}`;
+      if (storyBible.threeActStructure) {
+        storyBibleContext += `\nAct 1 (Setup): ${storyBible.threeActStructure.setup}`;
+        storyBibleContext += `\nAct 2 (Confrontation): ${storyBible.threeActStructure.confrontation}`;
+        storyBibleContext += `\nAct 3 (Resolution): ${storyBible.threeActStructure.resolution}`;
+      }
+      if (storyBible.emotionalArc) storyBibleContext += `\nEmotional Arc: ${storyBible.emotionalArc.join(' → ')}`;
+      if (storyBible.characters && Array.isArray(storyBible.characters)) {
+        storyBibleContext += `\nCharacters:`;
+        storyBible.characters.forEach((char: any) => {
+          storyBibleContext += `\n- ${char.name} (${char.role}): ${char.personality}. Arc: ${char.arc}. Wardrobe: ${char.wardrobe}`;
+        });
+      }
+      if (storyBible.sceneDialogueMap && Array.isArray(storyBible.sceneDialogueMap)) {
+        storyBibleContext += `\nPlanned Scene Flow:`;
+        storyBible.sceneDialogueMap.forEach((scene: any) => {
+          storyBibleContext += `\n- Scene ${scene.sceneNumber} "${scene.title}": ${scene.charactersPresent?.join(', ')} - ${scene.conflict}`;
+        });
+      }
+    }
+
     const systemPrompt = `You are an expert screenwriter, cinematographer, and story structure consultant. Your job is to take a movie idea and create a cohesive, complete story outline with detailed cinematography directions.
 
 ${lengthConfig.actStructure}
