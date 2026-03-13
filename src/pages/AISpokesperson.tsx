@@ -705,10 +705,14 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
   };
 
   // Add an additional custom shot
-  const addCustomShot = async (customAngle: string) => {
+  const addCustomShot = async (customAngle: string, shotType: 'speaking' | 'broll' = 'broll') => {
     setIsAddingShot(true);
     try {
-      const shot = await generateSingleShot(customAngle, `${customAngle} camera angle, cinematic composition, professional lighting`);
+      const shot = await generateSingleShot(
+        `${shotType === 'speaking' ? '🎤' : '🎬'} ${customAngle}`,
+        `${customAngle} camera angle, cinematic composition, professional lighting`,
+        shotType
+      );
       if (shot) {
         setSceneShots(prev => [...prev, shot]);
         toast({ title: 'New shot added!' });
