@@ -1333,7 +1333,8 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
-
+    // Track generation so user can recover if they leave
+    if (currentProjectId) trackGenerationStart(currentProjectId);
     try {
       // Step 1: Generate Story Bible (5%)
       setGenerateAllStep('Creating Story Bible...');
