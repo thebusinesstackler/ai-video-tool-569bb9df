@@ -2509,13 +2509,14 @@ const Reels = () => {
               </Card>
             )}
 
-            {/* ===== BEGINNER MODE: Simple topic + one button ===== */}
+            {/* ===== BEGINNER MODE: Step-based flow ===== */}
             {isBeginner && (
               <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
                 <CardContent className="pt-8 pb-8 space-y-6">
+                  {/* Step 1: Topic */}
                   <div className="text-center space-y-2">
                     <h2 className="text-2xl font-bold text-foreground">What's your reel about?</h2>
-                    <p className="text-muted-foreground">Type a topic and we'll create the entire reel for you.</p>
+                    <p className="text-muted-foreground">Type a topic, then generate a character for your reel.</p>
                   </div>
 
                   <Textarea
@@ -2545,6 +2546,84 @@ const Reels = () => {
                     </Select>
                   </div>
 
+                  {/* Step 2: Generate Character */}
+                  <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary" />
+                      <Label className="text-sm font-medium">Step 2: Your Character</Label>
+                    </div>
+                    
+                    {portraitPreview ? (
+                      <div className="flex items-center gap-3">
+                        <img src={portraitPreview} alt="Character" className="w-16 h-16 rounded-lg object-cover border border-border" />
+                        <div className="flex-1">
+                          <p className="text-sm text-foreground font-medium">Character ready!</p>
+                          <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); }}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Describe your character (e.g., professional businessman in his 30s, confident woman entrepreneur)"
+                          value={generateCharacterPrompt}
+                          onChange={(e) => setGenerateCharacterPrompt(e.target.value)}
+                          disabled={isGenerating || isGeneratingCharacter}
+                          className="bg-background"
+                        />
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={generateCharacter}
+                          disabled={isGenerating || isGeneratingCharacter || !generateCharacterPrompt.trim()}
+                        >
+                          {isGeneratingCharacter ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating Character...</>
+                          ) : (
+                            <><Wand2 className="w-4 h-4 mr-2" />Generate Character</>
+                          )}
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">AI will create a portrait and auto-match the voice</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 3: Voice (AI auto-selects but user can change) */}
+                  <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-primary" />
+                      <Label className="text-sm font-medium">Step 3: Voice</Label>
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                        {selectedVoice === 'ai-auto' ? 'AI Auto-Select' : 'Custom'}
+                      </Badge>
+                    </div>
+                    
+                    <VoiceSelector
+                      selectedVoice={selectedVoice}
+                      onVoiceSelect={setSelectedVoice}
+                      compact
+                    />
+                    
+                    {selectedVoice !== 'ai-auto' && !selectedVoice.startsWith('clone:') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={previewVoice}
+                        disabled={isGenerating}
+                      >
+                        {isPreviewingVoice ? (
+                          <><MicOff className="w-3 h-3 mr-1" />Stop Preview</>
+                        ) : (
+                          <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Generate Button */}
                   <Button 
                     onClick={generateAll} 
                     disabled={isGenerating || !topic.trim()} 
@@ -2557,37 +2636,6 @@ const Reels = () => {
                       <><Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨</>
                     )}
                   </Button>
-
-                  {/* Voice selector + preview in beginner mode */}
-                  <div className="space-y-3 pt-2 border-t border-border">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mic className="w-4 h-4" />
-                      <span>Voice</span>
-                    </div>
-                    <VoiceSelector
-                      selectedVoice={selectedVoice}
-                      onVoiceSelect={setSelectedVoice}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={previewVoice}
-                      disabled={isGenerating || selectedVoice.startsWith('clone:')}
-                    >
-                      {isPreviewingVoice ? (
-                        <>
-                          <MicOff className="w-3 h-3 mr-1" />
-                          Stop Preview
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3 h-3 mr-1" />
-                          Preview Voice
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             )}
