@@ -32,12 +32,25 @@ interface AITwin {
   gender: string | null;
 }
 
+interface SceneDirection {
+  type: 'speaking' | 'broll' | 'transition';
+  description: string;
+  cameraAngle: string;
+  duration: number;
+  sfx?: string;
+  music?: string;
+  narrationSegment?: string;
+}
+
 interface GeneratedScript {
   narration: string;
   visualDescription: string;
   cameraAngle: string;
   setting: string;
   mood: string;
+  scenes?: SceneDirection[];
+  musicSuggestion?: string;
+  sfxCues?: string[];
 }
 
 interface VideoTask {
@@ -52,6 +65,10 @@ interface SceneShot {
   angleLabel: string;
   prompt: string;
   selected: boolean;
+  type: 'speaking' | 'broll' | 'transition';
+  sfx?: string;
+  music?: string;
+  narrationSegment?: string;
 }
 
 const SETTINGS = [
@@ -243,7 +260,7 @@ Each variation should:
           messages: [
             {
               role: 'system',
-              content: `You are an elite spokesperson scriptwriter who specializes in natural, conversational delivery that sounds like a real person speaking — NOT a robotic AI reading text.
+              content: `You are an elite spokesperson scriptwriter AND creative director who plans professional video shoots with cinematic scene breakdowns.
 
 The spokesperson is: ${selectedTwin.face_description || selectedTwin.name}
 Setting: ${selectedSettingData?.prompt || 'professional studio'}
@@ -251,33 +268,62 @@ Mood/Tone: ${selectedMoodData?.prompt || 'confident'}
 Camera Angle: ${selectedAngle?.promptModifier || 'eye level'}
 Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDuration) * 2.0)} words)
 
-PACING & DELIVERY RULES:
-- Write ONLY the exact words to be spoken aloud
-- NO stage directions, NO parentheticals, NO descriptions
+SCRIPTWRITING RULES:
 - Write naturally and conversationally — the way a real human talks on camera
 - Use SHORT sentences (8-15 words max). Vary sentence length for rhythm
 - Add BREATHING ROOM: use em dashes (—) for natural pauses between thoughts
 - Use ellipses (...) for dramatic pauses or trailing thoughts
-- NEVER end sentences with periods — use — or ... instead (prevents TTS artifacts)
-- Include conversational fillers where natural: "Look—", "Here's the thing—", "And honestly—"
 - Front-load the hook — the first sentence must grab attention instantly
 - Build a natural arc: Hook → Context → Key Point → Call to Action
-- The tone should match the mood specified
-- Make it compelling and engaging — like the person is talking directly to ONE viewer
 
-ANTI-PATTERNS TO AVOID:
-- No run-on sentences or walls of text
-- No overly formal or corporate-speak language
-- No repeating the same sentence structure back-to-back
-- No abrupt endings — close with conviction or a compelling thought
+SCENE DIRECTION (CRITICAL):
+Think like a commercial director. Break the video into 3-5 scenes that alternate between:
+- "speaking" — character talks directly to camera with lip-sync (the main delivery)
+- "broll" — cinematic cutaway shots of the character NOT speaking (contemplative, in motion, atmospheric). These add production value and breathing room
+- "transition" — dynamic movement shots connecting scenes
+
+For each scene, suggest:
+- Sound effects (sfx) if appropriate: footsteps, ambient office sounds, city atmosphere, nature sounds, typing, coffee shop ambience, etc.
+- Background music style if it enhances the mood: "subtle corporate piano", "upbeat indie acoustic", "cinematic orchestral swell", "lo-fi ambient", etc.
+
+NOT every shot needs the character speaking. Mix in B-roll and atmospheric moments to create a professional, polished video — like a real commercial.
 
 Return ONLY a JSON object:
 {
-  "narration": "The exact script to be spoken...",
-  "visualDescription": "CAMERA: ${selectedAngle?.promptModifier || 'eye level'}, smooth cinematic movement, subtle drift. SUBJECT: ${selectedTwin.face_description || 'professional person'}, ${selectedMoodData?.prompt || 'confident expression'}, natural micro-expressions, engaged eye contact. SETTING: ${selectedSettingData?.prompt || 'studio'}, atmospheric depth, layered background. LIGHTING: Professional 3-point cinematic lighting with warm key, soft fill, and subtle rim light. MOTION: Gentle camera sway and shallow depth of field shift throughout.",
+  "narration": "The full script to be spoken aloud (speaking parts only)...",
+  "visualDescription": "Overall visual direction...",
   "cameraAngle": "${selectedCameraAngle}",
   "setting": "${selectedSetting}",
-  "mood": "${selectedMood}"
+  "mood": "${selectedMood}",
+  "musicSuggestion": "Overall music style recommendation for the video",
+  "sfxCues": ["ambient office hum", "keyboard typing", "coffee cup clink"],
+  "scenes": [
+    {
+      "type": "speaking",
+      "description": "Medium close-up, direct to camera, delivering the hook",
+      "cameraAngle": "Medium close-up, eye level",
+      "duration": 5,
+      "narrationSegment": "The first part of dialogue for this scene...",
+      "sfx": "subtle room tone",
+      "music": "soft piano intro building"
+    },
+    {
+      "type": "broll",
+      "description": "Wide shot of character walking through the setting, contemplative",
+      "cameraAngle": "Wide establishing shot, slow dolly",
+      "duration": 3,
+      "sfx": "footsteps on floor, ambient atmosphere",
+      "music": "continues building"
+    },
+    {
+      "type": "speaking",
+      "description": "Low angle hero shot, delivering the key message",
+      "cameraAngle": "Low angle, slight push in",
+      "duration": 5,
+      "narrationSegment": "The next dialogue segment...",
+      "music": "music swells subtly"
+    }
+  ]
 }`
             },
             {
@@ -457,7 +503,9 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
 
       // Step 3: Generate video with lip sync
       const videoModel = selectedQuality === 'kling-pro' ? 'kling-v3.0-pro' : 'infinitetalk';
-      const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. Smooth, natural lip-sync delivery with subtle head movements and micro-expressions. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take. Natural breathing pauses and conversational rhythm.`;
+      const sfxHints = generatedScript.sfxCues?.join(', ') || '';
+      const musicHint = generatedScript.musicSuggestion || '';
+      const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. NATURAL LIP-SYNC: Character speaks with fluid, natural mouth movements synchronized to audio. Subtle eyebrow raises, natural blinks, gentle head tilts between sentences. Micro-expressions of genuine emotion and engagement. Natural breathing pauses — NOT robotic or mechanical delivery. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. ${sfxHints ? `Ambient sound atmosphere: ${sfxHints}.` : ''} ${musicHint ? `Background music energy: ${musicHint}.` : ''} Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take.`;
       
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
@@ -523,22 +571,35 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
   };
 
   // Generate a single scene shot image
-  const generateSingleShot = async (angleLabel: string, anglePrompt: string): Promise<SceneShot | null> => {
+  const generateSingleShot = async (angleLabel: string, anglePrompt: string, shotType: 'speaking' | 'broll' | 'transition' = 'speaking', sfx?: string, music?: string, narrationSegment?: string): Promise<SceneShot | null> => {
     if (!selectedTwin || !generatedScript) return null;
     
     const portraitImage = selectedTwin.reference_images[0];
     const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
     const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
 
-    const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video.
+    const expressionGuide = shotType === 'speaking' 
+      ? `${mood?.prompt || 'confident'}, mouth slightly open as if mid-sentence, natural speaking expression, engaged eye contact`
+      : `${mood?.prompt || 'confident'}, closed mouth, contemplative micro-expression, natural and candid — NOT posed`;
+
+    const motionGuide = shotType === 'broll'
+      ? 'Cinematic B-roll feel — character in motion or natural activity, environmental storytelling, atmospheric depth'
+      : shotType === 'transition'
+      ? 'Dynamic transition moment — character turning, walking, or shifting position, motion blur elements'
+      : 'Direct-to-camera spokesperson framing, professional broadcast composition';
+
+    const imagePrompt = `Generate a PREMIUM cinematic ${shotType === 'broll' ? 'B-roll' : 'portrait'} of this EXACT person for a professional video.
 
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: ${anglePrompt}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4
 SETTING: ${setting?.prompt || 'professional studio'}
-EXPRESSION: ${mood?.prompt || 'confident'}, closed mouth, natural micro-expression
+EXPRESSION: ${expressionGuide}
+MOTION FEEL: ${motionGuide}
 LIGHTING: Hollywood-grade 3-point setup, warm tungsten key light at 45°, soft fill, crisp rim light
-QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Person has CLOSED MOUTH.`;
+${sfx ? `ATMOSPHERE: Scene should evoke the sound of: ${sfx}` : ''}
+${music ? `MOOD/ENERGY: Visual energy should match this music style: ${music}` : ''}
+QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
     const imageMessages = [{
       role: 'user',
@@ -594,11 +655,15 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
       imageUrl: finalUrl,
       angleLabel,
       prompt: imagePrompt,
-      selected: true
+      selected: true,
+      type: shotType,
+      sfx,
+      music,
+      narrationSegment
     };
   };
 
-  // Generate multiple scene shots for Kling 3.0 flow
+  // Generate multiple scene shots for Kling 3.0 flow — uses AI scene directions
   const generateMultipleShots = async () => {
     if (!selectedTwin || !generatedScript) return;
     
@@ -606,16 +671,26 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
     setShowSceneGallery(true);
     setSceneShots([]);
 
-    const shotAngles = [
-      { label: 'Medium Close-Up', prompt: 'Medium close-up shot, eye level, centered framing, professional broadcast feel' },
-      { label: 'Low Angle Hero', prompt: 'Low angle shot looking up, powerful and authoritative, dramatic perspective' },
-      { label: 'Over-the-Shoulder', prompt: 'Slight over-the-shoulder angle, intimate and conversational, shallow depth of field' },
-    ];
+    // Use AI-generated scene directions if available, otherwise use defaults
+    const aiScenes = generatedScript.scenes && generatedScript.scenes.length > 0
+      ? generatedScript.scenes
+      : [
+          { type: 'speaking' as const, description: 'Medium close-up, direct to camera, delivering the hook', cameraAngle: 'Medium close-up shot, eye level', duration: 5, sfx: 'subtle room tone' },
+          { type: 'broll' as const, description: 'Wide cinematic B-roll, character in contemplation', cameraAngle: 'Wide establishing shot, slow dolly', duration: 3, sfx: 'ambient atmosphere', music: 'soft instrumental' },
+          { type: 'speaking' as const, description: 'Low angle hero shot, delivering key message', cameraAngle: 'Low angle shot looking up, powerful', duration: 5 },
+        ];
 
     const results: SceneShot[] = [];
-    for (const angle of shotAngles) {
+    for (const scene of aiScenes) {
       try {
-        const shot = await generateSingleShot(angle.label, angle.prompt);
+        const shot = await generateSingleShot(
+          `${scene.type === 'speaking' ? '🎤' : scene.type === 'broll' ? '🎬' : '🔄'} ${scene.description.substring(0, 30)}...`,
+          scene.cameraAngle,
+          scene.type as 'speaking' | 'broll' | 'transition',
+          scene.sfx,
+          scene.music,
+          scene.narrationSegment
+        );
         if (shot) {
           results.push(shot);
           setSceneShots([...results]);
@@ -632,10 +707,14 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
   };
 
   // Add an additional custom shot
-  const addCustomShot = async (customAngle: string) => {
+  const addCustomShot = async (customAngle: string, shotType: 'speaking' | 'broll' = 'broll') => {
     setIsAddingShot(true);
     try {
-      const shot = await generateSingleShot(customAngle, `${customAngle} camera angle, cinematic composition, professional lighting`);
+      const shot = await generateSingleShot(
+        `${shotType === 'speaking' ? '🎤' : '🎬'} ${customAngle}`,
+        `${customAngle} camera angle, cinematic composition, professional lighting`,
+        shotType
+      );
       if (shot) {
         setSceneShots(prev => [...prev, shot]);
         toast({ title: 'New shot added!' });
@@ -693,20 +772,28 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
       setProgress(40);
       setProgressStatus('Loop AI: Creating lip-sync video with Kling 3.0...');
 
-      // Step 2: Generate video
+      // Step 2: Generate video — different prompt for speaking vs broll shots
       const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
       const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
-      const videoPromptText = `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. Smooth, natural lip-sync delivery with subtle head movements. ${setting?.prompt || 'Professional studio'}. Premium broadcast quality. NO jump cuts — one continuous smooth take.`;
+      
+      const isSpeakingShot = shot.type === 'speaking';
+      const sfxNote = shot.sfx ? `Ambient sound design: ${shot.sfx}.` : '';
+      const musicNote = shot.music ? `Background music energy: ${shot.music}.` : '';
+      
+      const videoPromptText = isSpeakingShot
+        ? `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. NATURAL LIP-SYNC: Character speaks directly to camera with fluid mouth movements, subtle eyebrow raises, natural blinks, and gentle head tilts. Breathing pauses between sentences. Micro-expressions of genuine emotion. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Premium broadcast quality — warm cinematic lighting, shallow depth of field. Gentle camera drift. NO jump cuts — one continuous smooth take.`
+        : `Cinematic B-roll — ${shot.angleLabel}. ${mood?.prompt || 'contemplative'}. Character is NOT speaking — mouth closed, natural and candid. Subtle movements: turning head, adjusting posture, walking, or gazing thoughtfully. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Rich atmospheric cinematography — slow camera movement, volumetric lighting, environmental storytelling. Film grain, shallow depth of field, editorial quality.`;
 
+      // Only pass audio for speaking shots (lip-sync), not for B-roll
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
           model: 'kling-v3.0-pro',
           imageUrls: [shot.imageUrl],
-          audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
+          audioUrl: isSpeakingShot && storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
           prompt: videoPromptText,
           aspectRatio: '9:16',
-          duration: parseInt(selectedDuration)
+          duration: isSpeakingShot ? parseInt(selectedDuration) : Math.min(5, parseInt(selectedDuration))
         }
       });
 
@@ -861,13 +948,19 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Camera className="w-5 h-5 text-primary" />
-                Scene Shots — Choose Your Angle
+                Scene Shots — Your Video Breakdown
               </CardTitle>
               <CardDescription>
                 {isGeneratingShots 
-                  ? 'Generating multiple camera angles...' 
-                  : 'Select a shot to create your video, or add more angles.'}
+                  ? 'AI is creating your scene breakdown with speaking shots, B-roll, and transitions...' 
+                  : `${sceneShots.filter(s => s.type === 'speaking').length} speaking shots, ${sceneShots.filter(s => s.type !== 'speaking').length} B-roll/transitions. Pick any shot to create its video.`}
               </CardDescription>
+              {generatedScript?.musicSuggestion && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <span>🎵</span>
+                  <span>Suggested music: {generatedScript.musicSuggestion}</span>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Shot Grid */}
@@ -875,32 +968,52 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
                 {sceneShots.map((shot) => (
                   <div
                     key={shot.id}
-                    className="relative group rounded-lg border border-border overflow-hidden bg-card hover:border-primary/50 transition-all"
+                    className={`relative group rounded-lg border overflow-hidden bg-card transition-all ${
+                      shot.type === 'speaking' ? 'border-primary/30 hover:border-primary' : 'border-border hover:border-muted-foreground'
+                    }`}
                   >
-                    <div className="aspect-[9/16] bg-muted">
+                    <div className="aspect-[9/16] bg-muted relative">
                       <img
                         src={shot.imageUrl}
                         alt={shot.angleLabel}
                         className="w-full h-full object-cover"
                       />
+                      {/* Shot type overlay badge */}
+                      <div className="absolute top-2 left-2">
+                        <Badge 
+                          variant={shot.type === 'speaking' ? 'default' : 'secondary'}
+                          className="text-[10px]"
+                        >
+                          {shot.type === 'speaking' ? '🎤 Lip-Sync' : shot.type === 'broll' ? '🎬 B-Roll' : '🔄 Transition'}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="p-2 space-y-2">
-                      <Badge variant="secondary" className="text-[10px]">{shot.angleLabel}</Badge>
+                    <div className="p-2 space-y-1.5">
+                      <p className="text-[10px] text-muted-foreground line-clamp-2">{shot.angleLabel}</p>
+                      {/* SFX/Music indicators */}
+                      <div className="flex flex-wrap gap-1">
+                        {shot.sfx && (
+                          <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded">🔊 {shot.sfx.substring(0, 20)}</span>
+                        )}
+                        {shot.music && (
+                          <span className="text-[9px] bg-muted px-1.5 py-0.5 rounded">🎵 {shot.music.substring(0, 20)}</span>
+                        )}
+                      </div>
                       <Button
                         size="sm"
                         className="w-full"
                         onClick={() => generateVideoFromShot(shot)}
                       >
                         <Play className="w-3 h-3 mr-1" />
-                        Create Video
+                        {shot.type === 'speaking' ? 'Create Lip-Sync' : 'Create B-Roll'}
                       </Button>
                     </div>
                   </div>
                 ))}
 
                 {/* Loading placeholders */}
-                {isGeneratingShots && sceneShots.length < 3 && (
-                  Array.from({ length: 3 - sceneShots.length }).map((_, i) => (
+                {isGeneratingShots && sceneShots.length < 5 && (
+                  Array.from({ length: Math.min(3, 5 - sceneShots.length) }).map((_, i) => (
                     <div key={`loading-${i}`} className="rounded-lg border border-border bg-muted animate-pulse">
                       <div className="aspect-[9/16] flex items-center justify-center">
                         <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
@@ -915,30 +1028,35 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks. Pe
 
               {/* Add More Shots */}
               {!isGeneratingShots && sceneShots.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Add another angle:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      'Wide Establishing Shot',
-                      'Extreme Close-Up',
-                      'Dutch Angle',
-                      'High Angle',
-                      'Profile Side View',
-                      'Bird\'s Eye View'
-                    ]
-                      .filter(a => !sceneShots.some(s => s.angleLabel === a))
-                      .map(angle => (
-                        <Button
-                          key={angle}
-                          variant="outline"
-                          size="sm"
-                          disabled={isAddingShot}
-                          onClick={() => addCustomShot(angle)}
-                        >
-                          {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
-                          {angle}
-                        </Button>
-                      ))}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Add more scenes:</p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">🎤 Speaking shots (with lip-sync):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {['Close-Up Direct', 'Low Angle Power', 'Over Shoulder Intimate']
+                        .filter(a => !sceneShots.some(s => s.angleLabel.includes(a)))
+                        .map(angle => (
+                          <Button key={angle} variant="outline" size="sm" disabled={isAddingShot}
+                            onClick={() => addCustomShot(angle, 'speaking')}>
+                            {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Mic className="w-3 h-3 mr-1" />}
+                            {angle}
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">🎬 B-roll shots (cinematic, no talking):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {['Wide Establishing', 'Walking Away', 'Contemplative Profile', 'Hands Detail', 'Environment Pan']
+                        .filter(a => !sceneShots.some(s => s.angleLabel.includes(a)))
+                        .map(angle => (
+                          <Button key={angle} variant="outline" size="sm" disabled={isAddingShot}
+                            onClick={() => addCustomShot(angle, 'broll')}>
+                            {isAddingShot ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Film className="w-3 h-3 mr-1" />}
+                            {angle}
+                          </Button>
+                        ))}
+                    </div>
                   </div>
                 </div>
               )}
