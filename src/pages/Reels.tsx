@@ -1875,7 +1875,7 @@ const Reels = () => {
           // Build clips with actual audio durations - ensure never undefined
           const clips = sortedVideos.map((v, idx) => {
             const voiceover = sortedAudios[idx];
-            const scene = project.scenes[idx];
+            const scene = activeScenes[idx];
             // Use audio duration as primary source of truth, fallback to scene duration
             const audioDuration = voiceover?.duration || scene?.duration || 5;
             
