@@ -193,9 +193,11 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
       CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words. Pure visual background only.`;
   }
   
+  const angleModifier = cameraAngleModifier ? `\n    CAMERA ANGLE: ${cameraAngleModifier}` : '';
+  
   return `Generate a PREMIUM cinematic image for a high-end social media reel.
     Scene: ${scene.visualDescription}
-    Topic: ${topic}${charDesc}${refImageNote}
+    Topic: ${topic}${charDesc}${refImageNote}${angleModifier}
     CINEMATOGRAPHY: Shot on RED V-RAPTOR or ARRI Alexa, cinematic lens, shallow depth of field with beautiful bokeh.
     LIGHTING: Professional cinematic lighting - motivated light sources, volumetric atmosphere, rich shadows and highlights.
     COLOR: Professional color grading - rich, vibrant but natural tones. Think high-end commercial or film production.
