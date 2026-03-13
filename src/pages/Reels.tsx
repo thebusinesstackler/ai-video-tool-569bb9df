@@ -2987,8 +2987,8 @@ const Reels = () => {
             </Card>
             )}
 
-            {/* Voice Selection - Hidden when using uploaded audio */}
-            {customAudioMode !== 'upload' && (
+            {/* Voice Selection - Hidden in beginner mode and when using uploaded audio */}
+            {isAdvanced && customAudioMode !== 'upload' && (
               <>
                 {selectedTwinId && aiTwins.find(t => t.id === selectedTwinId)?.voice_cloning_key ? (
                   <Card className="bg-card border-border">
