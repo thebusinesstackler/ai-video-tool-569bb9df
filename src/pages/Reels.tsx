@@ -4200,6 +4200,98 @@ const Reels = () => {
                     </div>
                   )}
 
+                  {/* Intro/CTA Slide Buttons */}
+                  {project.generatedScenes.length > 0 && !project.videoBlobUrl && (
+                    <div className="flex justify-center gap-2 mb-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowIntroSlideForm(true)}
+                      >
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Add Intro Slide
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowCtaSlideForm(true)}
+                      >
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Add CTA Slide
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Intro Slide Form Dialog */}
+                  <Dialog open={showIntroSlideForm} onOpenChange={setShowIntroSlideForm}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add Intro Slide</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Headline</Label>
+                          <Input
+                            value={introSlideHeadline}
+                            onChange={(e) => setIntroSlideHeadline(e.target.value)}
+                            placeholder="e.g. 5 Tips to Grow Your Business"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Subtitle (optional)</Label>
+                          <Input
+                            value={introSlideSubtitle}
+                            onChange={(e) => setIntroSlideSubtitle(e.target.value)}
+                            placeholder="e.g. Watch until the end!"
+                          />
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={() => insertSlide('intro', introSlideHeadline, introSlideSubtitle)}
+                          disabled={!introSlideHeadline.trim()}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate & Insert Intro
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* CTA Slide Form Dialog */}
+                  <Dialog open={showCtaSlideForm} onOpenChange={setShowCtaSlideForm}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add Call-to-Action Slide</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Headline</Label>
+                          <Input
+                            value={ctaSlideHeadline}
+                            onChange={(e) => setCtaSlideHeadline(e.target.value)}
+                            placeholder="e.g. Follow for more tips!"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Subtitle (optional)</Label>
+                          <Input
+                            value={ctaSlideSubtitle}
+                            onChange={(e) => setCtaSlideSubtitle(e.target.value)}
+                            placeholder="e.g. Link in bio 👇"
+                          />
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={() => insertSlide('cta', ctaSlideHeadline, ctaSlideSubtitle)}
+                          disabled={!ctaSlideHeadline.trim()}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate & Insert CTA
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
                     {project.videoClips.length > 1 && (
