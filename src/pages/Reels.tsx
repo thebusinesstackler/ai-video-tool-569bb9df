@@ -1780,7 +1780,7 @@ const Reels = () => {
               console.log('WARNING: No voiceovers available but videos need audio. Generating now...');
               setProgressStatus('Generating voiceovers (late generation)...');
               
-              for (const scene of project.scenes) {
+              for (const scene of activeScenes) {
                 if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
                   voiceovers.push({
                     sceneNumber: scene.sceneNumber,
