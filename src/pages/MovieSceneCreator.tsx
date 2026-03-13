@@ -3240,7 +3240,7 @@ const MovieSceneCreator = () => {
         </Dialog>
 
         {/* ===== STEPPER (Advanced mode only) ===== */}
-        {isAdvanced && (() => {
+        {isAdvanced ? (() => {
           const steps = [
             { label: 'Concept', icon: Lightbulb, done: !!movieIdea.trim() },
             { label: 'Story Bible', icon: BookOpen, done: !!storyBible },
