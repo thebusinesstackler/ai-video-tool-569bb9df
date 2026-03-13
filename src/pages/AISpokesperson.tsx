@@ -17,9 +17,11 @@ import { useCreatorMode } from '@/hooks/useCreatorMode';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import {
   Sparkles, User, Loader2, Wand2, Camera, Video, Download,
-  Mic, Settings2, Film, ChevronDown, RefreshCw, Play
+  Mic, Settings2, Film, ChevronDown, RefreshCw, Play, 
+  Lightbulb, MessageCircle, Send, Check, Bot
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 
 interface AITwin {
   id: string;
