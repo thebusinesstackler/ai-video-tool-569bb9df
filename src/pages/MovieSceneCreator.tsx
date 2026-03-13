@@ -3928,7 +3928,7 @@ const MovieSceneCreator = () => {
                         endFrame: scene.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' },
                         transitionAction: scene.transitionAction || '',
                         transitionCameraMovement: scene.transitionCameraMovement || 'static',
-                        dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : Array.isArray(scene.dialogue) ? scene.dialogue.map(d => d.line).join('\n') : null
+                      dialogue: typeof scene.dialogue === 'string' ? scene.dialogue : Array.isArray(scene.dialogue) ? scene.dialogue.map((d: any) => `${d.character}: ${d.line}`).join('\n') : null
                       } as MovieSceneWithKeyframes}
                       sceneIndex={index} totalScenes={scenes.length}
                       isGeneratingImage={generatingImageFor === scene.sceneNumber || (generatingFrameFor?.sceneNumber === scene.sceneNumber)}
