@@ -169,7 +169,7 @@ Each variation should:
 
       if (error) throw error;
       
-      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const content = data?.response || data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -203,7 +203,7 @@ Each variation should:
 
       if (error) throw error;
       
-      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const content = data?.response || data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
       if (content) {
         setMessage(content.replace(/^["']|["']$/g, '').trim());
         setRefineInput('');
@@ -264,7 +264,8 @@ Return ONLY a JSON object:
       if (error) throw error;
       
       // Handle multiple response formats from AI gateway
-      const content = data?.choices?.[0]?.message?.content 
+      const content = data?.response
+        || data?.choices?.[0]?.message?.content 
         || data?.content 
         || (typeof data === 'string' ? data : null)
         || data?.message?.content
