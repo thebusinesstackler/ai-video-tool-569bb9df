@@ -203,7 +203,7 @@ Each variation should:
 
       if (error) throw error;
       
-      const content = data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const content = data?.response || data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
       if (content) {
         setMessage(content.replace(/^["']|["']$/g, '').trim());
         setRefineInput('');
