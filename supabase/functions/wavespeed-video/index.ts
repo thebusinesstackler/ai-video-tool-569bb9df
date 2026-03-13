@@ -319,6 +319,31 @@ serve(async (req) => {
           target_index: 0,
           max_duration: duration || 0
         };
+      } else if (params.model === 'kling-v3.0-pro') {
+        // Kling V3.0 Pro - high quality image-to-video
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Image is required for Kling V3.0 Pro model');
+        }
+
+        // Kling 3.0 Pro supports duration 5 or 10
+        const klingDuration = duration >= 8 ? 10 : 5;
+        console.log(`Kling V3.0 Pro: requested duration ${duration}s, using ${klingDuration}s (allowed: 5 or 10)`);
+
+        requestBody = {
+          image: params.imageUrls[0],
+          prompt: params.prompt || 'Professional cinematic video, smooth natural motion',
+          duration: klingDuration,
+          aspect_ratio: params.aspectRatio || '9:16'
+        };
+
+        // Add audio if provided
+        if (params.audioUrl) {
+          requestBody.audio = params.audioUrl;
+        }
+
+        console.log('Using Kling V3.0 Pro for high-quality image-to-video generation');
       } else {
         // Text-to-Video model (default wan-2.2)
         // IMPORTANT: wan-2.2 only accepts duration values of [5, 8]
