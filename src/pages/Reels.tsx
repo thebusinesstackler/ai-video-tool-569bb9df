@@ -44,7 +44,7 @@ import {
   Play,
   ChevronDown,
   Palette,
-  Cloud,
+  
   Monitor,
   Layers,
   User,
