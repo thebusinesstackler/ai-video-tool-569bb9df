@@ -3239,7 +3239,8 @@ const MovieSceneCreator = () => {
           </DialogContent>
         </Dialog>
 
-        {/* ===== STEPPER ===== */}
+        {/* ===== STEPPER (Advanced mode only) ===== */}
+        {isAdvanced && (
         {(() => {
           const steps = [
             { label: 'Concept', icon: Lightbulb, done: !!movieIdea.trim() },
