@@ -2985,6 +2985,7 @@ const Reels = () => {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Voice Selection - Hidden when using uploaded audio */}
             {customAudioMode !== 'upload' && (
