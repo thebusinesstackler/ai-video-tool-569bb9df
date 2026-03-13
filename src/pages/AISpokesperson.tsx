@@ -615,7 +615,15 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
       await poll();
     } catch (err: any) {
       console.error('Video generation error:', err);
-      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+      toast({ 
+        title: 'Generation Failed', 
+        description: `${err.message}. Your progress has been saved — you can retry.`, 
+        variant: 'destructive' 
+      });
+      // Keep script + scene shots so user can retry
+      if (generatedScript && selectedQuality === 'kling-pro') {
+        setShowSceneGallery(true);
+      }
     } finally {
       setIsGenerating(false);
     }
