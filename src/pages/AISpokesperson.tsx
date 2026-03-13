@@ -661,7 +661,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     };
   };
 
-  // Generate multiple scene shots for Kling 3.0 flow
+  // Generate multiple scene shots for Kling 3.0 flow — uses AI scene directions
   const generateMultipleShots = async () => {
     if (!selectedTwin || !generatedScript) return;
     
@@ -669,16 +669,26 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setShowSceneGallery(true);
     setSceneShots([]);
 
-    const shotAngles = [
-      { label: 'Medium Close-Up', prompt: 'Medium close-up shot, eye level, centered framing, professional broadcast feel' },
-      { label: 'Low Angle Hero', prompt: 'Low angle shot looking up, powerful and authoritative, dramatic perspective' },
-      { label: 'Over-the-Shoulder', prompt: 'Slight over-the-shoulder angle, intimate and conversational, shallow depth of field' },
-    ];
+    // Use AI-generated scene directions if available, otherwise use defaults
+    const aiScenes = generatedScript.scenes && generatedScript.scenes.length > 0
+      ? generatedScript.scenes
+      : [
+          { type: 'speaking' as const, description: 'Medium close-up, direct to camera, delivering the hook', cameraAngle: 'Medium close-up shot, eye level', duration: 5, sfx: 'subtle room tone' },
+          { type: 'broll' as const, description: 'Wide cinematic B-roll, character in contemplation', cameraAngle: 'Wide establishing shot, slow dolly', duration: 3, sfx: 'ambient atmosphere', music: 'soft instrumental' },
+          { type: 'speaking' as const, description: 'Low angle hero shot, delivering key message', cameraAngle: 'Low angle shot looking up, powerful', duration: 5 },
+        ];
 
     const results: SceneShot[] = [];
-    for (const angle of shotAngles) {
+    for (const scene of aiScenes) {
       try {
-        const shot = await generateSingleShot(angle.label, angle.prompt);
+        const shot = await generateSingleShot(
+          `${scene.type === 'speaking' ? '🎤' : scene.type === 'broll' ? '🎬' : '🔄'} ${scene.description.substring(0, 30)}...`,
+          scene.cameraAngle,
+          scene.type as 'speaking' | 'broll' | 'transition',
+          scene.sfx,
+          scene.music,
+          scene.narrationSegment
+        );
         if (shot) {
           results.push(shot);
           setSceneShots([...results]);
