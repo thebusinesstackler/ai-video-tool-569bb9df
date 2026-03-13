@@ -494,11 +494,11 @@ serve(async (req) => {
           // Use Alibaba Wan-2.5 I2V for flexible duration (up to 60s) and 1080p quality
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
           
-          let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style.`;
+          let motionPrompt = `${scene.visualDescription}. Dynamic motion, cinematic, engaging social media style. No text, no captions, no subtitles, no watermarks in the video. People should not appear to be speaking or mouthing words.`;
           if (scene.isIntro) {
-            motionPrompt = 'Cinematic intro animation with subtle zoom in, elegant text reveal effect, attention-grabbing professional intro motion. High quality, smooth motion.';
+            motionPrompt = 'Cinematic intro animation with subtle zoom in, elegant motion, attention-grabbing professional intro. High quality, smooth motion. No text, no captions, no subtitles, no watermarks, no written words.';
           } else if (scene.isOutro) {
-            motionPrompt = 'Professional outro with gentle zoom out or pulse effect, engaging call-to-action animation, smooth and elegant motion. High quality ending.';
+            motionPrompt = 'Professional outro with gentle zoom out or pulse effect, smooth and elegant motion. High quality ending. No text, no captions, no subtitles, no watermarks, no written words.';
           }
           
           // Wan-2.5 I2V supports flexible duration - use actual audio duration
