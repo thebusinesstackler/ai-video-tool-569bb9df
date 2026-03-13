@@ -1596,6 +1596,15 @@ const Reels = () => {
       const effectiveLipSync = overrides?.forceEnableLipSync ?? enableLipSync;
       const effectiveLipSyncModel = overrides?.forceLipSyncModel ?? lipSyncModel;
       
+      // Build camera angle rotation for variety across scenes
+      const diverseAngles = ['eye-level', 'three-quarter', 'low-angle', 'medium-shot', 'closeup', 'profile-shot', 'golden-hour', 'cinematic'];
+      const cameraAngleRotation = scenesWithAudioDurations.map((scene, idx) => {
+        if (scene.isIntro || scene.isOutro) return undefined; // No angle for intro/outro
+        const angleId = diverseAngles[idx % diverseAngles.length];
+        const angle = CAMERA_ANGLES.find(a => a.id === angleId);
+        return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier;
+      }).filter(Boolean);
+      
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
           scenes: scenesWithAudioDurations,
@@ -1617,7 +1626,9 @@ const Reels = () => {
           preGeneratedImages,
           // Character consistency data
           referenceImages: twinReferenceImages,
-          characterDescription: characterDescription || selectedTwin?.face_description || ''
+          characterDescription: characterDescription || selectedTwin?.face_description || '',
+          // Camera angle variety per scene
+          cameraAngles: cameraAngleRotation
         }
       });
 
