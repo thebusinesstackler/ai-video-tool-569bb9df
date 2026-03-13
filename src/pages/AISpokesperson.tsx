@@ -553,7 +553,8 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
       setProgressStatus('Loop AI: Creating lip-sync video...');
 
       // Step 3: Generate video with lip sync
-      const videoModel = selectedQuality === 'kling-pro' ? 'kling-v3.0-pro' : 'infinitetalk';
+      // ALWAYS use infinitetalk for lip-sync speaking shots — Kling is image-to-video only (no audio sync)
+      const videoModel = 'infinitetalk';
       const sfxHints = generatedScript.sfxCues?.join(', ') || '';
       const musicHint = generatedScript.musicSuggestion || '';
       const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. NATURAL LIP-SYNC: Character speaks with fluid, natural mouth movements synchronized to audio. Subtle eyebrow raises, natural blinks, gentle head tilts between sentences. Micro-expressions of genuine emotion and engagement. Natural breathing pauses — NOT robotic or mechanical delivery. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. ${sfxHints ? `Ambient sound atmosphere: ${sfxHints}.` : ''} ${musicHint ? `Background music energy: ${musicHint}.` : ''} Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take.`;
@@ -843,11 +844,12 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
         ? `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. NATURAL LIP-SYNC: Character speaks directly to camera with fluid mouth movements, subtle eyebrow raises, natural blinks, and gentle head tilts. Breathing pauses between sentences. Micro-expressions of genuine emotion. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Premium broadcast quality — warm cinematic lighting, shallow depth of field. Gentle camera drift. NO jump cuts — one continuous smooth take.`
         : `Cinematic B-roll — ${shot.angleLabel}. ${mood?.prompt || 'contemplative'}. Character is NOT speaking — mouth closed, natural and candid. Subtle movements: turning head, adjusting posture, walking, or gazing thoughtfully. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Rich atmospheric cinematography — slow camera movement, volumetric lighting, environmental storytelling. Film grain, shallow depth of field, editorial quality.`;
 
-      // Only pass audio for speaking shots (lip-sync), not for B-roll
+      // Use infinitetalk for speaking shots (lip-sync with audio), kling-v3.0-pro for B-roll (visual quality)
+      const shotModel = isSpeakingShot ? 'infinitetalk' : 'kling-v3.0-pro';
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'kling-v3.0-pro',
+          model: shotModel,
           imageUrls: [shot.imageUrl],
           audioUrl: isSpeakingShot && storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
           prompt: videoPromptText,
