@@ -562,7 +562,7 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                   image: imageUrl,
-                  prompt: `${scene.visualDescription}. Dynamic motion, cinematic, engaging.`,
+                  prompt: `${scene.visualDescription}. Dynamic motion, cinematic, engaging. No text, no captions, no subtitles, no watermarks. People should not appear to be speaking.`,
                   resolution: "1080p",
                   duration: clipDuration
                 }),
