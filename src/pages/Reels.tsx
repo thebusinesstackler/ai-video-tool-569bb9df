@@ -1580,7 +1580,7 @@ const Reels = () => {
         body: { 
           scenes: scenesWithAudioDurations,
           topic: project.topic,
-          addCaptions: true,
+          addCaptions: featureToggles.captions,
           useWaveSpeed: true,
           // Lip sync configuration
           enableLipSync: effectiveLipSync,
