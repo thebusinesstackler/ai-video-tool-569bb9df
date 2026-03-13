@@ -3183,6 +3183,51 @@ const Reels = () => {
                     )}
                   </div>
 
+                  {/* Generate Character On-Demand */}
+                  <div className="relative flex items-center my-2">
+                    <div className="flex-1 border-t border-border" />
+                    <span className="px-3 text-xs text-muted-foreground">or generate a character</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+
+                  {!showGenerateCharacter ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setShowGenerateCharacter(true)}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      Generate a Person with AI
+                    </Button>
+                  ) : (
+                    <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
+                      <Label className="text-xs">Describe the person</Label>
+                      <Textarea
+                        value={generateCharacterPrompt}
+                        onChange={(e) => setGenerateCharacterPrompt(e.target.value)}
+                        placeholder="e.g. Professional woman in her 30s, dark hair, business attire, warm smile"
+                        rows={2}
+                        className="text-xs"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={generateCharacter}
+                          disabled={isGeneratingCharacter || !generateCharacterPrompt.trim()}
+                          className="flex-1"
+                        >
+                          {isGeneratingCharacter ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                          Generate
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setShowGenerateCharacter(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="relative flex items-center my-2">
                     <div className="flex-1 border-t border-border" />
                     <span className="px-3 text-xs text-muted-foreground">or upload manually</span>
