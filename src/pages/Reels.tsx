@@ -2463,30 +2463,22 @@ const Reels = () => {
 
           <TabsContent value="create" className="space-y-6">
             {/* Progress Bar */}
-            {(isGenerating || isCreatomateStitching) && (
+            {(isGenerating || isManualStitching) && (
               <Card className="bg-card border-border">
                 <CardContent className="pt-6">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground flex items-center gap-2">
-                        {isCreatomateStitching ? (
-                          <>
-                            <Cloud className="w-4 h-4 text-primary" />
-                            {creatomateStatus || 'Rendering with Creatomate...'}
-                          </>
-                        ) : (
-                          <>
-                            {project.status === 'generating-script' && 'Generating scripts...'}
-                            {project.status === 'generating-video' && 'Generating scene images...'}
-                            {project.status === 'rendering-video' && (progressStatus || 'Rendering video with captions...')}
-                          </>
-                        )}
+                        {project.status === 'generating-script' && 'Generating scripts...'}
+                        {project.status === 'generating-video' && 'Generating scene images...'}
+                        {project.status === 'rendering-video' && (progressStatus || 'Rendering video...')}
+                        {isManualStitching && (progressStatus || 'Stitching...')}
                       </span>
                       <span className="text-primary font-medium">
-                        {isCreatomateStitching ? creatomateProgress : progress}%
+                        {progress}%
                       </span>
                     </div>
-                    <Progress value={isCreatomateStitching ? creatomateProgress : progress} className="h-2" />
+                    <Progress value={progress} className="h-2" />
                   </div>
                 </CardContent>
               </Card>
