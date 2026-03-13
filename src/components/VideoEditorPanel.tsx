@@ -79,6 +79,7 @@ export const VideoEditorPanel: React.FC<VideoEditorPanelProps> = ({
   isGeneratingShots,
   musicSuggestion,
   onAiEditRequest,
+  editStatus,
 }) => {
   const [aiInput, setAiInput] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
