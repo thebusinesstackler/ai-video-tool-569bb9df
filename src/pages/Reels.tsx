@@ -2791,6 +2791,38 @@ const Reels = () => {
                       <><Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨</>
                     )}
                   </Button>
+
+                  {/* Voice selector + preview in beginner mode */}
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mic className="w-4 h-4" />
+                      <span>Voice</span>
+                    </div>
+                    <VoiceSelector
+                      selectedVoice={selectedVoice}
+                      onVoiceChange={setSelectedVoice}
+                      aiTwins={aiTwins}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={previewVoice}
+                      disabled={isGenerating || selectedVoice.startsWith('clone:')}
+                    >
+                      {isPreviewingVoice ? (
+                        <>
+                          <MicOff className="w-3 h-3 mr-1" />
+                          Stop Preview
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3 h-3 mr-1" />
+                          Preview Voice
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
