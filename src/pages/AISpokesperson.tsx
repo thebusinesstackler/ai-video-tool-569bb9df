@@ -953,9 +953,20 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setSceneShots(prev => prev.map(s => s.id === shotId ? { ...s, selected: !s.selected } : s));
   };
 
+  // AI edit status for real-time feedback in editor panel
+  const [editStatus, setEditStatus] = useState<{
+    active: boolean;
+    instruction: string;
+    stage: 'interpreting' | 'generating-image' | 'done' | 'error';
+    stageLabel: string;
+    shotSpec?: { angleLabel: string; type: string; sfx?: string; music?: string };
+  }>({ active: false, instruction: '', stage: 'interpreting', stageLabel: '' });
+
   // AI edit request from editor panel — interprets instruction and generates appropriate shot
   const handleAiEditRequest = async (instruction: string) => {
     if (!selectedTwin || !generatedScript) return;
+
+    setEditStatus({ active: true, instruction, stage: 'interpreting', stageLabel: '🧠 AI Director is interpreting your request...' });
 
     try {
       // Ask AI to interpret the instruction into a shot spec
@@ -990,19 +1001,31 @@ Return ONLY the JSON object.`
 
       const content = data?.response || data?.choices?.[0]?.message?.content || '';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
+      let spec: any = null;
+      
       if (jsonMatch) {
-        const spec = JSON.parse(jsonMatch[0]);
-        await addCustomShot(
-          spec.angleLabel || instruction.substring(0, 30),
-          spec.type === 'speaking' ? 'speaking' : 'broll'
-        );
-      } else {
-        // Fallback: generate as broll with the instruction as the angle
-        await addCustomShot(instruction.substring(0, 30), 'broll');
+        spec = JSON.parse(jsonMatch[0]);
       }
+
+      const shotLabel = spec?.angleLabel || instruction.substring(0, 30);
+      const shotType = spec?.type === 'speaking' ? 'speaking' : 'broll' as const;
+
+      setEditStatus({
+        active: true,
+        instruction,
+        stage: 'generating-image',
+        stageLabel: `📸 Generating ${shotType === 'speaking' ? 'speaking' : 'B-roll'} shot...`,
+        shotSpec: spec ? { angleLabel: spec.angleLabel, type: spec.type, sfx: spec.sfx, music: spec.music } : { angleLabel: shotLabel, type: shotType },
+      });
+
+      await addCustomShot(shotLabel, shotType);
+
+      setEditStatus(prev => ({ ...prev, active: false, stage: 'done', stageLabel: '✅ Shot added!' }));
     } catch (err) {
       console.warn('AI edit request failed, falling back:', err);
+      setEditStatus({ active: true, instruction, stage: 'generating-image', stageLabel: '📸 Generating fallback shot...' });
       await addCustomShot(instruction.substring(0, 30), 'broll');
+      setEditStatus(prev => ({ ...prev, active: false, stage: 'done', stageLabel: '✅ Shot added!' }));
     }
   };
 
@@ -1175,6 +1198,7 @@ Return ONLY the JSON object.`
                 isGeneratingShots={isGeneratingShots}
                 musicSuggestion={generatedScript?.musicSuggestion}
                 onAiEditRequest={handleAiEditRequest}
+                editStatus={editStatus}
               />
             </div>
           </div>
