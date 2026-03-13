@@ -67,7 +67,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
 
       if (error) throw error;
 
-      const generatedScript = data?.choices?.[0]?.message?.content || '';
+      const generatedScript = data?.response || data?.choices?.[0]?.message?.content || '';
       setScript(generatedScript);
       setScriptPrompt('');
       

@@ -349,7 +349,7 @@ CRITICAL: CLOSED MOUTH or slight smile. NO text, NO watermarks. Ultra photoreali
               }
             });
             
-            const genUrl = imgData?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+            const genUrl = imgData?.imageUrl || imgData?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
             if (genUrl) {
               // Upload base64 to storage
               if (genUrl.startsWith('data:')) {
