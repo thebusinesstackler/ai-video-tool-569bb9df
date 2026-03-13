@@ -1051,16 +1051,20 @@ Return ONLY the JSON object.`
         // Capture last frame from current video
         let lastFrameUrl = '';
         if (videoRef.current) {
-          const video = videoRef.current;
-          video.currentTime = Math.max(0, video.duration - 0.1);
-          await new Promise(r => setTimeout(r, 600));
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth || 720;
-          canvas.height = video.videoHeight || 1280;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0);
-            lastFrameUrl = canvas.toDataURL('image/jpeg', 0.9);
+          try {
+            const video = videoRef.current;
+            video.currentTime = Math.max(0, video.duration - 0.1);
+            await new Promise(r => setTimeout(r, 600));
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 720;
+            canvas.height = video.videoHeight || 1280;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0);
+              lastFrameUrl = canvas.toDataURL('image/jpeg', 0.9);
+            }
+          } catch (e) {
+            console.warn('Canvas capture failed (tainted), using fallback:', e);
           }
         }
         if (!lastFrameUrl && sceneShots.length > 0) {
