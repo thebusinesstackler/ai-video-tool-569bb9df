@@ -1113,10 +1113,12 @@ const MovieSceneCreator = () => {
       setGenerateAllStep('Creating Story Bible...');
       setGenerateAllProgress(5);
 
-      let characterDescription = selectedTwins.map(twin => {
-        const genderText = twin.gender ? `${twin.gender} ` : '';
-        return `${twin.name} (${genderText}character): ${twin.face_description || twin.description || 'No description'}`;
-      }).join('\n\n');
+      let characterDescription = selectedTwins.length > 0
+        ? selectedTwins.map(twin => {
+            const genderText = twin.gender ? `${twin.gender} ` : '';
+            return `${twin.name} (${genderText}character): ${twin.face_description || twin.description || 'No description'}`;
+          }).join('\n\n')
+        : undefined;
 
       const { data: storyBibleData, error: storyBibleError } = await supabase.functions.invoke('generate-story-bible', {
         body: { movieIdea, characterDescription }
