@@ -92,8 +92,6 @@ export const Navigation = () => {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { toast } = useToast();
-  const [videosCount, setVideosCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
@@ -102,41 +100,12 @@ export const Navigation = () => {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    if (user) {
-      loadUsageStats();
-      return;
-    }
-    setVideosCount(0);
-    setIsLoading(false);
-  }, [user]);
-
-  useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
   }, [isCollapsed]);
-
-  const loadUsageStats = async () => {
-    if (!user) return;
-    try {
-      setIsLoading(true);
-      const { data: projects, error } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('user_id', user.id);
-      if (error) {
-        console.error('Error loading usage stats:', error);
-        return;
-      }
-      setVideosCount(projects?.length || 0);
-    } catch (error) {
-      console.error('Error loading usage stats:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleSignOut = async () => {
     try {
@@ -158,8 +127,8 @@ export const Navigation = () => {
         key={item.name}
         to={item.href}
         className={cn(
-          "flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300",
-          "hover:bg-accent/10 hover:shadow-glow/20 group",
+          "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200",
+          "hover:bg-sidebar-accent group",
           isActive && "bg-gradient-accent border border-primary/20 shadow-ai",
           collapsed && "justify-center px-3"
         )}
@@ -167,13 +136,13 @@ export const Navigation = () => {
         <item.icon
           className={cn(
             "w-5 h-5 transition-colors flex-shrink-0",
-            isActive ? "text-primary" : "text-muted-foreground group-hover:text-white"
+            isActive ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
           )}
         />
         {!collapsed && (
           <span className={cn(
             "font-medium transition-colors text-sm",
-            isActive ? "text-primary" : "text-muted-foreground group-hover:text-white"
+            isActive ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
           )}>
             {item.name}
           </span>
@@ -196,7 +165,6 @@ export const Navigation = () => {
     const hasActiveChild = group.items.some(i => location.pathname === i.href);
 
     if (collapsed) {
-      // In collapsed mode, just show group items as icon-only tooltips
       return (
         <div key={group.label} className="space-y-1">
           {group.items.map(item => renderNavLink(item, true))}
@@ -206,10 +174,10 @@ export const Navigation = () => {
 
     return (
       <Collapsible key={group.label} defaultOpen={hasActiveChild}>
-        <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
+        <CollapsibleTrigger className="flex items-center gap-2 w-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
           <group.icon className="w-4 h-4 flex-shrink-0" />
           <span className="flex-1 text-left">{group.label}</span>
-          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 [&[data-state=open]]:rotate-0 [[data-state=closed]_&]:rotate-0" />
+          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-0.5 mt-0.5">
           {group.items.map(item => renderNavLink(item, false))}
@@ -221,7 +189,7 @@ export const Navigation = () => {
   const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div className="p-4 h-full flex flex-col">
       {/* Logo */}
-      <div className={cn("flex items-center mb-4", collapsed ? "justify-center" : "justify-between")}>
+      <div className={cn("flex items-center mb-6", collapsed ? "justify-center" : "justify-between")}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow flex-shrink-0">
             <SparklesIcon className="w-6 h-6 text-primary-foreground" />
@@ -232,60 +200,30 @@ export const Navigation = () => {
       </div>
 
       {/* Navigation */}
-      <div className="space-y-1 flex-1 overflow-y-auto">
+      <div className="space-y-1.5 flex-1">
         <TooltipProvider delayDuration={0}>
-          {/* Dashboard */}
           {standaloneTop.map(item => renderNavLink(item, collapsed))}
-
-          {/* Separator */}
-          <div className="h-px bg-border my-2" />
-
-          {/* Groups */}
+          <div className="h-px bg-sidebar-border my-3" />
           {navGroups.map(group => renderGroup(group, collapsed))}
-
-          {/* Separator */}
-          <div className="h-px bg-border my-2" />
-
-          {/* Settings */}
+          <div className="h-px bg-sidebar-border my-3" />
           {standaloneBottom.map(item => renderNavLink(item, collapsed))}
         </TooltipProvider>
       </div>
 
-      {/* Usage Stats */}
-      {!collapsed && (
-        <div className="mt-2 p-3 bg-card border border-border rounded-lg shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-2">Monthly Usage</h3>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Videos Generated</span>
-              <span className="text-primary font-semibold">
-                {isLoading ? '...' : `${videosCount}/500`}
-              </span>
-            </div>
-            <div className="w-full bg-secondary rounded-full h-2">
-              <div
-                className="bg-gradient-primary h-2 rounded-full animate-glow transition-all duration-300"
-                style={{ width: `${Math.min((videosCount / 500) * 100, 100)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Sign Out */}
-      <div className="mt-2">
+      <div className="mt-3">
         <TooltipProvider delayDuration={0}>
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={handleSignOut} variant="ghost" size="icon" className="w-full text-muted-foreground hover:text-foreground">
+                <Button onClick={handleSignOut} variant="ghost" size="icon" className="w-full text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent">
                   <LogOut className="w-5 h-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" className="bg-popover border-border">Sign Out</TooltipContent>
             </Tooltip>
           ) : (
-            <Button onClick={handleSignOut} variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground">
+            <Button onClick={handleSignOut} variant="ghost" className="w-full justify-start gap-3 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent">
               <LogOut className="w-5 h-5" />
               Sign Out
             </Button>
@@ -297,14 +235,14 @@ export const Navigation = () => {
 
   if (isMobile) {
     return (
-      <header className="fixed top-0 left-0 right-0 h-16 bg-[hsl(222_47%_6%)] border-b border-[hsl(222_47%_12%)] z-50 flex items-center px-4">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-sidebar-background border-b border-sidebar-border z-50 flex items-center px-4">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="mr-3">
               <Menu className="w-6 h-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-0 bg-[hsl(222_47%_6%)] border-[hsl(222_47%_12%)]">
+          <SheetContent side="left" className="w-72 p-0 bg-sidebar-background border-sidebar-border">
             <NavContent collapsed={false} />
           </SheetContent>
         </Sheet>
@@ -321,7 +259,7 @@ export const Navigation = () => {
   return (
     <nav
       className={cn(
-        "fixed left-0 top-0 h-full bg-[hsl(222_47%_6%)] border-r border-[hsl(222_47%_12%)] z-50 backdrop-blur-xl transition-all duration-300",
+        "fixed left-0 top-0 h-full bg-sidebar-background border-r border-sidebar-border z-50 backdrop-blur-xl transition-all duration-300",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
