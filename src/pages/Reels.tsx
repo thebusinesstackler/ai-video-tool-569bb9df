@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { VideoPlayer } from '@/components/VideoPlayer';
