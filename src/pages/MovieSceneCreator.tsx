@@ -1204,16 +1204,20 @@ const MovieSceneCreator = () => {
 
       // Step 5: Generate Conversation Dialogue for each scene (75%)
       setGenerateAllStep('Creating Blockbuster Dialogue...');
-      const characterNames = selectedTwins.map(t => t.name);
+      const characterNames = selectedTwins.length > 0 
+        ? selectedTwins.map(t => t.name) 
+        : (storyBibleWithVoices?.characters?.map((c: any) => c.name) || []);
       
       // Build character personalities from story bible or twin descriptions
       const characterPersonalities: Record<string, string> = {};
       selectedTwins.forEach(twin => {
         characterPersonalities[twin.name] = twin.description || twin.face_description || '';
       });
-      if (storyBibleData?.characters) {
-        storyBibleData.characters.forEach((char: StoryBibleCharacter) => {
-          if (characterPersonalities[char.name] !== undefined) {
+      if (storyBibleWithVoices?.characters) {
+        storyBibleWithVoices.characters.forEach((char: StoryBibleCharacter) => {
+          if (!characterPersonalities[char.name]) {
+            characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
+          } else {
             characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
           }
         });
