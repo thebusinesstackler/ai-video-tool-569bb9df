@@ -1095,40 +1095,81 @@ const MovieSceneCreator = () => {
     }
   };
 
-  // Helper: generate a lip-sync video for a scene and wait for completion
+  // Helper: generate video for a scene and wait for completion
+  // Detects multi-character dialogue and uses multi-voice TTS + image-to-video instead of single lip-sync
   const generateSceneVideoAndWait = async (scene: any, scenesSnapshot: any[]): Promise<{ videoUrl: string; audioContent?: string }> => {
     const imageToUse = scene.startFrame?.generatedImage || scene.generatedImage;
     if (!imageToUse) throw new Error(`Scene ${scene.sceneNumber} has no image`);
 
-    // Build dialogue text
-    let textForAudio = '';
-    if (scene.dialogue) {
-      if (Array.isArray(scene.dialogue)) {
-        textForAudio = scene.dialogue.map(d => d.line).join(' ');
-      } else {
-        textForAudio = scene.dialogue;
-      }
-    }
-    textForAudio = cleanDialogueForTTS(textForAudio);
-    if (!textForAudio) textForAudio = "This moment is everything. I have to keep going.";
+    const isConversation = Array.isArray(scene.dialogue) && scene.dialogue.length > 1;
+    let audioContent: string | null = null;
+    let estimatedDuration = 5;
 
-    // Determine voice
-    let voiceParams: any = {};
-    if (storyBible?.characters) {
-      if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
-        const firstSpeaker = scene.dialogue[0].character;
-        const assignedChar = storyBible.characters.find(c => c.name.toLowerCase() === firstSpeaker.toLowerCase());
-        if (assignedChar?.assignedTwinId) {
-          const twin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
-          if (twin?.voice_cloning_key) {
-            const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
-            voiceParams = {
-              speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
-              voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
-            };
+    if (isConversation) {
+      // ===== MULTI-CHARACTER DIALOGUE: Use multi-voice TTS =====
+      const voiceAssignments: Array<{
+        characterName: string;
+        speechifyVoiceId?: string;
+        voiceCloningKey?: string;
+        defaultVoice?: string;
+      }> = [];
+
+      if (storyBible?.characters) {
+        for (const char of storyBible.characters) {
+          if (char.assignedTwinId) {
+            const twin = aiTwins.find(t => t.id === char.assignedTwinId);
+            if (twin?.voice_cloning_key) {
+              const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+              voiceAssignments.push({
+                characterName: char.name,
+                speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
+                voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined,
+                defaultVoice: char.role === 'protagonist' ? 'en-US-Journey-D' : 'en-US-Journey-F'
+              });
+            }
           }
         }
-      } else {
+      }
+
+      for (const twin of selectedTwins) {
+        if (twin.voice_cloning_key && !voiceAssignments.find(v => v.characterName.toLowerCase() === twin.name.toLowerCase())) {
+          const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+          voiceAssignments.push({
+            characterName: twin.name,
+            speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
+            voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
+          });
+        }
+      }
+
+      const { data: multiVoiceData, error: multiVoiceError } = await supabase.functions.invoke('multi-voice-tts', {
+        body: {
+          dialogue: scene.dialogue,
+          voiceAssignments,
+          defaultVoice: 'en-US-Journey-D'
+        }
+      });
+      if (multiVoiceError) throw new Error('Failed to generate multi-voice audio');
+      
+      audioContent = multiVoiceData.audioContent;
+      const totalWords = scene.dialogue.reduce((acc: number, d: any) => acc + (d.line?.split(/\s+/).length || 0), 0);
+      estimatedDuration = Math.max(5, Math.min(30, Math.ceil(totalWords / 2.5)));
+
+    } else {
+      // ===== SINGLE CHARACTER / NARRATOR: Use single-voice TTS =====
+      let textForAudio = '';
+      if (scene.dialogue) {
+        if (Array.isArray(scene.dialogue)) {
+          textForAudio = scene.dialogue.map((d: any) => d.line).join(' ');
+        } else {
+          textForAudio = scene.dialogue;
+        }
+      }
+      textForAudio = cleanDialogueForTTS(textForAudio);
+      if (!textForAudio) textForAudio = "This moment is everything. I have to keep going.";
+
+      let voiceParams: any = {};
+      if (storyBible?.characters) {
         const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
         if (protagonist?.assignedTwinId) {
           const twin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
@@ -1141,38 +1182,60 @@ const MovieSceneCreator = () => {
           }
         }
       }
-    }
-    if (!voiceParams.speechifyVoiceId && !voiceParams.voiceCloningKey) {
-      const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
-      if (twinWithVoice?.voice_cloning_key) {
-        const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
-        voiceParams = {
-          speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
-          voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
-        };
+      if (!voiceParams.speechifyVoiceId && !voiceParams.voiceCloningKey) {
+        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
+        if (twinWithVoice?.voice_cloning_key) {
+          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
+          voiceParams = {
+            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
+            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
+          };
+        }
       }
+
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: textForAudio, voice: 'en-US-Journey-D', ...voiceParams }
+      });
+      if (ttsError) throw ttsError;
+      audioContent = ttsData.audioContent;
+
+      const wordCount = textForAudio.split(/\s+/).length;
+      estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5)));
     }
 
-    // Generate TTS audio
-    const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-      body: { text: textForAudio, voice: 'en-US-Journey-D', ...voiceParams }
-    });
-    if (ttsError) throw ttsError;
-
-    // Generate lip-sync video
-    const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
-      body: {
+    // Choose video model based on dialogue type:
+    // - Single character with image → infinitetalk (lip-sync)  
+    // - Multi-character conversation → image-to-video (wan-2.5-i2v) with audio overlay
+    let videoBody: any;
+    if (isConversation) {
+      // Use image-to-video model — the scene image shows both characters
+      // Audio will be overlaid during stitching
+      videoBody = {
+        action: 'create',
+        model: 'wan-2.5-i2v',
+        imageUrls: [imageToUse],
+        prompt: `${scene.description || scene.title}. Two characters having a conversation. Cinematic quality, natural movements, professional cinematography.`,
+        duration: Math.min(estimatedDuration, 8),
+        aspectRatio: '16:9'
+      };
+    } else {
+      // Single character lip-sync
+      videoBody = {
         action: 'create',
         model: 'infinitetalk',
         imageUrls: [imageToUse],
-        audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
+        audioUrl: `data:audio/mp3;base64,${audioContent}`,
         duration: 5
-      }
+      };
+    }
+
+    const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+      body: videoBody
     });
     if (videoError) throw videoError;
 
     // Poll for completion
-    const maxPollTime = 180000; // 3 min per scene
+    const maxPollTime = 180000;
     const startTime = Date.now();
     while (true) {
       if (Date.now() - startTime > maxPollTime) throw new Error(`Scene ${scene.sceneNumber} video timed out`);
@@ -1183,7 +1246,7 @@ const MovieSceneCreator = () => {
       });
       if (statusError) throw statusError;
       if (statusData.status === 'completed' && statusData.videoUrl) {
-        return { videoUrl: statusData.videoUrl, audioContent: ttsData.audioContent };
+        return { videoUrl: statusData.videoUrl, audioContent: audioContent || undefined };
       }
       if (statusData.status === 'failed') throw new Error(`Scene ${scene.sceneNumber} video failed`);
     }
