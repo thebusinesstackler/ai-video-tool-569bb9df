@@ -26,7 +26,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { message, messages } = body;
+    const { message, messages, model, modalities } = body;
 
     // Validate inputs
     if (!message && (!messages || !Array.isArray(messages) || messages.length === 0)) {
@@ -99,16 +99,21 @@ serve(async (req) => {
           },
         ];
 
+    const requestBody: any = {
+      model: model || "google/gemini-2.5-flash",
+      messages: chatMessages,
+    };
+    if (modalities) {
+      requestBody.modalities = modalities;
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: chatMessages,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -130,8 +135,8 @@ serve(async (req) => {
     const aiMessage = data.choices?.[0]?.message?.content;
 
     if (!aiMessage) {
-      console.error("No response from AI", data);
-      return new Response(JSON.stringify({ error: "No response from AI" }), {
+      console.error("No response from AI. Full data:", JSON.stringify(data).substring(0, 500));
+      return new Response(JSON.stringify({ error: "No response from AI", debug: JSON.stringify(data).substring(0, 300) }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
