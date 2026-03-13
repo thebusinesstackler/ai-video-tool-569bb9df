@@ -1198,6 +1198,7 @@ Return ONLY the JSON object.`
                 isGeneratingShots={isGeneratingShots}
                 musicSuggestion={generatedScript?.musicSuggestion}
                 onAiEditRequest={handleAiEditRequest}
+                editStatus={editStatus}
               />
             </div>
           </div>
