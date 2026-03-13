@@ -1023,10 +1023,11 @@ Return ONLY the JSON object.`
           <CreatorModeToggle mode={mode} onModeChange={setMode} />
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Panel — Rich contextual info during generation */}
         {(isGenerating || isGeneratingScript) && (
-          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent overflow-hidden">
             <CardContent className="pt-6 space-y-4">
+              {/* Progress header */}
               <div className="flex items-center gap-3">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
                   <Wand2 className="w-4 h-4 text-primary animate-pulse" />
@@ -1035,6 +1036,96 @@ Return ONLY the JSON object.`
                 <span className="text-sm text-muted-foreground">{progressStatus}</span>
               </div>
               <Progress value={isGeneratingScript ? 10 : progress} className="h-2" />
+
+              {/* Stage: Generating Voiceover — show the narration script */}
+              {progress >= 5 && progress < 25 && generatedScript && (
+                <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border space-y-2 animate-in fade-in duration-500">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Mic className="w-4 h-4 text-primary" />
+                    Your spokesperson will say:
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed italic">
+                    "{generatedScript.narration}"
+                  </p>
+                </div>
+              )}
+
+              {/* Stage: Generating Character Image — show image placeholders */}
+              {progress >= 25 && progress < 50 && (
+                <div className="mt-4 space-y-3 animate-in fade-in duration-500">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Camera className="w-4 h-4 text-primary" />
+                    Generating your character shot...
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="aspect-[9/16] rounded-lg bg-muted/60 border border-border overflow-hidden relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5 animate-pulse" />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground/60">
+                          <User className="w-6 h-6" />
+                          <span className="text-[10px]">{i === 1 ? 'Main Shot' : i === 2 ? 'Angle B' : 'Angle C'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {generatedScript && (
+                    <p className="text-xs text-muted-foreground">
+                      Setting: {SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting))?.name} · 
+                      Mood: {MOODS.find(m => m.id === (generatedScript.mood || selectedMood))?.name}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Stage: Rendering Video — show scene breakdown */}
+              {progress >= 50 && generatedScript && (
+                <div className="mt-4 space-y-3 animate-in fade-in duration-500">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Film className="w-4 h-4 text-primary" />
+                    Video scene breakdown
+                  </div>
+                  
+                  {/* Scene timeline cards */}
+                  <div className="space-y-2">
+                    {(generatedScript.scenes && generatedScript.scenes.length > 0
+                      ? generatedScript.scenes
+                      : [{ type: 'speaking', description: 'Direct to camera delivery', cameraAngle: selectedAngle?.name || 'Medium shot', duration: parseInt(selectedDuration), narrationSegment: generatedScript.narration }]
+                    ).map((scene: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-background/60 border border-border">
+                        <div className={cn(
+                          "shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                          scene.type === 'speaking' ? 'bg-primary/15 text-primary' : 'bg-accent/50 text-accent-foreground'
+                        )}>
+                          {scene.type === 'speaking' ? '🎤' : '🎬'}
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-foreground capitalize">{scene.type}</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {scene.duration || 5}s
+                            </Badge>
+                            {scene.sfx && (
+                              <span className="text-[10px] text-muted-foreground">🔊 {scene.sfx}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{scene.description || scene.cameraAngle}</p>
+                          {scene.narrationSegment && (
+                            <p className="text-xs text-foreground/70 italic line-clamp-2">"{scene.narrationSegment}"</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Total duration */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+                    <span>Total duration: ~{selectedDuration}s</span>
+                    {generatedScript.musicSuggestion && (
+                      <span>🎵 {generatedScript.musicSuggestion}</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
