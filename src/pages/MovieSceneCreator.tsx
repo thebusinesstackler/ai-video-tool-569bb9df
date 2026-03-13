@@ -779,18 +779,52 @@ const MovieSceneCreator = () => {
   const recoverProject = async () => {
     if (!recoveryProjectId) return;
     setShowRecoveryBanner(false);
-    await loadProject(recoveryProjectId);
     trackGenerationEnd();
     
-    // Check if project has scenes with images but no videos — offer to continue
-    setTimeout(() => {
-      const hasUnfinishedScenes = scenes.some(s => (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo);
+    try {
+      const { data, error } = await supabase
+        .from('movie_projects')
+        .select('*')
+        .eq('id', recoveryProjectId)
+        .single();
+
+      if (error) throw error;
+
+      setCurrentProjectId(data.id);
+      setProjectTitle(data.title);
+      setMovieIdea(data.movie_idea);
+      setOutline(data.outline || '');
+      const loadedScenes = (data.scenes as any) || [];
+      setScenes(loadedScenes);
+      setStitchedVideoUrl((data as any).stitched_video_url || null);
+      setStoryBible((data as any).story_bible || null);
+
+      // Check if project has scenes with images but no videos — offer to continue
+      const hasUnfinishedScenes = loadedScenes.some((s: any) => 
+        (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo
+      );
       if (hasUnfinishedScenes) {
         setIsPreviewingBeforeVideo(true);
-        setPendingVideoGeneration(scenes);
+        setPendingVideoGeneration(loadedScenes);
         if (isAdvanced) setCurrentStep(3);
+        toast({
+          title: "Project Recovered",
+          description: `"${data.title}" loaded. Review your scenes and continue generating videos.`,
+        });
+      } else {
+        toast({
+          title: "Project Loaded",
+          description: `"${data.title}" loaded.`,
+        });
       }
-    }, 1000);
+    } catch (error: any) {
+      console.error('Error recovering project:', error);
+      toast({
+        title: "Recovery Failed",
+        description: "Couldn't load the interrupted project.",
+        variant: "destructive"
+      });
+    }
   };
 
   const dismissRecovery = () => {
