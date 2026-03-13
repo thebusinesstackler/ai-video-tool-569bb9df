@@ -1215,6 +1215,46 @@ Return ONLY the JSON object.`
           </Card>
         )}
 
+        {/* Draft Recovery / Retry Banner */}
+        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && generatedScript && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">You have a saved script ready</p>
+                    <p className="text-xs text-muted-foreground">Pick up where you left off or start fresh.</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={resetAll}
+                  >
+                    Start Fresh
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (selectedQuality === 'kling-pro') {
+                        generateMultipleShots();
+                      } else {
+                        generateVideo();
+                      }
+                    }}
+                    disabled={!selectedTwin}
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    Retry Generation
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ===== BEGINNER MODE ===== */}
         {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && (
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
