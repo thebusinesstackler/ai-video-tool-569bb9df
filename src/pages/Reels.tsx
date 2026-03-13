@@ -1442,7 +1442,7 @@ const Reels = () => {
     }
   };
 
-  const generateVideo = async () => {
+  const generateVideo = async (overrides?: { forceEnableLipSync?: boolean; forceLipSyncModel?: string }) => {
     if (project.scenes.length === 0) {
       toast({
         title: "Missing Scripts",
