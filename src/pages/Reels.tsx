@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { downloadVideo } from '@/lib/reelVideoCreator';
-import { stitchVideosWithAudio } from '@/lib/videoStitch';
+import { canvasStitchVideos } from '@/lib/canvasStitch';
 import { useCreatomate } from '@/hooks/useCreatomate';
 import { getAudioDuration } from '@/lib/audioUtils';
 import { TemplateSelector } from '@/components/TemplateSelector';
@@ -1981,20 +1981,21 @@ const Reels = () => {
             });
           } else {
             // Creatomate stitching failed - automatically fall back to browser-based stitching
-            console.warn('Creatomate stitching failed, falling back to browser stitching:', result.error);
-            setProgressStatus('Server stitching failed, trying browser stitching...');
+            console.warn('Creatomate stitching failed, falling back to canvas stitching:', result.error);
+            setProgressStatus('Server failed, stitching with built-in engine...');
             
             try {
               const videoUrls = sortedVideos.map(v => v.videoUrl);
-              const audioUrls = sortedAudios.map(a => a.audioUrl);
+              const audioUrlList = sortedAudios.map(a => a.audioUrl);
               
-              const finalBlob = await stitchVideosWithAudio({
+              const finalBlob = await canvasStitchVideos({
                 videoUrls,
-                audioUrls,
+                audioUrls: audioUrlList,
                 onProgress: (p) => {
                   setProgress(75 + Math.round(p * 0.2));
-                  setProgressStatus(`Stitching in browser... ${Math.round(p)}%`);
-                }
+                  setProgressStatus(`Stitching... ${Math.round(p)}%`);
+                },
+                onStatus: (s) => setProgressStatus(s)
               });
               
               const blobUrl = URL.createObjectURL(finalBlob);
@@ -2047,7 +2048,7 @@ const Reels = () => {
 
               setProgress(100);
               setProgressStatus('Complete!');
-              toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video using browser stitching.` });
+              toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video using built-in stitcher.` });
             } catch (browserErr) {
               console.error('Browser stitching also failed:', browserErr);
               // Final fallback: show individual clips
@@ -2467,17 +2468,18 @@ const Reels = () => {
           });
         } else {
           // Creatomate failed - automatically fall back to browser stitching
-          console.warn('Creatomate manual stitch failed, falling back to browser:', result.error);
-          setProgressStatus('Server failed, trying browser stitching...');
+          console.warn('Creatomate manual stitch failed, falling back to canvas stitcher:', result.error);
+          setProgressStatus('Server failed, stitching with built-in engine...');
           
           const videoUrls = sortedVideos.map(v => v.videoUrl);
-          const stitchedBlob = await stitchVideosWithAudio({
+          const stitchedBlob = await canvasStitchVideos({
             videoUrls,
-            audioUrls: [mergedAudioUrl],
+            audioUrls: mergedAudioUrl ? [mergedAudioUrl] : [],
             onProgress: (percent) => {
               setProgress(40 + percent * 0.5);
-              setProgressStatus(`Stitching in browser... ${Math.round(percent)}%`);
-            }
+              setProgressStatus(`Stitching... ${Math.round(percent)}%`);
+            },
+            onStatus: (s) => setProgressStatus(s)
           });
 
           videoBlobRef.current = stitchedBlob;
@@ -2507,7 +2509,7 @@ const Reels = () => {
           }
 
           setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
-          toast({ title: "Videos Stitched & Saved!", description: "Merged using browser stitching and saved to My Reels." });
+          toast({ title: "Videos Stitched & Saved!", description: "Merged using built-in stitcher and saved to My Reels." });
         }
 
       setProgress(100);
