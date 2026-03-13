@@ -480,7 +480,7 @@ serve(async (req) => {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
             requestBody = {
               image: imageUrl,
-              prompt: `${scene.visualDescription}. Person speaking, engaging expression.`,
+              prompt: `${scene.visualDescription}. Person with engaging expression, natural pose, slight head movement. No text, no captions, no subtitles, no watermarks. Person should NOT appear to be speaking or mouthing words.`,
               resolution: "1080p",
               duration: clipDuration
             };
