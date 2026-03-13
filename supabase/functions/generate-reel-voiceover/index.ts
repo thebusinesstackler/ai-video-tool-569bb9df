@@ -6,73 +6,109 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// OpenAI TTS-1-HD voices (higher quality than TTS-1)
-const OPENAI_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
-
-// Google Cloud TTS voice mapping (fallback)
-const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
-  'nova': { name: 'en-US-Journey-F', languageCode: 'en-US' },
-  'alloy': { name: 'en-US-Journey-D', languageCode: 'en-US' },
-  'echo': { name: 'en-US-Wavenet-D', languageCode: 'en-US' },
-  'fable': { name: 'en-GB-Wavenet-B', languageCode: 'en-GB' },
-  'onyx': { name: 'en-US-Wavenet-A', languageCode: 'en-US' },
-  'shimmer': { name: 'en-US-Wavenet-F', languageCode: 'en-US' },
+// WaveSpeed MiniMax voice IDs mapped from legacy OpenAI voice names
+const VOICE_MAP: Record<string, string> = {
+  'nova': 'English_compelling_lady1',
+  'alloy': 'English_Trustworth_Man',
+  'echo': 'Deep_Voice_Man',
+  'fable': 'English_magnetic_voiced_man',
+  'onyx': 'Casual_Guy',
+  'shimmer': 'English_radiant_girl',
 };
 
-// Clean text to prevent TTS artifacts (doubled sounds, echoes, plural "s" sounds)
+// Direct WaveSpeed voice IDs pass through
+const WAVESPEED_VOICES = [
+  'English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl',
+  'English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man',
+  'English_expressive_narrator',
+];
+
+const MALE_VOICES = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man'];
+const FEMALE_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+
 function cleanTextForTTS(text: string): string {
   return text
-    // First, normalize smart quotes and special characters
     .replace(/[""]/g, '"')
     .replace(/['']/g, "'")
     .replace(/…/g, '...')
-    // CRITICAL: Convert sentence-ending periods to em dashes to prevent "s" sound artifacts
-    // This is the main fix for words like "workflow." sounding like "workflows"
     .replace(/\.(\s|$)/g, '—$1')
-    // Keep em dashes as clean pauses (don't convert to spaces)
     .replace(/–/g, '—')
-    // Remove extra whitespace
     .replace(/\s+/g, ' ')
-    // Fix doubled letters/words that cause stuttering
     .replace(/(\b\w+\b)\s+\1\b/gi, '$1')
-    // Ensure proper spacing after punctuation (but not periods since we converted them)
     .replace(/,([A-Za-z])/g, ', $1')
-    // Remove any trailing/leading whitespace
     .trim();
 }
 
-async function generateOpenAITTS(text: string, voice: string, apiKey: string): Promise<string> {
-  // Ensure voice is valid for OpenAI
-  const validVoice = OPENAI_VOICES.includes(voice) ? voice : 'nova';
+async function pollWaveSpeedResult(taskId: string, apiKey: string, maxAttempts: number = 60): Promise<string | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!response.ok) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      const data = await response.json();
+      if (data.code === 200 && data.data) {
+        if (data.data.status === 'completed' || data.data.status === 'succeeded') {
+          return data.data.outputs?.[0] || null;
+        } else if (data.data.status === 'failed') return null;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    } catch { await new Promise(r => setTimeout(r, 1000)); }
+  }
+  return null;
+}
+
+async function generateWaveSpeedTTS(text: string, voiceId: string, apiKey: string): Promise<string> {
+  console.log(`Generating voiceover with WaveSpeed MiniMax voice: ${voiceId}`);
   
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
+  const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'tts-1-hd', // Higher quality model with better prosody
-      input: text,
-      voice: validVoice,
-      response_format: 'mp3',
-      speed: 1.0,
+      text: text.length > 10000 ? text.substring(0, 10000) : text,
+      voice_id: voiceId,
+      speed: 1,
+      volume: 1,
+      pitch: 0,
+      emotion: 'neutral',
+      english_normalization: true
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('OpenAI TTS-1-HD error:', response.status, errorText);
-    throw new Error(`OpenAI TTS error: ${response.status}`);
+  if (!ttsResponse.ok) {
+    throw new Error(`WaveSpeed TTS error: ${ttsResponse.status}`);
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  // Use proper base64 encoding to avoid stack overflow with large audio
+  const ttsData = await ttsResponse.json();
+  if (ttsData.code !== 200 || !ttsData.data?.id) {
+    throw new Error('WaveSpeed TTS task creation failed');
+  }
+
+  const audioUrl = await pollWaveSpeedResult(ttsData.data.id, apiKey);
+  if (!audioUrl) throw new Error('WaveSpeed TTS polling failed');
+
+  const audioResponse = await fetch(audioUrl);
+  if (!audioResponse.ok) throw new Error('Failed to download WaveSpeed audio');
+
+  const arrayBuffer = await audioResponse.arrayBuffer();
   return base64Encode(arrayBuffer);
 }
 
+// Google Cloud TTS voice mapping (fallback)
+const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
+  'English_compelling_lady1': { name: 'en-US-Journey-F', languageCode: 'en-US' },
+  'English_radiant_girl': { name: 'en-US-Journey-F', languageCode: 'en-US' },
+  'English_magnetic_voiced_man': { name: 'en-US-Journey-D', languageCode: 'en-US' },
+  'English_Trustworth_Man': { name: 'en-US-Journey-D', languageCode: 'en-US' },
+  'nova': { name: 'en-US-Journey-F', languageCode: 'en-US' },
+  'alloy': { name: 'en-US-Journey-D', languageCode: 'en-US' },
+};
+
 async function generateGoogleTTS(text: string, voice: string, apiKey: string): Promise<string> {
-  const voiceConfig = GOOGLE_VOICES[voice] || GOOGLE_VOICES['nova'];
+  const voiceConfig = GOOGLE_VOICES[voice] || { name: 'en-US-Journey-D', languageCode: 'en-US' };
   
   const response = await fetch(
     `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
@@ -81,27 +117,18 @@ async function generateGoogleTTS(text: string, voice: string, apiKey: string): P
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         input: { text },
-        voice: {
-          languageCode: voiceConfig.languageCode,
-          name: voiceConfig.name,
-        },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          speakingRate: 1.0,
-          pitch: 0,
-        },
+        voice: { languageCode: voiceConfig.languageCode, name: voiceConfig.name },
+        audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 },
       }),
     }
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Google TTS error:', response.status, errorText);
     throw new Error(`Google TTS error: ${response.status}`);
   }
 
   const data = await response.json();
-  return data.audioContent; // Already base64 encoded
+  return data.audioContent;
 }
 
 serve(async (req) => {
@@ -110,7 +137,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'nova', sceneNumber } = await req.json();
+    const { text, voice = 'English_Trustworth_Man', sceneNumber, gender } = await req.json();
 
     if (!text) {
       return new Response(
@@ -119,28 +146,40 @@ serve(async (req) => {
       );
     }
 
-    // Clean text to prevent TTS artifacts (doubled sounds, echoes)
     const cleanedText = cleanTextForTTS(text);
     console.log('Generating voiceover for scene:', sceneNumber, 'with voice:', voice);
-    console.log('Original text:', text);
-    console.log('Cleaned text:', cleanedText);
 
-    // Try OpenAI TTS-1-HD first (best quality, natural prosody at sentence boundaries)
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    // Resolve voice ID
+    let resolvedVoice = voice;
+    if (voice === 'ai-auto') {
+      if (gender === 'female') {
+        resolvedVoice = FEMALE_VOICES[Math.floor(Math.random() * FEMALE_VOICES.length)];
+      } else {
+        resolvedVoice = MALE_VOICES[Math.floor(Math.random() * MALE_VOICES.length)];
+      }
+    } else if (VOICE_MAP[voice]) {
+      resolvedVoice = VOICE_MAP[voice];
+    } else if (voice.startsWith('en-')) {
+      // Legacy Google voice ID
+      resolvedVoice = voice.includes('-F') || voice.includes('-O') ? 'English_compelling_lady1' : 'English_Trustworth_Man';
+    }
+
+    // Try WaveSpeed MiniMax HD first (best quality)
+    const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
     
-    if (OPENAI_API_KEY) {
+    if (WAVESPEED_API_KEY) {
       try {
-        const base64Audio = await generateOpenAITTS(cleanedText, voice, OPENAI_API_KEY);
+        const base64Audio = await generateWaveSpeedTTS(cleanedText, resolvedVoice, WAVESPEED_API_KEY);
         const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
         
-        console.log('Voiceover generated with OpenAI TTS-1-HD for scene:', sceneNumber);
+        console.log('Voiceover generated with WaveSpeed MiniMax for scene:', sceneNumber);
         
         return new Response(
-          JSON.stringify({ audioUrl, sceneNumber }),
+          JSON.stringify({ audioUrl, sceneNumber, provider: 'wavespeed', voiceUsed: resolvedVoice }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      } catch (openaiError) {
-        console.error('OpenAI TTS-1-HD failed, falling back to Google:', openaiError);
+      } catch (wsError) {
+        console.error('WaveSpeed TTS failed, falling back to Google:', wsError);
       }
     }
 
@@ -148,13 +187,13 @@ serve(async (req) => {
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     if (GOOGLE_API_KEY) {
       try {
-        const base64Audio = await generateGoogleTTS(cleanedText, voice, GOOGLE_API_KEY);
+        const base64Audio = await generateGoogleTTS(cleanedText, resolvedVoice, GOOGLE_API_KEY);
         const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
         
         console.log('Voiceover generated with Google TTS for scene:', sceneNumber);
         
         return new Response(
-          JSON.stringify({ audioUrl, sceneNumber }),
+          JSON.stringify({ audioUrl, sceneNumber, provider: 'google-fallback' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (googleError) {
@@ -163,10 +202,9 @@ serve(async (req) => {
       }
     }
 
-    // No TTS API configured
-    console.error('No TTS API key configured (OPENAI_API_KEY or GOOGLE_CLOUD_TTS_API_KEY)');
+    console.error('No TTS API key configured');
     return new Response(
-      JSON.stringify({ error: 'No TTS API configured. Please add OPENAI_API_KEY or GOOGLE_CLOUD_TTS_API_KEY.' }),
+      JSON.stringify({ error: 'No TTS API configured.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
