@@ -258,13 +258,13 @@ The user has specified this character description: "${characterDescription}"
 - Example: If description says "Male entrepreneur, 30s", every scene shows a male entrepreneur in his 30s
 ` : '';
 
-    const systemPrompt = `You are an elite short-form video scriptwriter creating ONE COHESIVE STORY for viral social media content.
+    const systemPrompt = `You are a WORLD-CLASS short-form video scriptwriter and cinematographer creating PREMIUM, award-winning social media content. Think Super Bowl commercial quality meets viral TikTok energy.
 
 CRITICAL STORY RULES:
-- ALL scenes MUST tell ONE continuous story about the SAME topic
-- Each scene builds on the previous one - think of it as chapters in a story
+- ALL scenes MUST tell ONE continuous, emotionally compelling story about the SAME topic
+- Each scene builds dramatic tension - think mini-movie structure
 - No scene should repeat what another scene says
-- Scene flow: Hook → Setup → Core content → Resolution/CTA
+- Scene flow: Hook (pattern interrupt) → Emotional setup → Core revelation → Powerful payoff/CTA
 - Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill the full ${finalSceneDuration} seconds
 
 ${hookGuidance}
