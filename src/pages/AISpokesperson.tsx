@@ -770,10 +770,17 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       setProgress(40);
       setProgressStatus('Loop AI: Creating lip-sync video with Kling 3.0...');
 
-      // Step 2: Generate video
+      // Step 2: Generate video — different prompt for speaking vs broll shots
       const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
       const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
-      const videoPromptText = `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. Smooth, natural lip-sync delivery with subtle head movements. ${setting?.prompt || 'Professional studio'}. Premium broadcast quality. NO jump cuts — one continuous smooth take.`;
+      
+      const isSpeakingShot = shot.type === 'speaking';
+      const sfxNote = shot.sfx ? `Ambient sound design: ${shot.sfx}.` : '';
+      const musicNote = shot.music ? `Background music energy: ${shot.music}.` : '';
+      
+      const videoPromptText = isSpeakingShot
+        ? `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. NATURAL LIP-SYNC: Character speaks directly to camera with fluid mouth movements, subtle eyebrow raises, natural blinks, and gentle head tilts. Breathing pauses between sentences. Micro-expressions of genuine emotion. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Premium broadcast quality — warm cinematic lighting, shallow depth of field. Gentle camera drift. NO jump cuts — one continuous smooth take.`
+        : `Cinematic B-roll — ${shot.angleLabel}. ${mood?.prompt || 'contemplative'}. Character is NOT speaking — mouth closed, natural and candid. Subtle movements: turning head, adjusting posture, walking, or gazing thoughtfully. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Rich atmospheric cinematography — slow camera movement, volumetric lighting, environmental storytelling. Film grain, shallow depth of field, editorial quality.`;
 
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
