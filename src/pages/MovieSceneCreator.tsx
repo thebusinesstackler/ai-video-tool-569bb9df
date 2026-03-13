@@ -292,6 +292,7 @@ const MovieSceneCreator = () => {
   const [currentStep, setCurrentStep] = useState(0);
   
   const { toast } = useToast();
+  const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner } = useCreatorMode();
 
   // Helper to toggle twin selection
   const toggleTwinSelection = (twin: AITwin) => {
