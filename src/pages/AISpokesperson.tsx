@@ -137,6 +137,54 @@ const AISpokesperson = () => {
   const [refineInput, setRefineInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const scriptFromDraft = useRef(false);
+
+  const { saveDraft, loadDraft, clearDraft } = useSpokespersonDraft();
+
+  // Restore draft on mount
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setMessage(draft.message || '');
+      setSelectedTwinId(draft.selectedTwinId);
+      setSelectedSetting(draft.selectedSetting || 'studio');
+      setSelectedMood(draft.selectedMood || 'confident');
+      setSelectedCameraAngle(draft.selectedCameraAngle || 'low-angle');
+      setSelectedDuration(draft.selectedDuration || '15');
+      setSelectedQuality(draft.selectedQuality || 'standard');
+      if (draft.generatedScript) {
+        scriptFromDraft.current = true;
+        setGeneratedScript(draft.generatedScript);
+      }
+      if (draft.sceneShots?.length > 0) {
+        setSceneShots(draft.sceneShots.filter((s: any) => s.imageUrl));
+        setShowSceneGallery(draft.showSceneGallery || false);
+      }
+      if (draft.videoUrl) setVideoUrl(draft.videoUrl);
+      if (draft.audioUrl) setAudioUrl(draft.audioUrl);
+      setDraftRestored(true);
+    }
+  }, []);
+
+  // Auto-save draft on state changes
+  useEffect(() => {
+    saveDraft({
+      message,
+      selectedTwinId,
+      selectedSetting,
+      selectedMood,
+      selectedCameraAngle,
+      selectedDuration,
+      selectedQuality,
+      generatedScript,
+      sceneShots,
+      showSceneGallery,
+      videoUrl,
+      audioUrl,
+    });
+  }, [message, selectedTwinId, selectedSetting, selectedMood, selectedCameraAngle, selectedDuration, selectedQuality, generatedScript, sceneShots, showSceneGallery, videoUrl, audioUrl]);
+
   // Load twins
   useEffect(() => {
     if (!user?.id) return;
