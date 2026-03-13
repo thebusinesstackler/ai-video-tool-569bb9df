@@ -2655,19 +2655,26 @@ const Reels = () => {
                     )}
                   </div>
 
-                  {/* Generate Button */}
-                  <Button 
-                    onClick={generateAll} 
-                    disabled={isGenerating || !topic.trim()} 
-                    className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
-                    size="lg"
-                  >
-                    {isGenerating ? (
-                      <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Creating your reel...</>
-                    ) : (
-                      <><Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨</>
-                    )}
-                  </Button>
+                  {/* Generate / Stop Button */}
+                  {isGenerating ? (
+                    <Button 
+                      onClick={stopGeneration} 
+                      variant="destructive"
+                      className="w-full" 
+                      size="lg"
+                    >
+                      <X className="w-5 h-5 mr-2" />Stop Generation
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={generateAll} 
+                      disabled={!topic.trim()} 
+                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70" 
+                      size="lg"
+                    >
+                      <Sparkles className="w-5 h-5 mr-2" />Make My Reel ✨
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
