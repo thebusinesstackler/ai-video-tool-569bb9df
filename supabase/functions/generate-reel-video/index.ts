@@ -310,7 +310,8 @@ serve(async (req) => {
       }
       
       try {
-        const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync);
+        const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync, characterDescription, referenceImages);
+        const messages = buildImageGenMessages(imagePrompt, (!scene.isIntro && !scene.isOutro) ? referenceImages : undefined);
         
         const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
@@ -319,13 +320,8 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-image-preview',
-            messages: [
-              {
-                role: 'user',
-                content: imagePrompt
-              }
-            ],
+            model: 'google/gemini-3.1-flash-image-preview',
+            messages,
             modalities: ['image', 'text']
           }),
         });
