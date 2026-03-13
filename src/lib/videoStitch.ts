@@ -7,7 +7,7 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 interface StitchOptions {
   videoUrls: string[];
   audioUrls?: string[]; // Audio files to concatenate and add as voiceover
-  transitions?: string[]; // Fix #6: Transition types between each video (fade, dissolve, etc.)
+  transitions?: string[]; // Transition types between each video (fade, dissolve, etc.)
   onProgress?: (percent: number) => void;
 }
 
@@ -15,14 +15,41 @@ interface StitchOptions {
 let ffmpegInstance: FFmpeg | null = null;
 let ffmpegLoadPromise: Promise<FFmpeg> | null = null;
 
+async function fetchWithTimeout(url: string, timeoutMs: number = 30000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return resp;
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+async function toBlobURLWithRetry(url: string, mimeType: string, retries = 2): Promise<string> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await toBlobURL(url, mimeType);
+    } catch (e) {
+      if (i === retries) throw e;
+      console.log(`toBlobURL attempt ${i + 1} failed for ${url}, retrying...`);
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
+const CDN_SOURCES = [
+  'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd',
+  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd',
+  'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg.wasm-core/0.12.6',
+];
+
 async function getFFmpeg(): Promise<FFmpeg> {
-  if (ffmpegInstance) {
-    return ffmpegInstance;
-  }
-  
-  if (ffmpegLoadPromise) {
-    return ffmpegLoadPromise;
-  }
+  if (ffmpegInstance) return ffmpegInstance;
+  if (ffmpegLoadPromise) return ffmpegLoadPromise;
   
   ffmpegLoadPromise = (async () => {
     const ffmpeg = new FFmpeg();
@@ -33,36 +60,38 @@ async function getFFmpeg(): Promise<FFmpeg> {
     
     console.log('Loading FFmpeg...');
     
-    // Use unpkg CDN as primary (more reliable)
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-    
-    try {
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-      
-      console.log('FFmpeg loaded successfully');
-      ffmpegInstance = ffmpeg;
-      return ffmpeg;
-    } catch (error) {
-      console.log('Primary CDN failed, trying jsdelivr...');
-      
-      // Fallback to jsdelivr
-      const fallbackURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-      
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${fallbackURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${fallbackURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-      
-      console.log('FFmpeg loaded from fallback CDN');
-      ffmpegInstance = ffmpeg;
-      return ffmpeg;
+    for (const baseURL of CDN_SOURCES) {
+      try {
+        const coreURL = await toBlobURLWithRetry(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+        const wasmURL = await toBlobURLWithRetry(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+        
+        await ffmpeg.load({ coreURL, wasmURL });
+        
+        console.log('FFmpeg loaded successfully from', baseURL);
+        ffmpegInstance = ffmpeg;
+        return ffmpeg;
+      } catch (error) {
+        console.warn(`FFmpeg load failed from ${baseURL}:`, error);
+      }
     }
+    
+    throw new Error('FFmpeg failed to load from all CDN sources. Try using cloud stitching instead.');
   })();
   
-  return ffmpegLoadPromise;
+  // Add a generous timeout but reset the promise on failure
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      ffmpegLoadPromise = null;
+      reject(new Error('FFmpeg load timeout after 180 seconds. Try using cloud stitching instead.'));
+    }, 180000);
+  });
+  
+  try {
+    return await Promise.race([ffmpegLoadPromise, timeoutPromise]);
+  } catch (e) {
+    ffmpegLoadPromise = null;
+    throw e;
+  }
 }
 
 export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blob> {
@@ -73,13 +102,7 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
   console.log('Starting video stitching for', videoUrls.length, 'videos,', audioUrls.length, 'audio files, and', transitions.length, 'transitions');
   
   try {
-    // Get or load FFmpeg with timeout
-    const ffmpegPromise = getFFmpeg();
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('FFmpeg load timeout after 120 seconds')), 120000);
-    });
-    
-    const ffmpeg = await Promise.race([ffmpegPromise, timeoutPromise]);
+    const ffmpeg = await getFFmpeg();
     
     // Add progress tracking
     ffmpeg.on('progress', ({ progress }) => {
@@ -115,7 +138,6 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
         console.log(`Downloading audio ${i + 1}/${audioUrls.length}`);
         
         try {
-          // Handle base64 data URLs
           let data: Uint8Array;
           if (audioUrls[i].startsWith('data:')) {
             const base64 = audioUrls[i].split(',')[1];
@@ -132,24 +154,18 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
           console.log(`Successfully wrote ${name}, size: ${data.length} bytes`);
         } catch (error) {
           console.error(`Failed to download/write audio ${i}:`, error);
-          // Continue without this audio file
         }
       }
     }
 
-    // Create unique output filename to avoid conflicts
     const timestamp = Date.now();
     const outputName = `output_${timestamp}.mp4`;
 
-    // Fix #6: Check if we should use xfade transitions
     const hasTransitions = transitions.length > 0 && videoPartNames.length > 1;
     
     if (hasTransitions && videoPartNames.length >= 2) {
-      // Use xfade filter for transitions between videos
       console.log('Applying transitions between videos...');
       
-      // Build xfade filter chain
-      // Map transition names to FFmpeg xfade transition names
       const transitionMap: Record<string, string> = {
         'cross-dissolve': 'dissolve',
         'dissolve': 'dissolve',
@@ -160,15 +176,13 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
         'wipe-right': 'wiperight',
         'slide-left': 'slideleft',
         'slide-right': 'slideright',
-        'hard-cut': 'fade', // Use very short fade as fallback
+        'hard-cut': 'fade',
         'default': 'fade'
       };
       
-      const transitionDuration = 0.5; // 0.5 second transitions
+      const transitionDuration = 0.5;
       
       try {
-        // For complex filter chains with multiple inputs, we need to build it differently
-        // First, re-encode all videos to ensure compatibility
         for (let i = 0; i < videoPartNames.length; i++) {
           await ffmpeg.exec([
             '-i', videoPartNames[i],
@@ -182,7 +196,6 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
         }
         
         if (videoPartNames.length === 2) {
-          // Simple case: 2 videos with 1 transition
           const transType = transitionMap[transitions[0]?.toLowerCase()] || 'fade';
           await ffmpeg.exec([
             '-i', 'reenc0.mp4',
@@ -195,7 +208,6 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
             'concat_video.mp4'
           ]);
         } else {
-          // Multiple videos - apply transitions sequentially
           let currentOutput = 'reenc0.mp4';
           
           for (let i = 1; i < videoPartNames.length; i++) {
@@ -213,7 +225,6 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
               tempOutput
             ]);
             
-            // Clean up previous temp file
             if (currentOutput.startsWith('trans_temp')) {
               try { await ffmpeg.deleteFile(currentOutput); } catch {}
             }
@@ -225,13 +236,11 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
         console.log('Transitions applied successfully');
       } catch (transitionError) {
         console.log('Transition processing failed, falling back to simple concat:', transitionError);
-        // Fallback to simple concat
         const videoConcatList = videoPartNames.map((n) => `file '${n}'`).join('\n');
         await ffmpeg.writeFile('video_concat.txt', new TextEncoder().encode(videoConcatList));
         await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'video_concat.txt', '-c', 'copy', 'concat_video.mp4']);
       }
     } else {
-      // Step 1: Simple concatenate videos (no transitions)
       const videoConcatList = videoPartNames.map((n) => `file '${n}'`).join('\n');
       console.log('Video concat list:', videoConcatList);
       await ffmpeg.writeFile('video_concat.txt', new TextEncoder().encode(videoConcatList));
@@ -241,9 +250,7 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
       console.log('Video concatenation successful');
     }
 
-    // Step 2: If we have audio, concatenate and merge
     if (audioPartNames.length > 0) {
-      // Concatenate audio files
       const audioConcatList = audioPartNames.map((n) => `file '${n}'`).join('\n');
       console.log('Audio concat list:', audioConcatList);
       await ffmpeg.writeFile('audio_concat.txt', new TextEncoder().encode(audioConcatList));
@@ -252,10 +259,8 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
       await ffmpeg.exec(['-f', 'concat', '-safe', '0', '-i', 'audio_concat.txt', '-c', 'copy', 'concat_audio.mp3']);
       console.log('Audio concatenation successful');
       
-      // Merge video and audio
       console.log('Merging video with audio...');
       try {
-        // Try to merge with shortest duration
         await ffmpeg.exec([
           '-i', 'concat_video.mp4',
           '-i', 'concat_audio.mp3',
@@ -270,11 +275,9 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
         console.log('Video-audio merge successful');
       } catch (mergeErr) {
         console.log('Merge failed, using video only:', mergeErr);
-        // If merge fails, just use the concatenated video
         await ffmpeg.exec(['-i', 'concat_video.mp4', '-c', 'copy', outputName]);
       }
     } else {
-      // No audio, just copy the concatenated video
       console.log('No audio to add, using video only');
       await ffmpeg.exec(['-i', 'concat_video.mp4', '-c', 'copy', outputName]);
     }
@@ -285,12 +288,8 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
     
     // Cleanup temp files
     try {
-      for (const name of videoPartNames) {
-        await ffmpeg.deleteFile(name);
-      }
-      for (const name of audioPartNames) {
-        await ffmpeg.deleteFile(name);
-      }
+      for (const name of videoPartNames) { await ffmpeg.deleteFile(name); }
+      for (const name of audioPartNames) { await ffmpeg.deleteFile(name); }
       await ffmpeg.deleteFile('video_concat.txt');
       await ffmpeg.deleteFile('concat_video.mp4');
       if (audioPartNames.length > 0) {
@@ -312,7 +311,7 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
     
   } catch (error) {
     // Reset cached instance on error so next attempt tries fresh
-    if (error instanceof Error && error.message.includes('timeout')) {
+    if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('failed to load'))) {
       ffmpegInstance = null;
       ffmpegLoadPromise = null;
     }
