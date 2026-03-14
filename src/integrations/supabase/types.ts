@@ -500,6 +500,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      introspect_schema: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
