@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
@@ -23,6 +22,7 @@ export default function TestimonialCommercial() {
   const [savedCommercials, setSavedCommercials] = useState<TestimonialCommercialType[]>([]);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('scenes');
+  const [targetDuration, setTargetDuration] = useState('30');
 
   const {
     segments,
@@ -44,10 +44,14 @@ export default function TestimonialCommercial() {
 
   const handleApplyStrategy = (newSegments: CommercialSegment[], commercialName: string) => {
     setSegments(newSegments);
-    setName(commercialName);
+    if (commercialName) setName(commercialName);
     setCurrentCommercial(null);
     setFinalVideoUrl(null);
     setActiveTab('scenes');
+  };
+
+  const handleSaveToDb = async () => {
+    await saveCommercial(name);
   };
 
   useEffect(() => {
@@ -129,8 +133,14 @@ export default function TestimonialCommercial() {
           <div className="w-[420px] shrink-0 border-r border-border/50 flex flex-col bg-muted/20">
             <LoopAIDirector
               onApplyStrategy={handleApplyStrategy}
+              onUpdateSegment={updateSegment}
+              onAddSegment={addSegment}
+              onDeleteSegment={deleteSegment}
               onGenerateCharacter={generateCharacterForSegment}
+              onSaveToDb={handleSaveToDb}
               segments={segments}
+              targetDuration={targetDuration}
+              onTargetDurationChange={setTargetDuration}
             />
           </div>
 
@@ -239,7 +249,6 @@ export default function TestimonialCommercial() {
                 </div>
               )}
 
-              {/* Video Preview */}
               {finalVideoUrl && (
                 <div className="mt-3">
                   <video src={finalVideoUrl} controls className="w-full rounded-lg max-h-[200px]" />
