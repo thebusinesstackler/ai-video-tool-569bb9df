@@ -36,15 +36,17 @@ function buildSegmentContext(currentSegments: any[]) {
   });
 
   return `\n\n## Current Storyboard State
-The user currently has ${currentSegments.length} total segments (${speakingNum} speaking, ${brollNum} B-roll):
+The user currently has ${currentSegments.length} total segments (${speakingNum} speaking scenes, ${brollNum} B-roll clips):
 ${lines.join('\n')}
 
-### INDEX MAPPING (CRITICAL)
-The "index" in brackets is the 0-based index you MUST use in sceneIndex. The "Speaking #N" or "B-Roll #N" is the type-specific number the user sees in the UI tabs.
-- When the user says "Scene 1" or "Speaking 1" → find the Speaking segment with #1 and use its [index=X] value.
-- When the user says "B-roll 1" or "B-Roll #1" → find the B-Roll segment with #1 and use its [index=X] value.
-- When the user says "change the B-roll" generally → look at ALL B-Roll segments and determine which one(s) they mean from context.
-- NEVER confuse a Speaking scene number with a B-Roll scene number — they are separate sequences.
+### INDEX MAPPING (CRITICAL — READ THIS CAREFULLY)
+- The "[index=N]" is the INTERNAL 0-based index you use in action block \`sceneIndex\` fields.
+- The "Scene #N" or "B-Roll #N" is what the USER sees in the UI.
+- NEVER say "Scene 0" or "Scene #0" — there is no Scene 0. The first scene is Scene #1.
+- When the user says "Scene 1" → find Scene #1 above and use its [index=X] value in your action block
+- When the user says "B-Roll 2" → find B-Roll #2 above and use its [index=X] value
+- [HOOK] = opening scene, [CTA] = closing call-to-action, [PROBLEM/STORY] = middle narrative
+- When summarizing to the user, always use "Scene #N" or "B-Roll #N", NEVER use index numbers
 
 When the user asks to modify existing scenes, output an \`\`\`action block with the changes.`;
 }
