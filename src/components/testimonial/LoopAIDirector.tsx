@@ -39,7 +39,7 @@ interface EditAction {
 interface LoopAIDirectorProps {
   onApplyStrategy: (segments: CommercialSegment[], name: string) => void;
   onUpdateSegment: (id: string, updates: Partial<CommercialSegment>) => void;
-  onAddSegment: (type: 'speaking' | 'broll') => void;
+  onAddSegment: (type: 'speaking' | 'broll', prefill?: Partial<CommercialSegment>) => void;
   onDeleteSegment: (id: string) => void;
   onGenerateCharacter: (segmentId: string, description: string) => Promise<void>;
   onSaveToDb: () => Promise<void>;
