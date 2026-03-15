@@ -53,6 +53,7 @@ interface LoopAIDirectorProps {
   onGenerateCharacter: (segmentId: string, description: string) => Promise<void>;
   onGenerateBrollPreview: (segmentId: string, prompt: string) => Promise<void>;
   onSaveToDb: () => Promise<void>;
+  onGenerateMusic?: (mood: string) => Promise<void>;
   segments: CommercialSegment[];
   targetDuration: string;
   onTargetDurationChange: (dur: string) => void;
