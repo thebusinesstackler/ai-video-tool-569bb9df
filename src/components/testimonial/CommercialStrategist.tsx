@@ -304,10 +304,8 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
       const strategy = extractStrategyFromMessage(assistantContent);
       if (strategy) {
         setExtractedStrategy(strategy);
-        // Auto-apply the strategy to timeline
-        setTimeout(() => {
-          handleApplyStrategy();
-        }, 500);
+        // Auto-apply directly using the strategy object
+        await applyStrategyDirect(strategy);
       }
 
     } catch (error) {
