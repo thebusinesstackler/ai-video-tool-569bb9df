@@ -25,39 +25,39 @@ function getStyleConfig(style: VideoStyle) {
   switch (style) {
     case 'tiktok-meme':
       return {
-        speakingModel: 'kling-v3.0-pro' as const,
-        brollModel: 'kling-v3.0-pro' as const,
-        useTTS: true, // Separate TTS + lip-sync not needed, use image-to-video with TTS overlay
+        speakingModel: 'infinitetalk' as const,
+        brollModel: 'alibaba/wan-2.5/text-to-video' as const,
+        useTTS: true,
         maxDuration: 8,
         aspectRatio: '9:16' as const,
       };
     case 'tiktok-talking-head':
       return {
-        speakingModel: 'kling-v3.0-pro' as const,
-        brollModel: 'kling-v3.0-pro' as const,
+        speakingModel: 'infinitetalk' as const,
+        brollModel: 'alibaba/wan-2.5/text-to-video' as const,
         useTTS: true,
         maxDuration: 10,
         aspectRatio: '9:16' as const,
       };
     case 'instagram-reel':
       return {
-        speakingModel: 'kling-v3.0-pro' as const,
-        brollModel: 'kling-v3.0-pro' as const,
+        speakingModel: 'infinitetalk' as const,
+        brollModel: 'alibaba/wan-2.5/text-to-video' as const,
         useTTS: true,
         maxDuration: 10,
         aspectRatio: '9:16' as const,
       };
     case 'youtube-ad':
       return {
-        speakingModel: 'kling-v3.0-pro' as const,
-        brollModel: 'kling-v3.0-pro' as const,
+        speakingModel: 'infinitetalk' as const,
+        brollModel: 'alibaba/wan-2.5/text-to-video' as const,
         useTTS: true,
         maxDuration: 10,
         aspectRatio: '16:9' as const,
       };
     case 'professional-ad':
       return {
-        speakingModel: 'kling-v3.0-pro' as const,
+        speakingModel: 'infinitetalk' as const,
         brollModel: 'kling-v3.0-pro' as const,
         useTTS: true,
         maxDuration: 10,
