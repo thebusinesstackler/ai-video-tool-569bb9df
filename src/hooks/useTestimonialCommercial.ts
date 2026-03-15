@@ -230,20 +230,30 @@ export function useTestimonialCommercial() {
             setGenerationProgress((step / totalSteps) * 100);
 
             if (imgData?.imageUrl) {
-              const { data: vidData } = await supabase.functions.invoke('wavespeed-video', {
-                body: {
-                  action: 'create',
-                  model: 'wan-2.5-i2v',
-                  prompt,
-                  imageUrls: [imgData.imageUrl],
-                  duration: Math.min(segment.duration, 8),
-                }
-              });
+              // Mark b-roll image as ready immediately
+              updateSegment(segment.id, { brollImages: [imgData.imageUrl], status: 'character-ready' });
 
-              if (vidData?.taskId) {
-                const videoUrl = await pollForVideo(vidData.taskId);
-                updateSegment(segment.id, { videoUrl, brollImages: [imgData.imageUrl], status: 'complete' });
+              try {
+                const { data: vidData } = await supabase.functions.invoke('wavespeed-video', {
+                  body: {
+                    action: 'create',
+                    model: 'wan-2.5-i2v',
+                    prompt,
+                    imageUrls: [imgData.imageUrl],
+                    duration: Math.min(segment.duration, 8),
+                  }
+                });
+
+                if (vidData?.taskId) {
+                  const videoUrl = await pollForVideo(vidData.taskId);
+                  updateSegment(segment.id, { videoUrl, status: 'complete' });
+                }
+              } catch (vidErr) {
+                console.warn(`B-roll video gen failed for segment ${i}, image still available:`, vidErr);
+                // Keep character-ready status since image was generated successfully
               }
+            } else {
+              updateSegment(segment.id, { status: 'error' });
             }
           }
 
