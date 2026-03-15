@@ -39,6 +39,24 @@ export function useTestimonialCommercial() {
     setSegments(prev => prev.filter(s => s.id !== id));
   }, []);
 
+  const duplicateSegment = useCallback((id: string) => {
+    setSegments(prev => {
+      const source = prev.find(s => s.id === id);
+      if (!source) return prev;
+      const clone: CommercialSegment = {
+        ...JSON.parse(JSON.stringify(source)),
+        id: crypto.randomUUID(),
+        status: 'pending',
+        videoUrl: undefined,
+        audioUrl: undefined,
+      };
+      const idx = prev.findIndex(s => s.id === id);
+      const next = [...prev];
+      next.splice(idx + 1, 0, clone);
+      return next;
+    });
+  }, []);
+
   const reorderSegments = useCallback((fromIndex: number, toIndex: number) => {
     setSegments(prev => {
       const next = [...prev];
