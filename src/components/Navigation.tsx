@@ -21,7 +21,8 @@ import {
   ChevronDown,
   Wand2,
   FolderOpen,
-  Layers
+  Layers,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
