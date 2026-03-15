@@ -274,6 +274,7 @@ export default function TestimonialCommercial() {
                     segments={speakingSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
+                    onDuplicate={duplicateSegment}
                     onAdd={() => handleSmartAddScene('speaking')}
                     onReorder={reorderSegments}
                     onGenerateCharacter={generateCharacterForSegment}
@@ -287,6 +288,7 @@ export default function TestimonialCommercial() {
                     segments={brollSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
+                    onDuplicate={duplicateSegment}
                     onAdd={() => handleSmartAddScene('broll')}
                     onReorder={reorderSegments}
                     segmentFilter="broll"
