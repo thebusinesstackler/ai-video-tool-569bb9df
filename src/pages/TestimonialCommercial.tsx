@@ -619,9 +619,16 @@ export default function TestimonialCommercial() {
                 </div>
               )}
 
-              {finalVideoUrl && (
-                <div className="mt-3">
-                  <video src={finalVideoUrl} controls className="w-full rounded-lg max-h-[200px]" />
+              {finalVideoUrl && !isGenerating && (
+                <div className="mt-2">
+                  <Button
+                    onClick={() => setActiveTab('final-cut')}
+                    variant="ai"
+                    size="sm"
+                    className="w-full gap-2"
+                  >
+                    <Tv className="h-4 w-4" /> Watch Final Cut
+                  </Button>
                 </div>
               )}
 
