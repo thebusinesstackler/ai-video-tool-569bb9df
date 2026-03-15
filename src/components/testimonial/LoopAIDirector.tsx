@@ -111,7 +111,6 @@ export function LoopAIDirector({
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const directorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Auto-save chat to localStorage
   useEffect(() => {
@@ -201,16 +200,15 @@ export function LoopAIDirector({
     const next = !voiceEnabled;
     setVoiceEnabled(next);
     localStorage.setItem('loop-ai-voice', next ? 'on' : 'off');
-    if (!next && directorAudioRef.current) {
-      directorAudioRef.current.pause();
-      directorAudioRef.current = null;
+    if (!next) {
+      window.speechSynthesis?.cancel();
       setIsSpeaking(false);
     }
     toast.success(next ? '🔊 Loop AI voice enabled' : '🔇 Loop AI voice muted');
   }, [voiceEnabled]);
 
   const speakResponse = useCallback(async (text: string) => {
-    if (!voiceEnabled) return;
+    if (!voiceEnabled || !window.speechSynthesis) return;
     // Strip markdown, JSON blocks, and action blocks — keep only conversational text
     const cleanText = text
       .replace(/```json[\s\S]*?```/g, '')
@@ -219,33 +217,37 @@ export function LoopAIDirector({
       .replace(/\[.*?\]\(.*?\)/g, '')
       .replace(/\n{2,}/g, '. ')
       .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
       .trim();
     if (!cleanText || cleanText.length < 10) return;
-    // Truncate to ~500 chars for reasonable TTS length
-    const speakText = cleanText.length > 500 ? cleanText.slice(0, 500) + '—' : cleanText;
-    try {
-      setIsSpeaking(true);
-      const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: speakText, voice: 'English_magnetic_voiced_man', gender: 'male' }
-      });
-      if (error || !data?.audioUrl) { setIsSpeaking(false); return; }
-      if (directorAudioRef.current) directorAudioRef.current.pause();
-      const audio = new Audio(data.audioUrl);
-      directorAudioRef.current = audio;
-      audio.onended = () => { setIsSpeaking(false); directorAudioRef.current = null; };
-      audio.onerror = () => { setIsSpeaking(false); directorAudioRef.current = null; };
-      audio.play();
-    } catch {
-      setIsSpeaking(false);
-    }
+    
+    // Use browser TTS for instant playback — no API delay
+    window.speechSynthesis.cancel();
+    const speakText = cleanText.length > 600 ? cleanText.slice(0, 600) + '.' : cleanText;
+    const utterance = new SpeechSynthesisUtterance(speakText);
+    
+    // Pick a deep male voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+      v.name.includes('Google UK English Male') || 
+      v.name.includes('Daniel') || 
+      v.name.includes('James') ||
+      v.name.includes('Male') ||
+      (v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
+    ) || voices.find(v => v.lang.startsWith('en'));
+    if (preferredVoice) utterance.voice = preferredVoice;
+    
+    utterance.rate = 1.05;
+    utterance.pitch = 0.9;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
   }, [voiceEnabled]);
 
   const stopSpeaking = useCallback(() => {
-    if (directorAudioRef.current) {
-      directorAudioRef.current.pause();
-      directorAudioRef.current = null;
-      setIsSpeaking(false);
-    }
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
   }, []);
 
   const clearChat = () => {
