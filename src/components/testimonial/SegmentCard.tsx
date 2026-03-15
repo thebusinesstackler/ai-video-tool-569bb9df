@@ -81,18 +81,34 @@ export function SegmentCard({
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const [editDescription, setEditDescription] = useState('');
 
+  // Detect gender from character description to pick the right voice
+  const detectVoiceId = (): string => {
+    const desc = (segment.character?.description || '').toLowerCase();
+    const gender = (segment.character?.gender || '').toLowerCase();
+    const isFemale = gender.includes('female') || gender.includes('woman') ||
+      /\b(woman|female|girl|lady|she|her|mother|actress)\b/.test(desc);
+    const isMale = gender.includes('male') || gender.includes('man') ||
+      /\b(man|male|boy|guy|he|his|father|actor|beard|bearded)\b/.test(desc);
+    
+    if (isFemale) return 'English_compelling_lady1';
+    if (isMale) return 'English_Trustworth_Man';
+    return 'Friendly_Person'; // fallback
+  };
+
   const handlePreviewVoice = async () => {
     if (!segment.script?.trim()) { toast.error('Add a script first'); return; }
     setIsPreviewingVoice(true);
     try {
+      const voiceId = detectVoiceId();
+      console.log('Voice preview using:', voiceId, 'for character:', segment.character?.name);
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: segment.script.slice(0, 200), voice_id: 'Friendly_Person' }
+        body: { text: segment.script.slice(0, 200), voice_id: voiceId }
       });
       if (error) throw error;
       if (data?.audioUrl) {
         const audio = new Audio(data.audioUrl);
         audio.play();
-        toast.success('Playing voice preview');
+        toast.success(`Playing ${voiceId.replace(/_/g, ' ')} voice`);
       }
     } catch (err) {
       console.error('Voice preview failed:', err);
