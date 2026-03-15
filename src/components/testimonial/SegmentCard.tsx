@@ -26,7 +26,7 @@ interface SegmentCardProps {
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Loader2 }> = {
   'pending': { label: 'Pending', color: 'bg-muted text-muted-foreground', icon: AlertCircle },
   'generating-character': { label: 'Generating Character...', color: 'bg-accent/20 text-accent-foreground', icon: Loader2 },
-  'character-ready': { label: 'Review Character', color: 'bg-primary/20 text-primary', icon: ImageIcon },
+  'character-ready': { label: 'Ready', color: 'bg-primary/20 text-primary', icon: ImageIcon },
   'approved': { label: 'Approved', color: 'bg-primary/20 text-primary', icon: CheckCircle },
   'generating': { label: 'Generating Video...', color: 'bg-accent/20 text-accent-foreground', icon: Loader2 },
   'complete': { label: 'Complete', color: 'bg-primary/20 text-primary', icon: CheckCircle },
@@ -44,7 +44,11 @@ export function SegmentCard({
   onDrop,
   onGenerateCharacter,
 }: SegmentCardProps) {
-  const status = segment.status || 'pending';
+  // If segment has brollImages but status is 'error', override to show success
+  const rawStatus = segment.status || 'pending';
+  const status = (rawStatus === 'error' && segment.type === 'broll' && segment.brollImages && segment.brollImages.length > 0)
+    ? 'character-ready'
+    : rawStatus;
   const statusInfo = statusConfig[status] || statusConfig.pending;
   const StatusIcon = statusInfo.icon;
   const [charDescription, setCharDescription] = useState(segment.character?.description || '');
