@@ -452,7 +452,7 @@ export function useTestimonialCommercial() {
                     audioUrl: voiceoverAudioUrl,
                     status: 'complete' 
                   });
-                  completedSegmentIds.push(segment.id);
+                  generatedClips.push({ id: segment.id, videoUrl, audioUrl: voiceoverAudioUrl, duration: segment.duration });
                 } else if (vidData?.error) {
                   console.warn(`B-roll video failed: ${vidData.error}`);
                 }
