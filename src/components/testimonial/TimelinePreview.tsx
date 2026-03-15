@@ -61,6 +61,8 @@ export function TimelinePreview({ segments, onReorder }: TimelinePreviewProps) {
     fetchTwinImages();
   }, [segments]);
 
+  if (segments.length === 0) return null;
+
   const totalDuration = segments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
 
   const formatDuration = (seconds: number) => {
