@@ -30,7 +30,7 @@ type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap';
     sceneIndex?: number | 'all';
     sceneIndices?: number[];
     changes?: Record<string, any>;
@@ -42,6 +42,8 @@ interface EditAction {
     replaceWith?: string;
     scope?: ReplaceScope;
     mood?: string;
+    sourceSceneIndex?: number;
+    targetSceneIndices?: number[];
   }>;
 }
 
@@ -247,17 +249,17 @@ export function LoopAIDirector({
     const utterance = new SpeechSynthesisUtterance(speakText);
 
     // Load voice preference from localStorage
-    const savedVoicePreset = localStorage.getItem('loop-ai-voice-preset') || 'jamaican';
+    const savedVoicePreset = localStorage.getItem('loop-ai-voice-preset') || 'default';
     const voices = window.speechSynthesis.getVoices();
 
     const voicePresets: Record<string, { nameHints: string[]; rate: number; pitch: number }> = {
-      jamaican: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.85 },
+      default: { nameHints: ['Google US English', 'Alex', 'Aaron', 'Male'], rate: 1.0, pitch: 1.0 },
       british: { nameHints: ['Google UK English Male', 'Daniel', 'James'], rate: 1.05, pitch: 0.95 },
-      american: { nameHints: ['Google US English', 'Alex', 'Samantha'], rate: 1.1, pitch: 1.0 },
+      deep: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.8 },
       female: { nameHints: ['Google UK English Female', 'Karen', 'Samantha', 'Victoria', 'Female'], rate: 1.0, pitch: 1.1 },
     };
 
-    const preset = voicePresets[savedVoicePreset] || voicePresets.jamaican;
+    const preset = voicePresets[savedVoicePreset] || voicePresets.default;
 
     const preferredVoice = voices.find(v =>
       preset.nameHints.some(hint => v.name.includes(hint))
@@ -534,6 +536,29 @@ export function LoopAIDirector({
           break;
         }
 
+        case 'productSwap': {
+          const sourceIdx = edit.sourceSceneIndex;
+          const targetIdxs = edit.targetSceneIndices || [];
+          if (typeof sourceIdx === 'number' && sourceIdx >= 0 && sourceIdx < segments.length) {
+            const sourceSeg = segments[sourceIdx];
+            const productUrl = sourceSeg.productImageUrl || sourceSeg.character?.referenceImages?.[0];
+            if (productUrl && targetIdxs.length > 0) {
+              for (const tIdx of targetIdxs) {
+                if (tIdx >= 0 && tIdx < segments.length) {
+                  const tSeg = segments[tIdx];
+                  onUpdateSegment(tSeg.id, { productImageUrl: productUrl, status: 'generating-character' });
+                  const prompt = tSeg.brollPrompts?.[0] || 'Product showcase';
+                  onGenerateBrollPreview(tSeg.id, prompt);
+                }
+              }
+              editSummary.push(`📦 Product swap: copied product from scene ${sourceIdx + 1} to ${targetIdxs.length} B-roll scenes`);
+            } else {
+              editSummary.push(`⚠️ No product image found in scene ${sourceIdx + 1}`);
+            }
+          }
+          break;
+        }
+
         case 'updateCharacterDescription': {
           for (const sceneIndex of targetIndexes) {
             const seg = segments[sceneIndex];
@@ -660,6 +685,7 @@ export function LoopAIDirector({
                 imageCount: s.character.referenceImages.length,
               } : undefined,
               hasBrollImages: (s.brollImages?.length || 0) > 0,
+              hasProductImage: !!s.productImageUrl,
               hasAudio: !!s.audioUrl,
               status: s.status,
             })) : undefined,
@@ -870,7 +896,7 @@ export function LoopAIDirector({
             </div>
             <h3 className="text-lg font-bold mb-1">Loop AI Director</h3>
             <p className="text-xs text-muted-foreground max-w-[280px] mb-6 leading-relaxed">
-              Yo, I'm your creative director — 20 years in the game. Tell me about your product and I'll build the whole thing — actors, scripts, B-roll, music. Click me while I'm talking to cut me off. Let's make something legendary—
+              Hey, I'm your creative director — here to help you build amazing commercials. Tell me about your product and I'll set up the whole thing — actors, scripts, B-roll, transitions. Need changes? Just tell me — I've got you—
             </p>
             <div className="flex flex-col gap-2 w-full max-w-[320px]">
               {[

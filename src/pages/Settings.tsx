@@ -7,15 +7,15 @@ import { SettingsIcon, ShieldCheckIcon, ServerIcon, Volume2, Clapperboard } from
 import { toast } from 'sonner';
 
 const VOICE_PRESETS = [
-  { value: 'jamaican', label: '🇯🇲 Jamaican Man (Default)', description: 'Deep, warm, with island swagger' },
-  { value: 'british', label: '🇬🇧 British Male', description: 'Refined, authoritative director tone' },
-  { value: 'american', label: '🇺🇸 American Male', description: 'Classic Hollywood director energy' },
+  { value: 'default', label: '🎬 Director (Default)', description: 'Warm, confident, conversational' },
+  { value: 'british', label: '🇬🇧 British', description: 'Refined, authoritative tone' },
+  { value: 'deep', label: '🎙️ Deep Voice', description: 'Low, rich, cinematic feel' },
   { value: 'female', label: '👩 Female Director', description: 'Sharp, confident, creative lead' },
 ];
 
 const Settings = () => {
   const [voicePreset, setVoicePreset] = useState(() => {
-    try { return localStorage.getItem('loop-ai-voice-preset') || 'jamaican'; } catch { return 'jamaican'; }
+    try { return localStorage.getItem('loop-ai-voice-preset') || 'default'; } catch { return 'default'; }
   });
 
   const handleVoiceChange = (value: string) => {
@@ -27,20 +27,20 @@ const Settings = () => {
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const previewLines: Record<string, string> = {
-        jamaican: "Yow, we're about to make something legendary — trust the process—",
+        default: "Alright, looking good — let me handle the rest—",
         british: "Right then — let's craft something brilliant, shall we—",
-        american: "Alright, let's make some magic happen — lights, camera, action—",
+        deep: "Let's build something legendary — trust the process—",
         female: "Listen up — this is going to be our best work yet—",
       };
-      const utterance = new SpeechSynthesisUtterance(previewLines[value] || previewLines.jamaican);
+      const utterance = new SpeechSynthesisUtterance(previewLines[value] || previewLines.default);
       const voices = window.speechSynthesis.getVoices();
       const presets: Record<string, { nameHints: string[]; rate: number; pitch: number }> = {
-        jamaican: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.85 },
+        default: { nameHints: ['Google US English', 'Alex', 'Aaron', 'Male'], rate: 1.0, pitch: 1.0 },
         british: { nameHints: ['Google UK English Male', 'Daniel', 'James'], rate: 1.05, pitch: 0.95 },
-        american: { nameHints: ['Google US English', 'Alex', 'Samantha'], rate: 1.1, pitch: 1.0 },
+        deep: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.8 },
         female: { nameHints: ['Google UK English Female', 'Karen', 'Samantha', 'Victoria', 'Female'], rate: 1.0, pitch: 1.1 },
       };
-      const p = presets[value] || presets.jamaican;
+      const p = presets[value] || presets.default;
       const voice = voices.find(v => p.nameHints.some(h => v.name.includes(h))) || voices.find(v => v.lang.startsWith('en'));
       if (voice) utterance.voice = voice;
       utterance.rate = p.rate;
