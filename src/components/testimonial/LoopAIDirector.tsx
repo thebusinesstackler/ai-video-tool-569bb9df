@@ -197,9 +197,61 @@ export function LoopAIDirector({
     }
   };
 
+  const toggleVoice = useCallback(() => {
+    const next = !voiceEnabled;
+    setVoiceEnabled(next);
+    localStorage.setItem('loop-ai-voice', next ? 'on' : 'off');
+    if (!next && directorAudioRef.current) {
+      directorAudioRef.current.pause();
+      directorAudioRef.current = null;
+      setIsSpeaking(false);
+    }
+    toast.success(next ? '🔊 Loop AI voice enabled' : '🔇 Loop AI voice muted');
+  }, [voiceEnabled]);
+
+  const speakResponse = useCallback(async (text: string) => {
+    if (!voiceEnabled) return;
+    // Strip markdown, JSON blocks, and action blocks — keep only conversational text
+    const cleanText = text
+      .replace(/```json[\s\S]*?```/g, '')
+      .replace(/```action[\s\S]*?```/g, '')
+      .replace(/[#*_`>]/g, '')
+      .replace(/\[.*?\]\(.*?\)/g, '')
+      .replace(/\n{2,}/g, '. ')
+      .replace(/\n/g, ' ')
+      .trim();
+    if (!cleanText || cleanText.length < 10) return;
+    // Truncate to ~500 chars for reasonable TTS length
+    const speakText = cleanText.length > 500 ? cleanText.slice(0, 500) + '—' : cleanText;
+    try {
+      setIsSpeaking(true);
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: speakText, voice: 'English_magnetic_voiced_man', gender: 'male' }
+      });
+      if (error || !data?.audioUrl) { setIsSpeaking(false); return; }
+      if (directorAudioRef.current) directorAudioRef.current.pause();
+      const audio = new Audio(data.audioUrl);
+      directorAudioRef.current = audio;
+      audio.onended = () => { setIsSpeaking(false); directorAudioRef.current = null; };
+      audio.onerror = () => { setIsSpeaking(false); directorAudioRef.current = null; };
+      audio.play();
+    } catch {
+      setIsSpeaking(false);
+    }
+  }, [voiceEnabled]);
+
+  const stopSpeaking = useCallback(() => {
+    if (directorAudioRef.current) {
+      directorAudioRef.current.pause();
+      directorAudioRef.current = null;
+      setIsSpeaking(false);
+    }
+  }, []);
+
   const clearChat = () => {
     setMessages([]);
     localStorage.removeItem(CHAT_STORAGE_KEY);
+    stopSpeaking();
     toast.success('Chat cleared');
   };
 
