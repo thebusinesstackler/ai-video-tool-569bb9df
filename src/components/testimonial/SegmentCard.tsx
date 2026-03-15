@@ -120,6 +120,64 @@ export function SegmentCard({
     }
   };
 
+  // Generate a brand new voice — picks a random matching voice, calls TTS, saves to segment
+  const handleGenerateNewVoice = async () => {
+    if (!segment.script?.trim()) { toast.error('Add a script first'); return; }
+    setIsGeneratingNewVoice(true);
+    try {
+      // Pick a random voice matching character gender
+      const desc = (segment.character?.description || '').toLowerCase();
+      const gender = (segment.character?.gender || '').toLowerCase();
+      const isFemale = gender.includes('female') || gender.includes('woman') ||
+        /\b(woman|female|girl|lady|she|her|mother|actress)\b/.test(desc);
+      
+      const femaleVoices = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+      const maleVoices = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man'];
+      const pool = isFemale ? femaleVoices : maleVoices;
+      const voiceId = pool[Math.floor(Math.random() * pool.length)];
+
+      toast.info(`🎙️ Generating new ${isFemale ? 'female' : 'male'} voice (${voiceId.replace(/_/g, ' ')})...`);
+
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: segment.script, voice: voiceId }
+      });
+      if (error) throw error;
+      
+      if (data?.audioUrl) {
+        const usedVoiceId = data.voiceUsed || voiceId;
+        
+        // Save to segment
+        onUpdate(segment.id, { audioUrl: data.audioUrl, voiceoverId: usedVoiceId });
+        
+        // Stop any existing playback
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+        
+        // Play new audio
+        const audio = new Audio(data.audioUrl);
+        audioRef.current = audio;
+        audio.onended = () => setIsPlayingAudio(false);
+        audio.play();
+        setIsPlayingAudio(true);
+        
+        toast.success(`🎙️ New voice generated — ${usedVoiceId.replace(/_/g, ' ')}`, {
+          action: {
+            label: 'Copy Voice ID',
+            onClick: () => {
+              navigator.clipboard.writeText(usedVoiceId);
+              toast.info(`Voice ID "${usedVoiceId}" copied`);
+            },
+          },
+          duration: 8000,
+        });
+      }
+    } catch (err) {
+      console.error('New voice generation failed:', err);
+      toast.error('Failed to generate new voice');
+    } finally {
+      setIsGeneratingNewVoice(false);
+    }
+  };
+
   const handleConfirmDelete = () => {
     onDelete(segment.id);
     setShowDeleteConfirm(false);
