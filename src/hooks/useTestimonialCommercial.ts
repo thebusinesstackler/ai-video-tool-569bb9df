@@ -101,12 +101,12 @@ export function useTestimonialCommercial() {
 
     // Validate segments
     for (const segment of segments) {
-      if (segment.type === 'twin-speaking' && (!segment.twinId || !segment.script)) {
-        toast.error('Each speaking segment needs a twin and script');
+      if (segment.type === 'twin-speaking' && !segment.script) {
+        toast.error('Each speaking segment needs a script');
         return;
       }
-      if (segment.type === 'broll-montage' && (!segment.voiceoverId || !segment.voiceoverText)) {
-        toast.error('Montage segments need a voice and script');
+      if (segment.type === 'twin-speaking' && !segment.twinId) {
+        toast.error('Each speaking segment needs an assigned AI Twin');
         return;
       }
     }
