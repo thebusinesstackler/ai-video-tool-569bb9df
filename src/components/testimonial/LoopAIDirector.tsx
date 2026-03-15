@@ -215,35 +215,43 @@ export function LoopAIDirector({
 
   const speakResponse = useCallback(async (text: string) => {
     if (!voiceEnabled || !window.speechSynthesis) return;
-    // Strip markdown, JSON blocks, and action blocks — keep only conversational text
+
     const cleanText = text
       .replace(/```json[\s\S]*?```/g, '')
       .replace(/```action[\s\S]*?```/g, '')
       .replace(/[#*_`>]/g, '')
       .replace(/\[.*?\]\(.*?\)/g, '')
-      .replace(/\n{2,}/g, '. ')
-      .replace(/\n/g, ' ')
+      .replace(/\n+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+
     if (!cleanText || cleanText.length < 10) return;
-    
-    // Use browser TTS for instant playback — no API delay
+
+    // Keep spoken delivery sharp and director-like: fast diagnosis + clear next move
+    const conciseChunks = cleanText
+      .split(/(?:\.\.\.|—|[.!?])\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .slice(0, 2);
+
+    const conciseLine = conciseChunks.join(' — ');
+    const speakText = (conciseLine || cleanText).slice(0, 240);
+
     window.speechSynthesis.cancel();
-    const speakText = cleanText.length > 600 ? cleanText.slice(0, 600) + '.' : cleanText;
     const utterance = new SpeechSynthesisUtterance(speakText);
-    
-    // Pick a deep male voice
+
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => 
-      v.name.includes('Google UK English Male') || 
-      v.name.includes('Daniel') || 
+    const preferredVoice = voices.find(v =>
+      v.name.includes('Google UK English Male') ||
+      v.name.includes('Daniel') ||
       v.name.includes('James') ||
       v.name.includes('Male') ||
       (v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
     ) || voices.find(v => v.lang.startsWith('en'));
+
     if (preferredVoice) utterance.voice = preferredVoice;
-    
-    utterance.rate = 1.05;
+
+    utterance.rate = 1.08;
     utterance.pitch = 0.9;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
