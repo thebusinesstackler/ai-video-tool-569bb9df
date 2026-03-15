@@ -453,6 +453,82 @@ export default function TestimonialCommercial() {
                   />
                 </TabsContent>
 
+                {finalVideoUrl && (
+                  <TabsContent value="final-cut">
+                    <div className="space-y-6">
+                      {/* Large Video Player */}
+                      <div className="rounded-xl overflow-hidden border border-border bg-black">
+                        <video
+                          src={finalVideoUrl}
+                          controls
+                          autoPlay={activeTab === 'final-cut'}
+                          className="w-full max-h-[60vh]"
+                        />
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="default" size="sm" className="gap-1.5" asChild>
+                          <a href={finalVideoUrl} download target="_blank" rel="noopener">
+                            <Download className="h-3.5 w-3.5" /> Download MP4
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => {
+                            navigator.clipboard.writeText(finalVideoUrl);
+                            toast.success('Video URL copied to clipboard');
+                          }}
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Copy Link
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => window.open(finalVideoUrl, '_blank')}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> Open in New Tab
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={handleGenerate}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" /> Regenerate
+                        </Button>
+                      </div>
+
+                      {/* Per-Segment Clips */}
+                      {segments.some(s => s.videoUrl) && (
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-semibold flex items-center gap-2">
+                            <Film className="h-4 w-4 text-primary" /> Individual Clips
+                          </h3>
+                          <div className="grid grid-cols-2 gap-3">
+                            {segments.filter(s => s.videoUrl).map((seg, i) => (
+                              <div key={seg.id} className="rounded-lg border border-border overflow-hidden bg-muted/30">
+                                <video src={seg.videoUrl} controls className="w-full aspect-video" />
+                                <div className="p-2">
+                                  <p className="text-xs font-medium truncate">
+                                    {seg.type === 'speaking' ? `Scene ${i + 1}` : `B-Roll ${i + 1}`}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground truncate">
+                                    {seg.script?.slice(0, 60) || seg.brollPrompts?.[0]?.slice(0, 60) || ''}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="saved">
                   {savedCommercials.length === 0 ? (
                     <div className="text-center py-8 text-sm text-muted-foreground">No saved commercials</div>
