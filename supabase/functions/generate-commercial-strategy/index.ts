@@ -32,7 +32,7 @@ ${currentSegments.map((s: any, i: number) => {
     return `- Scene ${i+1}: SPEAKING | ${s.duration}s | ${s.transition} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] | Script: "${(s.script || '').slice(0, 120)}" | Status: ${s.status}`;
   }
   const hasBroll = s.hasBrollImages ? '✅ has preview' : '❌ NO preview';
-  return `- Scene ${i+1}: B-ROLL | ${s.duration}s | ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 120)}" [${hasBroll}] | Status: ${s.status}`;
+  return `- Scene ${i+1}: B-ROLL | ${s.duration}s | ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 120)}" | Voiceover: "${(s.voiceoverText || '').slice(0, 120)}" [${hasBroll}] | Status: ${s.status}`;
 }).join('\n')}
 
 When the user asks to modify existing scenes, output an \`\`\`action block with the changes.`;
