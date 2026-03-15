@@ -94,6 +94,7 @@ const VOICE_TYPES = [
 export const CharacterManager = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isAICreatorOpen, setIsAICreatorOpen] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [formData, setFormData] = useState({
     name: '',
