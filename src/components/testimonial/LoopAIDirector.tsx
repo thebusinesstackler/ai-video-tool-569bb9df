@@ -122,11 +122,20 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
     setIsListening(true);
   }, [isListening]);
 
-  const previewAudio = async (script: string) => {
+  const previewAudio = async (script: string, characterDescription?: string) => {
     if (isPreviewingAudio) { audioRef.current?.pause(); setIsPreviewingAudio(false); return; }
     setIsPreviewingAudio(true);
     try {
-      const { data, error } = await supabase.functions.invoke('text-to-speech', { body: { text: script } });
+      // Pick voice matching the character's gender from their description
+      const { voiceId, gender } = characterDescription
+        ? pickVoiceForCharacter(characterDescription)
+        : { voiceId: 'English_Trustworth_Man', gender: 'male' };
+
+      toast.info(`🎙️ Generating ${gender} voice preview...`);
+
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: script, voice: voiceId, gender }
+      });
       if (error || !data?.audioUrl) throw new Error('TTS failed');
       const audio = new Audio(data.audioUrl);
       audioRef.current = audio;
@@ -136,6 +145,12 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
       toast.error('Failed to generate audio preview');
       setIsPreviewingAudio(false);
     }
+  };
+
+  const clearChat = () => {
+    setMessages([]);
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+    toast.success('Chat cleared');
   };
 
   const extractStrategyFromMessage = (content: string): CommercialStrategy | null => {
