@@ -204,12 +204,15 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={() => { setDraggedIndex(null); setDropTargetIndex(null); }}
                   onClick={() => handleSelect(segment.id)}
+                  onMouseEnter={() => segment.type === 'speaking' && segment.script && handleHoverStart(segment)}
+                  onMouseLeave={handleHoverEnd}
                   className={cn(
                     'relative rounded-lg border overflow-hidden cursor-pointer transition-all group',
                     'hover:ring-1 hover:ring-primary/40',
                     isDragging && 'opacity-40 scale-95',
                     isDropTarget && 'ring-2 ring-primary',
                     isSelected ? `ring-2 ${config.border} bg-accent/50` : 'bg-card',
+                    hoverVoiceId === segment.id && 'ring-2 ring-primary',
                   )}
                   style={{ width: `${Math.max(segment.duration * 6, 80)}px` }}
                 >
