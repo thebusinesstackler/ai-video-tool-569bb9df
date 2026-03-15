@@ -17,6 +17,7 @@ export interface CommercialSegment {
   brollPrompts?: string[];
   brollImages?: string[];
   voiceoverText?: string;
+  productImageUrl?: string; // User-uploaded product image for swapping
   duration: number;
   transition: TransitionType;
   videoUrl?: string;
