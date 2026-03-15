@@ -214,7 +214,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   <div className="px-1.5 py-1 space-y-0.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-medium truncate leading-tight">
-                        {segment.character?.name || (segment.type === 'broll' ? 'B-Roll' : `Scene ${index + 1}`)}
+                        {segment.type === 'broll' ? `B-Roll #${getTypeNumber(index)}` : `Scene #${getTypeNumber(index)}`}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
