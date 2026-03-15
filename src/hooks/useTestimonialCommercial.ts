@@ -1,8 +1,16 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CommercialSegment, TestimonialCommercial } from '@/types/testimonialCommercial';
+import { CommercialSegment, TestimonialCommercial, CharacterProfile } from '@/types/testimonialCommercial';
 import { toast } from 'sonner';
-import { testimonialExamples, CommercialTemplate } from '@/data/testimonialExamples';
+
+const ANGLE_PROMPTS = [
+  (desc: string) => `Photorealistic front portrait of ${desc}. 85mm lens, studio lighting, neutral background, direct eye contact, shoulders visible. No text, no watermark.`,
+  (desc: string) => `Photorealistic 3/4 left profile of ${desc}. 50mm lens, soft studio lighting, turned slightly left, warm expression. No text, no watermark.`,
+  (desc: string) => `Photorealistic side profile of ${desc}. 85mm lens, dramatic rim lighting, clean background, elegant pose. No text, no watermark.`,
+  (desc: string) => `Photorealistic low angle hero shot of ${desc}. 35mm lens, looking up at subject, powerful composition, confident expression. No text, no watermark.`,
+  (desc: string) => `Photorealistic 3/4 right profile of ${desc}. 50mm lens, natural lighting, turned slightly right, approachable expression. No text, no watermark.`,
+  (desc: string) => `Photorealistic casual wide shot of ${desc}. 35mm lens, environmental portrait, professional setting, relaxed pose. No text, no watermark.`,
+];
 
 export function useTestimonialCommercial() {
   const [segments, setSegments] = useState<CommercialSegment[]>([]);
@@ -14,8 +22,8 @@ export function useTestimonialCommercial() {
     const newSegment: CommercialSegment = {
       id: crypto.randomUUID(),
       type,
-      duration: type === 'broll-montage' ? 15 : 5,
-      transition: type === 'twin-speaking' ? 'fade-in' : 'cut',
+      duration: type === 'broll' ? 8 : 10,
+      transition: type === 'speaking' ? 'fade-in' : 'cut',
       status: 'pending'
     };
     setSegments(prev => [...prev, newSegment]);
@@ -31,19 +39,97 @@ export function useTestimonialCommercial() {
 
   const reorderSegments = useCallback((fromIndex: number, toIndex: number) => {
     setSegments(prev => {
-      const newSegments = [...prev];
-      const [removed] = newSegments.splice(fromIndex, 1);
-      newSegments.splice(toIndex, 0, removed);
-      return newSegments;
+      const next = [...prev];
+      const [removed] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, removed);
+      return next;
     });
   }, []);
 
+  const approveAllSegments = useCallback(() => {
+    setSegments(prev => prev.map(s => 
+      s.type === 'speaking' && (s.status === 'character-ready' || s.status === 'pending')
+        ? { ...s, status: 'approved' as const }
+        : s
+    ));
+    toast.success('All scenes approved!');
+  }, []);
+
+  // Generate 6-angle character images for a speaking segment
+  const generateCharacterForSegment = useCallback(async (segmentId: string, description: string) => {
+    updateSegment(segmentId, { status: 'generating-character' });
+    toast.info('Generating character with 6 cinematic angles...');
+
+    try {
+      // Generate first image to establish the look
+      const { data: firstImg, error: firstErr } = await supabase.functions.invoke('generate-scene-image', {
+        body: {
+          prompt: ANGLE_PROMPTS[0](description),
+          aspectRatio: '1:1'
+        }
+      });
+      if (firstErr || !firstImg?.imageUrl) throw new Error('Failed to generate initial portrait');
+
+      const referenceImages = [firstImg.imageUrl];
+
+      // Generate remaining 5 angles in parallel
+      const remaining = await Promise.allSettled(
+        ANGLE_PROMPTS.slice(1).map(promptFn =>
+          supabase.functions.invoke('generate-scene-image', {
+            body: {
+              prompt: promptFn(description),
+              aspectRatio: '1:1',
+              referenceImageUrl: firstImg.imageUrl
+            }
+          })
+        )
+      );
+
+      for (const result of remaining) {
+        if (result.status === 'fulfilled' && result.value.data?.imageUrl) {
+          referenceImages.push(result.value.data.imageUrl);
+        }
+      }
+
+      const character: CharacterProfile = {
+        name: description.slice(0, 60),
+        description,
+        referenceImages,
+      };
+
+      // Save as AI Twin for reuse
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: twin } = await supabase
+          .from('ai_twins')
+          .insert({
+            user_id: user.id,
+            name: character.name,
+            description,
+            reference_images: referenceImages,
+          })
+          .select('id')
+          .single();
+
+        if (twin) character.twinId = twin.id;
+      }
+
+      updateSegment(segmentId, {
+        character,
+        status: 'character-ready',
+      });
+
+      toast.success(`Character generated with ${referenceImages.length} angles!`);
+    } catch (err) {
+      console.error('Character generation error:', err);
+      updateSegment(segmentId, { status: 'error' });
+      toast.error('Failed to generate character');
+    }
+  }, [updateSegment]);
+
   const saveCommercial = useCallback(async (name: string) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error('Please sign in to save');
-      return null;
-    }
+    if (!user) { toast.error('Please sign in'); return null; }
 
     const segmentsJson = JSON.parse(JSON.stringify(segments));
 
@@ -52,12 +138,8 @@ export function useTestimonialCommercial() {
         .from('testimonial_commercials')
         .update({ name, segments: segmentsJson })
         .eq('id', currentCommercial.id);
-
-      if (error) {
-        toast.error('Failed to save commercial');
-        return null;
-      }
-      toast.success('Commercial saved');
+      if (error) { toast.error('Failed to save'); return null; }
+      toast.success('Saved');
       return currentCommercial.id;
     } else {
       const { data, error } = await supabase
@@ -65,13 +147,9 @@ export function useTestimonialCommercial() {
         .insert({ user_id: user.id, name, segments: segmentsJson })
         .select()
         .single();
-
-      if (error) {
-        toast.error('Failed to save commercial');
-        return null;
-      }
+      if (error) { toast.error('Failed to save'); return null; }
       setCurrentCommercial(data as unknown as TestimonialCommercial);
-      toast.success('Commercial saved');
+      toast.success('Saved');
       return data.id;
     }
   }, [segments, currentCommercial]);
@@ -83,30 +161,19 @@ export function useTestimonialCommercial() {
       .eq('id', id)
       .single();
 
-    if (error || !data) {
-      toast.error('Failed to load commercial');
-      return;
-    }
-
+    if (error || !data) { toast.error('Failed to load'); return; }
     const commercial = data as unknown as TestimonialCommercial;
     setCurrentCommercial(commercial);
     setSegments(commercial.segments || []);
   }, []);
 
   const generateCommercial = useCallback(async () => {
-    if (segments.length === 0) {
-      toast.error('Add at least one segment');
-      return;
-    }
+    if (segments.length === 0) { toast.error('Add segments first'); return; }
 
-    // Validate segments
-    for (const segment of segments) {
-      if (segment.type === 'twin-speaking' && !segment.script) {
-        toast.error('Each speaking segment needs a script');
-        return;
-      }
-      if (segment.type === 'twin-speaking' && !segment.twinId) {
-        toast.error('Each speaking segment needs an assigned AI Twin');
+    // Validate speaking segments
+    for (const seg of segments) {
+      if (seg.type === 'speaking' && !seg.script) {
+        toast.error('Each speaking scene needs a script');
         return;
       }
     }
@@ -115,132 +182,102 @@ export function useTestimonialCommercial() {
     setGenerationProgress(0);
 
     try {
-      const totalSteps = segments.length * 2 + 1; // Generate each + stitch
-      let currentStep = 0;
+      const totalSteps = segments.length * 2 + 1;
+      let step = 0;
 
-      // Process each segment - store generated URLs to pass forward
-      const generatedData: { audioUrl?: string; videoUrl?: string }[] = [];
-      
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
         updateSegment(segment.id, { status: 'generating' });
-        generatedData[i] = {};
 
         try {
-          // Generate audio for speaking/montage segments
-          let audioUrl: string | undefined;
-          if (segment.type === 'twin-speaking' && segment.script) {
-            audioUrl = await generateAudioForSegment(segment);
-            generatedData[i].audioUrl = audioUrl;
-            updateSegment(segment.id, { audioUrl });
-          } else if (segment.type === 'broll-montage' && segment.voiceoverText) {
-            audioUrl = await generateAudioForSegment(segment);
-            generatedData[i].audioUrl = audioUrl;
-            updateSegment(segment.id, { audioUrl });
+          if (segment.type === 'speaking') {
+            // Use VEO3 for speaking segments - generates video with built-in voice
+            const character = segment.character;
+            const referenceImage = character?.referenceImages?.[0];
+
+            // Build rich VEO3 prompt
+            const charDesc = character?.description || 'A professional person';
+            const veo3Prompt = `A ${charDesc} looking directly at the camera and speaking: "${segment.script}". Professional studio lighting, neutral background, natural lip movements, photorealistic.`;
+
+            const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+              body: {
+                action: 'create',
+                model: 'veo3',
+                prompt: veo3Prompt,
+                duration: Math.min(segment.duration, 8),
+                aspectRatio: '16:9',
+                ...(referenceImage ? { imageUrls: [referenceImage] } : {}),
+              }
+            });
+
+            if (error) throw error;
+            if (!data?.taskId) throw new Error('No task ID returned');
+
+            step++;
+            setGenerationProgress((step / totalSteps) * 100);
+
+            const videoUrl = await pollForVideo(data.taskId);
+            updateSegment(segment.id, { videoUrl, status: 'complete' });
+          } else {
+            // B-roll: generate image then video
+            const prompt = segment.brollPrompts?.[0] || 'Professional B-roll footage';
+
+            const { data: imgData } = await supabase.functions.invoke('generate-scene-image', {
+              body: { prompt, aspectRatio: '16:9' }
+            });
+
+            step++;
+            setGenerationProgress((step / totalSteps) * 100);
+
+            if (imgData?.imageUrl) {
+              const { data: vidData } = await supabase.functions.invoke('wavespeed-video', {
+                body: {
+                  action: 'create',
+                  model: 'wan-2.5-i2v',
+                  prompt,
+                  imageUrls: [imgData.imageUrl],
+                  duration: Math.min(segment.duration, 8),
+                }
+              });
+
+              if (vidData?.taskId) {
+                const videoUrl = await pollForVideo(vidData.taskId);
+                updateSegment(segment.id, { videoUrl, brollImages: [imgData.imageUrl], status: 'complete' });
+              }
+            }
           }
 
-          currentStep++;
-          setGenerationProgress((currentStep / totalSteps) * 100);
-
-          // Generate video for segment - pass audioUrl directly since state hasn't updated yet
-          const segmentWithAudio = { ...segment, audioUrl: audioUrl || segment.audioUrl };
-          const previousData = i > 0 ? generatedData[i - 1] : null;
-          const videoResult = await generateVideoForSegment(
-            segmentWithAudio, 
-            i > 0 ? { ...segments[i - 1], ...previousData } : null
-          );
-          generatedData[i].videoUrl = videoResult;
-          updateSegment(segment.id, { videoUrl: videoResult, status: 'complete' });
-
-          currentStep++;
-          setGenerationProgress((currentStep / totalSteps) * 100);
+          step++;
+          setGenerationProgress((step / totalSteps) * 100);
         } catch (err) {
-          console.error(`Failed to generate segment ${i}:`, err);
+          console.error(`Segment ${i} failed:`, err);
           updateSegment(segment.id, { status: 'error' });
-          throw err;
+          // Continue with other segments
+          step += 2;
+          setGenerationProgress((step / totalSteps) * 100);
         }
       }
 
-      // Stitch all videos together
+      // Stitch videos
       toast.info('Stitching commercial...');
-      const finalVideoUrl = await stitchCommercial(segments);
+      const finalUrl = await stitchCommercial(segments);
 
       if (currentCommercial) {
-        await supabase
-          .from('testimonial_commercials')
-          .update({ video_url: finalVideoUrl })
+        await supabase.from('testimonial_commercials')
+          .update({ video_url: finalUrl })
           .eq('id', currentCommercial.id);
       }
 
       setGenerationProgress(100);
-      toast.success('Commercial generated successfully!');
-      
-      return finalVideoUrl;
+      toast.success('Commercial generated!');
+      return finalUrl;
     } catch (error) {
       console.error('Generation failed:', error);
-      toast.error('Failed to generate commercial');
+      toast.error('Generation failed');
     } finally {
       setIsGenerating(false);
     }
   }, [segments, updateSegment, currentCommercial]);
-
-  const loadExampleTemplate = useCallback(async (templateId: string): Promise<{ success: boolean; name?: string }> => {
-    const template = testimonialExamples.find(t => t.id === templateId);
-    if (!template) {
-      toast.error('Template not found');
-      return { success: false };
-    }
-
-    // Fetch user's AI twins with cloned voices
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error('Please sign in first');
-      return { success: false };
-    }
-
-    const { data: twins } = await supabase
-      .from('ai_twins')
-      .select('id, name, voice_cloning_key')
-      .eq('user_id', user.id)
-      .not('voice_cloning_key', 'is', null);
-
-    if (!twins || twins.length === 0) {
-      toast.error('You need at least one AI Twin with a cloned voice to use examples');
-      return { success: false };
-    }
-
-    if (twins.length < template.twinCount) {
-      toast.warning(`This template uses ${template.twinCount} twins but you only have ${twins.length}. Some segments will share the same twin.`);
-    }
-
-    // Create segments with assigned twins
-    let twinIndex = 0;
-    const newSegments: CommercialSegment[] = template.segments.map((seg) => {
-      const segment: CommercialSegment = {
-        ...seg,
-        id: crypto.randomUUID()
-      };
-
-      // Assign twins to speaking segments
-      if (seg.type === 'twin-speaking') {
-        segment.twinId = twins[twinIndex % twins.length].id;
-        twinIndex++;
-      }
-
-      // Assign voiceover twin for montage segments
-      if (seg.type === 'broll-montage') {
-        segment.voiceoverId = twins[0].id; // Use first twin for voiceover
-      }
-
-      return segment;
-    });
-
-    setSegments(newSegments);
-    setCurrentCommercial(null); // Reset current commercial since this is a new one
-    toast.success(`Loaded "${template.name}" template`);
-    
-    return { success: true, name: template.name };
-  }, []);
 
   return {
     segments,
@@ -251,208 +288,60 @@ export function useTestimonialCommercial() {
     reorderSegments,
     saveCommercial,
     loadCommercial,
-    loadExampleTemplate,
     generateCommercial,
+    generateCharacterForSegment,
+    approveAllSegments,
     isGenerating,
     generationProgress,
     currentCommercial,
-    setCurrentCommercial
+    setCurrentCommercial,
   };
-}
-
-async function generateAudioForSegment(segment: CommercialSegment): Promise<string> {
-  const text = segment.type === 'twin-speaking' ? segment.script : segment.voiceoverText;
-  
-  if (!text) throw new Error('No script text for audio generation');
-
-  // Get voice ID - from twin or use default
-  let voiceId: string | null = null;
-  const twinId = segment.type === 'twin-speaking' ? segment.twinId : segment.voiceoverId;
-  
-  if (twinId) {
-    const { data: twin } = await supabase
-      .from('ai_twins')
-      .select('voice_cloning_key')
-      .eq('id', twinId)
-      .single();
-    voiceId = twin?.voice_cloning_key || null;
-  }
-
-  const { data, error } = await supabase.functions.invoke('text-to-speech', {
-    body: {
-      text,
-      ...(voiceId ? { voiceId } : {})
-    }
-  });
-
-  if (error || !data?.audioUrl) {
-    throw new Error('Failed to generate audio');
-  }
-
-  return data.audioUrl;
-}
-
-async function generateVideoForSegment(
-  segment: CommercialSegment,
-  previousSegment: CommercialSegment | null
-): Promise<string> {
-  // For twin speaking - use infinitetalk lip-sync
-  if (segment.type === 'twin-speaking') {
-    const { data: twin } = await supabase
-      .from('ai_twins')
-      .select('reference_images')
-      .eq('id', segment.twinId)
-      .single();
-
-    if (!twin?.reference_images?.[0]) {
-      throw new Error('Twin does not have reference images');
-    }
-
-    if (!segment.audioUrl) {
-      throw new Error('Audio URL is required for lip-sync video');
-    }
-
-    const { data, error } = await supabase.functions.invoke('wavespeed-video', {
-      body: {
-        action: 'create',
-        model: 'infinitetalk',
-        imageUrls: [twin.reference_images[0]],
-        audioUrl: segment.audioUrl,
-        duration: segment.duration
-      }
-    });
-
-    if (error) throw error;
-    if (!data?.taskId) throw new Error('No task ID returned from video generation');
-    return await pollForVideo(data.taskId);
-  }
-
-  // For B-roll - generate image then video
-  if (segment.type === 'broll-voice-continue' || segment.type === 'broll-montage') {
-    const prompts = segment.brollPrompts || [];
-    const videoUrls: string[] = [];
-
-    for (const prompt of prompts.slice(0, 5)) {
-      // Generate image
-      const { data: imageData } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt, sceneType: 'commercial' }
-      });
-
-      if (!imageData?.imageUrl) continue;
-
-      // Generate short video from image
-      const { data: videoData } = await supabase.functions.invoke('wavespeed-video', {
-        body: {
-          action: 'create',
-          model: 'wan-2.5-i2v',
-          prompt,
-          imageUrls: [imageData.imageUrl],
-          duration: Math.ceil(segment.duration / prompts.length)
-        }
-      });
-
-      if (videoData?.taskId) {
-        const videoUrl = await pollForVideo(videoData.taskId);
-        videoUrls.push(videoUrl);
-      }
-    }
-
-    // If montage, stitch b-roll clips with audio
-    if (segment.type === 'broll-montage' && videoUrls.length > 0) {
-      try {
-        const { data } = await supabase.functions.invoke('creatomate-stitch', {
-          body: {
-            clips: videoUrls.map((url, i) => ({
-              url,
-              duration: segment.duration / videoUrls.length
-            })),
-            audioUrl: segment.audioUrl,
-            transition: 'cut'
-          }
-        });
-
-        if (data?.success === false) {
-          throw new Error(data?.error || 'Creatomate failed');
-        }
-
-        if (data?.renderId) {
-          return await pollForCreatomate(data.renderId);
-        }
-      } catch (creatomateErr) {
-        console.warn('Creatomate montage stitch failed, falling back to browser:', creatomateErr);
-        const { stitchVideosWithAudio } = await import('@/lib/videoStitch');
-        const blob = await stitchVideosWithAudio({ videoUrls, audioUrls: segment.audioUrl ? [segment.audioUrl] : [] });
-        return URL.createObjectURL(blob);
-      }
-    }
-
-    return videoUrls[0] || '';
-  }
-
-  throw new Error('Unknown segment type');
 }
 
 async function pollForVideo(taskId: string): Promise<string> {
   const maxAttempts = 60;
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 5000));
-
     const { data } = await supabase.functions.invoke('wavespeed-video', {
       body: { action: 'status', taskId }
     });
-
-    if (data?.status === 'completed' && data?.videoUrl) {
-      return data.videoUrl;
-    }
-    if (data?.status === 'failed') {
-      throw new Error(data.error || 'Video generation failed');
-    }
+    if (data?.status === 'completed' && data?.videoUrl) return data.videoUrl;
+    if (data?.status === 'failed') throw new Error(data.error || 'Video generation failed');
   }
   throw new Error('Video generation timed out');
 }
 
-async function pollForCreatomate(renderId: string): Promise<string> {
-  const maxAttempts = 30;
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 3000));
-
-    const { data } = await supabase.functions.invoke('creatomate-status', {
-      body: { renderId }
-    });
-
-    if (data?.status === 'succeeded' && data?.url) {
-      return data.url;
-    }
-    if (data?.status === 'failed') {
-      throw new Error('Video stitching failed');
-    }
-  }
-  throw new Error('Video stitching timed out');
-}
-
 async function stitchCommercial(segments: CommercialSegment[]): Promise<string> {
-  const clips = segments
-    .filter(s => s.videoUrl)
-    .map(s => ({
-      url: s.videoUrl!,
-      duration: s.duration,
-      transition: s.transition
-    }));
+  const clips = segments.filter(s => s.videoUrl).map(s => ({
+    url: s.videoUrl!,
+    duration: s.duration,
+    transition: s.transition,
+  }));
+
+  if (clips.length === 0) throw new Error('No video clips to stitch');
 
   try {
     const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
       body: { clips }
     });
-
     if (error) throw error;
-    if (data?.success === false) throw new Error(data?.error || 'Creatomate failed');
+    if (data?.success === false) throw new Error(data?.error || 'Stitch failed');
 
-    return await pollForCreatomate(data.renderId);
-  } catch (creatomateErr) {
-    console.warn('Creatomate commercial stitch failed, falling back to browser:', creatomateErr);
+    // Poll for creatomate
+    const maxAttempts = 30;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const { data: status } = await supabase.functions.invoke('creatomate-status', {
+        body: { renderId: data.renderId }
+      });
+      if (status?.status === 'succeeded' && status?.url) return status.url;
+      if (status?.status === 'failed') throw new Error('Stitching failed');
+    }
+    throw new Error('Stitching timed out');
+  } catch (err) {
+    console.warn('Creatomate stitch failed, falling back:', err);
     const { stitchVideosWithAudio } = await import('@/lib/videoStitch');
-    const videoUrls = clips.map(c => c.url);
-    const blob = await stitchVideosWithAudio({ videoUrls, audioUrls: [] });
+    const blob = await stitchVideosWithAudio({ videoUrls: clips.map(c => c.url), audioUrls: [] });
     return URL.createObjectURL(blob);
   }
 }
