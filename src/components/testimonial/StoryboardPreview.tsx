@@ -107,7 +107,7 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen p-0 gap-0 overflow-hidden bg-black border-0 rounded-none [&>button]:hidden">
+      <DialogContent className="max-w-5xl w-[95vw] max-h-[85vh] p-0 gap-0 overflow-hidden bg-background border border-border rounded-xl [&>button]:hidden flex flex-col">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 py-2 bg-background/95 border-b border-border/30">
           <div className="flex items-center gap-3">
