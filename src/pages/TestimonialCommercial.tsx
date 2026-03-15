@@ -254,6 +254,15 @@ export default function TestimonialCommercial() {
               </div>
             )}
 
+            {/* Duration Summary */}
+            {segments.length > 0 && (
+              <div className="px-4 pt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Film className="h-3 w-3" /> {segments.length} segments</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {segments.reduce((s, seg) => s + seg.duration, 0)}s total</span>
+                <span>~{Math.ceil(segments.length * 1.5)} min to generate</span>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="flex-1 overflow-auto p-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
