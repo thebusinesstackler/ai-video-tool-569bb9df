@@ -79,7 +79,8 @@ When the user asks to change something about the current storyboard (change dura
     { "action": "update", "sceneIndex": 2, "changes": { "brollPrompts": ["New B-roll description"] } },
     { "action": "add", "segment": { "type": "speaking", "characterDescription": "...", "script": "...", "duration": 8, "transition": "cut" } },
     { "action": "delete", "sceneIndex": 3 },
-    { "action": "setDuration", "duration": 60 }
+    { "action": "setDuration", "duration": 60 },
+    { "action": "generateVoice", "sceneIndex": 0 }
   ]
 }
 \`\`\`
@@ -89,6 +90,7 @@ Edit actions:
 - **add**: Add a new segment to the end
 - **delete**: Remove a scene by index
 - **setDuration**: Change the target commercial duration
+- **generateVoice**: Generate a fresh new voice for a speaking scene. Use when the user says "generate voice", "new voice", "try a different voice", "I don't like this voice", etc. This calls the TTS API with a random matching voice based on the character's gender. The user can then listen, and if they don't like it, ask for another one.
 
 ALWAYS wrap action blocks with conversational explanation of WHAT you changed and WHY.
 
