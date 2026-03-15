@@ -382,7 +382,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
         return {
           ...baseSegment,
           type: 'broll-montage' as const,
-          voiceover: seg.voiceover || '',
+          voiceoverText: seg.voiceover || '',
           brollPrompts: seg.brollPrompts || [],
           brollImages: [],
         };
