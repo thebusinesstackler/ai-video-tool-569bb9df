@@ -111,9 +111,17 @@ When the user says "review", "check the timeline", "does this make sense", "revi
 4. **Check character consistency** — if the same character appears in multiple scenes, do descriptions match? If not, unify them using updateCharacterDescription and regenerateCharacter for scenes with mismatched images
 5. **Check B-roll relevance** — does each B-roll prompt visually support what's being said?
 6. **Check script quality** — are scripts punchy, TTS-friendly (no periods), and emotionally compelling?
-7. **Output a SINGLE comprehensive action block** with ALL needed fixes — text updates, character fixes, regenerations
+7. **Output a SINGLE comprehensive action block** with ALL needed fixes — text updates, character fixes, AND regenerations
 8. **After the action block**, summarize everything you changed in plain language and say "I'm done — take a look at the updated storyboard"
 9. **For character consistency**: if a character appears in scenes 1 and 4 with different descriptions, update BOTH to match the best description, then regenerateCharacter only on scenes where images are missing or clearly wrong
+
+### IMPORTANT REVIEW RULES:
+- If ANY speaking scene has ❌ NO images, you MUST include a "regenerateCharacter" action for it with a vivid description
+- If ANY B-roll scene has ❌ NO preview, you MUST include a "regenerateBroll" action for it with a cinematic prompt
+- If you improve a script, also include "generateVoice" to regenerate audio for that scene
+- Do NOT just use "update" actions for everything — use the specific regeneration actions when visuals or audio need to be recreated
+- A proper review should include a MIX of update, regenerateCharacter, regenerateBroll, and generateVoice actions
+- The user expects to SEE visual changes after a review, not just text tweaks
 
 ## Actor Descriptions (CRITICAL for AI image generation)
 Since actors are AI-generated, you MUST provide rich, vivid descriptions:
