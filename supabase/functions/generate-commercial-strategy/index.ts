@@ -24,7 +24,7 @@ function buildSegmentContext(currentSegments: any[]) {
       const voiceId = s.voiceoverId || 'not set';
       const role = s.narrativeRole ? `[${s.narrativeRole}]` : '';
       const charName = s.character?.name ? `"${s.character.name}"` : '';
-      return `- [index=${i}] Scene #${num} ${role} | ${s.duration}s | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${(s.script || '').slice(0, 200)}" | Status: ${s.status}`;
+      return `- Scene #${num} ${role} (internal_index=${i}) | ${s.duration}s | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${(s.script || '').slice(0, 200)}" | Status: ${s.status}`;
     }
     brollNum++;
     const num = typeNum || brollNum;
@@ -32,21 +32,21 @@ function buildSegmentContext(currentSegments: any[]) {
     const brollContent = s.brollImageUrls?.length > 0 ? `🖼️ Current image: ${s.brollImageUrls[0].slice(-40)}` : '';
     const hasVo = s.voiceoverText ? `VO: "${s.voiceoverText.slice(0, 80)}"` : 'no VO';
     const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
-    return `- [index=${i}] B-Roll #${num} | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 200)}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | Status: ${s.status}`;
+    return `- B-Roll #${num} (internal_index=${i}) | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 200)}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | Status: ${s.status}`;
   });
 
   return `\n\n## Current Storyboard State
 The user currently has ${currentSegments.length} total segments (${speakingNum} speaking scenes, ${brollNum} B-roll clips):
 ${lines.join('\n')}
 
-### INDEX MAPPING (CRITICAL — READ THIS CAREFULLY)
-- The "[index=N]" is the INTERNAL 0-based index you use in action block \`sceneIndex\` fields.
-- The "Scene #N" or "B-Roll #N" is what the USER sees in the UI.
-- NEVER say "Scene 0" or "Scene #0" — there is no Scene 0. The first scene is Scene #1.
-- When the user says "Scene 1" → find Scene #1 above and use its [index=X] value in your action block
-- When the user says "B-Roll 2" → find B-Roll #2 above and use its [index=X] value
-- [HOOK] = opening scene, [CTA] = closing call-to-action, [PROBLEM/STORY] = middle narrative
-- When summarizing to the user, always use "Scene #N" or "B-Roll #N", NEVER use index numbers
+### HOW TO USE THESE NUMBERS
+- **Scene #1, Scene #2, etc.** — These are what the user sees. ALWAYS use these when talking to the user.
+- **(internal_index=N)** — This is the 0-based index you put in action block \`sceneIndex\` fields. NEVER show this number to the user.
+- The FIRST scene is **Scene #1** (internal_index=0). There is NO "Scene 0" — that does not exist.
+- The FIRST B-Roll is **B-Roll #1**. There is NO "B-Roll 0".
+- [HOOK] = the opening scene, [CTA] = closing call-to-action
+- Example: If user says "what's my hook?" → Answer: "Your hook is **Scene #1**" (NOT "Scene 0")
+- Example: If you need to edit Scene #1 in an action block → use \`"sceneIndex": 0\` (the internal_index)
 
 When the user asks to modify existing scenes, output an \`\`\`action block with the changes.`;
 }
