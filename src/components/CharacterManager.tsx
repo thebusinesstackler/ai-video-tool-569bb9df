@@ -446,18 +446,24 @@ export const CharacterManager = () => {
           <p className="text-muted-foreground">Manage AI avatars for your video content</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen || !!editingCharacter} onOpenChange={(open) => {
-          if (!open) {
-            setIsCreateDialogOpen(false);
-            resetForm();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="flex items-center gap-2">
-              <PlusIcon className="w-4 h-4" />
-              Create Character
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setIsAICreatorOpen(true)} className="flex items-center gap-2" variant="default">
+            <SparklesIcon className="w-4 h-4" />
+            Create with AI
+          </Button>
+
+          <Dialog open={isCreateDialogOpen || !!editingCharacter} onOpenChange={(open) => {
+            if (!open) {
+              setIsCreateDialogOpen(false);
+              resetForm();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setIsCreateDialogOpen(true)} variant="outline" className="flex items-center gap-2">
+                <PlusIcon className="w-4 h-4" />
+                Manual
+              </Button>
+            </DialogTrigger>
           
           <DialogContent className="max-w-md">
             <DialogHeader>
