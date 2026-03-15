@@ -194,13 +194,44 @@ export function SegmentCard({
                   )}
                 </Button>
               )}
+              {/* Voice preview for speaking segments */}
+              {segment.type === 'speaking' && segment.script && !segment.audioUrl && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handlePreviewVoice}
+                  disabled={isPreviewingVoice}
+                  title="Preview voice"
+                >
+                  {isPreviewingVoice ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Headphones className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
               <Badge className={`${statusInfo.color} text-xs gap-1`}>
                 <StatusIcon className={`h-3 w-3 ${isGeneratingChar || status === 'generating' ? 'animate-spin' : ''}`} />
                 {statusInfo.label}
               </Badge>
-              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => onDelete(segment.id)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              {/* Duplicate */}
+              {onDuplicate && (
+                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => onDuplicate(segment.id)} title="Duplicate">
+                  <Copy className="h-3 w-3" />
+                </Button>
+              )}
+              {/* Delete with confirmation */}
+              {showDeleteConfirm ? (
+                <div className="flex items-center gap-1">
+                  <Button variant="destructive" size="sm" className="h-6 text-[10px] px-2" onClick={handleConfirmDelete}>Delete</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+                </div>
+              ) : (
+                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => setShowDeleteConfirm(true)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
