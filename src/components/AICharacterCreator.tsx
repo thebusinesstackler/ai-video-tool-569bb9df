@@ -13,6 +13,21 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const VOICE_TYPE_MAP: Record<string, string> = {
+  'professional-female': 'English_compelling_lady1',
+  'professional-male': 'lecture_man',
+  'casual-female': 'English_radiant_girl',
+  'casual-male': 'Casual_Guy',
+  'energetic-female': 'English_radiant_girl',
+  'energetic-male': 'Casual_Guy',
+  'authoritative-female': 'English_compelling_lady1',
+  'authoritative-male': 'lecture_man',
+};
+
+function mapVoiceId(voiceType: string): string {
+  return VOICE_TYPE_MAP[voiceType] || 'Friendly_Person';
+}
+
 interface AICharacterCreatorProps {
   onCharacterSaved: () => void;
   onClose: () => void;
@@ -56,6 +71,9 @@ export function AICharacterCreator({ onCharacterSaved, onClose }: AICharacterCre
   const [anglesProgress, setAnglesProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [refinementNotes, setRefinementNotes] = useState('');
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number | null>(null);
+  const [angleRegenPrompt, setAngleRegenPrompt] = useState('');
+  const [isRegeneratingAngle, setIsRegeneratingAngle] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -169,7 +187,7 @@ Return ONLY valid JSON:
     setIsPreviewingVoice(true);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text, voice_id: 'Friendly_Person' }
+        body: { text, voice_id: mapVoiceId(voiceType) }
       });
       if (error) throw error;
       if (data?.audioUrl) {
@@ -501,16 +519,90 @@ Return ONLY valid JSON:
           <div className="border border-primary/20 rounded-lg p-4 bg-primary/5 space-y-3">
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Character ready! Review and save.</span>
+              <span className="text-sm font-medium">Character ready! Click an angle to regenerate it, or save.</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
               {angleImages.map((img, i) => (
-                <div key={i} className="aspect-square rounded-lg overflow-hidden border border-border">
+                <div
+                  key={i}
+                  className={cn(
+                    'aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all relative group',
+                    selectedAngleIndex === i ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50'
+                  )}
+                  onClick={() => setSelectedAngleIndex(selectedAngleIndex === i ? null : i)}
+                >
                   <img src={img} alt={angleLabels[i]} className="w-full h-full object-cover" />
+                  <span className="absolute bottom-0 inset-x-0 bg-black/60 text-[10px] text-center py-0.5" style={{ color: 'white' }}>{angleLabels[i]}</span>
+                  {isRegeneratingAngle && selectedAngleIndex === i && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 text-primary-foreground animate-spin" />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+
+            {/* Per-angle regeneration */}
+            {selectedAngleIndex !== null && (
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  placeholder={`Notes for ${angleLabels[selectedAngleIndex]}... e.g. 'turn head more to the left'`}
+                  value={angleRegenPrompt}
+                  onChange={(e) => setAngleRegenPrompt(e.target.value)}
+                  rows={2}
+                  className="text-sm flex-1"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1 self-end"
+                  disabled={isRegeneratingAngle}
+                  onClick={async () => {
+                    if (selectedAngleIndex === null) return;
+                    setIsRegeneratingAngle(true);
+                    try {
+                      const idx = selectedAngleIndex;
+                      const basePrompt = idx === 0
+                        ? `Photorealistic portrait of ${characterDescription}. Professional studio photography. No text, no watermark.`
+                        : ANGLE_PROMPTS[idx - 1](characterDescription);
+                      const finalPrompt = angleRegenPrompt.trim()
+                        ? `${basePrompt} Additional direction: ${angleRegenPrompt.trim()}`
+                        : basePrompt;
+
+                      const refImg = angleImages[0];
+                      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+                        body: {
+                          prompt: finalPrompt,
+                          referenceImageUrl: refImg.startsWith('data:') ? undefined : refImg,
+                        }
+                      });
+
+                      if (!error && data?.imageUrl) {
+                        setAngleImages(prev => {
+                          const updated = [...prev];
+                          updated[idx] = data.imageUrl;
+                          return updated;
+                        });
+                        toast.success(`${angleLabels[idx]} regenerated!`);
+                        setAngleRegenPrompt('');
+                        setSelectedAngleIndex(null);
+                      } else {
+                        toast.error('Failed to regenerate angle');
+                      }
+                    } catch (err) {
+                      console.error('Angle regen error:', err);
+                      toast.error('Regeneration failed');
+                    } finally {
+                      setIsRegeneratingAngle(false);
+                    }
+                  }}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Redo
+                </Button>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div>

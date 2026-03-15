@@ -17,6 +17,23 @@ import {
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
+const VOICE_TYPE_MAP: Record<string, string> = {
+  'professional-female': 'English_compelling_lady1',
+  'professional-male': 'lecture_man',
+  'casual-female': 'English_radiant_girl',
+  'casual-male': 'Casual_Guy',
+  'energetic-female': 'English_radiant_girl',
+  'energetic-male': 'Casual_Guy',
+  'authoritative-female': 'English_compelling_lady1',
+  'authoritative-male': 'lecture_man',
+};
+
+function mapVoiceId(voiceType: string): string {
+  return VOICE_TYPE_MAP[voiceType] || 'Friendly_Person';
+}
+
+const BACKGROUND_KEYWORDS = ['background', 'setting', 'environment', 'scene', 'location', 'backdrop', 'surroundings'];
+
 interface Character {
   id: string;
   name: string;
@@ -69,7 +86,16 @@ export function ActorProfilePanel({ character, onClose, onUpdate }: ActorProfile
 
     setIsGenerating(true);
     try {
-      const prompt = `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
+      const promptLower = generationPrompt.toLowerCase();
+      const isBackgroundChange = BACKGROUND_KEYWORDS.some(kw => promptLower.includes(kw));
+
+      const prompt = isBackgroundChange
+        ? `Create a photorealistic image of THIS EXACT PERSON from the reference image.
+${character.description ? `Person description: ${character.description}.` : ''}
+BACKGROUND CHANGE: ${generationPrompt}.
+CRITICAL: Keep the person COMPLETELY IDENTICAL — same face, features, skin tone, hair, clothing, pose, and expression. ONLY change the background/environment/setting as described. The person should look naturally placed in the new environment.
+Style: Professional photography, high quality, cinematic lighting.`
+        : `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
 ${character.description ? `Person description: ${character.description}.` : ''}
 New scene: ${generationPrompt}. 
 CRITICAL: The person MUST look identical to the reference — same face, features, skin tone, hair, and overall appearance.
@@ -140,7 +166,7 @@ Style: Professional photography, high quality, cinematic lighting.`;
     try {
       const sampleText = `Hi, I'm ${character.name}. I'm ready to bring your vision to life.`;
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: sampleText, voice_id: 'Friendly_Person' }
+        body: { text: sampleText, voice_id: mapVoiceId(character.voiceType) }
       });
       if (error) throw error;
       if (data?.audioUrl) {
