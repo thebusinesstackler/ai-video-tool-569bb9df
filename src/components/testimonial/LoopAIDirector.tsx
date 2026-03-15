@@ -240,22 +240,33 @@ export function LoopAIDirector({
     const conciseLine = conciseChunks.join(' — ');
     const speakText = (conciseLine || cleanText).slice(0, 240);
 
+    // Cancel any current speech — allows interruption
     window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+
     const utterance = new SpeechSynthesisUtterance(speakText);
 
+    // Load voice preference from localStorage
+    const savedVoicePreset = localStorage.getItem('loop-ai-voice-preset') || 'jamaican';
     const voices = window.speechSynthesis.getVoices();
+
+    const voicePresets: Record<string, { nameHints: string[]; rate: number; pitch: number }> = {
+      jamaican: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.85 },
+      british: { nameHints: ['Google UK English Male', 'Daniel', 'James'], rate: 1.05, pitch: 0.95 },
+      american: { nameHints: ['Google US English', 'Alex', 'Samantha'], rate: 1.1, pitch: 1.0 },
+      female: { nameHints: ['Google UK English Female', 'Karen', 'Samantha', 'Victoria', 'Female'], rate: 1.0, pitch: 1.1 },
+    };
+
+    const preset = voicePresets[savedVoicePreset] || voicePresets.jamaican;
+
     const preferredVoice = voices.find(v =>
-      v.name.includes('Google UK English Male') ||
-      v.name.includes('Daniel') ||
-      v.name.includes('James') ||
-      v.name.includes('Male') ||
-      (v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
+      preset.nameHints.some(hint => v.name.includes(hint))
     ) || voices.find(v => v.lang.startsWith('en'));
 
     if (preferredVoice) utterance.voice = preferredVoice;
 
-    utterance.rate = 1.08;
-    utterance.pitch = 0.9;
+    utterance.rate = preset.rate;
+    utterance.pitch = preset.pitch;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
@@ -859,7 +870,7 @@ export function LoopAIDirector({
             </div>
             <h3 className="text-lg font-bold mb-1">Loop AI Director</h3>
             <p className="text-xs text-muted-foreground max-w-[280px] mb-6 leading-relaxed">
-              I'm your creative director. Tell me about your product — I'll craft the actors, scripts, B-roll, and full storyboard. Ask me to tweak anything — duration, scripts, b-roll, actors. I'm here until it's perfect.
+              Yo, I'm your creative director — 20 years in the game. Tell me about your product and I'll build the whole thing — actors, scripts, B-roll, music. Click me while I'm talking to cut me off. Let's make something legendary—
             </p>
             <div className="flex flex-col gap-2 w-full max-w-[320px]">
               {[
