@@ -66,6 +66,7 @@ export function SegmentCard({
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [isGeneratingBroll, setIsGeneratingBroll] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Lightbox state
@@ -540,20 +541,109 @@ export function SegmentCard({
                   className="text-sm"
                 />
               </div>
-              {/* Generated B-Roll images preview with expand */}
-              {segment.brollImages && segment.brollImages.length > 0 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {segment.brollImages.map((img, i) => (
-                    <div key={i} className="relative aspect-video rounded-md overflow-hidden border border-border group/broll cursor-pointer"
-                      onClick={() => openImageExpand(img, `B-roll ${i + 1}`)}
-                    >
-                      <img src={img} alt={`B-roll ${i + 1}`} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/broll:opacity-100 transition-opacity flex items-center justify-center">
-                        <Maximize2 className="h-4 w-4 text-white" />
-                      </div>
+
+              {/* Generate / Preview / Approve B-Roll */}
+              {segment.brollImages && segment.brollImages.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium flex items-center gap-1.5">
+                      <ImageIcon className="h-3 w-3 text-primary" />
+                      B-Roll Preview
+                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      {status !== 'approved' && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="gap-1 h-7 text-xs"
+                          onClick={() => onUpdate(segment.id, { status: 'approved' })}
+                        >
+                          <Check className="h-3 w-3" />
+                          Approve
+                        </Button>
+                      )}
+                      {status === 'approved' && (
+                        <Badge className="bg-primary/20 text-primary gap-1">
+                          <CheckCircle className="h-3 w-3" /> Approved
+                        </Badge>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 h-7 text-xs"
+                        disabled={isGeneratingBroll}
+                        onClick={async () => {
+                          const prompt = segment.brollPrompts?.[0];
+                          if (!prompt?.trim()) { toast.error('Add a visual description first'); return; }
+                          setIsGeneratingBroll(true);
+                          onUpdate(segment.id, { status: 'generating-character' });
+                          try {
+                            const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+                              body: { prompt, aspectRatio: '16:9' }
+                            });
+                            if (error) throw error;
+                            if (data?.imageUrl) {
+                              onUpdate(segment.id, { brollImages: [data.imageUrl], status: 'character-ready' });
+                              toast.success('B-roll preview regenerated');
+                            }
+                          } catch (err) {
+                            console.error('B-roll regen error:', err);
+                            onUpdate(segment.id, { status: 'character-ready' });
+                            toast.error('Failed to regenerate');
+                          } finally {
+                            setIsGeneratingBroll(false);
+                          }
+                        }}
+                      >
+                        {isGeneratingBroll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                        Regenerate
+                      </Button>
                     </div>
-                  ))}
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {segment.brollImages.map((img, i) => (
+                      <div key={i} className="relative aspect-video rounded-md overflow-hidden border border-border group/broll cursor-pointer"
+                        onClick={() => openImageExpand(img, `B-roll ${i + 1}`)}
+                      >
+                        <img src={img} alt={`B-roll ${i + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/broll:opacity-100 transition-opacity flex items-center justify-center">
+                          <Maximize2 className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ) : (
+                <Button
+                  size="sm"
+                  className="w-full gap-2"
+                  disabled={isGeneratingBroll || !segment.brollPrompts?.[0]?.trim()}
+                  onClick={async () => {
+                    const prompt = segment.brollPrompts?.[0];
+                    if (!prompt?.trim()) { toast.error('Add a visual description first'); return; }
+                    setIsGeneratingBroll(true);
+                    onUpdate(segment.id, { status: 'generating-character' });
+                    try {
+                      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+                        body: { prompt, aspectRatio: '16:9' }
+                      });
+                      if (error) throw error;
+                      if (data?.imageUrl) {
+                        onUpdate(segment.id, { brollImages: [data.imageUrl], status: 'character-ready' });
+                        toast.success('B-roll preview generated');
+                      }
+                    } catch (err) {
+                      console.error('B-roll gen error:', err);
+                      onUpdate(segment.id, { status: 'pending' });
+                      toast.error('Failed to generate B-roll preview');
+                    } finally {
+                      setIsGeneratingBroll(false);
+                    }
+                  }}
+                >
+                  {isGeneratingBroll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  Generate B-Roll Preview
+                </Button>
               )}
             </>
           )}
