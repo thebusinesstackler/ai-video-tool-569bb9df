@@ -616,17 +616,33 @@ export function LoopAIDirector({
                           <span className="text-[10px] text-muted-foreground">{seg.duration}s • {seg.transition}</span>
                         </div>
                         {seg.type === 'speaking' && seg.script && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-[10px] gap-1 hover:text-primary"
-                            onClick={() => previewAudio(seg.script!, seg.id, seg.character?.description)}
-                          >
-                            {isPreviewingAudio && previewingSegId === seg.id
-                              ? <Volume2 className="h-3 w-3 text-primary animate-pulse" />
-                              : <Play className="h-3 w-3" />}
-                            {seg.audioUrl ? 'Replay' : 'Preview'}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            {seg.audioUrl && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[10px] gap-1 hover:text-primary"
+                                onClick={() => {
+                                  const audio = new Audio(seg.audioUrl!);
+                                  audio.play();
+                                }}
+                              >
+                                <Play className="h-3 w-3" />
+                                Play
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[10px] gap-1 hover:text-primary"
+                              onClick={() => previewAudio(seg.script!, seg.id, seg.character?.description)}
+                            >
+                              {isPreviewingAudio && previewingSegId === seg.id
+                                ? <Volume2 className="h-3 w-3 text-primary animate-pulse" />
+                                : <Sparkles className="h-3 w-3" />}
+                              New Voice
+                            </Button>
+                          </div>
                         )}
                       </div>
 
