@@ -27,6 +27,7 @@ export default function TestimonialCommercial() {
   const [activeTab, setActiveTab] = useState('scenes');
   const [targetDuration, setTargetDuration] = useState('30');
   const [chatOpen, setChatOpen] = useState(true);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const {
     segments,
