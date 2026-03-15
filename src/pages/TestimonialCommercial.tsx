@@ -33,6 +33,7 @@ export default function TestimonialCommercial() {
     addSegment,
     updateSegment,
     deleteSegment,
+    duplicateSegment,
     reorderSegments,
     saveCommercial,
     loadCommercial,
