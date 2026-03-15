@@ -184,7 +184,8 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
               </div>
             </div>
 
-            {/* Right Info Panel */}
+            {/* Right Info Panel — collapsible */}
+            {showPanel && (
             <div className="w-[260px] bg-background border-l border-border/30 flex flex-col overflow-y-auto">
               {/* Camera & Technical */}
               <div className="p-4 space-y-4 border-b border-border/30">
