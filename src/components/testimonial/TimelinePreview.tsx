@@ -147,7 +147,15 @@ export function TimelinePreview({ segments, onReorder }: TimelinePreviewProps) {
                     {onReorder && (
                       <GripVertical className="h-3 w-3 text-white/50 absolute left-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     )}
-                    <Icon className="h-4 w-4 text-white shrink-0" />
+                    {/* Twin face avatar for speaking segments */}
+                    {segment.type === 'twin-speaking' && segment.twinId && twinImages[segment.twinId] ? (
+                      <Avatar className="h-7 w-7 border border-white/40 shrink-0">
+                        <AvatarImage src={twinImages[segment.twinId]} alt="Twin" className="object-cover" />
+                        <AvatarFallback><User className="h-3 w-3" /></AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <Icon className="h-4 w-4 text-white shrink-0" />
+                    )}
                     {widthPercent > 12 && (
                       <span className="text-xs text-white font-medium">
                         {segment.duration}s
