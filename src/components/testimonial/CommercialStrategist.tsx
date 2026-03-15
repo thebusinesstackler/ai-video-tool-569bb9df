@@ -396,7 +396,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
       };
     });
 
-    onApplyStrategy(segments, extractedStrategy.title);
+    onApplyStrategy(segments, strategyToApply.title);
     toast.success('Strategy applied to timeline!');
     setExtractedStrategy(null);
 
