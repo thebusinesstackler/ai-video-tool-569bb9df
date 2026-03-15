@@ -341,7 +341,13 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
             <p className="text-[10px] text-muted-foreground">Film Director • Commercial Strategist • Brand Expert</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2 py-1">
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={clearChat}>
+              Clear
+            </Button>
+          )}
+          <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2 py-1">
           <Clock className="h-3 w-3 text-muted-foreground" />
           <Select value={targetDuration} onValueChange={setTargetDuration}>
             <SelectTrigger className="w-[72px] h-6 text-[10px] border-0 bg-transparent p-0 shadow-none">
