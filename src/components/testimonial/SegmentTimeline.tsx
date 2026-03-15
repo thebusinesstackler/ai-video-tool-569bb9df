@@ -20,6 +20,7 @@ export function SegmentTimeline({
   segments,
   onUpdate,
   onDelete,
+  onDuplicate,
   onAdd,
   onReorder,
   onGenerateCharacter,
