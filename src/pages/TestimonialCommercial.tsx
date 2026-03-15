@@ -114,6 +114,45 @@ export default function TestimonialCommercial() {
     }
   }, [updateSegment]);
 
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+
+  const handleGenerateMusic = useCallback(async (mood: string) => {
+    toast.info(`🎵 Generating background music: "${mood}"...`);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-music`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            mood,
+            duration: segments.reduce((s, seg) => s + seg.duration, 0) || 30,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (data.needsKey) {
+        toast.error('ElevenLabs API key needed for music generation. Add ELEVENLABS_API_KEY in settings.');
+        return;
+      }
+      if (data.error) throw new Error(data.error);
+      if (data.audioUrl) {
+        setMusicUrl(data.audioUrl);
+        toast.success('🎵 Background music generated!');
+      } else if (data.audioContent) {
+        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+        setMusicUrl(audioUrl);
+        toast.success('🎵 Background music generated!');
+      }
+    } catch (err) {
+      console.error('Music generation failed:', err);
+      toast.error('Music generation failed');
+    }
+  }, [segments]);
+
   const [isSuggestingScene, setIsSuggestingScene] = useState(false);
 
   const handleSmartAddScene = useCallback(async (type: 'speaking' | 'broll') => {
