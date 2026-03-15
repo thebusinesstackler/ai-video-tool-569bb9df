@@ -327,12 +327,12 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
 
     // First, generate voiceovers for any montage segments that are missing them
     const processedStrategySegments = await Promise.all(
-      extractedStrategy.segments.map(async (seg) => {
+      strategyToApply.segments.map(async (seg) => {
         if (seg.type === 'broll-montage' && !seg.voiceover && seg.brollPrompts?.length > 0) {
           toast.info('Generating voiceover for montage...');
           const generatedVoiceover = await generateVoiceoverFromPrompts(
             seg.brollPrompts,
-            extractedStrategy.title
+            strategyToApply.title
           );
           return { ...seg, voiceover: generatedVoiceover };
         }
