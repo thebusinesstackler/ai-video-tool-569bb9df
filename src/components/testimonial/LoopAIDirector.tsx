@@ -28,11 +28,13 @@ interface CommercialStrategy {
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription';
     sceneIndex?: number;
     changes?: Record<string, any>;
     segment?: any;
     duration?: number;
+    description?: string;
+    prompt?: string;
   }>;
 }
 
@@ -42,6 +44,7 @@ interface LoopAIDirectorProps {
   onAddSegment: (type: 'speaking' | 'broll', prefill?: Partial<CommercialSegment>) => void;
   onDeleteSegment: (id: string) => void;
   onGenerateCharacter: (segmentId: string, description: string) => Promise<void>;
+  onGenerateBrollPreview: (segmentId: string, prompt: string) => Promise<void>;
   onSaveToDb: () => Promise<void>;
   segments: CommercialSegment[];
   targetDuration: string;
@@ -82,6 +85,7 @@ export function LoopAIDirector({
   onAddSegment,
   onDeleteSegment,
   onGenerateCharacter,
+  onGenerateBrollPreview,
   onSaveToDb,
   segments,
   targetDuration,
@@ -304,6 +308,59 @@ export function LoopAIDirector({
             if (seg.script) {
               previewAudio(seg.script, seg.id, seg.character?.description);
               editSummary.push(`Generating new voice for scene ${edit.sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
+        case 'regenerateCharacter': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            const desc = edit.description || seg.character?.description || '';
+            if (desc) {
+              // Update description first, then regenerate images
+              onUpdateSegment(seg.id, {
+                character: {
+                  ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                  description: desc,
+                  name: desc.slice(0, 60),
+                  referenceImages: [], // Clear old images
+                },
+                status: 'generating-character',
+              });
+              onGenerateCharacter(seg.id, desc);
+              editSummary.push(`🎭 Regenerating character for scene ${edit.sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
+        case 'regenerateBroll': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            const prompt = edit.prompt || seg.brollPrompts?.[0] || '';
+            if (prompt) {
+              // Update prompt if provided, then regenerate
+              if (edit.prompt) {
+                onUpdateSegment(seg.id, { brollPrompts: [prompt], status: 'generating-character' });
+              }
+              onGenerateBrollPreview(seg.id, prompt);
+              editSummary.push(`🎞️ Regenerating B-roll for scene ${edit.sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
+        case 'updateCharacterDescription': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            const desc = edit.description || '';
+            if (desc) {
+              onUpdateSegment(seg.id, {
+                character: {
+                  ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                  description: desc,
+                  name: desc.slice(0, 60),
+                },
+              });
+              editSummary.push(`Updated character description for scene ${edit.sceneIndex + 1}`);
             }
           }
           break;

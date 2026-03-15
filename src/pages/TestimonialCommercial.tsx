@@ -260,6 +260,7 @@ export default function TestimonialCommercial() {
                 onAddSegment={addSegment}
                 onDeleteSegment={deleteSegment}
                 onGenerateCharacter={generateCharacterForSegment}
+                onGenerateBrollPreview={generateBrollPreview}
                 onSaveToDb={handleSaveToDb}
                 segments={segments}
                 targetDuration={targetDuration}
