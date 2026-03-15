@@ -44,7 +44,11 @@ export function SegmentCard({
   onDrop,
   onGenerateCharacter,
 }: SegmentCardProps) {
-  const status = segment.status || 'pending';
+  // If segment has brollImages but status is 'error', override to show success
+  const rawStatus = segment.status || 'pending';
+  const status = (rawStatus === 'error' && segment.type === 'broll' && segment.brollImages && segment.brollImages.length > 0)
+    ? 'character-ready'
+    : rawStatus;
   const statusInfo = statusConfig[status] || statusConfig.pending;
   const StatusIcon = statusInfo.icon;
   const [charDescription, setCharDescription] = useState(segment.character?.description || '');
