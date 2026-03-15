@@ -273,19 +273,25 @@ export default function TestimonialCommercial() {
 
           {/* Right: Preview & Production Panel */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Timeline Preview */}
+            {/* Timeline Preview + Fullscreen */}
             {segments.length > 0 && (
               <div className="px-4 py-3 border-b border-border/50 bg-background/50 shrink-0">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><Film className="h-3 w-3" /> {segments.length} segments</span>
+                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {segments.reduce((s, seg) => s + seg.duration, 0)}s total</span>
+                    <span>~{Math.ceil(segments.length * 1.5)} min to generate</span>
+                  </div>
+                  <Button
+                    onClick={() => setPreviewOpen(true)}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                  >
+                    <Eye className="h-3 w-3" /> Fullscreen Preview
+                  </Button>
+                </div>
                 <TimelinePreview segments={segments} onReorder={reorderSegments} />
-              </div>
-            )}
-
-            {/* Duration Summary */}
-            {segments.length > 0 && (
-              <div className="px-4 pt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Film className="h-3 w-3" /> {segments.length} segments</span>
-                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {segments.reduce((s, seg) => s + seg.duration, 0)}s total</span>
-                <span>~{Math.ceil(segments.length * 1.5)} min to generate</span>
               </div>
             )}
 
