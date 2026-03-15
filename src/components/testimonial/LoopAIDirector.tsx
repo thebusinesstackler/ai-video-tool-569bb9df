@@ -685,6 +685,7 @@ export function LoopAIDirector({
                 imageCount: s.character.referenceImages.length,
               } : undefined,
               hasBrollImages: (s.brollImages?.length || 0) > 0,
+              hasProductImage: !!s.productImageUrl,
               hasAudio: !!s.audioUrl,
               status: s.status,
             })) : undefined,
