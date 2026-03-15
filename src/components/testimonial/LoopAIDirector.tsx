@@ -360,6 +360,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
               <SelectItem value="60">60s</SelectItem>
             </SelectContent>
           </Select>
+          </div>
         </div>
       </div>
 
