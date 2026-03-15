@@ -44,6 +44,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 export function SegmentCard({
   segment,
   index,
+  typeNumber,
   onUpdate,
   onDelete,
   onDuplicate,
