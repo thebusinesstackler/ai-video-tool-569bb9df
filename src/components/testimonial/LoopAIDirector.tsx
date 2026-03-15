@@ -30,7 +30,7 @@ type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap';
     sceneIndex?: number | 'all';
     sceneIndices?: number[];
     changes?: Record<string, any>;
