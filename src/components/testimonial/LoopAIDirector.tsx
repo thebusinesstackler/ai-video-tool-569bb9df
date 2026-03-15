@@ -351,7 +351,7 @@ export function LoopAIDirector({
         case 'updateCharacterDescription': {
           if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
             const seg = segments[edit.sceneIndex];
-            const desc = (edit as any).description || '';
+            const desc = edit.description || '';
             if (desc) {
               onUpdateSegment(seg.id, {
                 character: {
