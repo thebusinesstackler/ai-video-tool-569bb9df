@@ -8,6 +8,7 @@ interface SegmentTimelineProps {
   segments: CommercialSegment[];
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   onAdd: () => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onGenerateCharacter?: (segmentId: string, description: string) => Promise<void>;
