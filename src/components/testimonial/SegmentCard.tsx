@@ -66,6 +66,7 @@ export function SegmentCard({
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [isGeneratingNewVoice, setIsGeneratingNewVoice] = useState(false);
   const [isGeneratingBroll, setIsGeneratingBroll] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
