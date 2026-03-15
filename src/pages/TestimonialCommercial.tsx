@@ -303,6 +303,7 @@ export default function TestimonialCommercial() {
                 onGenerateCharacter={generateCharacterForSegment}
                 onGenerateBrollPreview={generateBrollPreview}
                 onSaveToDb={handleSaveToDb}
+                onGenerateMusic={handleGenerateMusic}
                 segments={segments}
                 targetDuration={targetDuration}
                 onTargetDurationChange={setTargetDuration}
