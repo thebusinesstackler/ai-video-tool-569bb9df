@@ -403,6 +403,12 @@ export default function TestimonialCommercial() {
           </div>
         </div>
       </div>
+      <StoryboardPreview
+        segments={segments}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        commercialName={name}
+      />
     </Layout>
   );
 }
