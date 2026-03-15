@@ -536,6 +536,29 @@ export function LoopAIDirector({
           break;
         }
 
+        case 'productSwap': {
+          const sourceIdx = edit.sourceSceneIndex;
+          const targetIdxs = edit.targetSceneIndices || [];
+          if (typeof sourceIdx === 'number' && sourceIdx >= 0 && sourceIdx < segments.length) {
+            const sourceSeg = segments[sourceIdx];
+            const productUrl = sourceSeg.productImageUrl || sourceSeg.character?.referenceImages?.[0];
+            if (productUrl && targetIdxs.length > 0) {
+              for (const tIdx of targetIdxs) {
+                if (tIdx >= 0 && tIdx < segments.length) {
+                  const tSeg = segments[tIdx];
+                  onUpdateSegment(tSeg.id, { productImageUrl: productUrl, status: 'generating-character' });
+                  const prompt = tSeg.brollPrompts?.[0] || 'Product showcase';
+                  onGenerateBrollPreview(tSeg.id, prompt);
+                }
+              }
+              editSummary.push(`📦 Product swap: copied product from scene ${sourceIdx + 1} to ${targetIdxs.length} B-roll scenes`);
+            } else {
+              editSummary.push(`⚠️ No product image found in scene ${sourceIdx + 1}`);
+            }
+          }
+          break;
+        }
+
         case 'updateCharacterDescription': {
           for (const sceneIndex of targetIndexes) {
             const seg = segments[sceneIndex];
