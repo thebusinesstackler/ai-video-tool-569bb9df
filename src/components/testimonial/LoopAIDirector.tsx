@@ -344,7 +344,9 @@ export function LoopAIDirector({
             if (typeof edit.changes?.duration === 'number') changes.duration = edit.changes.duration;
             if (typeof edit.changes?.script === 'string') changes.script = edit.changes.script;
             if (Array.isArray(edit.changes?.brollPrompts)) changes.brollPrompts = edit.changes.brollPrompts;
-            if (typeof edit.changes?.transition === 'string') changes.transition = edit.changes.transition;
+            if (typeof edit.changes?.transition === 'string' && ['fade-in', 'cut', 'crossfade'].includes(edit.changes.transition)) {
+              changes.transition = edit.changes.transition as CommercialSegment['transition'];
+            }
             if (typeof edit.changes?.voiceoverText === 'string') changes.voiceoverText = edit.changes.voiceoverText;
             if (typeof edit.changes?.characterDescription === 'string') {
               changes.character = {
