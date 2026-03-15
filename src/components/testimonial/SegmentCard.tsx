@@ -296,7 +296,7 @@ export function SegmentCard({
               <span className="text-xs text-muted-foreground font-mono">#{index + 1}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              {/* Play audio button */}
+              {/* Play cached audio */}
               {segment.audioUrl && (
                 <Button
                   variant="ghost"
@@ -312,6 +312,36 @@ export function SegmentCard({
                   )}
                 </Button>
               )}
+              {/* Generate New Voice — always available for speaking segments with script */}
+              {segment.type === 'speaking' && segment.script && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleGenerateNewVoice}
+                  disabled={isGeneratingNewVoice}
+                  title={segment.audioUrl ? 'Generate new voice' : 'Preview voice'}
+                >
+                  {isGeneratingNewVoice ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Headphones className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
+              {/* Voice ID badge — click to copy */}
+              {segment.voiceoverId && (
+                <button
+                  className="text-[9px] font-mono bg-muted/60 rounded px-1.5 py-0.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors border border-border/50"
+                  onClick={() => {
+                    navigator.clipboard.writeText(segment.voiceoverId!);
+                    toast.success(`Voice ID "${segment.voiceoverId}" copied — reuse this voice anytime`);
+                  }}
+                  title="Copy voice ID to reuse this voice"
+                >
+                  🎙️ {segment.voiceoverId.slice(0, 16)}…
+                </button>
+              )}
               {/* Play video button */}
               {segment.videoUrl && (
                 <Button
@@ -325,23 +355,6 @@ export function SegmentCard({
                     <Pause className="h-3 w-3 text-primary" />
                   ) : (
                     <Play className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-              {/* Voice preview for speaking segments */}
-              {segment.type === 'speaking' && segment.script && !segment.audioUrl && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handlePreviewVoice}
-                  disabled={isPreviewingVoice}
-                  title="Preview voice"
-                >
-                  {isPreviewingVoice ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Headphones className="h-3 w-3" />
                   )}
                 </Button>
               )}
