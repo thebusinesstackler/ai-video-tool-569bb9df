@@ -101,12 +101,12 @@ export function useTestimonialCommercial() {
 
     // Validate segments
     for (const segment of segments) {
-      if (segment.type === 'twin-speaking' && (!segment.twinId || !segment.script)) {
-        toast.error('Each speaking segment needs a twin and script');
+      if (segment.type === 'twin-speaking' && !segment.script) {
+        toast.error('Each speaking segment needs a script');
         return;
       }
-      if (segment.type === 'broll-montage' && (!segment.voiceoverId || !segment.voiceoverText)) {
-        toast.error('Montage segments need a voice and script');
+      if (segment.type === 'twin-speaking' && !segment.twinId) {
+        toast.error('Each speaking segment needs an assigned AI Twin');
         return;
       }
     }
@@ -129,7 +129,11 @@ export function useTestimonialCommercial() {
         try {
           // Generate audio for speaking/montage segments
           let audioUrl: string | undefined;
-          if (segment.type === 'twin-speaking' || segment.type === 'broll-montage') {
+          if (segment.type === 'twin-speaking' && segment.script) {
+            audioUrl = await generateAudioForSegment(segment);
+            generatedData[i].audioUrl = audioUrl;
+            updateSegment(segment.id, { audioUrl });
+          } else if (segment.type === 'broll-montage' && segment.voiceoverText) {
             audioUrl = await generateAudioForSegment(segment);
             generatedData[i].audioUrl = audioUrl;
             updateSegment(segment.id, { audioUrl });
@@ -257,23 +261,27 @@ export function useTestimonialCommercial() {
 }
 
 async function generateAudioForSegment(segment: CommercialSegment): Promise<string> {
-  // Get the twin's voice cloning key
-  const { data: twin } = await supabase
-    .from('ai_twins')
-    .select('voice_cloning_key')
-    .eq('id', segment.type === 'twin-speaking' ? segment.twinId : segment.voiceoverId)
-    .single();
-
-  if (!twin?.voice_cloning_key) {
-    throw new Error('Twin does not have a cloned voice');
-  }
-
   const text = segment.type === 'twin-speaking' ? segment.script : segment.voiceoverText;
+  
+  if (!text) throw new Error('No script text for audio generation');
+
+  // Get voice ID - from twin or use default
+  let voiceId: string | null = null;
+  const twinId = segment.type === 'twin-speaking' ? segment.twinId : segment.voiceoverId;
+  
+  if (twinId) {
+    const { data: twin } = await supabase
+      .from('ai_twins')
+      .select('voice_cloning_key')
+      .eq('id', twinId)
+      .single();
+    voiceId = twin?.voice_cloning_key || null;
+  }
 
   const { data, error } = await supabase.functions.invoke('text-to-speech', {
     body: {
       text,
-      voiceId: twin.voice_cloning_key
+      ...(voiceId ? { voiceId } : {})
     }
   });
 

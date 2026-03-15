@@ -167,7 +167,50 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
       try {
-        return JSON.parse(jsonMatch[1]);
+        // Sanitize control characters inside JSON string values
+        // Replace literal newlines/tabs inside strings with escaped versions
+        let sanitized = jsonMatch[1];
+        // Fix unescaped control characters in JSON strings by replacing them
+        sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, (ch) => {
+          if (ch === '\n') return '\\n';
+          if (ch === '\r') return '\\r';
+          if (ch === '\t') return '\\t';
+          return '';
+        });
+        // But we need to restore actual JSON structure newlines - the replace above
+        // broke the JSON structure. Instead, let's parse more carefully.
+        // Re-approach: only sanitize within string values
+        let raw = jsonMatch[1];
+        // Replace newlines that appear within JSON string values (between quotes)
+        let result = '';
+        let inString = false;
+        let escaped = false;
+        for (let i = 0; i < raw.length; i++) {
+          const ch = raw[i];
+          if (escaped) {
+            result += ch;
+            escaped = false;
+            continue;
+          }
+          if (ch === '\\') {
+            result += ch;
+            escaped = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = !inString;
+            result += ch;
+            continue;
+          }
+          if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
+            if (ch === '\n') result += '\\n';
+            else if (ch === '\r') result += '\\r';
+            else if (ch === '\t') result += '\\t';
+            continue;
+          }
+          result += ch;
+        }
+        return JSON.parse(result);
       } catch (e) {
         console.error('Failed to parse strategy JSON:', e);
       }
@@ -257,10 +300,12 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
         }
       }
 
-      // Check if response contains a strategy
+      // Check if response contains a strategy - auto-apply it
       const strategy = extractStrategyFromMessage(assistantContent);
       if (strategy) {
         setExtractedStrategy(strategy);
+        // Auto-apply directly
+        await handleApplyStrategy(strategy);
       }
 
     } catch (error) {
@@ -273,20 +318,21 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
     }
   };
 
-  const handleApplyStrategy = async () => {
-    if (!extractedStrategy) return;
+  const handleApplyStrategy = async (strategyOverride?: CommercialStrategy) => {
+    const strategyToApply = strategyOverride || extractedStrategy;
+    if (!strategyToApply) return;
 
     setIsGeneratingImages(true);
     toast.info('Preparing strategy...');
 
     // First, generate voiceovers for any montage segments that are missing them
     const processedStrategySegments = await Promise.all(
-      extractedStrategy.segments.map(async (seg) => {
+      strategyToApply.segments.map(async (seg) => {
         if (seg.type === 'broll-montage' && !seg.voiceover && seg.brollPrompts?.length > 0) {
           toast.info('Generating voiceover for montage...');
           const generatedVoiceover = await generateVoiceoverFromPrompts(
             seg.brollPrompts,
-            extractedStrategy.title
+            strategyToApply.title
           );
           return { ...seg, voiceover: generatedVoiceover };
         }
@@ -336,7 +382,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
         return {
           ...baseSegment,
           type: 'broll-montage' as const,
-          voiceover: seg.voiceover || '',
+          voiceoverText: seg.voiceover || '',
           brollPrompts: seg.brollPrompts || [],
           brollImages: [],
         };
@@ -350,7 +396,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
       };
     });
 
-    onApplyStrategy(segments, extractedStrategy.title);
+    onApplyStrategy(segments, strategyToApply.title);
     toast.success('Strategy applied to timeline!');
     setExtractedStrategy(null);
 
@@ -420,12 +466,14 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30">30 seconds</SelectItem>
-                  <SelectItem value="60">1 minute</SelectItem>
-                  <SelectItem value="120">2 minutes</SelectItem>
-                  <SelectItem value="180">3 minutes</SelectItem>
-                  <SelectItem value="240">4 minutes</SelectItem>
-                </SelectContent>
+                   <SelectItem value="10">10 seconds</SelectItem>
+                   <SelectItem value="15">15 seconds</SelectItem>
+                   <SelectItem value="30">30 seconds</SelectItem>
+                   <SelectItem value="60">1 minute</SelectItem>
+                   <SelectItem value="120">2 minutes</SelectItem>
+                   <SelectItem value="180">3 minutes</SelectItem>
+                   <SelectItem value="240">4 minutes</SelectItem>
+                 </SelectContent>
               </Select>
             </div>
 
@@ -550,7 +598,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
                       </Badge>
                     </div>
                   </div>
-                  <Button onClick={handleApplyStrategy} className="gap-2">
+                  <Button onClick={() => handleApplyStrategy()} className="gap-2">
                     <Wand2 className="h-4 w-4" />
                     Apply to Timeline
                   </Button>

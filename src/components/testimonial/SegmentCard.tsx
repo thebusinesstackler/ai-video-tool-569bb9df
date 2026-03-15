@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { TwinSelector } from './TwinSelector';
-import { GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, AlertCircle, Upload, Sparkles, X } from 'lucide-react';
+import { GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, AlertCircle, Upload, Sparkles, X, Wand2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/AuthProvider';
 
 interface SegmentCardProps {
   segment: CommercialSegment;
@@ -56,6 +57,51 @@ export function SegmentCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDescribing, setIsDescribing] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>(segment.brollImages || []);
+  const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
+  const { user } = useAuth();
+
+  const handleGenerateCharacter = async (description: string) => {
+    if (!user?.id || !description.trim()) return;
+    
+    setIsGeneratingCharacter(true);
+    toast.info('Generating AI character with multiple angles...');
+    
+    try {
+      // Generate a character image using AI
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: {
+          prompt: `Professional headshot portrait of ${description}. Clean studio lighting, neutral background, photorealistic, high quality, looking directly at camera.`,
+          aspectRatio: '1:1'
+        }
+      });
+
+      if (error) throw error;
+      if (!data?.imageUrl) throw new Error('No image generated');
+
+      // Create an AI Twin with this generated image
+      const { data: twin, error: twinError } = await supabase
+        .from('ai_twins')
+        .insert({
+          user_id: user.id,
+          name: description.slice(0, 50),
+          description,
+          reference_images: [data.imageUrl],
+        })
+        .select('id, name')
+        .single();
+
+      if (twinError) throw twinError;
+
+      // Auto-assign to this segment
+      onUpdate(segment.id, { twinId: twin.id, twinName: twin.name });
+      toast.success(`AI character "${twin.name}" created and assigned!`);
+    } catch (err) {
+      console.error('Character generation error:', err);
+      toast.error('Failed to generate character');
+    } finally {
+      setIsGeneratingCharacter(false);
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -184,6 +230,41 @@ export function SegmentCard({
               value={segment.twinId}
               onSelect={(id, name) => onUpdate(segment.id, { twinId: id, twinName: name })}
             />
+            
+            {/* Generate AI Character option */}
+            {!segment.twinId && (
+              <div className="border border-dashed border-primary/30 rounded-lg p-3 bg-primary/5">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Or generate an AI character with multiple angles
+                </p>
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder="Describe the person (e.g., 'confident woman in her 30s, professional attire')..."
+                    className="min-h-[40px] text-sm"
+                    id={`char-desc-${segment.id}`}
+                    rows={2}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1"
+                    disabled={isGeneratingCharacter}
+                    onClick={() => {
+                      const el = document.getElementById(`char-desc-${segment.id}`) as HTMLTextAreaElement;
+                      if (el?.value) handleGenerateCharacter(el.value);
+                    }}
+                  >
+                    {isGeneratingCharacter ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3 w-3" />
+                    )}
+                    Generate
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label>Script (What they say)</Label>
               <Textarea
