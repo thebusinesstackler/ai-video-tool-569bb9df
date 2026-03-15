@@ -463,12 +463,14 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30">30 seconds</SelectItem>
-                  <SelectItem value="60">1 minute</SelectItem>
-                  <SelectItem value="120">2 minutes</SelectItem>
-                  <SelectItem value="180">3 minutes</SelectItem>
-                  <SelectItem value="240">4 minutes</SelectItem>
-                </SelectContent>
+                   <SelectItem value="10">10 seconds</SelectItem>
+                   <SelectItem value="15">15 seconds</SelectItem>
+                   <SelectItem value="30">30 seconds</SelectItem>
+                   <SelectItem value="60">1 minute</SelectItem>
+                   <SelectItem value="120">2 minutes</SelectItem>
+                   <SelectItem value="180">3 minutes</SelectItem>
+                   <SelectItem value="240">4 minutes</SelectItem>
+                 </SelectContent>
               </Select>
             </div>
 
