@@ -298,6 +298,16 @@ export function LoopAIDirector({
           }
           break;
         }
+        case 'generateVoice': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            if (seg.script) {
+              previewAudio(seg.script, seg.id, seg.character?.description);
+              editSummary.push(`Generating new voice for scene ${edit.sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
       }
     }
 
