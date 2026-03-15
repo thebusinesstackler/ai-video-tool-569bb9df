@@ -1053,6 +1053,24 @@ export function LoopAIDirector({
                 </div>
               </div>
             )}
+
+            {/* Quick action buttons — show after last message when not loading */}
+            {!isLoading && messages.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-border/30">
+                {getQuickActions().map((action, i) => (
+                  <Button
+                    key={i}
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-auto py-1.5 px-2.5 hover:bg-primary/5 hover:border-primary/30 transition-colors"
+                    onClick={() => { setInput(action.message); }}
+                  >
+                    <span className="mr-1">{action.icon}</span>
+                    {action.label.replace(/^[^\s]+\s/, '')}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>
