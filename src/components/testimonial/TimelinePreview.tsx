@@ -31,8 +31,35 @@ const segmentConfig = {
 export function TimelinePreview({ segments, onReorder }: TimelinePreviewProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [twinImages, setTwinImages] = useState<Record<string, string>>({});
 
-  if (segments.length === 0) return null;
+  // Fetch twin reference images for speaking segments
+  useEffect(() => {
+    const twinIds = segments
+      .filter(s => s.type === 'twin-speaking' && s.twinId)
+      .map(s => s.twinId!)
+      .filter((id, i, arr) => arr.indexOf(id) === i);
+
+    if (twinIds.length === 0) return;
+
+    async function fetchTwinImages() {
+      const { data } = await supabase
+        .from('ai_twins')
+        .select('id, reference_images')
+        .in('id', twinIds);
+
+      if (data) {
+        const images: Record<string, string> = {};
+        data.forEach(twin => {
+          if (twin.reference_images?.[0]) {
+            images[twin.id] = twin.reference_images[0];
+          }
+        });
+        setTwinImages(images);
+      }
+    }
+    fetchTwinImages();
+  }, [segments]);
 
   const totalDuration = segments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
 
