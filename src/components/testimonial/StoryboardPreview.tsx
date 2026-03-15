@@ -291,8 +291,9 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
                     );
                   })}
                 </div>
-              </div>
             </div>
+            )}
+          </div>
           </div>
 
           {/* Bottom Playback Controls */}
