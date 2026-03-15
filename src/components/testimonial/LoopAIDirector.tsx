@@ -540,6 +540,59 @@ export function LoopAIDirector({
           }
           break;
         }
+
+        case 'generateMusic': {
+          const mood = edit.mood || 'uplifting corporate, warm and inspiring';
+          if (onGenerateMusic) {
+            onGenerateMusic(mood);
+            editSummary.push(`🎵 Generating music: "${mood}"`);
+          } else {
+            editSummary.push(`🎵 Music requested: "${mood}" (not yet configured)`);
+          }
+          break;
+        }
+
+        case 'regenerateAll': {
+          // Full production pass: regenerate all missing content
+          let regeneratedCount = 0;
+          for (let idx = 0; idx < segments.length; idx++) {
+            const seg = segments[idx];
+            if (seg.type === 'speaking') {
+              // Regenerate character if no images
+              if (seg.character?.description && (!seg.character.referenceImages || seg.character.referenceImages.length === 0)) {
+                onUpdateSegment(seg.id, {
+                  character: { ...seg.character, referenceImages: [] },
+                  status: 'generating-character',
+                });
+                onGenerateCharacter(seg.id, seg.character.description);
+                regeneratedCount++;
+              }
+              // Generate voice if no audio
+              if (seg.script && !seg.audioUrl) {
+                previewAudio(seg.script, seg.id, seg.character?.description);
+                regeneratedCount++;
+              }
+            } else if (seg.type === 'broll') {
+              // Regenerate B-roll preview if missing
+              if (seg.brollPrompts?.[0] && (!seg.brollImages || seg.brollImages.length === 0)) {
+                onGenerateBrollPreview(seg.id, seg.brollPrompts[0]);
+                regeneratedCount++;
+              }
+            }
+          }
+          // Also generate music if handler available
+          if (onGenerateMusic) {
+            // Infer mood from scripts
+            const allScripts = segments.filter(s => s.script).map(s => s.script).join(' ');
+            const autoMood = allScripts.length > 50
+              ? 'cinematic commercial background music, modern and inspiring, subtle build'
+              : 'uplifting corporate, warm acoustic guitar, inspiring';
+            onGenerateMusic(autoMood);
+            regeneratedCount++;
+          }
+          editSummary.push(`🚀 Full production pass: regenerating ${regeneratedCount} assets`);
+          break;
+        }
       }
     }
 
