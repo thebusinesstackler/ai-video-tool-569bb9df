@@ -25,16 +25,22 @@ interface CommercialStrategy {
   totalDuration: number;
 }
 
+type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
+
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription';
-    sceneIndex?: number;
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText';
+    sceneIndex?: number | 'all';
+    sceneIndices?: number[];
     changes?: Record<string, any>;
     segment?: any;
     duration?: number;
     description?: string;
     prompt?: string;
+    find?: string;
+    replaceWith?: string;
+    scope?: ReplaceScope;
   }>;
 }
 
