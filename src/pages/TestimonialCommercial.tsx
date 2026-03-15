@@ -204,6 +204,10 @@ export default function TestimonialCommercial() {
             >
               <Film className="h-3 w-3 mr-1" /> New
             </Button>
+            <SavedCommercialsDrawer
+              onLoad={(id) => navigate(`?edit=${id}`)}
+              refreshTrigger={currentCommercial}
+            />
             <Button onClick={handleSave} variant="outline" size="sm" className="h-7 text-xs">
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>
