@@ -28,7 +28,7 @@ interface CommercialStrategy {
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice';
     sceneIndex?: number;
     changes?: Record<string, any>;
     segment?: any;
