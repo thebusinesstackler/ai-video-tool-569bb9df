@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CommercialSegment } from '@/types/testimonialCommercial';
-import { Play, Pause, SkipForward, SkipBack, X, Camera, Clock, Film, Volume2, Type, ArrowRight } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, X, Camera, Clock, Film, Volume2, Type, ArrowRight, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface StoryboardPreviewProps {
@@ -40,6 +40,7 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [showPanel, setShowPanel] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const seg = segments[currentIndex];
@@ -106,9 +107,9 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden bg-black border-border/30">
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen p-0 gap-0 overflow-hidden bg-black border-0 rounded-none [&>button]:hidden">
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-background/95 border-b border-border/30">
+        <div className="flex items-center justify-between px-4 py-2 bg-background/95 border-b border-border/30">
           <div className="flex items-center gap-3">
             <Film className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">{commercialName}</span>
@@ -116,9 +117,12 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
               Storyboard Preview
             </Badge>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{segments.length} scenes</span>
             <span>{totalDuration}s total</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPanel(!showPanel)}>
+              {showPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -180,7 +184,8 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
               </div>
             </div>
 
-            {/* Right Info Panel */}
+            {/* Right Info Panel — collapsible */}
+            {showPanel && (
             <div className="w-[260px] bg-background border-l border-border/30 flex flex-col overflow-y-auto">
               {/* Camera & Technical */}
               <div className="p-4 space-y-4 border-b border-border/30">
@@ -288,6 +293,7 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Bottom Playback Controls */}
