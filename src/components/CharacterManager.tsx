@@ -24,6 +24,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AICharacterCreator } from '@/components/AICharacterCreator';
+import { ActorProfilePanel } from '@/components/ActorProfilePanel';
 import templateProduct1 from '@/assets/template-char-product1.jpg';
 import templateProduct2 from '@/assets/template-char-product2.jpg';
 import templateProduct3 from '@/assets/template-char-product3.jpg';
