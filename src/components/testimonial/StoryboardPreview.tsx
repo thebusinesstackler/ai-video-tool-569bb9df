@@ -107,9 +107,9 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 gap-0 overflow-hidden bg-black border-border/30">
+      <DialogContent className="max-w-[100vw] w-screen h-screen max-h-screen p-0 gap-0 overflow-hidden bg-black border-0 rounded-none [&>button]:hidden">
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-background/95 border-b border-border/30">
+        <div className="flex items-center justify-between px-4 py-2 bg-background/95 border-b border-border/30">
           <div className="flex items-center gap-3">
             <Film className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">{commercialName}</span>
@@ -117,9 +117,12 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
               Storyboard Preview
             </Badge>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{segments.length} scenes</span>
             <span>{totalDuration}s total</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPanel(!showPanel)}>
+              {showPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
