@@ -474,19 +474,13 @@ export function useTestimonialCommercial() {
         }
       }
 
-      // Stitch videos - use latest segments state
-      const latestSegments = segments.map(s => {
-        const completed = completedSegmentIds.includes(s.id);
-        return completed ? s : s;
-      });
+      // Stitch videos using locally tracked clips (avoids stale React state)
+      if (generatedClips.length === 0) {
+        throw new Error('No video clips to stitch');
+      }
       
-      // Get current segment state for stitching
-      toast.info('Stitching commercial...');
-      
-      // Small delay to let state settle
-      await new Promise(r => setTimeout(r, 500));
-      
-      const finalUrl = await stitchCommercial(segments, aspectRatio);
+      toast.info(`Stitching ${generatedClips.length} clips...`);
+      const finalUrl = await stitchCommercialFromClips(generatedClips, aspectRatio);
 
       if (currentCommercial) {
         await supabase.from('testimonial_commercials')
