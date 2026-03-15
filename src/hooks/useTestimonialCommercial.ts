@@ -548,29 +548,23 @@ async function pollForVideo(taskId: string): Promise<string> {
   throw new Error('Video generation timed out');
 }
 
-async function stitchCommercial(segments: CommercialSegment[], aspectRatio: string = '9:16'): Promise<string> {
-  const clips = segments.filter(s => s.videoUrl).map(s => ({
-    url: s.videoUrl!,
-    duration: s.duration,
-    transition: s.transition,
-    caption: s.script?.slice(0, 100),
+async function stitchCommercialFromClips(
+  clips: { id: string; videoUrl: string; audioUrl?: string; duration: number; script?: string }[],
+  aspectRatio: string = '9:16'
+): Promise<string> {
+  const stitchClips = clips.map(c => ({
+    url: c.videoUrl,
+    duration: c.duration,
+    caption: c.script?.slice(0, 100),
   }));
 
-  // Collect separate audio tracks for overlay
-  const audioUrls = segments
-    .filter(s => s.audioUrl && s.videoUrl)
-    .map(s => s.audioUrl!);
-
-  if (clips.length === 0) throw new Error('No video clips to stitch');
-
-  const width = aspectRatio === '9:16' ? 1080 : 1920;
-  const height = aspectRatio === '9:16' ? 1920 : 1080;
+  const audioUrls = clips.filter(c => c.audioUrl).map(c => c.audioUrl!);
 
   try {
     const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
       body: { 
-        clips,
-        audioUrl: audioUrls.length > 0 ? audioUrls[0] : undefined, // Primary audio
+        clips: stitchClips,
+        audioUrl: audioUrls.length > 0 ? audioUrls[0] : undefined,
         transition: 'crossfade',
         captionStyle: 'bottom',
       }
@@ -592,7 +586,7 @@ async function stitchCommercial(segments: CommercialSegment[], aspectRatio: stri
     console.warn('Creatomate stitch failed, falling back to canvas:', err);
     const { stitchVideosWithAudio } = await import('@/lib/videoStitch');
     const blob = await stitchVideosWithAudio({ 
-      videoUrls: clips.map(c => c.url), 
+      videoUrls: stitchClips.map(c => c.url), 
       audioUrls 
     });
     return URL.createObjectURL(blob);
