@@ -284,6 +284,10 @@ export function LoopAIDirector({
   }, [voiceEnabled]);
 
   const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     window.speechSynthesis?.cancel();
     setIsSpeaking(false);
   }, []);
