@@ -23,6 +23,7 @@ export function SegmentTimeline({
   onReorder,
   onGenerateCharacter,
   segmentFilter,
+  isAddingScene,
 }: SegmentTimelineProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
