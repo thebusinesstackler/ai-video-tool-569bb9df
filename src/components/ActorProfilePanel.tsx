@@ -86,7 +86,16 @@ export function ActorProfilePanel({ character, onClose, onUpdate }: ActorProfile
 
     setIsGenerating(true);
     try {
-      const prompt = `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
+      const promptLower = generationPrompt.toLowerCase();
+      const isBackgroundChange = BACKGROUND_KEYWORDS.some(kw => promptLower.includes(kw));
+
+      const prompt = isBackgroundChange
+        ? `Create a photorealistic image of THIS EXACT PERSON from the reference image.
+${character.description ? `Person description: ${character.description}.` : ''}
+BACKGROUND CHANGE: ${generationPrompt}.
+CRITICAL: Keep the person COMPLETELY IDENTICAL — same face, features, skin tone, hair, clothing, pose, and expression. ONLY change the background/environment/setting as described. The person should look naturally placed in the new environment.
+Style: Professional photography, high quality, cinematic lighting.`
+        : `Create a photorealistic image of THIS EXACT PERSON from the reference image. 
 ${character.description ? `Person description: ${character.description}.` : ''}
 New scene: ${generationPrompt}. 
 CRITICAL: The person MUST look identical to the reference — same face, features, skin tone, hair, and overall appearance.
