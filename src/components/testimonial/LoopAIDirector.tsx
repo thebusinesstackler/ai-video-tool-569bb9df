@@ -95,6 +95,7 @@ export function LoopAIDirector({
   onGenerateCharacter,
   onGenerateBrollPreview,
   onSaveToDb,
+  onGenerateMusic,
   segments,
   targetDuration,
   onTargetDurationChange,
