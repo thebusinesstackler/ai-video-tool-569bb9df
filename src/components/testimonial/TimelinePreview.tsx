@@ -45,6 +45,16 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
     audio.play().catch(() => setPlayingId(null));
   }, [playingId]);
 
+  // Build type-specific numbering (Scene #1, B-Roll #1, etc.)
+  const getTypeNumber = (index: number) => {
+    const seg = segments[index];
+    let count = 0;
+    for (let i = 0; i <= index; i++) {
+      if (segments[i].type === seg.type) count++;
+    }
+    return count;
+  };
+
   if (segments.length === 0) return null;
 
   const totalDuration = segments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
