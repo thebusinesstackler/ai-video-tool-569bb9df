@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 interface SegmentCardProps {
   segment: CommercialSegment;
   index: number;
+  typeNumber: number; // Type-specific number (Scene #1, B-Roll #1)
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
   onDuplicate?: (id: string) => void;
