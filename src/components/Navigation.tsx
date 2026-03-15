@@ -67,6 +67,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'AI Twin', href: '/ai-twin', icon: ScanFace },
       { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation },
+      { name: 'Hook Engine', href: '/hook-engine', icon: Zap },
       { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote },
       { name: 'Commercial Studio', href: '/commercial-studio', icon: Film },
     ],

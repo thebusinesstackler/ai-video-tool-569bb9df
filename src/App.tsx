@@ -63,6 +63,7 @@ const App = () => (
             <Route path="/ai-spokesperson" element={<ProtectedRoute><AISpokesperson /></ProtectedRoute>} />
             <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
             <Route path="/commercial-studio" element={<ProtectedRoute><CommercialStudio /></ProtectedRoute>} />
+            <Route path="/hook-engine" element={<ProtectedRoute><HookEngine /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
