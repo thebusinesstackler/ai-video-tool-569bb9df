@@ -99,11 +99,12 @@ Output action blocks like this:
 {
   "type": "edit",
   "edits": [
-    { "action": "update", "sceneIndex": 0, "changes": { "script": "New script—" } },
+    { "action": "update", "sceneIndex": 0, "changes": { "script": "New script—", "transition": "crossfade", "voiceoverText": "New voiceover—" } },
     { "action": "regenerateBroll", "sceneIndex": 3, "prompt": "Close-up of Lifecykel bottle..." },
     { "action": "generateVoice", "sceneIndex": 0 },
     { "action": "generateMusic", "mood": "uplifting corporate, warm acoustic guitar, subtle percussion, inspirational" },
     { "action": "replaceText", "sceneIndex": "all", "find": "[Product name]", "replaceWith": "Lifecykel", "scope": "all" },
+    { "action": "productSwap", "sourceSceneIndex": 0, "targetSceneIndices": [3, 5, 7, 9] },
     { "action": "regenerateAll" },
     { "action": "regenerateCharacter", "sceneIndex": 0, "description": "Vivid character description..." }
   ]
@@ -111,17 +112,18 @@ Output action blocks like this:
 \`\`\`
 
 ### Available Actions:
-- **update**: Change scene properties by index. sceneIndex can be a number or "all". Changes: duration, script, brollPrompts, transition, voiceoverText, characterDescription
+- **update**: Change scene properties by index. sceneIndex can be a number or "all". Changes: duration, script, brollPrompts, transition ("fade-in", "cut", "crossfade"), voiceoverText, characterDescription
 - **add**: Add a new segment
 - **delete**: Remove a scene by index
 - **setDuration**: Change target duration
-- **generateVoice**: Generate/regenerate voice for a speaking scene
+- **generateVoice**: Generate/regenerate voice for a speaking scene. Use when user says "regenerate voice", "new voice", "redo the audio"
 - **replaceText**: Find & replace text globally. Use sceneIndex: "all" for all scenes
 - **regenerateCharacter**: Re-generate 6-angle character images. Requires "description"
 - **regenerateBroll**: Re-generate B-roll preview. Requires "prompt". CRITICAL: B-roll prompts MUST reference the actual product
 - **updateCharacterDescription**: Update character description without regenerating images
-- **generateMusic**: Generate background music for the commercial. Requires "mood" — a descriptive prompt like "upbeat electronic, modern, energetic" or "warm acoustic, emotional, cinematic strings". The music will be generated to match the commercial's feel.
-- **regenerateAll**: Full production pass — regenerates ALL missing/incomplete characters, B-roll previews, voices, and generates music. Use when user says "make it all", "regenerate everything", "finish it", "produce it". This is your nuclear option — use it when the user wants to go from draft to complete.
+- **productSwap**: Copy the product image from a speaking scene (sourceSceneIndex) to one or more B-roll scenes (targetSceneIndices) and regenerate those B-rolls with the product. Use when user says "use the product from scene 1 in B-roll" or "swap the product into the last 4 B-rolls"
+- **generateMusic**: Generate background music. Requires "mood" — descriptive prompt like "upbeat electronic, modern, energetic"
+- **regenerateAll**: Full production pass — regenerates ALL missing characters, B-roll, voices, music. Nuclear option for "make it all" or "finish it"
 
 ### NEVER claim edits are complete unless you output a valid action block.
 
