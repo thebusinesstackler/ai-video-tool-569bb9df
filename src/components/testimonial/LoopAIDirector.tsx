@@ -4,13 +4,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, CheckCircle2, Sparkles } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, CheckCircle2, Sparkles, Plus } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { CommercialSegment } from '@/types/testimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
+import loopAiAvatar from '@/assets/loop-ai-avatar.jpg';
 
 interface Message {
   role: 'user' | 'assistant' | 'system-action';
@@ -24,10 +25,27 @@ interface CommercialStrategy {
   totalDuration: number;
 }
 
+interface EditAction {
+  type: 'edit';
+  edits: Array<{
+    action: 'update' | 'add' | 'delete' | 'setDuration';
+    sceneIndex?: number;
+    changes?: Record<string, any>;
+    segment?: any;
+    duration?: number;
+  }>;
+}
+
 interface LoopAIDirectorProps {
   onApplyStrategy: (segments: CommercialSegment[], name: string) => void;
+  onUpdateSegment: (id: string, updates: Partial<CommercialSegment>) => void;
+  onAddSegment: (type: 'speaking' | 'broll') => void;
+  onDeleteSegment: (id: string) => void;
   onGenerateCharacter: (segmentId: string, description: string) => Promise<void>;
+  onSaveToDb: () => Promise<void>;
   segments: CommercialSegment[];
+  targetDuration: string;
+  onTargetDurationChange: (dur: string) => void;
 }
 
 function calculateDurationFromScript(script: string): number {
@@ -58,29 +76,30 @@ function pickVoiceForCharacter(desc: string): { voiceId: string; gender: string 
   return { voiceId: voices[Math.floor(Math.random() * voices.length)], gender: 'male' };
 }
 
-export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments }: LoopAIDirectorProps) {
+export function LoopAIDirector({
+  onApplyStrategy,
+  onUpdateSegment,
+  onAddSegment,
+  onDeleteSegment,
+  onGenerateCharacter,
+  onSaveToDb,
+  segments,
+  targetDuration,
+  onTargetDurationChange,
+}: LoopAIDirectorProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const saved = localStorage.getItem(CHAT_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.messages || [];
-      }
+      if (saved) return JSON.parse(saved).messages || [];
     } catch {}
     return [];
   });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [targetDuration, setTargetDuration] = useState(() => {
-    try {
-      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
-      if (saved) return JSON.parse(saved).targetDuration || '30';
-    } catch {}
-    return '30';
-  });
   const [isListening, setIsListening] = useState(false);
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
+  const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -99,11 +118,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
   }, [messages]);
 
   const toggleVoiceInput = useCallback(() => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) { toast.error('Speech recognition not supported'); return; }
     const recognition = new SpeechRecognition();
@@ -122,11 +137,16 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
     setIsListening(true);
   }, [isListening]);
 
-  const previewAudio = async (script: string, characterDescription?: string) => {
-    if (isPreviewingAudio) { audioRef.current?.pause(); setIsPreviewingAudio(false); return; }
+  const previewAudio = async (script: string, segId: string, characterDescription?: string) => {
+    if (isPreviewingAudio && previewingSegId === segId) {
+      audioRef.current?.pause();
+      setIsPreviewingAudio(false);
+      setPreviewingSegId(null);
+      return;
+    }
     setIsPreviewingAudio(true);
+    setPreviewingSegId(segId);
     try {
-      // Pick voice matching the character's gender from their description
       const { voiceId, gender } = characterDescription
         ? pickVoiceForCharacter(characterDescription)
         : { voiceId: 'English_Trustworth_Man', gender: 'male' };
@@ -137,13 +157,21 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
         body: { text: script, voice: voiceId, gender }
       });
       if (error || !data?.audioUrl) throw new Error('TTS failed');
+
+      // Save audio URL to segment in DB
+      onUpdateSegment(segId, { audioUrl: data.audioUrl });
+
       const audio = new Audio(data.audioUrl);
       audioRef.current = audio;
-      audio.onended = () => setIsPreviewingAudio(false);
+      audio.onended = () => { setIsPreviewingAudio(false); setPreviewingSegId(null); };
       audio.play();
+
+      // Auto-save after generating audio
+      onSaveToDb();
     } catch {
       toast.error('Failed to generate audio preview');
       setIsPreviewingAudio(false);
+      setPreviewingSegId(null);
     }
   };
 
@@ -153,31 +181,122 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
     toast.success('Chat cleared');
   };
 
+  const sanitizeJsonString = (raw: string): string => {
+    let result = '';
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (escaped) { result += ch; escaped = false; continue; }
+      if (ch === '\\') { result += ch; escaped = true; continue; }
+      if (ch === '"') { inString = !inString; result += ch; continue; }
+      if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
+        if (ch === '\n') result += '\\n';
+        else if (ch === '\r') result += '\\r';
+        else if (ch === '\t') result += '\\t';
+        continue;
+      }
+      result += ch;
+    }
+    return result;
+  };
+
   const extractStrategyFromMessage = (content: string): CommercialStrategy | null => {
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
     if (!jsonMatch) return null;
     try {
-      let raw = jsonMatch[1];
-      let result = '';
-      let inString = false;
-      let escaped = false;
-      for (let i = 0; i < raw.length; i++) {
-        const ch = raw[i];
-        if (escaped) { result += ch; escaped = false; continue; }
-        if (ch === '\\') { result += ch; escaped = true; continue; }
-        if (ch === '"') { inString = !inString; result += ch; continue; }
-        if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
-          if (ch === '\n') result += '\\n';
-          else if (ch === '\r') result += '\\r';
-          else if (ch === '\t') result += '\\t';
-          continue;
-        }
-        result += ch;
-      }
-      return JSON.parse(result);
+      return JSON.parse(sanitizeJsonString(jsonMatch[1]));
     } catch (e) {
       console.error('Failed to parse strategy:', e);
       return null;
+    }
+  };
+
+  const extractEditActions = (content: string): EditAction | null => {
+    const actionMatch = content.match(/```action\s*([\s\S]*?)\s*```/);
+    if (!actionMatch) return null;
+    try {
+      return JSON.parse(sanitizeJsonString(actionMatch[1]));
+    } catch (e) {
+      console.error('Failed to parse edit action:', e);
+      return null;
+    }
+  };
+
+  const applyEditActions = (editAction: EditAction) => {
+    let editSummary: string[] = [];
+
+    for (const edit of editAction.edits) {
+      switch (edit.action) {
+        case 'update': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            const changes: Partial<CommercialSegment> = {};
+            if (edit.changes?.duration) changes.duration = edit.changes.duration;
+            if (edit.changes?.script) changes.script = edit.changes.script;
+            if (edit.changes?.brollPrompts) changes.brollPrompts = edit.changes.brollPrompts;
+            if (edit.changes?.transition) changes.transition = edit.changes.transition;
+            if (edit.changes?.voiceoverText) changes.voiceoverText = edit.changes.voiceoverText;
+            if (edit.changes?.characterDescription) {
+              changes.character = {
+                ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                description: edit.changes.characterDescription,
+                name: edit.changes.characterDescription.slice(0, 60),
+              };
+            }
+            onUpdateSegment(seg.id, changes);
+            editSummary.push(`Updated scene ${edit.sceneIndex + 1}`);
+          }
+          break;
+        }
+        case 'add': {
+          if (edit.segment) {
+            const newSeg: CommercialSegment = {
+              id: crypto.randomUUID(),
+              type: edit.segment.type || 'speaking',
+              script: edit.segment.script || '',
+              duration: edit.segment.duration || 8,
+              transition: edit.segment.transition || 'cut',
+              status: 'pending',
+              ...(edit.segment.characterDescription ? {
+                character: {
+                  name: edit.segment.characterDescription.slice(0, 60),
+                  description: edit.segment.characterDescription,
+                  referenceImages: [],
+                }
+              } : {}),
+              ...(edit.segment.brollPrompts ? { brollPrompts: edit.segment.brollPrompts } : {}),
+              ...(edit.segment.voiceover ? { voiceoverText: edit.segment.voiceover } : {}),
+            };
+            // Use onApplyStrategy to append
+            onApplyStrategy([...segments, newSeg], '');
+            editSummary.push(`Added new ${edit.segment.type} scene`);
+          }
+          break;
+        }
+        case 'delete': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            onDeleteSegment(segments[edit.sceneIndex].id);
+            editSummary.push(`Removed scene ${edit.sceneIndex + 1}`);
+          }
+          break;
+        }
+        case 'setDuration': {
+          if (edit.duration) {
+            onTargetDurationChange(String(edit.duration));
+            editSummary.push(`Changed target duration to ${edit.duration}s`);
+          }
+          break;
+        }
+      }
+    }
+
+    if (editSummary.length > 0) {
+      setMessages(prev => [...prev, {
+        role: 'system-action' as const,
+        content: `✏️ Applied changes: ${editSummary.join(', ')}`
+      }]);
+      onSaveToDb();
     }
   };
 
@@ -205,6 +324,15 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
           body: JSON.stringify({
             messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
             targetDuration: parseInt(targetDuration),
+            currentSegments: segments.length > 0 ? segments.map(s => ({
+              type: s.type,
+              duration: s.duration,
+              transition: s.transition,
+              script: s.script,
+              brollPrompts: s.brollPrompts,
+              character: s.character ? { description: s.character.description } : undefined,
+              status: s.status,
+            })) : undefined,
           }),
         }
       );
@@ -242,9 +370,9 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
               assistantContent += content;
               setMessages(prev => {
                 const updated = [...prev];
-                const lastAssistant = updated.length - 1;
-                if (updated[lastAssistant]?.role === 'assistant') {
-                  updated[lastAssistant] = { role: 'assistant', content: assistantContent };
+                const lastIdx = updated.length - 1;
+                if (updated[lastIdx]?.role === 'assistant') {
+                  updated[lastIdx] = { role: 'assistant', content: assistantContent };
                 }
                 return updated;
               });
@@ -256,10 +384,15 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
         }
       }
 
-      // Auto-apply strategy if JSON found
+      // Process AI response - check for new strategy OR edit actions
       const strategy = extractStrategyFromMessage(assistantContent);
       if (strategy) {
         applyStrategy(strategy);
+      } else {
+        const editAction = extractEditActions(assistantContent);
+        if (editAction) {
+          applyEditActions(editAction);
+        }
       }
     } catch (error) {
       console.error('Loop AI error:', error);
@@ -273,7 +406,6 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
   const applyStrategy = (strategy: CommercialStrategy) => {
     const newSegments: CommercialSegment[] = strategy.segments.map((seg) => {
       const duration = seg.script ? calculateDurationFromScript(seg.script) : (seg.duration || 8);
-
       if (seg.type === 'speaking' || seg.type === 'twin-speaking') {
         return {
           id: crypto.randomUUID(),
@@ -289,7 +421,6 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
           } : undefined,
         };
       }
-
       return {
         id: crypto.randomUUID(),
         type: 'broll' as const,
@@ -303,25 +434,35 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
 
     onApplyStrategy(newSegments, strategy.title);
 
-    // Add a system action message confirming the build
     const speakingCount = newSegments.filter(s => s.type === 'speaking').length;
     const brollCount = newSegments.filter(s => s.type === 'broll').length;
     const totalDur = newSegments.reduce((sum, s) => sum + s.duration, 0);
 
     setMessages(prev => [...prev, {
       role: 'system-action' as const,
-      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total. Generate characters in the Scenes tab to preview your actors.`
+      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total`
     }]);
+
+    // Auto-save to DB
+    setTimeout(() => onSaveToDb(), 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // Strip JSON blocks from display - the AI's conversational text stays
   const renderMessageContent = (content: string) => {
-    return content.replace(/```json[\s\S]*?```/g, '').trim();
+    return content.replace(/```json[\s\S]*?```/g, '').replace(/```action[\s\S]*?```/g, '').trim();
   };
+
+  const LoopAvatar = ({ size = 'sm' }: { size?: 'sm' | 'lg' }) => (
+    <Avatar className={`${size === 'lg' ? 'h-10 w-10' : 'h-7 w-7'} shrink-0 border-2 border-primary/30 shadow-sm`}>
+      <AvatarImage src={loopAiAvatar} alt="Loop AI" className="object-cover" />
+      <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+        <Clapperboard className="h-3 w-3" />
+      </AvatarFallback>
+    </Avatar>
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -329,11 +470,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Avatar className="h-10 w-10 bg-primary/10 border-2 border-primary/30 shadow-sm">
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
-                <Clapperboard className="h-5 w-5" />
-              </AvatarFallback>
-            </Avatar>
+            <LoopAvatar size="lg" />
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
           </div>
           <div>
@@ -348,18 +485,18 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
             </Button>
           )}
           <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2 py-1">
-          <Clock className="h-3 w-3 text-muted-foreground" />
-          <Select value={targetDuration} onValueChange={setTargetDuration}>
-            <SelectTrigger className="w-[72px] h-6 text-[10px] border-0 bg-transparent p-0 shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10s</SelectItem>
-              <SelectItem value="15">15s</SelectItem>
-              <SelectItem value="30">30s</SelectItem>
-              <SelectItem value="60">60s</SelectItem>
-            </SelectContent>
-          </Select>
+            <Clock className="h-3 w-3 text-muted-foreground" />
+            <Select value={targetDuration} onValueChange={onTargetDurationChange}>
+              <SelectTrigger className="w-[72px] h-6 text-[10px] border-0 bg-transparent p-0 shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10s</SelectItem>
+                <SelectItem value="15">15s</SelectItem>
+                <SelectItem value="30">30s</SelectItem>
+                <SelectItem value="60">60s</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
@@ -368,12 +505,18 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 mb-5 shadow-sm">
-              <Clapperboard className="h-10 w-10 text-primary" />
+            <div className="relative mb-5">
+              <Avatar className="h-20 w-20 border-4 border-primary/20 shadow-lg">
+                <AvatarImage src={loopAiAvatar} alt="Loop AI Director" className="object-cover" />
+                <AvatarFallback className="bg-primary/10"><Clapperboard className="h-8 w-8 text-primary" /></AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-3 border-background flex items-center justify-center">
+                <div className="w-2 h-2 bg-white rounded-full" />
+              </div>
             </div>
             <h3 className="text-lg font-bold mb-1">Loop AI Director</h3>
             <p className="text-xs text-muted-foreground max-w-[280px] mb-6 leading-relaxed">
-              I'm your creative director. Tell me about your product — I'll craft the actors, scripts, B-roll, and full storyboard. You can also ask me about target audience, messaging, and brand strategy.
+              I'm your creative director. Tell me about your product — I'll craft the actors, scripts, B-roll, and full storyboard. Ask me to tweak anything — duration, scripts, b-roll, actors. I'm here until it's perfect.
             </p>
             <div className="flex flex-col gap-2 w-full max-w-[320px]">
               {[
@@ -397,7 +540,6 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
         ) : (
           <div className="space-y-4">
             {messages.map((msg, i) => {
-              // System action messages (storyboard confirmations)
               if (msg.role === 'system-action') {
                 return (
                   <div key={i} className="flex justify-center">
@@ -412,11 +554,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
               return (
                 <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.role === 'assistant' && (
-                    <Avatar className="h-7 w-7 shrink-0 mt-1 bg-primary/10 border border-primary/20">
-                      <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                        <Clapperboard className="h-3 w-3" />
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="mt-1"><LoopAvatar /></div>
                   )}
                   <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${
                     msg.role === 'user'
@@ -437,11 +575,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
 
             {isLoading && messages[messages.length - 1]?.content === '' && (
               <div className="flex gap-3">
-                <Avatar className="h-7 w-7 shrink-0 bg-primary/10 border border-primary/20">
-                  <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
-                    <Clapperboard className="h-3 w-3" />
-                  </AvatarFallback>
-                </Avatar>
+                <div className="mt-0.5"><LoopAvatar /></div>
                 <div className="bg-muted/80 rounded-xl rounded-bl-sm px-3.5 py-2.5 border border-border/30">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
@@ -476,14 +610,17 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
                             variant="ghost"
                             size="sm"
                             className="h-6 text-[10px] gap-1 hover:text-primary"
-                            onClick={() => previewAudio(seg.script!, seg.character?.description)}
+                            onClick={() => previewAudio(seg.script!, seg.id, seg.character?.description)}
                           >
-                            {isPreviewingAudio ? <Volume2 className="h-3 w-3 text-primary animate-pulse" /> : <Play className="h-3 w-3" />}
-                            Preview
+                            {isPreviewingAudio && previewingSegId === seg.id
+                              ? <Volume2 className="h-3 w-3 text-primary animate-pulse" />
+                              : <Play className="h-3 w-3" />}
+                            {seg.audioUrl ? 'Replay' : 'Preview'}
                           </Button>
                         )}
                       </div>
 
+                      {/* Character + B-roll images side by side */}
                       {seg.character && seg.character.referenceImages.length > 0 && (
                         <div className="flex gap-1.5 overflow-x-auto pb-1">
                           {seg.character.referenceImages.slice(0, 6).map((img, i) => (
@@ -492,10 +629,28 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
                         </div>
                       )}
 
+                      {seg.brollImages && seg.brollImages.length > 0 && (
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          {seg.brollImages.map((img, i) => (
+                            <img key={i} src={img} alt={`B-roll ${i+1}`} className="h-16 w-24 rounded-md object-cover border border-border/50 shrink-0" />
+                          ))}
+                        </div>
+                      )}
+
                       {seg.type === 'speaking' && seg.character && seg.character.referenceImages.length === 0 && (
-                        <p className="text-[10px] text-primary/80 italic bg-primary/5 rounded px-2 py-1">
-                          🎭 "{seg.character.description?.slice(0, 80)}..." — Generate in Scenes tab
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] text-primary/80 italic bg-primary/5 rounded px-2 py-1 flex-1">
+                            🎭 "{seg.character.description?.slice(0, 80)}..."
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-[10px] gap-1 shrink-0"
+                            onClick={() => onGenerateCharacter(seg.id, seg.character!.description)}
+                          >
+                            <Sparkles className="h-2.5 w-2.5" /> Generate
+                          </Button>
+                        </div>
                       )}
 
                       {seg.script && (
@@ -504,10 +659,18 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
                         </p>
                       )}
 
-                      {seg.brollPrompts?.[0] && (
+                      {seg.brollPrompts?.[0] && !seg.brollImages?.length && (
                         <p className="text-[10px] text-muted-foreground">
                           📷 {seg.brollPrompts[0].slice(0, 100)}...
                         </p>
+                      )}
+
+                      {/* Audio indicator */}
+                      {seg.audioUrl && (
+                        <div className="flex items-center gap-1.5">
+                          <Volume2 className="h-2.5 w-2.5 text-emerald-500" />
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400">Voice generated</span>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -533,7 +696,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isListening ? 'Listening...' : 'Describe your commercial...'}
+            placeholder={isListening ? 'Listening...' : 'Describe your commercial or ask for changes...'}
             className="min-h-[44px] max-h-[120px] resize-none text-sm"
             disabled={isLoading}
           />
