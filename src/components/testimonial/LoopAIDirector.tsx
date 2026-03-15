@@ -579,11 +579,13 @@ export function LoopAIDirector({
           body: JSON.stringify({
             messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
             targetDuration: parseInt(targetDuration),
-            currentSegments: segments.length > 0 ? segments.map(s => ({
+            currentSegments: segments.length > 0 ? segments.map((s, index) => ({
+              index,
               type: s.type,
               duration: s.duration,
               transition: s.transition,
               script: s.script,
+              voiceoverText: s.voiceoverText,
               brollPrompts: s.brollPrompts,
               character: s.character ? {
                 description: s.character.description,
