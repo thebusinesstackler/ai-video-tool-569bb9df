@@ -72,6 +72,11 @@ export function SegmentCard({
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [expandedImageLabel, setExpandedImageLabel] = useState('');
 
+  // Product image swap state
+  const [isUploadingProduct, setIsUploadingProduct] = useState(false);
+  const [isSwappingProduct, setIsSwappingProduct] = useState(false);
+  const productInputRef = useRef<HTMLInputElement | null>(null);
+
   // Edit image description state
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const [editDescription, setEditDescription] = useState('');
