@@ -104,9 +104,14 @@ export function LoopAIDirector({
   const [isListening, setIsListening] = useState(false);
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
   const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    try { return localStorage.getItem('loop-ai-voice') !== 'off'; } catch { return true; }
+  });
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const directorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Auto-save chat to localStorage
   useEffect(() => {
