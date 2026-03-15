@@ -392,7 +392,7 @@ export function useTestimonialCommercial() {
 
               const videoUrl = await pollForVideo(data.taskId);
               updateSegment(segment.id, { videoUrl, audioUrl, status: 'complete' });
-              completedSegmentIds.push(segment.id);
+              generatedClips.push({ id: segment.id, videoUrl, audioUrl, duration: segment.duration, script: segment.script });
             } else {
               updateSegment(segment.id, { audioUrl, status: 'error' });
             }
