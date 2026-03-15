@@ -304,8 +304,8 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
       const strategy = extractStrategyFromMessage(assistantContent);
       if (strategy) {
         setExtractedStrategy(strategy);
-        // Auto-apply directly using the strategy object
-        await applyStrategyDirect(strategy);
+        // Auto-apply directly
+        await handleApplyStrategy(strategy);
       }
 
     } catch (error) {
