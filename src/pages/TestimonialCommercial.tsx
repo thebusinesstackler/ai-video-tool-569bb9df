@@ -46,7 +46,11 @@ export default function TestimonialCommercial() {
     isGenerating,
     generationProgress,
     currentCommercial,
-    setCurrentCommercial
+    setCurrentCommercial,
+    videoFormat,
+    setVideoFormat,
+    videoStyle,
+    setVideoStyle,
   } = useTestimonialCommercial();
 
   const handleApplyStrategy = (newSegments: CommercialSegment[], commercialName: string) => {
