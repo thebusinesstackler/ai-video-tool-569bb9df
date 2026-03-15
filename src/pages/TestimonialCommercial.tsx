@@ -373,6 +373,11 @@ export default function TestimonialCommercial() {
                 </div>
               ) : (
                 <div className="flex gap-2">
+                  {segments.length > 0 && (
+                    <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
+                      <Eye className="h-3 w-3" /> Preview
+                    </Button>
+                  )}
                   {hasCharacters && !allApproved && (
                     <Button onClick={approveAllSegments} variant="outline" size="sm" className="gap-1 text-xs">
                       <CheckCircle2 className="h-3 w-3" /> Approve All
