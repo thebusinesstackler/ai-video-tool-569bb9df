@@ -336,10 +336,10 @@ export function LoopAIDirector({
         case 'regenerateBroll': {
           if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
             const seg = segments[edit.sceneIndex];
-            const prompt = (edit as any).prompt || seg.brollPrompts?.[0] || '';
+            const prompt = edit.prompt || seg.brollPrompts?.[0] || '';
             if (prompt) {
               // Update prompt if provided, then regenerate
-              if ((edit as any).prompt) {
+              if (edit.prompt) {
                 onUpdateSegment(seg.id, { brollPrompts: [prompt], status: 'generating-character' });
               }
               onGenerateBrollPreview(seg.id, prompt);
