@@ -11,7 +11,7 @@ import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { useTestimonialCommercial, VideoFormat, VideoStyle } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye, Music, Smartphone, Monitor } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye, Music, Smartphone, Monitor, Copy, ExternalLink, RotateCcw, Tv } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { cn } from '@/lib/utils';
 import { SavedCommercialsDrawer } from '@/components/testimonial/SavedCommercialsDrawer';
@@ -93,7 +93,10 @@ export default function TestimonialCommercial() {
   const handleSave = async () => { await saveCommercial(name); };
   const handleGenerate = async () => {
     const videoUrl = await generateCommercial();
-    if (videoUrl) setFinalVideoUrl(videoUrl);
+    if (videoUrl) {
+      setFinalVideoUrl(videoUrl);
+      setActiveTab('final-cut');
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -406,13 +409,18 @@ export default function TestimonialCommercial() {
             {/* Tabs */}
             <div className="flex-1 overflow-auto p-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="w-full grid grid-cols-3 mb-4">
+                <TabsList className={cn("w-full mb-4", finalVideoUrl ? "grid grid-cols-4" : "grid grid-cols-3")}>
                   <TabsTrigger value="scenes" className="gap-1 text-xs">
                     <Film className="h-3 w-3" /> Scenes ({speakingSegments.length})
                   </TabsTrigger>
                   <TabsTrigger value="broll" className="gap-1 text-xs">
                     <Image className="h-3 w-3" /> B-Roll ({brollSegments.length})
                   </TabsTrigger>
+                  {finalVideoUrl && (
+                    <TabsTrigger value="final-cut" className="gap-1 text-xs">
+                      <Tv className="h-3 w-3" /> Final Cut
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="saved" className="gap-1 text-xs">
                     <Video className="h-3 w-3" /> Saved ({savedCommercials.length})
                   </TabsTrigger>
@@ -444,6 +452,82 @@ export default function TestimonialCommercial() {
                     isAddingScene={isSuggestingScene}
                   />
                 </TabsContent>
+
+                {finalVideoUrl && (
+                  <TabsContent value="final-cut">
+                    <div className="space-y-6">
+                      {/* Large Video Player */}
+                      <div className="rounded-xl overflow-hidden border border-border bg-black">
+                        <video
+                          src={finalVideoUrl}
+                          controls
+                          autoPlay={activeTab === 'final-cut'}
+                          className="w-full max-h-[60vh]"
+                        />
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="default" size="sm" className="gap-1.5" asChild>
+                          <a href={finalVideoUrl} download target="_blank" rel="noopener">
+                            <Download className="h-3.5 w-3.5" /> Download MP4
+                          </a>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => {
+                            navigator.clipboard.writeText(finalVideoUrl);
+                            toast.success('Video URL copied to clipboard');
+                          }}
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Copy Link
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => window.open(finalVideoUrl, '_blank')}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> Open in New Tab
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={handleGenerate}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" /> Regenerate
+                        </Button>
+                      </div>
+
+                      {/* Per-Segment Clips */}
+                      {segments.some(s => s.videoUrl) && (
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-semibold flex items-center gap-2">
+                            <Film className="h-4 w-4 text-primary" /> Individual Clips
+                          </h3>
+                          <div className="grid grid-cols-2 gap-3">
+                            {segments.filter(s => s.videoUrl).map((seg, i) => (
+                              <div key={seg.id} className="rounded-lg border border-border overflow-hidden bg-muted/30">
+                                <video src={seg.videoUrl} controls className="w-full aspect-video" />
+                                <div className="p-2">
+                                  <p className="text-xs font-medium truncate">
+                                    {seg.type === 'speaking' ? `Scene ${i + 1}` : `B-Roll ${i + 1}`}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground truncate">
+                                    {seg.script?.slice(0, 60) || seg.brollPrompts?.[0]?.slice(0, 60) || ''}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
 
                 <TabsContent value="saved">
                   {savedCommercials.length === 0 ? (
@@ -535,9 +619,16 @@ export default function TestimonialCommercial() {
                 </div>
               )}
 
-              {finalVideoUrl && (
-                <div className="mt-3">
-                  <video src={finalVideoUrl} controls className="w-full rounded-lg max-h-[200px]" />
+              {finalVideoUrl && !isGenerating && (
+                <div className="mt-2">
+                  <Button
+                    onClick={() => setActiveTab('final-cut')}
+                    variant="ai"
+                    size="sm"
+                    className="w-full gap-2"
+                  >
+                    <Tv className="h-4 w-4" /> Watch Final Cut
+                  </Button>
                 </div>
               )}
 
