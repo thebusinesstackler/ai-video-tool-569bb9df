@@ -5,8 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Sparkles, Wand2, ChevronDown, ChevronUp, Music, Clock, Layers } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Loader2, Send, Sparkles, Wand2, ChevronDown, ChevronUp, Clock, Layers } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { CommercialSegment } from '@/types/testimonialCommercial';
@@ -19,189 +18,50 @@ interface Message {
 interface CommercialStrategy {
   title: string;
   summary: string;
-  musicStyle: string;
   segments: any[];
   totalDuration: number;
 }
 
-interface Twin {
-  id: string;
-  name: string;
-  description: string | null;
-  voice_cloning_key: string | null;
-}
-
 interface CommercialStrategistProps {
   onApplyStrategy: (segments: CommercialSegment[], name: string) => void;
-  onGenerateBrollImages?: (segments: CommercialSegment[]) => Promise<void>;
 }
 
-// Calculate duration based on word count (~2.5 words per second for natural speech)
-// Round to allowed API values: 5 or 8 seconds
 function calculateDurationFromScript(script: string): number {
   if (!script) return 5;
   const words = script.trim().split(/\s+/).length;
-  const estimatedSeconds = Math.ceil(words / 2.5);
-  
-  // Clamp to multiples of 5 or 8, minimum 5, round to nearest allowed value
-  if (estimatedSeconds <= 6) return 5;
-  if (estimatedSeconds <= 10) return 8;
-  // For longer scripts, we need multiple segments but for now just use max
-  return 8;
+  const est = Math.ceil(words / 2.5);
+  if (est <= 6) return 5;
+  if (est <= 10) return 8;
+  return 10;
 }
 
-// Generate a voiceover script based on B-roll prompts
-async function generateVoiceoverFromPrompts(brollPrompts: string[], commercialTitle: string): Promise<string> {
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-commercial-strategy`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Generate a SHORT, punchy voiceover script (15-20 words max) for a B-roll montage segment in a commercial called "${commercialTitle}". The visuals will show: ${brollPrompts.join(', ')}. 
-            
-Just return the voiceover text directly, no JSON, no quotes, just the script itself. Make it compelling and action-oriented with a clear call-to-action.`
-          }],
-          targetDuration: 8,
-          availableTwins: [],
-        }),
-      }
-    );
-
-    if (!response.ok || !response.body) {
-      throw new Error('Failed to generate voiceover');
-    }
-
-    // Read the streamed response
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let voiceover = '';
-    let textBuffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      textBuffer += decoder.decode(value, { stream: true });
-
-      let newlineIndex: number;
-      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-        let line = textBuffer.slice(0, newlineIndex);
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-
-        if (line.endsWith('\r')) line = line.slice(0, -1);
-        if (line.startsWith(':') || line.trim() === '') continue;
-        if (!line.startsWith('data: ')) continue;
-
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === '[DONE]') break;
-
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) voiceover += content;
-        } catch {
-          textBuffer = line + '\n' + textBuffer;
-          break;
-        }
-      }
-    }
-
-    // Clean up the voiceover - remove any JSON formatting or quotes
-    voiceover = voiceover.replace(/```json\s*|\s*```/g, '').replace(/^["']|["']$/g, '').trim();
-    return voiceover || 'Discover something amazing today. Take action now.';
-  } catch (error) {
-    console.error('Failed to generate voiceover:', error);
-    // Fallback voiceover
-    return 'Experience the difference. Start your journey today.';
-  }
-}
-
-export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }: CommercialStrategistProps) {
+export function CommercialStrategist({ onApplyStrategy }: CommercialStrategistProps) {
   const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
-  const [targetDuration, setTargetDuration] = useState('60');
-  const [twins, setTwins] = useState<Twin[]>([]);
+  const [targetDuration, setTargetDuration] = useState('30');
   const [extractedStrategy, setExtractedStrategy] = useState<CommercialStrategy | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch user's AI twins
   useEffect(() => {
-    if (!user?.id) {
-      setTwins([]);
-      return;
-    }
-
-    async function fetchTwins() {
-      const { data } = await supabase
-        .from('ai_twins')
-        .select('id, name, description, voice_cloning_key')
-        .eq('user_id', user!.id);
-
-      if (data) {
-        setTwins(data);
-      }
-    }
-    fetchTwins();
-  }, [user?.id]);
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
   const extractStrategyFromMessage = (content: string): CommercialStrategy | null => {
-    // Look for JSON code block
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
       try {
-        // Sanitize control characters inside JSON string values
-        // Replace literal newlines/tabs inside strings with escaped versions
-        let sanitized = jsonMatch[1];
-        // Fix unescaped control characters in JSON strings by replacing them
-        sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, (ch) => {
-          if (ch === '\n') return '\\n';
-          if (ch === '\r') return '\\r';
-          if (ch === '\t') return '\\t';
-          return '';
-        });
-        // But we need to restore actual JSON structure newlines - the replace above
-        // broke the JSON structure. Instead, let's parse more carefully.
-        // Re-approach: only sanitize within string values
         let raw = jsonMatch[1];
-        // Replace newlines that appear within JSON string values (between quotes)
         let result = '';
         let inString = false;
         let escaped = false;
         for (let i = 0; i < raw.length; i++) {
           const ch = raw[i];
-          if (escaped) {
-            result += ch;
-            escaped = false;
-            continue;
-          }
-          if (ch === '\\') {
-            result += ch;
-            escaped = true;
-            continue;
-          }
-          if (ch === '"') {
-            inString = !inString;
-            result += ch;
-            continue;
-          }
+          if (escaped) { result += ch; escaped = false; continue; }
+          if (ch === '\\') { result += ch; escaped = true; continue; }
+          if (ch === '"') { inString = !inString; result += ch; continue; }
           if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
             if (ch === '\n') result += '\\n';
             else if (ch === '\r') result += '\\r';
@@ -212,7 +72,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
         }
         return JSON.parse(result);
       } catch (e) {
-        console.error('Failed to parse strategy JSON:', e);
+        console.error('Failed to parse strategy:', e);
       }
     }
     return null;
@@ -240,10 +100,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
           body: JSON.stringify({
             messages: [...messages, userMessage],
             targetDuration: parseInt(targetDuration),
-            availableTwins: twins.filter(t => t.voice_cloning_key).map(t => ({
-              name: t.name,
-              description: t.description
-            })),
+            availableTwins: [], // No twins needed - AI generates characters
           }),
         }
       );
@@ -252,35 +109,28 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to get response');
       }
-
       if (!response.body) throw new Error('No response body');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = '';
 
-      // Add empty assistant message to update progressively
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         textBuffer += decoder.decode(value, { stream: true });
 
-        // Process line by line
         let newlineIndex: number;
         while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
-
           if (line.endsWith('\r')) line = line.slice(0, -1);
           if (line.startsWith(':') || line.trim() === '') continue;
           if (!line.startsWith('data: ')) continue;
-
           const jsonStr = line.slice(6).trim();
           if (jsonStr === '[DONE]') break;
-
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content;
@@ -293,145 +143,73 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
               });
             }
           } catch {
-            // Incomplete JSON, put back and wait
             textBuffer = line + '\n' + textBuffer;
             break;
           }
         }
       }
 
-      // Check if response contains a strategy - auto-apply it
       const strategy = extractStrategyFromMessage(assistantContent);
       if (strategy) {
         setExtractedStrategy(strategy);
-        // Auto-apply directly
-        await handleApplyStrategy(strategy);
+        applyStrategy(strategy);
       }
-
     } catch (error) {
-      console.error('Strategy chat error:', error);
+      console.error('Strategy error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to get response');
-      // Remove the empty assistant message on error
       setMessages(prev => prev.filter(m => m.content !== ''));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleApplyStrategy = async (strategyOverride?: CommercialStrategy) => {
-    const strategyToApply = strategyOverride || extractedStrategy;
-    if (!strategyToApply) return;
+  const applyStrategy = (strategy: CommercialStrategy) => {
+    // Convert strategy to segments - speaking segments get character descriptions
+    const segments: CommercialSegment[] = strategy.segments.map((seg, index) => {
+      const duration = seg.script ? calculateDurationFromScript(seg.script) : (seg.duration || 8);
 
-    setIsGeneratingImages(true);
-    toast.info('Preparing strategy...');
-
-    // First, generate voiceovers for any montage segments that are missing them
-    const processedStrategySegments = await Promise.all(
-      strategyToApply.segments.map(async (seg) => {
-        if (seg.type === 'broll-montage' && !seg.voiceover && seg.brollPrompts?.length > 0) {
-          toast.info('Generating voiceover for montage...');
-          const generatedVoiceover = await generateVoiceoverFromPrompts(
-            seg.brollPrompts,
-            strategyToApply.title
-          );
-          return { ...seg, voiceover: generatedVoiceover };
-        }
-        return seg;
-      })
-    );
-
-    // Convert strategy segments to CommercialSegment format
-    const segments: CommercialSegment[] = processedStrategySegments.map((seg, index) => {
-      // Calculate duration based on script length for speaking segments
-      let duration = seg.duration || 8;
-      if (seg.type === 'twin-speaking' && seg.script) {
-        duration = calculateDurationFromScript(seg.script);
-      } else if (seg.type === 'broll-montage' && seg.voiceover) {
-        duration = calculateDurationFromScript(seg.voiceover);
+      if (seg.type === 'speaking' || seg.type === 'twin-speaking') {
+        return {
+          id: crypto.randomUUID(),
+          type: 'speaking' as const,
+          script: seg.script || '',
+          duration,
+          transition: seg.transition || 'fade-in',
+          status: 'pending' as const,
+          // Store character description from strategy for easy generation
+          character: seg.characterDescription ? {
+            name: seg.characterDescription.slice(0, 60),
+            description: seg.characterDescription,
+            referenceImages: [],
+          } : undefined,
+        };
       }
 
-      const baseSegment = {
+      // B-roll
+      return {
         id: crypto.randomUUID(),
-        order: index,
-        duration,
+        type: 'broll' as const,
+        brollPrompts: seg.brollPrompts || [seg.description || ''],
+        voiceoverText: seg.voiceover || seg.voiceoverText || '',
+        duration: seg.duration || 8,
         transition: seg.transition || 'cut',
         status: 'pending' as const,
       };
-
-      if (seg.type === 'twin-speaking') {
-        // Find matching twin by name
-        const matchedTwin = twins.find(t => 
-          t.name.toLowerCase().includes(seg.twinName?.toLowerCase() || '') ||
-          seg.twinName?.toLowerCase().includes(t.name.toLowerCase())
-        );
-
-        return {
-          ...baseSegment,
-          type: 'twin-speaking' as const,
-          twinId: matchedTwin?.id,
-          script: seg.script || '',
-        };
-      } else if (seg.type === 'broll-voice-continue') {
-        return {
-          ...baseSegment,
-          type: 'broll-voice-continue' as const,
-          brollPrompts: seg.brollPrompts || [],
-          brollImages: [],
-        };
-      } else if (seg.type === 'broll-montage') {
-        return {
-          ...baseSegment,
-          type: 'broll-montage' as const,
-          voiceoverText: seg.voiceover || '',
-          brollPrompts: seg.brollPrompts || [],
-          brollImages: [],
-        };
-      }
-
-      // Default to twin-speaking if type is unknown
-      return {
-        ...baseSegment,
-        type: 'twin-speaking' as const,
-        script: seg.script || '',
-      };
     });
 
-    onApplyStrategy(segments, strategyToApply.title);
-    toast.success('Strategy applied to timeline!');
+    onApplyStrategy(segments, strategy.title);
+    toast.success('Strategy applied! Generate characters for each speaking scene.');
     setExtractedStrategy(null);
-
-    // Generate B-roll images for segments that have prompts
-    const brollSegments = segments.filter(
-      s => (s.type === 'broll-voice-continue' || s.type === 'broll-montage') && s.brollPrompts && s.brollPrompts.length > 0
-    );
-
-    if (brollSegments.length > 0 && onGenerateBrollImages) {
-      toast.info('Generating B-roll images...');
-      try {
-        await onGenerateBrollImages(segments);
-        toast.success('B-roll images generated!');
-      } catch (error) {
-        console.error('Failed to generate B-roll images:', error);
-        toast.error('Failed to generate some B-roll images');
-      }
-    }
-
-    setIsGeneratingImages(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
-
-  const twinsWithVoice = twins.filter(t => t.voice_cloning_key);
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-      <CardHeader 
-        className="cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg"
+      <CardHeader
+        className="cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg py-4"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center justify-between">
@@ -440,105 +218,75 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
               <Wand2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
                 AI Commercial Strategist
-                <Badge variant="secondary" className="text-xs">Beta</Badge>
+                <Badge variant="secondary" className="text-[10px]">VEO3</Badge>
               </CardTitle>
-              <CardDescription>
-                Brainstorm your commercial concept with AI - get a complete strategy with segments, scripts, and B-roll
+              <CardDescription className="text-xs">
+                Describe your idea — AI builds the full commercial plan with auto-generated actors
               </CardDescription>
             </div>
           </div>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="h-8 w-8">
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
         </div>
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="space-y-4">
-          {/* Settings Row */}
-          <div className="flex flex-wrap gap-4 items-center">
+        <CardContent className="space-y-4 pt-0">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Clock className="h-3 w-3 text-muted-foreground" />
               <Select value={targetDuration} onValueChange={setTargetDuration}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[120px] h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                   <SelectItem value="10">10 seconds</SelectItem>
-                   <SelectItem value="15">15 seconds</SelectItem>
-                   <SelectItem value="30">30 seconds</SelectItem>
-                   <SelectItem value="60">1 minute</SelectItem>
-                   <SelectItem value="120">2 minutes</SelectItem>
-                   <SelectItem value="180">3 minutes</SelectItem>
-                   <SelectItem value="240">4 minutes</SelectItem>
-                 </SelectContent>
+                  <SelectItem value="10">10 seconds</SelectItem>
+                  <SelectItem value="15">15 seconds</SelectItem>
+                  <SelectItem value="30">30 seconds</SelectItem>
+                  <SelectItem value="60">1 minute</SelectItem>
+                </SelectContent>
               </Select>
             </div>
-
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Layers className="h-4 w-4" />
-              <span>{twinsWithVoice.length} AI Twin{twinsWithVoice.length !== 1 ? 's' : ''} available</span>
-            </div>
-
-            {twinsWithVoice.length === 0 && (
-              <Badge variant="destructive" className="text-xs">
-                No cloned voices - create AI Twins first
-              </Badge>
-            )}
           </div>
 
-          {/* Chat Area */}
+          {/* Chat */}
           <div className="border rounded-lg bg-background">
-            <ScrollArea className="h-[280px] p-4" ref={scrollRef}>
+            <ScrollArea className="h-[220px] p-3" ref={scrollRef}>
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                  <Sparkles className="h-8 w-8 mb-3 opacity-50" />
-                  <p className="font-medium">Start brainstorming your commercial</p>
-                  <p className="text-sm mt-1">
-                    Describe your product/service, target audience, and goals
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-4 justify-center">
+                  <Sparkles className="h-6 w-6 mb-2 opacity-40" />
+                  <p className="text-sm font-medium">Describe your commercial idea</p>
+                  <p className="text-xs mt-1">AI will create a plan with speaking scenes and B-roll</p>
+                  <div className="flex flex-wrap gap-2 mt-3 justify-center">
                     {[
-                      "I'm launching a fitness app for busy professionals",
-                      "We sell eco-friendly cleaning products",
-                      "I have a SaaS tool for small businesses",
+                      "30s testimonial ad for a fitness app",
+                      "15s product launch for eco-friendly water bottle",
+                      "10s social proof ad for a SaaS tool",
                     ].map((example, i) => (
-                      <Button
-                        key={i}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => setInput(example)}
-                      >
+                      <Button key={i} variant="outline" size="sm" className="text-[10px] h-7" onClick={() => setInput(example)}>
                         {example}
                       </Button>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {messages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-lg px-4 py-2 ${
-                          msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                        msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      }`}>
+                        <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
                       </div>
                     </div>
                   ))}
                   {isLoading && messages[messages.length - 1]?.content === '' && (
                     <div className="flex justify-start">
-                      <div className="bg-muted rounded-lg px-4 py-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                      <div className="bg-muted rounded-lg px-3 py-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
                       </div>
                     </div>
                   )}
@@ -546,61 +294,38 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
               )}
             </ScrollArea>
 
-            {/* Input Area */}
-            <div className="border-t p-3">
+            <div className="border-t p-2">
               <div className="flex gap-2">
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Describe your commercial idea..."
-                  className="min-h-[60px] resize-none"
+                  placeholder="Describe your commercial..."
+                  className="min-h-[50px] resize-none text-sm"
                   disabled={isLoading}
                 />
-                <Button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className="h-auto"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
+                <Button onClick={handleSend} disabled={!input.trim() || isLoading} className="h-auto px-3">
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* Strategy Preview & Apply */}
           {extractedStrategy && (
-            <Card className="border-green-500/30 bg-green-500/5">
-              <CardContent className="pt-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-green-500" />
-                      <span className="font-semibold">{extractedStrategy.title}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{extractedStrategy.summary}</p>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <Badge variant="outline" className="gap-1">
-                        <Music className="h-3 w-3" />
-                        {extractedStrategy.musicStyle}
-                      </Badge>
-                      <Badge variant="outline" className="gap-1">
-                        <Clock className="h-3 w-3" />
-                        {extractedStrategy.totalDuration}s total
-                      </Badge>
-                      <Badge variant="outline" className="gap-1">
-                        <Layers className="h-3 w-3" />
-                        {extractedStrategy.segments.length} segments
-                      </Badge>
-                    </div>
+            <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <CardContent className="pt-3 pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-500" />
+                    <span className="text-sm font-semibold">{extractedStrategy.title}</span>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <Layers className="h-2 w-2" />
+                      {extractedStrategy.segments.length} scenes
+                    </Badge>
                   </div>
-                  <Button onClick={() => handleApplyStrategy()} className="gap-2">
-                    <Wand2 className="h-4 w-4" />
-                    Apply to Timeline
+                  <Button size="sm" onClick={() => applyStrategy(extractedStrategy)} className="gap-1 h-7 text-xs">
+                    <Wand2 className="h-3 w-3" />
+                    Apply
                   </Button>
                 </div>
               </CardContent>

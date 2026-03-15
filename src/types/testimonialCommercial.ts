@@ -1,21 +1,31 @@
-export type SegmentType = 'twin-speaking' | 'broll-voice-continue' | 'broll-montage';
+export type SegmentType = 'speaking' | 'broll';
 export type TransitionType = 'fade-in' | 'cut' | 'crossfade';
+
+export interface CharacterProfile {
+  name: string;
+  description: string;
+  gender?: string;
+  referenceImages: string[]; // 6 cinematic angles
+  twinId?: string; // If saved as AI twin
+}
 
 export interface CommercialSegment {
   id: string;
   type: SegmentType;
-  twinId?: string;
-  twinName?: string;
+  character?: CharacterProfile;
   script?: string;
-  brollImages?: string[];
   brollPrompts?: string[];
-  voiceoverId?: string;
+  brollImages?: string[];
   voiceoverText?: string;
   duration: number;
   transition: TransitionType;
   videoUrl?: string;
   audioUrl?: string;
-  status?: 'pending' | 'generating' | 'complete' | 'error';
+  status?: 'pending' | 'generating-character' | 'character-ready' | 'approved' | 'generating' | 'complete' | 'error';
+  // Legacy compatibility
+  twinId?: string;
+  twinName?: string;
+  voiceoverId?: string;
 }
 
 export interface TestimonialCommercial {
