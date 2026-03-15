@@ -15,7 +15,7 @@ const VOICE_PRESETS = [
 
 const Settings = () => {
   const [voicePreset, setVoicePreset] = useState(() => {
-    try { return localStorage.getItem('loop-ai-voice-preset') || 'jamaican'; } catch { return 'jamaican'; }
+    try { return localStorage.getItem('loop-ai-voice-preset') || 'default'; } catch { return 'default'; }
   });
 
   const handleVoiceChange = (value: string) => {
