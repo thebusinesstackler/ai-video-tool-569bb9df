@@ -42,6 +42,8 @@ interface EditAction {
     replaceWith?: string;
     scope?: ReplaceScope;
     mood?: string;
+    sourceSceneIndex?: number;
+    targetSceneIndices?: number[];
   }>;
 }
 
