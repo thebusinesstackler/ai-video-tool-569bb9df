@@ -24,7 +24,7 @@ function buildSegmentContext(currentSegments: any[]) {
       const voiceId = s.voiceoverId || 'not set';
       const role = s.narrativeRole ? `[${s.narrativeRole}]` : '';
       const charName = s.character?.name ? `"${s.character.name}"` : '';
-      return `- Scene #${num} ${role} (internal_index=${i}) | ${s.duration}s | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${(s.script || '').slice(0, 200)}" | Status: ${s.status}`;
+      return `- Scene #${num} ${role} (idx=${i}) | ${s.duration}s | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${(s.script || '').slice(0, 200)}" | Status: ${s.status}`;
     }
     brollNum++;
     const num = typeNum || brollNum;
