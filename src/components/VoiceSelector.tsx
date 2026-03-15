@@ -105,6 +105,8 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   const { toast } = useToast();
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const [lastUsedVoiceId, setLastUsedVoiceId] = useState<string | null>(null);
+  const [copiedVoiceId, setCopiedVoiceId] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const stopCurrentAudio = () => {
@@ -114,6 +116,15 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
       audioRef.current = null;
     }
     setPlayingVoice(null);
+  };
+
+  const copyVoiceId = () => {
+    if (lastUsedVoiceId) {
+      navigator.clipboard.writeText(lastUsedVoiceId);
+      setCopiedVoiceId(true);
+      toast({ title: "Voice ID Copied", description: `${lastUsedVoiceId} copied to clipboard` });
+      setTimeout(() => setCopiedVoiceId(false), 2000);
+    }
   };
 
   const previewVoice = async (voiceValue: string, sampleText: string) => {
@@ -133,6 +144,13 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
       });
 
       if (error) throw error;
+
+      // Capture the voice ID used by the API
+      if (data?.voiceUsed) {
+        setLastUsedVoiceId(data.voiceUsed);
+      } else {
+        setLastUsedVoiceId(voiceValue);
+      }
 
       if (data?.audioContent) {
         const audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
