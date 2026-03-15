@@ -130,10 +130,10 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
         </div>
 
         {/* Main Preview Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 flex relative">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <div className="flex-1 flex relative min-h-0 overflow-hidden">
             {/* Image/Visual Area */}
-            <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+            <div className="flex-1 relative bg-black flex items-center justify-center overflow-auto min-h-0">
               {displayImage ? (
                 <img
                   src={displayImage}
