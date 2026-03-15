@@ -4,7 +4,6 @@ import { User, Film, Play, Pause, ChevronUp, ChevronDown, Volume2, Clock } from 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 interface TimelinePreviewProps {
