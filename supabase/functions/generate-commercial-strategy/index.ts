@@ -16,12 +16,14 @@ function buildSegmentContext(currentSegments: any[]) {
       speakingNum++;
       const hasImgs = s.character?.hasImages ? `✅ ${s.character.imageCount} images` : '❌ NO images';
       const hasAudio = s.hasAudio ? '🔊 audio' : '🔇 no audio';
-      return `- [index=${i}] Speaking #${speakingNum} | ${s.duration}s | ${s.transition} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] | Script: "${(s.script || '').slice(0, 150)}" | Status: ${s.status}`;
+      const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
+      return `- [index=${i}] Speaking #${speakingNum} | ${s.duration}s | transition: ${s.transition} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] ${hasProduct} | Script: "${(s.script || '').slice(0, 150)}" | Status: ${s.status}`;
     }
     brollNum++;
     const hasBroll = s.hasBrollImages ? '✅ has preview' : '❌ NO preview';
     const hasVo = s.voiceoverText ? `VO: "${s.voiceoverText.slice(0, 80)}"` : 'no VO';
-    return `- [index=${i}] B-Roll #${brollNum} | ${s.duration}s | ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 150)}" | ${hasVo} [${hasBroll}] | Status: ${s.status}`;
+    const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
+    return `- [index=${i}] B-Roll #${brollNum} | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 150)}" | ${hasVo} [${hasBroll}] ${hasProduct} | Status: ${s.status}`;
   });
 
   return `\n\n## Current Storyboard State
