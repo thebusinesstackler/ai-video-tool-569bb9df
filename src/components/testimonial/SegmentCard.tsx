@@ -25,11 +25,11 @@ interface SegmentCardProps {
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Loader2 }> = {
   'pending': { label: 'Pending', color: 'bg-muted text-muted-foreground', icon: AlertCircle },
-  'generating-character': { label: 'Generating Character...', color: 'bg-amber-500/20 text-amber-600', icon: Loader2 },
-  'character-ready': { label: 'Review Character', color: 'bg-blue-500/20 text-blue-600', icon: ImageIcon },
-  'approved': { label: 'Approved', color: 'bg-emerald-500/20 text-emerald-600', icon: CheckCircle },
-  'generating': { label: 'Generating Video...', color: 'bg-amber-500/20 text-amber-600', icon: Loader2 },
-  'complete': { label: 'Complete', color: 'bg-emerald-500/20 text-emerald-600', icon: CheckCircle },
+  'generating-character': { label: 'Generating Character...', color: 'bg-accent/20 text-accent-foreground', icon: Loader2 },
+  'character-ready': { label: 'Review Character', color: 'bg-primary/20 text-primary', icon: ImageIcon },
+  'approved': { label: 'Approved', color: 'bg-primary/20 text-primary', icon: CheckCircle },
+  'generating': { label: 'Generating Video...', color: 'bg-accent/20 text-accent-foreground', icon: Loader2 },
+  'complete': { label: 'Complete', color: 'bg-primary/20 text-primary', icon: CheckCircle },
   'error': { label: 'Error', color: 'bg-destructive/20 text-destructive', icon: AlertCircle },
 };
 
