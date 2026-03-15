@@ -166,7 +166,7 @@ Style: Professional photography, high quality, cinematic lighting.`;
     try {
       const sampleText = `Hi, I'm ${character.name}. I'm ready to bring your vision to life.`;
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: sampleText, voice_id: 'Friendly_Person' }
+        body: { text: sampleText, voice_id: mapVoiceId(character.voiceType) }
       });
       if (error) throw error;
       if (data?.audioUrl) {
