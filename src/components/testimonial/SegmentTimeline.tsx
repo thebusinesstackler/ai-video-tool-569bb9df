@@ -64,9 +64,12 @@ export function SegmentTimeline({
               ? 'B-roll is generated in the background during commercial creation' 
               : 'Use the AI Strategist above or add scenes manually'}
           </p>
-          <Button variant="outline" size="sm" onClick={onAdd} className="gap-1">
-            <Plus className="h-3 w-3" />
-            Add {label}
+          <Button variant="outline" size="sm" onClick={onAdd} className="gap-1" disabled={isAddingScene}>
+            {isAddingScene ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Suggesting...</>
+            ) : (
+              <><Plus className="h-3 w-3" /> Add {label}</>
+            )}
           </Button>
         </div>
       ) : (
