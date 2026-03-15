@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { AICharacterCreator } from '@/components/AICharacterCreator';
 import templateProduct1 from '@/assets/template-char-product1.jpg';
 import templateProduct2 from '@/assets/template-char-product2.jpg';
 import templateProduct3 from '@/assets/template-char-product3.jpg';
@@ -93,6 +94,7 @@ const VOICE_TYPES = [
 export const CharacterManager = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isAICreatorOpen, setIsAICreatorOpen] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -444,18 +446,24 @@ export const CharacterManager = () => {
           <p className="text-muted-foreground">Manage AI avatars for your video content</p>
         </div>
         
-        <Dialog open={isCreateDialogOpen || !!editingCharacter} onOpenChange={(open) => {
-          if (!open) {
-            setIsCreateDialogOpen(false);
-            resetForm();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="flex items-center gap-2">
-              <PlusIcon className="w-4 h-4" />
-              Create Character
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setIsAICreatorOpen(true)} className="flex items-center gap-2" variant="default">
+            <SparklesIcon className="w-4 h-4" />
+            Create with AI
+          </Button>
+
+          <Dialog open={isCreateDialogOpen || !!editingCharacter} onOpenChange={(open) => {
+            if (!open) {
+              setIsCreateDialogOpen(false);
+              resetForm();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setIsCreateDialogOpen(true)} variant="outline" className="flex items-center gap-2">
+                <PlusIcon className="w-4 h-4" />
+                Manual
+              </Button>
+            </DialogTrigger>
           
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -595,7 +603,18 @@ export const CharacterManager = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* AI Character Creator Dialog */}
+      <Dialog open={isAICreatorOpen} onOpenChange={setIsAICreatorOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
+          <AICharacterCreator
+            onCharacterSaved={loadCharacters}
+            onClose={() => setIsAICreatorOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Character Templates */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
