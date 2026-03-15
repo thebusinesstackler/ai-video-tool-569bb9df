@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AICharacterCreator } from '@/components/AICharacterCreator';
+import { ActorProfilePanel } from '@/components/ActorProfilePanel';
 import templateProduct1 from '@/assets/template-char-product1.jpg';
 import templateProduct2 from '@/assets/template-char-product2.jpg';
 import templateProduct3 from '@/assets/template-char-product3.jpg';
@@ -95,6 +97,7 @@ export const CharacterManager = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAICreatorOpen, setIsAICreatorOpen] = useState(false);
+  const [profileCharacter, setProfileCharacter] = useState<Character | null>(null);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -710,7 +713,7 @@ export const CharacterManager = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {characters.map((character) => (
-            <Card key={character.id} className="glass hover:shadow-lg transition-shadow">
+            <Card key={character.id} className="glass hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setProfileCharacter(character)}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -804,6 +807,25 @@ export const CharacterManager = () => {
           ))}
         </div>
       )}
+
+      {/* Actor Profile Dialog */}
+      <Dialog open={!!profileCharacter} onOpenChange={() => setProfileCharacter(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserIcon className="h-5 w-5 text-primary" />
+              Actor Profile
+            </DialogTitle>
+          </DialogHeader>
+          {profileCharacter && (
+            <ActorProfilePanel
+              character={profileCharacter}
+              onClose={() => setProfileCharacter(null)}
+              onUpdate={() => { loadCharacters(); }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
