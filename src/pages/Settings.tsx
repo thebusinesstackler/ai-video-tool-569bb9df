@@ -7,9 +7,9 @@ import { SettingsIcon, ShieldCheckIcon, ServerIcon, Volume2, Clapperboard } from
 import { toast } from 'sonner';
 
 const VOICE_PRESETS = [
-  { value: 'jamaican', label: '🇯🇲 Jamaican Man (Default)', description: 'Deep, warm, with island swagger' },
-  { value: 'british', label: '🇬🇧 British Male', description: 'Refined, authoritative director tone' },
-  { value: 'american', label: '🇺🇸 American Male', description: 'Classic Hollywood director energy' },
+  { value: 'default', label: '🎬 Director (Default)', description: 'Warm, confident, conversational' },
+  { value: 'british', label: '🇬🇧 British', description: 'Refined, authoritative tone' },
+  { value: 'deep', label: '🎙️ Deep Voice', description: 'Low, rich, cinematic feel' },
   { value: 'female', label: '👩 Female Director', description: 'Sharp, confident, creative lead' },
 ];
 
