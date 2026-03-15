@@ -45,6 +45,16 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
     audio.play().catch(() => setPlayingId(null));
   }, [playingId]);
 
+  // Build type-specific numbering (Scene #1, B-Roll #1, etc.)
+  const getTypeNumber = (index: number) => {
+    const seg = segments[index];
+    let count = 0;
+    for (let i = 0; i <= index; i++) {
+      if (segments[i].type === seg.type) count++;
+    }
+    return count;
+  };
+
   if (segments.length === 0) return null;
 
   const totalDuration = segments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
@@ -124,7 +134,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  <div className="font-medium">{config.label} #{index + 1}</div>
+                  <div className="font-medium">{config.label} #{getTypeNumber(index)}</div>
                   <div className="text-muted-foreground">{segment.duration}s — {getTimecode(index)}</div>
                 </TooltipContent>
               </Tooltip>
@@ -204,7 +214,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   <div className="px-1.5 py-1 space-y-0.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-medium truncate leading-tight">
-                        {segment.character?.name || (segment.type === 'broll' ? 'B-Roll' : `Scene ${index + 1}`)}
+                        {segment.type === 'broll' ? `B-Roll #${getTypeNumber(index)}` : `Scene #${getTypeNumber(index)}`}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">

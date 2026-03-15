@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 interface SegmentCardProps {
   segment: CommercialSegment;
   index: number;
+  typeNumber: number; // Type-specific number (Scene #1, B-Roll #1)
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -43,6 +44,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 export function SegmentCard({
   segment,
   index,
+  typeNumber,
   onUpdate,
   onDelete,
   onDuplicate,
@@ -291,9 +293,8 @@ export function SegmentCard({
               <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
               <Badge variant="outline" className="gap-1 text-xs">
                 {segment.type === 'speaking' ? <User className="h-3 w-3" /> : <Film className="h-3 w-3" />}
-                {segment.type === 'speaking' ? 'Speaking' : 'B-Roll'}
+                {segment.type === 'speaking' ? `Scene #${typeNumber}` : `B-Roll #${typeNumber}`}
               </Badge>
-              <span className="text-xs text-muted-foreground font-mono">#{index + 1}</span>
             </div>
             <div className="flex items-center gap-1.5">
               {/* Play cached audio */}

@@ -81,6 +81,7 @@ export function SegmentTimeline({
               key={segment.id}
               segment={segment}
               index={index}
+              typeNumber={index + 1}
               onUpdate={onUpdate}
               onDelete={onDelete}
               onDuplicate={onDuplicate}
