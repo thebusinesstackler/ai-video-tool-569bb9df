@@ -678,11 +678,22 @@ export function LoopAIDirector({
                         </p>
                       )}
 
-                      {/* Audio indicator */}
+                      {/* Audio indicator with voice ID */}
                       {seg.audioUrl && (
                         <div className="flex items-center gap-1.5">
                           <Volume2 className="h-2.5 w-2.5 text-emerald-500" />
                           <span className="text-[9px] text-emerald-600 dark:text-emerald-400">Voice generated</span>
+                          {seg.voiceoverId && (
+                            <button
+                              className="text-[9px] font-mono text-muted-foreground hover:text-primary transition-colors ml-1 underline decoration-dotted"
+                              onClick={() => {
+                                navigator.clipboard.writeText(seg.voiceoverId!);
+                                toast.success(`Voice ID "${seg.voiceoverId}" copied`);
+                              }}
+                            >
+                              {seg.voiceoverId}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
