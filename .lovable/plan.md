@@ -1,43 +1,33 @@
 
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Plan: Remove Auto-Play on Hover & Project Assessment
+## Status: ✅ Implemented
 
-### 1. Remove Auto-Play on Hover (TimelinePreview.tsx)
+## Changes Made
 
-**Problem:** When hovering over timeline segments, voiceovers auto-play (and even trigger TTS generation). This is disruptive when making edits.
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-**Fix:** Convert the hover-to-play behavior into a click-to-play toggle instead.
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-- Remove `onMouseEnter` and `onMouseLeave` handlers from timeline segment items
-- Remove `handleHoverStart` and `handleHoverEnd` callbacks
-- Add a small play/pause button on each segment that triggers audio playback on click
-- Keep `hoverAudioRef`, `playingId` state for click-based playback
-- Clean up unused state: `hoverVoiceId`, `isLoadingVoice`
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-### 2. Project Assessment — What's Still Needed
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-Based on codebase review, here's what's functional vs. what needs work:
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-**Working:**
-- Commercial strategy generation via Loop AI
-- Scene/B-roll segment management with drag-and-drop timeline
-- Character image generation and reference image uploads
-- Storyboard preview with playback controls
-- Loop AI Director chat with TTS voice responses
-- Voice preset settings
-
-**Gaps / Next Steps:**
-
-| Area | Status | What's Needed |
-|------|--------|---------------|
-| **Final Video Generation** | Partial | The `generateCommercial` function exists but the full stitching pipeline (Creatomate) needs API key setup and testing |
-| **Music/Audio** | Paused | Background music generation deferred (ElevenLabs key not added yet) |
-| **Video Export/Download** | UI exists | Needs end-to-end testing once video generation works |
-| **B-Roll Image Generation** | Partial | `onGenerateBrollPreview` referenced but implementation needs verification |
-| **Voice Generation per Segment** | Partial | TTS calls exist but bulk voice generation for all segments needs testing |
-| **Product Swap in B-Roll** | New | Logic added but needs end-to-end testing with actual image generation |
-| **Saved Commercials** | Works | Load/save to database functional |
-| **Mobile Responsiveness** | Needs work | The editor layout with chat + timeline + scenes is complex at 785px viewport |
-
-These are areas to prioritize based on your goals — the core editing workflow is solid, and the main gaps are in the final production pipeline (stitching scenes into a downloadable video).
-
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
