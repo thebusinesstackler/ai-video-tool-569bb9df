@@ -318,8 +318,9 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
     }
   };
 
-  const handleApplyStrategy = async () => {
-    if (!extractedStrategy) return;
+  const handleApplyStrategy = async (strategyOverride?: CommercialStrategy) => {
+    const strategyToApply = strategyOverride || extractedStrategy;
+    if (!strategyToApply) return;
 
     setIsGeneratingImages(true);
     toast.info('Preparing strategy...');
