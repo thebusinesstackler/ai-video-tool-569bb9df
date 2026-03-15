@@ -219,7 +219,7 @@ export function LoopAIDirector({
   }, [voiceEnabled]);
 
   const speakResponse = useCallback(async (text: string) => {
-    if (!voiceEnabled || !window.speechSynthesis) return;
+    if (!voiceEnabled) return;
 
     const cleanText = text
       .replace(/```json[\s\S]*?```/g, '')
@@ -232,50 +232,62 @@ export function LoopAIDirector({
 
     if (!cleanText || cleanText.length < 10) return;
 
-    // Keep spoken delivery sharp and director-like: fast diagnosis + clear next move
+    // Keep spoken delivery sharp: first 2 sentences only
     const conciseChunks = cleanText
       .split(/(?:\.\.\.|—|[.!?])\s+/)
       .map((part) => part.trim())
       .filter(Boolean)
-      .slice(0, 2);
+      .slice(0, 3);
 
-    const conciseLine = conciseChunks.join(' — ');
-    const speakText = (conciseLine || cleanText).slice(0, 240);
+    const speakText = conciseChunks.join(' — ').slice(0, 300);
+    if (!speakText) return;
 
-    // Cancel any current speech — allows interruption
-    window.speechSynthesis.cancel();
-    setIsSpeaking(false);
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsSpeaking(true);
 
-    const utterance = new SpeechSynthesisUtterance(speakText);
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: speakText, voice: 'English_Trustworth_Man', gender: 'male' }
+      });
 
-    // Load voice preference from localStorage
-    const savedVoicePreset = localStorage.getItem('loop-ai-voice-preset') || 'default';
-    const voices = window.speechSynthesis.getVoices();
+      if (error || !data?.audioUrl) {
+        console.warn('Loop AI TTS failed, falling back to browser speech');
+        // Fallback to browser speechSynthesis
+        if (window.speechSynthesis) {
+          const utterance = new SpeechSynthesisUtterance(speakText);
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Alex')) || voices.find(v => v.lang.startsWith('en'));
+          if (preferredVoice) utterance.voice = preferredVoice;
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          utterance.onend = () => setIsSpeaking(false);
+          utterance.onerror = () => setIsSpeaking(false);
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setIsSpeaking(false);
+        }
+        return;
+      }
 
-    const voicePresets: Record<string, { nameHints: string[]; rate: number; pitch: number }> = {
-      default: { nameHints: ['Google US English', 'Alex', 'Aaron', 'Male'], rate: 1.0, pitch: 1.0 },
-      british: { nameHints: ['Google UK English Male', 'Daniel', 'James'], rate: 1.05, pitch: 0.95 },
-      deep: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.8 },
-      female: { nameHints: ['Google UK English Female', 'Karen', 'Samantha', 'Victoria', 'Female'], rate: 1.0, pitch: 1.1 },
-    };
-
-    const preset = voicePresets[savedVoicePreset] || voicePresets.default;
-
-    const preferredVoice = voices.find(v =>
-      preset.nameHints.some(hint => v.name.includes(hint))
-    ) || voices.find(v => v.lang.startsWith('en'));
-
-    if (preferredVoice) utterance.voice = preferredVoice;
-
-    utterance.rate = preset.rate;
-    utterance.pitch = preset.pitch;
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
+      const audio = new Audio(data.audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => { setIsSpeaking(false); audioRef.current = null; };
+      audio.onerror = () => { setIsSpeaking(false); audioRef.current = null; };
+      audio.play().catch(() => setIsSpeaking(false));
+    } catch {
+      setIsSpeaking(false);
+    }
   }, [voiceEnabled]);
 
   const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     window.speechSynthesis?.cancel();
     setIsSpeaking(false);
   }, []);
