@@ -58,15 +58,15 @@ function getStyleConfig(style: VideoStyle) {
     case 'professional-ad':
       return {
         speakingModel: 'infinitetalk' as const,
-        brollModel: 'kling-v3.0-pro' as const,
+        brollModel: 'alibaba/wan-2.5/text-to-video' as const,
         useTTS: true,
         maxDuration: 10,
         aspectRatio: '16:9' as const,
       };
     default:
       return {
-        speakingModel: 'kling-v3.0-pro' as const,
-        brollModel: 'kling-v3.0-pro' as const,
+        speakingModel: 'infinitetalk' as const,
+        brollModel: 'alibaba/wan-2.5/text-to-video' as const,
         useTTS: true,
         maxDuration: 10,
         aspectRatio: '9:16' as const,
