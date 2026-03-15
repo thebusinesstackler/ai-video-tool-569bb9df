@@ -112,7 +112,8 @@ async function generateWaveSpeedTTS(
     });
 
     if (!ttsResponse.ok) {
-      console.error('WaveSpeed TTS error:', ttsResponse.status);
+      const errText = await ttsResponse.text();
+      console.error('WaveSpeed TTS error:', ttsResponse.status, errText);
       return null;
     }
 
