@@ -25,16 +25,22 @@ interface CommercialStrategy {
   totalDuration: number;
 }
 
+type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
+
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription';
-    sceneIndex?: number;
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText';
+    sceneIndex?: number | 'all';
+    sceneIndices?: number[];
     changes?: Record<string, any>;
     segment?: any;
     duration?: number;
     description?: string;
     prompt?: string;
+    find?: string;
+    replaceWith?: string;
+    scope?: ReplaceScope;
   }>;
 }
 
@@ -209,35 +215,43 @@ export function LoopAIDirector({
 
   const speakResponse = useCallback(async (text: string) => {
     if (!voiceEnabled || !window.speechSynthesis) return;
-    // Strip markdown, JSON blocks, and action blocks — keep only conversational text
+
     const cleanText = text
       .replace(/```json[\s\S]*?```/g, '')
       .replace(/```action[\s\S]*?```/g, '')
       .replace(/[#*_`>]/g, '')
       .replace(/\[.*?\]\(.*?\)/g, '')
-      .replace(/\n{2,}/g, '. ')
-      .replace(/\n/g, ' ')
+      .replace(/\n+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+
     if (!cleanText || cleanText.length < 10) return;
-    
-    // Use browser TTS for instant playback — no API delay
+
+    // Keep spoken delivery sharp and director-like: fast diagnosis + clear next move
+    const conciseChunks = cleanText
+      .split(/(?:\.\.\.|—|[.!?])\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .slice(0, 2);
+
+    const conciseLine = conciseChunks.join(' — ');
+    const speakText = (conciseLine || cleanText).slice(0, 240);
+
     window.speechSynthesis.cancel();
-    const speakText = cleanText.length > 600 ? cleanText.slice(0, 600) + '.' : cleanText;
     const utterance = new SpeechSynthesisUtterance(speakText);
-    
-    // Pick a deep male voice
+
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => 
-      v.name.includes('Google UK English Male') || 
-      v.name.includes('Daniel') || 
+    const preferredVoice = voices.find(v =>
+      v.name.includes('Google UK English Male') ||
+      v.name.includes('Daniel') ||
       v.name.includes('James') ||
       v.name.includes('Male') ||
       (v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
     ) || voices.find(v => v.lang.startsWith('en'));
+
     if (preferredVoice) utterance.voice = preferredVoice;
-    
-    utterance.rate = 1.05;
+
+    utterance.rate = 1.08;
     utterance.pitch = 0.9;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -299,32 +313,126 @@ export function LoopAIDirector({
     }
   };
 
+  const resolveSceneIndexes = (edit: EditAction['edits'][number]): number[] => {
+    if (Array.isArray(edit.sceneIndices) && edit.sceneIndices.length > 0) {
+      return Array.from(new Set(edit.sceneIndices.filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < segments.length)));
+    }
+
+    if (edit.sceneIndex === 'all') {
+      return segments.map((_, idx) => idx);
+    }
+
+    if (typeof edit.sceneIndex === 'number' && edit.sceneIndex >= 0 && edit.sceneIndex < segments.length) {
+      return [edit.sceneIndex];
+    }
+
+    return [];
+  };
+
+  const replaceExactText = (value: string, find: string, replaceWith: string): string => {
+    if (!find.trim()) return value;
+    return value.split(find).join(replaceWith);
+  };
+
+  const replaceProductPlaceholderTokens = (value: string, replaceWith: string): string => {
+    return value.replace(/[\[{]\s*product\s*name\s*[\]}]/gi, replaceWith);
+  };
+
   const applyEditActions = (editAction: EditAction) => {
-    let editSummary: string[] = [];
+    const editSummary: string[] = [];
 
     for (const edit of editAction.edits) {
+      const targetIndexes = resolveSceneIndexes(edit);
+
       switch (edit.action) {
         case 'update': {
-          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
-            const seg = segments[edit.sceneIndex];
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
             const changes: Partial<CommercialSegment> = {};
-            if (edit.changes?.duration) changes.duration = edit.changes.duration;
-            if (edit.changes?.script) changes.script = edit.changes.script;
-            if (edit.changes?.brollPrompts) changes.brollPrompts = edit.changes.brollPrompts;
-            if (edit.changes?.transition) changes.transition = edit.changes.transition;
-            if (edit.changes?.voiceoverText) changes.voiceoverText = edit.changes.voiceoverText;
-            if (edit.changes?.characterDescription) {
+            if (typeof edit.changes?.duration === 'number') changes.duration = edit.changes.duration;
+            if (typeof edit.changes?.script === 'string') changes.script = edit.changes.script;
+            if (Array.isArray(edit.changes?.brollPrompts)) changes.brollPrompts = edit.changes.brollPrompts;
+            if (typeof edit.changes?.transition === 'string' && ['fade-in', 'cut', 'crossfade'].includes(edit.changes.transition)) {
+              changes.transition = edit.changes.transition as CommercialSegment['transition'];
+            }
+            if (typeof edit.changes?.voiceoverText === 'string') changes.voiceoverText = edit.changes.voiceoverText;
+            if (typeof edit.changes?.characterDescription === 'string') {
               changes.character = {
                 ...(seg.character || { name: '', description: '', referenceImages: [] }),
                 description: edit.changes.characterDescription,
                 name: edit.changes.characterDescription.slice(0, 60),
               };
             }
-            onUpdateSegment(seg.id, changes);
-            editSummary.push(`Updated scene ${edit.sceneIndex + 1}`);
+
+            if (Object.keys(changes).length > 0) {
+              onUpdateSegment(seg.id, changes);
+              editSummary.push(`Updated scene ${sceneIndex + 1}`);
+            }
           }
           break;
         }
+
+        case 'replaceText': {
+          const replaceWith = typeof edit.replaceWith === 'string' ? edit.replaceWith : '';
+          if (!replaceWith) break;
+
+          const scope: ReplaceScope = edit.scope || 'all';
+          const find = typeof edit.find === 'string' ? edit.find : '';
+          const shouldReplacePlaceholder = !find || /product\s*name/i.test(find);
+          const indexes = targetIndexes.length > 0 ? targetIndexes : segments.map((_, idx) => idx);
+
+          let touchedScenes = 0;
+          for (const sceneIndex of indexes) {
+            const seg = segments[sceneIndex];
+            const updates: Partial<CommercialSegment> = {};
+            let changed = false;
+
+            if ((scope === 'script' || scope === 'all') && typeof seg.script === 'string') {
+              let nextScript = seg.script;
+              if (find) nextScript = replaceExactText(nextScript, find, replaceWith);
+              if (shouldReplacePlaceholder) nextScript = replaceProductPlaceholderTokens(nextScript, replaceWith);
+              if (nextScript !== seg.script) {
+                updates.script = nextScript;
+                changed = true;
+              }
+            }
+
+            if ((scope === 'voiceover' || scope === 'all') && typeof seg.voiceoverText === 'string') {
+              let nextVoiceover = seg.voiceoverText;
+              if (find) nextVoiceover = replaceExactText(nextVoiceover, find, replaceWith);
+              if (shouldReplacePlaceholder) nextVoiceover = replaceProductPlaceholderTokens(nextVoiceover, replaceWith);
+              if (nextVoiceover !== seg.voiceoverText) {
+                updates.voiceoverText = nextVoiceover;
+                changed = true;
+              }
+            }
+
+            if ((scope === 'brollPrompts' || scope === 'all') && Array.isArray(seg.brollPrompts)) {
+              const nextPrompts = seg.brollPrompts.map((prompt) => {
+                let nextPrompt = prompt;
+                if (find) nextPrompt = replaceExactText(nextPrompt, find, replaceWith);
+                if (shouldReplacePlaceholder) nextPrompt = replaceProductPlaceholderTokens(nextPrompt, replaceWith);
+                return nextPrompt;
+              });
+              if (JSON.stringify(nextPrompts) !== JSON.stringify(seg.brollPrompts)) {
+                updates.brollPrompts = nextPrompts;
+                changed = true;
+              }
+            }
+
+            if (changed) {
+              onUpdateSegment(seg.id, updates);
+              touchedScenes += 1;
+            }
+          }
+
+          if (touchedScenes > 0) {
+            const matchLabel = find || '[Product name]';
+            editSummary.push(`Replaced "${matchLabel}" with "${replaceWith}" in ${touchedScenes} scene${touchedScenes === 1 ? '' : 's'}`);
+          }
+          break;
+        }
+
         case 'add': {
           if (edit.segment) {
             const type = edit.segment.type || 'speaking';
@@ -347,13 +455,16 @@ export function LoopAIDirector({
           }
           break;
         }
+
         case 'delete': {
-          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
-            onDeleteSegment(segments[edit.sceneIndex].id);
-            editSummary.push(`Removed scene ${edit.sceneIndex + 1}`);
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            onDeleteSegment(seg.id);
+            editSummary.push(`Removed scene ${sceneIndex + 1}`);
           }
           break;
         }
+
         case 'setDuration': {
           if (edit.duration) {
             onTargetDurationChange(String(edit.duration));
@@ -361,55 +472,57 @@ export function LoopAIDirector({
           }
           break;
         }
+
         case 'generateVoice': {
-          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
-            const seg = segments[edit.sceneIndex];
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
             if (seg.script) {
               previewAudio(seg.script, seg.id, seg.character?.description);
-              editSummary.push(`Generating new voice for scene ${edit.sceneIndex + 1}`);
+              editSummary.push(`Generating new voice for scene ${sceneIndex + 1}`);
             }
           }
           break;
         }
+
         case 'regenerateCharacter': {
-          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
-            const seg = segments[edit.sceneIndex];
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
             const desc = edit.description || seg.character?.description || '';
             if (desc) {
-              // Update description first, then regenerate images
               onUpdateSegment(seg.id, {
                 character: {
                   ...(seg.character || { name: '', description: '', referenceImages: [] }),
                   description: desc,
                   name: desc.slice(0, 60),
-                  referenceImages: [], // Clear old images
+                  referenceImages: [],
                 },
                 status: 'generating-character',
               });
               onGenerateCharacter(seg.id, desc);
-              editSummary.push(`🎭 Regenerating character for scene ${edit.sceneIndex + 1}`);
+              editSummary.push(`🎭 Regenerating character for scene ${sceneIndex + 1}`);
             }
           }
           break;
         }
+
         case 'regenerateBroll': {
-          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
-            const seg = segments[edit.sceneIndex];
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
             const prompt = edit.prompt || seg.brollPrompts?.[0] || '';
             if (prompt) {
-              // Update prompt if provided, then regenerate
               if (edit.prompt) {
                 onUpdateSegment(seg.id, { brollPrompts: [prompt], status: 'generating-character' });
               }
               onGenerateBrollPreview(seg.id, prompt);
-              editSummary.push(`🎞️ Regenerating B-roll for scene ${edit.sceneIndex + 1}`);
+              editSummary.push(`🎞️ Regenerating B-roll for scene ${sceneIndex + 1}`);
             }
           }
           break;
         }
+
         case 'updateCharacterDescription': {
-          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
-            const seg = segments[edit.sceneIndex];
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
             const desc = edit.description || '';
             if (desc) {
               onUpdateSegment(seg.id, {
@@ -419,7 +532,7 @@ export function LoopAIDirector({
                   name: desc.slice(0, 60),
                 },
               });
-              editSummary.push(`Updated character description for scene ${edit.sceneIndex + 1}`);
+              editSummary.push(`Updated character description for scene ${sceneIndex + 1}`);
             }
           }
           break;
@@ -433,7 +546,13 @@ export function LoopAIDirector({
         content: `✏️ Applied changes: ${editSummary.join(', ')}`
       }]);
       onSaveToDb();
+      return;
     }
+
+    setMessages(prev => [...prev, {
+      role: 'system-action' as const,
+      content: '⚠️ I could not apply that edit automatically — ask me to target a scene number or use "replace [Product name] with ..."'
+    }]);
   };
 
   const handleSend = async () => {
@@ -460,11 +579,13 @@ export function LoopAIDirector({
           body: JSON.stringify({
             messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
             targetDuration: parseInt(targetDuration),
-            currentSegments: segments.length > 0 ? segments.map(s => ({
+            currentSegments: segments.length > 0 ? segments.map((s, index) => ({
+              index,
               type: s.type,
               duration: s.duration,
               transition: s.transition,
               script: s.script,
+              voiceoverText: s.voiceoverText,
               brollPrompts: s.brollPrompts,
               character: s.character ? {
                 description: s.character.description,
