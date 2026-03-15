@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { 
   GripVertical, Trash2, User, Film, Loader2, CheckCircle, AlertCircle, 
   Wand2, ImageIcon, Sparkles, Check, Play, Pause, Volume2, Maximize2, Pencil, X,
-  Copy, Headphones
+  Copy, Headphones, Package, Upload
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
