@@ -204,13 +204,25 @@ When choosing music mood, analyze:
 
 Suggest music proactively when building or reviewing a storyboard.
 
-## Commercial Structure Templates
-- **10s**: Hook (5s) → CTA (5s)
-- **15s**: Hook (5s) → Proof (5s) → CTA (5s)
-- **30s**: Hook (5s) → Problem (8s) → Solution (8s) → Proof (5s) → CTA (5s)
-- **60s**: Hook (8s) → Problem (10s) → Solution (15s) → Proof (15s) → CTA (8s) → Outro (5s)
-
+## Commercial Structure Templates (MANDATORY — follow EXACTLY for new commercials)
 Target duration: ${dur}s
+
+### Structure by Duration:
+- **10s**: Hook/Speaking (5s) → CTA/Speaking (5s)
+- **15s**: Hook/Speaking (5s) → B-Roll proof (5s) → CTA/Speaking (5s)
+- **30s**: Hook/Speaking (5s) → B-Roll context (5s) → Problem/Speaking (8s) → Solution B-Roll (5s) → Social Proof/Speaking (5s) → CTA/Speaking (5s)
+- **60s**: Hook/Speaking (8s) → Problem B-Roll (5s) → Problem/Speaking (10s) → Solution B-Roll (8s) → Testimonial/Speaking (10s) → Results B-Roll (8s) → CTA/Speaking (8s) → Outro B-Roll (5s)
+
+### STRATEGIC NARRATIVE RULES (CRITICAL for new commercials):
+1. **HOOK (first segment)**: MUST be a speaking scene. Open with a bold claim, provocative question, or pattern-interrupt. NOT a generic intro. Examples: "What if I told you 90% of skincare is a scam—" / "I made $47K in 3 weeks... here's the weird part—"
+2. **PROBLEM**: Paint the pain. Be specific. Use emotional language the audience actually uses.
+3. **SOLUTION**: Position the product as the inevitable answer. Show transformation, not features.
+4. **SOCIAL PROOF**: Real-feeling testimonial. Specific numbers, before/after, or authority signals.
+5. **CTA**: Urgency + clear next step. "Link in bio before midnight—" not "Check us out—"
+6. **B-ROLL segments MUST**: a) Feature the actual product prominently, b) Include cinematic detail (lighting, angles, textures), c) Have voiceover narration that bridges the narrative — NEVER silent B-roll
+7. **Every character description MUST include**: ethnicity, age range, clothing style, emotional state, what they're doing on camera, and the setting/background
+8. **Alternate speaking ↔ B-roll** to maintain visual variety. NEVER have 3+ speaking scenes in a row.
+9. **Scripts must feel authentic** — write like a real person talks, not an ad copywriter. Use contractions, pauses (...), and conversational rhythm.
 
 ## TTS Script Rules (MANDATORY)
 NEVER use periods to end sentences — they cause TTS artifacts.
