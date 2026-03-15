@@ -283,6 +283,27 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Voice ID Copy Section */}
+        {lastUsedVoiceId && (
+          <div className="flex items-center gap-2 p-2.5 bg-muted/50 rounded-lg border border-border/50 mt-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-muted-foreground">Voice ID (for reuse)</p>
+              <p className="text-xs font-mono truncate">{lastUsedVoiceId}</p>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 gap-1 text-[10px] shrink-0" onClick={copyVoiceId}>
+                    {copiedVoiceId ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                    {copiedVoiceId ? 'Copied!' : 'Copy ID'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy voice ID to reuse this exact voice later</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
