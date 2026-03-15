@@ -44,6 +44,7 @@ export function SegmentCard({
   index,
   onUpdate,
   onDelete,
+  onDuplicate,
   onDragStart,
   onDragEnd,
   onDragOver,
