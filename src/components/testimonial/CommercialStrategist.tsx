@@ -300,10 +300,14 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
         }
       }
 
-      // Check if response contains a strategy
+      // Check if response contains a strategy - auto-apply it
       const strategy = extractStrategyFromMessage(assistantContent);
       if (strategy) {
         setExtractedStrategy(strategy);
+        // Auto-apply the strategy to timeline
+        setTimeout(() => {
+          handleApplyStrategy();
+        }, 500);
       }
 
     } catch (error) {
