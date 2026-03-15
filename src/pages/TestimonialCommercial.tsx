@@ -10,8 +10,9 @@ import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
+import { cn } from '@/lib/utils';
 
 export default function TestimonialCommercial() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function TestimonialCommercial() {
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('scenes');
   const [targetDuration, setTargetDuration] = useState('30');
+  const [chatOpen, setChatOpen] = useState(true);
 
   const {
     segments,
@@ -114,6 +116,16 @@ export default function TestimonialCommercial() {
             />
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <Button
+              onClick={() => setChatOpen(!chatOpen)}
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              title={chatOpen ? 'Hide Loop AI' : 'Show Loop AI'}
+            >
+              {chatOpen ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
+              <MessageSquare className="h-3 w-3" />
+            </Button>
             <Button onClick={handleSave} variant="outline" size="sm" className="h-7 text-xs">
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>
@@ -129,19 +141,26 @@ export default function TestimonialCommercial() {
 
         {/* Main Split Layout */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left: Loop AI Director Chat */}
-          <div className="w-[420px] shrink-0 border-r border-border/50 flex flex-col bg-muted/20">
-            <LoopAIDirector
-              onApplyStrategy={handleApplyStrategy}
-              onUpdateSegment={updateSegment}
-              onAddSegment={addSegment}
-              onDeleteSegment={deleteSegment}
-              onGenerateCharacter={generateCharacterForSegment}
-              onSaveToDb={handleSaveToDb}
-              segments={segments}
-              targetDuration={targetDuration}
-              onTargetDurationChange={setTargetDuration}
-            />
+          {/* Left: Loop AI Director Chat — collapsible */}
+          <div
+            className={cn(
+              'shrink-0 border-r border-border/50 flex flex-col bg-muted/20 transition-all duration-300 overflow-hidden',
+              chatOpen ? 'w-[420px]' : 'w-0 border-r-0'
+            )}
+          >
+            {chatOpen && (
+              <LoopAIDirector
+                onApplyStrategy={handleApplyStrategy}
+                onUpdateSegment={updateSegment}
+                onAddSegment={addSegment}
+                onDeleteSegment={deleteSegment}
+                onGenerateCharacter={generateCharacterForSegment}
+                onSaveToDb={handleSaveToDb}
+                segments={segments}
+                targetDuration={targetDuration}
+                onTargetDurationChange={setTargetDuration}
+              />
+            )}
           </div>
 
           {/* Right: Preview & Production Panel */}
