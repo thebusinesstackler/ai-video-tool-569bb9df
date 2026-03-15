@@ -158,8 +158,21 @@ export function LoopAIDirector({
       });
       if (error || !data?.audioUrl) throw new Error('TTS failed');
 
-      // Save audio URL to segment in DB
-      onUpdateSegment(segId, { audioUrl: data.audioUrl });
+      // Show the voice ID used so the user can copy/reuse it
+      const usedVoiceId = data.voiceUsed || voiceId;
+      toast.success(`🎙️ Voice generated — ID: ${usedVoiceId}`, {
+        action: {
+          label: 'Copy ID',
+          onClick: () => {
+            navigator.clipboard.writeText(usedVoiceId);
+            toast.info(`Voice ID "${usedVoiceId}" copied to clipboard`);
+          },
+        },
+        duration: 8000,
+      });
+
+      // Save audio URL and voice ID to segment in DB
+      onUpdateSegment(segId, { audioUrl: data.audioUrl, voiceoverId: usedVoiceId });
 
       const audio = new Audio(data.audioUrl);
       audioRef.current = audio;
