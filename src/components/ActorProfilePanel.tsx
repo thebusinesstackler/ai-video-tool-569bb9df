@@ -17,6 +17,23 @@ import {
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
+const VOICE_TYPE_MAP: Record<string, string> = {
+  'professional-female': 'English_compelling_lady1',
+  'professional-male': 'lecture_man',
+  'casual-female': 'English_radiant_girl',
+  'casual-male': 'Casual_Guy',
+  'energetic-female': 'English_radiant_girl',
+  'energetic-male': 'Casual_Guy',
+  'authoritative-female': 'English_compelling_lady1',
+  'authoritative-male': 'lecture_man',
+};
+
+function mapVoiceId(voiceType: string): string {
+  return VOICE_TYPE_MAP[voiceType] || 'Friendly_Person';
+}
+
+const BACKGROUND_KEYWORDS = ['background', 'setting', 'environment', 'scene', 'location', 'backdrop', 'surroundings'];
+
 interface Character {
   id: string;
   name: string;
