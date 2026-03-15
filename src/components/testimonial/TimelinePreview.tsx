@@ -134,7 +134,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
       </TooltipProvider>
 
       {expanded && (
-        <ScrollArea className="w-full">
+        <div className="w-full overflow-x-auto pb-2">
           <div className="flex gap-1.5 pt-2 pb-1 min-w-max">
             {segments.map((segment, index) => {
               const config = segmentConfig[segment.type] || segmentConfig.speaking;
@@ -158,7 +158,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   onDragEnd={() => { setDraggedIndex(null); setDropTargetIndex(null); }}
                   onClick={() => handleSelect(segment.id)}
                   className={cn(
-                    'relative rounded-lg border overflow-hidden cursor-pointer transition-all group',
+                    'relative rounded-lg border overflow-hidden cursor-pointer transition-all group flex-shrink-0',
                     'hover:ring-1 hover:ring-primary/40',
                     isDragging && 'opacity-40 scale-95',
                     isDropTarget && 'ring-2 ring-primary',
@@ -175,7 +175,6 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                       </div>
                     )}
 
-                    {/* Click-to-play button for segments with audio */}
                     {hasAudio && (
                       <button
                         onClick={(e) => togglePlay(segment, e)}
@@ -221,8 +220,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
               );
             })}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
       )}
     </div>
   );
