@@ -1,33 +1,42 @@
 
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
+## Plan: Fix Edge Function Errors, Enhance Voice Generation, Add Per-Angle Regeneration, and Background Change Support
 
-## Changes Made
+### Issues Identified
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+1. **Edge function error on product change**: The `generate-scene-image` CORS headers are missing newer Supabase client headers (`x-supabase-client-platform`, etc.), causing preflight failures.
+2. **Voice preview is too simple**: Currently uses a generic `Friendly_Person` voice ID for all characters. Should map voice type to appropriate WaveSpeed MiniMax voice.
+3. **No per-angle regeneration**: When angles are generated, users cannot regenerate a single bad angle -- they must redo all.
+4. **Background change prompts not handled properly**: When the user says "change the background to X", the system needs to use the reference image and rewrite the prompt to focus on background replacement.
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+### Changes
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+#### 1. Fix CORS Headers in `generate-scene-image` Edge Function
+Update the `corsHeaders` in `supabase/functions/generate-scene-image/index.ts` to include all required Supabase client headers:
+```
+'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version'
+```
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+#### 2. Smarter Voice Preview in `AICharacterCreator.tsx`
+Map the AI-suggested `voiceType` (e.g. `professional-female`, `casual-male`) to actual WaveSpeed MiniMax voice IDs:
+- `professional-female` -> `English_compelling_lady1`
+- `casual-male` -> `Casual_Guy`
+- `energetic-female` -> `English_radiant_girl`
+- etc.
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+Pass the mapped voice ID to `text-to-speech` instead of hardcoded `Friendly_Person`. Also do the same in `ActorProfilePanel.tsx`.
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+#### 3. Per-Angle Regeneration in `AICharacterCreator.tsx`
+In the `save` step (where all angles are shown), add a click-to-select interaction on each angle image. When selected, show a "Regenerate This Angle" button with an optional prompt field. This calls `generate-scene-image` with the approved main image as reference plus the angle-specific prompt, and replaces only that index in `angleImages`.
+
+#### 4. Background Change Support in `ActorProfilePanel.tsx`
+Enhance `handleGenerateFromReference` to detect background-related prompts (keywords like "background", "setting", "environment", "scene"). When detected, rewrite the prompt to explicitly instruct the AI to keep the person identical but change only the background/environment. The edge function already supports reference images, so this is a prompt engineering change on the client side.
+
+#### 5. Also Fix CORS in `ActorProfilePanel` Reference Generation
+The same CORS fix applies since it calls the same edge function.
+
+### Files to Modify
+- `supabase/functions/generate-scene-image/index.ts` -- CORS fix
+- `src/components/AICharacterCreator.tsx` -- voice mapping, per-angle regeneration UI
+- `src/components/ActorProfilePanel.tsx` -- voice mapping, background-aware prompt rewriting
+
