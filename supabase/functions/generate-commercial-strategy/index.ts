@@ -39,14 +39,16 @@ function buildSegmentContext(currentSegments: any[]) {
 The user currently has ${currentSegments.length} total segments (${speakingNum} speaking scenes, ${brollNum} B-roll clips):
 ${lines.join('\n')}
 
-### HOW TO USE THESE NUMBERS
-- **Scene #1, Scene #2, etc.** — These are what the user sees. ALWAYS use these when talking to the user.
-- **(internal_index=N)** — This is the 0-based index you put in action block \`sceneIndex\` fields. NEVER show this number to the user.
-- The FIRST scene is **Scene #1** (internal_index=0). There is NO "Scene 0" — that does not exist.
-- The FIRST B-Roll is **B-Roll #1**. There is NO "B-Roll 0".
-- [HOOK] = the opening scene, [CTA] = closing call-to-action
-- Example: If user says "what's my hook?" → Answer: "Your hook is **Scene #1**" (NOT "Scene 0")
-- Example: If you need to edit Scene #1 in an action block → use \`"sceneIndex": 0\` (the internal_index)
+### ⚠️ ABSOLUTE RULE — SCENE NUMBERING
+- Scenes start at **#1**. There is NO Scene 0. NEVER say "Scene 0" — it does not exist.
+- B-Rolls start at **#1**. There is NO B-Roll 0.
+- The hook is ALWAYS **Scene #1** — never "Scene 0".
+- When talking to the user: use **Scene #1**, **Scene #2**, **B-Roll #1**, etc.
+- In action blocks only: use the (idx=N) number for \`sceneIndex\`. This is an internal detail — NEVER mention idx numbers to the user.
+- [HOOK] = Scene #1, [CTA] = last speaking scene
+- ✅ CORRECT: "Your hook is **Scene #1**"
+- ❌ WRONG: "Your hook is Scene 0" or "Scene 0 (or Scene #1 in your UI)"
+- If you ever write "Scene 0" in a response, you have made an error. Fix it.
 
 When the user asks to modify existing scenes, output an \`\`\`action block with the changes.`;
 }
