@@ -534,6 +534,9 @@ export function LoopAIDirector({
           applyEditActions(editAction);
         }
       }
+
+      // Speak the response aloud
+      speakResponse(assistantContent);
     } catch (error) {
       console.error('Loop AI error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to get response');
