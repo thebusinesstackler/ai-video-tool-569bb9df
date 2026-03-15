@@ -99,6 +99,7 @@ Output an action block like this:
     { "action": "delete", "sceneIndex": 3 },
     { "action": "setDuration", "duration": 60 },
     { "action": "generateVoice", "sceneIndex": 0 },
+    { "action": "replaceText", "sceneIndex": "all", "find": "[Product name]", "replaceWith": "Lifecykel", "scope": "all" },
     { "action": "regenerateCharacter", "sceneIndex": 0, "description": "Vivid character description..." },
     { "action": "regenerateBroll", "sceneIndex": 2, "prompt": "Cinematic B-roll matching the product..." }
   ]
