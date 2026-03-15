@@ -40,7 +40,7 @@ const Settings = () => {
         deep: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.8 },
         female: { nameHints: ['Google UK English Female', 'Karen', 'Samantha', 'Victoria', 'Female'], rate: 1.0, pitch: 1.1 },
       };
-      const p = presets[value] || presets.jamaican;
+      const p = presets[value] || presets.default;
       const voice = voices.find(v => p.nameHints.some(h => v.name.includes(h))) || voices.find(v => v.lang.startsWith('en'));
       if (voice) utterance.voice = voice;
       utterance.rate = p.rate;
