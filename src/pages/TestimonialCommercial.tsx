@@ -254,10 +254,11 @@ export default function TestimonialCommercial() {
                     segments={speakingSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
-                    onAdd={() => addSegment('speaking')}
+                    onAdd={() => handleSmartAddScene('speaking')}
                     onReorder={reorderSegments}
                     onGenerateCharacter={generateCharacterForSegment}
                     segmentFilter="speaking"
+                    isAddingScene={isSuggestingScene}
                   />
                 </TabsContent>
 
@@ -266,9 +267,10 @@ export default function TestimonialCommercial() {
                     segments={brollSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
-                    onAdd={() => addSegment('broll')}
+                    onAdd={() => handleSmartAddScene('broll')}
                     onReorder={reorderSegments}
                     segmentFilter="broll"
+                    isAddingScene={isSuggestingScene}
                   />
                 </TabsContent>
 
