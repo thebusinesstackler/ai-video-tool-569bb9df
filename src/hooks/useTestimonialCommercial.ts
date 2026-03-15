@@ -12,11 +12,75 @@ const ANGLE_PROMPTS = [
   (desc: string) => `Photorealistic casual wide shot of ${desc}. 35mm lens, environmental portrait, professional setting, relaxed pose. No text, no watermark.`,
 ];
 
+export type VideoFormat = '9:16' | '16:9' | '1:1';
+export type VideoStyle = 'tiktok-meme' | 'tiktok-talking-head' | 'youtube-ad' | 'instagram-reel' | 'professional-ad';
+
+interface GenerationConfig {
+  format: VideoFormat;
+  style: VideoStyle;
+}
+
+// Map style to optimal models and settings
+function getStyleConfig(style: VideoStyle) {
+  switch (style) {
+    case 'tiktok-meme':
+      return {
+        speakingModel: 'kling-v3.0-pro' as const,
+        brollModel: 'kling-v3.0-pro' as const,
+        useTTS: true, // Separate TTS + lip-sync not needed, use image-to-video with TTS overlay
+        maxDuration: 8,
+        aspectRatio: '9:16' as const,
+      };
+    case 'tiktok-talking-head':
+      return {
+        speakingModel: 'kling-v3.0-pro' as const,
+        brollModel: 'kling-v3.0-pro' as const,
+        useTTS: true,
+        maxDuration: 10,
+        aspectRatio: '9:16' as const,
+      };
+    case 'instagram-reel':
+      return {
+        speakingModel: 'kling-v3.0-pro' as const,
+        brollModel: 'kling-v3.0-pro' as const,
+        useTTS: true,
+        maxDuration: 10,
+        aspectRatio: '9:16' as const,
+      };
+    case 'youtube-ad':
+      return {
+        speakingModel: 'kling-v3.0-pro' as const,
+        brollModel: 'kling-v3.0-pro' as const,
+        useTTS: true,
+        maxDuration: 10,
+        aspectRatio: '16:9' as const,
+      };
+    case 'professional-ad':
+      return {
+        speakingModel: 'kling-v3.0-pro' as const,
+        brollModel: 'kling-v3.0-pro' as const,
+        useTTS: true,
+        maxDuration: 10,
+        aspectRatio: '16:9' as const,
+      };
+    default:
+      return {
+        speakingModel: 'kling-v3.0-pro' as const,
+        brollModel: 'kling-v3.0-pro' as const,
+        useTTS: true,
+        maxDuration: 10,
+        aspectRatio: '9:16' as const,
+      };
+  }
+}
+
 export function useTestimonialCommercial() {
   const [segments, setSegments] = useState<CommercialSegment[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [currentCommercial, setCurrentCommercial] = useState<TestimonialCommercial | null>(null);
+  const [videoFormat, setVideoFormat] = useState<VideoFormat>('9:16');
+  const [videoStyle, setVideoStyle] = useState<VideoStyle>('tiktok-meme');
 
   const addSegment = useCallback((type: CommercialSegment['type'], prefill?: Partial<CommercialSegment>) => {
     const newSegment: CommercialSegment = {
@@ -81,7 +145,6 @@ export function useTestimonialCommercial() {
     toast.info('Generating character with 6 cinematic angles...');
 
     try {
-      // Generate first image to establish the look
       const { data: firstImg, error: firstErr } = await supabase.functions.invoke('generate-scene-image', {
         body: {
           prompt: ANGLE_PROMPTS[0](description),
@@ -92,7 +155,6 @@ export function useTestimonialCommercial() {
 
       const referenceImages = [firstImg.imageUrl];
 
-      // Generate remaining 5 angles in parallel
       const remaining = await Promise.allSettled(
         ANGLE_PROMPTS.slice(1).map(promptFn =>
           supabase.functions.invoke('generate-scene-image', {
@@ -117,7 +179,6 @@ export function useTestimonialCommercial() {
         referenceImages,
       };
 
-      // Save as AI Twin for reuse
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: twin } = await supabase
@@ -190,7 +251,6 @@ export function useTestimonialCommercial() {
   const generateCommercial = useCallback(async () => {
     if (segments.length === 0) { toast.error('Add segments first'); return; }
 
-    // Validate speaking segments
     for (const seg of segments) {
       if (seg.type === 'speaking' && !seg.script) {
         toast.error('Each speaking scene needs a script');
@@ -201,76 +261,202 @@ export function useTestimonialCommercial() {
     setIsGenerating(true);
     setGenerationProgress(0);
 
+    const styleConfig = getStyleConfig(videoStyle);
+    const aspectRatio = videoFormat || styleConfig.aspectRatio;
+    let creditError = false;
+
     try {
       const totalSteps = segments.length * 2 + 1;
       let step = 0;
+      const completedSegmentIds: string[] = [];
 
       for (let i = 0; i < segments.length; i++) {
+        if (creditError) break; // Stop if credits exhausted
+        
         const segment = segments[i];
         updateSegment(segment.id, { status: 'generating' });
 
         try {
           if (segment.type === 'speaking') {
-            // Use VEO3 for speaking segments - generates video with built-in voice
-            const character = segment.character;
-            const referenceImage = character?.referenceImages?.[0];
-
-            // Build rich VEO3 prompt
-            const charDesc = character?.description || 'A professional person';
-            const veo3Prompt = `A ${charDesc} looking directly at the camera and speaking: "${segment.script}". Professional studio lighting, neutral background, natural lip movements, photorealistic.`;
-
-            const { data, error } = await supabase.functions.invoke('wavespeed-video', {
-              body: {
-                action: 'create',
-                model: 'veo3',
-                prompt: veo3Prompt,
-                duration: Math.min(segment.duration, 8),
-                aspectRatio: '16:9',
-                ...(referenceImage ? { imageUrls: [referenceImage] } : {}),
+            // Step 1: Generate character image if we don't have one
+            let referenceImage = segment.character?.referenceImages?.[0];
+            
+            if (!referenceImage) {
+              const charDesc = segment.character?.description || 'A professional person';
+              toast.info(`Scene ${i + 1}: Generating character image...`);
+              const { data: imgData } = await supabase.functions.invoke('generate-scene-image', {
+                body: {
+                  prompt: `Photorealistic portrait of ${charDesc}. 85mm lens, studio lighting, neutral background, looking at camera. No text, no watermark.`,
+                  aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9'
+                }
+              });
+              if (imgData?.imageUrl) {
+                referenceImage = imgData.imageUrl;
+                updateSegment(segment.id, {
+                  character: {
+                    ...(segment.character || { name: charDesc.slice(0, 60), description: charDesc, referenceImages: [] }),
+                    referenceImages: [imgData.imageUrl],
+                  }
+                });
               }
-            });
-
-            if (error) throw error;
-            if (!data?.taskId) throw new Error('No task ID returned');
+            }
 
             step++;
             setGenerationProgress((step / totalSteps) * 100);
 
-            const videoUrl = await pollForVideo(data.taskId);
-            updateSegment(segment.id, { videoUrl, status: 'complete' });
+            // Step 2: Generate TTS audio
+            toast.info(`Scene ${i + 1}: Generating voiceover...`);
+            const gender = segment.character?.gender || 
+              (segment.character?.description?.toLowerCase().includes('female') || 
+               segment.character?.description?.toLowerCase().includes('woman') ? 'female' : 'male');
+            
+            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+              body: {
+                text: segment.script,
+                voice: 'ai-auto',
+                gender,
+              }
+            });
+
+            let audioUrl = ttsData?.audioUrl;
+            
+            // If TTS returned a data: URL, upload to storage for video API compatibility
+            if (audioUrl?.startsWith('data:')) {
+              try {
+                const base64Data = audioUrl.split(',')[1];
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let j = 0; j < binaryString.length; j++) {
+                  bytes[j] = binaryString.charCodeAt(j);
+                }
+                const blob = new Blob([bytes], { type: 'audio/mp3' });
+                const fileName = `commercial-tts-${segment.id}-${Date.now()}.mp3`;
+                
+                const { data: uploadData } = await supabase.storage
+                  .from('reels')
+                  .upload(fileName, blob, { contentType: 'audio/mp3', upsert: true });
+                
+                if (uploadData?.path) {
+                  const { data: urlData } = supabase.storage.from('reels').getPublicUrl(uploadData.path);
+                  audioUrl = urlData?.publicUrl || audioUrl;
+                }
+              } catch (uploadErr) {
+                console.warn('Audio upload failed, using data URL:', uploadErr);
+              }
+            }
+
+            // Step 3: Generate video with image + audio
+            if (referenceImage) {
+              toast.info(`Scene ${i + 1}: Generating video...`);
+              
+              const videoBody: any = {
+                action: 'create',
+                model: styleConfig.speakingModel,
+                prompt: `${segment.character?.description || 'A person'} speaking naturally, professional lighting, ${aspectRatio === '9:16' ? 'vertical TikTok format' : 'horizontal format'}. Smooth natural motion, photorealistic.`,
+                imageUrls: [referenceImage],
+                duration: Math.min(segment.duration, styleConfig.maxDuration),
+                aspectRatio,
+              };
+              
+              // Add audio for lip-sync if available
+              if (audioUrl && !audioUrl.startsWith('data:')) {
+                videoBody.audioUrl = audioUrl;
+              }
+              
+              const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+                body: videoBody
+              });
+
+              if (data?.creditError) {
+                creditError = true;
+                toast.error('⚠️ Video credits exhausted. Please top up your WaveSpeed account.');
+                updateSegment(segment.id, { audioUrl, status: 'error' });
+                break;
+              }
+              
+              if (data?.error) {
+                console.error(`Scene ${i + 1} video error:`, data.error);
+                // Save the audio even if video fails
+                updateSegment(segment.id, { audioUrl, status: 'error' });
+                step++;
+                setGenerationProgress((step / totalSteps) * 100);
+                continue;
+              }
+              
+              if (!data?.taskId) {
+                updateSegment(segment.id, { audioUrl, status: 'error' });
+                step++;
+                continue;
+              }
+
+              const videoUrl = await pollForVideo(data.taskId);
+              updateSegment(segment.id, { videoUrl, audioUrl, status: 'complete' });
+              completedSegmentIds.push(segment.id);
+            } else {
+              updateSegment(segment.id, { audioUrl, status: 'error' });
+            }
           } else {
             // B-roll: generate image then video
             const prompt = segment.brollPrompts?.[0] || 'Professional B-roll footage';
 
-            const { data: imgData } = await supabase.functions.invoke('generate-scene-image', {
-              body: { prompt, aspectRatio: '16:9' }
-            });
+            // Use existing b-roll image if already generated
+            let brollImage = segment.brollImages?.[0];
+            
+            if (!brollImage) {
+              toast.info(`B-Roll ${i + 1}: Generating image...`);
+              const { data: imgData } = await supabase.functions.invoke('generate-scene-image', {
+                body: { prompt, aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9' }
+              });
+              if (imgData?.imageUrl) brollImage = imgData.imageUrl;
+            }
 
             step++;
             setGenerationProgress((step / totalSteps) * 100);
 
-            if (imgData?.imageUrl) {
-              // Mark b-roll image as ready immediately
-              updateSegment(segment.id, { brollImages: [imgData.imageUrl], status: 'character-ready' });
+            if (brollImage) {
+              updateSegment(segment.id, { brollImages: [brollImage], status: 'character-ready' });
 
+              // Generate TTS for voiceover if specified
+              let voiceoverAudioUrl: string | undefined;
+              if (segment.voiceoverText) {
+                const { data: ttsData } = await supabase.functions.invoke('text-to-speech', {
+                  body: { text: segment.voiceoverText, voice: 'ai-auto', gender: 'male' }
+                });
+                voiceoverAudioUrl = ttsData?.audioUrl;
+              }
+
+              toast.info(`B-Roll ${i + 1}: Generating video...`);
               try {
                 const { data: vidData } = await supabase.functions.invoke('wavespeed-video', {
                   body: {
                     action: 'create',
-                    model: 'wan-2.5-i2v',
-                    prompt,
-                    imageUrls: [imgData.imageUrl],
-                    duration: Math.min(segment.duration, 8),
+                    model: styleConfig.brollModel,
+                    prompt: `${prompt}. Cinematic motion, ${aspectRatio === '9:16' ? 'vertical format' : 'horizontal format'}, professional quality.`,
+                    imageUrls: [brollImage],
+                    duration: Math.min(segment.duration, styleConfig.maxDuration),
+                    aspectRatio,
                   }
                 });
 
+                if (vidData?.creditError) {
+                  creditError = true;
+                  toast.error('⚠️ Video credits exhausted. Please top up your WaveSpeed account.');
+                  break;
+                }
+
                 if (vidData?.taskId) {
                   const videoUrl = await pollForVideo(vidData.taskId);
-                  updateSegment(segment.id, { videoUrl, status: 'complete' });
+                  updateSegment(segment.id, { 
+                    videoUrl, 
+                    audioUrl: voiceoverAudioUrl,
+                    status: 'complete' 
+                  });
+                  completedSegmentIds.push(segment.id);
+                } else if (vidData?.error) {
+                  console.warn(`B-roll video failed: ${vidData.error}`);
                 }
               } catch (vidErr) {
-                console.warn(`B-roll video gen failed for segment ${i}, image still available:`, vidErr);
-                // Keep character-ready status since image was generated successfully
+                console.warn(`B-roll video gen failed for segment ${i}:`, vidErr);
               }
             } else {
               updateSegment(segment.id, { status: 'error' });
@@ -280,17 +466,26 @@ export function useTestimonialCommercial() {
           step++;
           setGenerationProgress((step / totalSteps) * 100);
         } catch (err) {
-          console.error(`Segment ${i} failed:`, err);
+          console.error(`Segment ${i + 1} failed:`, err);
           updateSegment(segment.id, { status: 'error' });
-          // Continue with other segments
           step += 2;
           setGenerationProgress((step / totalSteps) * 100);
         }
       }
 
-      // Stitch videos
+      // Stitch videos - use latest segments state
+      const latestSegments = segments.map(s => {
+        const completed = completedSegmentIds.includes(s.id);
+        return completed ? s : s;
+      });
+      
+      // Get current segment state for stitching
       toast.info('Stitching commercial...');
-      const finalUrl = await stitchCommercial(segments);
+      
+      // Small delay to let state settle
+      await new Promise(r => setTimeout(r, 500));
+      
+      const finalUrl = await stitchCommercial(segments, aspectRatio);
 
       if (currentCommercial) {
         await supabase.from('testimonial_commercials')
@@ -299,15 +494,26 @@ export function useTestimonialCommercial() {
       }
 
       setGenerationProgress(100);
-      toast.success('Commercial generated!');
+      
+      if (creditError) {
+        toast.warning('Commercial partially generated — some scenes failed due to insufficient credits.');
+      } else {
+        toast.success('Commercial generated!');
+      }
+      
       return finalUrl;
     } catch (error) {
       console.error('Generation failed:', error);
-      toast.error('Generation failed');
+      const msg = error instanceof Error ? error.message : 'Generation failed';
+      if (msg.includes('No video clips')) {
+        toast.error('No videos were generated. Please check your WaveSpeed credits and try again.');
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsGenerating(false);
     }
-  }, [segments, updateSegment, currentCommercial]);
+  }, [segments, updateSegment, currentCommercial, videoFormat, videoStyle]);
 
   return {
     segments,
@@ -326,6 +532,10 @@ export function useTestimonialCommercial() {
     generationProgress,
     currentCommercial,
     setCurrentCommercial,
+    videoFormat,
+    setVideoFormat,
+    videoStyle,
+    setVideoStyle,
   };
 }
 
@@ -338,27 +548,41 @@ async function pollForVideo(taskId: string): Promise<string> {
     });
     if (data?.status === 'completed' && data?.videoUrl) return data.videoUrl;
     if (data?.status === 'failed') throw new Error(data.error || 'Video generation failed');
+    if (data?.creditError) throw new Error('Insufficient credits');
   }
   throw new Error('Video generation timed out');
 }
 
-async function stitchCommercial(segments: CommercialSegment[]): Promise<string> {
+async function stitchCommercial(segments: CommercialSegment[], aspectRatio: string = '9:16'): Promise<string> {
   const clips = segments.filter(s => s.videoUrl).map(s => ({
     url: s.videoUrl!,
     duration: s.duration,
     transition: s.transition,
+    caption: s.script?.slice(0, 100),
   }));
+
+  // Collect separate audio tracks for overlay
+  const audioUrls = segments
+    .filter(s => s.audioUrl && s.videoUrl)
+    .map(s => s.audioUrl!);
 
   if (clips.length === 0) throw new Error('No video clips to stitch');
 
+  const width = aspectRatio === '9:16' ? 1080 : 1920;
+  const height = aspectRatio === '9:16' ? 1920 : 1080;
+
   try {
     const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
-      body: { clips }
+      body: { 
+        clips,
+        audioUrl: audioUrls.length > 0 ? audioUrls[0] : undefined, // Primary audio
+        transition: 'crossfade',
+        captionStyle: 'bottom',
+      }
     });
     if (error) throw error;
     if (data?.success === false) throw new Error(data?.error || 'Stitch failed');
 
-    // Poll for creatomate
     const maxAttempts = 30;
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(r => setTimeout(r, 3000));
@@ -370,9 +594,12 @@ async function stitchCommercial(segments: CommercialSegment[]): Promise<string> 
     }
     throw new Error('Stitching timed out');
   } catch (err) {
-    console.warn('Creatomate stitch failed, falling back:', err);
+    console.warn('Creatomate stitch failed, falling back to canvas:', err);
     const { stitchVideosWithAudio } = await import('@/lib/videoStitch');
-    const blob = await stitchVideosWithAudio({ videoUrls: clips.map(c => c.url), audioUrls: [] });
+    const blob = await stitchVideosWithAudio({ 
+      videoUrls: clips.map(c => c.url), 
+      audioUrls 
+    });
     return URL.createObjectURL(blob);
   }
 }
