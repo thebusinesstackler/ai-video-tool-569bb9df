@@ -226,10 +226,19 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                       </div>
                     )}
 
-                    {/* Play overlay for video segments */}
-                    {hasVideo && (
+                    {/* Play overlay for video segments / voice hover indicator */}
+                    {hasVideo && hoverVoiceId !== segment.id && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Play className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+                    {hoverVoiceId === segment.id && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity">
+                        {isLoadingVoice === segment.id ? (
+                          <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Volume2 className="h-4 w-4 text-white animate-pulse" />
+                        )}
                       </div>
                     )}
 
