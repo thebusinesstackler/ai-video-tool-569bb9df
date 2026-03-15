@@ -71,6 +71,9 @@ export function AICharacterCreator({ onCharacterSaved, onClose }: AICharacterCre
   const [anglesProgress, setAnglesProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [refinementNotes, setRefinementNotes] = useState('');
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState<number | null>(null);
+  const [angleRegenPrompt, setAngleRegenPrompt] = useState('');
+  const [isRegeneratingAngle, setIsRegeneratingAngle] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
