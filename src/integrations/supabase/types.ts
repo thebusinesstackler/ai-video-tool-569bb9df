@@ -458,6 +458,48 @@ export type Database = {
         }
         Relationships: []
       }
+      video_hooks: {
+        Row: {
+          content_summary: Json | null
+          context_settings: Json | null
+          created_at: string
+          hooks: Json | null
+          id: string
+          selected_hook_index: number | null
+          status: string
+          updated_at: string
+          user_id: string
+          video_title: string | null
+          video_url: string | null
+        }
+        Insert: {
+          content_summary?: Json | null
+          context_settings?: Json | null
+          created_at?: string
+          hooks?: Json | null
+          id?: string
+          selected_hook_index?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          video_title?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          content_summary?: Json | null
+          context_settings?: Json | null
+          created_at?: string
+          hooks?: Json | null
+          id?: string
+          selected_hook_index?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          video_title?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       visual_presets: {
         Row: {
           camera_angle: string

@@ -98,3 +98,6 @@ verify_jwt = true
 
 [functions.generate-content-strategy]
 verify_jwt = false
+
+[functions.generate-video-hooks]
+verify_jwt = true
