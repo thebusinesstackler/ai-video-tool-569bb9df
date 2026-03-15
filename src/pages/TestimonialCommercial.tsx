@@ -445,6 +445,14 @@ export default function TestimonialCommercial() {
                   <video src={finalVideoUrl} controls className="w-full rounded-lg max-h-[200px]" />
                 </div>
               )}
+
+              {musicUrl && (
+                <div className="mt-2 flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+                  <Music className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-xs text-muted-foreground">Background Music</span>
+                  <audio src={musicUrl} controls className="h-7 flex-1" />
+                </div>
+              )}
             </div>
           </div>
         </div>
