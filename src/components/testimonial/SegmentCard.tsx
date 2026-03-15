@@ -57,6 +57,51 @@ export function SegmentCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDescribing, setIsDescribing] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>(segment.brollImages || []);
+  const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
+  const { user } = useAuth();
+
+  const handleGenerateCharacter = async (description: string) => {
+    if (!user?.id || !description.trim()) return;
+    
+    setIsGeneratingCharacter(true);
+    toast.info('Generating AI character with multiple angles...');
+    
+    try {
+      // Generate a character image using AI
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: {
+          prompt: `Professional headshot portrait of ${description}. Clean studio lighting, neutral background, photorealistic, high quality, looking directly at camera.`,
+          aspectRatio: '1:1'
+        }
+      });
+
+      if (error) throw error;
+      if (!data?.imageUrl) throw new Error('No image generated');
+
+      // Create an AI Twin with this generated image
+      const { data: twin, error: twinError } = await supabase
+        .from('ai_twins')
+        .insert({
+          user_id: user.id,
+          name: description.slice(0, 50),
+          description,
+          reference_images: [data.imageUrl],
+        })
+        .select('id, name')
+        .single();
+
+      if (twinError) throw twinError;
+
+      // Auto-assign to this segment
+      onUpdate(segment.id, { twinId: twin.id, twinName: twin.name });
+      toast.success(`AI character "${twin.name}" created and assigned!`);
+    } catch (err) {
+      console.error('Character generation error:', err);
+      toast.error('Failed to generate character');
+    } finally {
+      setIsGeneratingCharacter(false);
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
