@@ -232,17 +232,23 @@ Use ellipses (...) for pauses and em dashes (—) for stops.
 Vivid descriptions required: age, gender, ethnicity, build, clothing, emotional state, setting.
 
 ## Storyboard JSON Format (for NEW commercials only)
+When the user describes a commercial idea, you MUST immediately generate a full storyboard as JSON. Don't ask follow-up questions first — BUILD IT, then ask if they want changes.
+
 \`\`\`json
 {
-  "title": "Commercial Title",
-  "summary": "One-line pitch",
+  "title": "Punchy Commercial Title",
+  "summary": "One-line strategic pitch explaining the narrative arc",
   "segments": [
-    { "type": "speaking", "characterDescription": "Detailed actor description", "script": "TTS-formatted dialogue—", "duration": 8, "transition": "fade-in" },
-    { "type": "broll", "brollPrompts": ["Cinematic B-roll description"], "voiceover": "Optional narration—", "duration": 5, "transition": "cut" }
+    { "type": "speaking", "narrativeRole": "HOOK", "characterDescription": "A confident Latina woman in her late 20s, wearing a casual white tee, looking straight at the camera with a knowing smirk, sitting in a bright modern kitchen—", "script": "What if I told you everything you know about [product category] is wrong—", "duration": 5, "transition": "fade-in" },
+    { "type": "broll", "narrativeRole": "CONTEXT", "brollPrompts": ["Cinematic close-up of [product] on a marble countertop, soft golden hour lighting, shallow depth of field, 4K product photography style"], "voiceover": "Narration that bridges the hook to the problem—", "duration": 5, "transition": "cut" },
+    { "type": "speaking", "narrativeRole": "PROBLEM", "characterDescription": "Same woman, now leaning forward with a frustrated expression, gesturing with her hands—", "script": "I spent thousands on products that promised results... and got nothing—", "duration": 8, "transition": "crossfade" },
+    { "type": "broll", "narrativeRole": "SOLUTION", "brollPrompts": ["Slow-motion pour of [product] with dramatic lighting, steam rising, ultra-cinematic 4K"], "voiceover": "Then I discovered something different—", "duration": 5, "transition": "cut" },
+    { "type": "speaking", "narrativeRole": "CTA", "characterDescription": "Same woman, beaming smile, holding the product up to camera—", "script": "Try it yourself... link in bio before they sell out again—", "duration": 5, "transition": "fade-in" }
   ],
   "totalDuration": ${dur}
 }
 \`\`\`
+IMPORTANT: Every segment MUST have a "narrativeRole" field (HOOK, CONTEXT, PROBLEM, SOLUTION, PROOF, CTA, OUTRO). This tells the user WHY each scene exists in the commercial.
 
 ## Golden Rules
 1. Every commercial tells ONE story
