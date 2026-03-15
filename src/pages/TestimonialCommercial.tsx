@@ -139,11 +139,17 @@ export default function TestimonialCommercial() {
             } : undefined,
           });
         } else {
-          addSegment('broll', {
+          const brollPrompt = suggestion.brollPrompts?.[0] || '';
+          const newSeg = addSegment('broll', {
             brollPrompts: suggestion.brollPrompts || [''],
             voiceoverText: suggestion.voiceoverText || '',
             duration: suggestion.duration || 5,
+            status: brollPrompt ? 'generating-character' : 'pending',
           });
+          // Auto-generate B-roll preview image
+          if (brollPrompt && newSeg) {
+            generateBrollPreview(newSeg.id, brollPrompt);
+          }
         }
         toast.success(`AI suggested a new ${type === 'speaking' ? 'scene' : 'B-roll'} — edit it to your liking`);
       } else {
