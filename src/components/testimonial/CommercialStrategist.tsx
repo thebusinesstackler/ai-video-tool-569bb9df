@@ -167,7 +167,50 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
       try {
-        return JSON.parse(jsonMatch[1]);
+        // Sanitize control characters inside JSON string values
+        // Replace literal newlines/tabs inside strings with escaped versions
+        let sanitized = jsonMatch[1];
+        // Fix unescaped control characters in JSON strings by replacing them
+        sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, (ch) => {
+          if (ch === '\n') return '\\n';
+          if (ch === '\r') return '\\r';
+          if (ch === '\t') return '\\t';
+          return '';
+        });
+        // But we need to restore actual JSON structure newlines - the replace above
+        // broke the JSON structure. Instead, let's parse more carefully.
+        // Re-approach: only sanitize within string values
+        let raw = jsonMatch[1];
+        // Replace newlines that appear within JSON string values (between quotes)
+        let result = '';
+        let inString = false;
+        let escaped = false;
+        for (let i = 0; i < raw.length; i++) {
+          const ch = raw[i];
+          if (escaped) {
+            result += ch;
+            escaped = false;
+            continue;
+          }
+          if (ch === '\\') {
+            result += ch;
+            escaped = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = !inString;
+            result += ch;
+            continue;
+          }
+          if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
+            if (ch === '\n') result += '\\n';
+            else if (ch === '\r') result += '\\r';
+            else if (ch === '\t') result += '\\t';
+            continue;
+          }
+          result += ch;
+        }
+        return JSON.parse(result);
       } catch (e) {
         console.error('Failed to parse strategy JSON:', e);
       }
