@@ -40,6 +40,7 @@ export function StoryboardPreview({ segments, open, onOpenChange, commercialName
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [showPanel, setShowPanel] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const seg = segments[currentIndex];
