@@ -12,20 +12,27 @@ function buildSegmentContext(currentSegments: any[]) {
   let brollNum = 0;
 
   const lines = currentSegments.map((s: any, i: number) => {
+    const typeNum = s.typeNumber || (i + 1);
     if (s.type === 'speaking') {
       speakingNum++;
+      const num = typeNum || speakingNum;
       const hasImgs = s.character?.hasImages ? `✅ ${s.character.imageCount} images` : '❌ NO images';
       const hasAudio = s.hasAudio ? '🔊 audio' : '🔇 no audio';
+      const hasVideo = s.hasVideo ? '🎬 video generated' : '🎬 no video';
       const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
       const gender = s.character?.gender || (s.character?.description ? 'auto-detect from description' : 'unknown');
       const voiceId = s.voiceoverId || 'not set';
-      return `- [index=${i}] Speaking #${speakingNum} | ${s.duration}s | transition: ${s.transition} | Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] ${hasProduct} | Script: "${(s.script || '').slice(0, 150)}" | Status: ${s.status}`;
+      const role = s.narrativeRole ? `[${s.narrativeRole}]` : '';
+      const charName = s.character?.name ? `"${s.character.name}"` : '';
+      return `- [index=${i}] Scene #${num} ${role} | ${s.duration}s | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${(s.script || '').slice(0, 200)}" | Status: ${s.status}`;
     }
     brollNum++;
+    const num = typeNum || brollNum;
     const hasBroll = s.hasBrollImages ? '✅ has preview' : '❌ NO preview';
+    const brollContent = s.brollImageUrls?.length > 0 ? `🖼️ Current image: ${s.brollImageUrls[0].slice(-40)}` : '';
     const hasVo = s.voiceoverText ? `VO: "${s.voiceoverText.slice(0, 80)}"` : 'no VO';
     const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
-    return `- [index=${i}] B-Roll #${brollNum} | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 150)}" | ${hasVo} [${hasBroll}] ${hasProduct} | Status: ${s.status}`;
+    return `- [index=${i}] B-Roll #${num} | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 200)}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | Status: ${s.status}`;
   });
 
   return `\n\n## Current Storyboard State
