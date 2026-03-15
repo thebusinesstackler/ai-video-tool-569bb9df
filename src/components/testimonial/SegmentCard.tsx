@@ -18,6 +18,7 @@ interface SegmentCardProps {
   index: number;
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
