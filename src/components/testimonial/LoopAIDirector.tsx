@@ -475,7 +475,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
                             variant="ghost"
                             size="sm"
                             className="h-6 text-[10px] gap-1 hover:text-primary"
-                            onClick={() => previewAudio(seg.script!)}
+                            onClick={() => previewAudio(seg.script!, seg.character?.description)}
                           >
                             {isPreviewingAudio ? <Volume2 className="h-3 w-3 text-primary animate-pulse" /> : <Play className="h-3 w-3" />}
                             Preview
