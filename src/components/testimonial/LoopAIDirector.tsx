@@ -30,7 +30,7 @@ type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll';
     sceneIndex?: number | 'all';
     sceneIndices?: number[];
     changes?: Record<string, any>;
@@ -41,6 +41,7 @@ interface EditAction {
     find?: string;
     replaceWith?: string;
     scope?: ReplaceScope;
+    mood?: string;
   }>;
 }
 
