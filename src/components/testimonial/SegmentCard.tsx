@@ -230,6 +230,41 @@ export function SegmentCard({
               value={segment.twinId}
               onSelect={(id, name) => onUpdate(segment.id, { twinId: id, twinName: name })}
             />
+            
+            {/* Generate AI Character option */}
+            {!segment.twinId && (
+              <div className="border border-dashed border-primary/30 rounded-lg p-3 bg-primary/5">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Or generate an AI character with multiple angles
+                </p>
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder="Describe the person (e.g., 'confident woman in her 30s, professional attire')..."
+                    className="min-h-[40px] text-sm"
+                    id={`char-desc-${segment.id}`}
+                    rows={2}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1"
+                    disabled={isGeneratingCharacter}
+                    onClick={() => {
+                      const el = document.getElementById(`char-desc-${segment.id}`) as HTMLTextAreaElement;
+                      if (el?.value) handleGenerateCharacter(el.value);
+                    }}
+                  >
+                    {isGeneratingCharacter ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3 w-3" />
+                    )}
+                    Generate
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label>Script (What they say)</Label>
               <Textarea
