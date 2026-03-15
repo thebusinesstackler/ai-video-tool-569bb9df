@@ -39,17 +39,60 @@ function calculateDurationFromScript(script: string): number {
   return 10;
 }
 
+const CHAT_STORAGE_KEY = 'loop-ai-director-chat';
+
+function detectGenderFromDescription(desc: string): 'female' | 'male' {
+  const lower = desc.toLowerCase();
+  const femaleIndicators = ['woman', 'female', 'lady', 'girl', 'she', 'her ', 'mother', 'mom', 'sister', 'actress', 'heroine'];
+  if (femaleIndicators.some(w => lower.includes(w))) return 'female';
+  return 'male';
+}
+
+function pickVoiceForCharacter(desc: string): { voiceId: string; gender: string } {
+  const gender = detectGenderFromDescription(desc);
+  if (gender === 'female') {
+    const voices = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+    return { voiceId: voices[Math.floor(Math.random() * voices.length)], gender: 'female' };
+  }
+  const voices = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man'];
+  return { voiceId: voices[Math.floor(Math.random() * voices.length)], gender: 'male' };
+}
+
 export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments }: LoopAIDirectorProps) {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.messages || [];
+      }
+    } catch {}
+    return [];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [targetDuration, setTargetDuration] = useState('30');
+  const [targetDuration, setTargetDuration] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) return JSON.parse(saved).targetDuration || '30';
+    } catch {}
+    return '30';
+  });
   const [isListening, setIsListening] = useState(false);
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-save chat to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages, targetDuration }));
+      } catch {}
+    }
+  }, [messages, targetDuration]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
