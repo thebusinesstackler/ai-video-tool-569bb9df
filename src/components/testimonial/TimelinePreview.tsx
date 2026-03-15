@@ -262,8 +262,8 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-muted-foreground">{segment.duration}s</span>
-                      {hasAudio && <Volume2 className="h-2.5 w-2.5 text-muted-foreground/60" />}
-                      {hasVideo && <Film className="h-2.5 w-2.5 text-green-500/70" />}
+                      {(hasAudio || segment.script) && <Volume2 className="h-2.5 w-2.5 text-muted-foreground/60" />}
+                      {hasVideo && <Film className="h-2.5 w-2.5 text-primary/70" />}
                     </div>
                     {segment.script && (
                       <p className="text-[9px] text-muted-foreground/70 truncate leading-tight">{segment.script}</p>
