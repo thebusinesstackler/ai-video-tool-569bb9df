@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { 
   GripVertical, Trash2, User, Film, Loader2, CheckCircle, AlertCircle, 
   Wand2, ImageIcon, Sparkles, Check, Play, Pause, Volume2, Maximize2, Pencil, X,
-  Copy, Headphones
+  Copy, Headphones, Package, Upload
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -70,6 +71,11 @@ export function SegmentCard({
   // Lightbox state
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [expandedImageLabel, setExpandedImageLabel] = useState('');
+
+  // Product image swap state
+  const [isUploadingProduct, setIsUploadingProduct] = useState(false);
+  const [isSwappingProduct, setIsSwappingProduct] = useState(false);
+  const productInputRef = useRef<HTMLInputElement | null>(null);
 
   // Edit image description state
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
@@ -137,6 +143,58 @@ export function SegmentCard({
     onGenerateCharacter(segment.id, newDesc);
     setEditingImageIndex(null);
     setEditDescription('');
+  };
+
+  const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingProduct(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const fileName = `products/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('reels')
+        .upload(fileName, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+      onUpdate(segment.id, { productImageUrl: publicUrl });
+      toast.success('Product image uploaded');
+    } catch (err) {
+      console.error('Product upload error:', err);
+      toast.error('Failed to upload product image');
+    } finally {
+      setIsUploadingProduct(false);
+      if (productInputRef.current) productInputRef.current.value = '';
+    }
+  };
+
+  const handleSwapProduct = async () => {
+    if (!segment.productImageUrl || !segment.character?.referenceImages?.[0]) return;
+    setIsSwappingProduct(true);
+    try {
+      const refImage = segment.character.referenceImages[0]; // Use front angle
+      const { data, error } = await supabase.functions.invoke('edit-scene-image', {
+        body: {
+          prompt: `Replace any product/item the person is holding with the product shown in the second reference image. Keep the person EXACTLY the same — same face, pose, clothing, lighting, and background. Only swap the product/item in their hand with the new product.`,
+          referenceImages: [refImage, segment.productImageUrl],
+          characterDescription: segment.character.description,
+        }
+      });
+      if (error) throw error;
+      if (data?.imageUrl) {
+        const updatedImages = [...segment.character.referenceImages];
+        updatedImages[0] = data.imageUrl;
+        onUpdate(segment.id, {
+          character: { ...segment.character, referenceImages: updatedImages }
+        });
+        toast.success('Product swapped in character image');
+      }
+    } catch (err) {
+      console.error('Product swap error:', err);
+      toast.error('Failed to swap product');
+    } finally {
+      setIsSwappingProduct(false);
+    }
   };
 
   const angleLabels = ['Front', '3/4 Left', 'Side', 'Low Angle', '3/4 Right', 'Wide'];
@@ -337,6 +395,65 @@ export function SegmentCard({
                       </Button>
                     </div>
                   )}
+
+                  {/* Product Image Swap */}
+                  <div className="border border-dashed border-muted-foreground/30 rounded-lg p-3 bg-muted/20 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-medium">Product Image</span>
+                    </div>
+                    {segment.productImageUrl ? (
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-border">
+                          <img src={segment.productImageUrl} alt="Product" className="w-full h-full object-cover" />
+                          <button
+                            className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
+                            onClick={() => onUpdate(segment.id, { productImageUrl: undefined })}
+                          >
+                            <X className="h-2.5 w-2.5 text-white" />
+                          </button>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="gap-1 text-xs h-8"
+                          onClick={handleSwapProduct}
+                          disabled={isSwappingProduct || !segment.character?.referenceImages?.[0]}
+                        >
+                          {isSwappingProduct ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Wand2 className="h-3 w-3" />
+                          )}
+                          Swap Product In
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          ref={productInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleProductUpload}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-xs h-8"
+                          onClick={() => productInputRef.current?.click()}
+                          disabled={isUploadingProduct}
+                        >
+                          {isUploadingProduct ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                          Upload Product Image
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="border border-dashed border-primary/30 rounded-lg p-4 bg-primary/5 space-y-3">
