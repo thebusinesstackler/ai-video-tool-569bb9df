@@ -310,6 +310,59 @@ export function LoopAIDirector({
           }
           break;
         }
+        case 'regenerateCharacter': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            const desc = (edit as any).description || seg.character?.description || '';
+            if (desc) {
+              // Update description first, then regenerate images
+              onUpdateSegment(seg.id, {
+                character: {
+                  ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                  description: desc,
+                  name: desc.slice(0, 60),
+                  referenceImages: [], // Clear old images
+                },
+                status: 'generating-character',
+              });
+              onGenerateCharacter(seg.id, desc);
+              editSummary.push(`🎭 Regenerating character for scene ${edit.sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
+        case 'regenerateBroll': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            const prompt = (edit as any).prompt || seg.brollPrompts?.[0] || '';
+            if (prompt) {
+              // Update prompt if provided, then regenerate
+              if ((edit as any).prompt) {
+                onUpdateSegment(seg.id, { brollPrompts: [prompt], status: 'generating-character' });
+              }
+              onGenerateBrollPreview(seg.id, prompt);
+              editSummary.push(`🎞️ Regenerating B-roll for scene ${edit.sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
+        case 'updateCharacterDescription': {
+          if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
+            const seg = segments[edit.sceneIndex];
+            const desc = (edit as any).description || '';
+            if (desc) {
+              onUpdateSegment(seg.id, {
+                character: {
+                  ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                  description: desc,
+                  name: desc.slice(0, 60),
+                },
+              });
+              editSummary.push(`Updated character description for scene ${edit.sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
       }
     }
 
