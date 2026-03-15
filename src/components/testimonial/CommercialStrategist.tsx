@@ -312,11 +312,11 @@ export function CommercialStrategist({ onApplyStrategy }: CommercialStrategistPr
           </div>
 
           {extractedStrategy && (
-            <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <Card className="border-primary/30 bg-primary/5">
               <CardContent className="pt-3 pb-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-emerald-500" />
+                    <Sparkles className="h-4 w-4 text-primary" />
                     <span className="text-sm font-semibold">{extractedStrategy.title}</span>
                     <Badge variant="outline" className="text-[10px] gap-1">
                       <Layers className="h-2 w-2" />

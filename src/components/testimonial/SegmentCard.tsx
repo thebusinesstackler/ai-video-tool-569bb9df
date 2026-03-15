@@ -110,7 +110,7 @@ export function SegmentCard({
                     </Button>
                   )}
                   {status === 'approved' && (
-                    <Badge className="bg-emerald-500/20 text-emerald-600 gap-1">
+                    <Badge className="bg-primary/20 text-primary gap-1">
                       <CheckCircle className="h-3 w-3" /> Approved
                     </Badge>
                   )}
