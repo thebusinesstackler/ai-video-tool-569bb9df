@@ -264,13 +264,11 @@ export function LoopAIDirector({
         }
         case 'add': {
           if (edit.segment) {
-            const newSeg: CommercialSegment = {
-              id: crypto.randomUUID(),
-              type: edit.segment.type || 'speaking',
+            const type = edit.segment.type || 'speaking';
+            const prefill: Partial<CommercialSegment> = {
               script: edit.segment.script || '',
               duration: edit.segment.duration || 8,
               transition: edit.segment.transition || 'cut',
-              status: 'pending',
               ...(edit.segment.characterDescription ? {
                 character: {
                   name: edit.segment.characterDescription.slice(0, 60),
@@ -281,9 +279,8 @@ export function LoopAIDirector({
               ...(edit.segment.brollPrompts ? { brollPrompts: edit.segment.brollPrompts } : {}),
               ...(edit.segment.voiceover ? { voiceoverText: edit.segment.voiceover } : {}),
             };
-            // Use onApplyStrategy to append
-            onApplyStrategy([...segments, newSeg], '');
-            editSummary.push(`Added new ${edit.segment.type} scene`);
+            onAddSegment(type as 'speaking' | 'broll', prefill);
+            editSummary.push(`Added new ${type} scene`);
           }
           break;
         }
