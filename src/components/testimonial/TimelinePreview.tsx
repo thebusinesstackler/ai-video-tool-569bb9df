@@ -134,7 +134,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  <div className="font-medium">{config.label} #{index + 1}</div>
+                  <div className="font-medium">{config.label} #{getTypeNumber(index)}</div>
                   <div className="text-muted-foreground">{segment.duration}s — {getTimecode(index)}</div>
                 </TooltipContent>
               </Tooltip>
