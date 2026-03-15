@@ -66,6 +66,7 @@ export function SegmentCard({
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [isGeneratingNewVoice, setIsGeneratingNewVoice] = useState(false);
   const [isGeneratingBroll, setIsGeneratingBroll] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -116,6 +117,64 @@ export function SegmentCard({
       toast.error('Voice preview failed');
     } finally {
       setIsPreviewingVoice(false);
+    }
+  };
+
+  // Generate a brand new voice — picks a random matching voice, calls TTS, saves to segment
+  const handleGenerateNewVoice = async () => {
+    if (!segment.script?.trim()) { toast.error('Add a script first'); return; }
+    setIsGeneratingNewVoice(true);
+    try {
+      // Pick a random voice matching character gender
+      const desc = (segment.character?.description || '').toLowerCase();
+      const gender = (segment.character?.gender || '').toLowerCase();
+      const isFemale = gender.includes('female') || gender.includes('woman') ||
+        /\b(woman|female|girl|lady|she|her|mother|actress)\b/.test(desc);
+      
+      const femaleVoices = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+      const maleVoices = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man'];
+      const pool = isFemale ? femaleVoices : maleVoices;
+      const voiceId = pool[Math.floor(Math.random() * pool.length)];
+
+      toast.info(`🎙️ Generating new ${isFemale ? 'female' : 'male'} voice (${voiceId.replace(/_/g, ' ')})...`);
+
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: segment.script, voice: voiceId }
+      });
+      if (error) throw error;
+      
+      if (data?.audioUrl) {
+        const usedVoiceId = data.voiceUsed || voiceId;
+        
+        // Save to segment
+        onUpdate(segment.id, { audioUrl: data.audioUrl, voiceoverId: usedVoiceId });
+        
+        // Stop any existing playback
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+        
+        // Play new audio
+        const audio = new Audio(data.audioUrl);
+        audioRef.current = audio;
+        audio.onended = () => setIsPlayingAudio(false);
+        audio.play();
+        setIsPlayingAudio(true);
+        
+        toast.success(`🎙️ New voice generated — ${usedVoiceId.replace(/_/g, ' ')}`, {
+          action: {
+            label: 'Copy Voice ID',
+            onClick: () => {
+              navigator.clipboard.writeText(usedVoiceId);
+              toast.info(`Voice ID "${usedVoiceId}" copied`);
+            },
+          },
+          duration: 8000,
+        });
+      }
+    } catch (err) {
+      console.error('New voice generation failed:', err);
+      toast.error('Failed to generate new voice');
+    } finally {
+      setIsGeneratingNewVoice(false);
     }
   };
 
@@ -237,7 +296,7 @@ export function SegmentCard({
               <span className="text-xs text-muted-foreground font-mono">#{index + 1}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              {/* Play audio button */}
+              {/* Play cached audio */}
               {segment.audioUrl && (
                 <Button
                   variant="ghost"
@@ -253,6 +312,36 @@ export function SegmentCard({
                   )}
                 </Button>
               )}
+              {/* Generate New Voice — always available for speaking segments with script */}
+              {segment.type === 'speaking' && segment.script && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleGenerateNewVoice}
+                  disabled={isGeneratingNewVoice}
+                  title={segment.audioUrl ? 'Generate new voice' : 'Preview voice'}
+                >
+                  {isGeneratingNewVoice ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Headphones className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
+              {/* Voice ID badge — click to copy */}
+              {segment.voiceoverId && (
+                <button
+                  className="text-[9px] font-mono bg-muted/60 rounded px-1.5 py-0.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors border border-border/50"
+                  onClick={() => {
+                    navigator.clipboard.writeText(segment.voiceoverId!);
+                    toast.success(`Voice ID "${segment.voiceoverId}" copied — reuse this voice anytime`);
+                  }}
+                  title="Copy voice ID to reuse this voice"
+                >
+                  🎙️ {segment.voiceoverId.slice(0, 16)}…
+                </button>
+              )}
               {/* Play video button */}
               {segment.videoUrl && (
                 <Button
@@ -266,23 +355,6 @@ export function SegmentCard({
                     <Pause className="h-3 w-3 text-primary" />
                   ) : (
                     <Play className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-              {/* Voice preview for speaking segments */}
-              {segment.type === 'speaking' && segment.script && !segment.audioUrl && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handlePreviewVoice}
-                  disabled={isPreviewingVoice}
-                  title="Preview voice"
-                >
-                  {isPreviewingVoice ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Headphones className="h-3 w-3" />
                   )}
                 </Button>
               )}
