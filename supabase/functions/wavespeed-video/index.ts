@@ -635,10 +635,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in wavespeed-video function:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const isCreditError = message.includes('Insufficient credits');
+    // Return 200 so client can always read the error message
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), 
+      JSON.stringify({ error: message, ...(isCreditError ? { creditError: true } : {}) }), 
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
