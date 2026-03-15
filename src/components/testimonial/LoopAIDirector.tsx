@@ -671,26 +671,49 @@ export function LoopAIDirector({
           body: JSON.stringify({
             messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
             targetDuration: parseInt(targetDuration),
-            currentSegments: segments.length > 0 ? segments.map((s, index) => ({
-              index,
-              type: s.type,
-              duration: s.duration,
-              transition: s.transition,
-              script: s.script,
-              voiceoverText: s.voiceoverText,
-              brollPrompts: s.brollPrompts,
-              character: s.character ? {
-                description: s.character.description,
-                gender: s.character.gender || '',
-                hasImages: s.character.referenceImages.length > 0,
-                imageCount: s.character.referenceImages.length,
-              } : undefined,
-              hasBrollImages: (s.brollImages?.length || 0) > 0,
-              hasProductImage: !!s.productImageUrl,
-              hasAudio: !!s.audioUrl,
-              voiceoverId: s.voiceoverId || '',
-              status: s.status,
-            })) : undefined,
+            currentSegments: segments.length > 0 ? segments.map((s, index) => {
+              // Calculate type-specific number for clarity
+              let typeNum = 0;
+              for (let j = 0; j <= index; j++) {
+                if (segments[j].type === s.type) typeNum++;
+              }
+              // Infer narrative role from position
+              const speakingSegments = segments.filter(seg => seg.type === 'speaking');
+              const brollSegments = segments.filter(seg => seg.type === 'broll');
+              let narrativeRole = '';
+              if (s.type === 'speaking') {
+                const speakIdx = speakingSegments.indexOf(s);
+                if (speakIdx === 0) narrativeRole = 'HOOK';
+                else if (speakIdx === speakingSegments.length - 1) narrativeRole = 'CTA';
+                else if (speakIdx === 1) narrativeRole = 'PROBLEM/STORY';
+                else narrativeRole = 'PROOF/SOLUTION';
+              }
+              return {
+                index,
+                type: s.type,
+                typeNumber: typeNum,
+                narrativeRole,
+                duration: s.duration,
+                transition: s.transition,
+                script: s.script,
+                voiceoverText: s.voiceoverText,
+                brollPrompts: s.brollPrompts,
+                brollImageUrls: s.brollImages || [],
+                character: s.character ? {
+                  name: s.character.name || '',
+                  description: s.character.description,
+                  gender: s.character.gender || '',
+                  hasImages: s.character.referenceImages.length > 0,
+                  imageCount: s.character.referenceImages.length,
+                } : undefined,
+                hasBrollImages: (s.brollImages?.length || 0) > 0,
+                hasProductImage: !!s.productImageUrl,
+                hasAudio: !!s.audioUrl,
+                hasVideo: !!s.videoUrl,
+                voiceoverId: s.voiceoverId || '',
+                status: s.status,
+              };
+            }) : undefined,
           }),
         }
       );
