@@ -864,6 +864,45 @@ export function LoopAIDirector({
     return content.replace(/```json[\s\S]*?```/g, '').replace(/```action[\s\S]*?```/g, '').trim();
   };
 
+  // Generate contextual quick actions based on project state
+  const getQuickActions = (): { label: string; message: string; icon: string }[] => {
+    const actions: { label: string; message: string; icon: string }[] = [];
+    
+    if (segments.length === 0) {
+      actions.push(
+        { label: '🎬 Build a 15s ad', message: 'Create a 15 second commercial for my product', icon: '🎬' },
+        { label: '⚡ Quick TikTok ad', message: 'Build a punchy 10 second TikTok-style ad', icon: '⚡' },
+        { label: '🎯 30s testimonial', message: 'Create a 30 second testimonial commercial with actors', icon: '🎯' },
+      );
+      return actions;
+    }
+
+    const missingCharacters = segments.filter(s => s.type === 'speaking' && (!s.character?.referenceImages || s.character.referenceImages.length === 0));
+    const missingAudio = segments.filter(s => s.type === 'speaking' && !s.audioUrl);
+    const missingBroll = segments.filter(s => s.type === 'broll' && (!s.brollImages || s.brollImages.length === 0));
+    const hasAnyVideo = segments.some(s => s.videoUrl);
+
+    if (missingCharacters.length > 0) {
+      actions.push({ label: `🎭 Generate ${missingCharacters.length} character${missingCharacters.length > 1 ? 's' : ''}`, message: 'Generate all missing character images', icon: '🎭' });
+    }
+    if (missingAudio.length > 0) {
+      actions.push({ label: `🎙️ Generate ${missingAudio.length} voiceover${missingAudio.length > 1 ? 's' : ''}`, message: 'Generate voiceovers for all scenes missing audio', icon: '🎙️' });
+    }
+    if (missingBroll.length > 0) {
+      actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll preview${missingBroll.length > 1 ? 's' : ''}`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
+    }
+    if (segments.length > 0 && !hasAnyVideo) {
+      actions.push({ label: '🚀 Full production pass', message: 'Do a full production pass — generate everything that\'s missing', icon: '🚀' });
+    }
+    if (segments.length > 0) {
+      actions.push({ label: '🔍 Review storyboard', message: 'Review my storyboard and fix any issues', icon: '🔍' });
+      actions.push({ label: '🎵 Add music', message: 'Add background music that matches the mood of this commercial', icon: '🎵' });
+      actions.push({ label: '✏️ Punch up the hook', message: 'Make the hook scene more attention-grabbing', icon: '✏️' });
+    }
+
+    return actions.slice(0, 4);
+  };
+
   const LoopAvatar = ({ size = 'sm' }: { size?: 'sm' | 'lg' }) => (
     <Avatar className={`${size === 'lg' ? 'h-10 w-10' : 'h-7 w-7'} shrink-0 border-2 border-primary/30 shadow-sm`}>
       <AvatarImage src={loopAiAvatar} alt="Loop AI" className="object-cover" />
