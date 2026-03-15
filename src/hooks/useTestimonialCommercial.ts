@@ -268,7 +268,8 @@ export function useTestimonialCommercial() {
     try {
       const totalSteps = segments.length * 2 + 1;
       let step = 0;
-      const completedSegmentIds: string[] = [];
+      // Track generated clips locally to avoid stale React state
+      const generatedClips: { id: string; videoUrl: string; audioUrl?: string; duration: number; script?: string }[] = [];
 
       for (let i = 0; i < segments.length; i++) {
         if (creditError) break; // Stop if credits exhausted
