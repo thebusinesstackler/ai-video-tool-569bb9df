@@ -145,6 +145,58 @@ export function SegmentCard({
     setEditDescription('');
   };
 
+  const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingProduct(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const fileName = `products/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('reels')
+        .upload(fileName, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+      onUpdate(segment.id, { productImageUrl: publicUrl });
+      toast.success('Product image uploaded');
+    } catch (err) {
+      console.error('Product upload error:', err);
+      toast.error('Failed to upload product image');
+    } finally {
+      setIsUploadingProduct(false);
+      if (productInputRef.current) productInputRef.current.value = '';
+    }
+  };
+
+  const handleSwapProduct = async () => {
+    if (!segment.productImageUrl || !segment.character?.referenceImages?.[0]) return;
+    setIsSwappingProduct(true);
+    try {
+      const refImage = segment.character.referenceImages[0]; // Use front angle
+      const { data, error } = await supabase.functions.invoke('edit-scene-image', {
+        body: {
+          prompt: `Replace any product/item the person is holding with the product shown in the second reference image. Keep the person EXACTLY the same — same face, pose, clothing, lighting, and background. Only swap the product/item in their hand with the new product.`,
+          referenceImages: [refImage, segment.productImageUrl],
+          characterDescription: segment.character.description,
+        }
+      });
+      if (error) throw error;
+      if (data?.imageUrl) {
+        const updatedImages = [...segment.character.referenceImages];
+        updatedImages[0] = data.imageUrl;
+        onUpdate(segment.id, {
+          character: { ...segment.character, referenceImages: updatedImages }
+        });
+        toast.success('Product swapped in character image');
+      }
+    } catch (err) {
+      console.error('Product swap error:', err);
+      toast.error('Failed to swap product');
+    } finally {
+      setIsSwappingProduct(false);
+    }
+  };
+
   const angleLabels = ['Front', '3/4 Left', 'Side', 'Low Angle', '3/4 Right', 'Wide'];
 
   return (
