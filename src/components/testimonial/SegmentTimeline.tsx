@@ -46,9 +46,12 @@ export function SegmentTimeline({
             {segments.length} {label.toLowerCase()}{segments.length !== 1 ? 's' : ''} • {totalDuration}s
           </p>
         </div>
-        <Button onClick={onAdd} size="sm" variant="outline" className="gap-1">
-          <Plus className="h-3 w-3" />
-          Add {label}
+        <Button onClick={onAdd} size="sm" variant="outline" className="gap-1" disabled={isAddingScene}>
+          {isAddingScene ? (
+            <><Loader2 className="h-3 w-3 animate-spin" /> <Sparkles className="h-3 w-3" /> Suggesting...</>
+          ) : (
+            <><Plus className="h-3 w-3" /> Add {label}</>
+          )}
         </Button>
       </div>
 
