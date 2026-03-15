@@ -10,10 +10,11 @@ import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { cn } from '@/lib/utils';
 import { SavedCommercialsDrawer } from '@/components/testimonial/SavedCommercialsDrawer';
+import { StoryboardPreview } from '@/components/testimonial/StoryboardPreview';
 
 export default function TestimonialCommercial() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function TestimonialCommercial() {
   const [activeTab, setActiveTab] = useState('scenes');
   const [targetDuration, setTargetDuration] = useState('30');
   const [chatOpen, setChatOpen] = useState(true);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const {
     segments,
@@ -371,6 +373,11 @@ export default function TestimonialCommercial() {
                 </div>
               ) : (
                 <div className="flex gap-2">
+                  {segments.length > 0 && (
+                    <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
+                      <Eye className="h-3 w-3" /> Preview
+                    </Button>
+                  )}
                   {hasCharacters && !allApproved && (
                     <Button onClick={approveAllSegments} variant="outline" size="sm" className="gap-1 text-xs">
                       <CheckCircle2 className="h-3 w-3" /> Approve All
@@ -396,6 +403,12 @@ export default function TestimonialCommercial() {
           </div>
         </div>
       </div>
+      <StoryboardPreview
+        segments={segments}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        commercialName={name}
+      />
     </Layout>
   );
 }
