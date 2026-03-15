@@ -12,32 +12,41 @@ function buildSegmentContext(currentSegments: any[]) {
   let brollNum = 0;
 
   const lines = currentSegments.map((s: any, i: number) => {
+    const typeNum = s.typeNumber || (i + 1);
     if (s.type === 'speaking') {
       speakingNum++;
+      const num = typeNum || speakingNum;
       const hasImgs = s.character?.hasImages ? `✅ ${s.character.imageCount} images` : '❌ NO images';
       const hasAudio = s.hasAudio ? '🔊 audio' : '🔇 no audio';
+      const hasVideo = s.hasVideo ? '🎬 video generated' : '🎬 no video';
       const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
       const gender = s.character?.gender || (s.character?.description ? 'auto-detect from description' : 'unknown');
       const voiceId = s.voiceoverId || 'not set';
-      return `- [index=${i}] Speaking #${speakingNum} | ${s.duration}s | transition: ${s.transition} | Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] ${hasProduct} | Script: "${(s.script || '').slice(0, 150)}" | Status: ${s.status}`;
+      const role = s.narrativeRole ? `[${s.narrativeRole}]` : '';
+      const charName = s.character?.name ? `"${s.character.name}"` : '';
+      return `- [index=${i}] Scene #${num} ${role} | ${s.duration}s | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${(s.script || '').slice(0, 200)}" | Status: ${s.status}`;
     }
     brollNum++;
+    const num = typeNum || brollNum;
     const hasBroll = s.hasBrollImages ? '✅ has preview' : '❌ NO preview';
+    const brollContent = s.brollImageUrls?.length > 0 ? `🖼️ Current image: ${s.brollImageUrls[0].slice(-40)}` : '';
     const hasVo = s.voiceoverText ? `VO: "${s.voiceoverText.slice(0, 80)}"` : 'no VO';
     const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
-    return `- [index=${i}] B-Roll #${brollNum} | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 150)}" | ${hasVo} [${hasBroll}] ${hasProduct} | Status: ${s.status}`;
+    return `- [index=${i}] B-Roll #${num} | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 200)}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | Status: ${s.status}`;
   });
 
   return `\n\n## Current Storyboard State
-The user currently has ${currentSegments.length} total segments (${speakingNum} speaking, ${brollNum} B-roll):
+The user currently has ${currentSegments.length} total segments (${speakingNum} speaking scenes, ${brollNum} B-roll clips):
 ${lines.join('\n')}
 
-### INDEX MAPPING (CRITICAL)
-The "index" in brackets is the 0-based index you MUST use in sceneIndex. The "Speaking #N" or "B-Roll #N" is the type-specific number the user sees in the UI tabs.
-- When the user says "Scene 1" or "Speaking 1" → find the Speaking segment with #1 and use its [index=X] value.
-- When the user says "B-roll 1" or "B-Roll #1" → find the B-Roll segment with #1 and use its [index=X] value.
-- When the user says "change the B-roll" generally → look at ALL B-Roll segments and determine which one(s) they mean from context.
-- NEVER confuse a Speaking scene number with a B-Roll scene number — they are separate sequences.
+### INDEX MAPPING (CRITICAL — READ THIS CAREFULLY)
+- The "[index=N]" is the INTERNAL 0-based index you use in action block \`sceneIndex\` fields.
+- The "Scene #N" or "B-Roll #N" is what the USER sees in the UI.
+- NEVER say "Scene 0" or "Scene #0" — there is no Scene 0. The first scene is Scene #1.
+- When the user says "Scene 1" → find Scene #1 above and use its [index=X] value in your action block
+- When the user says "B-Roll 2" → find B-Roll #2 above and use its [index=X] value
+- [HOOK] = opening scene, [CTA] = closing call-to-action, [PROBLEM/STORY] = middle narrative
+- When summarizing to the user, always use "Scene #N" or "B-Roll #N", NEVER use index numbers
 
 When the user asks to modify existing scenes, output an \`\`\`action block with the changes.`;
 }
@@ -147,6 +156,19 @@ Every character description should describe what the person is DOING on camera. 
 - NEVER just describe appearance — always include what they're doing (speaking, holding product, demonstrating, etc.)
 
 ### NEVER claim edits are complete unless you output a valid action block.
+
+## VIDEO GENERATION AWARENESS (LIP-SYNC)
+Speaking scenes use **lip-sync** technology — the character image is animated to match the voiceover audio. This means:
+- The character MUST have reference images generated before video can be created
+- The character MUST have audio (voiceover) generated before video can be created
+- The character description determines what the person looks like AND what they're doing on camera
+- When you see "[🎬 no video]" on a speaking scene — it means the lip-sync video hasn't been generated yet
+- B-Roll scenes do NOT use lip-sync — they use cinematic image-to-video generation
+
+## B-ROLL CONTENT AWARENESS
+You can see what's currently in each B-Roll from its prompt text. If a B-Roll prompt says "breakfast on a table" but the commercial is about skincare, FLAG IT — tell the user "B-Roll #2 shows breakfast on a table but this is a skincare commercial — want me to replace it with a product shot?"
+- Always check that B-Roll imagery matches the product/brand being advertised
+- When the user says B-Roll content "shouldn't be there" — regenerate with a prompt that matches the commercial's actual product
 
 ## PRODUCT & BRAND AWARENESS
 You must understand what product is being advertised across ALL scenes. If B-roll shows generic imagery when we're selling a specific product:
