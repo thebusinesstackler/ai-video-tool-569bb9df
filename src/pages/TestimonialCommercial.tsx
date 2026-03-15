@@ -261,6 +261,7 @@ export default function TestimonialCommercial() {
             </Button>
             <Button
               onClick={() => {
+                localStorage.removeItem('loop-ai-director-chat');
                 setSegments([]);
                 setCurrentCommercial(null);
                 setName('Untitled Commercial');

@@ -113,6 +113,19 @@ export function LoopAIDirector({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const prevSegmentsLenRef = useRef(segments.length);
+
+  // Auto-greet on new project (segments cleared + no chat history)
+  useEffect(() => {
+    if (prevSegmentsLenRef.current > 0 && segments.length === 0 && messages.length === 0) {
+      const greeting: Message = {
+        role: 'assistant',
+        content: "🎬 **Fresh canvas!** What are we building?\n\nTell me the **product**, **audience**, and **vibe** — I'll create your full storyboard. Or try:\n- *\"30s TikTok ad for a protein bar aimed at gym bros\"*\n- *\"Luxury skincare testimonial, calm & elegant\"*\n- *\"High-energy product launch for a tech gadget\"*"
+      };
+      setMessages([greeting]);
+    }
+    prevSegmentsLenRef.current = segments.length;
+  }, [segments.length]);
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
   const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(() => {
