@@ -10,7 +10,7 @@ import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye, Music } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { cn } from '@/lib/utils';
 import { SavedCommercialsDrawer } from '@/components/testimonial/SavedCommercialsDrawer';
@@ -113,6 +113,45 @@ export default function TestimonialCommercial() {
       updateSegment(segmentId, { status: 'pending' });
     }
   }, [updateSegment]);
+
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+
+  const handleGenerateMusic = useCallback(async (mood: string) => {
+    toast.info(`🎵 Generating background music: "${mood}"...`);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-music`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            mood,
+            duration: segments.reduce((s, seg) => s + seg.duration, 0) || 30,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (data.needsKey) {
+        toast.error('ElevenLabs API key needed for music generation. Add ELEVENLABS_API_KEY in settings.');
+        return;
+      }
+      if (data.error) throw new Error(data.error);
+      if (data.audioUrl) {
+        setMusicUrl(data.audioUrl);
+        toast.success('🎵 Background music generated!');
+      } else if (data.audioContent) {
+        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+        setMusicUrl(audioUrl);
+        toast.success('🎵 Background music generated!');
+      }
+    } catch (err) {
+      console.error('Music generation failed:', err);
+      toast.error('Music generation failed');
+    }
+  }, [segments]);
 
   const [isSuggestingScene, setIsSuggestingScene] = useState(false);
 
@@ -264,6 +303,7 @@ export default function TestimonialCommercial() {
                 onGenerateCharacter={generateCharacterForSegment}
                 onGenerateBrollPreview={generateBrollPreview}
                 onSaveToDb={handleSaveToDb}
+                onGenerateMusic={handleGenerateMusic}
                 segments={segments}
                 targetDuration={targetDuration}
                 onTargetDurationChange={setTargetDuration}
@@ -403,6 +443,14 @@ export default function TestimonialCommercial() {
               {finalVideoUrl && (
                 <div className="mt-3">
                   <video src={finalVideoUrl} controls className="w-full rounded-lg max-h-[200px]" />
+                </div>
+              )}
+
+              {musicUrl && (
+                <div className="mt-2 flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+                  <Music className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-xs text-muted-foreground">Background Music</span>
+                  <audio src={musicUrl} controls className="h-7 flex-1" />
                 </div>
               )}
             </div>
