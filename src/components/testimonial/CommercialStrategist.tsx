@@ -598,7 +598,7 @@ export function CommercialStrategist({ onApplyStrategy, onGenerateBrollImages }:
                       </Badge>
                     </div>
                   </div>
-                  <Button onClick={handleApplyStrategy} className="gap-2">
+                  <Button onClick={() => handleApplyStrategy()} className="gap-2">
                     <Wand2 className="h-4 w-4" />
                     Apply to Timeline
                   </Button>
