@@ -386,40 +386,82 @@ serve(async (req) => {
         const errorText = await response.text();
         console.error('WaveSpeed AI video creation error:', response.status, errorText);
         
-        // Handle specific HTTP error codes
-        if (response.status === 401) {
+        // Check for credit errors in the response body
+        const isCreditsError = errorText.includes('Insufficient credits') || errorText.includes('insufficient_credits');
+        const isProductNotFound = errorText.includes('product not found') || errorText.includes('model not found');
+        
+        if (isCreditsError) {
+          // Return 200 with error so client can read the message
           return new Response(
             JSON.stringify({ 
-              error: 'Invalid WaveSpeed AI API key', 
-              details: 'Please check your WaveSpeed AI API key configuration in settings.' 
+              error: 'Insufficient WaveSpeed credits. Please top up your account at wavespeed.ai.',
+              creditError: true 
             }), 
-            {
-              status: 401,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          );
-        } else if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ 
-              error: 'Insufficient WaveSpeed AI credits', 
-              details: 'Your WaveSpeed AI account does not have enough credits. Please top up your account and try again.' 
-            }), 
-            {
-              status: 402,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
-        // For model not found errors, try fallback to basic text-to-video
-        if (errorText.includes('product not found') || errorText.includes('model not found')) {
-          console.log('Model not found, trying fallback to wan-2.2...');
+        if (response.status === 401) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid WaveSpeed AI API key' }), 
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // For model not found errors, try smart fallback chain
+        if (isProductNotFound) {
+          console.log('Model not found, trying fallback chain...');
           
+          // Fallback 1: Try kling-v3.0-pro for image-to-video if we have an image
+          if (params.imageUrls && params.imageUrls.length > 0) {
+            console.log('Fallback: trying kling-v3.0-pro image-to-video...');
+            const klingEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+            const klingDuration = duration >= 8 ? 10 : 5;
+            const klingBody = {
+              image: params.imageUrls[0],
+              prompt: params.prompt,
+              duration: klingDuration,
+              aspect_ratio: params.aspectRatio || '9:16'
+            };
+            
+            const klingResponse = await fetch(klingEndpoint, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${waveSpeedApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(klingBody),
+            });
+            
+            if (klingResponse.ok) {
+              const klingData = await klingResponse.json();
+              if (klingData.code === 200 && klingData.data) {
+                console.log('Kling fallback successful');
+                return new Response(
+                  JSON.stringify({ taskId: klingData.data.id }), 
+                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+              }
+            } else {
+              const klingErr = await klingResponse.text();
+              console.error('Kling fallback failed:', klingErr);
+              if (klingErr.includes('Insufficient credits')) {
+                return new Response(
+                  JSON.stringify({ error: 'Insufficient WaveSpeed credits. Please top up.', creditError: true }), 
+                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+              }
+            }
+          }
+          
+          // Fallback 2: Try wan-2.2 text-to-video
+          console.log('Fallback: trying wan-2.2 text-to-video...');
           const fallbackEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p-ultra-fast';
+          const wan22Duration = duration >= 7 ? 8 : 5;
           const fallbackBody = {
             prompt: params.prompt,
             size: params.aspectRatio === '9:16' ? '720*1280' : '1280*720',
-            duration: duration,
+            duration: wan22Duration,
             seed: seed
           };
           
@@ -434,20 +476,29 @@ serve(async (req) => {
           
           if (fallbackResponse.ok) {
             const fallbackData = await fallbackResponse.json();
-            console.log('Fallback model successful:', fallbackData);
-            
             if (fallbackData.code === 200 && fallbackData.data) {
+              console.log('wan-2.2 fallback successful');
               return new Response(
                 JSON.stringify({ taskId: fallbackData.data.id }), 
-                {
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                }
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          } else {
+            const fbErr = await fallbackResponse.text();
+            if (fbErr.includes('Insufficient credits')) {
+              return new Response(
+                JSON.stringify({ error: 'Insufficient WaveSpeed credits. Please top up.', creditError: true }), 
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               );
             }
           }
         }
         
-        throw new Error(`WaveSpeed AI video creation failed: ${errorText}`);
+        // Return 200 with error so client can always read the message
+        return new Response(
+          JSON.stringify({ error: `Video generation failed: ${errorText}` }), 
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       const data = await response.json();
@@ -584,10 +635,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in wavespeed-video function:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const isCreditError = message.includes('Insufficient credits');
+    // Return 200 so client can always read the error message
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), 
+      JSON.stringify({ error: message, ...(isCreditError ? { creditError: true } : {}) }), 
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

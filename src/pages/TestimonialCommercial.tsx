@@ -4,13 +4,14 @@ import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SegmentTimeline } from '@/components/testimonial/SegmentTimeline';
 import { LoopAIDirector } from '@/components/testimonial/LoopAIDirector';
 import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
-import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
+import { useTestimonialCommercial, VideoFormat, VideoStyle } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye, Music } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye, Music, Smartphone, Monitor } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { cn } from '@/lib/utils';
 import { SavedCommercialsDrawer } from '@/components/testimonial/SavedCommercialsDrawer';
@@ -45,7 +46,11 @@ export default function TestimonialCommercial() {
     isGenerating,
     generationProgress,
     currentCommercial,
-    setCurrentCommercial
+    setCurrentCommercial,
+    videoFormat,
+    setVideoFormat,
+    videoStyle,
+    setVideoStyle,
   } = useTestimonialCommercial();
 
   const handleApplyStrategy = (newSegments: CommercialSegment[], commercialName: string) => {
@@ -412,31 +417,58 @@ export default function TestimonialCommercial() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-xs font-medium">Generating with VEO3...</span>
+                    <span className="text-xs font-medium">Generating commercial...</span>
                     <span className="text-xs text-muted-foreground ml-auto">{Math.round(generationProgress)}%</span>
                   </div>
                   <Progress value={generationProgress} className="h-1.5" />
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  {segments.length > 0 && (
-                    <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
-                      <Eye className="h-3 w-3" /> Preview
+                <div className="space-y-2">
+                  {/* Format & Style selectors */}
+                  <div className="flex gap-2">
+                    <Select value={videoFormat} onValueChange={(v) => setVideoFormat(v as VideoFormat)}>
+                      <SelectTrigger className="h-7 text-xs w-[110px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="9:16"><div className="flex items-center gap-1"><Smartphone className="h-3 w-3" /> 9:16</div></SelectItem>
+                        <SelectItem value="16:9"><div className="flex items-center gap-1"><Monitor className="h-3 w-3" /> 16:9</div></SelectItem>
+                        <SelectItem value="1:1">1:1 Square</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={videoStyle} onValueChange={(v) => setVideoStyle(v as VideoStyle)}>
+                      <SelectTrigger className="h-7 text-xs flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tiktok-meme">🎭 TikTok Meme</SelectItem>
+                        <SelectItem value="tiktok-talking-head">🗣️ TikTok Talking Head</SelectItem>
+                        <SelectItem value="instagram-reel">📱 Instagram Reel</SelectItem>
+                        <SelectItem value="youtube-ad">📺 YouTube Ad</SelectItem>
+                        <SelectItem value="professional-ad">🎬 Professional Ad</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    {segments.length > 0 && (
+                      <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
+                        <Eye className="h-3 w-3" /> Preview
+                      </Button>
+                    )}
+                    {hasCharacters && !allApproved && (
+                      <Button onClick={approveAllSegments} variant="outline" size="sm" className="gap-1 text-xs">
+                        <CheckCircle2 className="h-3 w-3" /> Approve All
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={segments.length === 0}
+                      className="flex-1 gap-2"
+                      size="sm"
+                    >
+                      <Play className="h-3 w-3" /> Generate Commercial
                     </Button>
-                  )}
-                  {hasCharacters && !allApproved && (
-                    <Button onClick={approveAllSegments} variant="outline" size="sm" className="gap-1 text-xs">
-                      <CheckCircle2 className="h-3 w-3" /> Approve All
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleGenerate}
-                    disabled={segments.length === 0 || (!allApproved && speakingSegments.length > 0)}
-                    className="flex-1 gap-2"
-                    size="sm"
-                  >
-                    <Play className="h-3 w-3" /> Generate Commercial
-                  </Button>
+                  </div>
                 </div>
               )}
 
