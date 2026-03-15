@@ -140,6 +140,11 @@ Use ellipses (...) for pauses and em dashes (—) for stops.
 - speaking: requires characterDescription + script
 - broll: requires brollPrompts, optional voiceover
 
+## MANDATORY: HOOK + B-ROLL RULES
+1. **EVERY commercial MUST start with a HOOK segment.** The first segment should ALWAYS be a speaking segment with a powerful, attention-grabbing opening line designed to stop the scroll in the first 3-5 seconds. Label it clearly as the hook in your creative explanation. Think: bold claim, provocative question, shocking stat, or emotional gut-punch.
+2. **EVERY commercial MUST include at least 1 B-roll segment.** B-roll adds cinematic production value. Interleave B-roll between speaking scenes — never stack all speaking segments back-to-back. For 30s+ commercials, include at least 2 B-roll segments.
+3. The hook is always editable — remind the user they can ask you to rewrite, strengthen, or change the hook at any time. Example: "Want me to make the hook more aggressive? More emotional? Just say the word—"
+
 ## Golden Rules
 1. Every commercial tells ONE story
 2. B-roll must directly illustrate what's being said
