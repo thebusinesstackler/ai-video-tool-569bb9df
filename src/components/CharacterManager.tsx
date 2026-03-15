@@ -603,7 +603,18 @@ export const CharacterManager = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* AI Character Creator Dialog */}
+      <Dialog open={isAICreatorOpen} onOpenChange={setIsAICreatorOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
+          <AICharacterCreator
+            onCharacterSaved={loadCharacters}
+            onClose={() => setIsAICreatorOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Character Templates */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
