@@ -417,31 +417,58 @@ export default function TestimonialCommercial() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-xs font-medium">Generating with VEO3...</span>
+                    <span className="text-xs font-medium">Generating commercial...</span>
                     <span className="text-xs text-muted-foreground ml-auto">{Math.round(generationProgress)}%</span>
                   </div>
                   <Progress value={generationProgress} className="h-1.5" />
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  {segments.length > 0 && (
-                    <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
-                      <Eye className="h-3 w-3" /> Preview
+                <div className="space-y-2">
+                  {/* Format & Style selectors */}
+                  <div className="flex gap-2">
+                    <Select value={videoFormat} onValueChange={(v) => setVideoFormat(v as VideoFormat)}>
+                      <SelectTrigger className="h-7 text-xs w-[110px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="9:16"><div className="flex items-center gap-1"><Smartphone className="h-3 w-3" /> 9:16</div></SelectItem>
+                        <SelectItem value="16:9"><div className="flex items-center gap-1"><Monitor className="h-3 w-3" /> 16:9</div></SelectItem>
+                        <SelectItem value="1:1">1:1 Square</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={videoStyle} onValueChange={(v) => setVideoStyle(v as VideoStyle)}>
+                      <SelectTrigger className="h-7 text-xs flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tiktok-meme">🎭 TikTok Meme</SelectItem>
+                        <SelectItem value="tiktok-talking-head">🗣️ TikTok Talking Head</SelectItem>
+                        <SelectItem value="instagram-reel">📱 Instagram Reel</SelectItem>
+                        <SelectItem value="youtube-ad">📺 YouTube Ad</SelectItem>
+                        <SelectItem value="professional-ad">🎬 Professional Ad</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    {segments.length > 0 && (
+                      <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
+                        <Eye className="h-3 w-3" /> Preview
+                      </Button>
+                    )}
+                    {hasCharacters && !allApproved && (
+                      <Button onClick={approveAllSegments} variant="outline" size="sm" className="gap-1 text-xs">
+                        <CheckCircle2 className="h-3 w-3" /> Approve All
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={segments.length === 0}
+                      className="flex-1 gap-2"
+                      size="sm"
+                    >
+                      <Play className="h-3 w-3" /> Generate Commercial
                     </Button>
-                  )}
-                  {hasCharacters && !allApproved && (
-                    <Button onClick={approveAllSegments} variant="outline" size="sm" className="gap-1 text-xs">
-                      <CheckCircle2 className="h-3 w-3" /> Approve All
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleGenerate}
-                    disabled={segments.length === 0 || (!allApproved && speakingSegments.length > 0)}
-                    className="flex-1 gap-2"
-                    size="sm"
-                  >
-                    <Play className="h-3 w-3" /> Generate Commercial
-                  </Button>
+                  </div>
                 </div>
               )}
 
