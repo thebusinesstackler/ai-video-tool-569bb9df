@@ -617,7 +617,19 @@ export function LoopAIDirector({
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
           </div>
           <div>
-            <h3 className="text-sm font-bold tracking-tight">Loop AI Director</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-bold tracking-tight">Loop AI Director</h3>
+              {isSpeaking && (
+                <button onClick={stopSpeaking} className="flex items-center gap-1" title="Click to stop">
+                  <div className="flex items-center gap-0.5">
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className="w-0.5 bg-primary rounded-full animate-pulse" style={{ height: `${6 + Math.random() * 8}px`, animationDelay: `${i * 0.1}s` }} />
+                    ))}
+                  </div>
+                  <span className="text-[9px] text-primary font-medium">Speaking</span>
+                </button>
+              )}
+            </div>
             <p className="text-[10px] text-muted-foreground">Film Director • Commercial Strategist • Brand Expert</p>
           </div>
         </div>
