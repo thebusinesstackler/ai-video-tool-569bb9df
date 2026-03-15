@@ -315,7 +315,7 @@ export function LoopAIDirector({
         case 'regenerateCharacter': {
           if (edit.sceneIndex !== undefined && segments[edit.sceneIndex]) {
             const seg = segments[edit.sceneIndex];
-            const desc = (edit as any).description || seg.character?.description || '';
+            const desc = edit.description || seg.character?.description || '';
             if (desc) {
               // Update description first, then regenerate images
               onUpdateSegment(seg.id, {
