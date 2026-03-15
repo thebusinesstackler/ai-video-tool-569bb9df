@@ -187,7 +187,7 @@ Return ONLY valid JSON:
     setIsPreviewingVoice(true);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text, voice_id: 'Friendly_Person' }
+        body: { text, voice_id: mapVoiceId(voiceType) }
       });
       if (error) throw error;
       if (data?.audioUrl) {
