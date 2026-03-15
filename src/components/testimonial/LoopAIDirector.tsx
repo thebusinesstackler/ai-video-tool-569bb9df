@@ -83,6 +83,7 @@ export function LoopAIDirector({
   onAddSegment,
   onDeleteSegment,
   onGenerateCharacter,
+  onGenerateBrollPreview,
   onSaveToDb,
   segments,
   targetDuration,
