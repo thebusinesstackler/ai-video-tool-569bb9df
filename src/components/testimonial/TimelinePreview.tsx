@@ -26,6 +26,69 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
   const [expanded, setExpanded] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const hoverAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [hoverVoiceId, setHoverVoiceId] = useState<string | null>(null);
+  const [isLoadingVoice, setIsLoadingVoice] = useState<string | null>(null);
+
+  const detectVoiceId = (segment: CommercialSegment): string => {
+    const desc = (segment.character?.description || '').toLowerCase();
+    const gender = (segment.character?.gender || '').toLowerCase();
+    const isFemale = gender.includes('female') || gender.includes('woman') ||
+      /\b(woman|female|girl|lady|she|her|mother|actress)\b/.test(desc);
+    if (isFemale) return 'English_compelling_lady1';
+    return 'English_Trustworth_Man';
+  };
+
+  const handleHoverStart = useCallback(async (segment: CommercialSegment) => {
+    if (!segment.script?.trim()) return;
+    // If already playing this one, skip
+    if (hoverVoiceId === segment.id) return;
+
+    // Stop any current playback
+    if (hoverAudioRef.current) {
+      hoverAudioRef.current.pause();
+      hoverAudioRef.current = null;
+    }
+
+    // If segment already has audioUrl, play that
+    if (segment.audioUrl) {
+      const audio = new Audio(segment.audioUrl);
+      hoverAudioRef.current = audio;
+      setHoverVoiceId(segment.id);
+      audio.onended = () => { setHoverVoiceId(null); hoverAudioRef.current = null; };
+      audio.play().catch(() => {});
+      return;
+    }
+
+    // Generate a quick TTS preview
+    setIsLoadingVoice(segment.id);
+    setHoverVoiceId(segment.id);
+    try {
+      const voiceId = detectVoiceId(segment);
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: segment.script.slice(0, 200), voice_id: voiceId }
+      });
+      if (error) throw error;
+      if (data?.audioUrl) {
+        const audio = new Audio(data.audioUrl);
+        hoverAudioRef.current = audio;
+        audio.onended = () => { setHoverVoiceId(null); hoverAudioRef.current = null; };
+        audio.play().catch(() => {});
+      }
+    } catch (err) {
+      console.error('Hover voice preview failed:', err);
+    } finally {
+      setIsLoadingVoice(null);
+    }
+  }, [hoverVoiceId]);
+
+  const handleHoverEnd = useCallback(() => {
+    if (hoverAudioRef.current) {
+      hoverAudioRef.current.pause();
+      hoverAudioRef.current = null;
+    }
+    setHoverVoiceId(null);
+  }, []);
 
   if (segments.length === 0) return null;
 
