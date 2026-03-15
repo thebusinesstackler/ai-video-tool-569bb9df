@@ -64,6 +64,8 @@ export function SegmentCard({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Lightbox state
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
@@ -73,6 +75,31 @@ export function SegmentCard({
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const [editDescription, setEditDescription] = useState('');
 
+  const handlePreviewVoice = async () => {
+    if (!segment.script?.trim()) { toast.error('Add a script first'); return; }
+    setIsPreviewingVoice(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: segment.script.slice(0, 200), voice_id: 'Friendly_Person' }
+      });
+      if (error) throw error;
+      if (data?.audioUrl) {
+        const audio = new Audio(data.audioUrl);
+        audio.play();
+        toast.success('Playing voice preview');
+      }
+    } catch (err) {
+      console.error('Voice preview failed:', err);
+      toast.error('Voice preview failed');
+    } finally {
+      setIsPreviewingVoice(false);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete(segment.id);
+    setShowDeleteConfirm(false);
+  };
   const handleGenerateChar = () => {
     if (!charDescription.trim() || !onGenerateCharacter) return;
     onGenerateCharacter(segment.id, charDescription);
