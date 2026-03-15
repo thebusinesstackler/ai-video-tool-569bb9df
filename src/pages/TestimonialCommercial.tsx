@@ -188,6 +188,20 @@ export default function TestimonialCommercial() {
               {chatOpen ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
               <MessageSquare className="h-3 w-3" />
             </Button>
+            <Button
+              onClick={() => {
+                setSegments([]);
+                setCurrentCommercial(null);
+                setName('Untitled Commercial');
+                setFinalVideoUrl(null);
+                setActiveTab('scenes');
+              }}
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+            >
+              <Film className="h-3 w-3 mr-1" /> New
+            </Button>
             <Button onClick={handleSave} variant="outline" size="sm" className="h-7 text-xs">
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>
