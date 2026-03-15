@@ -8,6 +8,7 @@ interface SegmentTimelineProps {
   segments: CommercialSegment[];
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   onAdd: () => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onGenerateCharacter?: (segmentId: string, description: string) => Promise<void>;
@@ -19,6 +20,7 @@ export function SegmentTimeline({
   segments,
   onUpdate,
   onDelete,
+  onDuplicate,
   onAdd,
   onReorder,
   onGenerateCharacter,
@@ -81,6 +83,7 @@ export function SegmentTimeline({
               index={index}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              onDuplicate={onDuplicate}
               onDragStart={() => setDragIndex(index)}
               onDragEnd={() => setDragIndex(null)}
               onDragOver={(e) => e.preventDefault()}

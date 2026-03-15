@@ -9,8 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { 
   GripVertical, Trash2, User, Film, Loader2, CheckCircle, AlertCircle, 
-  Wand2, ImageIcon, Sparkles, Check, Play, Pause, Volume2, Maximize2, Pencil, X
+  Wand2, ImageIcon, Sparkles, Check, Play, Pause, Volume2, Maximize2, Pencil, X,
+  Copy, Headphones
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface SegmentCardProps {
@@ -18,6 +21,7 @@ interface SegmentCardProps {
   index: number;
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -40,6 +44,7 @@ export function SegmentCard({
   index,
   onUpdate,
   onDelete,
+  onDuplicate,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -59,6 +64,8 @@ export function SegmentCard({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Lightbox state
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
@@ -68,6 +75,31 @@ export function SegmentCard({
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const [editDescription, setEditDescription] = useState('');
 
+  const handlePreviewVoice = async () => {
+    if (!segment.script?.trim()) { toast.error('Add a script first'); return; }
+    setIsPreviewingVoice(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: segment.script.slice(0, 200), voice_id: 'Friendly_Person' }
+      });
+      if (error) throw error;
+      if (data?.audioUrl) {
+        const audio = new Audio(data.audioUrl);
+        audio.play();
+        toast.success('Playing voice preview');
+      }
+    } catch (err) {
+      console.error('Voice preview failed:', err);
+      toast.error('Voice preview failed');
+    } finally {
+      setIsPreviewingVoice(false);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete(segment.id);
+    setShowDeleteConfirm(false);
+  };
   const handleGenerateChar = () => {
     if (!charDescription.trim() || !onGenerateCharacter) return;
     onGenerateCharacter(segment.id, charDescription);
@@ -162,13 +194,44 @@ export function SegmentCard({
                   )}
                 </Button>
               )}
+              {/* Voice preview for speaking segments */}
+              {segment.type === 'speaking' && segment.script && !segment.audioUrl && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handlePreviewVoice}
+                  disabled={isPreviewingVoice}
+                  title="Preview voice"
+                >
+                  {isPreviewingVoice ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Headphones className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
               <Badge className={`${statusInfo.color} text-xs gap-1`}>
                 <StatusIcon className={`h-3 w-3 ${isGeneratingChar || status === 'generating' ? 'animate-spin' : ''}`} />
                 {statusInfo.label}
               </Badge>
-              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => onDelete(segment.id)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              {/* Duplicate */}
+              {onDuplicate && (
+                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => onDuplicate(segment.id)} title="Duplicate">
+                  <Copy className="h-3 w-3" />
+                </Button>
+              )}
+              {/* Delete with confirmation */}
+              {showDeleteConfirm ? (
+                <div className="flex items-center gap-1">
+                  <Button variant="destructive" size="sm" className="h-6 text-[10px] px-2" onClick={handleConfirmDelete}>Delete</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+                </div>
+              ) : (
+                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => setShowDeleteConfirm(true)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>

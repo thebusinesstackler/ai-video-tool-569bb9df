@@ -10,9 +10,10 @@ import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { useTestimonialCommercial } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { cn } from '@/lib/utils';
+import { SavedCommercialsDrawer } from '@/components/testimonial/SavedCommercialsDrawer';
 
 export default function TestimonialCommercial() {
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export default function TestimonialCommercial() {
     addSegment,
     updateSegment,
     deleteSegment,
+    duplicateSegment,
     reorderSegments,
     saveCommercial,
     loadCommercial,
@@ -202,6 +204,10 @@ export default function TestimonialCommercial() {
             >
               <Film className="h-3 w-3 mr-1" /> New
             </Button>
+            <SavedCommercialsDrawer
+              onLoad={(id) => navigate(`?edit=${id}`)}
+              refreshTrigger={currentCommercial}
+            />
             <Button onClick={handleSave} variant="outline" size="sm" className="h-7 text-xs">
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>
@@ -248,6 +254,15 @@ export default function TestimonialCommercial() {
               </div>
             )}
 
+            {/* Duration Summary */}
+            {segments.length > 0 && (
+              <div className="px-4 pt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Film className="h-3 w-3" /> {segments.length} segments</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {segments.reduce((s, seg) => s + seg.duration, 0)}s total</span>
+                <span>~{Math.ceil(segments.length * 1.5)} min to generate</span>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="flex-1 overflow-auto p-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -268,6 +283,7 @@ export default function TestimonialCommercial() {
                     segments={speakingSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
+                    onDuplicate={duplicateSegment}
                     onAdd={() => handleSmartAddScene('speaking')}
                     onReorder={reorderSegments}
                     onGenerateCharacter={generateCharacterForSegment}
@@ -281,6 +297,7 @@ export default function TestimonialCommercial() {
                     segments={brollSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
+                    onDuplicate={duplicateSegment}
                     onAdd={() => handleSmartAddScene('broll')}
                     onReorder={reorderSegments}
                     segmentFilter="broll"

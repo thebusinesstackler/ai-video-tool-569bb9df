@@ -1,32 +1,33 @@
 
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Suggested Improvements for the Testimonial Commercial Creator
+## Status: ✅ Implemented
 
-Here are the key areas where the tool could be strengthened:
+## Changes Made
 
-### 1. **Saved Commercials Browser**
-Right now there's a "New" button and save works, but there's no easy way to browse/load past commercials. A drawer or dropdown listing saved projects with thumbnails and dates would make the workflow much smoother.
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-### 2. **Per-Segment Audio Preview Before Full Generation**
-Currently voice generation happens during the full commercial build. Adding a "Preview Voice" button on each speaking segment card would let users hear the TTS output and tweak scripts before committing to expensive video generation.
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-### 3. **Duplicate Segment**
-Users often want to create variations of a scene. A "Duplicate" action on each segment card would copy the script, character, and settings so they can iterate faster.
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-### 4. **Estimated Cost / Duration Summary**
-A header bar showing total duration, segment count, and estimated generation time would help users plan before hitting "Generate." Right now only segment count and duration are shown in the timeline header.
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-### 5. **Undo / History**
-Accidentally deleting a scene is destructive. A simple undo stack (even just 1 level deep) or a confirmation dialog on delete would prevent data loss.
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-### 6. **Export Storyboard as PDF/Image**
-Before generating video, users may want to share the storyboard with clients. An export button that renders segment thumbnails + scripts into a downloadable format would add professional value.
-
-### 7. **Music / Background Audio Layer**
-There's no background music option. Adding a music selector (from a preset library or upload) that plays under the voiceover would make the final output more polished.
-
-### 8. **Mobile-Responsive Layout**
-At the current viewport (771px), the side-by-side layout with Loop AI chat may be cramped. Ensuring the collapsed chat state is the default on smaller screens would improve usability.
-
-Which of these would you like me to build?
-
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
