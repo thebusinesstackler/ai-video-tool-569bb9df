@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { CommercialSegment } from '@/types/testimonialCommercial';
 import { User, Film, Play, Pause, ChevronUp, ChevronDown, Volume2, Clock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TimelinePreviewProps {
   segments: CommercialSegment[];
@@ -25,6 +26,69 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
   const [expanded, setExpanded] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const hoverAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [hoverVoiceId, setHoverVoiceId] = useState<string | null>(null);
+  const [isLoadingVoice, setIsLoadingVoice] = useState<string | null>(null);
+
+  const detectVoiceId = (segment: CommercialSegment): string => {
+    const desc = (segment.character?.description || '').toLowerCase();
+    const gender = (segment.character?.gender || '').toLowerCase();
+    const isFemale = gender.includes('female') || gender.includes('woman') ||
+      /\b(woman|female|girl|lady|she|her|mother|actress)\b/.test(desc);
+    if (isFemale) return 'English_compelling_lady1';
+    return 'English_Trustworth_Man';
+  };
+
+  const handleHoverStart = useCallback(async (segment: CommercialSegment) => {
+    if (!segment.script?.trim()) return;
+    // If already playing this one, skip
+    if (hoverVoiceId === segment.id) return;
+
+    // Stop any current playback
+    if (hoverAudioRef.current) {
+      hoverAudioRef.current.pause();
+      hoverAudioRef.current = null;
+    }
+
+    // If segment already has audioUrl, play that
+    if (segment.audioUrl) {
+      const audio = new Audio(segment.audioUrl);
+      hoverAudioRef.current = audio;
+      setHoverVoiceId(segment.id);
+      audio.onended = () => { setHoverVoiceId(null); hoverAudioRef.current = null; };
+      audio.play().catch(() => {});
+      return;
+    }
+
+    // Generate a quick TTS preview
+    setIsLoadingVoice(segment.id);
+    setHoverVoiceId(segment.id);
+    try {
+      const voiceId = detectVoiceId(segment);
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: segment.script.slice(0, 200), voice_id: voiceId }
+      });
+      if (error) throw error;
+      if (data?.audioUrl) {
+        const audio = new Audio(data.audioUrl);
+        hoverAudioRef.current = audio;
+        audio.onended = () => { setHoverVoiceId(null); hoverAudioRef.current = null; };
+        audio.play().catch(() => {});
+      }
+    } catch (err) {
+      console.error('Hover voice preview failed:', err);
+    } finally {
+      setIsLoadingVoice(null);
+    }
+  }, [hoverVoiceId]);
+
+  const handleHoverEnd = useCallback(() => {
+    if (hoverAudioRef.current) {
+      hoverAudioRef.current.pause();
+      hoverAudioRef.current = null;
+    }
+    setHoverVoiceId(null);
+  }, []);
 
   if (segments.length === 0) return null;
 
@@ -140,12 +204,15 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={() => { setDraggedIndex(null); setDropTargetIndex(null); }}
                   onClick={() => handleSelect(segment.id)}
+                  onMouseEnter={() => segment.type === 'speaking' && segment.script && handleHoverStart(segment)}
+                  onMouseLeave={handleHoverEnd}
                   className={cn(
                     'relative rounded-lg border overflow-hidden cursor-pointer transition-all group',
                     'hover:ring-1 hover:ring-primary/40',
                     isDragging && 'opacity-40 scale-95',
                     isDropTarget && 'ring-2 ring-primary',
                     isSelected ? `ring-2 ${config.border} bg-accent/50` : 'bg-card',
+                    hoverVoiceId === segment.id && 'ring-2 ring-primary',
                   )}
                   style={{ width: `${Math.max(segment.duration * 6, 80)}px` }}
                 >
@@ -159,10 +226,19 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                       </div>
                     )}
 
-                    {/* Play overlay for video segments */}
-                    {hasVideo && (
+                    {/* Play overlay for video segments / voice hover indicator */}
+                    {hasVideo && hoverVoiceId !== segment.id && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Play className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+                    {hoverVoiceId === segment.id && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity">
+                        {isLoadingVoice === segment.id ? (
+                          <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Volume2 className="h-4 w-4 text-white animate-pulse" />
+                        )}
                       </div>
                     )}
 
@@ -186,8 +262,8 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-muted-foreground">{segment.duration}s</span>
-                      {hasAudio && <Volume2 className="h-2.5 w-2.5 text-muted-foreground/60" />}
-                      {hasVideo && <Film className="h-2.5 w-2.5 text-green-500/70" />}
+                      {(hasAudio || segment.script) && <Volume2 className="h-2.5 w-2.5 text-muted-foreground/60" />}
+                      {hasVideo && <Film className="h-2.5 w-2.5 text-primary/70" />}
                     </div>
                     {segment.script && (
                       <p className="text-[9px] text-muted-foreground/70 truncate leading-tight">{segment.script}</p>

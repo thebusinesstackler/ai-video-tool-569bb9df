@@ -95,6 +95,23 @@ export default function TestimonialCommercial() {
     else { setSavedCommercials(prev => prev.filter(c => c.id !== id)); toast.success('Deleted'); }
   };
 
+  const generateBrollPreview = useCallback(async (segmentId: string, prompt: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt, aspectRatio: '16:9' }
+      });
+      if (error) throw error;
+      if (data?.imageUrl) {
+        updateSegment(segmentId, { brollImages: [data.imageUrl], status: 'character-ready' });
+      } else {
+        updateSegment(segmentId, { status: 'pending' });
+      }
+    } catch (err) {
+      console.error('B-roll preview generation failed:', err);
+      updateSegment(segmentId, { status: 'pending' });
+    }
+  }, [updateSegment]);
+
   const [isSuggestingScene, setIsSuggestingScene] = useState(false);
 
   const handleSmartAddScene = useCallback(async (type: 'speaking' | 'broll') => {
@@ -139,11 +156,17 @@ export default function TestimonialCommercial() {
             } : undefined,
           });
         } else {
-          addSegment('broll', {
+          const brollPrompt = suggestion.brollPrompts?.[0] || '';
+          const newSeg = addSegment('broll', {
             brollPrompts: suggestion.brollPrompts || [''],
             voiceoverText: suggestion.voiceoverText || '',
             duration: suggestion.duration || 5,
+            status: brollPrompt ? 'generating-character' : 'pending',
           });
+          // Auto-generate B-roll preview image
+          if (brollPrompt && newSeg) {
+            generateBrollPreview(newSeg.id, brollPrompt);
+          }
         }
         toast.success(`AI suggested a new ${type === 'speaking' ? 'scene' : 'B-roll'} — edit it to your liking`);
       } else {
