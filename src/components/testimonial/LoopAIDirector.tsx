@@ -249,17 +249,17 @@ export function LoopAIDirector({
     const utterance = new SpeechSynthesisUtterance(speakText);
 
     // Load voice preference from localStorage
-    const savedVoicePreset = localStorage.getItem('loop-ai-voice-preset') || 'jamaican';
+    const savedVoicePreset = localStorage.getItem('loop-ai-voice-preset') || 'default';
     const voices = window.speechSynthesis.getVoices();
 
     const voicePresets: Record<string, { nameHints: string[]; rate: number; pitch: number }> = {
-      jamaican: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.85 },
+      default: { nameHints: ['Google US English', 'Alex', 'Aaron', 'Male'], rate: 1.0, pitch: 1.0 },
       british: { nameHints: ['Google UK English Male', 'Daniel', 'James'], rate: 1.05, pitch: 0.95 },
-      american: { nameHints: ['Google US English', 'Alex', 'Samantha'], rate: 1.1, pitch: 1.0 },
+      deep: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.8 },
       female: { nameHints: ['Google UK English Female', 'Karen', 'Samantha', 'Victoria', 'Female'], rate: 1.0, pitch: 1.1 },
     };
 
-    const preset = voicePresets[savedVoicePreset] || voicePresets.jamaican;
+    const preset = voicePresets[savedVoicePreset] || voicePresets.default;
 
     const preferredVoice = voices.find(v =>
       preset.nameHints.some(hint => v.name.includes(hint))
