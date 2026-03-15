@@ -95,6 +95,23 @@ export default function TestimonialCommercial() {
     else { setSavedCommercials(prev => prev.filter(c => c.id !== id)); toast.success('Deleted'); }
   };
 
+  const generateBrollPreview = useCallback(async (segmentId: string, prompt: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt, aspectRatio: '16:9' }
+      });
+      if (error) throw error;
+      if (data?.imageUrl) {
+        updateSegment(segmentId, { brollImages: [data.imageUrl], status: 'character-ready' });
+      } else {
+        updateSegment(segmentId, { status: 'pending' });
+      }
+    } catch (err) {
+      console.error('B-roll preview generation failed:', err);
+      updateSegment(segmentId, { status: 'pending' });
+    }
+  }, [updateSegment]);
+
   const [isSuggestingScene, setIsSuggestingScene] = useState(false);
 
   const handleSmartAddScene = useCallback(async (type: 'speaking' | 'broll') => {
