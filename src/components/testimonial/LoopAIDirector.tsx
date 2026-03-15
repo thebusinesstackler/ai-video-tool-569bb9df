@@ -634,6 +634,15 @@ export function LoopAIDirector({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant={voiceEnabled ? 'default' : 'outline'}
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={toggleVoice}
+            title={voiceEnabled ? 'Mute Loop AI' : 'Unmute Loop AI'}
+          >
+            {voiceEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
+          </Button>
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={clearChat}>
               Clear
