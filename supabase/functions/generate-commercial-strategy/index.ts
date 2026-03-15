@@ -32,7 +32,7 @@ function buildSegmentContext(currentSegments: any[]) {
     const brollContent = s.brollImageUrls?.length > 0 ? `🖼️ Current image: ${s.brollImageUrls[0].slice(-40)}` : '';
     const hasVo = s.voiceoverText ? `VO: "${s.voiceoverText.slice(0, 80)}"` : 'no VO';
     const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
-    return `- B-Roll #${num} (internal_index=${i}) | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 200)}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | Status: ${s.status}`;
+    return `- B-Roll #${num} (idx=${i}) | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 200)}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | Status: ${s.status}`;
   });
 
   return `\n\n## Current Storyboard State
