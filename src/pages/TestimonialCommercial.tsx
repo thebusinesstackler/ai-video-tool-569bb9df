@@ -409,13 +409,18 @@ export default function TestimonialCommercial() {
             {/* Tabs */}
             <div className="flex-1 overflow-auto p-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="w-full grid grid-cols-3 mb-4">
+                <TabsList className={cn("w-full mb-4", finalVideoUrl ? "grid grid-cols-4" : "grid grid-cols-3")}>
                   <TabsTrigger value="scenes" className="gap-1 text-xs">
                     <Film className="h-3 w-3" /> Scenes ({speakingSegments.length})
                   </TabsTrigger>
                   <TabsTrigger value="broll" className="gap-1 text-xs">
                     <Image className="h-3 w-3" /> B-Roll ({brollSegments.length})
                   </TabsTrigger>
+                  {finalVideoUrl && (
+                    <TabsTrigger value="final-cut" className="gap-1 text-xs">
+                      <Tv className="h-3 w-3" /> Final Cut
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="saved" className="gap-1 text-xs">
                     <Video className="h-3 w-3" /> Saved ({savedCommercials.length})
                   </TabsTrigger>
