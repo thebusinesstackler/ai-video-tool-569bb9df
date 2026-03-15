@@ -315,6 +315,7 @@ export function useTestimonialCommercial() {
     addSegment,
     updateSegment,
     deleteSegment,
+    duplicateSegment,
     reorderSegments,
     saveCommercial,
     loadCommercial,

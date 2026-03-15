@@ -83,6 +83,7 @@ export function SegmentTimeline({
               index={index}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              onDuplicate={onDuplicate}
               onDragStart={() => setDragIndex(index)}
               onDragEnd={() => setDragIndex(null)}
               onDragOver={(e) => e.preventDefault()}
