@@ -240,22 +240,33 @@ export function LoopAIDirector({
     const conciseLine = conciseChunks.join(' — ');
     const speakText = (conciseLine || cleanText).slice(0, 240);
 
+    // Cancel any current speech — allows interruption
     window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+
     const utterance = new SpeechSynthesisUtterance(speakText);
 
+    // Load voice preference from localStorage
+    const savedVoicePreset = localStorage.getItem('loop-ai-voice-preset') || 'jamaican';
     const voices = window.speechSynthesis.getVoices();
+
+    const voicePresets: Record<string, { nameHints: string[]; rate: number; pitch: number }> = {
+      jamaican: { nameHints: ['Google UK English Male', 'Daniel', 'Rishi', 'Male'], rate: 0.92, pitch: 0.85 },
+      british: { nameHints: ['Google UK English Male', 'Daniel', 'James'], rate: 1.05, pitch: 0.95 },
+      american: { nameHints: ['Google US English', 'Alex', 'Samantha'], rate: 1.1, pitch: 1.0 },
+      female: { nameHints: ['Google UK English Female', 'Karen', 'Samantha', 'Victoria', 'Female'], rate: 1.0, pitch: 1.1 },
+    };
+
+    const preset = voicePresets[savedVoicePreset] || voicePresets.jamaican;
+
     const preferredVoice = voices.find(v =>
-      v.name.includes('Google UK English Male') ||
-      v.name.includes('Daniel') ||
-      v.name.includes('James') ||
-      v.name.includes('Male') ||
-      (v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
+      preset.nameHints.some(hint => v.name.includes(hint))
     ) || voices.find(v => v.lang.startsWith('en'));
 
     if (preferredVoice) utterance.voice = preferredVoice;
 
-    utterance.rate = 1.08;
-    utterance.pitch = 0.9;
+    utterance.rate = preset.rate;
+    utterance.pitch = preset.pitch;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
