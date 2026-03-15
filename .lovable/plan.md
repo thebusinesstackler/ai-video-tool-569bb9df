@@ -1,33 +1,20 @@
 
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
+## Plan: Loop AI Auto-Recognizes New Projects
 
-## Changes Made
+**Problem**: When the user clicks "New" to start a fresh video ad, Loop AI Chat retains its old conversation from `localStorage` and doesn't acknowledge the new project. It should detect the reset and proactively greet the user to help build the new commercial.
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+### Changes
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+**1. `src/pages/TestimonialCommercial.tsx`** — Clear Loop AI chat on "New" click
+- When the "New" button is clicked (lines 262-269), also clear the `loop-ai-director-chat` localStorage key so the AI conversation resets alongside the project state.
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+**2. `src/components/testimonial/LoopAIDirector.tsx`** — Detect empty project and auto-greet
+- Add a `useEffect` that watches `segments.length`. When segments become empty (new project) and the chat history is also empty (just cleared), automatically inject a welcome message from the assistant like: *"Fresh canvas! What are we building? Tell me the product, audience, and vibe — I'll create your full storyboard."*
+- This gives the user an immediate prompt to start describing their new ad without needing to type a question first.
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+### Technical Detail
+- The welcome message is purely a local UI injection (no API call needed).
+- A `prevSegmentsRef` tracks transitions from non-empty to empty segments to avoid re-triggering on mount with an already-empty project.
+- The localStorage key `loop-ai-director-chat` is the single source of chat persistence — clearing it on "New" is sufficient.
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
-
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
