@@ -17,7 +17,9 @@ function buildSegmentContext(currentSegments: any[]) {
       const hasImgs = s.character?.hasImages ? `✅ ${s.character.imageCount} images` : '❌ NO images';
       const hasAudio = s.hasAudio ? '🔊 audio' : '🔇 no audio';
       const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
-      return `- [index=${i}] Speaking #${speakingNum} | ${s.duration}s | transition: ${s.transition} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] ${hasProduct} | Script: "${(s.script || '').slice(0, 150)}" | Status: ${s.status}`;
+      const gender = s.character?.gender || (s.character?.description ? 'auto-detect from description' : 'unknown');
+      const voiceId = s.voiceoverId || 'not set';
+      return `- [index=${i}] Speaking #${speakingNum} | ${s.duration}s | transition: ${s.transition} | Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] ${hasProduct} | Script: "${(s.script || '').slice(0, 150)}" | Status: ${s.status}`;
     }
     brollNum++;
     const hasBroll = s.hasBrollImages ? '✅ has preview' : '❌ NO preview';
