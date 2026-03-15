@@ -42,6 +42,7 @@ interface LoopAIDirectorProps {
   onAddSegment: (type: 'speaking' | 'broll', prefill?: Partial<CommercialSegment>) => void;
   onDeleteSegment: (id: string) => void;
   onGenerateCharacter: (segmentId: string, description: string) => Promise<void>;
+  onGenerateBrollPreview: (segmentId: string, prompt: string) => Promise<void>;
   onSaveToDb: () => Promise<void>;
   segments: CommercialSegment[];
   targetDuration: string;
