@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { TwinSelector } from './TwinSelector';
-import { GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, AlertCircle, Upload, Sparkles, X } from 'lucide-react';
+import { GripVertical, Trash2, User, Image, Film, Loader2, CheckCircle, AlertCircle, Upload, Sparkles, X, Wand2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/AuthProvider';
 
 interface SegmentCardProps {
   segment: CommercialSegment;

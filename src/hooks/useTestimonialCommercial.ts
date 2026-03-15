@@ -129,7 +129,11 @@ export function useTestimonialCommercial() {
         try {
           // Generate audio for speaking/montage segments
           let audioUrl: string | undefined;
-          if (segment.type === 'twin-speaking' || segment.type === 'broll-montage') {
+          if (segment.type === 'twin-speaking' && segment.script) {
+            audioUrl = await generateAudioForSegment(segment);
+            generatedData[i].audioUrl = audioUrl;
+            updateSegment(segment.id, { audioUrl });
+          } else if (segment.type === 'broll-montage' && segment.voiceoverText) {
             audioUrl = await generateAudioForSegment(segment);
             generatedData[i].audioUrl = audioUrl;
             updateSegment(segment.id, { audioUrl });
