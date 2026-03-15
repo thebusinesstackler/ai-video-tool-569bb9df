@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, CheckCircle2, Sparkles, Plus } from 'lucide-react';
+import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, VolumeX, CheckCircle2, Sparkles, Plus } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { CommercialSegment } from '@/types/testimonialCommercial';
@@ -104,9 +104,14 @@ export function LoopAIDirector({
   const [isListening, setIsListening] = useState(false);
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
   const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    try { return localStorage.getItem('loop-ai-voice') !== 'off'; } catch { return true; }
+  });
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const directorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Auto-save chat to localStorage
   useEffect(() => {
@@ -192,9 +197,61 @@ export function LoopAIDirector({
     }
   };
 
+  const toggleVoice = useCallback(() => {
+    const next = !voiceEnabled;
+    setVoiceEnabled(next);
+    localStorage.setItem('loop-ai-voice', next ? 'on' : 'off');
+    if (!next && directorAudioRef.current) {
+      directorAudioRef.current.pause();
+      directorAudioRef.current = null;
+      setIsSpeaking(false);
+    }
+    toast.success(next ? '🔊 Loop AI voice enabled' : '🔇 Loop AI voice muted');
+  }, [voiceEnabled]);
+
+  const speakResponse = useCallback(async (text: string) => {
+    if (!voiceEnabled) return;
+    // Strip markdown, JSON blocks, and action blocks — keep only conversational text
+    const cleanText = text
+      .replace(/```json[\s\S]*?```/g, '')
+      .replace(/```action[\s\S]*?```/g, '')
+      .replace(/[#*_`>]/g, '')
+      .replace(/\[.*?\]\(.*?\)/g, '')
+      .replace(/\n{2,}/g, '. ')
+      .replace(/\n/g, ' ')
+      .trim();
+    if (!cleanText || cleanText.length < 10) return;
+    // Truncate to ~500 chars for reasonable TTS length
+    const speakText = cleanText.length > 500 ? cleanText.slice(0, 500) + '—' : cleanText;
+    try {
+      setIsSpeaking(true);
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: speakText, voice: 'English_magnetic_voiced_man', gender: 'male' }
+      });
+      if (error || !data?.audioUrl) { setIsSpeaking(false); return; }
+      if (directorAudioRef.current) directorAudioRef.current.pause();
+      const audio = new Audio(data.audioUrl);
+      directorAudioRef.current = audio;
+      audio.onended = () => { setIsSpeaking(false); directorAudioRef.current = null; };
+      audio.onerror = () => { setIsSpeaking(false); directorAudioRef.current = null; };
+      audio.play();
+    } catch {
+      setIsSpeaking(false);
+    }
+  }, [voiceEnabled]);
+
+  const stopSpeaking = useCallback(() => {
+    if (directorAudioRef.current) {
+      directorAudioRef.current.pause();
+      directorAudioRef.current = null;
+      setIsSpeaking(false);
+    }
+  }, []);
+
   const clearChat = () => {
     setMessages([]);
     localStorage.removeItem(CHAT_STORAGE_KEY);
+    stopSpeaking();
     toast.success('Chat cleared');
   };
 
@@ -477,6 +534,9 @@ export function LoopAIDirector({
           applyEditActions(editAction);
         }
       }
+
+      // Speak the response aloud
+      speakResponse(assistantContent);
     } catch (error) {
       console.error('Loop AI error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to get response');
@@ -557,11 +617,32 @@ export function LoopAIDirector({
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
           </div>
           <div>
-            <h3 className="text-sm font-bold tracking-tight">Loop AI Director</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-bold tracking-tight">Loop AI Director</h3>
+              {isSpeaking && (
+                <button onClick={stopSpeaking} className="flex items-center gap-1" title="Click to stop">
+                  <div className="flex items-center gap-0.5">
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className="w-0.5 bg-primary rounded-full animate-pulse" style={{ height: `${6 + Math.random() * 8}px`, animationDelay: `${i * 0.1}s` }} />
+                    ))}
+                  </div>
+                  <span className="text-[9px] text-primary font-medium">Speaking</span>
+                </button>
+              )}
+            </div>
             <p className="text-[10px] text-muted-foreground">Film Director • Commercial Strategist • Brand Expert</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant={voiceEnabled ? 'default' : 'outline'}
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={toggleVoice}
+            title={voiceEnabled ? 'Mute Loop AI' : 'Unmute Loop AI'}
+          >
+            {voiceEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
+          </Button>
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={clearChat}>
               Clear
