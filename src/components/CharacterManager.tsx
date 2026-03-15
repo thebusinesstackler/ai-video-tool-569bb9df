@@ -807,6 +807,25 @@ export const CharacterManager = () => {
           ))}
         </div>
       )}
+
+      {/* Actor Profile Dialog */}
+      <Dialog open={!!profileCharacter} onOpenChange={() => setProfileCharacter(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserIcon className="h-5 w-5 text-primary" />
+              Actor Profile
+            </DialogTitle>
+          </DialogHeader>
+          {profileCharacter && (
+            <ActorProfilePanel
+              character={profileCharacter}
+              onClose={() => setProfileCharacter(null)}
+              onUpdate={() => { loadCharacters(); }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
