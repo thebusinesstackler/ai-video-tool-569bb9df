@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CommercialSegment } from '@/types/testimonialCommercial';
-import { Play, Pause, SkipForward, SkipBack, X, Camera, Clock, Film, Volume2, Type, ArrowRight } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, X, Camera, Clock, Film, Volume2, Type, ArrowRight, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface StoryboardPreviewProps {
