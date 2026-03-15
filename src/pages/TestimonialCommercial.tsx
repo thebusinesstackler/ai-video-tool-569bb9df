@@ -274,6 +274,68 @@ export default function TestimonialCommercial() {
             >
               <Film className="h-3 w-3 mr-1" /> New
             </Button>
+            <Button
+              onClick={() => {
+                const demoSegments: CommercialSegment[] = [
+                  {
+                    id: crypto.randomUUID(),
+                    type: 'speaking',
+                    script: "I used to spend hours editing videos — late nights, missed deadlines, constant frustration…",
+                    character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, warm smile, professional studio background', referenceImages: [] },
+                    duration: 6,
+                    transition: 'fade-in',
+                    status: 'pending',
+                  },
+                  {
+                    id: crypto.randomUUID(),
+                    type: 'broll',
+                    brollPrompts: ['Frustrated person at a desk surrounded by multiple screens showing complex video editing software, dim office lighting, cinematic close-up of hands on keyboard'],
+                    voiceoverText: 'Traditional video editing takes forever — and costs a fortune',
+                    duration: 4,
+                    transition: 'cut',
+                    status: 'pending',
+                  },
+                  {
+                    id: crypto.randomUUID(),
+                    type: 'speaking',
+                    script: "Then I found this AI tool — and everything changed overnight. One click and my first ad was done in minutes!",
+                    character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, excited expression, gesturing with hands, professional studio background', referenceImages: [] },
+                    duration: 8,
+                    transition: 'cut',
+                    status: 'pending',
+                  },
+                  {
+                    id: crypto.randomUUID(),
+                    type: 'broll',
+                    brollPrompts: ['Sleek modern laptop showing an AI video generation dashboard with colorful progress bars, bright clean workspace, cinematic product shot with soft bokeh background'],
+                    voiceoverText: 'Create studio-quality commercials in minutes — not days',
+                    duration: 5,
+                    transition: 'crossfade',
+                    status: 'pending',
+                  },
+                  {
+                    id: crypto.randomUUID(),
+                    type: 'speaking',
+                    script: "Try it free today — you'll never go back to the old way. Trust me on that!",
+                    character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, big genuine smile, leaning slightly forward, professional studio background', referenceImages: [] },
+                    duration: 5,
+                    transition: 'cut',
+                    status: 'pending',
+                  },
+                ];
+                setSegments(demoSegments);
+                setName('AI Video Tool — Demo Ad');
+                setCurrentCommercial(null);
+                setFinalVideoUrl(null);
+                setActiveTab('scenes');
+                toast.success('Demo commercial loaded! Hit Generate to test.');
+              }}
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+            >
+              <Clapperboard className="h-3 w-3 mr-1" /> Demo
+            </Button>
             <SavedCommercialsDrawer
               onLoad={(id) => navigate(`?edit=${id}`)}
               refreshTrigger={currentCommercial}
