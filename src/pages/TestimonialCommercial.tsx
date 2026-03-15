@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -92,6 +92,68 @@ export default function TestimonialCommercial() {
     if (error) toast.error('Failed to delete');
     else { setSavedCommercials(prev => prev.filter(c => c.id !== id)); toast.success('Deleted'); }
   };
+
+  const [isSuggestingScene, setIsSuggestingScene] = useState(false);
+
+  const handleSmartAddScene = useCallback(async (type: 'speaking' | 'broll') => {
+    if (segments.length === 0) {
+      addSegment(type);
+      return;
+    }
+
+    setIsSuggestingScene(true);
+    try {
+      const segmentSummary = segments.map((s, i) => {
+        if (s.type === 'speaking') return `Scene ${i+1}: SPEAKING — "${(s.script || '').slice(0, 100)}"`;
+        return `Scene ${i+1}: B-ROLL — "${(s.brollPrompts?.[0] || '').slice(0, 100)}"`;
+      }).join('\n');
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{
+            role: 'user',
+            content: `You are a commercial director. Given this storyboard:\n${segmentSummary}\n\nSuggest ONE new ${type} segment that fits cohesively. Return ONLY valid JSON:\n${type === 'speaking'
+              ? '{"script":"TTS-ready script using em dashes and ellipses, never periods","characterDescription":"Vivid actor description","duration":8}'
+              : '{"brollPrompts":["Cinematic B-roll description"],"voiceoverText":"Optional narration","duration":5}'}`
+          }],
+          model: 'google/gemini-2.5-flash',
+        }
+      });
+
+      if (error) throw error;
+
+      const text = data?.choices?.[0]?.message?.content || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const suggestion = JSON.parse(jsonMatch[0]);
+        if (type === 'speaking') {
+          addSegment('speaking', {
+            script: suggestion.script || '',
+            duration: suggestion.duration || 8,
+            character: suggestion.characterDescription ? {
+              name: suggestion.characterDescription.slice(0, 60),
+              description: suggestion.characterDescription,
+              referenceImages: [],
+            } : undefined,
+          });
+        } else {
+          addSegment('broll', {
+            brollPrompts: suggestion.brollPrompts || [''],
+            voiceoverText: suggestion.voiceoverText || '',
+            duration: suggestion.duration || 5,
+          });
+        }
+        toast.success(`AI suggested a new ${type === 'speaking' ? 'scene' : 'B-roll'} — edit it to your liking`);
+      } else {
+        addSegment(type);
+      }
+    } catch (err) {
+      console.error('Smart add failed:', err);
+      addSegment(type);
+    } finally {
+      setIsSuggestingScene(false);
+    }
+  }, [segments, addSegment]);
 
   const speakingSegments = segments.filter(s => s.type === 'speaking');
   const brollSegments = segments.filter(s => s.type === 'broll');
@@ -192,10 +254,11 @@ export default function TestimonialCommercial() {
                     segments={speakingSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
-                    onAdd={() => addSegment('speaking')}
+                    onAdd={() => handleSmartAddScene('speaking')}
                     onReorder={reorderSegments}
                     onGenerateCharacter={generateCharacterForSegment}
                     segmentFilter="speaking"
+                    isAddingScene={isSuggestingScene}
                   />
                 </TabsContent>
 
@@ -204,9 +267,10 @@ export default function TestimonialCommercial() {
                     segments={brollSegments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
-                    onAdd={() => addSegment('broll')}
+                    onAdd={() => handleSmartAddScene('broll')}
                     onReorder={reorderSegments}
                     segmentFilter="broll"
+                    isAddingScene={isSuggestingScene}
                   />
                 </TabsContent>
 

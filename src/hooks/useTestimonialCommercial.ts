@@ -18,15 +18,17 @@ export function useTestimonialCommercial() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [currentCommercial, setCurrentCommercial] = useState<TestimonialCommercial | null>(null);
 
-  const addSegment = useCallback((type: CommercialSegment['type']) => {
+  const addSegment = useCallback((type: CommercialSegment['type'], prefill?: Partial<CommercialSegment>) => {
     const newSegment: CommercialSegment = {
       id: crypto.randomUUID(),
       type,
       duration: type === 'broll' ? 8 : 10,
       transition: type === 'speaking' ? 'fade-in' : 'cut',
-      status: 'pending'
+      status: 'pending',
+      ...prefill,
     };
     setSegments(prev => [...prev, newSegment]);
+    return newSegment;
   }, []);
 
   const updateSegment = useCallback((id: string, updates: Partial<CommercialSegment>) => {

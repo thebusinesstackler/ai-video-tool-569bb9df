@@ -1,7 +1,7 @@
 import { CommercialSegment } from '@/types/testimonialCommercial';
 import { SegmentCard } from './SegmentCard';
 import { Button } from '@/components/ui/button';
-import { Plus, Film, User } from 'lucide-react';
+import { Plus, Film, User, Loader2, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 interface SegmentTimelineProps {
@@ -12,6 +12,7 @@ interface SegmentTimelineProps {
   onReorder: (fromIndex: number, toIndex: number) => void;
   onGenerateCharacter?: (segmentId: string, description: string) => Promise<void>;
   segmentFilter?: 'speaking' | 'broll';
+  isAddingScene?: boolean;
 }
 
 export function SegmentTimeline({
@@ -22,6 +23,7 @@ export function SegmentTimeline({
   onReorder,
   onGenerateCharacter,
   segmentFilter,
+  isAddingScene,
 }: SegmentTimelineProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
@@ -44,9 +46,12 @@ export function SegmentTimeline({
             {segments.length} {label.toLowerCase()}{segments.length !== 1 ? 's' : ''} • {totalDuration}s
           </p>
         </div>
-        <Button onClick={onAdd} size="sm" variant="outline" className="gap-1">
-          <Plus className="h-3 w-3" />
-          Add {label}
+        <Button onClick={onAdd} size="sm" variant="outline" className="gap-1" disabled={isAddingScene}>
+          {isAddingScene ? (
+            <><Loader2 className="h-3 w-3 animate-spin" /> <Sparkles className="h-3 w-3" /> Suggesting...</>
+          ) : (
+            <><Plus className="h-3 w-3" /> Add {label}</>
+          )}
         </Button>
       </div>
 
@@ -59,9 +64,12 @@ export function SegmentTimeline({
               ? 'B-roll is generated in the background during commercial creation' 
               : 'Use the AI Strategist above or add scenes manually'}
           </p>
-          <Button variant="outline" size="sm" onClick={onAdd} className="gap-1">
-            <Plus className="h-3 w-3" />
-            Add {label}
+          <Button variant="outline" size="sm" onClick={onAdd} className="gap-1" disabled={isAddingScene}>
+            {isAddingScene ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Suggesting...</>
+            ) : (
+              <><Plus className="h-3 w-3" /> Add {label}</>
+            )}
           </Button>
         </div>
       ) : (
