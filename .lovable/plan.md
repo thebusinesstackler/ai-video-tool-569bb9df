@@ -1,33 +1,25 @@
 
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
+## Plan: Full Video Viewing Experience for Completed Commercials
 
-## Changes Made
+**Problem**: After generating a video, the only way to see it is a tiny 200px player squeezed at the bottom of the page. There's no dedicated viewing experience, no easy sharing, and the user can't tell what options are available post-generation.
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+### Changes
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+**1. Add a "Final Cut" tab** (`TestimonialCommercial.tsx`)
+- Add a 4th tab called "Final Cut" (next to Scenes / B-Roll / Saved) that appears when `finalVideoUrl` exists.
+- Auto-switch to this tab after generation completes.
+- Contents: large video player, Download button, Share/Copy URL button, "Regenerate" button, and segment-by-segment clip review (individual `videoUrl`s from each segment if available).
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+**2. Upgrade the bottom bar post-generation** (`TestimonialCommercial.tsx`)
+- When `finalVideoUrl` exists, replace the tiny inline player with a prominent "Watch Final Cut" button that switches to the Final Cut tab.
+- Keep Download in the header as-is.
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+**3. Show per-segment video clips in segment cards** (`SegmentTimeline` / `SegmentCard`)
+- If a segment has a `videoUrl`, show a small play button or thumbnail so users can review individual clips.
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+### Summary of what the user gets after generation:
+- **Final Cut tab** — full-size video player with download + copy link
+- **Per-segment clips** — review individual generated clips
+- **Clear next actions** — regenerate, save, download, share
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
