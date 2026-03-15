@@ -39,17 +39,60 @@ function calculateDurationFromScript(script: string): number {
   return 10;
 }
 
+const CHAT_STORAGE_KEY = 'loop-ai-director-chat';
+
+function detectGenderFromDescription(desc: string): 'female' | 'male' {
+  const lower = desc.toLowerCase();
+  const femaleIndicators = ['woman', 'female', 'lady', 'girl', 'she', 'her ', 'mother', 'mom', 'sister', 'actress', 'heroine'];
+  if (femaleIndicators.some(w => lower.includes(w))) return 'female';
+  return 'male';
+}
+
+function pickVoiceForCharacter(desc: string): { voiceId: string; gender: string } {
+  const gender = detectGenderFromDescription(desc);
+  if (gender === 'female') {
+    const voices = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+    return { voiceId: voices[Math.floor(Math.random() * voices.length)], gender: 'female' };
+  }
+  const voices = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man'];
+  return { voiceId: voices[Math.floor(Math.random() * voices.length)], gender: 'male' };
+}
+
 export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments }: LoopAIDirectorProps) {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.messages || [];
+      }
+    } catch {}
+    return [];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [targetDuration, setTargetDuration] = useState('30');
+  const [targetDuration, setTargetDuration] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) return JSON.parse(saved).targetDuration || '30';
+    } catch {}
+    return '30';
+  });
   const [isListening, setIsListening] = useState(false);
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-save chat to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages, targetDuration }));
+      } catch {}
+    }
+  }, [messages, targetDuration]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -79,11 +122,20 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
     setIsListening(true);
   }, [isListening]);
 
-  const previewAudio = async (script: string) => {
+  const previewAudio = async (script: string, characterDescription?: string) => {
     if (isPreviewingAudio) { audioRef.current?.pause(); setIsPreviewingAudio(false); return; }
     setIsPreviewingAudio(true);
     try {
-      const { data, error } = await supabase.functions.invoke('text-to-speech', { body: { text: script } });
+      // Pick voice matching the character's gender from their description
+      const { voiceId, gender } = characterDescription
+        ? pickVoiceForCharacter(characterDescription)
+        : { voiceId: 'English_Trustworth_Man', gender: 'male' };
+
+      toast.info(`🎙️ Generating ${gender} voice preview...`);
+
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { text: script, voice: voiceId, gender }
+      });
       if (error || !data?.audioUrl) throw new Error('TTS failed');
       const audio = new Audio(data.audioUrl);
       audioRef.current = audio;
@@ -93,6 +145,12 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
       toast.error('Failed to generate audio preview');
       setIsPreviewingAudio(false);
     }
+  };
+
+  const clearChat = () => {
+    setMessages([]);
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+    toast.success('Chat cleared');
   };
 
   const extractStrategyFromMessage = (content: string): CommercialStrategy | null => {
@@ -283,7 +341,13 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
             <p className="text-[10px] text-muted-foreground">Film Director • Commercial Strategist • Brand Expert</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2 py-1">
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={clearChat}>
+              Clear
+            </Button>
+          )}
+          <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-2 py-1">
           <Clock className="h-3 w-3 text-muted-foreground" />
           <Select value={targetDuration} onValueChange={setTargetDuration}>
             <SelectTrigger className="w-[72px] h-6 text-[10px] border-0 bg-transparent p-0 shadow-none">
@@ -296,6 +360,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
               <SelectItem value="60">60s</SelectItem>
             </SelectContent>
           </Select>
+          </div>
         </div>
       </div>
 
@@ -411,7 +476,7 @@ export function LoopAIDirector({ onApplyStrategy, onGenerateCharacter, segments 
                             variant="ghost"
                             size="sm"
                             className="h-6 text-[10px] gap-1 hover:text-primary"
-                            onClick={() => previewAudio(seg.script!)}
+                            onClick={() => previewAudio(seg.script!, seg.character?.description)}
                           >
                             {isPreviewingAudio ? <Volume2 className="h-3 w-3 text-primary animate-pulse" /> : <Play className="h-3 w-3" />}
                             Preview
