@@ -93,7 +93,10 @@ export default function TestimonialCommercial() {
   const handleSave = async () => { await saveCommercial(name); };
   const handleGenerate = async () => {
     const videoUrl = await generateCommercial();
-    if (videoUrl) setFinalVideoUrl(videoUrl);
+    if (videoUrl) {
+      setFinalVideoUrl(videoUrl);
+      setActiveTab('final-cut');
+    }
   };
 
   const handleDelete = async (id: string) => {
