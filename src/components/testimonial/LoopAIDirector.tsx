@@ -28,11 +28,13 @@ interface CommercialStrategy {
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription';
     sceneIndex?: number;
     changes?: Record<string, any>;
     segment?: any;
     duration?: number;
+    description?: string;
+    prompt?: string;
   }>;
 }
 
