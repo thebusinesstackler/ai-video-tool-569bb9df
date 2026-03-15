@@ -1,7 +1,7 @@
 import { CommercialSegment } from '@/types/testimonialCommercial';
 import { SegmentCard } from './SegmentCard';
 import { Button } from '@/components/ui/button';
-import { Plus, Film, User } from 'lucide-react';
+import { Plus, Film, User, Loader2, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 interface SegmentTimelineProps {
@@ -12,6 +12,7 @@ interface SegmentTimelineProps {
   onReorder: (fromIndex: number, toIndex: number) => void;
   onGenerateCharacter?: (segmentId: string, description: string) => Promise<void>;
   segmentFilter?: 'speaking' | 'broll';
+  isAddingScene?: boolean;
 }
 
 export function SegmentTimeline({
