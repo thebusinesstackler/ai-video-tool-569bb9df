@@ -446,8 +446,10 @@ serve(async (req) => {
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
         if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
-          // ====== WAN 2.5 VIDEO EXTEND: Higher quality, supports audio input ======
-          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.5 Video Extend for narrator scene`);
+          // ====== WAN 2.5 VIDEO EXTEND: Two-step pipeline ======
+          // Step 1: Generate a short base video from image using wan-2.1-i2v
+          // Step 2: Extend it with video-extend using AI super-prompted narration
+          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.5 Video Extend pipeline`);
           
           const genderHint = characterDescription?.toLowerCase().includes('woman') || 
                             characterDescription?.toLowerCase().includes('female') || 
@@ -455,23 +457,127 @@ serve(async (req) => {
                             characterDescription?.toLowerCase().includes('lady')
                             ? 'female' : 'male';
           
-          // video-extend requires a base video — we'll use I2V first then extend
-          // For now use the image-to-video variant with video-extend endpoint
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/video-extend';
-          
-          requestBody = {
-            image: imageUrl,
-            prompt: `A ${genderHint} speaker delivering a message with natural expression and confidence: "${scene.narration}". ${charContext} ${topicContext}
-Professional, engaging delivery with eye contact. Natural lip movements and facial expressions matching speech.
-Cinematic lighting, shallow depth of field, premium quality.
-No text, no captions, no subtitles, no watermarks.`,
-            duration: Math.max(3, Math.min(10, clipDuration)),
-            resolution: '720p'
-          };
-          if (audioUrl) {
-            requestBody.audio = audioUrl;
+          try {
+            // -- AI Super Prompt --
+            console.log(`Scene ${scene.sceneNumber}: Generating AI super prompt...`);
+            const superPromptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-3-flash-preview',
+                messages: [{
+                  role: 'user',
+                  content: `You are Loop AI, a cinematic video director. Create a concise, vivid video-extend prompt (max 2 sentences) that describes the MOTION and CAMERA MOVEMENT for extending a video clip of a ${genderHint} speaker.
+
+Scene context: "${scene.narration}"
+Character: ${characterDescription || 'Professional speaker'}
+Topic: ${topic}
+
+Rules:
+- Describe only motion, expression, and camera — NOT the scene setup (we already have the base video)
+- Focus on: subtle camera drift, natural gestures, facial micro-expressions, confident delivery
+- Do NOT mention text, captions, watermarks
+- Keep it under 50 words
+- Write only the prompt, no explanation`
+                }]
+              }),
+            });
+
+            let superPrompt = `${genderHint} speaker continues delivering message with natural confidence and engaging expression. Subtle camera drift, professional cinematic quality.`;
+            
+            if (superPromptResponse.ok) {
+              const spData = await superPromptResponse.json();
+              const aiPrompt = spData.choices?.[0]?.message?.content?.trim();
+              if (aiPrompt && aiPrompt.length > 10) {
+                superPrompt = aiPrompt;
+                console.log(`Scene ${scene.sceneNumber}: AI super prompt: "${superPrompt}"`);
+              }
+            } else {
+              console.log(`Scene ${scene.sceneNumber}: AI super prompt failed, using default`);
+            }
+
+            // -- Step 1: Generate base video from image --
+            console.log(`Scene ${scene.sceneNumber}: Step 1 - Generating base video from image...`);
+            const baseVideoResponse = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1-i2v-480p', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                image: imageUrl,
+                prompt: `A ${genderHint} speaker with natural confident expression. ${charContext} Professional lighting, eye contact. No text or captions.`
+              }),
+            });
+
+            if (!baseVideoResponse.ok) {
+              const errText = await baseVideoResponse.text();
+              console.error(`Scene ${scene.sceneNumber}: Base video generation failed:`, errText);
+              throw new Error(`Base video failed: ${errText}`);
+            }
+
+            const baseVideoData = await baseVideoResponse.json();
+            const baseTaskId = baseVideoData.data?.id;
+            
+            if (!baseTaskId) {
+              throw new Error('No task ID returned for base video');
+            }
+
+            console.log(`Scene ${scene.sceneNumber}: Base video task ${baseTaskId}, polling...`);
+
+            // -- Poll for base video completion --
+            let baseVideoUrl: string | null = null;
+            const maxPollAttempts = 60;
+            for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              const statusResponse = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${baseTaskId}/result`, {
+                headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` },
+              });
+              
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                if (statusData.data?.status === 'completed' && statusData.data?.outputs?.length > 0) {
+                  baseVideoUrl = statusData.data.outputs[0];
+                  console.log(`Scene ${scene.sceneNumber}: Base video ready: ${baseVideoUrl}`);
+                  break;
+                } else if (statusData.data?.status === 'failed') {
+                  throw new Error('Base video generation failed');
+                }
+              }
+            }
+
+            if (!baseVideoUrl) {
+              throw new Error('Base video polling timed out');
+            }
+
+            // -- Step 2: Call video-extend with the base video + super prompt --
+            console.log(`Scene ${scene.sceneNumber}: Step 2 - Extending video with super prompt...`);
+            const extendDuration = Math.max(3, Math.min(10, clipDuration));
+            
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/video-extend';
+            requestBody = {
+              video: baseVideoUrl,
+              prompt: superPrompt,
+              duration: extendDuration,
+              resolution: '720p',
+              enable_prompt_expansion: false
+            };
+            sceneHasEmbeddedAudio = false;
+            
+          } catch (extendError) {
+            console.error(`Scene ${scene.sceneNumber}: Video-extend pipeline failed, falling back to wan-2.1-i2v:`, extendError);
+            // Fallback to simple i2v
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1-i2v-480p';
+            requestBody = {
+              image: imageUrl,
+              prompt: `A ${genderHint} speaker delivering a message with natural expression. ${charContext} ${topicContext} Professional quality. No text or captions.`
+            };
+            sceneHasEmbeddedAudio = false;
           }
-          sceneHasEmbeddedAudio = !!audioUrl;
           
         } else if (isNarratorScene && enableLipSync && videoModel === 'kling-v3.0-pro') {
           // ====== KLING 3.0 PRO: Cinematic lip sync scenes ======
