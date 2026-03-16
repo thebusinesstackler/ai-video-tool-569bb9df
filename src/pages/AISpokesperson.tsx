@@ -330,8 +330,8 @@ Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDur
 SCRIPTWRITING RULES:
 - Write naturally and conversationally — the way a real human talks on camera
 - Use SHORT sentences (8-15 words max). Vary sentence length for rhythm
-- Add BREATHING ROOM: use em dashes (—) for natural pauses between thoughts
-- Use ellipses (...) for dramatic pauses or trailing thoughts
+- Use commas for natural pauses between thoughts. Use periods for full stops
+- Front-load the hook — the first sentence must grab attention instantly
 - Front-load the hook — the first sentence must grab attention instantly
 - Build a natural arc: Hook → Context → Key Point → Call to Action
 
