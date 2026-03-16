@@ -766,6 +766,12 @@ export default function TestimonialCommercial() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {/* Caption toggle */}
+                  <CaptionStyleSelector
+                    settings={captionSettings}
+                    onChange={setCaptionSettings}
+                    compact
+                  />
                   <div className="flex gap-2">
                     {segments.length > 0 && (
                       <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
