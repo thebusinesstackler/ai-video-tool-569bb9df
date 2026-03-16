@@ -776,7 +776,33 @@ const Reels = () => {
     }
   };
 
-  // Handle portrait image upload for lip sync
+  const enhancePrompt = async () => {
+    if (!topic.trim() || isEnhancingPrompt) return;
+    setIsEnhancingPrompt(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: 'You are a viral social media content strategist. The user will give you a rough topic or idea for a short-form video reel. Your job is to enhance it into a compelling, specific, scroll-stopping topic that would perform well on Instagram/TikTok/YouTube Shorts. Return ONLY the enhanced topic text — no explanation, no quotes, no labels. Keep it under 2 sentences.' },
+            { role: 'user', content: topic }
+          ]
+        }
+      });
+      if (error) throw error;
+      const enhanced = data?.choices?.[0]?.message?.content?.trim();
+      if (enhanced) {
+        setTopic(enhanced);
+        toast({ title: "Prompt Enhanced ✨", description: "Your topic has been upgraded for maximum engagement." });
+      }
+    } catch (err) {
+      console.error('Enhance prompt error:', err);
+      toast({ title: "Enhancement Failed", description: "Could not enhance your prompt. Try again.", variant: "destructive" });
+    } finally {
+      setIsEnhancingPrompt(false);
+    }
+  };
+
+
   const handlePortraitUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
