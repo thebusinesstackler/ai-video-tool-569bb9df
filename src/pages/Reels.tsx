@@ -1205,7 +1205,7 @@ const Reels = () => {
       const hasScenes = (ds.scenes?.length || 0) > 0;
       const hasCharacter = !!ds.portraitImage || !!ds.selectedTwinId;
       if (hasCharacter) {
-        setBeginnerStep(4);
+        setBeginnerStep(3);
       } else if (hasScenes) {
         setBeginnerStep(2);
       } else {
