@@ -381,10 +381,10 @@ VISUAL RULES:
 ${CAMERA_ANGLES.slice(0, sceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
 CRITICAL VALIDATION BEFORE RETURNING:
-- Verify that your narration contains ZERO sentence-ending periods
-- Every sentence must end with ... or —
-- Line breaks between each thought
-- If you see any "." at end of sentence, replace it with "..." or "—"
+- Verify narration contains ZERO periods, ZERO em dashes (—), ZERO ellipses (...)
+- Only commas and question marks for pauses
+- Write flowing conversational sentences
+- Scene 1 HOOK narration must be a COMPLETE, compelling sentence (15+ words minimum), not a fragment like "I" or "Hook:"
 
 Return ONLY valid JSON array:
 [
