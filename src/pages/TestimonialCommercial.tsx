@@ -798,7 +798,10 @@ export default function TestimonialCommercial() {
               {finalVideoUrl && !isGenerating && (
                 <div className="mt-2">
                   <Button
-                    onClick={() => setActiveTab('final-cut')}
+                    onClick={() => {
+                      setActiveTab('final-cut');
+                      setTimeout(() => resultCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                    }}
                     variant="ai"
                     size="sm"
                     className="w-full gap-2"
