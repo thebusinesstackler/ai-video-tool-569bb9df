@@ -340,6 +340,13 @@ Output action blocks like this:
 - **productSwap**: Copy product image from a speaking scene to B-roll scenes
 - **generateMusic**: Generate background music. Requires "mood" — descriptive prompt matching the emotional arc
 - **regenerateAll**: Full production pass — regenerates ALL missing characters, B-roll, voices, music
+- **generateVideo**: Generate lip-sync video for speaking scenes (requires character images + audio) or cinematic video for B-roll. Use after character images and audio are ready. Example: \`{ "action": "generateVideo", "sceneIndex": 0 }\`
+- **extendClip**: Extend an existing video clip using AI. Requires scene with existing videoUrl. Include "prompt" describing what should happen next. Example: \`{ "action": "extendClip", "sceneIndex": 2, "prompt": "Continue the scene with the character nodding and smiling warmly" }\`
+- **productSwapFromLibrary**: Pull a product from the user's saved product library and apply to target B-roll scenes. Use when user says "add my product" without specifying a source scene. Optional "productName" to match specific product. Example: \`{ "action": "productSwapFromLibrary", "sceneIndices": [1, 3, 5] }\`
+- **generateBrollVoiceover**: Generate voiceover audio for B-roll scenes using their voiceoverText. Uses the main character's voice for consistency. Example: \`{ "action": "generateBrollVoiceover", "sceneIndices": [1, 3] }\`
+- **duplicateScene**: Clone a scene. Useful for creating variations. Example: \`{ "action": "duplicateScene", "sceneIndex": 0 }\`
+- **reorderScene**: Move a scene to a different position. Requires "fromIndex" and "toIndex" (0-based). Example: \`{ "action": "reorderScene", "fromIndex": 4, "toIndex": 1 }\`
+- **videoDiagnostic**: Analyze ALL scenes for video readiness (lip-sync status, duration match, missing audio/images). Use when user asks to "check videos", "diagnose", or "are my videos ready". Example: \`{ "action": "videoDiagnostic" }\`
 
 ### VOICE & GENDER AWARENESS (CRITICAL)
 The system automatically picks male or female voices based on the character description.
