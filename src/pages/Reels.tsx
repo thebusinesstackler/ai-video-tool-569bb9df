@@ -332,7 +332,7 @@ const Reels = () => {
   
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
-  const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5' | 'wan-animate'>('infinitetalk');
+  const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
@@ -3984,21 +3984,31 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="infinitetalk">
-                          InfiniteTalk (Recommended)
+                          InfiniteTalk Fast (Recommended)
                         </SelectItem>
                         <SelectItem value="avatar-omni-human-1.5">
                           Avatar Omni Human 1.5
                         </SelectItem>
-                        <SelectItem value="wan-animate">
-                          WAN Animate (Character)
-                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      {lipSyncModel === 'infinitetalk' && 'Best for realistic talking head videos with native voice'}
-                      {lipSyncModel === 'avatar-omni-human-1.5' && 'Full body avatar animation with native speech'}
-                      {lipSyncModel === 'wan-animate' && 'Animated character with lip sync (requires audio)'}
+                      {lipSyncModel === 'infinitetalk' && 'Fast, precise lip sync with natural head/body motion. Up to 10min. Best all-round choice.'}
+                      {lipSyncModel === 'avatar-omni-human-1.5' && 'Cognitive emotion mapping — understands speech context for natural expressions. Higher quality, slower.'}
                     </p>
+                  </div>
+
+                  {/* Lip Sync Status Indicator */}
+                  <div className={`p-2.5 rounded-md text-xs font-medium ${
+                    enableLipSync && portraitPreview 
+                      ? 'bg-primary/10 text-primary border border-primary/30' 
+                      : 'bg-destructive/10 text-destructive border border-destructive/30'
+                  }`}>
+                    {enableLipSync && portraitPreview 
+                      ? `🎭 Lip sync ON — speaking scenes will use ${lipSyncModel === 'avatar-omni-human-1.5' ? 'Avatar Omni Human 1.5' : 'InfiniteTalk Fast'} with your character portrait`
+                      : enableLipSync && !portraitPreview
+                      ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
+                      : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
+                    }
                   </div>
 
                   {/* Voiceover Source Selection */}
