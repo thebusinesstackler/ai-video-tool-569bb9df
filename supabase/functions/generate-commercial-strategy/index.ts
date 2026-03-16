@@ -834,6 +834,7 @@ serve(async (req) => {
         model: 'google/gemini-2.5-pro',
         messages: allMessages,
         stream: true,
+        max_tokens: 16384,
       }),
     });
 
