@@ -54,7 +54,18 @@ export default function TestimonialCommercial() {
     setVideoStyle,
   } = useTestimonialCommercial();
 
-  const handleApplyStrategy = (newSegments: CommercialSegment[], commercialName: string) => {
+  const handleTimelineSelectSegment = useCallback((segmentId: string) => {
+    const seg = segments.find(s => s.id === segmentId);
+    if (!seg) return;
+    setActiveTab(seg.type === 'broll' ? 'broll' : 'scenes');
+    if (!chatOpen) setChatOpen(true);
+    setFocusedSegmentId(segmentId);
+    setTimeout(() => {
+      const el = document.getElementById(`segment-card-${segmentId}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }, [segments, chatOpen]);
+
     setSegments(newSegments);
     if (commercialName) setName(commercialName);
     setCurrentCommercial(null);
