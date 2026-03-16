@@ -268,7 +268,7 @@ export function LoopAIDirector({
 
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: speakText, voice: 'English_Trustworth_Man', gender: 'male' }
+        body: { text: speakText, voice: 'Deep_Voice_Man', gender: 'male' }
       });
 
       if (error || !data?.audioUrl) {
