@@ -19,6 +19,7 @@ interface SegmentTimelineProps {
 
 export function SegmentTimeline({
   segments,
+  allSegments,
   onUpdate,
   onDelete,
   onDuplicate,
