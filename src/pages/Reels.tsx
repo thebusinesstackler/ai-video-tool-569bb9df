@@ -5062,9 +5062,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                           const isMale = twinGender === 'male' || (!isFemale && ['man', 'male', 'boy', 'guy'].some(k => descLower.includes(k)));
                                           
                                           if (isFemale) {
-                                            setSelectedVoice('en-US-Journey-F');
+                                            setSelectedVoice('Wise_Woman');
                                           } else if (isMale) {
-                                            setSelectedVoice('en-US-Journey-D');
+                                            setSelectedVoice('English_Trustworth_Man');
                                           }
                                           
                                           toast({
