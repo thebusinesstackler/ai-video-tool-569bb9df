@@ -1051,13 +1051,17 @@ const Reels = () => {
 
     try {
       // Build scenes data from preview scenes or project scenes
+      // Build scenes data - merge videoClip URLs when available
+      const videoClipMap = new Map(project.videoClips.map(v => [v.sceneNumber, v.videoUrl]));
+      const voiceoverMap = new Map(project.voiceovers.map(v => [v.sceneNumber, { url: v.storageUrl || v.audioUrl, duration: v.duration }]));
+      
       const scenesData = previewScenes.length > 0
         ? previewScenes.map((scene) => ({
             sceneNumber: scene.sceneNumber,
             text: scene.narration,
             imageUrl: scene.imageUrl,
-            videoUrl: null,
-            audioUrl: scene.audioUrl,
+            videoUrl: videoClipMap.get(scene.sceneNumber) || null,
+            audioUrl: scene.audioUrl || voiceoverMap.get(scene.sceneNumber)?.url || null,
             startTime: 0,
             endTime: scene.audioDuration
           }))
@@ -1066,8 +1070,8 @@ const Reels = () => {
               sceneNumber: scene.sceneNumber,
               text: scene.narration,
               imageUrl: scene.imageUrl,
-              videoUrl: null,
-              audioUrl: scene.audioUrl,
+              videoUrl: videoClipMap.get(scene.sceneNumber) || null,
+              audioUrl: scene.audioUrl || voiceoverMap.get(scene.sceneNumber)?.url || null,
               startTime: 0,
               endTime: scene.audioDuration
             }))
@@ -1075,7 +1079,7 @@ const Reels = () => {
               sceneNumber: scene.sceneNumber,
               text: scene.text,
               imageUrl: scene.imageUrl,
-              videoUrl: scene.videoUrl || null,
+              videoUrl: videoClipMap.get(scene.sceneNumber) || scene.videoUrl || null,
               startTime: scene.startTime,
               endTime: scene.endTime
             }));
@@ -5849,35 +5853,33 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         )}
                       </div>
                       
-                      {/* Scene clips grid - show if there are multiple scenes */}
-                      {hasScenes && (
+                      {/* Scene clips grid - only show if there are actual video clips */}
+                      {videoClips.length > 0 && (
                         <div className="p-3 border-t border-border">
-                          <p className="text-xs text-muted-foreground mb-2">Individual Clips:</p>
+                          <p className="text-xs text-muted-foreground mb-2">Scene Clips ({videoClips.length}):</p>
                           <div className="grid grid-cols-5 gap-1">
-                            {reel.scenes?.map((scene, idx) => (
-                              <VideoPlayer
-                                key={idx}
-                                videoUrl={scene.videoUrl || ''}
-                                title={`Scene ${idx + 1}`}
-                                trigger={
-                                  <button
-                                    className="aspect-square rounded overflow-hidden bg-muted relative group cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                                    disabled={!scene.videoUrl}
-                                  >
-                                    {scene.imageUrl ? (
-                                      <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="w-full h-full object-cover" />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-xs">{idx + 1}</div>
-                                    )}
-                                    {scene.videoUrl && (
-                                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Play className="w-3 h-3 text-white" />
+                            {reel.scenes?.map((scene, idx) => {
+                              if (!scene.videoUrl) return null;
+                              return (
+                                <VideoPlayer
+                                  key={idx}
+                                  videoUrl={scene.videoUrl}
+                                  title={`Scene ${idx + 1} — ${reel.topic}`}
+                                  trigger={
+                                    <button className="aspect-square rounded overflow-hidden bg-muted relative group cursor-pointer border border-transparent hover:border-primary transition-colors">
+                                      {scene.imageUrl ? (
+                                        <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">{idx + 1}</div>
+                                      )}
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Play className="w-4 h-4 text-white" />
                                       </div>
-                                    )}
-                                  </button>
-                                }
-                              />
-                            ))}
+                                    </button>
+                                  }
+                                />
+                              );
+                            })}
                           </div>
                         </div>
                       )}
