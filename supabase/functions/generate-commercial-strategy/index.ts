@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-function buildSegmentContext(currentSegments: any[]) {
+function buildSegmentContext(currentSegments: any[], timelineIssues?: any[]) {
   if (!currentSegments || currentSegments.length === 0) return '';
 
   let speakingNum = 0;
@@ -13,31 +13,54 @@ function buildSegmentContext(currentSegments: any[]) {
 
   const lines = currentSegments.map((s: any, i: number) => {
     const typeNum = s.typeNumber || (i + 1);
+    const missing = s.missingAssets?.length > 0 ? `⚠️ MISSING: [${s.missingAssets.join(', ')}]` : '✅ ALL ASSETS PRESENT';
+    const wordInfo = s.wordCount > 0 ? `${s.wordCount} words (expected ${s.expectedDuration}s)` : 'no words';
+    const pacing = s.durationMismatch ? `🚨 PACING MISMATCH: ${wordInfo} but duration is ${s.duration}s` : wordInfo;
+
     if (s.type === 'speaking') {
       speakingNum++;
       const num = typeNum || speakingNum;
       const hasImgs = s.character?.hasImages ? `✅ ${s.character.imageCount} images` : '❌ NO images';
       const hasAudio = s.hasAudio ? '🔊 audio' : '🔇 no audio';
-      const hasVideo = s.hasVideo ? '🎬 video generated' : '🎬 no video';
-      const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
-      const gender = s.character?.gender || (s.character?.description ? 'auto-detect from description' : 'unknown');
+      const hasVideo = s.hasVideo ? '🎬 video' : '🎬 no video';
+      const hasProduct = s.hasProductImage ? '📦 product image' : '';
+      const gender = s.character?.gender || 'unknown';
       const voiceId = s.voiceoverId || 'not set';
       const role = s.narrativeRole ? `[${s.narrativeRole}]` : '';
       const charName = s.character?.name ? `"${s.character.name}"` : '';
-      return `- Scene #${num} ${role} (idx=${i}) | ${s.duration}s | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'Not set'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${(s.script || '').slice(0, 200)}" | Status: ${s.status}`;
+      return `- Scene #${num} ${role} (idx=${i}) | ${s.duration}s | ${pacing} | transition: ${s.transition} | ${charName} Gender: ${gender} | Voice: ${voiceId} | Character: "${s.character?.description || 'NOT SET'}" [${hasImgs}] [${hasAudio}] [${hasVideo}] ${hasProduct} | Script: "${s.script || 'EMPTY'}" | ${missing} | Status: ${s.status}`;
     }
     brollNum++;
     const num = typeNum || brollNum;
     const hasBroll = s.hasBrollImages ? '✅ has preview' : '❌ NO preview';
-    const brollContent = s.brollImageUrls?.length > 0 ? `🖼️ Current image: ${s.brollImageUrls[0].slice(-40)}` : '';
-    const hasVo = s.voiceoverText ? `VO: "${s.voiceoverText.slice(0, 80)}"` : 'no VO';
-    const hasProduct = s.hasProductImage ? '📦 product image uploaded' : '';
-    return `- B-Roll #${num} (idx=${i}) | ${s.duration}s | transition: ${s.transition} | Prompt: "${(s.brollPrompts?.[0] || '').slice(0, 200)}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | Status: ${s.status}`;
+    const brollContent = s.brollImageUrls?.length > 0 ? `🖼️ ${s.brollImageUrls[0].slice(-40)}` : '';
+    const hasVo = s.voiceoverText ? `VO: "${s.voiceoverText}"` : '❌ no VO — WILL BE SILENT';
+    const hasProduct = s.hasProductImage ? '📦 product image' : '';
+    return `- B-Roll #${num} (idx=${i}) | ${s.duration}s | ${pacing} | transition: ${s.transition} | Prompt: "${s.brollPrompts?.[0] || 'EMPTY'}" | ${hasVo} [${hasBroll}] ${brollContent} ${hasProduct} | ${missing} | Status: ${s.status}`;
   });
+
+  let issuesSection = '';
+  if (timelineIssues && timelineIssues.length > 0) {
+    const issueLines = timelineIssues.map((issue: any) => {
+      return `- **${issue.sceneLabel}**: ${issue.problems.join(' | ')}`;
+    });
+    issuesSection = `
+
+### 🚨 ISSUES DETECTED — YOU MUST ADDRESS THESE
+The following problems were detected in the timeline. You MUST mention these specific issues to the user. Do NOT say "looks solid" or "looking great" when issues exist.
+${issueLines.join('\n')}
+
+**YOUR RESPONSE MUST:**
+1. List the specific issues found, referencing scene numbers (e.g., "Scene #2 is missing character images")
+2. Explain the impact (e.g., "Without images, we can't generate video for this scene")
+3. Offer to fix them with action blocks OR tell the user what to do
+4. NEVER gloss over missing assets — they are blockers`;
+  }
 
   return `\n\n## Current Storyboard State
 The user currently has ${currentSegments.length} total segments (${speakingNum} speaking scenes, ${brollNum} B-roll clips):
 ${lines.join('\n')}
+${issuesSection}
 
 ### ⚠️ ABSOLUTE RULE — SCENE NUMBERING
 - Scenes start at **#1**. There is NO Scene 0. NEVER say "Scene 0" — it does not exist.
