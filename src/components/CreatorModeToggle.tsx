@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Sparkles, Settings2 } from 'lucide-react';
+import { Zap, Sparkles, Settings2 } from 'lucide-react';
 import { CreatorMode } from '@/hooks/useCreatorMode';
 
 interface CreatorModeToggleProps {
@@ -12,6 +12,18 @@ interface CreatorModeToggleProps {
 export function CreatorModeToggle({ mode, onModeChange, className }: CreatorModeToggleProps) {
   return (
     <div className={cn("inline-flex items-center rounded-full border border-border bg-muted p-0.5 gap-0.5", className)}>
+      <button
+        onClick={() => onModeChange('quick')}
+        className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+          mode === 'quick'
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <Zap className="w-3.5 h-3.5" />
+        Quick
+      </button>
       <button
         onClick={() => onModeChange('beginner')}
         className={cn(

@@ -265,7 +265,7 @@ const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner } = useCreatorMode();
+  const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner, isQuick } = useCreatorMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [topic, setTopic] = useState('');
   const [selectedSceneCount, setSelectedSceneCount] = useState('4');
@@ -2122,6 +2122,63 @@ const Reels = () => {
     }
   };
 
+  // ====== QUICK MODE: One-tap generation ======
+  const generateQuickMode = async (quickTopic: string) => {
+    if (!quickTopic.trim()) return;
+    
+    setTopic(quickTopic);
+    abortRef.current = new AbortController();
+    
+    // Auto-select AI Twin if available
+    let shouldEnableLipSync = false;
+    let activeLipSyncModel: string = 'infinitetalk';
+    
+    if (aiTwins.length > 0) {
+      const twin = aiTwins[0];
+      setSelectedTwinId(twin.id);
+      if (twin.reference_images?.[0]) {
+        setPortraitImage(twin.reference_images[0]);
+        setPortraitPreview(twin.reference_images[0]);
+        setPreSelectedReference(twin.reference_images[0]);
+      }
+      if (twin.face_description) {
+        setCharacterDescription(twin.face_description);
+      }
+      shouldEnableLipSync = true;
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
+    }
+    
+    // Auto-detect voice
+    let resolvedVoice = selectedVoice;
+    if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+      if (aiTwins.length > 0) {
+        const twin = aiTwins[0];
+        const twinGender = (twin as any).gender?.toLowerCase() || '';
+        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
+        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
+        if (detectedVoice) resolvedVoice = detectedVoice;
+      }
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+        resolvedVoice = detectGenderVoice(quickTopic + ' ' + characterDescription) || 'English_Trustworth_Man';
+      }
+    }
+    setSelectedVoice(resolvedVoice);
+    
+    if (abortRef.current.signal.aborted) return;
+    
+    // Generate scripts
+    const generatedScenes = await generateScripts();
+    if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
+    
+    // Go straight to video generation (which handles voiceovers + images + video)
+    await generateVideo({ 
+      forceEnableLipSync: shouldEnableLipSync, 
+      forceLipSyncModel: activeLipSyncModel, 
+      scenesOverride: generatedScenes 
+    });
+  };
+
   const resetProject = () => {
     // Cleanup blob URL
     if (project.videoBlobUrl) {
@@ -2805,6 +2862,201 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       Retry
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ===== QUICK MODE: One question, fully automated ===== */}
+            {isQuick && !isGenerating && !project.videoBlobUrl && project.generatedScenes.length === 0 && (
+              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-primary/5">
+                <CardContent className="pt-10 pb-10 space-y-8">
+                  <div className="text-center space-y-3 max-w-md mx-auto">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                      <Sparkles className="w-7 h-7 text-primary" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-foreground">Quick Reel</h2>
+                    <p className="text-muted-foreground text-sm">
+                      Tell us your topic — we'll write the script, generate the voice, create visuals, and produce the video. All in one go.
+                    </p>
+                  </div>
+
+                  <div className="max-w-lg mx-auto space-y-4">
+                    <Textarea
+                      placeholder="E.g., 5 morning habits of millionaires, Why most startups fail in year one, How to cook the perfect steak..."
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      className="min-h-[100px] bg-background border-border resize-none text-base"
+                    />
+
+                    {aiTwins.length > 0 && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                        {aiTwins[0].reference_images?.[0] && (
+                          <img src={aiTwins[0].reference_images[0]} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-primary/30" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">Using: {aiTwins[0].name}</p>
+                          <p className="text-[10px] text-muted-foreground">🎭 Lip sync + voice auto-selected</p>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30 shrink-0">Auto</Badge>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={() => generateQuickMode(topic)}
+                      disabled={!topic.trim()}
+                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 h-12 text-base"
+                      size="lg"
+                    >
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      Make My Reel ⚡
+                    </Button>
+
+                    <p className="text-center text-[10px] text-muted-foreground">
+                      Takes ~2-4 minutes depending on scene count. You can switch to Easy or Advanced mode for more control.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Mode: Generating State */}
+            {isQuick && isGenerating && (
+              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+                <CardContent className="pt-10 pb-10 space-y-6">
+                  <div className="text-center space-y-3 max-w-md mx-auto">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto animate-pulse">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                    </div>
+                    <h2 className="text-xl font-bold text-foreground">Creating Your Reel</h2>
+                    <p className="text-muted-foreground text-sm">
+                      {topic ? `"${topic.length > 60 ? topic.substring(0, 60) + '...' : topic}"` : 'Your reel is being produced...'}
+                    </p>
+                  </div>
+
+                  <div className="max-w-sm mx-auto space-y-3">
+                    <Progress value={progress} className="h-3" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{progressStatus || 'Starting...'}</span>
+                      <span>{Math.round(progress)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center gap-2 mt-4">
+                    {progress < 15 && <p className="text-xs text-muted-foreground">📝 Writing scripts...</p>}
+                    {progress >= 15 && progress < 40 && <p className="text-xs text-muted-foreground">🎙️ Generating voiceovers...</p>}
+                    {progress >= 40 && progress < 70 && <p className="text-xs text-muted-foreground">🎬 Creating video scenes...</p>}
+                    {progress >= 70 && progress < 90 && <p className="text-xs text-muted-foreground">✂️ Stitching clips together...</p>}
+                    {progress >= 90 && <p className="text-xs text-muted-foreground">✨ Almost done...</p>}
+                  </div>
+
+                  <div className="flex justify-center">
+                    <Button variant="outline" size="sm" onClick={stopGeneration}>
+                      <X className="w-3 h-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Mode: Results — show generated scenes, voices, video */}
+            {isQuick && !isGenerating && (project.videoBlobUrl || project.generatedScenes.length > 0) && (
+              <Card className="border-primary/30">
+                <CardContent className="pt-6 pb-6 space-y-6">
+                  <div className="text-center space-y-1">
+                    <h2 className="text-xl font-bold text-foreground">🎬 Your Reel is Ready</h2>
+                    <p className="text-sm text-muted-foreground">Review the scripts and voices below, or download your video.</p>
+                  </div>
+
+                  {/* Video Player */}
+                  {project.videoBlobUrl && (
+                    <div className="max-w-sm mx-auto">
+                    <div className="rounded-xl overflow-hidden bg-black shadow-lg">
+                      <video
+                        src={project.videoBlobUrl}
+                        controls
+                        className="w-full aspect-[9/16]"
+                      />
+                    </div>
+                    </div>
+                  )}
+
+                  {/* Scene Scripts & Voices */}
+                  <Collapsible>
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Scripts & Voices ({project.scenes.length} scenes)
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-3 space-y-3">
+                      {project.scenes.map((scene, idx) => (
+                        <div key={idx} className="p-3 rounded-lg border border-border bg-background space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
+                            <span className="text-[10px] text-muted-foreground">{scene.duration}s</span>
+                          </div>
+                          <p className="text-xs text-foreground leading-relaxed">{scene.narration}</p>
+                          {project.voiceovers[idx]?.audioUrl && (
+                            <audio controls src={project.voiceovers[idx].audioUrl} className="w-full h-8" />
+                          )}
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {project.videoBlobUrl && (
+                      <Button onClick={handleDownloadVideo} className="bg-gradient-primary hover:opacity-90">
+                        <Download className="w-4 h-4 mr-2" />
+                        Download
+                      </Button>
+                    )}
+                    {!project.videoBlobUrl && project.videoClips.length > 1 && (
+                      <Button onClick={stitchVideos} disabled={isManualStitching} className="bg-gradient-primary hover:opacity-90">
+                        {isManualStitching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Layers className="w-4 h-4 mr-2" />}
+                        Stitch All Clips
+                      </Button>
+                    )}
+                    {!currentReelSaved && (project.generatedScenes.length > 0 || project.videoBlobUrl) && (
+                      <Button onClick={saveToMyReels} disabled={isSavingReel} variant="secondary">
+                        {isSavingReel ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FolderOpen className="w-4 h-4 mr-2" />}
+                        Save to My Reels
+                      </Button>
+                    )}
+                    <Button onClick={resetProject} variant="outline">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Create Another
+                    </Button>
+                  </div>
+
+                  {/* Re-generate with Lip Sync option */}
+                  {!enableLipSync && project.videoBlobUrl && aiTwins.length > 0 && (
+                    <div className="flex justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-primary/50 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setEnableLipSync(true);
+                          const twin = aiTwins[0];
+                          setSelectedTwinId(twin.id);
+                          if (twin.reference_images?.[0]) {
+                            setPortraitImage(twin.reference_images[0]);
+                            setPortraitPreview(twin.reference_images[0]);
+                          }
+                          if (twin.face_description) setCharacterDescription(twin.face_description);
+                          toast({ title: "Re-generating with Lip Sync" });
+                          generateVideo({ forceEnableLipSync: true, forceLipSyncModel: 'infinitetalk', scenesOverride: project.scenes });
+                        }}
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        Re-generate with Lip Sync
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
