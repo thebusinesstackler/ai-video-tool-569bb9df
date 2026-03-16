@@ -295,8 +295,6 @@ const Reels = () => {
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
   const [draftReels, setDraftReels] = useState<SavedReel[]>([]);
   
-  // Movie Scene Creator source tracking
-  const [fromMovieScene, setFromMovieScene] = useState(false);
   
   // Template state
   const [selectedIntro, setSelectedIntro] = useState('none');
