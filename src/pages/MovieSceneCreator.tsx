@@ -281,6 +281,22 @@ const MovieSceneCreator = () => {
   const { toast } = useToast();
   const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner } = useCreatorMode();
 
+  // ── Debounced auto-save for movie projects ──
+  const autoSaveField = useScriptAutoSave({ table: 'movie_projects', id: currentProjectId });
+
+  // Auto-save outline and movieIdea on change
+  useEffect(() => {
+    if (currentProjectId && outline) {
+      autoSaveField({ outline });
+    }
+  }, [outline, currentProjectId]);
+
+  useEffect(() => {
+    if (currentProjectId && movieIdea) {
+      autoSaveField({ movie_idea: movieIdea });
+    }
+  }, [movieIdea, currentProjectId]);
+
   // Helper to toggle twin selection
   const toggleTwinSelection = (twin: AITwin) => {
     setSelectedTwins(prev => {
