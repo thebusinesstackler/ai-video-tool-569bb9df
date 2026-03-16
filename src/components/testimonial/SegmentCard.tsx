@@ -280,6 +280,7 @@ export function SegmentCard({
   return (
     <>
       <Card
+        id={`segment-card-${segment.id}`}
         className="relative group hover:shadow-md transition-shadow"
         draggable
         onDragStart={onDragStart}
