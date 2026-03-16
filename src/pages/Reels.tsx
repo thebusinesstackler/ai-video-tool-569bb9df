@@ -2123,7 +2123,7 @@ const Reels = () => {
       // Pass character description directly to avoid stale React state
       const twinCharDesc = selectedTwinId ? (aiTwins.find(t => t.id === selectedTwinId)?.face_description || characterDescription) : characterDescription;
       generatedScenes = await generateScripts({ characterDescriptionOverride: twinCharDesc });
-    
+    }
     if (abortRef.current?.signal.aborted) return;
     
     if (generatedScenes && generatedScenes.length > 0) {
