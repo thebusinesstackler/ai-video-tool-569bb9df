@@ -953,7 +953,6 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     
     if (source === 'movie-scene' && transferredTopic) {
       setTopic(transferredTopic);
-      setFromMovieScene(true);
       // Clear params to avoid re-triggering
       setSearchParams({});
       toast({
