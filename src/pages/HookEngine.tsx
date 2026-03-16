@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -240,8 +241,11 @@ function HookCard({
 
             {/* Apply Actions */}
             <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" variant="default" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'text-overlay')}>
-                <Type className="h-3 w-3" /> Apply as Text Overlay
+              <Button size="sm" variant="default" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'use-in-reel')}>
+                <Play className="h-3 w-3" /> Use in Reel
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'text-overlay')}>
+                <Type className="h-3 w-3" /> Text Overlay
               </Button>
               <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'title-card')}>
                 <Film className="h-3 w-3" /> Title Card
@@ -261,6 +265,7 @@ function HookCard({
 }
 
 export default function HookEngine() {
+  const navigate = useNavigate();
   const {
     contentSummary, hooks, contextSettings, isAnalyzing, isGenerating, isRefining,
     videoTitle, setVideoTitle, videoDescription, setVideoDescription,
@@ -289,6 +294,9 @@ export default function HookEngine() {
       case 'voiceover':
         navigator.clipboard.writeText(hook.voiceoverVersion);
         toast.success('Voiceover script copied — paste into your TTS tool');
+        break;
+      case 'use-in-reel':
+        navigate(`/reels?source=hook-engine&topic=${encodeURIComponent(hook.hookText)}`);
         break;
     }
   };

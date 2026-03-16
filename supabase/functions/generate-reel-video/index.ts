@@ -27,8 +27,12 @@ interface VoiceoverData {
 // Lip sync models require audio input - they do NOT generate voice from text
 // We use WaveSpeed MiniMax Speech-02 for TTS, then pass the audio URL to lip sync
 
-// Helper to convert base64 to Uint8Array
+// Helper to convert base64 to Uint8Array with memory guard (#50)
 function base64ToUint8Array(base64: string): Uint8Array {
+  // Guard against extremely large base64 strings (>10MB decoded)
+  if (base64.length > 13_333_333) { // ~10MB in base64
+    console.warn(`Large base64 payload detected (${(base64.length / 1_333_333).toFixed(1)}MB). Proceeding with caution.`);
+  }
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {

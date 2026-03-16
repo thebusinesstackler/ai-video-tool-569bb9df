@@ -44,7 +44,7 @@ import {
   Trash2,
   Play,
   ChevronDown,
-  Palette,
+  
   Monitor,
   Layers,
   User,
@@ -295,8 +295,6 @@ const Reels = () => {
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
   const [draftReels, setDraftReels] = useState<SavedReel[]>([]);
   
-  // Movie Scene Creator source tracking
-  const [fromMovieScene, setFromMovieScene] = useState(false);
   
   // Template state
   const [selectedIntro, setSelectedIntro] = useState('none');
@@ -475,8 +473,6 @@ const Reels = () => {
   // Video queue hook
   const { queueCount } = useVideoQueue();
 
-  // State for showing draft recovery banner
-  const [showDraftRecoveryBanner, setShowDraftRecoveryBanner] = useState(false);
   const [draftAge, setDraftAge] = useState('');
 
   // Auto-restore draft on mount
@@ -561,7 +557,6 @@ const Reels = () => {
     if (!draft) return;
 
     draftRestoredRef.current = true;
-    setShowDraftRecoveryBanner(false);
 
     // Restore all persisted state
     setTopic(draft.topic || '');
@@ -628,7 +623,6 @@ const Reels = () => {
 
   // Dismiss draft and clear it
   const dismissDraft = useCallback(() => {
-    setShowDraftRecoveryBanner(false);
     clearDraft();
   }, [clearDraft]);
 
@@ -952,19 +946,36 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Handle Movie Scene Creator transfers
+  // Cleanup blob URLs on unmount (#34)
+  useEffect(() => {
+    return () => {
+      if (project.videoBlobUrl && project.videoBlobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(project.videoBlobUrl);
+      }
+      project.videoClips.forEach(clip => {
+        if (clip.videoUrl?.startsWith('blob:')) URL.revokeObjectURL(clip.videoUrl);
+      });
+    };
+  }, []);
+
+
   useEffect(() => {
     const source = searchParams.get('source');
     const transferredTopic = searchParams.get('topic');
     
     if (source === 'movie-scene' && transferredTopic) {
       setTopic(transferredTopic);
-      setFromMovieScene(true);
-      // Clear params to avoid re-triggering
       setSearchParams({});
       toast({
         title: "Movie Idea Transferred!",
         description: "Your movie idea has been imported. Ready to create your reel!",
+      });
+    } else if (source === 'hook-engine' && transferredTopic) {
+      setTopic(transferredTopic);
+      setSearchParams({});
+      toast({
+        title: "Hook Imported!",
+        description: "Your hook has been set as the reel topic. Ready to generate!",
       });
     }
   }, [searchParams]);
@@ -1287,7 +1298,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setTopic(draft.topic);
     setSelectedSceneCount(ds.selectedSceneCount || '4');
     setSelectedSceneDuration(ds.selectedSceneDuration || '12');
-    setSelectedVoice(ds.selectedVoice || 'en-US-Journey-F');
+    setSelectedVoice(ds.selectedVoice || 'English_Trustworth_Man');
     setSelectedVideoSize(ds.selectedVideoSize || '9:16');
     setTransitionStyle((ds.transitionStyle as any) || 'crossfade');
     setHookStyle(ds.hookStyle || 'auto');
@@ -3011,25 +3022,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               </div>
             </div>
 
-            {/* Draft Recovery Banner */}
-            {showDraftRecoveryBanner && (
-              <Alert className="border-primary/50 bg-primary/5">
-                <AlertCircle className="h-4 w-4 text-primary" />
-                <AlertTitle>Unsaved Draft Found</AlertTitle>
-                <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <span>You have an unsaved reel draft from {draftAge}. Would you like to restore it?</span>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="default" onClick={restoreDraft}>
-                      <History className="w-4 h-4 mr-1" />
-                      Restore Draft
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={dismissDraft}>
-                      Dismiss
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+
 
             {/* Video Upscaler Panel */}
             {showUpscaler && (
@@ -4813,7 +4806,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Palette className="w-5 h-5 text-primary" />
+                          <Sparkles className="w-5 h-5 text-primary" />
                           Intro & Outro Templates
                           {(selectedIntro !== 'none' || selectedOutro !== 'none') && (
                             <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">

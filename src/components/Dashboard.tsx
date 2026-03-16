@@ -14,22 +14,22 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import heroImage from '@/assets/hero-image.jpg';
-import { isDevPreview } from '@/lib/devBypass';
+
 
 const quickActions = [
   { 
-    name: 'Create Video', 
-    description: 'Transform scripts into engaging videos with AI',
+    name: 'Create Reel', 
+    description: 'Transform topics into engaging reels with AI',
     icon: VideoIcon, 
     variant: 'hero' as const,
-    href: '/projects'
+    href: '/reels'
   },
   { 
-    name: 'Generate Script', 
-    description: 'Create AI-powered scripts using successful patterns',
+    name: 'AI Spokesperson', 
+    description: 'Create AI-powered spokesperson videos',
     icon: FileTextIcon, 
     variant: 'ai' as const,
-    href: '/scripts'
+    href: '/ai-spokesperson'
   },
   { 
     name: 'Create Character', 
@@ -97,12 +97,22 @@ export const Dashboard = () => {
       // Fetch reels count for total videos
       const { data: reels, error: reelsError } = await supabase
         .from('reels')
-        .select('id')
-        .eq('user_id', currentUser.id);
+        .select('id, topic, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
 
       // Fetch movie projects count
       const { data: movieProjects, error: movieError } = await supabase
         .from('movie_projects')
+        .select('id, title, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // Fetch AI Twins count
+      const { data: aiTwins } = await supabase
+        .from('ai_twins')
         .select('id')
         .eq('user_id', currentUser.id);
 
@@ -117,10 +127,17 @@ export const Dashboard = () => {
       // Total videos = projects + reels + movie projects
       const totalVideos = (projects?.length || 0) + (reels?.length || 0) + (movieProjects?.length || 0);
 
+      // Build recent projects from all content types
+      const allRecent = [
+        ...(projects?.slice(0, 3).map(p => ({ id: p.id, title: p.title, created_at: p.created_at, model_type: p.model_type })) || []),
+        ...(reels?.map(r => ({ id: r.id, title: r.topic, created_at: r.created_at, model_type: 'reel' })) || []),
+        ...(movieProjects?.map(m => ({ id: m.id, title: m.title, created_at: m.created_at, model_type: 'movie' })) || []),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
+
       setStats({
         videosCount: totalVideos,
-        charactersCount: characters?.length || 0,
-        recentProjects: []
+        charactersCount: (characters?.length || 0) + (aiTwins?.length || 0),
+        recentProjects: allRecent
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -140,8 +157,7 @@ export const Dashboard = () => {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   };
 
-  // Show welcome view only if not authenticated AND not in dev preview
-  if (!user && !isDevPreview) {
+  if (!user) {
     return (
       <div className="space-y-8 animate-slide-in">
         {/* Welcome Section for Non-Authenticated Users */}
@@ -250,12 +266,23 @@ export const Dashboard = () => {
             <TrendingUpIcon className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {isLoadingStats ? '...' : stats.recentProjects.length > 0 ? 'Active' : 'Ready'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.recentProjects.length > 0 ? 'Creating content' : 'Start creating'}
-            </p>
+            {isLoadingStats ? (
+              <div className="text-2xl font-bold text-foreground">...</div>
+            ) : stats.recentProjects.length > 0 ? (
+              <div className="space-y-2">
+                {stats.recentProjects.slice(0, 3).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs">
+                    <span className="text-foreground font-medium truncate max-w-[140px]">{p.title}</span>
+                    <span className="text-muted-foreground">{formatTimeAgo(p.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <div className="text-2xl font-bold text-foreground">Ready</div>
+                <p className="text-xs text-muted-foreground mt-1">Start creating</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
