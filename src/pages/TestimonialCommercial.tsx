@@ -208,7 +208,7 @@ export default function TestimonialCommercial() {
     }
   }, [updateSegment]);
 
-  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+  const [musicUrl, setMusicUrl] = useState<string | null>(null); // moved declaration kept here for callbacks
 
   const handleGenerateMusic = useCallback(async (mood: string) => {
     toast.info(`🎵 Generating background music: "${mood}"...`);
