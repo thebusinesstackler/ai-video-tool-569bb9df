@@ -1814,7 +1814,6 @@ export function LoopAIDirector({
                         </div>
                       );
                     })() : (
-                    ) : (
                       <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
                     )}
                   </div>
