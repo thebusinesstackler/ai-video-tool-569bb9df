@@ -621,7 +621,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, targetDuration, currentSegments, timelineIssues } = await req.json();
+    const { messages, targetDuration, currentSegments, timelineIssues, projectSummary } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -629,7 +629,7 @@ serve(async (req) => {
     }
 
     const dur = targetDuration || 30;
-    const segmentContext = buildSegmentContext(currentSegments, timelineIssues);
+    const segmentContext = buildSegmentContext(currentSegments, timelineIssues, projectSummary);
     const systemPrompt = buildSystemPrompt(dur, segmentContext);
 
     const allMessages = [
