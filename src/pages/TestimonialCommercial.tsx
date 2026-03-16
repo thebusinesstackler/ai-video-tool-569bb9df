@@ -37,6 +37,10 @@ export default function TestimonialCommercial() {
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
   const [musicUrl, setMusicUrl] = useState<string | null>(null);
+  const [headerVisible, setHeaderVisible] = useState(false);
+  const [timelineVisible, setTimelineVisible] = useState(false);
+  const headerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timelineTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
   const { saveDraftDebounced, loadDraft, clearDraft } = useCommercialDraft();
   const draftRestoredRef = useRef(false);
