@@ -595,10 +595,13 @@ export function LoopAIDirector({
         }
 
         case 'generateVoice': {
-          for (const sceneIndex of targetIndexes) {
+          // Run sequentially to prevent audio overlap
+          for (let vi = 0; vi < targetIndexes.length; vi++) {
+            const sceneIndex = targetIndexes[vi];
             const seg = segments[sceneIndex];
             if (seg.script) {
-              previewAudio(seg.script, seg.id, seg.character?.description);
+              if (vi > 0) await new Promise(r => setTimeout(r, 2000));
+              await previewAudio(seg.script, seg.id, seg.character?.description);
               editSummary.push(`Generating new voice for scene ${sceneIndex + 1}`);
             }
           }
