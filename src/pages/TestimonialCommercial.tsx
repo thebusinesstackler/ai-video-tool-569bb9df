@@ -632,6 +632,7 @@ export default function TestimonialCommercial() {
                 <TabsContent value="scenes">
                   <SegmentTimeline
                     segments={speakingSegments}
+                    allSegments={segments}
                     onUpdate={updateSegment}
                     onDelete={deleteSegment}
                     onDuplicate={duplicateSegment}
