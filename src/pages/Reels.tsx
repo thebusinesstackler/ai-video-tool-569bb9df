@@ -623,7 +623,6 @@ const Reels = () => {
 
   // Dismiss draft and clear it
   const dismissDraft = useCallback(() => {
-    setShowDraftRecoveryBanner(false);
     clearDraft();
   }, [clearDraft]);
 
