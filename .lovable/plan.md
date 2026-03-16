@@ -1,58 +1,53 @@
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
 
-## Changes Made
+## Audit & Improvement Plan for Reels & Testimonial Ads
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+### Problems Found
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+**1. FFmpeg stitching is broken (Critical)**
+Console logs show `FFmpeg load timeout after 180 seconds` on both Reels and Testimonial Ads. The client-side FFmpeg WASM approach fails consistently — videos never get stitched into a final output. This is the biggest functional blocker.
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+**Fix:** Replace client-side FFmpeg stitching with cloud stitching via the existing `creatomate-stitch` edge function as the primary method. Fall back to `canvasStitch` only as a secondary option. Update both `src/lib/videoStitch.ts` and `src/hooks/useTestimonialCommercial.ts` to use cloud stitching first.
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+**2. Reels.tsx is 6,059 lines — unmaintainable and slow**
+The entire Reels page is a single monolithic component with 60+ state variables. This causes re-render performance issues and makes every change risky.
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+**Fix (phased):** Extract the three mode UIs into separate components:
+- `QuickModePanel.tsx` — lines ~3040-3256
+- `BeginnerModePanel.tsx` — lines ~3258-3738
+- `AdvancedModePanel.tsx` — lines ~3740-5163
+- `ReelResultsPanel.tsx` — lines ~5165-5703 (the "Your Reel is Ready" + edit sheet)
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+Pass shared state via props or a context provider.
 
-# UI Improvements for Character + Voice Flow
+**3. Duplicate/redundant bottom gallery still showing**
+The "Your Reel is Ready" card (line 5166) renders a duplicate scene gallery from `project.generatedScenes` even when `previewScenes` are active above. The previous fix was planned but the condition at line 5166 still allows both to show.
 
-## Status: ✅ Implemented
+**Fix:** Change condition at line 5166 to: `(project.videoBlobUrl || (project.generatedScenes.length > 0 && previewScenes.length === 0))`
 
-### Changes Made
+**4. Unnecessary/redundant pages in navigation**
+- **Scripts page** (`/scripts`) — just wraps `ScriptGenerator` component, which is already accessible as a dialog within Reels (line 6026) and as a mode in the sidebar. Redundant.
+- **Videos page** (`/videos`) — 1,931 lines of a standalone video segment editor that duplicates Reels functionality (scene-by-scene generation, stitching). Not connected to the rest of the workflow.
+- **Commercial Studio** (`/commercial-studio`) — 832 lines, overlaps heavily with Testimonial Ads. Parses scripts into segments and generates clips — same workflow as Testimonial Ads but with less polish.
 
-**A. Removed duplicate voice UI in beginner Step 3**
-- Removed inline "Preview Voice" button and badge from character-ready card
-- Single voice section kept as standalone "Character Voice" card
+**Recommendation:** Remove Scripts, Videos, and Commercial Studio from navigation. Keep the pages but mark them as legacy/hidden. This declutters the nav and avoids user confusion.
 
-**B. Added skeleton placeholders during character generation**
-- 5-cell pulsing skeleton grid shown while `isGeneratingCharacter` is true
+**5. Testimonial Ads: video generation fails silently after FFmpeg timeout**
+The `useTestimonialCommercial.ts` hook calls `stitchVideosWithAudio` which uses the broken FFmpeg path. No fallback to cloud stitching exists.
 
-**C. Switched AI Twin picker to 3-column grid in beginner mode**
-- Changed from `grid-cols-4` to `grid-cols-3` for better tap targets
-- Added voice badge indicator matching advanced mode
+**Fix:** Update `useTestimonialCommercial.ts` to use cloud stitching (`creatomate-stitch`) as the primary stitching method.
 
-**D. Added sub-sections to Advanced Lip Sync**
-- "Character" section: AI Twin picker, generate character, manual upload, character description
-- "Voice & Model" section: lip sync model, voiceover source (AI/upload)
-- Each in a bordered container with header
+### Implementation Order
 
-**E. Added "Skip Character" shortcut**
-- Ghost button "Skip Character → Make My Reel" shown when no character is set
-- Triggers `generateAll` directly
+1. **Fix cloud stitching as primary** — Update `videoStitch.ts` to try `creatomate-stitch` first, FFmpeg as fallback. Update `useTestimonialCommercial.ts` similarly.
+2. **Fix duplicate gallery condition** — One-line fix in Reels.tsx line 5166.
+3. **Clean up navigation** — Remove Scripts, Videos, Commercial Studio from `Navigation.tsx` nav groups.
+4. **Extract Reels components** — Break the monolith into 4 sub-components with shared context.
+
+### Files to modify
+- `src/lib/videoStitch.ts` — Add cloud stitching as primary path
+- `src/hooks/useTestimonialCommercial.ts` — Use cloud stitching
+- `src/pages/Reels.tsx` — Fix gallery condition, extract components
+- `src/components/Navigation.tsx` — Remove redundant nav items
+- New files: `src/components/reels/QuickModePanel.tsx`, `BeginnerModePanel.tsx`, `AdvancedModePanel.tsx`, `ReelResultsPanel.tsx`
+
