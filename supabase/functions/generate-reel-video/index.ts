@@ -270,6 +270,7 @@ serve(async (req) => {
     console.log('Use WaveSpeed:', useWaveSpeed);
     console.log('Enable Lip Sync:', enableLipSync);
     console.log('Lip Sync Model:', lipSyncModel);
+    console.log('Video Model:', videoModel);
     console.log('Portrait Image provided:', !!portraitImage);
     console.log('Voice:', voice);
     console.log('Voiceovers provided:', voiceovers?.length || 0);
