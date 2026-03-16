@@ -557,7 +557,6 @@ const Reels = () => {
     if (!draft) return;
 
     draftRestoredRef.current = true;
-    setShowDraftRecoveryBanner(false);
 
     // Restore all persisted state
     setTopic(draft.topic || '');
