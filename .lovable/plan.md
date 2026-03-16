@@ -35,24 +35,27 @@
 
 ## Status: ✅ Implemented
 
-### Changes Made
+# Audit & Improvement Plan
 
-**A. Removed duplicate voice UI in beginner Step 3**
-- Removed inline "Preview Voice" button and badge from character-ready card
-- Single voice section kept as standalone "Character Voice" card
+## Status: ✅ Partially Implemented
 
-**B. Added skeleton placeholders during character generation**
-- 5-cell pulsing skeleton grid shown while `isGeneratingCharacter` is true
+### ✅ Done
 
-**C. Switched AI Twin picker to 3-column grid in beginner mode**
-- Changed from `grid-cols-4` to `grid-cols-3` for better tap targets
-- Added voice badge indicator matching advanced mode
+**1. Cloud stitching as primary method**
+- Replaced broken FFmpeg WASM in `videoStitch.ts` with Creatomate cloud stitching (canvas fallback)
+- Updated Reels manual `stitchVideos` to try cloud first, canvas fallback
+- Testimonial Ads already used cloud stitching — confirmed working
+- Removed `@ffmpeg/ffmpeg` and `@ffmpeg/util` dependencies
 
-**D. Added sub-sections to Advanced Lip Sync**
-- "Character" section: AI Twin picker, generate character, manual upload, character description
-- "Voice & Model" section: lip sync model, voiceover source (AI/upload)
-- Each in a bordered container with header
+**2. Fixed duplicate gallery condition**
+- Added `previewScenes.length === 0` guard at line 5166 in Reels.tsx
 
-**E. Added "Skip Character" shortcut**
-- Ghost button "Skip Character → Make My Reel" shown when no character is set
-- Triggers `generateAll` directly
+**3. Cleaned up navigation**
+- Removed Script Generator, Commercial Studio from nav
+- Kept pages accessible via direct URL (not deleted)
+
+### 🔲 Deferred
+
+**4. Extract Reels into sub-components**
+- QuickModePanel, BeginnerModePanel, AdvancedModePanel, ReelResultsPanel
+- Deferred to a follow-up to reduce risk on 6000-line file
