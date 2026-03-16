@@ -266,12 +266,23 @@ export const Dashboard = () => {
             <TrendingUpIcon className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {isLoadingStats ? '...' : stats.recentProjects.length > 0 ? 'Active' : 'Ready'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.recentProjects.length > 0 ? 'Creating content' : 'Start creating'}
-            </p>
+            {isLoadingStats ? (
+              <div className="text-2xl font-bold text-foreground">...</div>
+            ) : stats.recentProjects.length > 0 ? (
+              <div className="space-y-2">
+                {stats.recentProjects.slice(0, 3).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs">
+                    <span className="text-foreground font-medium truncate max-w-[140px]">{p.title}</span>
+                    <span className="text-muted-foreground">{formatTimeAgo(p.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <div className="text-2xl font-bold text-foreground">Ready</div>
+                <p className="text-xs text-muted-foreground mt-1">Start creating</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

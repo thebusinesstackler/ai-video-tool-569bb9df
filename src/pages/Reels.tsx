@@ -4809,7 +4809,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Palette className="w-5 h-5 text-primary" />
+                          <Sparkles className="w-5 h-5 text-primary" />
                           Intro & Outro Templates
                           {(selectedIntro !== 'none' || selectedOutro !== 'none') && (
                             <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">

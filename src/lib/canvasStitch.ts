@@ -234,8 +234,6 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     onStatus?.(`Rendering clip ${i + 1} of ${videos.length}...`);
     
     await new Promise<void>((resolve, reject) => {
-      video.muted = true;
-      
       const drawFrame = () => {
         if (video.paused || video.ended) return;
         
