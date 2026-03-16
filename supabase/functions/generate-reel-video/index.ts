@@ -409,6 +409,9 @@ serve(async (req) => {
         }
       } catch (imgError) {
         console.error('Image generation error for scene:', scene.sceneNumber, imgError);
+        // Push a placeholder so indices stay aligned with scenes
+        sceneImages.push('');
+        savedImageUrls.push('');
       }
     }
 
