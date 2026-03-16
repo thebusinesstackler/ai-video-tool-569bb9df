@@ -180,7 +180,7 @@ export const Dashboard = () => {
   }
 
   return (
-    <div key={componentKey} className="space-y-8 animate-slide-in">{/* Force re-render */}
+    <div className="space-y-8 animate-slide-in">
       {/* Hero Section */}
       <div className="relative overflow-hidden rounded-2xl glass">
         <div 
