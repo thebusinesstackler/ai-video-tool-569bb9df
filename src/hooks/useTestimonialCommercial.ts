@@ -543,8 +543,10 @@ export function useTestimonialCommercial() {
               // Generate TTS for voiceover if specified
               let voiceoverAudioUrl: string | undefined;
               if (segment.voiceoverText) {
+                // Use the first registered voice for b-roll voiceover continuity
+                const brollVoice = Object.values(voiceRegistry)[0] || 'English_Trustworth_Man';
                 const { data: ttsData } = await supabase.functions.invoke('text-to-speech', {
-                  body: { text: segment.voiceoverText, voice: 'ai-auto', gender: 'male' }
+                  body: { text: sanitizeForTTS(segment.voiceoverText), voice: brollVoice, gender: 'male' }
                 });
                 voiceoverAudioUrl = ttsData?.audioUrl;
               }
