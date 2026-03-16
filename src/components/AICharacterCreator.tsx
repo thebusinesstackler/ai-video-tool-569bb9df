@@ -53,7 +53,7 @@ export function AICharacterCreator({ onCharacterSaved, onClose }: AICharacterCre
   const [step, setStep] = useState<WizardStep>('chat');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{
     role: 'assistant',
-    content: "I'm Loop AI, your creative director. Describe the character you want to create — include details like gender, age, clothing, what they're holding, and the setting. For example: \"A confident woman in her 30s holding a bottle of supplements in a modern gym.\""
+    content: "I'm Loop AI, your creative director. Describe the character you want to create — include details like gender, age, clothing, actions, and the setting. For example: \"A confident woman in her 30s presenting at a whiteboard in a modern office\" or \"A young man in athletic wear stretching in a bright gym.\""
   }]);
   const [userInput, setUserInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
@@ -643,7 +643,7 @@ Return ONLY valid JSON:
         <div className="px-4 py-3 border-t border-border shrink-0">
           <div className="flex gap-2">
             <Textarea
-              placeholder="Describe your character... e.g. 'A lady holding a bottle of supplements in a modern gym'"
+              placeholder="Describe your character... e.g. 'A professional woman presenting at a whiteboard in a modern office'"
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}

@@ -317,7 +317,21 @@ NO TEXT IN VISUALS (CRITICAL):
 - Visual descriptions must NEVER include text, captions, subtitles, titles, or written words
 - Do NOT describe text overlays, text animations, or any form of written content in visualDescription
 - If showing people, describe them with CLOSED MOUTHS or slight smiles - NEVER speaking, talking, or mouthing words
-- The voiceover audio is separate - the visuals should show people listening, thinking, posing, or doing activities - NOT speaking
+- The voiceover audio is separate - the visuals should show people performing TOPIC-RELEVANT actions - NOT speaking
+- Show the character doing activities DIRECTLY RELATED to the narration topic:
+  * Marketing topic → character at laptop with analytics dashboard, pointing at whiteboard with strategy diagrams
+  * Fitness topic → character in gym environment, with workout equipment, stretching
+  * Cooking topic → character in kitchen with ingredients, plating food
+  * Business topic → character at desk reviewing documents, in boardroom setting
+  * Tech topic → character with devices, coding on screen, presenting prototype
+- NEVER default to "holding a bottle" or "holding a product" unless the topic is specifically about that product
+
+VISUAL-NARRATIVE ALIGNMENT (CRITICAL):
+- The visualDescription MUST visually represent what the narration is discussing
+- Ask yourself: "If someone watched this scene on MUTE, would they understand the topic?"
+- Props, environment, and actions must match the subject matter of the narration
+- Each scene's visual should illustrate the specific point being made in that scene's narration
+- NEVER use generic stock-photo poses unrelated to the content
 
 PREMIUM CINEMATOGRAPHY (CRITICAL):
 - Every visualDescription MUST include specific cinematography details:
@@ -378,7 +392,7 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here ending with ... or — NEVER periods",
-    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: [exact character description, pose, expression - closed mouth]. LIGHTING: [specific setup e.g. warm golden hour key light, cool blue rim]. BACKGROUND: [consistent environment for ALL scenes]. COLOR GRADE: [palette e.g. warm amber tones, rich cinematic]. ATMOSPHERE: [bokeh, haze, particles]. Camera: ${CAMERA_ANGLES[0].angle}.",
+    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: [exact character description performing a TOPIC-RELEVANT action that illustrates this scene's narration - closed mouth]. LIGHTING: [specific setup e.g. warm golden hour key light, cool blue rim]. BACKGROUND: [consistent environment matching the topic for ALL scenes]. COLOR GRADE: [palette e.g. warm amber tones, rich cinematic]. ATMOSPHERE: [bokeh, haze, particles]. Camera: ${CAMERA_ANGLES[0].angle}. NOTE: The action and props MUST reflect the reel topic, not generic stock photography.",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }
