@@ -40,7 +40,8 @@ export function useCreatorMode() {
 
   // Persist preference
   const setMode = useCallback(async (newMode: CreatorMode) => {
-    setModeState(newMode);
+    const previousMode = mode;
+    setModeState(newMode); // Optimistic update
     if (!userId) return;
 
     try {
@@ -51,11 +52,15 @@ export function useCreatorMode() {
           { onConflict: 'user_id' }
         );
 
-      if (error) console.error('Error saving creator mode:', error);
+      if (error) {
+        console.error('Error saving creator mode:', error);
+        setModeState(previousMode); // Rollback on failure
+      }
     } catch (err) {
       console.error('Error saving creator mode:', err);
+      setModeState(previousMode); // Rollback on failure
     }
-  }, [userId]);
+  }, [userId, mode]);
 
   const isAdvanced = mode === 'advanced';
   const isBeginner = mode === 'beginner';

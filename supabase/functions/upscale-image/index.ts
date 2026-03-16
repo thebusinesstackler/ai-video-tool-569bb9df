@@ -22,6 +22,14 @@ serve(async (req) => {
       );
     }
 
+    // Validate base64 size (10MB limit)
+    if (imageUrl.startsWith('data:') && imageUrl.length > 10_000_000) {
+      return new Response(
+        JSON.stringify({ error: 'Image too large. Maximum size is ~7.5MB. Please use a smaller image.' }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY is not configured');

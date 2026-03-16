@@ -8,17 +8,13 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import MovieSceneCreator from "./pages/MovieSceneCreator";
 import Movies from "./pages/Movies";
-import Scripts from "./pages/Scripts";
 import Characters from "./pages/Characters";
-import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
 import Reels from "./pages/Reels";
 import Gallery from "./pages/Gallery";
 import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
 import AISpokesperson from "./pages/AISpokesperson";
-import CommercialStudio from "./pages/CommercialStudio";
-import Videos from "./pages/Videos";
 import HookEngine from "./pages/HookEngine";
 import NotFound from "./pages/NotFound";
 
@@ -50,17 +46,17 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/movie-scene-creator" element={<ProtectedRoute><MovieSceneCreator /></ProtectedRoute>} />
             <Route path="/movies" element={<ProtectedRoute><Movies /></ProtectedRoute>} />
-            <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
+            <Route path="/scripts" element={<Navigate to="/reels" replace />} />
             <Route path="/characters" element={<ProtectedRoute><Characters /></ProtectedRoute>} />
-            <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+            <Route path="/projects" element={<Navigate to="/reels" replace />} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
             <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
             <Route path="/ai-twin" element={<ProtectedRoute><AITwin /></ProtectedRoute>} />
             <Route path="/testimonial-commercial" element={<ProtectedRoute><TestimonialCommercial /></ProtectedRoute>} />
             <Route path="/ai-spokesperson" element={<ProtectedRoute><AISpokesperson /></ProtectedRoute>} />
-            <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
-            <Route path="/commercial-studio" element={<ProtectedRoute><CommercialStudio /></ProtectedRoute>} />
+            <Route path="/videos" element={<Navigate to="/reels" replace />} />
+            <Route path="/commercial-studio" element={<Navigate to="/testimonial-commercial" replace />} />
             <Route path="/hook-engine" element={<ProtectedRoute><HookEngine /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
