@@ -2985,20 +2985,49 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               <Card className="border-primary/30">
                 <CardContent className="pt-6 pb-6 space-y-6">
                   <div className="text-center space-y-1">
-                    <h2 className="text-xl font-bold text-foreground">🎬 Your Reel is Ready</h2>
-                    <p className="text-sm text-muted-foreground">Review the scripts and voices below, or download your video.</p>
+                    <h2 className="text-xl font-bold text-foreground">
+                      {project.videoBlobUrl ? '🎬 Your Reel is Ready' : '🎬 Scenes Generated'}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {project.videoBlobUrl 
+                        ? 'Review the scripts and voices below, or download your video.'
+                        : project.videoClips.length > 0 
+                          ? `${project.videoClips.length} video clips generated. Stitch them into a final reel.`
+                          : 'Scripts are ready. Generate your video below.'}
+                    </p>
                   </div>
 
-                  {/* Video Player */}
+                  {/* Final Stitched Video Player */}
                   {project.videoBlobUrl && (
                     <div className="max-w-sm mx-auto">
-                    <div className="rounded-xl overflow-hidden bg-black shadow-lg">
-                      <video
-                        src={project.videoBlobUrl}
-                        controls
-                        className="w-full aspect-[9/16]"
-                      />
+                      <div className="rounded-xl overflow-hidden bg-black shadow-lg">
+                        <video
+                          src={project.videoBlobUrl}
+                          controls
+                          className="w-full aspect-[9/16]"
+                        />
+                      </div>
                     </div>
+                  )}
+
+                  {/* Individual Video Clips (when no final video yet) */}
+                  {!project.videoBlobUrl && project.videoClips.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-foreground text-center">Individual Clips</p>
+                      <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
+                        {project.videoClips.map((clip, idx) => (
+                          <div key={idx} className="rounded-lg overflow-hidden bg-black shadow border border-border">
+                            <video
+                              src={clip.videoUrl}
+                              controls
+                              className="w-full aspect-[9/16]"
+                            />
+                            <div className="p-2 bg-muted/30">
+                              <Badge variant="outline" className="text-[10px]">Scene {clip.sceneNumber}</Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -3041,6 +3070,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         Stitch All Clips
                       </Button>
                     )}
+                    {!project.videoBlobUrl && project.videoClips.length === 0 && project.scenes.length > 0 && (
+                      <Button 
+                        onClick={() => generateVideo({ forceEnableLipSync: enableLipSync, forceLipSyncModel: 'infinitetalk', scenesOverride: project.scenes })}
+                        className="bg-gradient-primary hover:opacity-90"
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        Generate Video
+                      </Button>
+                    )}
                     {!currentReelSaved && (project.generatedScenes.length > 0 || project.videoBlobUrl) && (
                       <Button onClick={saveToMyReels} disabled={isSavingReel} variant="secondary">
                         {isSavingReel ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FolderOpen className="w-4 h-4 mr-2" />}
@@ -3052,32 +3090,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       Create Another
                     </Button>
                   </div>
-
-                  {/* Re-generate with Lip Sync option */}
-                  {!enableLipSync && project.videoBlobUrl && aiTwins.length > 0 && (
-                    <div className="flex justify-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-primary/50 text-primary hover:bg-primary/10"
-                        onClick={() => {
-                          setEnableLipSync(true);
-                          const twin = aiTwins[0];
-                          setSelectedTwinId(twin.id);
-                          if (twin.reference_images?.[0]) {
-                            setPortraitImage(twin.reference_images[0]);
-                            setPortraitPreview(twin.reference_images[0]);
-                          }
-                          if (twin.face_description) setCharacterDescription(twin.face_description);
-                          toast({ title: "Re-generating with Lip Sync" });
-                          generateVideo({ forceEnableLipSync: true, forceLipSyncModel: 'infinitetalk', scenesOverride: project.scenes });
-                        }}
-                      >
-                        <Video className="w-4 h-4 mr-2" />
-                        Re-generate with Lip Sync
-                      </Button>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             )}
