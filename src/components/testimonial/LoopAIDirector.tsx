@@ -1239,7 +1239,7 @@ export function LoopAIDirector({
     let assistantContent = '';
 
     try {
-      const { projectSummary, currentSegments, timelineIssues } = buildAIPayload();
+      const { projectSummary, currentSegments, timelineIssues, visualPresets } = buildAIPayload();
 
       // Build messages array with a context override to prevent hallucination from stale history
       const outgoingMessages = [
