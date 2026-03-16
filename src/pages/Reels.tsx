@@ -2275,7 +2275,7 @@ const Reels = () => {
     });
   };
 
-
+  const resetProject = () => {
     // Cleanup blob URL
     if (project.videoBlobUrl) {
       URL.revokeObjectURL(project.videoBlobUrl);
