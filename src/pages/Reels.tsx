@@ -2971,12 +2971,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   {/* Video Player */}
                   {project.videoBlobUrl && (
                     <div className="max-w-sm mx-auto">
-                      <div className="rounded-xl overflow-hidden bg-black shadow-lg">
-                        <VideoPlayerWithOverlay
-                          src={project.videoBlobUrl}
-                          className="w-full aspect-[9/16]"
-                        />
-                      </div>
+                    <div className="rounded-xl overflow-hidden bg-black shadow-lg">
+                      <video
+                        src={project.videoBlobUrl}
+                        controls
+                        className="w-full aspect-[9/16]"
+                      />
+                    </div>
                     </div>
                   )}
 
