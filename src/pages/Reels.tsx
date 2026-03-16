@@ -3159,6 +3159,19 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         )}
                       </div>
 
+                      {/* Skip Character shortcut */}
+                      {!portraitPreview && !isGeneratingCharacter && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-muted-foreground hover:text-foreground"
+                          onClick={generateAll}
+                          disabled={isGenerating || !topic.trim()}
+                        >
+                          Skip Character → Make My Reel
+                        </Button>
+                      )}
+
                       {/* Voice Selection — character-driven */}
                       <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
                         <div className="flex items-center gap-2">
