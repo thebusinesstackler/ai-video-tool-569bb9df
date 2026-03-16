@@ -66,6 +66,7 @@ export default function TestimonialCommercial() {
     }, 150);
   }, [segments, chatOpen]);
 
+  const handleApplyStrategy = (newSegments: CommercialSegment[], commercialName: string) => {
     setSegments(newSegments);
     if (commercialName) setName(commercialName);
     setCurrentCommercial(null);
