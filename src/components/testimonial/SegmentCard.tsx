@@ -298,6 +298,16 @@ export function SegmentCard({
                 {segment.type === 'speaking' ? <User className="h-3 w-3" /> : <Film className="h-3 w-3" />}
                 {segment.type === 'speaking' ? `Scene #${typeNumber}` : `B-Roll #${typeNumber}`}
               </Badge>
+              {narrativeRole === 'HOOK' && (
+                <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold gap-0.5 border-amber-500/30">
+                  🎣 HOOK
+                </Badge>
+              )}
+              {narrativeRole === 'CLOSING' && (
+                <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold gap-0.5 border-emerald-500/30">
+                  🎬 CLOSING
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               {/* Play cached audio */}
