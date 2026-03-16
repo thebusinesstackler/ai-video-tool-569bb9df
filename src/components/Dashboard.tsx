@@ -235,7 +235,7 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {isLoadingStats ? '...' : stats.videosCount}
+              {isLoadingStats ? <Skeleton className="h-8 w-12" /> : stats.videosCount}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Total projects
