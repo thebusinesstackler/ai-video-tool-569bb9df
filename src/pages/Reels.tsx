@@ -69,6 +69,7 @@ import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector, generateVoiceForCharacter } from '@/components/VoiceSelector';
+import { ProductSwapPanel } from '@/components/ProductSwapPanel';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -3031,6 +3032,22 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               </div>
                             )}
 
+                            {/* Product swap for selected shot */}
+                            {portraitPreview && (
+                              <ProductSwapPanel
+                                shotImageUrl={portraitPreview}
+                                characterDescription={characterDescription}
+                                onShotSwapped={(newUrl) => {
+                                  setPortraitImage(newUrl);
+                                  setPortraitPreview(newUrl);
+                                  setPreSelectedReference(newUrl);
+                                  // Update the shot in the array too
+                                  setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s));
+                                }}
+                                disabled={isGenerating}
+                              />
+                            )}
+
                             {/* Voice preview for this character */}
                             <div className="flex gap-2">
                               <Button
@@ -3681,6 +3698,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             ))}
                           </div>
                         </div>
+                      )}
+
+                      {/* Product swap for selected shot */}
+                      {portraitPreview && (
+                        <ProductSwapPanel
+                          shotImageUrl={portraitPreview}
+                          characterDescription={characterDescription}
+                          onShotSwapped={(newUrl) => {
+                            setPortraitImage(newUrl);
+                            setPortraitPreview(newUrl);
+                            setPreSelectedReference(newUrl);
+                            setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s));
+                          }}
+                          disabled={isGenerating}
+                        />
                       )}
 
                       {/* Voice section for this character */}
