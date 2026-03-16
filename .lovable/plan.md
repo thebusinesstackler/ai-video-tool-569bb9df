@@ -1,58 +1,49 @@
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
 
-## Changes Made
+## Problem Analysis
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+Three issues identified:
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+1. **Closing scene script is generic** — The last scene prompt says "Deliver the payoff, conclusion, or call-to-action" but gives no guidance on writing a proper spoken CTA that ties back to the topic. The outro template system (`getDefaultOutroText`) returns static text like "Follow for more!" with zero connection to the content.
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+2. **Outro video is not creative** — The Sora 2 outro prompt (line 669-677) is generic: *"Elegant slow zoom out with atmospheric lighting"*. It doesn't reference the topic, the character, or the CTA text. The visual description from `getOutroVisualDescription` just describes abstract icons (animated follow buttons, share arrows) — not an actual video-worthy visual tied to the content.
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+3. **Hook scene doesn't use video-extend** — Intro scenes are routed to Sora 2 (line 644-660) with a generic zoom-in prompt. They skip the video-extend pipeline entirely, missing the cinematic AI super-prompted motion that narrator scenes get. The hook — the most critical scene — gets the least creative video treatment.
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+## Plan
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+### 1. Fix closing scene script generation (`generate-reel-script/index.ts`)
 
-# UI Improvements for Character + Voice Flow
+Update the last scene (CLOSE) instructions to write a **spoken CTA** that:
+- Wraps up the topic naturally (not just "Follow for more!")
+- Ties back to the hook promise ("Remember when I said X? Here's what to do next...")
+- Includes the actual call-to-action woven into natural speech
+- If an outro template is selected, the closing narration should set up a natural transition to it
 
-## Status: ✅ Implemented
+Update `getDefaultOutroText()` to generate topic-aware outro text instead of static strings. Pass the `topic` parameter and write CTAs like: *"If you want more strategies like this... hit that follow button—"*
 
-### Changes Made
+### 2. Make outro video creative (`generate-reel-video/index.ts`)
 
-**A. Removed duplicate voice UI in beginner Step 3**
-- Removed inline "Preview Voice" button and badge from character-ready card
-- Single voice section kept as standalone "Character Voice" card
+Update the Sora 2 outro prompt (lines 662-677) to:
+- Include the topic and character description in the prompt
+- Reference the CTA text so the visual matches (e.g., if it's a "follow" CTA, show the character gesturing invitingly)
+- Use the same AI super-prompt technique as video-extend scenes — call the AI gateway to generate a cinematic motion prompt specific to this outro
+- Pass character description so the outro features the same person, not abstract icons
 
-**B. Added skeleton placeholders during character generation**
-- 5-cell pulsing skeleton grid shown while `isGeneratingCharacter` is true
+### 3. Route hook/intro scenes through video-extend (`generate-reel-video/index.ts`)
 
-**C. Switched AI Twin picker to 3-column grid in beginner mode**
-- Changed from `grid-cols-4` to `grid-cols-3` for better tap targets
-- Added voice badge indicator matching advanced mode
+When lip sync is enabled and `videoModel === 'wan-2.5-video-extend'`, route intro scenes through the same two-step pipeline (base video + video-extend with AI super prompt) instead of Sora 2. This gives the hook scene:
+- The same cinematic motion quality as content scenes
+- Character consistency (uses the portrait image)
+- AI-generated motion prompts specific to the hook content
 
-**D. Added sub-sections to Advanced Lip Sync**
-- "Character" section: AI Twin picker, generate character, manual upload, character description
-- "Voice & Model" section: lip sync model, voiceover source (AI/upload)
-- Each in a bordered container with header
+Keep Sora 2 as fallback for non-lip-sync intros.
 
-**E. Added "Skip Character" shortcut**
-- Ghost button "Skip Character → Make My Reel" shown when no character is set
-- Triggers `generateAll` directly
+### 4. Topic-aware outro visual descriptions (`generate-reel-script/index.ts`)
+
+Update `getOutroVisualDescription()` to accept `topic` and `characterDescription` parameters so the generated image prompt shows the character in a closing pose relevant to the topic, not abstract social media icons.
+
+### Files to modify
+- `supabase/functions/generate-reel-script/index.ts` — Topic-aware closing scripts, outro text, and outro visuals
+- `supabase/functions/generate-reel-video/index.ts` — Creative outro prompts with character/topic context, video-extend routing for hook scenes
+
