@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CommercialSegment, TestimonialCommercial, CharacterProfile } from '@/types/testimonialCommercial';
+import { sanitizeForTTS } from '@/lib/audioSanitizer';
 import { toast } from 'sonner';
 
 const ANGLE_PROMPTS = [
