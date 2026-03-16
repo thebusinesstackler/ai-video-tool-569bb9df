@@ -377,7 +377,8 @@ const Reels = () => {
   const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
   const [generatedCharacterShots, setGeneratedCharacterShots] = useState<{ label: string; url: string }[]>([]);
   const [selectedShotIndex, setSelectedShotIndex] = useState(0);
-  const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3 | 4>(1); // 1=topic, 2=script review, 3=character, 4=voice+generate
+  const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3>(1); // 1=topic, 2=script review, 3=character+voice+generate
+  const [detectedCharGender, setDetectedCharGender] = useState<'male' | 'female'>('male');
   // Voice preview state
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
@@ -550,7 +551,7 @@ const Reels = () => {
       const hasScenes = (draft.project?.scenes?.length || 0) > 0;
       const hasCharacter = !!draft.portraitImage || !!draft.selectedTwinId;
       if (hasCharacter) {
-        setBeginnerStep(4);
+        setBeginnerStep(3);
       } else if (hasScenes) {
         setBeginnerStep(2);
       } else {
@@ -1204,7 +1205,7 @@ const Reels = () => {
       const hasScenes = (ds.scenes?.length || 0) > 0;
       const hasCharacter = !!ds.portraitImage || !!ds.selectedTwinId;
       if (hasCharacter) {
-        setBeginnerStep(4);
+        setBeginnerStep(3);
       } else if (hasScenes) {
         setBeginnerStep(2);
       } else {
@@ -2276,6 +2277,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       const isFemale = femaleKeywords.some(k => descLower.includes(k));
       const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
       const detectedGender = isFemale ? 'female' : 'male';
+      setDetectedCharGender(detectedGender as 'male' | 'female');
       
       const matchedVoiceId = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
       setSelectedVoice(matchedVoiceId);
@@ -2790,7 +2792,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 <CardContent className="pt-8 pb-8 space-y-6">
                   {/* Step indicator */}
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    {[1, 2, 3, 4].map(step => (
+                    {[1, 2, 3].map(step => (
                       <div key={step} className="flex items-center gap-1">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                           beginnerStep === step ? 'bg-primary text-primary-foreground scale-110' :
@@ -2798,7 +2800,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         }`}>
                           {beginnerStep > step ? '✓' : step}
                         </div>
-                        {step < 4 && <div className={`w-6 h-0.5 ${beginnerStep > step ? 'bg-primary/50' : 'bg-muted'}`} />}
+                        {step < 3 && <div className={`w-6 h-0.5 ${beginnerStep > step ? 'bg-primary/50' : 'bg-muted'}`} />}
                       </div>
                     ))}
                   </div>
@@ -3091,29 +3093,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         )}
                       </div>
 
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setBeginnerStep(2)} className="flex-1">
-                          ← Back
-                        </Button>
-                        <Button
-                          onClick={() => setBeginnerStep(4)}
-                          className="flex-[2] bg-gradient-to-r from-primary to-primary/80"
-                          disabled={isGeneratingCharacter}
-                        >
-                          {portraitPreview ? 'Continue →' : 'Skip Character →'}
-                        </Button>
-                      </div>
-                    </>
-                  )}
-
-                  {/* ===== STEP 4: Voice & Generate ===== */}
-                  {beginnerStep === 4 && (
-                    <>
-                      <div className="text-center space-y-2">
-                        <h2 className="text-2xl font-bold text-foreground">Voice & Generate</h2>
-                        <p className="text-muted-foreground">Pick a voice, then create your reel.</p>
-                      </div>
-
+                      {/* Voice Selection — merged into Step 3 */}
                       <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
                         <div className="flex items-center gap-2">
                           <Mic className="w-4 h-4 text-primary" />
@@ -3127,6 +3107,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           selectedVoice={selectedVoice}
                           onVoiceSelect={setSelectedVoice}
                           compact
+                          characterDescription={characterDescription}
+                          characterGender={detectedCharGender}
                         />
                         
                         {selectedVoice && !selectedVoice.startsWith('clone:') && (
@@ -3154,7 +3136,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </div>
 
                       <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setBeginnerStep(3)} className="flex-1">
+                        <Button variant="outline" onClick={() => setBeginnerStep(2)} className="flex-1">
                           ← Back
                         </Button>
                         {isGenerating ? (
@@ -3578,6 +3560,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       selectedVoice={selectedVoice}
                       onVoiceSelect={setSelectedVoice}
                       disabled={isGenerating}
+                      characterDescription={characterDescription}
+                      characterGender={detectedCharGender}
                     />
                     <Button
                       variant="outline"

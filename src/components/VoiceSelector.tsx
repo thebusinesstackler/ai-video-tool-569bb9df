@@ -18,6 +18,8 @@ interface VoiceSelectorProps {
   onVoiceSelect: (voice: string) => void;
   disabled?: boolean;
   compact?: boolean;
+  characterDescription?: string;
+  characterGender?: 'male' | 'female';
 }
 
 interface SavedVoice {
@@ -119,6 +121,8 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   onVoiceSelect,
   disabled = false,
   compact = false,
+  characterDescription: charDescProp,
+  characterGender: charGenderProp,
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -128,8 +132,18 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [copiedVoiceId, setCopiedVoiceId] = useState(false);
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
-  const [generateDescription, setGenerateDescription] = useState('');
-  const [generateGender, setGenerateGender] = useState<'male' | 'female'>('male');
+  const [generateDescription, setGenerateDescription] = useState(charDescProp || '');
+  const [generateGender, setGenerateGender] = useState<'male' | 'female'>(charGenderProp || 'male');
+
+  // Auto-fill when character context changes or dialog opens
+  useEffect(() => {
+    if (charDescProp && !showGenerateDialog) {
+      setGenerateDescription(charDescProp);
+    }
+    if (charGenderProp) {
+      setGenerateGender(charGenderProp);
+    }
+  }, [charDescProp, charGenderProp]);
   const [generateLabel, setGenerateLabel] = useState('');
   const [isGeneratingNew, setIsGeneratingNew] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
