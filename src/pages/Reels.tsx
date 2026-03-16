@@ -2792,7 +2792,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 <CardContent className="pt-8 pb-8 space-y-6">
                   {/* Step indicator */}
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    {[1, 2, 3, 4].map(step => (
+                    {[1, 2, 3].map(step => (
                       <div key={step} className="flex items-center gap-1">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                           beginnerStep === step ? 'bg-primary text-primary-foreground scale-110' :
@@ -2800,7 +2800,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         }`}>
                           {beginnerStep > step ? '✓' : step}
                         </div>
-                        {step < 4 && <div className={`w-6 h-0.5 ${beginnerStep > step ? 'bg-primary/50' : 'bg-muted'}`} />}
+                        {step < 3 && <div className={`w-6 h-0.5 ${beginnerStep > step ? 'bg-primary/50' : 'bg-muted'}`} />}
                       </div>
                     ))}
                   </div>
