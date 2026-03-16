@@ -50,9 +50,8 @@ function calculateTTSSpeed(text: string, targetDurationSeconds: number): number 
   // speed < 1 = slower (takes more time), speed > 1 = faster
   const requiredSpeed = normalDuration / targetDurationSeconds;
   
-  // Clamp to 0.5-1.0 range for natural, slower speech that fills the scene
-  // We prefer slower speech (0.5-0.8) to ensure narration fills the full duration
-  const clampedSpeed = Math.max(0.5, Math.min(1.0, requiredSpeed));
+  // Allow up to 2.0 so narration can be sped up when too long for the scene
+  const clampedSpeed = Math.max(0.5, Math.min(2.0, requiredSpeed));
   
   console.log(`TTS speed calc: ${words} words, normal=${normalDuration.toFixed(1)}s, target=${targetDurationSeconds}s, speed=${clampedSpeed.toFixed(2)}`);
   
