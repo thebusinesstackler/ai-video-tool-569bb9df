@@ -1397,7 +1397,38 @@ export function LoopAIDirector({
   };
 
   const renderMessageContent = (content: string) => {
-    return content.replace(/```json[\s\S]*?```/g, '').replace(/```action[\s\S]*?```/g, '').trim();
+    return content
+      .replace(/```json[\s\S]*?```/g, '')
+      .replace(/```action[\s\S]*?```/g, '')
+      .replace(/```suggestions[\s\S]*?```/g, '')
+      .trim();
+  };
+
+  // Extract dynamic suggestions from the last assistant message
+  const extractSuggestions = (content: string): string[] => {
+    const match = content.match(/```suggestions\s*\n?([\s\S]*?)```/);
+    if (!match) return [];
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      if (Array.isArray(parsed)) return parsed.filter((s: any) => typeof s === 'string').slice(0, 4);
+    } catch { /* ignore */ }
+    return [];
+  };
+
+  const getDynamicSuggestions = (): string[] => {
+    // Find last assistant message with suggestions
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        const suggestions = extractSuggestions(messages[i].content);
+        if (suggestions.length > 0) return suggestions;
+        break; // only check last assistant message
+      }
+    }
+    // Fallback for empty conversations
+    if (messages.length === 0 || segments.length === 0) {
+      return ['Create a 15 second commercial for my product', 'Build a punchy TikTok-style ad', 'Create a 30 second testimonial with actors'];
+    }
+    return [];
   };
 
   // Generate contextual quick actions based on project state
