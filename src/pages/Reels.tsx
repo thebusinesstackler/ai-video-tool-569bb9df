@@ -3093,13 +3093,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         )}
                       </div>
 
-                      {/* Voice Selection — merged into Step 3 */}
+                      {/* Voice Selection — character-driven */}
                       <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
                         <div className="flex items-center gap-2">
                           <Mic className="w-4 h-4 text-primary" />
-                          <Label className="text-sm font-medium">Voice</Label>
+                          <Label className="text-sm font-medium">Character Voice</Label>
                           <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                            {selectedVoice ? 'Custom' : 'Not set'}
+                            {selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Not set'}
                           </Badge>
                         </div>
                         
