@@ -624,15 +624,25 @@ export default function TestimonialCommercial() {
                 {finalVideoUrl && (
                   <TabsContent value="final-cut">
                     <div className="space-y-6">
-                      {/* Large Video Player */}
-                      <div className="rounded-xl overflow-hidden border border-border bg-black">
-                        <video
-                          src={finalVideoUrl}
-                          controls
-                          autoPlay={activeTab === 'final-cut'}
-                          className="w-full max-h-[60vh]"
+                      {/* Video Player with Caption Overlay */}
+                      {overlayVideoClips.length > 0 ? (
+                        <VideoPlayerWithOverlay
+                          scenes={overlayScenes}
+                          voiceovers={overlayVoiceovers}
+                          videoClips={overlayVideoClips}
+                          captionSettings={captionSettings}
+                          onCaptionSettingsChange={setCaptionSettings}
                         />
-                      </div>
+                      ) : (
+                        <div className="rounded-xl overflow-hidden border border-border bg-black">
+                          <video
+                            src={finalVideoUrl}
+                            controls
+                            autoPlay={activeTab === 'final-cut'}
+                            className="w-full max-h-[60vh]"
+                          />
+                        </div>
+                      )}
 
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2">
@@ -651,14 +661,6 @@ export default function TestimonialCommercial() {
                           }}
                         >
                           <Copy className="h-3.5 w-3.5" /> Copy Link
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => window.open(finalVideoUrl, '_blank')}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Open in New Tab
                         </Button>
                         <Button
                           variant="outline"
