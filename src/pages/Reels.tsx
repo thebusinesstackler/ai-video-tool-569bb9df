@@ -3139,6 +3139,19 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 <><Wand2 className="w-4 h-4 mr-2" />Generate Character (5 Shots)</>
                               )}
                             </Button>
+
+                            {/* Skeleton placeholders during generation */}
+                            {isGeneratingCharacter && (
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {[...Array(5)].map((_, i) => (
+                                  <div key={i} className="space-y-1">
+                                    <div className="aspect-square rounded-md bg-muted animate-pulse" />
+                                    <div className="h-2 w-2/3 mx-auto rounded bg-muted animate-pulse" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
                             <p className="text-xs text-muted-foreground text-center">
                               {generateCharacterPrompt.trim() ? 'AI will create 5 angle shots and save as AI Twin' : 'Leave blank — AI will derive the character from your topic'}
                             </p>
