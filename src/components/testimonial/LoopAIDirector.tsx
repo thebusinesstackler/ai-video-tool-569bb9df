@@ -219,19 +219,30 @@ export function LoopAIDirector({
     setIsListening(true);
   }, [isListening]);
 
-  const previewAudio = async (script: string, segId: string, characterDescription?: string) => {
+  const previewAudio = async (script: string, segId: string, characterDescription?: string, voiceIdOverride?: string) => {
     if (isPreviewingAudio && previewingSegId === segId) {
       audioRef.current?.pause();
+      audioRef.current = null;
       setIsPreviewingAudio(false);
       setPreviewingSegId(null);
       return;
     }
+
+    // Stop any currently playing audio before starting new one
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
     setIsPreviewingAudio(true);
     setPreviewingSegId(segId);
     try {
-      const { voiceId, gender } = characterDescription
+      const { voiceId: autoVoiceId, gender: autoGender } = characterDescription
         ? pickVoiceForCharacter(characterDescription)
         : { voiceId: 'English_Trustworth_Man', gender: 'male' };
+
+      const voiceId = voiceIdOverride || autoVoiceId;
+      const gender = voiceIdOverride ? 'male' : autoGender;
 
       toast.info(`🎙️ Generating ${gender} voice preview...`);
 
@@ -240,7 +251,6 @@ export function LoopAIDirector({
       });
       if (error || !data?.audioUrl) throw new Error('TTS failed');
 
-      // Show the voice ID used so the user can copy/reuse it
       const usedVoiceId = data.voiceUsed || voiceId;
       toast.success(`🎙️ Voice generated — ID: ${usedVoiceId}`, {
         action: {
@@ -253,7 +263,6 @@ export function LoopAIDirector({
         duration: 8000,
       });
 
-      // Save audio URL and voice ID to segment in DB
       onUpdateSegment(segId, { audioUrl: data.audioUrl, voiceoverId: usedVoiceId });
 
       const audio = new Audio(data.audioUrl);
@@ -261,7 +270,6 @@ export function LoopAIDirector({
       audio.onended = () => { setIsPreviewingAudio(false); setPreviewingSegId(null); };
       audio.play();
 
-      // Auto-save after generating audio
       onSaveToDb();
     } catch {
       toast.error('Failed to generate audio preview');
@@ -437,11 +445,20 @@ export function LoopAIDirector({
 
       switch (edit.action) {
         case 'update': {
+          const audioRegenQueue: { seg: CommercialSegment; sceneIndex: number }[] = [];
           for (const sceneIndex of targetIndexes) {
             const seg = segments[sceneIndex];
             const changes: Partial<CommercialSegment> = {};
             if (typeof edit.changes?.duration === 'number') changes.duration = edit.changes.duration;
-            if (typeof edit.changes?.script === 'string') changes.script = edit.changes.script;
+            if (typeof edit.changes?.script === 'string') {
+              changes.script = edit.changes.script;
+              // When script changes, clear old audio so it gets regenerated
+              if (edit.changes.script !== seg.script) {
+                changes.audioUrl = undefined;
+                changes.voiceoverId = undefined;
+                audioRegenQueue.push({ seg, sceneIndex });
+              }
+            }
             if (Array.isArray(edit.changes?.brollPrompts)) changes.brollPrompts = edit.changes.brollPrompts;
             if (typeof edit.changes?.transition === 'string' && ['fade-in', 'cut', 'crossfade'].includes(edit.changes.transition)) {
               changes.transition = edit.changes.transition as CommercialSegment['transition'];
@@ -458,6 +475,19 @@ export function LoopAIDirector({
             if (Object.keys(changes).length > 0) {
               onUpdateSegment(seg.id, changes);
               editSummary.push(`Updated scene ${sceneIndex + 1}`);
+            }
+          }
+          // Auto-regenerate voiceovers sequentially for changed scripts
+          if (audioRegenQueue.length > 0) {
+            editSummary.push(`🎙️ Regenerating voiceovers for ${audioRegenQueue.length} updated scene${audioRegenQueue.length > 1 ? 's' : ''}...`);
+            // Run sequentially with delays to prevent audio overlap
+            for (let qi = 0; qi < audioRegenQueue.length; qi++) {
+              const { seg, sceneIndex } = audioRegenQueue[qi];
+              const newScript = edit.changes?.script || seg.script || '';
+              const charDesc = seg.character?.description || '';
+              // Delay subsequent calls to avoid audio overlap
+              if (qi > 0) await new Promise(r => setTimeout(r, 2000));
+              await previewAudio(newScript, seg.id, charDesc);
             }
           }
           break;
@@ -565,10 +595,13 @@ export function LoopAIDirector({
         }
 
         case 'generateVoice': {
-          for (const sceneIndex of targetIndexes) {
+          // Run sequentially to prevent audio overlap
+          for (let vi = 0; vi < targetIndexes.length; vi++) {
+            const sceneIndex = targetIndexes[vi];
             const seg = segments[sceneIndex];
             if (seg.script) {
-              previewAudio(seg.script, seg.id, seg.character?.description);
+              if (vi > 0) await new Promise(r => setTimeout(r, 2000));
+              await previewAudio(seg.script, seg.id, seg.character?.description);
               editSummary.push(`Generating new voice for scene ${sceneIndex + 1}`);
             }
           }
@@ -678,9 +711,10 @@ export function LoopAIDirector({
                 onGenerateCharacter(seg.id, seg.character.description);
                 regeneratedCount++;
               }
-              // Generate voice if no audio
+              // Generate voice if no audio — queue for sequential processing
               if (seg.script && !seg.audioUrl) {
-                previewAudio(seg.script, seg.id, seg.character?.description);
+                if (regeneratedCount > 0) await new Promise(r => setTimeout(r, 2000));
+                await previewAudio(seg.script, seg.id, seg.character?.description);
                 regeneratedCount++;
               }
             } else if (seg.type === 'broll') {
@@ -766,14 +800,15 @@ export function LoopAIDirector({
         }
 
         case 'generateBrollVoiceover': {
-          // Find main character voice for consistency
           const mainSpeaking = segments.find(s => s.type === 'speaking' && s.character?.description);
           const charDesc = mainSpeaking?.character?.description || '';
           const indexes = targetIndexes.length > 0 ? targetIndexes : segments.map((_, idx) => idx).filter(idx => segments[idx].type === 'broll' && segments[idx].voiceoverText);
-          for (const idx of indexes) {
+          for (let vi = 0; vi < indexes.length; vi++) {
+            const idx = indexes[vi];
             const seg = segments[idx];
             if (seg.voiceoverText) {
-              previewAudio(seg.voiceoverText, seg.id, charDesc);
+              if (vi > 0) await new Promise(r => setTimeout(r, 2000));
+              await previewAudio(seg.voiceoverText, seg.id, charDesc);
               editSummary.push(`🎙️ Generating voiceover for B-Roll scene ${idx + 1}`);
             }
           }
@@ -800,14 +835,19 @@ export function LoopAIDirector({
         }
 
         case 'regenerateAudio': {
-          for (const sceneIndex of targetIndexes) {
+          for (let vi = 0; vi < targetIndexes.length; vi++) {
+            const sceneIndex = targetIndexes[vi];
             const seg = segments[sceneIndex];
             const script = seg.script || seg.voiceoverText || '';
             if (!script) { editSummary.push(`⚠️ Scene ${sceneIndex + 1} has no script/text for audio`); continue; }
             
+            // Stop previous audio and delay between calls
+            if (vi > 0) await new Promise(r => setTimeout(r, 2000));
+            
             if (edit.voiceId) {
-              // Use specific voice ID override
               try {
+                // Stop any currently playing audio
+                if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
                 toast.info(`🎙️ Regenerating audio with voice: ${edit.voiceId}...`);
                 const { data, error } = await supabase.functions.invoke('text-to-speech', {
                   body: { text: script, voice: edit.voiceId, gender: edit.gender || 'male' }
@@ -819,11 +859,10 @@ export function LoopAIDirector({
                 editSummary.push(`⚠️ Failed to regenerate audio for scene ${sceneIndex + 1}`);
               }
             } else {
-              // Auto-detect voice from gender or description
               const charDesc = edit.gender
                 ? (edit.gender === 'female' ? 'A professional woman' : 'A professional man')
                 : (seg.character?.description || '');
-              previewAudio(script, seg.id, charDesc);
+              await previewAudio(script, seg.id, charDesc);
               editSummary.push(`🎙️ Regenerating audio for scene ${sceneIndex + 1}${edit.gender ? ` (${edit.gender} voice)` : ''}`);
             }
           }
