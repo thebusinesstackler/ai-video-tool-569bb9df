@@ -2775,15 +2775,59 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         .filter(a => a.audioUrl && a.audioUrl.trim() !== '')
         .map(a => a.audioUrl);
 
-      const stitchedBlob = await canvasStitchVideos({
-        videoUrls,
-        audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
-        onProgress: (percent) => {
-          setProgress(40 + percent * 0.5);
-          setProgressStatus(`Stitching... ${Math.round(percent)}%`);
-        },
-        onStatus: (s) => setProgressStatus(s)
-      });
+      let stitchedBlob: Blob;
+      const allPublicUrls = videoUrls.every(u => u.startsWith('http'));
+
+      // Try cloud stitching first (Creatomate), fall back to canvas
+      if (allPublicUrls) {
+        try {
+          setProgressStatus('Cloud rendering...');
+          const clips = videoUrls.map(url => ({ url, duration: 5 }));
+          const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+            body: { clips, audioUrl: mergedAudioUrl, transition: 'crossfade' }
+          });
+          if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
+
+          // Poll for completion
+          let cloudUrl: string | null = null;
+          for (let attempt = 0; attempt < 60; attempt++) {
+            await new Promise(r => setTimeout(r, 3000));
+            const { data: status } = await supabase.functions.invoke('creatomate-status', {
+              body: { renderId: stitchData.renderId }
+            });
+            if (status?.status === 'succeeded' && status?.url) { cloudUrl = status.url; break; }
+            if (status?.status === 'failed') throw new Error('Cloud render failed');
+            setProgress(40 + Math.min(50, (attempt / 60) * 50));
+            setProgressStatus(`Rendering... ${status?.progress ? Math.round(status.progress) + '%' : ''}`);
+          }
+          if (!cloudUrl) throw new Error('Cloud render timed out');
+
+          const resp = await fetch(cloudUrl);
+          stitchedBlob = await resp.blob();
+        } catch (cloudErr) {
+          console.warn('Cloud stitch failed, falling back to canvas:', cloudErr);
+          setProgressStatus('Falling back to local stitching...');
+          stitchedBlob = await canvasStitchVideos({
+            videoUrls,
+            audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+            onProgress: (percent) => {
+              setProgress(40 + percent * 0.5);
+              setProgressStatus(`Stitching... ${Math.round(percent)}%`);
+            },
+            onStatus: (s) => setProgressStatus(s)
+          });
+        }
+      } else {
+        stitchedBlob = await canvasStitchVideos({
+          videoUrls,
+          audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+          onProgress: (percent) => {
+            setProgress(40 + percent * 0.5);
+            setProgressStatus(`Stitching... ${Math.round(percent)}%`);
+          },
+          onStatus: (s) => setProgressStatus(s)
+        });
+      }
 
       videoBlobRef.current = stitchedBlob;
       const blobUrl = URL.createObjectURL(stitchedBlob);
