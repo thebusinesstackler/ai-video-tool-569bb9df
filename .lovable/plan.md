@@ -1,4 +1,3 @@
-
 # Simplify Movie Scene Creator — AI-First, One-Click UX
 
 ## Status: ✅ Implemented
@@ -31,3 +30,29 @@
 - Clean header: "Your Movie" + "Build & Download" button
 - Bulk actions in overflow menu instead of collapsible
 - Removed per-scene Coverage & Blocking from default view
+
+# UI Improvements for Character + Voice Flow
+
+## Status: ✅ Implemented
+
+### Changes Made
+
+**A. Removed duplicate voice UI in beginner Step 3**
+- Removed inline "Preview Voice" button and badge from character-ready card
+- Single voice section kept as standalone "Character Voice" card
+
+**B. Added skeleton placeholders during character generation**
+- 5-cell pulsing skeleton grid shown while `isGeneratingCharacter` is true
+
+**C. Switched AI Twin picker to 3-column grid in beginner mode**
+- Changed from `grid-cols-4` to `grid-cols-3` for better tap targets
+- Added voice badge indicator matching advanced mode
+
+**D. Added sub-sections to Advanced Lip Sync**
+- "Character" section: AI Twin picker, generate character, manual upload, character description
+- "Voice & Model" section: lip sync model, voiceover source (AI/upload)
+- Each in a bordered container with header
+
+**E. Added "Skip Character" shortcut**
+- Ghost button "Skip Character → Make My Reel" shown when no character is set
+- Triggers `generateAll` directly
