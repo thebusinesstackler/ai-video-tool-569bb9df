@@ -571,10 +571,10 @@ const Reels = () => {
 
   // Auto-save effect - triggers on key state changes
   useEffect(() => {
-    // Skip auto-save if we're generating or nothing meaningful to save
-    if (isGenerating) return;
-    
-    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim();
+    // Always save when video clips arrive (even during generation)
+    const hasVideoClips = project.videoClips.length > 0;
+    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim() || hasVideoClips;
+    if (!hasContent) return;
     if (!hasContent) return;
 
     saveDraftDebounced({
