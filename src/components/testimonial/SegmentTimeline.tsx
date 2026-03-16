@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 interface SegmentTimelineProps {
   segments: CommercialSegment[];
+  allSegments?: CommercialSegment[]; // Full unfiltered list for narrative role detection
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
   onDuplicate?: (id: string) => void;
