@@ -798,20 +798,6 @@ export function LoopAIDirector({
           return; // Don't add edit summary — diagnostic is its own message
         }
       }
-          // Also generate music if handler available
-          if (onGenerateMusic) {
-            // Infer mood from scripts
-            const allScripts = segments.filter(s => s.script).map(s => s.script).join(' ');
-            const autoMood = allScripts.length > 50
-              ? 'cinematic commercial background music, modern and inspiring, subtle build'
-              : 'uplifting corporate, warm acoustic guitar, inspiring';
-            onGenerateMusic(autoMood);
-            regeneratedCount++;
-          }
-          editSummary.push(`🚀 Full production pass: regenerating ${regeneratedCount} assets`);
-          break;
-        }
-      }
     }
 
     if (editSummary.length > 0) {
