@@ -459,10 +459,12 @@ export default function TestimonialCommercial() {
             <Button
               onClick={() => {
                 localStorage.removeItem('loop-ai-director-chat');
+                clearDraft();
                 setSegments([]);
                 setCurrentCommercial(null);
                 setName('Untitled Commercial');
                 setFinalVideoUrl(null);
+                setMusicUrl(null);
                 setActiveTab('scenes');
               }}
               variant="outline"
