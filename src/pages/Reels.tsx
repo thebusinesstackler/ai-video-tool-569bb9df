@@ -333,7 +333,7 @@ const Reels = () => {
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
-  const [videoModel, setVideoModel] = useState<'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro'>('wan-2.1-i2v-480p');
+  const [videoModel, setVideoModel] = useState<'infinitetalk' | 'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
@@ -4524,11 +4524,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                    <div className="space-y-2">
                      <Label>Video Model</Label>
                      <div className="grid grid-cols-1 gap-2">
-                       {[
-                         { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing' },
-                         { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 480p/720p/1080p, 3-10s clips' },
-                         { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips' },
-                       ].map((m) => (
+                        {[
+                          { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk (Lip Sync)', desc: 'Audio-driven lip sync — up to 10 min, matches audio length' },
+                          { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing (no lip sync, ~4s)' },
+                          { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 720p, 3-10s clips (no lip sync)' },
+                          { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips (no lip sync)' },
+                        ].map((m) => (
                          <button
                            key={m.value}
                            type="button"
@@ -4553,7 +4554,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       : 'bg-destructive/10 text-destructive border border-destructive/30'
                   }`}>
                     {enableLipSync && portraitPreview 
-                      ? '🎭 Lip sync ON — speaking scenes will use Wan 2.5 with your character portrait + TTS overlay'
+                      ? videoModel === 'infinitetalk'
+                        ? '🎭 Lip sync ON — InfiniteTalk will generate talking head videos matching your audio duration'
+                        : '🎭 Lip sync ON — speaking scenes will use ' + videoModel + ' with TTS overlay'
                       : enableLipSync && !portraitPreview
                       ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
                       : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
