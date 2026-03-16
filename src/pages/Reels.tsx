@@ -1461,7 +1461,9 @@ const Reels = () => {
     }
   };
 
-  const generateScripts = async (): Promise<Scene[] | null> => {
+  const generateScripts = async (overrides?: { characterDescriptionOverride?: string; topicOverride?: string }): Promise<Scene[] | null> => {
+    const effectiveTopic = overrides?.topicOverride || topic;
+    const effectiveCharDesc = overrides?.characterDescriptionOverride ?? characterDescription;
     if (!topic.trim()) {
       toast({
         title: "Topic Required",
