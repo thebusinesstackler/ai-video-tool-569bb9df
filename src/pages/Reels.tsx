@@ -2235,6 +2235,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       setPortraitPreview(firstImageUrl);
       setPreSelectedReference(firstImageUrl);
       setCharacterDescription(charPrompt);
+      setGeneratedCharacterShots([{ label: ANGLE_PROMPTS[0].label, url: firstImageUrl }]);
+      setSelectedShotIndex(0);
       
       // Generate remaining 4 angles using the first image as reference for consistency
       for (let i = 1; i < ANGLE_PROMPTS.length; i++) {
