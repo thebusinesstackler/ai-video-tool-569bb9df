@@ -314,6 +314,39 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_voices: {
+        Row: {
+          created_at: string | null
+          gender: string | null
+          id: string
+          sample_audio_url: string | null
+          user_id: string
+          voice_description: string | null
+          voice_id: string
+          voice_label: string
+        }
+        Insert: {
+          created_at?: string | null
+          gender?: string | null
+          id?: string
+          sample_audio_url?: string | null
+          user_id: string
+          voice_description?: string | null
+          voice_id: string
+          voice_label: string
+        }
+        Update: {
+          created_at?: string | null
+          gender?: string | null
+          id?: string
+          sample_audio_url?: string | null
+          user_id?: string
+          voice_description?: string | null
+          voice_id?: string
+          voice_label?: string
+        }
+        Relationships: []
+      }
       scripts: {
         Row: {
           audience: string | null
