@@ -511,7 +511,7 @@ export default function TestimonialCommercial() {
                     <Eye className="h-3 w-3" /> Fullscreen Preview
                   </Button>
                 </div>
-                <TimelinePreview segments={segments} onReorder={reorderSegments} />
+                <TimelinePreview segments={segments} onReorder={reorderSegments} onSelectSegment={handleTimelineSelectSegment} />
               </div>
             )}
 
