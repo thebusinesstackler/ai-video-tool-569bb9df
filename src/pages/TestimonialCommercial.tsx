@@ -37,7 +37,8 @@ export default function TestimonialCommercial() {
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
   const resultCardRef = useRef<HTMLDivElement>(null);
-
+  const { saveDraftDebounced, loadDraft, clearDraft } = useCommercialDraft();
+  const draftRestoredRef = useRef(false);
   const {
     segments,
     setSegments,
