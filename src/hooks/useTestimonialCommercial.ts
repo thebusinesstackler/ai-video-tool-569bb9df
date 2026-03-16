@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CommercialSegment, TestimonialCommercial, CharacterProfile } from '@/types/testimonialCommercial';
+import { sanitizeForTTS } from '@/lib/audioSanitizer';
 import { toast } from 'sonner';
 
 const ANGLE_PROMPTS = [
@@ -401,7 +402,7 @@ export function useTestimonialCommercial() {
             
             const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
               body: {
-                text: segment.script,
+                text: sanitizeForTTS(segment.script || ''),
                 voice: 'ai-auto',
                 gender,
               }

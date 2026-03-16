@@ -15,6 +15,8 @@ import { Sparkles, Film, ChevronRight, ChevronLeft, ChevronDown, Save, FolderOpe
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
+import { sanitizeForTTS } from '@/lib/audioSanitizer';
+import { useScriptAutoSave } from '@/hooks/useScriptAutoSave';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
@@ -40,28 +42,9 @@ interface AITwin {
   gender: string | null;
 }
 
-// Helper to clean dialogue text - remove stage directions and character prefixes before TTS
+// Helper to clean dialogue text - remove stage directions and sanitize for TTS
 const cleanDialogueForTTS = (text: string): string => {
-  if (!text) return '';
-  
-  // Remove stage directions in parentheses: (sighs), (pauses), (whispers), etc.
-  let cleaned = text.replace(/\([^)]*\)/g, '');
-  
-  // Remove stage directions in brackets: [emotion], [action], etc.
-  cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
-  
-  // Remove asterisk stage directions: *sighs*, *pauses*, etc.
-  cleaned = cleaned.replace(/\*[^*]*\*/g, '');
-  
-  // Remove character name prefixes: "Character Name: " at start of lines
-  cleaned = cleaned.split('\n').map(line => {
-    return line.replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '');
-  }).join(' ');
-  
-  // Clean up multiple spaces and trim
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
-  
-  return cleaned;
+  return sanitizeForTTS(text);
 };
 
 // Helper to detect if a voice ID is a Speechify UUID format
@@ -297,6 +280,22 @@ const MovieSceneCreator = () => {
   
   const { toast } = useToast();
   const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner } = useCreatorMode();
+
+  // ── Debounced auto-save for movie projects ──
+  const autoSaveField = useScriptAutoSave({ table: 'movie_projects', id: currentProjectId });
+
+  // Auto-save outline and movieIdea on change
+  useEffect(() => {
+    if (currentProjectId && outline) {
+      autoSaveField({ outline });
+    }
+  }, [outline, currentProjectId]);
+
+  useEffect(() => {
+    if (currentProjectId && movieIdea) {
+      autoSaveField({ movie_idea: movieIdea });
+    }
+  }, [movieIdea, currentProjectId]);
 
   // Helper to toggle twin selection
   const toggleTwinSelection = (twin: AITwin) => {
