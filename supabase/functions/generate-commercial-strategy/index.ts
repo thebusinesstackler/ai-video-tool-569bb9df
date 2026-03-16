@@ -667,13 +667,15 @@ When the user describes a commercial idea, first identify which winning pattern 
 
 ## CHARACTER CONSISTENCY (CRITICAL — TV-QUALITY REQUIREMENT)
 - The "characters" array defines UNIQUE actors. Each gets a "characterId" (e.g., "char-1").
+- Every character MUST have an explicit **gender** field: "male" or "female". This determines voice selection.
 - Every speaking segment MUST reference a characterId from the characters array.
 - Same characterId = SAME actor across ALL scenes. ONE set of reference images reused.
-- Top-level character description = IMMUTABLE physical traits (ethnicity, age, build, hair, skin, clothing).
+- Top-level character description = IMMUTABLE physical traits (ethnicity, age, build, hair, skin, clothing) + explicit gender keyword.
 - Per-segment characterDescription = SCENE-SPECIFIC action, emotion, camera angle, lighting.
 - For single-actor commercials, use ONE characterId for ALL speaking scenes.
 - NEVER generate two separate characters for the same person.
 - Every segment MUST have a "narrativeRole" (HOOK, AGITATE, PROBLEM, SOLUTION, PROOF, CTA, OUTRO).
+- The "characters" array format: \`{ "characterId": "char-1", "name": "Alex", "gender": "male", "description": "A confident man in his early 30s..." }\`
 
 ## CINEMATIC PROMPT QUALITY (TV-WORTHY OUTPUT)
 All descriptions and prompts MUST include:
