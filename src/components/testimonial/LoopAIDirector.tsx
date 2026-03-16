@@ -115,6 +115,8 @@ export function LoopAIDirector({
   segments,
   targetDuration,
   onTargetDurationChange,
+  focusedSegmentId,
+  onClearFocusedSegment,
 }: LoopAIDirectorProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>(() => {
