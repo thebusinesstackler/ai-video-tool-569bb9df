@@ -130,13 +130,28 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
   let audioSource: AudioBufferSourceNode | null = null;
   let audioDestination: MediaStreamAudioDestinationNode | null = null;
 
-  if (audioUrls.length > 0) {
+  // Collect all audio sources: explicit audio URLs + extracted from embedded-audio videos
+  const allAudioUrls = [...audioUrls];
+  
+  if (embeddedAudioIndices.length > 0) {
+    onStatus?.('Extracting audio from lip-sync videos...');
+    console.log(`[CanvasStitch] Extracting audio from ${embeddedAudioIndices.length} embedded-audio videos`);
+    // For embedded audio videos, we use the video URL itself as an audio source
+    // The browser's AudioContext.decodeAudioData can extract audio from video files
+    for (const idx of embeddedAudioIndices) {
+      if (videoUrls[idx]) {
+        allAudioUrls.push(videoUrls[idx]);
+      }
+    }
+  }
+
+  if (allAudioUrls.length > 0) {
     onStatus?.('Loading audio tracks...');
     onProgress?.(22);
     
     try {
       const audioBuffers: AudioBuffer[] = [];
-      for (const url of audioUrls) {
+      for (const url of allAudioUrls) {
         const buf = await loadAudioBuffer(audioCtx, url);
         audioBuffers.push(buf);
       }
