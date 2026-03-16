@@ -3586,56 +3586,67 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       <Sparkles className="w-3 h-3 text-primary" />
                       Select AI Twin (Quick Setup)
                     </Label>
-                    <Select 
-                      value={selectedTwinId || ''} 
-                      onValueChange={(v) => {
-                        setSelectedTwinId(v || null);
-                        const twin = aiTwins.find(t => t.id === v);
-                        if (twin) {
-                          // Set portrait from twin's first reference image
-                          if (twin.reference_images?.[0]) {
-                            setPortraitImage(twin.reference_images[0]);
-                            setPortraitPreview(twin.reference_images[0]);
-                            setPreSelectedReference(twin.reference_images[0]);
-                          }
-                          // Set character description from face description
-                          if (twin.face_description) {
-                            setCharacterDescription(twin.face_description);
-                          }
-                          toast({
-                            title: `AI Twin "${twin.name}" Selected`,
-                            description: twin.voice_cloning_key 
-                              ? 'Voice clone and reference images applied' 
-                              : 'Reference images applied (no cloned voice)',
-                          });
-                        }
-                      }} 
-                      disabled={isGenerating}
-                    >
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue placeholder="Choose an AI Twin..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {aiTwins.map(twin => (
-                          <SelectItem key={twin.id} value={twin.id}>
-                            <div className="flex items-center gap-2">
-                              <span>{twin.name}</span>
-                              {twin.voice_cloning_key && (
-                                <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Voice</span>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {aiTwins.length === 0 && (
+                    {aiTwins.length === 0 ? (
                       <p className="text-xs text-muted-foreground">
                         No AI Twins found. Create one in the AI Twin page for quick voice + image setup.
                       </p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                        {aiTwins.map(twin => {
+                          const isSelected = selectedTwinId === twin.id;
+                          const thumbUrl = twin.reference_images?.[0];
+                          return (
+                            <div
+                              key={twin.id}
+                              onClick={() => {
+                                if (isGenerating) return;
+                                setSelectedTwinId(twin.id);
+                                if (twin.reference_images?.[0]) {
+                                  setPortraitImage(twin.reference_images[0]);
+                                  setPortraitPreview(twin.reference_images[0]);
+                                  setPreSelectedReference(twin.reference_images[0]);
+                                }
+                                if (twin.face_description) {
+                                  setCharacterDescription(twin.face_description);
+                                }
+                                toast({
+                                  title: `AI Twin "${twin.name}" Selected`,
+                                  description: twin.voice_cloning_key 
+                                    ? 'Voice clone and reference images applied' 
+                                    : 'Reference images applied (no cloned voice)',
+                                });
+                              }}
+                              className={`cursor-pointer rounded-lg border-2 p-1.5 transition-all text-center ${
+                                isSelected
+                                  ? 'border-primary ring-2 ring-primary/40 bg-primary/5'
+                                  : 'border-border hover:border-primary/50 bg-muted/30'
+                              } ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
+                            >
+                              {thumbUrl ? (
+                                <img
+                                  src={thumbUrl}
+                                  alt={twin.name}
+                                  className="w-full aspect-square object-cover rounded-md mb-1"
+                                />
+                              ) : (
+                                <div className="w-full aspect-square rounded-md bg-muted flex items-center justify-center mb-1">
+                                  <User className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                              )}
+                              <p className="text-[10px] font-medium text-foreground truncate">{twin.name}</p>
+                              {twin.voice_cloning_key && (
+                                <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">
+                                  🎙️ Voice
+                                </Badge>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                     {aiTwins.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        Select your AI Twin to auto-fill portrait and cloned voice settings.
+                        Tap a twin to auto-fill portrait and voice settings.
                       </p>
                     )}
                   </div>
