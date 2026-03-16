@@ -337,7 +337,7 @@ const Reels = () => {
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [selectedVoice, setSelectedVoice] = useState<string>('English_Trustworth_Man');
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
@@ -638,7 +638,6 @@ const Reels = () => {
     // Always save when video clips arrive (even during generation)
     const hasVideoClips = project.videoClips.length > 0;
     const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim() || hasVideoClips;
-    if (!hasContent) return;
     if (!hasContent) return;
 
     saveDraftDebounced({
@@ -1788,12 +1787,13 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       
       // Build camera angle rotation for variety across scenes
       const diverseAngles = ['eye-level', 'three-quarter', 'low-angle', 'medium-shot', 'closeup', 'profile-shot', 'golden-hour', 'cinematic'];
-      const cameraAngleRotation = scenesWithAudioDurations.map((scene, idx) => {
-        if (scene.isIntro || scene.isOutro) return undefined; // No angle for intro/outro
-        const angleId = diverseAngles[idx % diverseAngles.length];
-        const angle = CAMERA_ANGLES.find(a => a.id === angleId);
-        return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier;
-      }).filter(Boolean);
+      const cameraAngleRotation = scenesWithAudioDurations
+        .filter((scene) => !scene.isIntro && !scene.isOutro)
+        .map((scene, idx) => {
+          const angleId = diverseAngles[idx % diverseAngles.length];
+          const angle = CAMERA_ANGLES.find(a => a.id === angleId);
+          return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier || '';
+        });
       
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
@@ -1930,7 +1930,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         const sortedVideos = completedVideos
           .filter(v => v.videoUrl && v.videoUrl.trim() !== '')
           .sort((a, b) => a.sceneNumber - b.sceneNumber);
-        const sortedAudios = voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        const sortedAudios = [...voiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
         
         if (sortedVideos.length === 0) {
           throw new Error('All video scenes failed to generate. Please try again.');
@@ -2018,9 +2018,20 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           try {
             const videoUrls = sortedVideos.map(v => v.videoUrl);
             
+            // Identify which video indices have embedded audio (InfiniteTalk lip-sync)
+            const embeddedAudioIndices: number[] = [];
+            sortedVideos.forEach((v, idx) => {
+              if (perSceneEmbeddedAudio[v.sceneNumber]) {
+                embeddedAudioIndices.push(idx);
+              }
+            });
+            
+            console.log('[Stitch] Embedded audio indices:', embeddedAudioIndices, 'Overlay audio count:', audioUrlsForStitch.length);
+            
             const finalBlob = await canvasStitchVideos({
               videoUrls,
               audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+              embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
               onProgress: (p) => {
                 setProgress(75 + Math.round(p * 0.2));
                 setProgressStatus(`Stitching... ${Math.round(p)}%`);
@@ -2036,10 +2047,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               setProgress(92);
               setProgressStatus('Uploading final video...');
               try {
-                const fileName = `${user.id}/videos/${Date.now()}-stitched.mp4`;
+                const isWebm = finalBlob.type.includes('webm');
+                const ext = isWebm ? 'webm' : 'mp4';
+                const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
                 const { data: uploadData, error: uploadError } = await supabase.storage
                   .from('reels')
-                  .upload(fileName, finalBlob, { contentType: 'video/mp4' });
+                  .upload(fileName, finalBlob, { contentType: finalBlob.type || 'video/webm' });
                 if (!uploadError && uploadData) {
                   const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
                   persistedVideoUrl = publicUrl.publicUrl;
@@ -2425,6 +2438,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setOutroText('');
     // Reset preview
     resetPreview();
+    // Reset character transformation (bug #29)
+    setCharacterTransformation('');
     // Reset save state
     setCurrentReelSaved(false);
     // Clear auto-saved draft
@@ -2694,7 +2709,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         body: { text: sampleText.slice(0, 200), voice: selectedVoice }
       });
       if (error) throw error;
-      const audioUrl = data?.audioUrl || data?.url;
+      let audioUrl = data?.audioUrl || data?.url;
+      // Fallback: if only base64 audioContent returned, use as data URL
+      if (!audioUrl && data?.audioContent) {
+        audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
+      }
       if (!audioUrl) throw new Error('No audio returned');
       
       const audio = new Audio(audioUrl);
@@ -5057,9 +5076,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                           const isMale = twinGender === 'male' || (!isFemale && ['man', 'male', 'boy', 'guy'].some(k => descLower.includes(k)));
                                           
                                           if (isFemale) {
-                                            setSelectedVoice('en-US-Journey-F');
+                                            setSelectedVoice('Wise_Woman');
                                           } else if (isMale) {
-                                            setSelectedVoice('en-US-Journey-D');
+                                            setSelectedVoice('English_Trustworth_Man');
                                           }
                                           
                                           toast({
