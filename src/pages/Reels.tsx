@@ -335,7 +335,7 @@ const Reels = () => {
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
-  const [selectedVoice, setSelectedVoice] = useState<string>('ai-auto');
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
@@ -502,7 +502,7 @@ const Reels = () => {
     setTopic(draft.topic || '');
     setSelectedSceneCount(draft.selectedSceneCount || '4');
     setSelectedSceneDuration(draft.selectedSceneDuration || '12');
-    setSelectedVoice(draft.selectedVoice || 'ai-auto');
+    setSelectedVoice(draft.selectedVoice || '');
     setSelectedVideoSize(draft.selectedVideoSize || '9:16');
     setTransitionStyle((draft.transitionStyle as any) || 'crossfade');
     setHookStyle(draft.hookStyle || 'auto');
@@ -2052,9 +2052,9 @@ const Reels = () => {
       setLipSyncModel('infinitetalk');
     }
     
-    // Only auto-detect voice if user left it on 'ai-auto' — preserve manual voice selection
+    // Auto-detect voice if user hasn't selected one — preserve manual voice selection
     let resolvedVoice = selectedVoice;
-    if (selectedVoice === 'ai-auto') {
+    if (!selectedVoice || selectedVoice === 'ai-auto') {
       // Try to detect from twin gender
       if (selectedTwinId && aiTwins.length > 0) {
         const twin = aiTwins.find(t => t.id === selectedTwinId) || aiTwins[0];
@@ -2064,12 +2064,12 @@ const Reels = () => {
         if (detectedVoice) resolvedVoice = detectedVoice;
       }
       // Fallback: detect from topic/character description
-      if (resolvedVoice === 'ai-auto') {
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
         const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
         if (topicVoice) resolvedVoice = topicVoice;
       }
-      // Final fallback — check characterDescription for gender clues before defaulting
-      if (resolvedVoice === 'ai-auto') {
+      // Final fallback
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
         const descVoice = detectGenderVoice(characterDescription);
         resolvedVoice = descVoice || 'English_Trustworth_Man';
       }
@@ -2919,7 +2919,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             <p className="text-[10px] text-muted-foreground">Hear how the narration will sound</p>
                           </div>
                           <Badge variant="outline" className="text-[10px]">
-                            {selectedVoice === 'ai-auto' ? 'Auto-detect' : selectedVoice.replace(/_/g, ' ')}
+                            {selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Not selected'}
                           </Badge>
                         </div>
                         <Button
@@ -3040,7 +3040,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 )}
                               </Button>
                               <Badge variant="outline" className="text-[10px] self-center bg-muted">
-                                {selectedVoice === 'ai-auto' ? '🎙️ Auto' : `🎙️ ${selectedVoice.replace(/_/g, ' ')}`}
+                                {selectedVoice ? `🎙️ ${selectedVoice.replace(/_/g, ' ')}` : '🎙️ Not set'}
                               </Badge>
                             </div>
 
@@ -3114,7 +3114,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           <Mic className="w-4 h-4 text-primary" />
                           <Label className="text-sm font-medium">Voice</Label>
                           <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                            {selectedVoice === 'ai-auto' ? 'AI Auto-Select' : 'Custom'}
+                            {selectedVoice ? 'Custom' : 'Not set'}
                           </Badge>
                         </div>
                         
@@ -3124,7 +3124,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           compact
                         />
                         
-                        {selectedVoice !== 'ai-auto' && !selectedVoice.startsWith('clone:') && (
+                        {selectedVoice && !selectedVoice.startsWith('clone:') && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -3145,7 +3145,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       <div className="p-3 rounded-lg bg-muted/30 border border-border text-sm space-y-1">
                         <p className="text-muted-foreground">📝 <span className="text-foreground font-medium">{project.scenes.length} scenes</span> • {project.scenes.reduce((acc, s) => acc + (s.duration || 0), 0)}s total</p>
                         {portraitPreview && <p className="text-muted-foreground">👤 <span className="text-foreground font-medium">Character set</span></p>}
-                        <p className="text-muted-foreground">🎙️ <span className="text-foreground font-medium">{selectedVoice === 'ai-auto' ? 'AI Auto-Select voice' : selectedVoice.replace(/_/g, ' ')}</span></p>
+                        <p className="text-muted-foreground">🎙️ <span className="text-foreground font-medium">{selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Auto-detect voice'}</span></p>
                       </div>
 
                       <div className="flex gap-2">
