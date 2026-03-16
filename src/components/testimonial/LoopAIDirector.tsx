@@ -1439,6 +1439,7 @@ export function LoopAIDirector({
       role: 'system-action' as const,
       content: `✅ All assets generated — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''} and ${brollSegs.length} B-roll preview${brollSegs.length !== 1 ? 's' : ''} ready. Review the timeline and let me know what to adjust.`
     }]);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
