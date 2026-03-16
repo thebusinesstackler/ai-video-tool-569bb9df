@@ -1422,6 +1422,24 @@ export function LoopAIDirector({
       setAutoGenProgress({ current, total, label: current < speakingSegs.length ? `Generating character ${current + 1}/${speakingSegs.length}...` : 'Generating B-roll previews...' });
     }
 
+    // Show generated character images inline
+    setTimeout(() => {
+      const latestSegs = segments.length > 0 ? segments : segs;
+      const charPreviews: string[] = [];
+      for (const seg of latestSegs) {
+        if (seg.type === 'speaking' && seg.character?.referenceImages?.length) {
+          const imgs = seg.character.referenceImages.slice(0, 3).map((url, i) => `![pose${i}](${url})`).join(' ');
+          charPreviews.push(`**${seg.character.name?.slice(0, 40) || 'Character'}**: ${imgs}`);
+        }
+      }
+      if (charPreviews.length > 0) {
+        setMessages(prev => [...prev, {
+          role: 'system-action' as const,
+          content: `🎭 **Your actors are ready:**\n\n${charPreviews.join('\n\n')}`
+        }]);
+      }
+    }, 500);
+
     // Then B-roll previews
     for (const seg of brollSegs) {
       try {
@@ -1435,9 +1453,32 @@ export function LoopAIDirector({
     }
 
     setAutoGenProgress(null);
+
+    // Now auto-generate voiceovers for all speaking scenes
+    const voiceSegs = segs.filter(s => s.type === 'speaking' && s.script && !s.audioUrl);
+    if (voiceSegs.length > 0) {
+      setAutoGenProgress({ current: 0, total: voiceSegs.length, label: 'Generating voiceovers...' });
+      setMessages(prev => [...prev, {
+        role: 'system-action' as const,
+        content: `🎙️ Generating voiceovers for ${voiceSegs.length} scene${voiceSegs.length !== 1 ? 's' : ''}...`
+      }]);
+
+      let voiceCurrent = 0;
+      for (const seg of voiceSegs) {
+        try {
+          setAutoGenProgress({ current: voiceCurrent, total: voiceSegs.length, label: `Generating voiceover ${voiceCurrent + 1}/${voiceSegs.length}...` });
+          await previewAudio(seg.script!, seg.id, seg.character?.description || '');
+        } catch (e) {
+          console.error('Auto-gen voice failed:', e);
+        }
+        voiceCurrent++;
+      }
+      setAutoGenProgress(null);
+    }
+
     setMessages(prev => [...prev, {
       role: 'system-action' as const,
-      content: `✅ All assets generated — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''} and ${brollSegs.length} B-roll preview${brollSegs.length !== 1 ? 's' : ''} ready. Review the timeline and let me know what to adjust.`
+      content: `✅ Production ready — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''}, ${brollSegs.length} B-roll, and ${voiceSegs.length} voiceover${voiceSegs.length !== 1 ? 's' : ''} generated. Click any scene in the timeline to fine-tune, or tell me what to change.`
     }]);
   };
 
