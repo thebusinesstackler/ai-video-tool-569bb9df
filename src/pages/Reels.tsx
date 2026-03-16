@@ -2129,6 +2129,16 @@ const Reels = () => {
     setTopic(quickTopic);
     abortRef.current = new AbortController();
     
+    // Quick Mode: Force NO intro/outro — all scenes should be narrator scenes for lip sync
+    setSelectedIntro('none');
+    setSelectedOutro('none');
+    setIntroText('');
+    setOutroText('');
+    
+    // Quick Mode: Use 4 scenes at 8s each for a ~32s reel
+    setSelectedSceneCount('4');
+    setSelectedSceneDuration('8');
+    
     // Auto-select AI Twin if available
     let shouldEnableLipSync = false;
     let activeLipSyncModel: string = 'infinitetalk';
@@ -2167,15 +2177,26 @@ const Reels = () => {
     
     if (abortRef.current.signal.aborted) return;
     
-    // Generate scripts
+    // Generate scripts — strip any intro/outro flags to ensure all scenes are narrator scenes
     const generatedScenes = await generateScripts();
     if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
+    
+    // Force all scenes to be narrator scenes (remove isIntro/isOutro/isSilentCTA)
+    const narratorOnlyScenes = generatedScenes.map(scene => ({
+      ...scene,
+      isIntro: false,
+      isOutro: false,
+      isSilentCTA: false
+    }));
+    
+    // Update project state with cleaned scenes
+    setProject(prev => ({ ...prev, scenes: narratorOnlyScenes }));
     
     // Go straight to video generation (which handles voiceovers + images + video)
     await generateVideo({ 
       forceEnableLipSync: shouldEnableLipSync, 
       forceLipSyncModel: activeLipSyncModel, 
-      scenesOverride: generatedScenes 
+      scenesOverride: narratorOnlyScenes 
     });
   };
 
