@@ -709,18 +709,30 @@ function getDefaultIntroText(templateId: string, topic: string, hookStyle?: stri
   }
 }
 
-function getDefaultOutroText(templateId: string): string {
+function getDefaultOutroText(templateId: string, topic?: string): string {
+  const topicShort = topic ? topic.split(' ').slice(0, 5).join(' ') : '';
+  
   switch (templateId) {
     case 'cta-follow':
-      return 'Follow for more!';
+      return topicShort 
+        ? `If you want more insights like this on ${topicShort}... follow along— I've got a lot more coming—`
+        : 'If you found this valuable... follow along— there\'s a lot more where this came from—';
     case 'cta-subscribe':
-      return 'Subscribe now!';
+      return topicShort
+        ? `Subscribe if you want to go deeper on ${topicShort}... I break this down every week—`
+        : 'Subscribe if you want more like this... new content drops every week—';
     case 'cta-comment':
-      return 'Comment below!';
+      return topicShort
+        ? `I want to hear your take on ${topicShort}... drop your thoughts in the comments—`
+        : 'Tell me what you think in the comments— I read every single one—';
     case 'cta-share':
-      return 'Share this!';
+      return topicShort
+        ? `If someone you know needs to hear this about ${topicShort}... send it their way—`
+        : 'Share this with someone who needs to hear it— it might change their perspective—';
     default:
-      return 'Save this!';
+      return topicShort
+        ? `Save this for later when you need it... trust me on ${topicShort}—`
+        : 'Save this for later— you\'ll want to come back to it—';
   }
 }
 
