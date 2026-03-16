@@ -262,6 +262,7 @@ function HookCard({
 }
 
 export default function HookEngine() {
+  const navigate = useNavigate();
   const {
     contentSummary, hooks, contextSettings, isAnalyzing, isGenerating, isRefining,
     videoTitle, setVideoTitle, videoDescription, setVideoDescription,
