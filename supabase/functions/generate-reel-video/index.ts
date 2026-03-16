@@ -253,7 +253,8 @@ serve(async (req) => {
       preGeneratedImages = [],
       referenceImages = [],
       characterDescription = '',
-      cameraAngles = []
+      cameraAngles = [],
+      videoModel = 'wan-2.1-i2v-480p'
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -269,6 +270,7 @@ serve(async (req) => {
     console.log('Use WaveSpeed:', useWaveSpeed);
     console.log('Enable Lip Sync:', enableLipSync);
     console.log('Lip Sync Model:', lipSyncModel);
+    console.log('Video Model:', videoModel);
     console.log('Portrait Image provided:', !!portraitImage);
     console.log('Voice:', voice);
     console.log('Voiceovers provided:', voiceovers?.length || 0);
@@ -438,16 +440,62 @@ serve(async (req) => {
         const topicContext = `Topic: ${topic}.`;
         
         // ====== SCENE TYPE ROUTING ======
-        // Speaking/narrator scenes → Wan 2.5 I2V 480p (cost-effective, good quality for testing)
-        // Speaking scenes WITHOUT lip sync → Kling 3.0 Pro (cinematic visuals, TTS overlaid by client)
-        // B-roll, intro, outro → Kling 3.0 Pro or Sora 2
+        // Route based on user-selected videoModel for narrator/speaking scenes
+        // B-roll, intro, outro always use their dedicated models
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
-        if (isNarratorScene && enableLipSync) {
-          // ====== WAN 2.5 I2V 480p: Fast, cheap image-to-video for testing ======
+        if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
+          // ====== WAN 2.5 VIDEO EXTEND: Higher quality, supports audio input ======
+          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.5 Video Extend for narrator scene`);
+          
+          const genderHint = characterDescription?.toLowerCase().includes('woman') || 
+                            characterDescription?.toLowerCase().includes('female') || 
+                            characterDescription?.toLowerCase().includes('girl') ||
+                            characterDescription?.toLowerCase().includes('lady')
+                            ? 'female' : 'male';
+          
+          // video-extend requires a base video — we'll use I2V first then extend
+          // For now use the image-to-video variant with video-extend endpoint
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/video-extend';
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: `A ${genderHint} speaker delivering a message with natural expression and confidence: "${scene.narration}". ${charContext} ${topicContext}
+Professional, engaging delivery with eye contact. Natural lip movements and facial expressions matching speech.
+Cinematic lighting, shallow depth of field, premium quality.
+No text, no captions, no subtitles, no watermarks.`,
+            duration: Math.max(3, Math.min(10, clipDuration)),
+            resolution: '720p'
+          };
+          if (audioUrl) {
+            requestBody.audio = audioUrl;
+          }
+          sceneHasEmbeddedAudio = !!audioUrl;
+          
+        } else if (isNarratorScene && enableLipSync && videoModel === 'kling-v3.0-pro') {
+          // ====== KLING 3.0 PRO: Cinematic lip sync scenes ======
+          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for narrator scene (lip sync)`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+          const klingDuration = clipDuration <= 7 ? 5 : 10;
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Context: The narrator is saying "${scene.narration}" over this visual.
+Premium cinematic motion — smooth parallax camera movement, subtle depth shifts, professional color grading.
+The visual should emotionally match the narration content. Photorealistic, high-end commercial quality.
+Natural confident expression, engaging body language.
+Absolutely no text, no captions, no subtitles, no watermarks.`,
+            duration: klingDuration
+          };
+          sceneHasEmbeddedAudio = false;
+          
+        } else if (isNarratorScene && enableLipSync) {
+          // ====== WAN 2.1 I2V 480p (default): Fast, cheap image-to-video for testing ======
           // Audio is NOT embedded — client stitcher overlays TTS audio
-          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.5 I2V 480p for narrator scene`);
+          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.1 I2V 480p for narrator scene`);
           
           const genderHint = characterDescription?.toLowerCase().includes('woman') || 
                             characterDescription?.toLowerCase().includes('female') || 
@@ -456,7 +504,6 @@ serve(async (req) => {
                             ? 'female' : 'male';
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1-i2v-480p';
-          // wan-2.1 supports 5s duration
           requestBody = {
             image: imageUrl,
             prompt: `A ${genderHint} speaker delivering a message with natural expression and confidence: "${scene.narration}". ${charContext} ${topicContext}

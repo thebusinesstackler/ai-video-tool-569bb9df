@@ -333,6 +333,7 @@ const Reels = () => {
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
+  const [videoModel, setVideoModel] = useState<'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro'>('wan-2.1-i2v-480p');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
@@ -1708,7 +1709,8 @@ const Reels = () => {
           referenceImages: twinReferenceImages,
           characterDescription: characterDescription || selectedTwin?.face_description || '',
           // Camera angle variety per scene
-          cameraAngles: cameraAngleRotation
+          cameraAngles: cameraAngleRotation,
+          videoModel: videoModel
         }
       });
 
@@ -4406,16 +4408,31 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       Voice & Model
                     </h4>
 
-                  {/* Model Selection */}
-                  <div className="space-y-2">
-                    <Label>Video Model</Label>
-                    <div className="p-2.5 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground">
-                      🎬 Wan 2.5 I2V (480p Test)
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Fast image-to-video at 480p for testing. TTS audio overlaid by stitcher. Switch to higher quality model when ready for production.
-                    </p>
-                  </div>
+                   {/* Model Selection */}
+                   <div className="space-y-2">
+                     <Label>Video Model</Label>
+                     <div className="grid grid-cols-1 gap-2">
+                       {[
+                         { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing' },
+                         { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 480p/720p/1080p, 3-10s clips' },
+                         { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips' },
+                       ].map((m) => (
+                         <button
+                           key={m.value}
+                           type="button"
+                           onClick={() => setVideoModel(m.value)}
+                           className={`text-left p-2.5 rounded-md border text-sm transition-colors ${
+                             videoModel === m.value
+                               ? 'border-primary bg-primary/10 text-foreground'
+                               : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                           }`}
+                         >
+                           <span className="font-medium">{m.label}</span>
+                           <span className="block text-[11px] mt-0.5 opacity-70">{m.desc}</span>
+                         </button>
+                       ))}
+                     </div>
+                   </div>
 
                   {/* Lip Sync Status Indicator */}
                   <div className={`p-2.5 rounded-md text-xs font-medium ${
