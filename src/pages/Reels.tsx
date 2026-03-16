@@ -333,6 +333,7 @@ const Reels = () => {
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
+  const [videoModel, setVideoModel] = useState<'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro'>('wan-2.1-i2v-480p');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
