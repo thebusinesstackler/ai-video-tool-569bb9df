@@ -1,48 +1,58 @@
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
+## Status: ✅ Implemented
 
-## UI Improvements for the Character + Voice Flow
+## Changes Made
 
-After reviewing the current Reels page across both Beginner and Advanced modes, here are the key UX issues and proposed fixes:
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-### Issues Found
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-1. **Step 3 is overloaded** -- It crams AI Twin picker, character generation, angle shots, product swap, voice selection, voice preview, AND the "Make My Reel" button into one dense screen. Users have to scroll through everything.
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-2. **Duplicate voice sections in beginner Step 3** -- When a character is generated, there's a voice preview button *inside* the character card AND a separate "Character Voice" card below it. Redundant and confusing.
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-3. **No visual feedback during character generation** -- The button says "Generating 5 shots..." but the area where shots will appear is empty. A skeleton/placeholder grid would reduce uncertainty.
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-4. **AI Twin grid is cramped on mobile** -- 4-column grid with tiny thumbnails is hard to tap on small screens. Advanced mode uses 3 columns which works better.
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
 
-5. **Advanced Lip Sync section is a wall of content** -- AI Twin picker, generate character, manual upload, character description, model selection, voice -- all in one collapsible. No visual grouping.
+# UI Improvements for Character + Voice Flow
 
-6. **"Skip" path is unclear** -- The beginner says "leave blank to skip" but the Make My Reel button doesn't visually indicate you can proceed without a character.
+## Status: ✅ Implemented
 
-### Proposed Changes
+### Changes Made
 
-**A. Clean up duplicate voice UI in beginner Step 3** (`Reels.tsx`)
-- Remove the inline "Preview Voice" button and badge from inside the character-ready card (lines ~3052-3069)
-- Keep only the standalone "Character Voice" card below (lines ~3163-3196) as the single voice section
-- This eliminates confusion about which voice control to use
+**A. Removed duplicate voice UI in beginner Step 3**
+- Removed inline "Preview Voice" button and badge from character-ready card
+- Single voice section kept as standalone "Character Voice" card
 
-**B. Add skeleton placeholders during character generation** (`Reels.tsx`)
-- When `isGeneratingCharacter` is true, show a 5-cell skeleton grid (pulsing gray boxes) in place of the angle shots area
-- Gives users immediate visual feedback that shots are being created
+**B. Added skeleton placeholders during character generation**
+- 5-cell pulsing skeleton grid shown while `isGeneratingCharacter` is true
 
-**C. Use 3-column grid for AI Twin picker in beginner mode** (`Reels.tsx`)
-- Change from `grid-cols-4` to `grid-cols-3` to match advanced mode and give faces more space
-- Add the voice badge indicator like advanced mode has
+**C. Switched AI Twin picker to 3-column grid in beginner mode**
+- Changed from `grid-cols-4` to `grid-cols-3` for better tap targets
+- Added voice badge indicator matching advanced mode
 
-**D. Add tab grouping inside Advanced Lip Sync** (`Reels.tsx`)
-- Group the lip sync content into two visual sections with clear headers:
-  - "Character" section (AI Twin picker + generate + upload)
-  - "Voice & Model" section (voice selector + lip sync model)
-- Use subtle bordered sub-sections instead of one flat list
+**D. Added sub-sections to Advanced Lip Sync**
+- "Character" section: AI Twin picker, generate character, manual upload, character description
+- "Voice & Model" section: lip sync model, voiceover source (AI/upload)
+- Each in a bordered container with header
 
-**E. Add a "Skip Character" shortcut button** (`Reels.tsx`)
-- In beginner Step 3, add a secondary "Skip → Make My Reel" button below the character generation area
-- Makes it obvious that character selection is optional
-
-### Files Modified
-- `src/pages/Reels.tsx` -- all changes are in this single file
-
+**E. Added "Skip Character" shortcut**
+- Ghost button "Skip Character → Make My Reel" shown when no character is set
+- Triggers `generateAll` directly

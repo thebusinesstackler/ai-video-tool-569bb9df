@@ -3048,25 +3048,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               />
                             )}
 
-                            {/* Voice preview for this character */}
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={previewVoice}
-                                disabled={isGenerating || isPreviewingVoice}
-                              >
-                                {isPreviewingVoice ? (
-                                  <><MicOff className="w-3 h-3 mr-1" />Stop</>
-                                ) : (
-                                  <><Play className="w-3 h-3 mr-1" />Preview Voice</>
-                                )}
-                              </Button>
-                              <Badge variant="outline" className="text-[10px] self-center bg-muted">
-                                {selectedVoice ? `🎙️ ${selectedVoice.replace(/_/g, ' ')}` : '🎙️ Not set'}
-                              </Badge>
-                            </div>
 
                             <Button
                               variant="outline"
@@ -3088,7 +3069,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             {aiTwins.length > 0 && (
                               <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">Your AI Twins</Label>
-                                <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                                   {aiTwins.map(twin => {
                                     const thumbUrl = twin.reference_images?.[0];
                                     return (
@@ -3121,6 +3102,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                           </div>
                                         )}
                                         <p className="text-[9px] font-medium text-foreground truncate">{twin.name}</p>
+                                        {twin.voice_cloning_key && (
+                                          <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">
+                                            🎙️ Voice
+                                          </Badge>
+                                        )}
                                       </div>
                                     );
                                   })}
@@ -3153,12 +3139,38 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 <><Wand2 className="w-4 h-4 mr-2" />Generate Character (5 Shots)</>
                               )}
                             </Button>
+
+                            {/* Skeleton placeholders during generation */}
+                            {isGeneratingCharacter && (
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {[...Array(5)].map((_, i) => (
+                                  <div key={i} className="space-y-1">
+                                    <div className="aspect-square rounded-md bg-muted animate-pulse" />
+                                    <div className="h-2 w-2/3 mx-auto rounded bg-muted animate-pulse" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
                             <p className="text-xs text-muted-foreground text-center">
                               {generateCharacterPrompt.trim() ? 'AI will create 5 angle shots and save as AI Twin' : 'Leave blank — AI will derive the character from your topic'}
                             </p>
                           </div>
                         )}
                       </div>
+
+                      {/* Skip Character shortcut */}
+                      {!portraitPreview && !isGeneratingCharacter && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-muted-foreground hover:text-foreground"
+                          onClick={generateAll}
+                          disabled={isGenerating || !topic.trim()}
+                        >
+                          Skip Character → Make My Reel
+                        </Button>
+                      )}
 
                       {/* Voice Selection — character-driven */}
                       <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
@@ -3630,7 +3642,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 <CollapsibleContent>
                 {enableLipSync && (
                 <CardContent className="space-y-4 pt-0">
-                  {/* AI Twin Selector */}
+                  {/* ── Character Section ── */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary" />
+                      Character
+                    </h4>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Sparkles className="w-3 h-3 text-primary" />
@@ -3939,6 +3956,14 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         : "Describe the person so all generated scripts match their gender, age, and appearance."}
                     </p>
                   </div>
+                  </div>
+
+                  {/* ── Voice & Model Section ── */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-primary" />
+                      Voice & Model
+                    </h4>
 
                   {/* Model Selection */}
                   <div className="space-y-2">
@@ -4076,6 +4101,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         AI will generate voiceover from your script and sync lips to the audio
                       </p>
                     )}
+                  </div>
                   </div>
                 </CardContent>
               )}
