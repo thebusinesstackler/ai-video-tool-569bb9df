@@ -8,17 +8,13 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import MovieSceneCreator from "./pages/MovieSceneCreator";
 import Movies from "./pages/Movies";
-import Scripts from "./pages/Scripts";
 import Characters from "./pages/Characters";
-import Projects from "./pages/Projects";
 import Settings from "./pages/Settings";
 import Reels from "./pages/Reels";
 import Gallery from "./pages/Gallery";
 import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
 import AISpokesperson from "./pages/AISpokesperson";
-import CommercialStudio from "./pages/CommercialStudio";
-import Videos from "./pages/Videos";
 import HookEngine from "./pages/HookEngine";
 import NotFound from "./pages/NotFound";
 
