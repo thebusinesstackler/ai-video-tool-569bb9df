@@ -2002,9 +2002,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               }
               // Merge new voiceovers with existing ones (no mutation)
               const mergedAudios = [...sortedAudios, ...newVoiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
-              // Replace sortedAudios reference for downstream use
-              sortedAudios.length = 0;
-              sortedAudios.push(...mergedAudios);
+              // Replace sortedAudios for downstream use (immutable)
+              sortedAudios.splice(0, sortedAudios.length, ...mergedAudios);
             }
             
             // Only include audio for scenes that need overlay (non-VEO 3 scenes)
