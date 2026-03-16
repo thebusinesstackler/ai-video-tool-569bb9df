@@ -3698,6 +3698,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         </div>
                       )}
 
+                      {/* Product swap for selected shot */}
+                      {portraitPreview && (
+                        <ProductSwapPanel
+                          shotImageUrl={portraitPreview}
+                          characterDescription={characterDescription}
+                          onShotSwapped={(newUrl) => {
+                            setPortraitImage(newUrl);
+                            setPortraitPreview(newUrl);
+                            setPreSelectedReference(newUrl);
+                            setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s));
+                          }}
+                          disabled={isGenerating}
+                        />
+                      )}
+
                       {/* Voice section for this character */}
                       <div className="space-y-2 pt-2 border-t border-border">
                         <Label className="text-xs text-muted-foreground flex items-center gap-1">
