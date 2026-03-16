@@ -335,7 +335,7 @@ const Reels = () => {
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
-  const [selectedVoice, setSelectedVoice] = useState<string>('ai-auto');
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
