@@ -118,10 +118,13 @@ export function LoopAIDirector({
 
   // Auto-greet on new project (segments cleared + no chat history)
   useEffect(() => {
-    if (prevSegmentsLenRef.current > 0 && segments.length === 0 && messages.length === 0) {
+    if (prevSegmentsLenRef.current > 0 && segments.length === 0) {
+      // Full reset: clear chat history for new project
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+      stopSpeaking();
       const greeting: Message = {
         role: 'assistant',
-        content: "🎬 **The Ultimate Video Pro is here!** Fresh canvas — let's build something incredible.\n\nTell me the **product**, **audience**, and **vibe** — I'll architect a full PAS-framework storyboard with cinematic camera angles, lighting, and pacing built in. Or try:\n- *\"30s testimonial for a fitness app targeting busy moms\"*\n- *\"15s TikTok ad for luxury candles, warm & dreamy vibes\"*\n- *\"60s YouTube ad for an AI calendar, modern & techy\"*\n\nI'll handle the strategy, scripts, camera work, character casting, and voice direction — you just bring the vision 🔥"
+        content: "🎬 Fresh canvas — let's build something incredible.\n\nWhat's the **product**, **audience**, and **vibe**? I'll handle the rest—"
       };
       setMessages([greeting]);
     }
@@ -673,11 +676,11 @@ export function LoopAIDirector({
     }]);
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSendWithMessage = async (msg: string) => {
+    if (!msg.trim() || isLoading) return;
     if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
 
-    const userMessage: Message = { role: 'user', content: input };
+    const userMessage: Message = { role: 'user', content: msg };
     const chatMessages = messages.filter(m => m.role !== 'system-action');
     setMessages(prev => [...prev, userMessage]);
     setInput('');
@@ -695,17 +698,14 @@ export function LoopAIDirector({
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
+            messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: msg }],
             targetDuration: parseInt(targetDuration),
             currentSegments: segments.length > 0 ? segments.map((s, index) => {
-              // Calculate type-specific number for clarity
               let typeNum = 0;
               for (let j = 0; j <= index; j++) {
                 if (segments[j].type === s.type) typeNum++;
               }
-              // Infer narrative role from position
               const speakingSegments = segments.filter(seg => seg.type === 'speaking');
-              const brollSegments = segments.filter(seg => seg.type === 'broll');
               let narrativeRole = '';
               if (s.type === 'speaking') {
                 const speakIdx = speakingSegments.indexOf(s);
@@ -791,7 +791,6 @@ export function LoopAIDirector({
         }
       }
 
-      // Process AI response - check for new strategy OR edit actions
       const strategy = extractStrategyFromMessage(assistantContent);
       if (strategy) {
         applyStrategy(strategy);
@@ -802,7 +801,6 @@ export function LoopAIDirector({
         }
       }
 
-      // Speak the response aloud
       speakResponse(assistantContent);
     } catch (error) {
       console.error('Loop AI error:', error);
@@ -811,6 +809,11 @@ export function LoopAIDirector({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+    handleSendWithMessage(input);
   };
 
   const applyStrategy = (strategy: CommercialStrategy) => {
@@ -903,10 +906,19 @@ export function LoopAIDirector({
       return actions;
     }
 
+    // Detect product image in any segment for propagation suggestion
+    const hasProductInAnyScene = segments.some(s => s.productImageUrl);
+    const brollWithoutProduct = segments.filter(s => s.type === 'broll' && !s.productImageUrl);
+
     const missingCharacters = segments.filter(s => s.type === 'speaking' && (!s.character?.referenceImages || s.character.referenceImages.length === 0));
     const missingAudio = segments.filter(s => s.type === 'speaking' && !s.audioUrl);
     const missingBroll = segments.filter(s => s.type === 'broll' && (!s.brollImages || s.brollImages.length === 0));
     const hasAnyVideo = segments.some(s => s.videoUrl);
+
+    // Product propagation — top priority
+    if (hasProductInAnyScene && brollWithoutProduct.length > 0) {
+      actions.push({ label: `📦 Swap product to ${brollWithoutProduct.length} B-roll`, message: 'Swap my product image into all B-roll scenes that are missing it', icon: '📦' });
+    }
 
     if (missingCharacters.length > 0) {
       actions.push({ label: `🎭 Generate ${missingCharacters.length} character${missingCharacters.length > 1 ? 's' : ''}`, message: 'Generate all missing character images', icon: '🎭' });
@@ -915,18 +927,20 @@ export function LoopAIDirector({
       actions.push({ label: `🎙️ Generate ${missingAudio.length} voiceover${missingAudio.length > 1 ? 's' : ''}`, message: 'Generate voiceovers for all scenes missing audio', icon: '🎙️' });
     }
     if (missingBroll.length > 0) {
-      actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll preview${missingBroll.length > 1 ? 's' : ''}`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
+      actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
     }
     if (segments.length > 0 && !hasAnyVideo) {
       actions.push({ label: '🚀 Full production pass', message: 'Do a full production pass — generate everything that\'s missing', icon: '🚀' });
     }
     if (segments.length > 0) {
-      actions.push({ label: '🔍 Review storyboard', message: 'Review my storyboard and fix any issues', icon: '🔍' });
+      actions.push({ label: '📝 Show script breakdown', message: 'Show me the full script flow — how all the scenes connect together with timing', icon: '📝' });
+      actions.push({ label: '🔍 Review & polish', message: 'Review my storyboard and fix any issues', icon: '🔍' });
+      actions.push({ label: '➕ Add B-roll', message: 'Suggest and add a cinematic B-roll scene that fits the narrative', icon: '➕' });
       actions.push({ label: '🎵 Add music', message: 'Add background music that matches the mood of this commercial', icon: '🎵' });
       actions.push({ label: '✏️ Punch up the hook', message: 'Make the hook scene more attention-grabbing', icon: '✏️' });
     }
 
-    return actions.slice(0, 4);
+    return actions.slice(0, 5);
   };
 
   const LoopAvatar = ({ size = 'sm' }: { size?: 'sm' | 'lg' }) => (
@@ -1089,7 +1103,7 @@ export function LoopAIDirector({
                     variant="outline"
                     size="sm"
                     className="text-[10px] h-auto py-1.5 px-2.5 hover:bg-primary/5 hover:border-primary/30 transition-colors"
-                    onClick={() => { setInput(action.message); }}
+                    onClick={() => { handleSendWithMessage(action.message); }}
                   >
                     <span className="mr-1">{action.icon}</span>
                     {action.label.replace(/^[^\s]+\s/, '')}
