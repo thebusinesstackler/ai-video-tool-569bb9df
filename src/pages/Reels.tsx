@@ -3083,7 +3083,57 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             </Button>
                           </div>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
+                            {/* Existing AI Twins picker */}
+                            {aiTwins.length > 0 && (
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Your AI Twins</Label>
+                                <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                                  {aiTwins.map(twin => {
+                                    const thumbUrl = twin.reference_images?.[0];
+                                    return (
+                                      <div
+                                        key={twin.id}
+                                        onClick={() => {
+                                          if (isGenerating) return;
+                                          setSelectedTwinId(twin.id);
+                                          if (twin.reference_images?.[0]) {
+                                            setPortraitImage(twin.reference_images[0]);
+                                            setPortraitPreview(twin.reference_images[0]);
+                                            setPreSelectedReference(twin.reference_images[0]);
+                                            setGeneratedCharacterShots(
+                                              twin.reference_images.map((url, i) => ({ label: `Angle ${i + 1}`, url }))
+                                            );
+                                            setSelectedShotIndex(0);
+                                          }
+                                          if (twin.face_description) {
+                                            setCharacterDescription(twin.face_description);
+                                          }
+                                          toast({ title: `"${twin.name}" selected ✨` });
+                                        }}
+                                        className="cursor-pointer rounded-lg border-2 border-border hover:border-primary/50 p-1.5 transition-all text-center bg-background"
+                                      >
+                                        {thumbUrl ? (
+                                          <img src={thumbUrl} alt={twin.name} className="w-full aspect-square object-cover rounded-md mb-1" />
+                                        ) : (
+                                          <div className="w-full aspect-square rounded-md bg-muted flex items-center justify-center mb-1">
+                                            <User className="w-5 h-5 text-muted-foreground" />
+                                          </div>
+                                        )}
+                                        <p className="text-[9px] font-medium text-foreground truncate">{twin.name}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="relative flex items-center">
+                              <div className="flex-1 border-t border-border" />
+                              <span className="px-3 text-[10px] text-muted-foreground">{aiTwins.length > 0 ? 'or generate new' : 'Generate a character'}</span>
+                              <div className="flex-1 border-t border-border" />
+                            </div>
+
                             <Input
                               placeholder="Describe your character or leave blank — AI will pick one from your topic"
                               value={generateCharacterPrompt}
