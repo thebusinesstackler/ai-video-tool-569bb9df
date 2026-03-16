@@ -357,6 +357,28 @@ export function useTestimonialCommercial() {
         setGenerationProgress((step / totalSteps) * 30); // First 30% is character gen
       }
 
+      // ── Voice Registry: lock one voice per character for the entire project ──
+      const MALE_VOICES = ['English_Trustworth_Man', 'Deep_Voice_Man', 'Casual_Guy', 'English_magnetic_voiced_man'];
+      const FEMALE_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+      const voiceRegistry: Record<string, string> = {};
+
+      for (const seg of segments) {
+        if (seg.type !== 'speaking' || !seg.character) continue;
+        const charKey = seg.character.twinId || seg.character.name || seg.id;
+        if (voiceRegistry[charKey]) continue; // already assigned
+
+        const gender = seg.character.gender ||
+          (seg.character.description?.toLowerCase().includes('female') ||
+           seg.character.description?.toLowerCase().includes('woman') ? 'female' : 'male');
+
+        const pool = gender === 'female' ? FEMALE_VOICES : MALE_VOICES;
+        // Deterministic pick: hash the charKey to pick a stable index
+        const hash = charKey.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+        voiceRegistry[charKey] = pool[hash % pool.length];
+      }
+
+      console.log('[voice-lock] Registry:', voiceRegistry);
+
       // === SCENE-BY-SCENE GENERATION ===
       for (let i = 0; i < segments.length; i++) {
         if (creditError) break;
@@ -394,8 +416,10 @@ export function useTestimonialCommercial() {
             step++;
             setGenerationProgress(30 + (step / totalSteps) * 70);
 
-            // Generate TTS audio
+            // Generate TTS audio — use locked voice from registry
             toast.info(`Scene ${i + 1}: Generating voiceover...`);
+            const voiceCharKey = segment.character?.twinId || segment.character?.name || segment.id;
+            const lockedVoice = voiceRegistry[voiceCharKey] || 'English_Trustworth_Man';
             const gender = segment.character?.gender || 
               (segment.character?.description?.toLowerCase().includes('female') || 
                segment.character?.description?.toLowerCase().includes('woman') ? 'female' : 'male');
@@ -403,7 +427,7 @@ export function useTestimonialCommercial() {
             const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
               body: {
                 text: sanitizeForTTS(segment.script || ''),
-                voice: 'ai-auto',
+                voice: lockedVoice,
                 gender,
               }
             });
@@ -454,7 +478,7 @@ export function useTestimonialCommercial() {
                 model: styleConfig.speakingModel,
                 prompt: cinematicPrompt,
                 imageUrls: [referenceImage],
-                duration: Math.min(segment.duration, styleConfig.maxDuration),
+                // InfiniteTalk auto-derives duration from audio — don't cap speaking segments
                 aspectRatio,
               };
               
@@ -519,8 +543,10 @@ export function useTestimonialCommercial() {
               // Generate TTS for voiceover if specified
               let voiceoverAudioUrl: string | undefined;
               if (segment.voiceoverText) {
+                // Use the first registered voice for b-roll voiceover continuity
+                const brollVoice = Object.values(voiceRegistry)[0] || 'English_Trustworth_Man';
                 const { data: ttsData } = await supabase.functions.invoke('text-to-speech', {
-                  body: { text: segment.voiceoverText, voice: 'ai-auto', gender: 'male' }
+                  body: { text: sanitizeForTTS(segment.voiceoverText), voice: brollVoice, gender: 'male' }
                 });
                 voiceoverAudioUrl = ttsData?.audioUrl;
               }
