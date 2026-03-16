@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, VolumeX, CheckCircle2, Sparkles, Plus, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, VolumeX, CheckCircle2, Sparkles, Plus, Eye, EyeOff, Zap } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { CommercialSegment } from '@/types/testimonialCommercial';
@@ -175,6 +175,8 @@ export function LoopAIDirector({
   const [isListening, setIsListening] = useState(false);
   const [showAIContext, setShowAIContext] = useState(false);
   const [autoGenProgress, setAutoGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
+  const [pendingGeneration, setPendingGeneration] = useState<CommercialSegment[] | null>(null);
+  const [userPresets, setUserPresets] = useState<{ name: string; camera_angle: string; lighting_style: string }[]>([]);
   const prevSegmentsLenRef = useRef(segments.length);
 
   // Auto-greet on new project (segments cleared + no chat history)
@@ -191,6 +193,21 @@ export function LoopAIDirector({
     }
     prevSegmentsLenRef.current = segments.length;
   }, [segments.length]);
+
+  // Fetch user's visual presets for dynamic suggestions
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('visual_presets')
+      .select('name, camera_angle, lighting_style')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data) setUserPresets(data);
+      });
+  }, [user?.id]);
+
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
   const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(() => {
@@ -1203,8 +1220,11 @@ export function LoopAIDirector({
       return issues.length > 0 ? issues : undefined;
     })() : undefined;
 
-    return { projectSummary, currentSegments, timelineIssues };
-  }, [segments, targetDuration]);
+    // Include user's visual presets for dynamic suggestions
+    const visualPresets = userPresets.length > 0 ? userPresets : undefined;
+
+    return { projectSummary, currentSegments, timelineIssues, visualPresets };
+  }, [segments, targetDuration, userPresets]);
 
   const handleSendWithMessage = async (msg: string) => {
     if (!msg.trim() || isLoading) return;
@@ -1219,7 +1239,7 @@ export function LoopAIDirector({
     let assistantContent = '';
 
     try {
-      const { projectSummary, currentSegments, timelineIssues } = buildAIPayload();
+      const { projectSummary, currentSegments, timelineIssues, visualPresets } = buildAIPayload();
 
       // Build messages array with a context override to prevent hallucination from stale history
       const outgoingMessages = [
@@ -1246,6 +1266,7 @@ export function LoopAIDirector({
             projectSummary,
             currentSegments,
             timelineIssues,
+            visualPresets,
           }),
         }
       );
@@ -1384,16 +1405,28 @@ export function LoopAIDirector({
     const totalDur = newSegments.reduce((sum, s) => sum + s.duration, 0);
     const uniqueChars = Object.keys(characterLookup).length;
 
+    // Store pending generation — wait for user approval before consuming credits
+    setPendingGeneration(newSegments);
+
     setMessages(prev => [...prev, {
       role: 'system-action' as const,
-      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total${uniqueChars > 0 ? ` (${uniqueChars} unique actor${uniqueChars !== 1 ? 's' : ''})` : ''}`
+      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total${uniqueChars > 0 ? ` (${uniqueChars} unique actor${uniqueChars !== 1 ? 's' : ''})` : ''}.\n\n⏸️ **Review the storyboard above, then click "Approve & Generate" to create all assets (images, voices, B-roll). This will consume API credits.**`
     }]);
 
-    // Auto-save to DB
+    // Auto-save storyboard to DB, but DON'T auto-generate assets
     setTimeout(() => onSaveToDb(), 500);
+  };
 
-    // Auto-generate all assets (characters + B-roll) with progress
-    setTimeout(() => autoGenerateAssets(newSegments), 1000);
+  // User-approved generation — triggered by clicking "Approve & Generate"
+  const approveAndGenerate = () => {
+    if (!pendingGeneration) return;
+    const segs = pendingGeneration;
+    setPendingGeneration(null);
+    setMessages(prev => [...prev, {
+      role: 'system-action' as const,
+      content: '🚀 Approved! Generating all characters, B-roll, and voiceovers now...'
+    }]);
+    autoGenerateAssets(segs);
   };
 
   const autoGenerateAssets = async (segs: CommercialSegment[]) => {
@@ -1754,11 +1787,33 @@ export function LoopAIDirector({
                       ? 'bg-primary text-primary-foreground rounded-br-sm'
                       : 'bg-muted/80 rounded-bl-sm border border-border/30'
                   }`}>
-                    {msg.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-2 [&>p]:leading-relaxed [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:text-sm [&>h2]:text-xs [&>h3]:text-xs [&>blockquote]:text-xs [&>blockquote]:border-primary/30">
-                        <ReactMarkdown>{renderMessageContent(msg.content)}</ReactMarkdown>
-                      </div>
-                    ) : (
+                    {msg.role === 'assistant' ? (() => {
+                      const rendered = renderMessageContent(msg.content);
+                      // Extract inline images from assistant markdown
+                      const imgMatches = [...rendered.matchAll(/!\[.*?\]\((https?:\/\/[^\)]+)\)/g)];
+                      const imageUrls = imgMatches.map(m => m[1]);
+                      const textOnly = rendered.replace(/!\[.*?\]\([^\)]+\)/g, '').trim();
+                      return (
+                        <div>
+                          <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-2 [&>p]:leading-relaxed [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:text-sm [&>h2]:text-xs [&>h3]:text-xs [&>blockquote]:text-xs [&>blockquote]:border-primary/30">
+                            <ReactMarkdown>{textOnly}</ReactMarkdown>
+                          </div>
+                          {imageUrls.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {imageUrls.map((url, j) => (
+                                <img
+                                  key={j}
+                                  src={url}
+                                  alt={`Generated ${j + 1}`}
+                                  className="w-16 h-16 rounded-md object-cover border border-border/30 hover:scale-110 transition-transform cursor-pointer"
+                                  onClick={() => window.open(url, '_blank')}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })() : (
                       <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
                     )}
                   </div>
@@ -1773,6 +1828,42 @@ export function LoopAIDirector({
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
                     <span className="text-[10px] text-muted-foreground italic">Loop AI is crafting your vision...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Confirmation interceptor — Approve & Generate button */}
+            {pendingGeneration && !autoGenProgress && (
+              <div className="flex gap-3">
+                <div className="mt-0.5"><LoopAvatar /></div>
+                <div className="bg-muted/80 rounded-xl rounded-bl-sm px-3.5 py-3 border border-primary/30 w-full max-w-[320px]">
+                  <p className="text-xs text-muted-foreground mb-2.5">
+                    {pendingGeneration.filter(s => s.type === 'speaking').length} characters + {pendingGeneration.filter(s => s.type === 'broll').length} B-roll clips ready to generate.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={approveAndGenerate}
+                    >
+                      <Zap className="h-3 w-3" />
+                      Approve & Generate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        setPendingGeneration(null);
+                        setMessages(prev => [...prev, {
+                          role: 'system-action' as const,
+                          content: '⏸️ Generation skipped. You can edit the storyboard first, then tell me "generate everything" when ready.'
+                        }]);
+                      }}
+                    >
+                      Skip
+                    </Button>
                   </div>
                 </div>
               </div>
