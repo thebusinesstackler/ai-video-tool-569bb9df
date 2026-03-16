@@ -60,8 +60,6 @@ export const Dashboard = () => {
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // Force component re-render to clear any cached errors
-  const componentKey = `dashboard-${Date.now()}`;
 
   useEffect(() => {
     if (user) {
