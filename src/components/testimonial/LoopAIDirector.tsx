@@ -185,7 +185,7 @@ export function LoopAIDirector({
       stopSpeaking();
       const greeting: Message = {
         role: 'assistant',
-        content: "🎬 Fresh canvas — let's build something incredible.\n\nWhat's the **product**, **audience**, and **vibe**? I'll handle the rest—"
+        content: "🎬 Fresh canvas, let's build something incredible.\n\nTell me the **product**, **audience**, and **vibe**. I'll generate the full storyboard, cast the actors, create all visuals, and produce the voiceovers automatically."
       };
       setMessages([greeting]);
     }
@@ -1422,6 +1422,24 @@ export function LoopAIDirector({
       setAutoGenProgress({ current, total, label: current < speakingSegs.length ? `Generating character ${current + 1}/${speakingSegs.length}...` : 'Generating B-roll previews...' });
     }
 
+    // Show generated character images inline
+    setTimeout(() => {
+      const latestSegs = segments.length > 0 ? segments : segs;
+      const charPreviews: string[] = [];
+      for (const seg of latestSegs) {
+        if (seg.type === 'speaking' && seg.character?.referenceImages?.length) {
+          const imgs = seg.character.referenceImages.slice(0, 3).map((url, i) => `![pose${i}](${url})`).join(' ');
+          charPreviews.push(`**${seg.character.name?.slice(0, 40) || 'Character'}**: ${imgs}`);
+        }
+      }
+      if (charPreviews.length > 0) {
+        setMessages(prev => [...prev, {
+          role: 'system-action' as const,
+          content: `🎭 **Your actors are ready:**\n\n${charPreviews.join('\n\n')}`
+        }]);
+      }
+    }, 500);
+
     // Then B-roll previews
     for (const seg of brollSegs) {
       try {
@@ -1435,9 +1453,32 @@ export function LoopAIDirector({
     }
 
     setAutoGenProgress(null);
+
+    // Now auto-generate voiceovers for all speaking scenes
+    const voiceSegs = segs.filter(s => s.type === 'speaking' && s.script && !s.audioUrl);
+    if (voiceSegs.length > 0) {
+      setAutoGenProgress({ current: 0, total: voiceSegs.length, label: 'Generating voiceovers...' });
+      setMessages(prev => [...prev, {
+        role: 'system-action' as const,
+        content: `🎙️ Generating voiceovers for ${voiceSegs.length} scene${voiceSegs.length !== 1 ? 's' : ''}...`
+      }]);
+
+      let voiceCurrent = 0;
+      for (const seg of voiceSegs) {
+        try {
+          setAutoGenProgress({ current: voiceCurrent, total: voiceSegs.length, label: `Generating voiceover ${voiceCurrent + 1}/${voiceSegs.length}...` });
+          await previewAudio(seg.script!, seg.id, seg.character?.description || '');
+        } catch (e) {
+          console.error('Auto-gen voice failed:', e);
+        }
+        voiceCurrent++;
+      }
+      setAutoGenProgress(null);
+    }
+
     setMessages(prev => [...prev, {
       role: 'system-action' as const,
-      content: `✅ All assets generated — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''} and ${brollSegs.length} B-roll preview${brollSegs.length !== 1 ? 's' : ''} ready. Review the timeline and let me know what to adjust.`
+      content: `✅ Production ready — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''}, ${brollSegs.length} B-roll, and ${voiceSegs.length} voiceover${voiceSegs.length !== 1 ? 's' : ''} generated. Click any scene in the timeline to fine-tune, or tell me what to change.`
     }]);
   };
 
@@ -1634,7 +1675,7 @@ export function LoopAIDirector({
             </div>
             <h3 className="text-lg font-bold mb-1">Loop AI Director</h3>
             <p className="text-xs text-muted-foreground max-w-[280px] mb-6 leading-relaxed">
-              Hey, I'm your creative director — here to help you build amazing commercials. Tell me about your product and I'll set up the whole thing — actors, scripts, B-roll, transitions. Need changes? Just tell me — I've got you—
+              I'm your creative director. Tell me about your product and I'll build the full commercial: storyboard, actors, B-roll, voiceovers, everything. Need changes? Just say the word.
             </p>
             <div className="flex flex-col gap-2 w-full max-w-[320px]">
               {[
@@ -1659,20 +1700,34 @@ export function LoopAIDirector({
           <div className="space-y-4">
             {messages.map((msg, i) => {
               if (msg.role === 'system-action') {
-                // Check if this is a segment reference with an image
-                const imgMatch = msg.content.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+                // Extract ALL image URLs from markdown
+                const imgMatches = [...msg.content.matchAll(/!\[.*?\]\((https?:\/\/[^\)]+)\)/g)];
+                const imageUrls = imgMatches.map(m => m[1]);
                 const textContent = msg.content.replace(/!\[.*?\]\([^\)]+\)/g, '').trim();
                 return (
                   <div key={i} className="flex justify-center">
                     <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-4 py-2.5 text-xs font-medium max-w-[90%]">
                       <div className="flex items-start gap-2">
-                        {imgMatch ? (
-                          <img src={imgMatch[1]} alt="Scene reference" className="w-12 h-12 rounded object-cover shrink-0 border border-border/30" />
-                        ) : (
+                        {imageUrls.length === 0 && (
                           <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
                         )}
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-1 [&>p]:leading-relaxed">
-                          <ReactMarkdown>{textContent}</ReactMarkdown>
+                        <div className="flex-1 min-w-0">
+                          <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-1 [&>p]:leading-relaxed">
+                            <ReactMarkdown>{textContent}</ReactMarkdown>
+                          </div>
+                          {imageUrls.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {imageUrls.map((url, j) => (
+                                <img
+                                  key={j}
+                                  src={url}
+                                  alt={`Reference ${j + 1}`}
+                                  className="w-16 h-16 rounded-md object-cover border border-border/30 hover:scale-110 transition-transform cursor-pointer"
+                                  onClick={() => window.open(url, '_blank')}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
