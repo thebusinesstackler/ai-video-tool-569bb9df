@@ -269,7 +269,11 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             {isLoadingStats ? (
-              <div className="text-2xl font-bold text-foreground">...</div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
             ) : stats.recentProjects.length > 0 ? (
               <div className="space-y-2">
                 {stats.recentProjects.slice(0, 3).map((p) => (
