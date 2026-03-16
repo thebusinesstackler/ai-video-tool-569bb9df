@@ -21,7 +21,7 @@ interface Message {
 interface CommercialStrategy {
   title: string;
   summary: string;
-  characters?: { characterId: string; name: string; description: string }[];
+  characters?: { characterId: string; name: string; description: string; gender?: string }[];
   segments: any[];
   totalDuration: number;
 }
@@ -89,19 +89,57 @@ const CHAT_STORAGE_KEY = 'loop-ai-director-chat';
 
 function detectGenderFromDescription(desc: string): 'female' | 'male' {
   const lower = desc.toLowerCase();
-  const femaleIndicators = ['woman', 'female', 'lady', 'girl', 'she', 'her ', 'mother', 'mom', 'sister', 'actress', 'heroine'];
+  const femaleIndicators = ['woman', 'female', 'lady', 'girl', 'she ', 'her ', 'mother', 'mom', 'sister', 'actress', 'heroine', 'latina woman', 'african american woman', 'asian woman', 'young woman', 'professional woman', 'confident woman'];
+  const maleIndicators = ['man', 'male', 'guy', 'boy', 'he ', 'his ', 'father', 'dad', 'brother', 'actor', 'hero', 'gentleman', 'latino man', 'african american man', 'asian man', 'young man', 'professional man', 'confident man'];
+  
+  const femaleScore = femaleIndicators.filter(w => lower.includes(w)).length;
+  const maleScore = maleIndicators.filter(w => lower.includes(w)).length;
+  
+  if (femaleScore > maleScore) return 'female';
+  if (maleScore > femaleScore) return 'male';
+  // Default based on common indicators
   if (femaleIndicators.some(w => lower.includes(w))) return 'female';
   return 'male';
 }
 
-function pickVoiceForCharacter(desc: string): { voiceId: string; gender: string } {
-  const gender = detectGenderFromDescription(desc);
-  if (gender === 'female') {
-    const voices = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
-    return { voiceId: voices[Math.floor(Math.random() * voices.length)], gender: 'female' };
+// Voice registry: ensures the same character always gets the same voice across all scenes
+const characterVoiceRegistry = new Map<string, { voiceId: string; gender: string }>();
+
+function getCharacterVoiceKey(desc: string, twinId?: string): string {
+  // Use twinId if available, otherwise hash first sentence of description (the immutable physical traits)
+  if (twinId) return `twin:${twinId}`;
+  const basePart = desc.split('.')[0].trim().toLowerCase().slice(0, 100);
+  return `desc:${basePart}`;
+}
+
+function pickVoiceForCharacter(desc: string, twinId?: string, existingVoiceId?: string): { voiceId: string; gender: string } {
+  // If this scene already has a voice assigned, reuse it
+  if (existingVoiceId) {
+    const gender = detectGenderFromDescription(desc);
+    return { voiceId: existingVoiceId, gender };
   }
-  const voices = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man'];
-  return { voiceId: voices[Math.floor(Math.random() * voices.length)], gender: 'male' };
+
+  // Check registry for consistent voice across scenes with the same character
+  const key = getCharacterVoiceKey(desc, twinId);
+  const cached = characterVoiceRegistry.get(key);
+  if (cached) return cached;
+
+  const gender = detectGenderFromDescription(desc);
+  let voiceId: string;
+  if (gender === 'female') {
+    // Pick deterministically based on key hash, not random
+    const voices = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+    const hash = key.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    voiceId = voices[hash % voices.length];
+  } else {
+    const voices = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man'];
+    const hash = key.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    voiceId = voices[hash % voices.length];
+  }
+
+  const result = { voiceId, gender };
+  characterVoiceRegistry.set(key, result);
+  return result;
 }
 
 export function LoopAIDirector({
@@ -237,8 +275,28 @@ export function LoopAIDirector({
     setIsPreviewingAudio(true);
     setPreviewingSegId(segId);
     try {
-      const { voiceId: autoVoiceId, gender: autoGender } = characterDescription
-        ? pickVoiceForCharacter(characterDescription)
+      // Find the segment to get twinId and existing voiceId for consistency
+      const targetSeg = segments.find(s => s.id === segId);
+      const twinId = targetSeg?.character?.twinId || targetSeg?.twinId;
+      const existingVoiceId = targetSeg?.voiceoverId;
+      
+      // For B-roll voiceovers, use the main character's voice for consistency
+      let effectiveDesc = characterDescription || '';
+      let effectiveTwinId = twinId;
+      let effectiveExistingVoiceId = existingVoiceId;
+      
+      if (targetSeg?.type === 'broll') {
+        // Find the main speaking character's voice to reuse
+        const mainSpeaker = segments.find(s => s.type === 'speaking' && s.voiceoverId);
+        if (mainSpeaker?.voiceoverId) {
+          effectiveExistingVoiceId = mainSpeaker.voiceoverId;
+          effectiveDesc = mainSpeaker.character?.description || effectiveDesc;
+          effectiveTwinId = mainSpeaker.character?.twinId || mainSpeaker.twinId;
+        }
+      }
+      
+      const { voiceId: autoVoiceId, gender: autoGender } = effectiveDesc
+        ? pickVoiceForCharacter(effectiveDesc, effectiveTwinId, effectiveExistingVoiceId)
         : { voiceId: 'English_Trustworth_Man', gender: 'male' };
 
       const voiceId = voiceIdOverride || autoVoiceId;
@@ -1265,13 +1323,14 @@ export function LoopAIDirector({
 
   const applyStrategy = (strategy: CommercialStrategy) => {
     // Build character lookup from strategy's characters array for consistency
-    const characterLookup: Record<string, { name: string; description: string }> = {};
+    const characterLookup: Record<string, { name: string; description: string; gender?: string }> = {};
     if (Array.isArray(strategy.characters)) {
       for (const char of strategy.characters) {
         if (char.characterId) {
           characterLookup[char.characterId] = {
             name: char.name || char.description?.slice(0, 60) || '',
             description: char.description || '',
+            gender: char.gender,
           };
         }
       }
@@ -1280,14 +1339,15 @@ export function LoopAIDirector({
     const newSegments: CommercialSegment[] = strategy.segments.map((seg) => {
       const duration = seg.script ? calculateDurationFromScript(seg.script) : (seg.duration || 8);
       if (seg.type === 'speaking' || seg.type === 'twin-speaking') {
-        // Resolve character from characterId lookup for consistency
         const charFromLookup = seg.characterId ? characterLookup[seg.characterId] : null;
-        // Combine: base appearance from lookup + scene-specific action from segment
         const baseDescription = charFromLookup?.description || '';
         const sceneAction = seg.characterDescription || '';
         const fullDescription = baseDescription && sceneAction
           ? `${baseDescription}. In this scene: ${sceneAction}`
           : sceneAction || baseDescription;
+
+        // Determine gender from explicit field, lookup, or description detection
+        const gender = charFromLookup?.gender || seg.gender || detectGenderFromDescription(fullDescription);
 
         return {
           id: crypto.randomUUID(),
@@ -1299,8 +1359,8 @@ export function LoopAIDirector({
           character: fullDescription ? {
             name: charFromLookup?.name || fullDescription.slice(0, 60),
             description: fullDescription,
+            gender,
             referenceImages: [],
-            // Store characterId for grouping during generation
             ...(seg.characterId ? { twinId: seg.characterId } : {}),
           } : undefined,
         };
