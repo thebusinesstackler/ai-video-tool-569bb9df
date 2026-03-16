@@ -50,9 +50,8 @@ function calculateTTSSpeed(text: string, targetDurationSeconds: number): number 
   // speed < 1 = slower (takes more time), speed > 1 = faster
   const requiredSpeed = normalDuration / targetDurationSeconds;
   
-  // Clamp to 0.5-1.0 range for natural, slower speech that fills the scene
-  // We prefer slower speech (0.5-0.8) to ensure narration fills the full duration
-  const clampedSpeed = Math.max(0.5, Math.min(1.0, requiredSpeed));
+  // Allow up to 2.0 so narration can be sped up when too long for the scene
+  const clampedSpeed = Math.max(0.5, Math.min(2.0, requiredSpeed));
   
   console.log(`TTS speed calc: ${words} words, normal=${normalDuration.toFixed(1)}s, target=${targetDurationSeconds}s, speed=${clampedSpeed.toFixed(2)}`);
   
@@ -282,6 +281,16 @@ serve(async (req) => {
       );
     }
 
+    // Validate each scene has required fields (#46)
+    for (const scene of scenes) {
+      if (typeof scene.sceneNumber !== 'number') {
+        return new Response(
+          JSON.stringify({ error: `Scene missing sceneNumber` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     console.log('Generating reel video for topic:', topic);
     console.log('Scenes:', scenes.length);
     console.log('Add captions:', addCaptions);
@@ -294,7 +303,7 @@ serve(async (req) => {
     console.log('Voiceovers provided:', voiceovers?.length || 0);
     console.log('Pre-generated images:', preGeneratedImages?.length || 0);
     console.log('Camera angles provided:', cameraAngles?.length || 0);
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    // OPENAI_API_KEY removed — not used in this function
 
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -400,6 +409,9 @@ serve(async (req) => {
         }
       } catch (imgError) {
         console.error('Image generation error for scene:', scene.sceneNumber, imgError);
+        // Push a placeholder so indices stay aligned with scenes
+        sceneImages.push('');
+        savedImageUrls.push('');
       }
     }
 
