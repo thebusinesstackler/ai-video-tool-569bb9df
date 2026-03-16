@@ -2919,7 +2919,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             <p className="text-[10px] text-muted-foreground">Hear how the narration will sound</p>
                           </div>
                           <Badge variant="outline" className="text-[10px]">
-                            {selectedVoice === 'ai-auto' ? 'Auto-detect' : selectedVoice.replace(/_/g, ' ')}
+                            {selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Not selected'}
                           </Badge>
                         </div>
                         <Button
