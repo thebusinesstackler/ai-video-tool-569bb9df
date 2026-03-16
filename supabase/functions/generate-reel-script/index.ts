@@ -279,32 +279,28 @@ NARRATION RULES:
 - Every word will be spoken slowly - write naturally flowing sentences
 - Use transitional phrases between ideas: "And here's the thing...", "But wait...", "So what does this mean?"
 
-## MANDATORY TTS FORMATTING (AI WILL BE REJECTED IF NOT FOLLOWED):
+## MANDATORY TTS FORMATTING (STRICTLY ENFORCED):
 
-CRITICAL: NEVER USE PERIODS TO END SENTENCES. This causes TTS to add "s" sounds making words plural.
+RULES FOR ALL NARRATION TEXT:
+1. Use ONLY commas (,) and question marks (?) for pauses and rhythm
+2. NEVER use periods (.) — they cause TTS to add "s" sounds making words plural
+3. NEVER use em dashes (—) or double hyphens (--) — they cause 4-second silences in TTS
+4. NEVER use ellipses (...) — they cause unnatural long pauses in TTS
+5. Use commas for breathing pauses: "You know what, this changes everything, trust me"
+6. Use question marks naturally: "But why does nobody talk about this?"
+7. End sentences with commas or let them flow into the next thought
+8. Write flowing, conversational sentences connected by commas
 
-INSTEAD OF PERIODS, USE:
-- Ellipses (...) for pauses and transitions: "It's overwhelming..."
-- Em dashes (—) for abrupt stops: "Not buried in inboxes—"
-- Line breaks between EVERY thought for natural pacing
+WRONG (causes TTS errors):
+"You're probably wrestling with which CTMS is right... It's a jungle out there—"
 
-WRONG FORMAT (DO NOT WRITE LIKE THIS - causes TTS errors):
-"You're probably wrestling with which CTMS is right. It's a jungle out there. You see countless options."
+CORRECT (natural TTS flow):
+"You're probably wrestling with which CTMS is right, it's a jungle out there, you see countless options"
 
-CORRECT FORMAT (WRITE EXACTLY LIKE THIS):
-"You're probably wrestling with which CTMS is right...
-
-It's a jungle out there—
-
-You see countless options..."
-
-MORE EXAMPLES OF CORRECT FORMAT:
-- Instead of "Yeah. Me too." write "Yeah... me too—"
-- Instead of "It's complex. Right?" write "It's complex... right?"
-- Instead of "workflow." write "workflow—" (period would make it sound like "workflows")
-- Instead of "Let me tell you. It boils down to this." write "Let me tell you—it boils down to this..."
-
-EVERY sentence must end with ... or — NEVER with a period.
+MORE CORRECT EXAMPLES:
+- "Hey everyone, let me tell you something that changed my entire perspective"
+- "But here's the thing, nobody talks about this, and it's a game changer"
+- "So what does this mean for you, well let me break it down"
 
 ${cameraInstructions}
 
@@ -385,17 +381,17 @@ VISUAL RULES:
 ${CAMERA_ANGLES.slice(0, sceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
 CRITICAL VALIDATION BEFORE RETURNING:
-- Verify that your narration contains ZERO sentence-ending periods
-- Every sentence must end with ... or —
-- Line breaks between each thought
-- If you see any "." at end of sentence, replace it with "..." or "—"
+- Verify narration contains ZERO periods, ZERO em dashes (—), ZERO ellipses (...)
+- Only commas and question marks for pauses
+- Write flowing conversational sentences
+- Scene 1 HOOK narration must be a COMPLETE, compelling sentence (15+ words minimum), not a fragment like "I" or "Hook:"
 
 Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here ending with ... or — NEVER periods",
-    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: ${characterDescription ? `${characterDescription} — ` : ''}[${characterDescription ? 'this EXACT character' : 'exact character description'} performing a TOPIC-RELEVANT action that illustrates this scene's narration - closed mouth]. LIGHTING: [specific setup e.g. warm golden hour key light, cool blue rim]. BACKGROUND: [consistent environment matching the topic for ALL scenes]. COLOR GRADE: [palette e.g. warm amber tones, rich cinematic]. ATMOSPHERE: [bokeh, haze, particles]. Camera: ${CAMERA_ANGLES[0].angle}. NOTE: The action and props MUST reflect the reel topic, not generic stock photography.${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
+    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here using ONLY commas and question marks, NO periods, NO em dashes, NO ellipses",
+    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: ${characterDescription ? `${characterDescription} — ` : ''}[${characterDescription ? 'this EXACT character' : 'detailed character description with age, ethnicity, clothing, expression'} performing a TOPIC-RELEVANT action that illustrates this scene's narration - closed mouth, natural expression]. LIGHTING: [specific setup e.g. warm golden hour key light from left, cool blue rim light from right, soft fill]. BACKGROUND: [detailed consistent environment matching the topic]. COLOR GRADE: [specific palette e.g. warm amber tones with lifted shadows, rich cinematic contrast]. ATMOSPHERE: [bokeh quality, haze, volumetric light, particles]. NOTE: Scene 1 HOOK must have the MOST visually striking, attention-grabbing cinematography.${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }
@@ -650,56 +646,30 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
   return description;
 }
 
-// AGGRESSIVE TTS formatter - converts ALL periods to prevent "s" sound artifacts
+// TTS sanitizer - removes problematic punctuation that causes TTS artifacts
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
-  // First normalize special characters
-  let text = narration
+  return narration
     // Normalize curly apostrophes to straight
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
-    // Normalize Unicode ellipsis (…) directly to em dash
-    .replace(/\u2026/g, '—');
-  
-  return text
-    // FIRST: Handle greeting and transition phrases WITH their trailing punctuation
-    // This captures "Hey everyone..," or "Let me tell you," and formats with em dash
-    .replace(/(Hey everyone|Hey there|Hello everyone|Hi everyone|Welcome back|Hey guys|Hey folks|But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\.\s]*/gi, '$1—\n\n')
-    
-    // SECOND: Convert existing ellipses to em dash (remove any period after)
-    .replace(/\.{2,}\s*/g, '—\n\n')
-    
-    // THIRD: Convert sentence-ending periods to em dashes
-    // But NOT if preceded by another period (to avoid hitting ellipses)
-    .replace(/([^.])\.(\s|$)/g, '$1—\n\n')
-    
-    // Convert commas before conjunctions to em dashes for breath pauses
-    .replace(/,\s+(and|but|so|because|or|if|when|while)\b/gi, '—\n\n$1')
-    
-    // Add line breaks after question marks
-    .replace(/\?\s+/g, '?\n\n')
-    
-    // Add line breaks after exclamation marks  
-    .replace(/!\s+/g, '!\n\n')
-    
-    // CLEANUP: Remove leading punctuation from lines (orphaned commas, etc)
-    .replace(/\n\n[,;:\s]+/g, '\n\n')
-    
-    // Clean up double em dashes
-    .replace(/—\s*—/g, '—')
-    
-    // Ensure proper formatting around em dashes
-    .replace(/\s*—\s*/g, '—\n\n')
-    
-    // Clean up ellipses followed by em dashes (..—)
-    .replace(/\.+—/g, '—')
-    
-    // Clean up multiple line breaks
-    .replace(/\n{3,}/g, '\n\n')
-    
+    // Replace em dashes with commas (prevents 4-second silences)
+    .replace(/\u2014/g, ',')
+    .replace(/—/g, ',')
+    .replace(/--/g, ',')
+    // Replace ellipses with commas (prevents long pauses)
+    .replace(/\u2026/g, ',')
+    .replace(/\.{2,}/g, ',')
+    // Replace sentence-ending periods with commas (prevents "s" sound artifacts)
+    .replace(/\.(\s|$)/g, ',$1')
+    // Clean up double/triple commas
+    .replace(/,\s*,+/g, ',')
+    // Clean up comma at start of text
+    .replace(/^,\s*/, '')
     // Clean up multiple spaces
     .replace(/  +/g, ' ')
-    
+    // Clean up excessive newlines
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
