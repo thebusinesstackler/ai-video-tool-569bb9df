@@ -389,7 +389,7 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
                             className={`bg-card hover:bg-accent/50 transition-colors cursor-pointer group relative ${
                               isSelected ? 'ring-2 ring-primary border-primary' : ''
                             }`}
-                            onClick={() => handleApply(idea)}
+                          >
                           >
                             {/* Checkbox */}
                             <div 
