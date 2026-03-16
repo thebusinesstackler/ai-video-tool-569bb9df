@@ -551,7 +551,7 @@ const Reels = () => {
       const hasScenes = (draft.project?.scenes?.length || 0) > 0;
       const hasCharacter = !!draft.portraitImage || !!draft.selectedTwinId;
       if (hasCharacter) {
-        setBeginnerStep(4);
+        setBeginnerStep(3);
       } else if (hasScenes) {
         setBeginnerStep(2);
       } else {
