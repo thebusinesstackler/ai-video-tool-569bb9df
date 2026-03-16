@@ -436,8 +436,8 @@ NEVER use periods to end sentences — they cause TTS artifacts.
 Use ellipses (...) for pauses and em dashes (—) for stops.
 Word count MUST match duration: 5s≈12 words, 8s≈20 words, 10s≈25 words.
 
-## Actor Descriptions (CRITICAL for AI image generation)
-Vivid descriptions required: age, gender, ethnicity, build, clothing, emotional state, setting, camera angle, lighting, lens specs.
+## Actor Descriptions (CRITICAL for AI image generation — PHOTOREALISTIC HUMANS)
+Vivid descriptions required: age, gender, ethnicity, build, clothing, emotional state, setting, camera angle, natural lighting, lens specs. ALWAYS append: "photorealistic, hyperrealistic skin texture with visible pores, natural lighting, real human appearance, mouth slightly parted ready to speak, realistic catchlights in eyes". NEVER allow plastic, CGI, or airbrushed-looking results.
 
 ## ⚠️ ABSOLUTE RULE — SCENE NUMBERING
 - Scenes start at #1. There is NO Scene 0. NEVER say "Scene 0".
