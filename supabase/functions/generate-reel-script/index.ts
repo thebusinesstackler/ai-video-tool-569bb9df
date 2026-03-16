@@ -778,4 +778,3 @@ CRITICAL: No text, no captions, no subtitles, no watermarks. CLOSED MOUTH. Verti
       return `${baseOutro} The subject has a satisfied, knowing expression, as if the viewer just learned something valuable worth remembering.`;
   }
 }
-}
