@@ -509,7 +509,7 @@ Return ONLY valid JSON array:
     }
 
     if (hasOutro) {
-      const outroNarration = formatScriptForTTS(outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate));
+      const outroNarration = formatScriptForTTS(outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate, topic));
       
       const outroScene = {
         sceneNumber: scenes.length + 1,
