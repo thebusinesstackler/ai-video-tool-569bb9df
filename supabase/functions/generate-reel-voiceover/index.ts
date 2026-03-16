@@ -175,7 +175,7 @@ serve(async (req) => {
     
     if (WAVESPEED_API_KEY) {
       try {
-        const base64Audio = await generateWaveSpeedTTS(cleanedText, resolvedVoice, WAVESPEED_API_KEY);
+        const base64Audio = await generateWaveSpeedTTS(cleanedText, resolvedVoice, WAVESPEED_API_KEY, gender);
         const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
         
         console.log('Voiceover generated with WaveSpeed MiniMax for scene:', sceneNumber);
