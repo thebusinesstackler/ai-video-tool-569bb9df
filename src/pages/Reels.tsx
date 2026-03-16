@@ -3046,7 +3046,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 }}
                                 disabled={isGenerating}
                               />
-                            )
+                            )}
+
+                            {/* Voice preview for this character */}
                             <div className="flex gap-2">
                               <Button
                                 variant="outline"
