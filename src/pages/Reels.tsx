@@ -2120,8 +2120,9 @@ const Reels = () => {
       console.log('Beginner mode: using pre-generated scripts from review step');
       generatedScenes = project.scenes;
     } else {
-      generatedScenes = await generateScripts();
-    }
+      // Pass character description directly to avoid stale React state
+      const twinCharDesc = selectedTwinId ? (aiTwins.find(t => t.id === selectedTwinId)?.face_description || characterDescription) : characterDescription;
+      generatedScenes = await generateScripts({ characterDescriptionOverride: twinCharDesc });
     
     if (abortRef.current?.signal.aborted) return;
     
