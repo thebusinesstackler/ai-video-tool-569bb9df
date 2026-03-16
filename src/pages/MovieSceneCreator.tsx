@@ -286,16 +286,16 @@ const MovieSceneCreator = () => {
 
   // Auto-save outline and movieIdea on change (only when authenticated)
   useEffect(() => {
-    if (currentProjectId && outline && user) {
+    if (currentProjectId && outline && userId) {
       autoSaveField({ outline });
     }
-  }, [outline, currentProjectId, user]);
+  }, [outline, currentProjectId, userId]);
 
   useEffect(() => {
-    if (currentProjectId && movieIdea && user) {
+    if (currentProjectId && movieIdea && userId) {
       autoSaveField({ movie_idea: movieIdea });
     }
-  }, [movieIdea, currentProjectId, user]);
+  }, [movieIdea, currentProjectId, userId]);
 
   // Helper to toggle twin selection
   const toggleTwinSelection = (twin: AITwin) => {
