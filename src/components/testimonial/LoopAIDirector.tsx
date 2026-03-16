@@ -835,14 +835,19 @@ export function LoopAIDirector({
         }
 
         case 'regenerateAudio': {
-          for (const sceneIndex of targetIndexes) {
+          for (let vi = 0; vi < targetIndexes.length; vi++) {
+            const sceneIndex = targetIndexes[vi];
             const seg = segments[sceneIndex];
             const script = seg.script || seg.voiceoverText || '';
             if (!script) { editSummary.push(`⚠️ Scene ${sceneIndex + 1} has no script/text for audio`); continue; }
             
+            // Stop previous audio and delay between calls
+            if (vi > 0) await new Promise(r => setTimeout(r, 2000));
+            
             if (edit.voiceId) {
-              // Use specific voice ID override
               try {
+                // Stop any currently playing audio
+                if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
                 toast.info(`🎙️ Regenerating audio with voice: ${edit.voiceId}...`);
                 const { data, error } = await supabase.functions.invoke('text-to-speech', {
                   body: { text: script, voice: edit.voiceId, gender: edit.gender || 'male' }
@@ -854,11 +859,10 @@ export function LoopAIDirector({
                 editSummary.push(`⚠️ Failed to regenerate audio for scene ${sceneIndex + 1}`);
               }
             } else {
-              // Auto-detect voice from gender or description
               const charDesc = edit.gender
                 ? (edit.gender === 'female' ? 'A professional woman' : 'A professional man')
                 : (seg.character?.description || '');
-              previewAudio(script, seg.id, charDesc);
+              await previewAudio(script, seg.id, charDesc);
               editSummary.push(`🎙️ Regenerating audio for scene ${sceneIndex + 1}${edit.gender ? ` (${edit.gender} voice)` : ''}`);
             }
           }
