@@ -111,7 +111,8 @@ export const Navigation = () => {
     try {
       await signOut();
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
-      setTimeout(() => { window.location.href = '/'; }, 100);
+      // Use window.location for clean sign-out to clear all React state
+      window.location.href = '/';
     } catch (error: any) {
       console.error('Sign out error:', error);
       toast({ title: "Sign Out Failed", description: error.message, variant: "destructive" });

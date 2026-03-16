@@ -182,7 +182,7 @@ const Auth = () => {
         if (!result.error) {
           toast({
             title: "Account Created!",
-            description: "Welcome to AI Video Creator! You can now create amazing videos.",
+            description: "Please check your email to confirm your account before signing in.",
           });
         }
       } else {

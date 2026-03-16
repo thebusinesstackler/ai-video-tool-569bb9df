@@ -1110,7 +1110,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         video_url: item.video_url,
         thumbnail_url: item.thumbnail_url,
         audio_url: item.audio_url,
-        scenes: (item.scenes as any[]) || [],
+        scenes: [], // Scenes loaded on-demand when editing to avoid massive JSON payloads
         total_duration: item.total_duration ?? 0,
         created_at: item.created_at,
         caption_settings: item.caption_settings as SavedReel['caption_settings'],
