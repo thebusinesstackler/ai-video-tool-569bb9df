@@ -485,6 +485,8 @@ export default function TestimonialCommercial() {
                 segments={segments}
                 targetDuration={targetDuration}
                 onTargetDurationChange={setTargetDuration}
+                focusedSegmentId={focusedSegmentId}
+                onClearFocusedSegment={() => setFocusedSegmentId(null)}
               />
             )}
           </div>
