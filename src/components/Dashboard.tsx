@@ -195,9 +195,11 @@ export const Dashboard = () => {
               and automated production using the latest VEO3 technology.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button variant="hero" size="lg">
-                <PlayIcon className="w-5 h-5" />
-                Start Creating
+              <Button variant="hero" size="lg" asChild>
+                <Link to="/reels">
+                  <PlayIcon className="w-5 h-5" />
+                  Start Creating
+                </Link>
               </Button>
             </div>
           </div>
