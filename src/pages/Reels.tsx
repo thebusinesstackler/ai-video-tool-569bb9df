@@ -3040,7 +3040,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 )}
                               </Button>
                               <Badge variant="outline" className="text-[10px] self-center bg-muted">
-                                {selectedVoice === 'ai-auto' ? '🎙️ Auto' : `🎙️ ${selectedVoice.replace(/_/g, ' ')}`}
+                                {selectedVoice ? `🎙️ ${selectedVoice.replace(/_/g, ' ')}` : '🎙️ Not set'}
                               </Badge>
                             </div>
 
