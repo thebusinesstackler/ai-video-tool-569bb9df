@@ -1,34 +1,61 @@
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
+## Status: ✅ Implemented
 
-## Plan: Auto-Show Final Commercial with Captions
+## Changes Made
 
-### Problem
-1. After generating a commercial, you have to manually click "Final Cut" tab — it should automatically scroll/show the finished video inline
-2. There's no caption/subtitle support on the Testimonial Commercial page (Reels has `KaraokeCaption` + `CaptionStyleSelector` but commercials don't use them)
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-### Changes
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-**1. `src/pages/TestimonialCommercial.tsx` — Auto-show finished video inline with captions**
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-- Add a caption settings state using the existing `CaptionSettings` type and `CaptionStyleSelector` component
-- After generation completes (`handleGenerate`), instead of just switching to "Final Cut" tab, render the finished video **inline below the segments** with a prominent "Your Commercial is Ready" card — visible without tab switching
-- Replace the plain `<video>` tag in the Final Cut section with `VideoPlayerWithOverlay` (already supports karaoke captions) — pass the segments' scripts as scene text for caption rendering
-- Add `CaptionStyleSelector` toggle in the generation bar area so users can enable/configure captions before generating
-- Build the scenes array for `VideoPlayerWithOverlay` from segments (script text + duration + any images)
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-**2. Inline result card below timeline**
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-- When `finalVideoUrl` exists, render a prominent card below the active tab content showing:
-  - The video player with caption overlay
-  - Download / Copy Link / Regenerate actions
-  - Individual segment clips grid
-- This makes the result visible immediately without requiring a tab switch
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
 
-### Files to modify
-- `src/pages/TestimonialCommercial.tsx` — Add caption state, CaptionStyleSelector in generation bar, replace Final Cut video with VideoPlayerWithOverlay, add inline result card
+# UI Improvements for Character + Voice Flow
 
-### Components reused (no new files needed)
-- `src/components/KaraokeCaption.tsx`
-- `src/components/CaptionStyleSelector.tsx` 
-- `src/components/VideoPlayerWithOverlay.tsx`
+## Status: ✅ Implemented
 
+# Audit & Improvement Plan
+
+## Status: ✅ Partially Implemented
+
+### ✅ Done
+
+**1. Cloud stitching as primary method**
+- Replaced broken FFmpeg WASM in `videoStitch.ts` with Creatomate cloud stitching (canvas fallback)
+- Updated Reels manual `stitchVideos` to try cloud first, canvas fallback
+- Testimonial Ads already used cloud stitching — confirmed working
+- Removed `@ffmpeg/ffmpeg` and `@ffmpeg/util` dependencies
+
+**2. Fixed duplicate gallery condition**
+- Added `previewScenes.length === 0` guard at line 5166 in Reels.tsx
+
+**3. Cleaned up navigation**
+- Removed Script Generator, Commercial Studio from nav
+- Kept pages accessible via direct URL (not deleted)
+
+### 🔲 Deferred
+
+**4. Extract Reels into sub-components**
+- QuickModePanel, BeginnerModePanel, AdvancedModePanel, ReelResultsPanel
+- Deferred to a follow-up to reduce risk on 6000-line file

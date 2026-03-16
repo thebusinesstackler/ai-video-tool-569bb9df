@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,15 @@ import { TimelinePreview } from '@/components/testimonial/TimelinePreview';
 import { useTestimonialCommercial, VideoFormat, VideoStyle } from '@/hooks/useTestimonialCommercial';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye, Music, Smartphone, Monitor, Copy, ExternalLink, RotateCcw, Tv } from 'lucide-react';
+import { Save, Play, Download, ArrowLeft, Loader2, Video, Trash2, Film, CheckCircle2, Image, Clapperboard, PanelLeftClose, PanelLeftOpen, MessageSquare, Clock, Eye, Music, Smartphone, Monitor, Copy, ExternalLink, RotateCcw, Tv, Subtitles } from 'lucide-react';
 import { TestimonialCommercial as TestimonialCommercialType, CommercialSegment } from '@/types/testimonialCommercial';
 import { cn } from '@/lib/utils';
 import { SavedCommercialsDrawer } from '@/components/testimonial/SavedCommercialsDrawer';
 import { StoryboardPreview } from '@/components/testimonial/StoryboardPreview';
+import { CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCaption';
+import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
+import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function TestimonialCommercial() {
   const navigate = useNavigate();
@@ -30,6 +34,8 @@ export default function TestimonialCommercial() {
   const [chatOpen, setChatOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
+  const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
+  const resultCardRef = useRef<HTMLDivElement>(null);
 
   const {
     segments,
@@ -109,8 +115,43 @@ export default function TestimonialCommercial() {
     if (videoUrl) {
       setFinalVideoUrl(videoUrl);
       setActiveTab('final-cut');
+      // Auto-scroll to result card
+      setTimeout(() => {
+        resultCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
     }
   };
+
+  // Build scenes array for VideoPlayerWithOverlay from segments
+  const overlayScenes = useMemo(() => {
+    let cumTime = 0;
+    return segments.map((seg, i) => {
+      const start = cumTime;
+      cumTime += seg.duration;
+      return {
+        sceneNumber: i + 1,
+        text: seg.script || seg.voiceoverText || seg.brollPrompts?.[0] || '',
+        imageUrl: seg.character?.referenceImages?.[0] || seg.brollImages?.[0] || null,
+        videoUrl: seg.videoUrl || null,
+        startTime: start,
+        endTime: cumTime,
+      };
+    });
+  }, [segments]);
+
+  const overlayVideoClips = useMemo(() =>
+    segments
+      .map((seg, i) => seg.videoUrl ? { sceneNumber: i + 1, videoUrl: seg.videoUrl } : null)
+      .filter(Boolean) as { sceneNumber: number; videoUrl: string }[],
+    [segments]
+  );
+
+  const overlayVoiceovers = useMemo(() =>
+    segments
+      .map((seg, i) => seg.audioUrl ? { sceneNumber: i + 1, audioUrl: seg.audioUrl } : null)
+      .filter(Boolean) as { sceneNumber: number; audioUrl: string }[],
+    [segments]
+  );
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('testimonial_commercials').delete().eq('id', id);
@@ -582,16 +623,26 @@ export default function TestimonialCommercial() {
 
                 {finalVideoUrl && (
                   <TabsContent value="final-cut">
-                    <div className="space-y-6">
-                      {/* Large Video Player */}
-                      <div className="rounded-xl overflow-hidden border border-border bg-black">
-                        <video
-                          src={finalVideoUrl}
-                          controls
-                          autoPlay={activeTab === 'final-cut'}
-                          className="w-full max-h-[60vh]"
+                    <div ref={resultCardRef} className="space-y-6">
+                      {/* Video Player with Caption Overlay */}
+                      {overlayVideoClips.length > 0 ? (
+                        <VideoPlayerWithOverlay
+                          scenes={overlayScenes}
+                          voiceovers={overlayVoiceovers}
+                          videoClips={overlayVideoClips}
+                          captionSettings={captionSettings}
+                          onCaptionSettingsChange={setCaptionSettings}
                         />
-                      </div>
+                      ) : (
+                        <div className="rounded-xl overflow-hidden border border-border bg-black">
+                          <video
+                            src={finalVideoUrl}
+                            controls
+                            autoPlay={activeTab === 'final-cut'}
+                            className="w-full max-h-[60vh]"
+                          />
+                        </div>
+                      )}
 
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2">
@@ -610,14 +661,6 @@ export default function TestimonialCommercial() {
                           }}
                         >
                           <Copy className="h-3.5 w-3.5" /> Copy Link
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => window.open(finalVideoUrl, '_blank')}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Open in New Tab
                         </Button>
                         <Button
                           variant="outline"
@@ -723,6 +766,12 @@ export default function TestimonialCommercial() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {/* Caption toggle */}
+                  <CaptionStyleSelector
+                    settings={captionSettings}
+                    onChange={setCaptionSettings}
+                    compact
+                  />
                   <div className="flex gap-2">
                     {segments.length > 0 && (
                       <Button onClick={() => setPreviewOpen(true)} variant="outline" size="sm" className="gap-1 text-xs">
@@ -749,7 +798,10 @@ export default function TestimonialCommercial() {
               {finalVideoUrl && !isGenerating && (
                 <div className="mt-2">
                   <Button
-                    onClick={() => setActiveTab('final-cut')}
+                    onClick={() => {
+                      setActiveTab('final-cut');
+                      setTimeout(() => resultCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+                    }}
                     variant="ai"
                     size="sm"
                     className="w-full gap-2"
