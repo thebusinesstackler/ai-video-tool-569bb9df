@@ -499,6 +499,7 @@ export default function TestimonialCommercial() {
                 onExtendClip={handleExtendClip}
                 onDuplicateSegment={duplicateSegment}
                 onReorderSegments={reorderSegments}
+                onGenerateTwinAngles={handleGenerateTwinAngles}
                 segments={segments}
                 targetDuration={targetDuration}
                 onTargetDurationChange={setTargetDuration}

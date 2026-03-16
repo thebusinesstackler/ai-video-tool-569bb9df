@@ -1314,6 +1314,21 @@ export function LoopAIDirector({
     if (missingBroll.length > 0) {
       actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
     }
+    // Actor gallery — when speaking scenes have character images
+    const scenesWithCharImages = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length);
+    if (scenesWithCharImages.length > 0) {
+      actions.push({ label: '🎭 Show actor poses', message: 'Show me the actor reference images and poses for all characters', icon: '🎭' });
+    }
+    // Generate more angles — when character has few images
+    const fewImageChars = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.character.referenceImages.length < 4);
+    if (fewImageChars.length > 0) {
+      actions.push({ label: '📸 Generate more angles', message: 'Generate more camera angles for characters with few reference images', icon: '📸' });
+    }
+    // Change voice — when audio exists
+    const scenesWithAudio = segments.filter(s => s.audioUrl);
+    if (scenesWithAudio.length > 0) {
+      actions.push({ label: '🔄 Change voice', message: 'I want to try a different voice for the character — show me options', icon: '🔄' });
+    }
     // Video generation — when characters + audio ready but no videos
     const readyForVideo = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.audioUrl && !s.videoUrl);
     if (readyForVideo.length > 0) {
