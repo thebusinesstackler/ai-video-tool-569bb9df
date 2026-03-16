@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-function buildSegmentContext(currentSegments: any[], timelineIssues?: any[]) {
+function buildSegmentContext(currentSegments: any[], timelineIssues?: any[], projectSummary?: any) {
   if (!currentSegments || currentSegments.length === 0) return '';
 
   let speakingNum = 0;
@@ -57,7 +57,19 @@ ${issueLines.join('\n')}
 4. NEVER gloss over missing assets — they are blockers`;
   }
 
-  return `\n\n## Current Storyboard State
+  // Project dashboard
+  let dashboardSection = '';
+  if (projectSummary) {
+    const ps = projectSummary;
+    dashboardSection = `
+## 📊 Project Dashboard
+${ps.totalSegments} segments (${ps.speakingCount} speaking, ${ps.brollCount} B-roll) | ${ps.totalDuration}s total (target: ${ps.targetDuration}s) | ${ps.charactersReady}/${ps.speakingCount} characters ready | ${ps.audiosReady}/${ps.totalSegments} audio ready | ${ps.videosReady}/${ps.totalSegments} videos ready | ${ps.uniqueActors} unique actor${ps.uniqueActors !== 1 ? 's' : ''}${ps.productImagesInUse > 0 ? ` | ${ps.productImagesInUse} product images` : ''}
+`;
+  }
+
+  return `
+${dashboardSection}
+## Current Storyboard State
 The user currently has ${currentSegments.length} total segments (${speakingNum} speaking scenes, ${brollNum} B-roll clips):
 ${lines.join('\n')}
 ${issuesSection}
