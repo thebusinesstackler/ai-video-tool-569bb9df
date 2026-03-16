@@ -118,10 +118,13 @@ export function LoopAIDirector({
 
   // Auto-greet on new project (segments cleared + no chat history)
   useEffect(() => {
-    if (prevSegmentsLenRef.current > 0 && segments.length === 0 && messages.length === 0) {
+    if (prevSegmentsLenRef.current > 0 && segments.length === 0) {
+      // Full reset: clear chat history for new project
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+      stopSpeaking();
       const greeting: Message = {
         role: 'assistant',
-        content: "🎬 **The Ultimate Video Pro is here!** Fresh canvas — let's build something incredible.\n\nTell me the **product**, **audience**, and **vibe** — I'll architect a full PAS-framework storyboard with cinematic camera angles, lighting, and pacing built in. Or try:\n- *\"30s testimonial for a fitness app targeting busy moms\"*\n- *\"15s TikTok ad for luxury candles, warm & dreamy vibes\"*\n- *\"60s YouTube ad for an AI calendar, modern & techy\"*\n\nI'll handle the strategy, scripts, camera work, character casting, and voice direction — you just bring the vision 🔥"
+        content: "🎬 Fresh canvas — let's build something incredible.\n\nWhat's the **product**, **audience**, and **vibe**? I'll handle the rest—"
       };
       setMessages([greeting]);
     }
