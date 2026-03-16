@@ -1401,9 +1401,12 @@ export function LoopAIDirector({
     const totalDur = newSegments.reduce((sum, s) => sum + s.duration, 0);
     const uniqueChars = Object.keys(characterLookup).length;
 
+    // Store pending generation — wait for user approval before consuming credits
+    setPendingGeneration(newSegments);
+
     setMessages(prev => [...prev, {
       role: 'system-action' as const,
-      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total${uniqueChars > 0 ? ` (${uniqueChars} unique actor${uniqueChars !== 1 ? 's' : ''})` : ''}`
+      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total${uniqueChars > 0 ? ` (${uniqueChars} unique actor${uniqueChars !== 1 ? 's' : ''})` : ''}.\n\n⏸️ **Review the storyboard above, then click "Approve & Generate" to create all assets (images, voices, B-roll). This will consume API credits.**`
     }]);
 
     // Auto-save to DB
