@@ -2266,7 +2266,8 @@ const Reels = () => {
     if (abortRef.current.signal.aborted) return;
     
     // Generate scripts (will generate 1 scene due to selectedSceneCount)
-    const generatedScenes = await generateScripts();
+    const twinCharDesc = aiTwins.length > 0 ? (aiTwins[0].face_description || '') : characterDescription;
+    const generatedScenes = await generateScripts({ characterDescriptionOverride: twinCharDesc, topicOverride: quickTopic });
     if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
     
     // Take only the first scene
