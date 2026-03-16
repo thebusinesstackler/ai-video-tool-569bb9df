@@ -430,10 +430,13 @@ serve(async (req) => {
         
         // Use actual audio duration if provided, otherwise fall back to scene duration
         const targetDuration = scene.audioDuration || scene.duration;
-        // VEO 3 produces 8s clips; Kling 3.0 Pro supports 5s or 10s
-        const clipDuration = Math.max(3, Math.min(10, Math.round(targetDuration)));
+        // For infinitetalk, no duration cap needed — it auto-matches audio length
+        // For other models: VEO 3 produces 8s clips; Kling 3.0 Pro supports 5s or 10s
+        const clipDuration = (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk') 
+          ? targetDuration 
+          : Math.max(3, Math.min(10, Math.round(targetDuration)));
         
-        console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s`);
+        console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s, model=${videoModel}`);
         
         // Build rich character context for prompts
         const charContext = characterDescription ? `Character: ${characterDescription}.` : '';
