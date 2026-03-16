@@ -800,14 +800,15 @@ export function LoopAIDirector({
         }
 
         case 'generateBrollVoiceover': {
-          // Find main character voice for consistency
           const mainSpeaking = segments.find(s => s.type === 'speaking' && s.character?.description);
           const charDesc = mainSpeaking?.character?.description || '';
           const indexes = targetIndexes.length > 0 ? targetIndexes : segments.map((_, idx) => idx).filter(idx => segments[idx].type === 'broll' && segments[idx].voiceoverText);
-          for (const idx of indexes) {
+          for (let vi = 0; vi < indexes.length; vi++) {
+            const idx = indexes[vi];
             const seg = segments[idx];
             if (seg.voiceoverText) {
-              previewAudio(seg.voiceoverText, seg.id, charDesc);
+              if (vi > 0) await new Promise(r => setTimeout(r, 2000));
+              await previewAudio(seg.voiceoverText, seg.id, charDesc);
               editSummary.push(`🎙️ Generating voiceover for B-Roll scene ${idx + 1}`);
             }
           }
