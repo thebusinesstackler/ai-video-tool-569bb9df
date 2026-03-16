@@ -9,6 +9,33 @@ const MAX_TEXT_LENGTH = 10000;
 const MIN_SPEED = 0.5;
 const MAX_SPEED = 2.0;
 
+// ── TTS Text Sanitizer ──────────────────────────────────────────────────────
+// Prevents em-dashes, ellipses, and other punctuation from causing
+// 4-second silences or unnatural pauses in generated voiceovers.
+function sanitizeForTTS(text: string): string {
+  if (!text) return '';
+  let c = text;
+  c = c.replace(/\([^)]*\)/g, '');
+  c = c.replace(/\[[^\]]*\]/g, '');
+  c = c.replace(/\*[^*]*\*/g, '');
+  c = c.replace(/—/g, ', ');
+  c = c.replace(/–/g, ', ');
+  c = c.replace(/--/g, ', ');
+  c = c.replace(/…/g, '.');
+  c = c.replace(/\.{2,}/g, '.');
+  c = c.replace(/[""]/g, '"');
+  c = c.replace(/['']/g, "'");
+  c = c.replace(/;/g, ',');
+  c = c.replace(/:(?!\d)/g, ',');
+  c = c.replace(/(\b\w+\b)\s+\1\b/gi, '$1');
+  c = c.replace(/,([A-Za-z])/g, ', $1');
+  c = c.replace(/,{2,}/g, ',');
+  c = c.replace(/\.{2,}/g, '.');
+  c = c.replace(/,\s*\./g, '.');
+  c = c.replace(/\s+/g, ' ').trim();
+  return c;
+}
+
 // WaveSpeed MiniMax voice IDs
 const WAVESPEED_VOICES = [
   'English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl',
