@@ -4011,26 +4011,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   {/* Model Selection */}
                   <div className="space-y-2">
                     <Label>Lip Sync Model</Label>
-                    <Select 
-                      value={lipSyncModel} 
-                      onValueChange={(v) => setLipSyncModel(v as typeof lipSyncModel)}
-                      disabled={isGenerating}
-                    >
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="infinitetalk">
-                          InfiniteTalk Fast (Recommended)
-                        </SelectItem>
-                        <SelectItem value="avatar-omni-human-1.5">
-                          Avatar Omni Human 1.5
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="p-2.5 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground">
+                      🎙️ InfiniteTalk Fast
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {lipSyncModel === 'infinitetalk' && 'Fast, precise lip sync with natural head/body motion. Up to 10min. Best all-round choice.'}
-                      {lipSyncModel === 'avatar-omni-human-1.5' && 'Cognitive emotion mapping — understands speech context for natural expressions. Higher quality, slower.'}
+                      Fast, precise lip sync with natural head/body motion. Up to 10min. Cost-effective and best all-round choice for Reels & Stories.
                     </p>
                   </div>
 
@@ -4041,7 +4026,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       : 'bg-destructive/10 text-destructive border border-destructive/30'
                   }`}>
                     {enableLipSync && portraitPreview 
-                      ? `🎭 Lip sync ON — speaking scenes will use ${lipSyncModel === 'avatar-omni-human-1.5' ? 'Avatar Omni Human 1.5' : 'InfiniteTalk Fast'} with your character portrait`
+                      ? '🎭 Lip sync ON — speaking scenes will use InfiniteTalk Fast with your character portrait'
                       : enableLipSync && !portraitPreview
                       ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
                       : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
