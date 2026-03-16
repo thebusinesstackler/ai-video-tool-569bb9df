@@ -8,9 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/components/AuthProvider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface VoiceSelectorProps {
   selectedVoice: string;
@@ -29,23 +30,89 @@ interface SavedVoice {
   created_at: string;
 }
 
-// Available WaveSpeed voices for generating new ones
-const AVAILABLE_VOICES = [
-  { value: 'English_compelling_lady1', label: 'Compelling Lady', gender: 'female', desc: 'Professional & Confident' },
-  { value: 'English_radiant_girl', label: 'Radiant Girl', gender: 'female', desc: 'Bright & Energetic' },
-  { value: 'Calm_Woman', label: 'Calm Woman', gender: 'female', desc: 'Soothing & Relaxed' },
-  { value: 'Inspirational_girl', label: 'Inspirational', gender: 'female', desc: 'Motivational & Warm' },
-  { value: 'English_magnetic_voiced_man', label: 'Magnetic Man', gender: 'male', desc: 'Deep & Authoritative' },
-  { value: 'English_Trustworth_Man', label: 'Trustworthy', gender: 'male', desc: 'Warm & Reliable' },
-  { value: 'Casual_Guy', label: 'Casual Guy', gender: 'male', desc: 'Friendly & Natural' },
-  { value: 'Deep_Voice_Man', label: 'Deep Voice', gender: 'male', desc: 'Rich & Cinematic' },
-];
+// WaveSpeed MiniMax voice IDs mapped by gender for matching
+const GENDER_VOICE_POOLS = {
+  female: [
+    { value: 'English_compelling_lady1', label: 'Compelling Lady', desc: 'Professional & Confident' },
+    { value: 'English_radiant_girl', label: 'Radiant Girl', desc: 'Bright & Energetic' },
+    { value: 'Calm_Woman', label: 'Calm Woman', desc: 'Soothing & Relaxed' },
+    { value: 'Inspirational_girl', label: 'Inspirational', desc: 'Motivational & Warm' },
+  ],
+  male: [
+    { value: 'English_magnetic_voiced_man', label: 'Magnetic Man', desc: 'Deep & Authoritative' },
+    { value: 'English_Trustworth_Man', label: 'Trustworthy', desc: 'Warm & Reliable' },
+    { value: 'Casual_Guy', label: 'Casual Guy', desc: 'Friendly & Natural' },
+    { value: 'Deep_Voice_Man', label: 'Deep Voice', desc: 'Rich & Cinematic' },
+  ],
+};
 
 // Keep export for backward compatibility
 export const VOICE_LIST = {
-  female: AVAILABLE_VOICES.filter(v => v.gender === 'female').map(v => ({ ...v, tier: 'Pro', sample: '' })),
-  male: AVAILABLE_VOICES.filter(v => v.gender === 'male').map(v => ({ ...v, tier: 'Pro', sample: '' })),
+  female: GENDER_VOICE_POOLS.female.map(v => ({ ...v, gender: 'female', tier: 'Pro', sample: '' })),
+  male: GENDER_VOICE_POOLS.male.map(v => ({ ...v, gender: 'male', tier: 'Pro', sample: '' })),
 };
+
+// Pick the best voice ID for a character description
+function pickVoiceForCharacter(description: string, gender: 'male' | 'female'): { value: string; label: string; desc: string } {
+  const pool = GENDER_VOICE_POOLS[gender];
+  const descLower = description.toLowerCase();
+  
+  if (gender === 'female') {
+    if (descLower.match(/calm|gentle|soft|soothing|meditat/)) return pool[2]; // Calm_Woman
+    if (descLower.match(/inspir|motivat|uplift|coach/)) return pool[3]; // Inspirational_girl
+    if (descLower.match(/young|teen|bright|energ|fun|playful/)) return pool[1]; // Radiant Girl
+    return pool[0]; // Compelling Lady (default female)
+  } else {
+    if (descLower.match(/deep|cinematic|dramatic|narrator|epic/)) return pool[3]; // Deep_Voice_Man
+    if (descLower.match(/casual|friend|chill|relax|fun/)) return pool[2]; // Casual_Guy
+    if (descLower.match(/trust|warm|reliable|professional|business/)) return pool[1]; // Trustworthy
+    return pool[0]; // Magnetic Man (default male)
+  }
+}
+
+// Generate and save a voice for a character — exported for use in Reels.tsx
+export async function generateVoiceForCharacter(
+  characterDescription: string,
+  gender: 'male' | 'female',
+  userId: string,
+  customLabel?: string
+): Promise<{ voiceId: string; audioUrl: string | null } | null> {
+  const voiceInfo = pickVoiceForCharacter(characterDescription, gender);
+  
+  const sampleText = characterDescription.length > 20
+    ? `Hello! I'm your narrator. ${characterDescription.substring(0, 100)}. Let me tell you something amazing.`
+    : "Hello! This is a preview of how your voiceover will sound in the final video. I'm ready to narrate your story.";
+
+  try {
+    const { data, error } = await supabase.functions.invoke('text-to-speech', {
+      body: { text: sampleText.slice(0, 250), voice: voiceInfo.value }
+    });
+    if (error) throw error;
+
+    const audioUrl = data?.audioUrl || data?.url || null;
+    const label = customLabel || `${voiceInfo.label} — ${characterDescription.substring(0, 30)}`;
+
+    // Save to database (upsert-style: ignore duplicate)
+    const { error: insertError } = await supabase.from('saved_voices').insert({
+      user_id: userId,
+      voice_id: voiceInfo.value,
+      voice_label: label,
+      voice_description: voiceInfo.desc,
+      gender,
+      sample_audio_url: audioUrl,
+    } as any);
+
+    // If duplicate, that's fine — voice already saved
+    if (insertError && !insertError.message?.includes('duplicate')) {
+      console.error('Failed to save voice:', insertError);
+    }
+
+    return { voiceId: voiceInfo.value, audioUrl };
+  } catch (err) {
+    console.error('Voice generation failed:', err);
+    return null;
+  }
+}
 
 export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   selectedVoice,
@@ -61,12 +128,12 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [copiedVoiceId, setCopiedVoiceId] = useState(false);
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
-  const [generateVoiceId, setGenerateVoiceId] = useState('');
+  const [generateDescription, setGenerateDescription] = useState('');
+  const [generateGender, setGenerateGender] = useState<'male' | 'female'>('male');
   const [generateLabel, setGenerateLabel] = useState('');
   const [isGeneratingNew, setIsGeneratingNew] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load saved voices
   useEffect(() => {
     if (!user) return;
     loadSavedVoices();
@@ -130,12 +197,6 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
         audio.onerror = () => { setPlayingVoice(null); audioRef.current = null; };
         await audio.play();
         setPlayingVoice(voiceId);
-
-        // Update sample_audio_url in saved voice
-        const sv = savedVoices.find(v => v.voice_id === voiceId);
-        if (sv && !sv.sample_audio_url) {
-          await supabase.from('saved_voices').update({ sample_audio_url: audioUrl } as any).eq('id', sv.id);
-        }
       } else if (data?.audioContent) {
         const dataUrl = `data:audio/mp3;base64,${data.audioContent}`;
         const audio = new Audio(dataUrl);
@@ -151,56 +212,36 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
     }
   };
 
-  const generateAndSaveVoice = async () => {
-    if (!user || !generateVoiceId) return;
-    const voiceInfo = AVAILABLE_VOICES.find(v => v.value === generateVoiceId);
-    if (!voiceInfo) return;
-
+  const handleGenerateVoice = async () => {
+    if (!user) return;
     setIsGeneratingNew(true);
+    
     try {
-      // Generate a preview
-      const sampleText = "Hello! This is a preview of how your voiceover will sound in the final video.";
-      const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: sampleText, voice: generateVoiceId }
-      });
-      if (error) throw error;
+      const result = await generateVoiceForCharacter(
+        generateDescription,
+        generateGender,
+        user.id,
+        generateLabel.trim() || undefined
+      );
 
-      const audioUrl = data?.audioUrl || data?.url || null;
-      const label = generateLabel.trim() || voiceInfo.label;
+      if (!result) throw new Error('Voice generation failed');
 
-      // Save to database
-      const { error: insertError } = await supabase.from('saved_voices').insert({
-        user_id: user.id,
-        voice_id: generateVoiceId,
-        voice_label: label,
-        voice_description: voiceInfo.desc,
-        gender: voiceInfo.gender,
-        sample_audio_url: audioUrl,
-      } as any);
+      toast({ title: "Voice Generated! ✨", description: "Your new voice has been saved and selected." });
+      await loadSavedVoices();
+      onVoiceSelect(result.voiceId);
 
-      if (insertError) {
-        if (insertError.message?.includes('duplicate')) {
-          toast({ title: "Already Saved", description: "This voice is already in your collection." });
-        } else {
-          throw insertError;
-        }
-      } else {
-        toast({ title: "Voice Saved! ✨", description: `${label} added to your voice collection.` });
-        await loadSavedVoices();
-        onVoiceSelect(generateVoiceId);
-      }
-
-      // Play the preview
-      if (audioUrl) {
-        const audio = new Audio(audioUrl);
+      // Play preview
+      if (result.audioUrl) {
+        stopCurrentAudio();
+        const audio = new Audio(result.audioUrl);
         audioRef.current = audio;
         audio.onended = () => { setPlayingVoice(null); audioRef.current = null; };
         await audio.play();
-        setPlayingVoice(generateVoiceId);
+        setPlayingVoice(result.voiceId);
       }
 
       setShowGenerateDialog(false);
-      setGenerateVoiceId('');
+      setGenerateDescription('');
       setGenerateLabel('');
     } catch (err: any) {
       toast({ title: "Generation Failed", description: err.message, variant: "destructive" });
@@ -308,7 +349,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           <CardDescription>
             {savedVoices.length > 0 
               ? <>Select from your generated voices. Click <Volume2 className="inline h-3 w-3" /> to preview.</>
-              : 'Generate a voice to get started.'}
+              : 'Generate a voice matched to your character.'}
           </CardDescription>
         )}
       </CardHeader>
@@ -321,7 +362,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           <div className="text-center py-6 space-y-3">
             <Mic className="w-8 h-8 mx-auto text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">No voices generated yet</p>
-            <p className="text-xs text-muted-foreground">Generate a voice to hear and save it to your collection</p>
+            <p className="text-xs text-muted-foreground">Generate a voice matched to your character's personality</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -348,11 +389,11 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           disabled={disabled}
         >
           <Plus className="w-4 h-4 mr-2" />
-          Generate New Voice
+          Generate Voice for Character
         </Button>
 
         {/* Selected voice ID */}
-        {selectedVoice && selectedVoice !== 'ai-auto' && (
+        {selectedVoice && (
           <div className="flex items-center gap-2 p-2.5 bg-muted/50 rounded-lg border border-border/50">
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-muted-foreground">Selected Voice ID</p>
@@ -379,55 +420,66 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              Generate & Save Voice
+              Generate Voice for Character
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label className="text-sm">Choose a voice to generate</Label>
-              <Select value={generateVoiceId} onValueChange={(v) => {
-                setGenerateVoiceId(v);
-                const info = AVAILABLE_VOICES.find(av => av.value === v);
-                if (info) setGenerateLabel(info.label);
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a voice..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="header-female" disabled className="font-semibold text-xs text-muted-foreground">— Female —</SelectItem>
-                  {AVAILABLE_VOICES.filter(v => v.gender === 'female').map(v => (
-                    <SelectItem key={v.value} value={v.value}>
-                      {v.label} — {v.desc}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="header-male" disabled className="font-semibold text-xs text-muted-foreground">— Male —</SelectItem>
-                  {AVAILABLE_VOICES.filter(v => v.gender === 'male').map(v => (
-                    <SelectItem key={v.value} value={v.value}>
-                      {v.label} — {v.desc}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm">Describe your character</Label>
+              <Textarea
+                value={generateDescription}
+                onChange={(e) => setGenerateDescription(e.target.value)}
+                placeholder="E.g., A confident 30-year-old female business coach with a warm, inspiring tone..."
+                className="min-h-[80px] resize-none"
+              />
+              <p className="text-[10px] text-muted-foreground">We'll match the best voice to your character's personality and tone</p>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm">Custom Label (optional)</Label>
-              <Input
-                value={generateLabel}
-                onChange={(e) => setGenerateLabel(e.target.value)}
-                placeholder="E.g., My Brand Voice"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-sm">Gender</Label>
+                <Select value={generateGender} onValueChange={(v) => setGenerateGender(v as 'male' | 'female')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="female">♀ Female</SelectItem>
+                    <SelectItem value="male">♂ Male</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">Label (optional)</Label>
+                <Input
+                  value={generateLabel}
+                  onChange={(e) => setGenerateLabel(e.target.value)}
+                  placeholder="My Brand Voice"
+                />
+              </div>
             </div>
+
+            {/* Preview of matched voice */}
+            {generateDescription.length > 5 && (
+              <div className="p-2.5 bg-muted/50 rounded-lg border border-border/50">
+                <p className="text-[10px] text-muted-foreground mb-1">AI will match:</p>
+                <p className="text-sm font-medium text-foreground">
+                  {pickVoiceForCharacter(generateDescription, generateGender).label}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {pickVoiceForCharacter(generateDescription, generateGender).desc}
+                </p>
+              </div>
+            )}
 
             <Button
               className="w-full"
-              onClick={generateAndSaveVoice}
-              disabled={!generateVoiceId || isGeneratingNew}
+              onClick={handleGenerateVoice}
+              disabled={isGeneratingNew || generateDescription.length < 3}
             >
               {isGeneratingNew ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating & Saving...</>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating Voice...</>
               ) : (
-                <><Sparkles className="w-4 h-4 mr-2" />Generate & Save Voice</>
+                <><Mic className="w-4 h-4 mr-2" />Generate & Preview Voice</>
               )}
             </Button>
           </div>

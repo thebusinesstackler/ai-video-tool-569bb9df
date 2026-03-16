@@ -68,7 +68,7 @@ import {
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
-import { VoiceSelector } from '@/components/VoiceSelector';
+import { VoiceSelector, generateVoiceForCharacter } from '@/components/VoiceSelector';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -2277,11 +2277,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
       const detectedGender = isFemale ? 'female' : 'male';
       
-      if (isFemale) {
-        setSelectedVoice('English_compelling_lady1');
-      } else if (isMale) {
-        setSelectedVoice('English_magnetic_voiced_man');
-      }
+      const matchedVoiceId = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
+      setSelectedVoice(matchedVoiceId);
       
       // Save as AI Twin to database
       if (user) {
@@ -2354,13 +2351,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             })));
           }
           
-          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created and saved as AI Twin.` });
+          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created. Generating matching voice...` });
+          
+          // Auto-generate a voice matched to this character
+          const voiceResult = await generateVoiceForCharacter(charPrompt, detectedGender as 'male' | 'female', user.id, twinName);
+          if (voiceResult) {
+            setSelectedVoice(voiceResult.voiceId);
+            toast({ title: "Voice Generated! 🎙️", description: "A matching voice was created and saved for this character." });
+          }
         } else {
           console.error('Failed to save AI Twin:', twinError);
           toast({ title: "Character Generated!", description: `${generatedImages.length} shots created. Could not save to library.` });
         }
       } else {
-        toast({ title: "Character Generated!", description: `${generatedImages.length} shots created.${isFemale ? ' Female voice auto-selected.' : isMale ? ' Male voice auto-selected.' : ''}` });
+        // No user — still try to generate voice if possible
+        toast({ title: "Character Generated!", description: `${generatedImages.length} shots created.` });
       }
       
       setShowGenerateCharacter(false);
