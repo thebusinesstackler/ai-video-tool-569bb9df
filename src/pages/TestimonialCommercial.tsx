@@ -20,6 +20,7 @@ import { CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCap
 import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
 import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCommercialDraft } from '@/hooks/useCommercialDraft';
 
 export default function TestimonialCommercial() {
   const navigate = useNavigate();
