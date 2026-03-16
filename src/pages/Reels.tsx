@@ -3376,6 +3376,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         disabled={isGenerating}
                       />
 
+                      {topic.trim() && (
+                        <div className="flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={enhancePrompt}
+                            disabled={isEnhancingPrompt || isGenerating}
+                            className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                          >
+                            {isEnhancingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                            Enhance Prompt
+                          </Button>
+                        </div>
+                      )}
+
                       <div className="space-y-2">
                         <Label className="text-sm text-muted-foreground">Hook Style (First Scene)</Label>
                         <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
