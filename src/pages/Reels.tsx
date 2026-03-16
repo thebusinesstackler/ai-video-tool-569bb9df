@@ -4317,12 +4317,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
                   {/* Model Selection */}
                   <div className="space-y-2">
-                    <Label>Lip Sync Model</Label>
+                    <Label>Video Model</Label>
                     <div className="p-2.5 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground">
-                      🎙️ InfiniteTalk Fast
+                      🎬 Wan 2.5 I2V (480p Test)
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Fast, precise lip sync with natural head/body motion. Up to 10min. Cost-effective and best all-round choice for Reels & Stories.
+                      Fast image-to-video at 480p for testing. TTS audio overlaid by stitcher. Switch to higher quality model when ready for production.
                     </p>
                   </div>
 
@@ -4333,7 +4333,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       : 'bg-destructive/10 text-destructive border border-destructive/30'
                   }`}>
                     {enableLipSync && portraitPreview 
-                      ? '🎭 Lip sync ON — speaking scenes will use InfiniteTalk Fast with your character portrait'
+                      ? '🎭 Lip sync ON — speaking scenes will use Wan 2.5 with your character portrait + TTS overlay'
                       : enableLipSync && !portraitPreview
                       ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
                       : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
