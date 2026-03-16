@@ -2896,19 +2896,18 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           });
         }
       } else {
+        const sizeMap2: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+        const [sw2, sh2] = sizeMap2[selectedVideoSize] || [1080, 1920];
         stitchedBlob = await canvasStitchVideos({
           videoUrls,
           audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+          width: sw2, height: sh2,
           onProgress: (percent) => {
             setProgress(40 + percent * 0.5);
             setProgressStatus(`Stitching... ${Math.round(percent)}%`);
           },
           onStatus: (s) => setProgressStatus(s)
         });
-      }
-
-      videoBlobRef.current = stitchedBlob;
-      const blobUrl = URL.createObjectURL(stitchedBlob);
       let savedVideoUrl = blobUrl;
       
       if (user) {
