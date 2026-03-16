@@ -2028,10 +2028,21 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
             
             console.log('[Stitch] Embedded audio indices:', embeddedAudioIndices, 'Overlay audio count:', audioUrlsForStitch.length);
             
+            // Map selectedVideoSize to pixel dimensions
+            const sizeMap: Record<string, [number, number]> = {
+              '9:16': [1080, 1920],
+              '1:1': [1080, 1080],
+              '16:9': [1920, 1080],
+              '4:5': [1080, 1350],
+            };
+            const [stitchWidth, stitchHeight] = sizeMap[selectedVideoSize] || [1080, 1920];
+            
             const finalBlob = await canvasStitchVideos({
               videoUrls,
               audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
               embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+              width: stitchWidth,
+              height: stitchHeight,
               onProgress: (p) => {
                 setProgress(75 + Math.round(p * 0.2));
                 setProgressStatus(`Stitching... ${Math.round(p)}%`);
