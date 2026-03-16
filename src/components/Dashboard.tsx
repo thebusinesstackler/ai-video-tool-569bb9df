@@ -157,8 +157,7 @@ export const Dashboard = () => {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   };
 
-  // Show welcome view only if not authenticated AND not in dev preview
-  if (!user && !isDevPreview) {
+  if (!user) {
     return (
       <div className="space-y-8 animate-slide-in">
         {/* Welcome Section for Non-Authenticated Users */}
