@@ -3212,6 +3212,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <p className="text-muted-foreground">📝 <span className="text-foreground font-medium">{project.scenes.length} scenes</span> • {project.scenes.reduce((acc, s) => acc + (s.duration || 0), 0)}s total</p>
                         {portraitPreview && <p className="text-muted-foreground">👤 <span className="text-foreground font-medium">Character set</span></p>}
                         <p className="text-muted-foreground">🎙️ <span className="text-foreground font-medium">{selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Auto-detect voice'}</span></p>
+                        <p className={`text-sm font-medium ${(portraitPreview || (aiTwins.length > 0)) ? 'text-primary' : 'text-destructive'}`}>
+                          {(portraitPreview || (aiTwins.length > 0)) 
+                            ? '🎭 Lip sync: ON — talking head scenes will be generated'
+                            : '⚠️ Lip sync: OFF — no character selected. Videos will be B-roll only.'
+                          }
+                        </p>
                       </div>
 
                       <div className="flex gap-2">
@@ -4972,6 +4978,41 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       >
                         <Download className="w-4 h-4 mr-2" />
                         Download for TikTok
+                      </Button>
+                    )}
+                    {/* Re-generate with Lip Sync */}
+                    {project.videoBlobUrl && project.videoClips.length === 0 && !enableLipSync && project.generatedScenes.length > 0 && (
+                      <Button
+                        variant="outline"
+                        className="border-primary/50 text-primary hover:bg-primary/10"
+                        disabled={isGenerating}
+                        onClick={() => {
+                          setEnableLipSync(true);
+                          setLipSyncModel('infinitetalk');
+                          // If no portrait yet, prompt user
+                          if (!portraitImage && aiTwins.length > 0) {
+                            const twin = aiTwins[0];
+                            setSelectedTwinId(twin.id);
+                            if (twin.reference_images?.[0]) {
+                              setPortraitImage(twin.reference_images[0]);
+                              setPortraitPreview(twin.reference_images[0]);
+                            }
+                            if (twin.face_description) setCharacterDescription(twin.face_description);
+                          }
+                          if (!portraitImage && aiTwins.length === 0) {
+                            toast({
+                              title: "Character Needed",
+                              description: "Please create an AI Twin first, then re-generate with lip sync.",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+                          toast({ title: "Re-generating with Lip Sync", description: "Videos will now include talking head scenes." });
+                          generateVideo({ forceEnableLipSync: true, forceLipSyncModel: 'infinitetalk', scenesOverride: project.scenes });
+                        }}
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        Re-generate with Lip Sync
                       </Button>
                     )}
                     {/* Save to My Reels button */}
