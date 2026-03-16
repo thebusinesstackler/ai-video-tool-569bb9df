@@ -655,6 +655,20 @@ export function LoopAIDirector({
                 regeneratedCount++;
               }
             }
+          }
+          // Also generate music if handler available
+          if (onGenerateMusic) {
+            const allScripts = segments.filter(s => s.script).map(s => s.script).join(' ');
+            const autoMood = allScripts.length > 50
+              ? 'cinematic commercial background music, modern and inspiring, subtle build'
+              : 'uplifting corporate, warm acoustic guitar, inspiring';
+            onGenerateMusic(autoMood);
+            regeneratedCount++;
+          }
+          editSummary.push(`🚀 Full production pass: regenerating ${regeneratedCount} assets`);
+          break;
+        }
+
         case 'generateVideo': {
           for (const sceneIndex of targetIndexes) {
             const seg = segments[sceneIndex];
