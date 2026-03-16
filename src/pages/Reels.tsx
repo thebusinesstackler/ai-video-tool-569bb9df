@@ -1961,20 +1961,19 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           
           if (someScenesNeedAudio) {
             // Generate voiceovers ONLY for scenes that DON'T have embedded audio
+            // BUT only if we don't already have voiceovers from the first pass
             const scenesNeedingAudio = activeScenes.filter(scene => !perSceneEmbeddedAudio[scene.sceneNumber]);
+            const existingAudioScenes = new Set(sortedAudios.filter(a => a.audioUrl && a.audioUrl.trim() !== '').map(a => a.sceneNumber));
+            const missingAudioScenes = scenesNeedingAudio.filter(s => !existingAudioScenes.has(s.sceneNumber));
             
-            if (scenesNeedingAudio.length > 0 && (sortedAudios.length === 0 || sortedAudios.every(a => !a.audioUrl || a.audioUrl.trim() === ''))) {
-              console.log(`Generating voiceovers for ${scenesNeedingAudio.length} scenes without embedded audio...`);
-              setProgressStatus('Generating voiceovers for non-VEO scenes...');
+            if (missingAudioScenes.length > 0) {
+              console.log(`Generating voiceovers for ${missingAudioScenes.length} scenes without audio...`);
+              setProgressStatus('Generating voiceovers for remaining scenes...');
               
-              for (const scene of activeScenes) {
-                // Skip scenes with embedded audio (VEO 3 scenes)
-                if (perSceneEmbeddedAudio[scene.sceneNumber]) {
-                  voiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 5 });
-                  continue;
-                }
+              const newVoiceovers: typeof voiceovers = [];
+              for (const scene of missingAudioScenes) {
                 if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
-                  voiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 2 });
+                  newVoiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 2 });
                   continue;
                 }
                 try {
@@ -1998,12 +1997,15 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                         }
                       } catch (e) { console.warn('Upload failed:', e); }
                     }
-                    voiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl, storageUrl, duration: actualDuration || scene.duration || 5 });
+                    newVoiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl, storageUrl, duration: actualDuration || scene.duration || 5 });
                   }
                 } catch (e) { console.warn(`TTS failed for scene ${scene.sceneNumber}:`, e); }
               }
+              // Merge new voiceovers with existing ones (no mutation)
+              const mergedAudios = [...sortedAudios, ...newVoiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
+              // Replace sortedAudios reference for downstream use
               sortedAudios.length = 0;
-              sortedAudios.push(...voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber));
+              sortedAudios.push(...mergedAudios);
             }
             
             // Only include audio for scenes that need overlay (non-VEO 3 scenes)
