@@ -1700,20 +1700,34 @@ export function LoopAIDirector({
           <div className="space-y-4">
             {messages.map((msg, i) => {
               if (msg.role === 'system-action') {
-                // Check if this is a segment reference with an image
-                const imgMatch = msg.content.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+                // Extract ALL image URLs from markdown
+                const imgMatches = [...msg.content.matchAll(/!\[.*?\]\((https?:\/\/[^\)]+)\)/g)];
+                const imageUrls = imgMatches.map(m => m[1]);
                 const textContent = msg.content.replace(/!\[.*?\]\([^\)]+\)/g, '').trim();
                 return (
                   <div key={i} className="flex justify-center">
                     <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-4 py-2.5 text-xs font-medium max-w-[90%]">
                       <div className="flex items-start gap-2">
-                        {imgMatch ? (
-                          <img src={imgMatch[1]} alt="Scene reference" className="w-12 h-12 rounded object-cover shrink-0 border border-border/30" />
-                        ) : (
+                        {imageUrls.length === 0 && (
                           <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
                         )}
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-1 [&>p]:leading-relaxed">
-                          <ReactMarkdown>{textContent}</ReactMarkdown>
+                        <div className="flex-1 min-w-0">
+                          <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-1 [&>p]:leading-relaxed">
+                            <ReactMarkdown>{textContent}</ReactMarkdown>
+                          </div>
+                          {imageUrls.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {imageUrls.map((url, j) => (
+                                <img
+                                  key={j}
+                                  src={url}
+                                  alt={`Reference ${j + 1}`}
+                                  className="w-16 h-16 rounded-md object-cover border border-border/30 hover:scale-110 transition-transform cursor-pointer"
+                                  onClick={() => window.open(url, '_blank')}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
