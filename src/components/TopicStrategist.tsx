@@ -390,7 +390,6 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
                               isSelected ? 'ring-2 ring-primary border-primary' : ''
                             }`}
                           >
-                          >
                             {/* Checkbox */}
                             <div 
                               className="absolute top-3 left-3 z-10"
