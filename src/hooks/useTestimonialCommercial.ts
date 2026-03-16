@@ -454,7 +454,7 @@ export function useTestimonialCommercial() {
                 model: styleConfig.speakingModel,
                 prompt: cinematicPrompt,
                 imageUrls: [referenceImage],
-                duration: Math.min(segment.duration, styleConfig.maxDuration),
+                // InfiniteTalk auto-derives duration from audio — don't cap speaking segments
                 aspectRatio,
               };
               

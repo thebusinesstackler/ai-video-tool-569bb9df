@@ -1320,13 +1320,13 @@ const MovieSceneCreator = () => {
         aspectRatio: '16:9'
       };
     } else {
-      // Single character lip-sync
+      // Single character lip-sync — InfiniteTalk derives duration from audio length
+      // No duration cap needed; the model auto-syncs to the audio
       videoBody = {
         action: 'create',
         model: 'infinitetalk',
         imageUrls: [imageToUse],
         audioUrl: `data:audio/mp3;base64,${audioContent}`,
-        duration: 5
       };
     }
 
