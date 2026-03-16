@@ -3093,29 +3093,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         )}
                       </div>
 
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setBeginnerStep(2)} className="flex-1">
-                          ← Back
-                        </Button>
-                        <Button
-                          onClick={() => setBeginnerStep(4)}
-                          className="flex-[2] bg-gradient-to-r from-primary to-primary/80"
-                          disabled={isGeneratingCharacter}
-                        >
-                          {portraitPreview ? 'Continue →' : 'Skip Character →'}
-                        </Button>
-                      </div>
-                    </>
-                  )}
-
-                  {/* ===== STEP 4: Voice & Generate ===== */}
-                  {beginnerStep === 4 && (
-                    <>
-                      <div className="text-center space-y-2">
-                        <h2 className="text-2xl font-bold text-foreground">Voice & Generate</h2>
-                        <p className="text-muted-foreground">Pick a voice, then create your reel.</p>
-                      </div>
-
+                      {/* Voice Selection — merged into Step 3 */}
                       <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
                         <div className="flex items-center gap-2">
                           <Mic className="w-4 h-4 text-primary" />
@@ -3129,6 +3107,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           selectedVoice={selectedVoice}
                           onVoiceSelect={setSelectedVoice}
                           compact
+                          characterDescription={characterDescription}
+                          characterGender={detectedCharGender}
                         />
                         
                         {selectedVoice && !selectedVoice.startsWith('clone:') && (
@@ -3156,7 +3136,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </div>
 
                       <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setBeginnerStep(3)} className="flex-1">
+                        <Button variant="outline" onClick={() => setBeginnerStep(2)} className="flex-1">
                           ← Back
                         </Button>
                         {isGenerating ? (
