@@ -20,6 +20,7 @@ import { CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCap
 import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
 import { VideoPlayerWithOverlay } from '@/components/VideoPlayerWithOverlay';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCommercialDraft } from '@/hooks/useCommercialDraft';
 
 export default function TestimonialCommercial() {
   const navigate = useNavigate();
@@ -35,8 +36,10 @@ export default function TestimonialCommercial() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
-
+  const { saveDraftDebounced, loadDraft, clearDraft } = useCommercialDraft();
+  const draftRestoredRef = useRef(false);
   const {
     segments,
     setSegments,
@@ -97,6 +100,36 @@ export default function TestimonialCommercial() {
     }
     fetchSaved();
   }, [currentCommercial]);
+
+  // Restore draft on mount (only if not editing a saved commercial)
+  useEffect(() => {
+    if (editId || draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    const draft = loadDraft();
+    if (draft && draft.segments.length > 0) {
+      setSegments(draft.segments);
+      setName(draft.name);
+      setTargetDuration(draft.targetDuration || '30');
+      if (draft.videoFormat) setVideoFormat(draft.videoFormat as any);
+      if (draft.videoStyle) setVideoStyle(draft.videoStyle as any);
+      if (draft.finalVideoUrl) setFinalVideoUrl(draft.finalVideoUrl);
+      if (draft.musicUrl) setMusicUrl(draft.musicUrl);
+      toast.success('Draft restored — your work is right where you left it');
+    }
+  }, [editId]);
+
+  // Auto-save draft whenever segments/name change
+  useEffect(() => {
+    saveDraftDebounced({
+      name,
+      segments,
+      targetDuration,
+      videoFormat,
+      videoStyle,
+      finalVideoUrl,
+      musicUrl,
+    });
+  }, [segments, name, targetDuration, videoFormat, videoStyle, finalVideoUrl, musicUrl, saveDraftDebounced]);
 
   useEffect(() => {
     if (editId) loadCommercial(editId);
@@ -176,7 +209,7 @@ export default function TestimonialCommercial() {
     }
   }, [updateSegment]);
 
-  const [musicUrl, setMusicUrl] = useState<string | null>(null);
+  // musicUrl state declared above with other state
 
   const handleGenerateMusic = useCallback(async (mood: string) => {
     toast.info(`🎵 Generating background music: "${mood}"...`);
@@ -426,10 +459,12 @@ export default function TestimonialCommercial() {
             <Button
               onClick={() => {
                 localStorage.removeItem('loop-ai-director-chat');
+                clearDraft();
                 setSegments([]);
                 setCurrentCommercial(null);
                 setName('Untitled Commercial');
                 setFinalVideoUrl(null);
+                setMusicUrl(null);
                 setActiveTab('scenes');
               }}
               variant="outline"
