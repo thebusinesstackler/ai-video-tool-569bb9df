@@ -473,8 +473,6 @@ const Reels = () => {
   // Video queue hook
   const { queueCount } = useVideoQueue();
 
-  // State for showing draft recovery banner
-  const [showDraftRecoveryBanner, setShowDraftRecoveryBanner] = useState(false);
   const [draftAge, setDraftAge] = useState('');
 
   // Auto-restore draft on mount
