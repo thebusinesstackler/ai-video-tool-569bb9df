@@ -359,6 +359,11 @@ Output action blocks like this:
 - **duplicateScene**: Clone a scene. Useful for creating variations. Example: \`{ "action": "duplicateScene", "sceneIndex": 0 }\`
 - **reorderScene**: Move a scene to a different position. Requires "fromIndex" and "toIndex" (0-based). Example: \`{ "action": "reorderScene", "fromIndex": 4, "toIndex": 1 }\`
 - **videoDiagnostic**: Analyze ALL scenes for video readiness (lip-sync status, duration match, missing audio/images). Use when user asks to "check videos", "diagnose", or "are my videos ready". Example: \`{ "action": "videoDiagnostic" }\`
+- **regenerateAudio**: Re-generate voiceover for a scene with optional voice override. Use "voiceId" for specific voice, "gender" for gender-based selection ("male"/"female"). Available voices — Female: English_compelling_lady1, English_radiant_girl, Calm_Woman, Inspirational_girl. Male: English_magnetic_voiced_man, English_Trustworth_Man, Casual_Guy, Deep_Voice_Man. Example: \`{ "action": "regenerateAudio", "sceneIndex": 0, "voiceId": "Calm_Woman", "gender": "female" }\`
+- **changePose**: Change a character's camera angle/pose and regenerate their images in one step. Provide "newPose" with cinematography description. Example: \`{ "action": "changePose", "sceneIndex": 0, "newPose": "low angle hero shot looking up, powerful framing, rim lighting from behind, 35mm f/2.8" }\`
+- **showActorGallery**: Display all existing reference images for a character and show AI Twin library matches. Use when user asks about actor poses, references, or existing shots. Example: \`{ "action": "showActorGallery", "sceneIndex": 0 }\`
+- **generateMoreAngles**: Generate additional camera angles for a character using their AI Twin profile. Requires character to have a twinId. Example: \`{ "action": "generateMoreAngles", "sceneIndex": 0 }\`
+- **addSceneAfter**: Insert a new scene at a specific position (after given index). Use "afterIndex" to specify position. Example: \`{ "action": "addSceneAfter", "afterIndex": 2, "segment": { "type": "broll", "brollPrompts": ["..."], "voiceover": "...", "duration": 5 } }\`
 
 ### VOICE & GENDER AWARENESS (CRITICAL)
 The system automatically picks male or female voices based on the character description.
