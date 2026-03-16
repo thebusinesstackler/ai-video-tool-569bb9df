@@ -4102,6 +4102,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </p>
                     )}
                   </div>
+                  </div>
                 </CardContent>
               )}
               </CollapsibleContent>
