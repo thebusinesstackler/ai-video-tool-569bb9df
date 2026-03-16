@@ -68,6 +68,7 @@ interface LoopAIDirectorProps {
   onExtendClip?: (segmentId: string, prompt: string) => Promise<void>;
   onDuplicateSegment?: (id: string) => void;
   onReorderSegments?: (fromIndex: number, toIndex: number) => void;
+  onGenerateTwinAngles?: (twinId: string, faceDescription: string, gender: string, name: string, referenceImageUrl?: string) => Promise<string[]>;
   segments: CommercialSegment[];
   targetDuration: string;
   onTargetDurationChange: (dur: string) => void;
