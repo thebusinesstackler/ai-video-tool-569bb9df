@@ -332,7 +332,7 @@ const Reels = () => {
   
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
-  const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk' | 'avatar-omni-human-1.5'>('infinitetalk');
+  const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection for TTS (WaveSpeed MiniMax HD voices)
