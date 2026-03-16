@@ -5014,6 +5014,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <Video className="w-4 h-4 mr-2" />
                         Re-generate with Lip Sync
                       </Button>
+                    )}
                     {/* Save to My Reels button */}
                     {!currentReelSaved && (project.generatedScenes.length > 0 || project.previewScenes.length > 0 || project.videoBlobUrl) && (
                       <Button 
