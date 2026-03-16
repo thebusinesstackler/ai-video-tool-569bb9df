@@ -18,6 +18,8 @@ interface VoiceSelectorProps {
   onVoiceSelect: (voice: string) => void;
   disabled?: boolean;
   compact?: boolean;
+  characterDescription?: string;
+  characterGender?: 'male' | 'female';
 }
 
 interface SavedVoice {
