@@ -485,7 +485,7 @@ When the user describes a commercial idea, first identify which winning pattern 
   "title": "Punchy Commercial Title",
   "summary": "PAS arc summary: [Problem] → [Agitate] → [Solution]. Target: [audience]. Tone: [style]. Emotional journey: [pain] → [relief/empowerment]—",
   "characters": [
-    { "characterId": "char-1", "name": "Maria", "description": "A confident Latina woman in her late 20s, athletic build, wearing a casual white fitted tee and gold hoop earrings, warm brown skin, dark wavy hair past her shoulders, bright modern kitchen background with marble countertops and natural light streaming through large windows—" }
+    { "characterId": "char-1", "name": "Maria", "description": "A confident Latina woman in her late 20s, athletic build, wearing a casual white fitted tee and gold hoop earrings, warm brown skin with natural texture and visible pores, dark wavy hair past her shoulders with individual strand detail, bright modern kitchen background with marble countertops and soft natural daylight streaming through large windows, photorealistic, hyperrealistic skin, real human appearance—" }
   ],
   "segments": [
     { "type": "speaking", "narrativeRole": "HOOK", "characterId": "char-1", "characterDescription": "Maria looking straight at the camera with a knowing smirk, one hand resting on the counter, leaning in slightly as if sharing a secret, low angle hero shot looking up, rim lighting from behind creating golden edge on hair, shot on RED V-RAPTOR at 85mm f/1.4, camera slowly dollying in—", "script": "What if I told you everything you know about [product] is wrong—", "duration": 5, "transition": "fade-in" },
