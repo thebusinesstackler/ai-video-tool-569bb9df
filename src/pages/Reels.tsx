@@ -1709,7 +1709,8 @@ const Reels = () => {
           referenceImages: twinReferenceImages,
           characterDescription: characterDescription || selectedTwin?.face_description || '',
           // Camera angle variety per scene
-          cameraAngles: cameraAngleRotation
+          cameraAngles: cameraAngleRotation,
+          videoModel: videoModel
         }
       });
 
