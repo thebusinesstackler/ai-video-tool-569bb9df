@@ -592,6 +592,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_twins_summary: {
+        Args: { _user_id: string }
+        Returns: {
+          face_description: string
+          first_image: string
+          gender: string
+          id: string
+          image_count: number
+          name: string
+          voice_cloning_key: string
+          voice_sample_url: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

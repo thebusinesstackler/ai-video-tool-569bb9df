@@ -571,10 +571,10 @@ const Reels = () => {
 
   // Auto-save effect - triggers on key state changes
   useEffect(() => {
-    // Skip auto-save if we're generating or nothing meaningful to save
-    if (isGenerating) return;
-    
-    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim();
+    // Always save when video clips arrive (even during generation)
+    const hasVideoClips = project.videoClips.length > 0;
+    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim() || hasVideoClips;
+    if (!hasContent) return;
     if (!hasContent) return;
 
     saveDraftDebounced({
@@ -893,19 +893,14 @@ const Reels = () => {
     }
   };
 
-  // Load AI twins with retry logic for timeout and network handling
+  // Load AI twins using lightweight summary function (avoids pulling all reference_images)
   const loadAiTwins = async (retryCount = 0) => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from('ai_twins')
-        .select('id, name, reference_images, voice_cloning_key, voice_sample_url, face_description')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const { data, error } = await supabase.rpc('get_twins_summary', { _user_id: user.id });
       
       if (error) {
-        if ((error.code === '57014' || error.message?.includes('fetch')) && retryCount < 2) {
+        if ((error.code === '57014' || error.message?.includes('fetch') || error.message?.includes('JSON')) && retryCount < 2) {
           console.log(`AI Twins query failed, retrying (${retryCount + 1}/2)...`);
           setTimeout(() => loadAiTwins(retryCount + 1), 1000);
           return;
@@ -915,16 +910,43 @@ const Reels = () => {
       }
       
       if (data) {
-        setAiTwins(data.filter(t => t.reference_images && t.reference_images.length > 0));
+        // Map summary format to the shape components expect
+        const mapped = (data as any[]).map(t => ({
+          id: t.id,
+          name: t.name,
+          reference_images: t.first_image ? [t.first_image] : [],
+          voice_cloning_key: t.voice_cloning_key,
+          voice_sample_url: t.voice_sample_url,
+          face_description: t.face_description,
+          gender: t.gender,
+          image_count: t.image_count,
+        }));
+        setAiTwins(mapped);
       }
     } catch (err: any) {
-      // Retry on network failures
       if (err?.message?.includes('fetch') && retryCount < 2) {
         console.log(`Network error loading AI twins, retrying (${retryCount + 1}/2)...`);
         setTimeout(() => loadAiTwins(retryCount + 1), 1000);
         return;
       }
       console.error('Failed to load AI twins:', err);
+    }
+  };
+
+  // Load full reference_images for a specific twin (lazy load on selection)
+  const loadTwinFullImages = async (twinId: string) => {
+    if (!user) return null;
+    try {
+      const { data, error } = await supabase
+        .from('ai_twins')
+        .select('reference_images')
+        .eq('id', twinId)
+        .eq('user_id', user.id)
+        .single();
+      if (error || !data) return null;
+      return data.reference_images || [];
+    } catch {
+      return null;
     }
   };
 
@@ -3075,16 +3097,24 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                     return (
                                       <div
                                         key={twin.id}
-                                        onClick={() => {
+                                      onClick={async () => {
                                           if (isGenerating) return;
                                           setSelectedTwinId(twin.id);
                                           if (twin.reference_images?.[0]) {
                                             setPortraitImage(twin.reference_images[0]);
                                             setPortraitPreview(twin.reference_images[0]);
                                             setPreSelectedReference(twin.reference_images[0]);
-                                            setGeneratedCharacterShots(
-                                              twin.reference_images.map((url, i) => ({ label: `Angle ${i + 1}`, url }))
-                                            );
+                                            // Lazy-load all reference images for angle shots
+                                            const fullImages = await loadTwinFullImages(twin.id);
+                                            if (fullImages && fullImages.length > 0) {
+                                              setGeneratedCharacterShots(
+                                                fullImages.map((url: string, i: number) => ({ label: `Angle ${i + 1}`, url }))
+                                              );
+                                            } else {
+                                              setGeneratedCharacterShots(
+                                                twin.reference_images.map((url, i) => ({ label: `Angle ${i + 1}`, url }))
+                                              );
+                                            }
                                             setSelectedShotIndex(0);
                                           }
                                           if (twin.face_description) {
@@ -3671,13 +3701,20 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           return (
                             <div
                               key={twin.id}
-                              onClick={() => {
+                              onClick={async () => {
                                 if (isGenerating) return;
                                 setSelectedTwinId(twin.id);
                                 if (twin.reference_images?.[0]) {
                                   setPortraitImage(twin.reference_images[0]);
                                   setPortraitPreview(twin.reference_images[0]);
                                   setPreSelectedReference(twin.reference_images[0]);
+                                  // Lazy-load all reference images for angle shots
+                                  const fullImages = await loadTwinFullImages(twin.id);
+                                  if (fullImages && fullImages.length > 0) {
+                                    setGeneratedCharacterShots(
+                                      fullImages.map((url: string, i: number) => ({ label: `Angle ${i + 1}`, url }))
+                                    );
+                                  }
                                 }
                                 if (twin.face_description) {
                                   setCharacterDescription(twin.face_description);
