@@ -287,6 +287,10 @@ serve(async (req) => {
         } else {
           resolvedVoice = 'English_Trustworth_Man';
         }
+      } else if (!WAVESPEED_VOICES.includes(voice)) {
+        // Unknown voice ID — fall back to default
+        console.warn(`Unknown voice ID "${voice}", falling back to English_Trustworth_Man`);
+        resolvedVoice = 'English_Trustworth_Man';
       }
       
       const result = await generateWaveSpeedTTS(text, waveSpeedApiKey, resolvedVoice, validatedSpeed);
