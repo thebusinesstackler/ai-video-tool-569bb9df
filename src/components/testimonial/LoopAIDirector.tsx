@@ -60,6 +60,10 @@ interface LoopAIDirectorProps {
   onGenerateBrollPreview: (segmentId: string, prompt: string) => Promise<void>;
   onSaveToDb: () => Promise<void>;
   onGenerateMusic?: (mood: string) => Promise<void>;
+  onGenerateVideo?: (segmentId: string) => Promise<void>;
+  onExtendClip?: (segmentId: string, prompt: string) => Promise<void>;
+  onDuplicateSegment?: (id: string) => void;
+  onReorderSegments?: (fromIndex: number, toIndex: number) => void;
   segments: CommercialSegment[];
   targetDuration: string;
   onTargetDurationChange: (dur: string) => void;
