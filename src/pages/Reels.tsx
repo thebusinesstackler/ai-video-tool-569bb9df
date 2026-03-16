@@ -3956,6 +3956,14 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         : "Describe the person so all generated scripts match their gender, age, and appearance."}
                     </p>
                   </div>
+                  </div>
+
+                  {/* ── Voice & Model Section ── */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-primary" />
+                      Voice & Model
+                    </h4>
 
                   {/* Model Selection */}
                   <div className="space-y-2">
