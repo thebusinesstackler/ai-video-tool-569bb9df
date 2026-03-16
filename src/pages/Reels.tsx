@@ -2017,9 +2017,20 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           try {
             const videoUrls = sortedVideos.map(v => v.videoUrl);
             
+            // Identify which video indices have embedded audio (InfiniteTalk lip-sync)
+            const embeddedAudioIndices: number[] = [];
+            sortedVideos.forEach((v, idx) => {
+              if (perSceneEmbeddedAudio[v.sceneNumber]) {
+                embeddedAudioIndices.push(idx);
+              }
+            });
+            
+            console.log('[Stitch] Embedded audio indices:', embeddedAudioIndices, 'Overlay audio count:', audioUrlsForStitch.length);
+            
             const finalBlob = await canvasStitchVideos({
               videoUrls,
               audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+              embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
               onProgress: (p) => {
                 setProgress(75 + Math.round(p * 0.2));
                 setProgressStatus(`Stitching... ${Math.round(p)}%`);
