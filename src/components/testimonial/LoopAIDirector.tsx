@@ -1000,6 +1000,24 @@ export function LoopAIDirector({
           body: JSON.stringify({
             messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: msg }],
             targetDuration: parseInt(targetDuration),
+            projectSummary: (() => {
+              const speakingSegs = segments.filter(s => s.type === 'speaking');
+              const brollSegs = segments.filter(s => s.type === 'broll');
+              const uniqueActorDescs = new Set(speakingSegs.map(s => s.character?.twinId || s.character?.description).filter(Boolean));
+              return {
+                totalSegments: segments.length,
+                speakingCount: speakingSegs.length,
+                brollCount: brollSegs.length,
+                totalDuration: segments.reduce((s, seg) => s + seg.duration, 0),
+                targetDuration: parseInt(targetDuration),
+                videosReady: segments.filter(s => s.videoUrl).length,
+                audiosReady: segments.filter(s => s.audioUrl).length,
+                charactersReady: speakingSegs.filter(s => s.character?.referenceImages?.length).length,
+                uniqueActors: uniqueActorDescs.size,
+                hasMusic: false,
+                productImagesInUse: segments.filter(s => s.productImageUrl).length,
+              };
+            })(),
             currentSegments: segments.length > 0 ? (() => {
               const speakingSegments = segments.filter(seg => seg.type === 'speaking');
               return segments.map((s, index) => {
