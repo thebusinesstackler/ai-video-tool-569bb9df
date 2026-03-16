@@ -44,8 +44,7 @@ import {
   Trash2,
   Play,
   ChevronDown,
-  Palette,
-  
+  ChevronDown,
   Monitor,
   Layers,
   User,
