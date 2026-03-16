@@ -2122,6 +2122,63 @@ const Reels = () => {
     }
   };
 
+  // ====== QUICK MODE: One-tap generation ======
+  const generateQuickMode = async (quickTopic: string) => {
+    if (!quickTopic.trim()) return;
+    
+    setTopic(quickTopic);
+    abortRef.current = new AbortController();
+    
+    // Auto-select AI Twin if available
+    let shouldEnableLipSync = false;
+    let activeLipSyncModel: string = 'infinitetalk';
+    
+    if (aiTwins.length > 0) {
+      const twin = aiTwins[0];
+      setSelectedTwinId(twin.id);
+      if (twin.reference_images?.[0]) {
+        setPortraitImage(twin.reference_images[0]);
+        setPortraitPreview(twin.reference_images[0]);
+        setPreSelectedReference(twin.reference_images[0]);
+      }
+      if (twin.face_description) {
+        setCharacterDescription(twin.face_description);
+      }
+      shouldEnableLipSync = true;
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
+    }
+    
+    // Auto-detect voice
+    let resolvedVoice = selectedVoice;
+    if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+      if (aiTwins.length > 0) {
+        const twin = aiTwins[0];
+        const twinGender = (twin as any).gender?.toLowerCase() || '';
+        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
+        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
+        if (detectedVoice) resolvedVoice = detectedVoice;
+      }
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+        resolvedVoice = detectGenderVoice(quickTopic + ' ' + characterDescription) || 'English_Trustworth_Man';
+      }
+    }
+    setSelectedVoice(resolvedVoice);
+    
+    if (abortRef.current.signal.aborted) return;
+    
+    // Generate scripts
+    const generatedScenes = await generateScripts();
+    if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
+    
+    // Go straight to video generation (which handles voiceovers + images + video)
+    await generateVideo({ 
+      forceEnableLipSync: shouldEnableLipSync, 
+      forceLipSyncModel: activeLipSyncModel, 
+      scenesOverride: generatedScenes 
+    });
+  };
+
   const resetProject = () => {
     // Cleanup blob URL
     if (project.videoBlobUrl) {
