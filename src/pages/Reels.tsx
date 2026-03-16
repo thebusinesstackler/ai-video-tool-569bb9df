@@ -1663,7 +1663,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     if (abortRef.current?.signal.aborted) return;
     setIsGenerating(true);
     setVideoError(null);
-    setProject(prev => ({ ...prev, status: 'generating-video' }));
+    // Clear old generated scenes/clips so stale results don't show
+    setProject(prev => ({ ...prev, status: 'generating-video', generatedScenes: [], videoClips: [], videoBlobUrl: null, videoUrl: null }));
     setProgress(5);
     
     // Use preview voiceovers if they exist, otherwise generate new ones
