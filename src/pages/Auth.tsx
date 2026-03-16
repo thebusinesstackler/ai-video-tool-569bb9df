@@ -101,10 +101,10 @@ const Auth = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect authenticated users OR dev preview bypass
+  // Redirect authenticated users immediately (no flash)
   useEffect(() => {
     if (isDevPreview || user) {
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [user, navigate]);
 

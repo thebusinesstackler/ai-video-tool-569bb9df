@@ -168,7 +168,7 @@ const AISpokesperson = () => {
     }
   }, []);
 
-  // Auto-save draft on state changes
+  // Auto-save draft on state changes (debounced via hook)
   useEffect(() => {
     saveDraft({
       message,
@@ -184,7 +184,7 @@ const AISpokesperson = () => {
       videoUrl,
       audioUrl,
     });
-  }, [message, selectedTwinId, selectedSetting, selectedMood, selectedCameraAngle, selectedDuration, selectedQuality, generatedScript, sceneShots, showSceneGallery, videoUrl, audioUrl]);
+  }, [message, selectedTwinId, selectedSetting, selectedMood, selectedCameraAngle, selectedDuration, selectedQuality, generatedScript, videoUrl, audioUrl]);
 
   // Load twins
   useEffect(() => {
