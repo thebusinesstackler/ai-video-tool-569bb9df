@@ -389,7 +389,6 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
                             className={`bg-card hover:bg-accent/50 transition-colors cursor-pointer group relative ${
                               isSelected ? 'ring-2 ring-primary border-primary' : ''
                             }`}
-                            onClick={() => handleApply(idea)}
                           >
                             {/* Checkbox */}
                             <div 
@@ -451,6 +450,20 @@ export const TopicStrategist: React.FC<TopicStrategistProps> = ({
                                   CTA: {idea.callToAction}
                                 </p>
                               )}
+
+                              {/* Use This Idea Button */}
+                              <Button
+                                size="sm"
+                                className="w-full mt-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApply(idea);
+                                }}
+                                disabled={disabled}
+                              >
+                                <Play className="w-3 h-3 mr-1" />
+                                Use This Idea
+                              </Button>
 
                               {/* Scene Breakdown */}
                               <div className="flex gap-1 pt-1">

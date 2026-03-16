@@ -3193,7 +3193,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               <CardContent className="space-y-4">
                 {/* AI Topic Strategist */}
                 <TopicStrategist
-                  onApplyStrategy={(strategy) => {
+                  onApplyStrategy={async (strategy) => {
                     // Build topic with title and hook
                     setTopic(`${strategy.title}\n\nHook: ${strategy.hookText}`);
                     
@@ -3218,6 +3218,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       setFeatureToggles(prev => ({ ...prev, introOutro: true }));
                       setTemplateSectionOpen(true);
                     }
+
+                    // Auto-generate the script so the user can start immediately
+                    toast({ title: "Idea Applied!", description: "Generating script..." });
+                    // Use setTimeout to let state updates propagate before generating
+                    setTimeout(async () => {
+                      await generateScripts();
+                    }, 100);
                   }}
                   disabled={isGenerating}
                   initialState={strategistState}
