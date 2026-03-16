@@ -13,7 +13,7 @@ interface WaveSpeedVideoParams {
   endFrameUrl?: string;
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro' | 'sora-2';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -320,6 +320,26 @@ serve(async (req) => {
           target_index: 0,
           max_duration: duration || 0
         };
+      } else if (params.model === 'sora-2') {
+        // Sora 2 - OpenAI's cinematic image-to-video model via WaveSpeed
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Image is required for Sora 2 model');
+        }
+
+        // Sora 2 supports 4s, 8s, or 12s durations
+        const sora2Duration = duration <= 5 ? 4 : duration <= 10 ? 8 : 12;
+        console.log(`Sora 2: requested duration ${duration}s, using ${sora2Duration}s (allowed: 4, 8, 12)`);
+
+        requestBody = {
+          image: params.imageUrls[0],
+          prompt: params.prompt || 'Premium cinematic motion, smooth professional quality',
+          duration: sora2Duration,
+          aspect_ratio: params.aspectRatio || '9:16'
+        };
+
+        console.log('Using Sora 2 for cinematic image-to-video generation');
       } else if (params.model === 'kling-v3.0-pro') {
         // Kling V3.0 Pro - high quality image-to-video
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';

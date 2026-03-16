@@ -502,11 +502,12 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
           };
           
         } else if (scene.isIntro) {
-          // ====== KLING 3.0 PRO: Intro scene ======
-          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for intro`);
+          // ====== SORA 2: Intro scene — cinematic quality ======
+          console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for intro`);
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
-          const klingDuration = clipDuration <= 7 ? 5 : 10;
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          // Sora 2 supports 4s, 8s, or 12s
+          const sora2Duration = clipDuration <= 5 ? 4 : clipDuration <= 10 ? 8 : 12;
           
           requestBody = {
             image: imageUrl,
@@ -514,15 +515,16 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
 Elegant slow zoom in with shallow depth of field, volumetric light rays, smooth professional motion.
 Ultra high quality, film-grade. Atmospheric, sets the mood for the content ahead.
 No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
-            duration: klingDuration
+            duration: sora2Duration,
+            aspect_ratio: '9:16'
           };
           
         } else if (scene.isOutro) {
-          // ====== KLING 3.0 PRO: Outro scene ======
-          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for outro`);
+          // ====== SORA 2: Outro scene — cinematic quality ======
+          console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for outro`);
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
-          const klingDuration = clipDuration <= 7 ? 5 : 10;
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          const sora2Duration = clipDuration <= 5 ? 4 : clipDuration <= 10 ? 8 : 12;
           
           requestBody = {
             image: imageUrl,
@@ -530,7 +532,8 @@ No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
 Elegant slow zoom out with atmospheric lighting, smooth professional motion, film-grade quality.
 Warm, inviting feel that encourages engagement. Sophisticated ending.
 No text, no captions, no subtitles, no watermarks.`,
-            duration: klingDuration
+            duration: sora2Duration,
+            aspect_ratio: '9:16'
           };
           
         } else {

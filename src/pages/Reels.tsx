@@ -2823,13 +2823,32 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           <SelectContent>
                             <SelectItem value="auto">🤖 Auto (AI picks best)</SelectItem>
                             <SelectItem value="question">❓ Question Hook</SelectItem>
-                            <SelectItem value="bold-claim">💥 Bold Claim</SelectItem>
+                            <SelectItem value="bold_claim">💥 Bold Claim</SelectItem>
                             <SelectItem value="story">📖 Story / Personal</SelectItem>
                             <SelectItem value="statistic">📊 Shocking Statistic</SelectItem>
-                            <SelectItem value="myth-buster">🔥 Myth Buster</SelectItem>
+                            <SelectItem value="myth_buster">🔥 Myth Buster</SelectItem>
                             <SelectItem value="challenge">🎯 Challenge / Dare</SelectItem>
+                            <SelectItem value="fomo">⏰ FOMO / Urgency</SelectItem>
+                            <SelectItem value="curiosity_gap">🧠 Curiosity Gap</SelectItem>
+                            <SelectItem value="contrarian">🔄 Contrarian Take</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* Cut Scenes Toggle */}
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">🎞️ Auto Cut Scenes</p>
+                          <p className="text-[10px] text-muted-foreground">Add dynamic B-roll cuts between narration</p>
+                        </div>
+                        <Switch
+                          checked={enableCutScenes}
+                          onCheckedChange={(checked) => {
+                            setEnableCutScenes(checked);
+                            setFeatureToggles(prev => ({ ...prev, cutScenes: checked }));
+                          }}
+                          disabled={isGenerating}
+                        />
                       </div>
 
                       <Button
@@ -2890,6 +2909,32 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             <p className="text-[10px] text-muted-foreground line-clamp-1">📷 {(scene as any).visualDescription?.substring(0, 80)}...</p>
                           </div>
                         ))}
+                      </div>
+
+                      {/* TTS Voice Preview */}
+                      <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">🔊 Voice Preview</p>
+                            <p className="text-[10px] text-muted-foreground">Hear how the narration will sound</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">
+                            {selectedVoice === 'ai-auto' ? 'Auto-detect' : selectedVoice.replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={previewVoice}
+                          disabled={isGenerating || isPreviewingVoice}
+                        >
+                          {isPreviewingVoice ? (
+                            <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing...</>
+                          ) : (
+                            <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                          )}
+                        </Button>
                       </div>
 
                       <div className="flex gap-2">

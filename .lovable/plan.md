@@ -1,37 +1,33 @@
 
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Plan: Sora 2 for Intros/Outros, Cut Scene Previews, Hook Style Integration, and TTS Voice Preview
+## Status: ✅ Implemented
 
-### What's Changing
+## Changes Made
 
-**1. Route Intro/Outro video generation to Sora 2** (`generate-reel-video/index.ts`)
-- Currently intros and outros use Kling 3.0 Pro (`kwaivgi/kling-v3.0-pro/image-to-video`)
-- Change both to use WaveSpeed's Sora 2 endpoint: `https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video`
-- Sora 2 supports 4s, 8s, or 12s durations with synchronized audio and cinematic quality
-- Add `'sora-2'` to the model type union in `wavespeed-video/index.ts`
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-**2. Add Sora 2 model routing in `wavespeed-video/index.ts`**
-- Add a new branch for `model === 'sora-2'` that routes to `https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video`
-- Accept image + prompt + duration parameters
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-**3. Make cut scenes auto-generate and display in Step 2** (`Reels.tsx`)
-- After script generation in beginner mode, if `enableCutScenes` is true (or auto-enabled), show cut scene entries in the Step 2 script review with `🎞️ Cut` badges
-- The `generate-reel-script` edge function already supports `enableCutScenes` — verify it generates `isCutScene` flagged scenes and they display correctly
-- Add a toggle for cut scenes in Step 1 (beginner mode) so users can enable it before script generation
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-**4. Hook style options in beginner Step 1** (`Reels.tsx`)
-- The hook style selector already exists in Step 1 (line 2817-2833) with 7 options — verify these values are passed through to the edge function correctly
-- The edge function already has 12 hook categories defined — ensure the UI values map to the backend categories (e.g., `bold-claim` → `bold_claim`)
-- Fix any mismatches between UI values (hyphenated) and backend values (underscored)
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-**5. Add TTS voice preview below the script in Step 2** (`Reels.tsx`)
-- Add a "Preview Voice" button in Step 2 after the script review section
-- Uses the existing `previewVoice` function which calls the `text-to-speech` edge function via WaveSpeed MiniMax
-- Show the currently selected voice badge and a play/stop button
-- Users can hear the voice before proceeding to character/video generation
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-### Files Modified
-- `supabase/functions/generate-reel-video/index.ts` — route intro/outro scenes to Sora 2 API
-- `supabase/functions/wavespeed-video/index.ts` — add `sora-2` model support
-- `src/pages/Reels.tsx` — add cut scenes toggle + voice preview to beginner Steps 1-2, fix hook style value mapping
-
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
