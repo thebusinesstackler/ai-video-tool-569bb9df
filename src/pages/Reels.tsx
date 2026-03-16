@@ -3630,7 +3630,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     <div className="flex-1 border-t border-border" />
                   </div>
 
-                  {!showGenerateCharacter ? (
+                  {!showGenerateCharacter && !generatedCharacterShots.length ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -3641,6 +3641,78 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       <Wand2 className="w-3 h-3 mr-1" />
                       Generate a Person with AI
                     </Button>
+                  ) : generatedCharacterShots.length > 0 && portraitPreview ? (
+                    <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <img src={portraitPreview} alt="Character" className="w-14 h-14 rounded-lg object-cover border border-border" />
+                        <div className="flex-1">
+                          <p className="text-sm text-foreground font-medium">Character ready! ✨</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{characterDescription || 'Custom character'}</p>
+                          {selectedTwinId && <p className="text-[10px] text-primary">Saved to AI Twins</p>}
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); setGeneratedCharacterShots([]); }}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {/* Angle shots grid */}
+                      {generatedCharacterShots.length > 1 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Select your preferred shot:</Label>
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {generatedCharacterShots.map((shot, idx) => (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  setSelectedShotIndex(idx);
+                                  setPortraitImage(shot.url);
+                                  setPortraitPreview(shot.url);
+                                  setPreSelectedReference(shot.url);
+                                }}
+                                className={`cursor-pointer rounded-md overflow-hidden border-2 transition-all ${
+                                  selectedShotIndex === idx
+                                    ? 'border-primary ring-2 ring-primary/40'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                              >
+                                <img src={shot.url} alt={shot.label} className="w-full aspect-square object-cover" />
+                                <p className="text-[8px] text-center text-muted-foreground py-0.5 truncate px-0.5">{shot.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Voice section for this character */}
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Mic className="w-3 h-3" /> Character Voice
+                        </Label>
+                        <VoiceSelector
+                          selectedVoice={selectedVoice}
+                          onVoiceSelect={setSelectedVoice}
+                          compact
+                          characterDescription={characterDescription}
+                          characterGender={detectedCharGender}
+                          disabled={isGenerating}
+                        />
+                        {selectedVoice && (
+                          <Button variant="outline" size="sm" className="w-full" onClick={previewVoice} disabled={isGenerating}>
+                            {isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview Voice</>}
+                          </Button>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); setGeneratedCharacterShots([]); generateCharacter(); }}
+                        disabled={isGenerating || isGeneratingCharacter}
+                      >
+                        {isGeneratingCharacter ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerating...</> : <><RefreshCw className="w-4 h-4 mr-2" />Regenerate Character</>}
+                      </Button>
+                    </div>
                   ) : (
                     <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
                       <Label className="text-xs">Describe the person</Label>
@@ -3659,9 +3731,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           className="flex-1"
                         >
                           {isGeneratingCharacter ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                          Generate
+                          Generate (5 Shots)
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setShowGenerateCharacter(false)}>
+                        <Button size="sm" variant="outline" onClick={() => { setShowGenerateCharacter(false); }}>
                           Cancel
                         </Button>
                       </div>
