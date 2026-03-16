@@ -2910,10 +2910,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       
       if (user) {
         try {
-          const fileName = `${user.id}/${Date.now()}-stitched.mp4`;
+          const isWebm = stitchedBlob.type.includes('webm');
+          const ext = isWebm ? 'webm' : 'mp4';
+          const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('reels')
-            .upload(fileName, stitchedBlob, { contentType: 'video/mp4' });
+            .upload(fileName, stitchedBlob, { contentType: stitchedBlob.type || 'video/webm' });
           if (!uploadError && uploadData) {
             const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
             savedVideoUrl = publicUrl.publicUrl;
