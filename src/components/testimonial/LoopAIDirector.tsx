@@ -275,8 +275,28 @@ export function LoopAIDirector({
     setIsPreviewingAudio(true);
     setPreviewingSegId(segId);
     try {
-      const { voiceId: autoVoiceId, gender: autoGender } = characterDescription
-        ? pickVoiceForCharacter(characterDescription)
+      // Find the segment to get twinId and existing voiceId for consistency
+      const targetSeg = segments.find(s => s.id === segId);
+      const twinId = targetSeg?.character?.twinId || targetSeg?.twinId;
+      const existingVoiceId = targetSeg?.voiceoverId;
+      
+      // For B-roll voiceovers, use the main character's voice for consistency
+      let effectiveDesc = characterDescription || '';
+      let effectiveTwinId = twinId;
+      let effectiveExistingVoiceId = existingVoiceId;
+      
+      if (targetSeg?.type === 'broll') {
+        // Find the main speaking character's voice to reuse
+        const mainSpeaker = segments.find(s => s.type === 'speaking' && s.voiceoverId);
+        if (mainSpeaker?.voiceoverId) {
+          effectiveExistingVoiceId = mainSpeaker.voiceoverId;
+          effectiveDesc = mainSpeaker.character?.description || effectiveDesc;
+          effectiveTwinId = mainSpeaker.character?.twinId || mainSpeaker.twinId;
+        }
+      }
+      
+      const { voiceId: autoVoiceId, gender: autoGender } = effectiveDesc
+        ? pickVoiceForCharacter(effectiveDesc, effectiveTwinId, effectiveExistingVoiceId)
         : { voiceId: 'English_Trustworth_Man', gender: 'male' };
 
       const voiceId = voiceIdOverride || autoVoiceId;
