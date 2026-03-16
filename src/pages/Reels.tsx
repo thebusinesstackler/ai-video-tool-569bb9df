@@ -1464,7 +1464,7 @@ const Reels = () => {
   const generateScripts = async (overrides?: { characterDescriptionOverride?: string; topicOverride?: string }): Promise<Scene[] | null> => {
     const effectiveTopic = overrides?.topicOverride || topic;
     const effectiveCharDesc = overrides?.characterDescriptionOverride ?? characterDescription;
-    if (!topic.trim()) {
+    if (!effectiveTopic.trim()) {
       toast({
         title: "Topic Required",
         description: "Please enter a topic for your reel.",
@@ -1475,7 +1475,7 @@ const Reels = () => {
 
     if (abortRef.current?.signal.aborted) return null;
     setIsGenerating(true);
-    setProject(prev => ({ ...prev, status: 'generating-script', topic }));
+    setProject(prev => ({ ...prev, status: 'generating-script', topic: effectiveTopic }));
     setProgress(10);
 
     // For podcast mode, use 1 scene with the full duration
@@ -1491,13 +1491,13 @@ const Reels = () => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
         body: { 
-          topic, 
+          topic: effectiveTopic, 
           sceneCount,
           sceneDuration,
           targetDuration,
           hookStyle,
           enableCutScenes: isPodcastMode ? false : enableCutScenes,
-          characterDescription: characterDescription.trim() || undefined,
+          characterDescription: effectiveCharDesc.trim() || undefined,
           isPodcastMode,
           characterId: selectedCharacterId,
           characterName: selectedCharacter?.name,
