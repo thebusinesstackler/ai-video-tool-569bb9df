@@ -3097,16 +3097,24 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                     return (
                                       <div
                                         key={twin.id}
-                                        onClick={() => {
+                                      onClick={async () => {
                                           if (isGenerating) return;
                                           setSelectedTwinId(twin.id);
                                           if (twin.reference_images?.[0]) {
                                             setPortraitImage(twin.reference_images[0]);
                                             setPortraitPreview(twin.reference_images[0]);
                                             setPreSelectedReference(twin.reference_images[0]);
-                                            setGeneratedCharacterShots(
-                                              twin.reference_images.map((url, i) => ({ label: `Angle ${i + 1}`, url }))
-                                            );
+                                            // Lazy-load all reference images for angle shots
+                                            const fullImages = await loadTwinFullImages(twin.id);
+                                            if (fullImages && fullImages.length > 0) {
+                                              setGeneratedCharacterShots(
+                                                fullImages.map((url: string, i: number) => ({ label: `Angle ${i + 1}`, url }))
+                                              );
+                                            } else {
+                                              setGeneratedCharacterShots(
+                                                twin.reference_images.map((url, i) => ({ label: `Angle ${i + 1}`, url }))
+                                              );
+                                            }
                                             setSelectedShotIndex(0);
                                           }
                                           if (twin.face_description) {
