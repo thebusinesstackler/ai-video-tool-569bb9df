@@ -1,58 +1,44 @@
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
 
-## Changes Made
+## Problem
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+The script generator creates visually impressive but **topic-disconnected** scene descriptions. When generating a reel about "Ghost Marketer Strategy," every scene shows a person holding a bottle because:
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+1. The prompt tells the AI to show "people with CLOSED MOUTHS... posing, or doing activities" but never says **which** activities — so the AI defaults to generic stock-photo visuals
+2. There's no instruction linking `visualDescription` to `narration` content
+3. The character templates and placeholder examples all mention "holding a bottle," biasing the AI model
+4. The example JSON template in the prompt shows a generic `SUBJECT: [pose, expression]` without tying it to the topic
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+## Plan
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+### 1. Add visual-narrative alignment rules (`generate-reel-script/index.ts`)
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+Insert a new `VISUAL-NARRATIVE ALIGNMENT (CRITICAL)` section into the system prompt that mandates:
+- The `visualDescription` MUST visually represent what the `narration` is about
+- If narration discusses marketing → show marketing-related visuals (laptop with analytics, whiteboard with strategy)
+- If narration discusses fitness → show gym, workout, supplements
+- Validation check: "If someone watched this scene on mute, would they understand the topic?"
+- NEVER default to generic "person holding a product" unless the topic IS about a product
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+### 2. Fix the "closed mouths" instruction to be topic-aware
 
-# UI Improvements for Character + Voice Flow
+Update line ~319 to replace the generic "doing activities" guidance with:
+- "Show the character performing actions DIRECTLY RELATED to the narration topic"
+- Add examples: topic about cooking → character in kitchen; topic about business → character at desk with relevant props
+- Keep the closed-mouth rule but make the poses/actions match the script content
 
-## Status: ✅ Implemented
+### 3. Update the example JSON template
 
-### Changes Made
+Change the `SUBJECT` field in the example (line ~381) from generic `[pose, expression]` to:
+- `SUBJECT: [exact character description performing action RELATED to the narration content]`
+- Add a note: "The action/props must reflect the topic, not generic stock photography"
 
-**A. Removed duplicate voice UI in beginner Step 3**
-- Removed inline "Preview Voice" button and badge from character-ready card
-- Single voice section kept as standalone "Character Voice" card
+### 4. Remove bias from placeholder examples
 
-**B. Added skeleton placeholders during character generation**
-- 5-cell pulsing skeleton grid shown while `isGeneratingCharacter` is true
+Update `AICharacterCreator.tsx` placeholder text (line ~56 and ~646) to use diverse examples instead of always "holding a bottle":
+- Mix examples: "presenting at a whiteboard," "typing on a laptop in a modern office," "cooking in a bright kitchen"
 
-**C. Switched AI Twin picker to 3-column grid in beginner mode**
-- Changed from `grid-cols-4` to `grid-cols-3` for better tap targets
-- Added voice badge indicator matching advanced mode
+### Files to modify
+- `supabase/functions/generate-reel-script/index.ts` — Add visual-narrative alignment rules, fix activity guidance, update example JSON
+- `src/components/AICharacterCreator.tsx` — Diversify placeholder examples to remove bottle bias
 
-**D. Added sub-sections to Advanced Lip Sync**
-- "Character" section: AI Twin picker, generate character, manual upload, character description
-- "Voice & Model" section: lip sync model, voiceover source (AI/upload)
-- Each in a bordered container with header
-
-**E. Added "Skip Character" shortcut**
-- Ghost button "Skip Character → Make My Reel" shown when no character is set
-- Triggers `generateAll` directly
