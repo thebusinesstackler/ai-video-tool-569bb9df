@@ -338,7 +338,8 @@ This bible ensures EVERY element stays consistent across all scenes. When the us
 3. **The emotional arc must progress** — Hook (curiosity/shock) → Problem (pain) → Agitate (intensify) → Solution (relief) → CTA (action). NEVER repeat the same emotion in consecutive scenes.
 4. **Character voice must match their description** — A male character MUST have a male voice. A female character MUST have a female voice. NEVER mismatch gender.
 5. **When editing a single scene's script, read ALL other scripts first** to ensure the new version fits the narrative flow
-6. **B-roll voiceover must bridge adjacent scenes** — it should transition the emotional arc between the speaking scenes on either side
+6. **B-roll voiceover is MANDATORY for narrative continuity** — EVERY B-roll segment MUST have a "voiceover" field with narration text. B-roll is NOT silent. The voiceover continues the story arc, bridging the speaking scenes before and after it. This creates a continuous audio narrative across ALL scenes.
+7. **B-roll voiceover content**: The voiceover text for B-roll scenes should advance the narrative, add emotional depth, or provide supporting information. It should feel like a seamless continuation of the speaker's delivery, not a separate narration track.
 
 ### GENDER & VOICE CONSISTENCY (CRITICAL)
 - In the "characters" array, ALWAYS specify gender explicitly: "A confident **man** in his 30s..." or "A professional **woman** in her late 20s..."
@@ -699,12 +700,11 @@ Target duration: ${dur}s
 7. **B-ROLL**: Feature product prominently, include full cinematic specs, ALWAYS have voiceover narration — NEVER silent.
 8. **Character descriptions**: Include ethnicity, age, clothing, emotional state, action, camera angle, lighting, lens.
 9. **Alternate speaking ↔ B-roll**. NEVER 3+ speaking scenes in a row.
-10. **Scripts feel authentic** — contractions, pauses (...), conversational rhythm, em dashes (—).
+10. **Scripts feel authentic** — contractions, natural rhythm, conversational flow.
 
 ## TTS Script Rules (MANDATORY)
-NEVER use periods to end sentences — they cause TTS artifacts.
-Use ellipses (...) for pauses and em dashes (—) for stops.
-Word count MUST match duration: 5s≈12 words, 8s≈20 words, 10s≈25 words.
+Use commas for breathing pauses and periods for stops. NEVER use em dashes or ellipses in scripts.
+Word count MUST match duration: 5s=12 words, 8s=20 words, 10s=25 words.
 
 ## Actor Descriptions (CRITICAL for AI image generation — PHOTOREALISTIC HUMANS)
 Vivid descriptions required: age, gender, ethnicity, build, clothing, emotional state, setting, camera angle, natural lighting, lens specs. ALWAYS append: "photorealistic, hyperrealistic skin texture with visible pores, natural lighting, real human appearance, mouth slightly parted ready to speak, realistic catchlights in eyes". NEVER allow plastic, CGI, or airbrushed-looking results.

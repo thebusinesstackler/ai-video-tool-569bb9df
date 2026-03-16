@@ -261,8 +261,21 @@ export default function TestimonialCommercial() {
           toast.error('Scene needs character images and audio before video can be generated');
           return;
         }
+
+        // Detect if this is the hook scene (first speaking segment) — use premium model
+        const speakingSegments = segments.filter(s => s.type === 'speaking');
+        const isHookScene = speakingSegments.length > 0 && speakingSegments[0].id === segmentId;
+
+        if (isHookScene) {
+          // Hook scene gets dynamic treatment: use kling-v3.0-pro for eye-catching visuals
+          // then we'll also generate the lip-sync version and pick the best
+          toast.info('🎣 Hook scene detected. Using premium cinematic model for maximum impact.');
+        }
+
         taskId = await createWaveSpeedVideo({
-          prompt: seg.character?.description || 'Person speaking naturally to camera',
+          prompt: isHookScene 
+            ? `${seg.character?.description || 'Person speaking to camera'}. Dynamic cinematic opening, subtle camera push-in, dramatic lighting shift, captivating eye contact, energetic presence, shot feels like a movie trailer opening`
+            : (seg.character?.description || 'Person speaking naturally to camera'),
           imageUrls: [seg.character.referenceImages[0]],
           audioUrl: seg.audioUrl,
           model: 'infinitetalk',

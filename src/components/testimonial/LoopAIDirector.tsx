@@ -1454,20 +1454,29 @@ export function LoopAIDirector({
 
     setAutoGenProgress(null);
 
-    // Now auto-generate voiceovers for all speaking scenes
-    const voiceSegs = segs.filter(s => s.type === 'speaking' && s.script && !s.audioUrl);
+    // Then generate voiceovers — speaking + B-roll with voiceoverText for narrative continuity
+    const voiceSegs = segs.filter(s => 
+      (s.type === 'speaking' && s.script && !s.audioUrl) ||
+      (s.type === 'broll' && s.voiceoverText && !s.audioUrl)
+    );
     if (voiceSegs.length > 0) {
+      // Find main character description for B-roll voice matching
+      const mainSpeaking = segs.find(s => s.type === 'speaking' && s.character?.description);
+      const mainCharDesc = mainSpeaking?.character?.description || '';
+
       setAutoGenProgress({ current: 0, total: voiceSegs.length, label: 'Generating voiceovers...' });
       setMessages(prev => [...prev, {
         role: 'system-action' as const,
-        content: `🎙️ Generating voiceovers for ${voiceSegs.length} scene${voiceSegs.length !== 1 ? 's' : ''}...`
+        content: `🎙️ Generating voiceovers for ${voiceSegs.length} scene${voiceSegs.length !== 1 ? 's' : ''} (speaking + B-roll narration)...`
       }]);
 
       let voiceCurrent = 0;
       for (const seg of voiceSegs) {
         try {
           setAutoGenProgress({ current: voiceCurrent, total: voiceSegs.length, label: `Generating voiceover ${voiceCurrent + 1}/${voiceSegs.length}...` });
-          await previewAudio(seg.script!, seg.id, seg.character?.description || '');
+          const text = seg.type === 'speaking' ? seg.script! : seg.voiceoverText!;
+          const charDesc = seg.type === 'speaking' ? (seg.character?.description || '') : mainCharDesc;
+          await previewAudio(text, seg.id, charDesc);
         } catch (e) {
           console.error('Auto-gen voice failed:', e);
         }
@@ -1478,7 +1487,7 @@ export function LoopAIDirector({
 
     setMessages(prev => [...prev, {
       role: 'system-action' as const,
-      content: `✅ Production ready — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''}, ${brollSegs.length} B-roll, and ${voiceSegs.length} voiceover${voiceSegs.length !== 1 ? 's' : ''} generated. Click any scene in the timeline to fine-tune, or tell me what to change.`
+      content: `✅ Production ready — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''}, ${brollSegs.length} B-roll, and ${voiceSegs.length} voiceover${voiceSegs.length !== 1 ? 's' : ''} generated (including B-roll narration). Click any scene to fine-tune, or tell me what to change.`
     }]);
   };
 
