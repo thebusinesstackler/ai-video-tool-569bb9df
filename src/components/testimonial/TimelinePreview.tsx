@@ -45,7 +45,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
     audio.play().catch(() => setPlayingId(null));
   }, [playingId]);
 
-  // Build type-specific numbering (Scene #1, B-Roll #1, etc.)
+  // Build type-specific numbering and detect narrative roles
   const getTypeNumber = (index: number) => {
     const seg = segments[index];
     let count = 0;
@@ -53,6 +53,16 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
       if (segments[i].type === seg.type) count++;
     }
     return count;
+  };
+
+  const getNarrativeLabel = (index: number): string | null => {
+    const seg = segments[index];
+    if (seg.type !== 'speaking') return null;
+    const speakingSegs = segments.filter(s => s.type === 'speaking');
+    const speakIdx = speakingSegs.indexOf(seg);
+    if (speakIdx === 0) return 'HOOK';
+    if (speakIdx === speakingSegs.length - 1) return 'CTA';
+    return null;
   };
 
   if (segments.length === 0) return null;
