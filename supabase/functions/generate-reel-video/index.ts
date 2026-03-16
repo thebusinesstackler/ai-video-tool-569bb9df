@@ -769,17 +769,23 @@ No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
           };
           
         } else if (scene.isOutro) {
-          // ====== SORA 2: Outro scene — cinematic quality ======
+          // ====== SORA 2: Outro scene — cinematic quality with character/topic context ======
           console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for outro`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
           const sora2Duration = clipDuration <= 5 ? 4 : clipDuration <= 10 ? 8 : 12;
           
+          const outroCharDesc = characterDescription 
+            ? `The ${characterDescription} is in frame with a warm, inviting closing expression.` 
+            : 'Warm, inviting atmosphere.';
+          const outroNarration = scene.narration ? `The scene conveys: "${scene.narration}"` : '';
+          
           requestBody = {
             image: imageUrl,
-            prompt: `Premium cinematic outro for a reel about "${topic}".
-Elegant slow zoom out with atmospheric lighting, smooth professional motion, film-grade quality.
-Warm, inviting feel that encourages engagement. Sophisticated ending.
+            prompt: `Premium cinematic outro for a reel about "${topic}". ${outroCharDesc}
+${outroNarration}
+Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
+The subject has a knowing smile, relaxed and inviting posture. Film-grade quality.
 No text, no captions, no subtitles, no watermarks.`,
             duration: sora2Duration,
             aspect_ratio: '9:16'
