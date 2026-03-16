@@ -4,12 +4,12 @@ import { CommercialSegment, TestimonialCommercial, CharacterProfile } from '@/ty
 import { toast } from 'sonner';
 
 const ANGLE_PROMPTS = [
-  (desc: string) => `Photorealistic front portrait of ${desc}. 85mm lens, studio lighting, neutral background, direct eye contact, shoulders visible. No text, no watermark.`,
-  (desc: string) => `Photorealistic 3/4 left profile of ${desc}. 50mm lens, soft studio lighting, turned slightly left, warm expression. No text, no watermark.`,
-  (desc: string) => `Photorealistic side profile of ${desc}. 85mm lens, dramatic rim lighting, clean background, elegant pose. No text, no watermark.`,
-  (desc: string) => `Photorealistic low angle hero shot of ${desc}. 35mm lens, looking up at subject, powerful composition, confident expression. No text, no watermark.`,
-  (desc: string) => `Photorealistic 3/4 right profile of ${desc}. 50mm lens, natural lighting, turned slightly right, approachable expression. No text, no watermark.`,
-  (desc: string) => `Photorealistic casual wide shot of ${desc}. 35mm lens, environmental portrait, professional setting, relaxed pose. No text, no watermark.`,
+  (desc: string) => `Photorealistic front portrait of ${desc}. Shot on RED V-RAPTOR at 85mm f/1.4, cinematic studio lighting with soft key light at 45 degrees and subtle rim light, neutral background with shallow depth of field, direct eye contact, shoulders visible, broadcast television quality. No text, no watermark.`,
+  (desc: string) => `Photorealistic 3/4 left profile of ${desc}. Shot on ARRI Alexa at 50mm f/2.0, soft studio lighting with warm color temperature, slightly turned left, warm confident expression, professional color grading. No text, no watermark.`,
+  (desc: string) => `Photorealistic side profile of ${desc}. Shot on RED V-RAPTOR at 85mm f/1.4, dramatic rim lighting from behind creating a golden edge, clean blurred background, elegant pose, cinematic contrast. No text, no watermark.`,
+  (desc: string) => `Photorealistic low angle hero shot of ${desc}. Shot at 35mm f/2.8, looking up at subject creating a powerful composition, confident expression, dramatic upward lighting, aspirational feel. No text, no watermark.`,
+  (desc: string) => `Photorealistic 3/4 right profile of ${desc}. Shot at 50mm f/2.0, natural warm lighting, turned slightly right with approachable expression, shallow depth of field, commercial quality. No text, no watermark.`,
+  (desc: string) => `Photorealistic environmental wide shot of ${desc}. Shot at 35mm f/2.8, professional setting with contextual background, relaxed natural pose, cinematic color grading with warm highlights. No text, no watermark.`,
 ];
 
 export type VideoFormat = '9:16' | '16:9' | '1:1';
@@ -268,26 +268,114 @@ export function useTestimonialCommercial() {
     try {
       const totalSteps = segments.length * 2 + 1;
       let step = 0;
-      // Track generated clips locally to avoid stale React state
       const generatedClips: { id: string; videoUrl: string; audioUrl?: string; duration: number; script?: string }[] = [];
 
+      // === ACTOR CONSISTENCY: Group speaking segments by characterId (twinId) ===
+      // Generate ONE set of reference images per unique character, then reuse
+      const characterGroups: Record<string, { description: string; segmentIds: string[]; referenceImages: string[] }> = {};
+      for (const seg of segments) {
+        if (seg.type !== 'speaking') continue;
+        const charKey = seg.character?.twinId || seg.id; // Use twinId (characterId from strategy) or segment id as fallback
+        if (!characterGroups[charKey]) {
+          // Extract the base physical description (before "In this scene:" if present)
+          const fullDesc = seg.character?.description || 'A professional person';
+          const baseDesc = fullDesc.includes('In this scene:') ? fullDesc.split('In this scene:')[0].trim() : fullDesc;
+          characterGroups[charKey] = { description: baseDesc, segmentIds: [seg.id], referenceImages: [] };
+        } else {
+          characterGroups[charKey].segmentIds.push(seg.id);
+        }
+      }
+
+      // Pre-generate character images for each unique actor
+      toast.info(`Generating ${Object.keys(characterGroups).length} unique actor(s)...`);
+      for (const [charKey, group] of Object.entries(characterGroups)) {
+        if (creditError) break;
+        
+        // Check if any segment in this group already has reference images
+        const existingImages = segments.find(
+          s => group.segmentIds.includes(s.id) && s.character?.referenceImages && s.character.referenceImages.length > 0
+        )?.character?.referenceImages;
+
+        if (existingImages && existingImages.length > 0) {
+          group.referenceImages = existingImages;
+          toast.info(`Reusing existing images for actor "${group.description.slice(0, 40)}..."`);
+        } else {
+          // Generate 6-angle reference images for this actor
+          toast.info(`Generating character: "${group.description.slice(0, 50)}..."`);
+          try {
+            const { data: firstImg, error: firstErr } = await supabase.functions.invoke('generate-scene-image', {
+              body: {
+                prompt: ANGLE_PROMPTS[0](group.description),
+                aspectRatio: '1:1'
+              }
+            });
+            if (firstErr || !firstImg?.imageUrl) {
+              console.error('Failed to generate initial portrait for actor');
+              continue;
+            }
+            group.referenceImages = [firstImg.imageUrl];
+
+            // Generate remaining angles using first image as reference
+            const remaining = await Promise.allSettled(
+              ANGLE_PROMPTS.slice(1, 4).map(promptFn =>
+                supabase.functions.invoke('generate-scene-image', {
+                  body: {
+                    prompt: promptFn(group.description),
+                    aspectRatio: '1:1',
+                    referenceImageUrl: firstImg.imageUrl
+                  }
+                })
+              )
+            );
+            for (const result of remaining) {
+              if (result.status === 'fulfilled' && result.value.data?.imageUrl) {
+                group.referenceImages.push(result.value.data.imageUrl);
+              }
+            }
+            toast.success(`Actor generated with ${group.referenceImages.length} reference angles`);
+          } catch (err) {
+            console.error('Character generation error:', err);
+          }
+        }
+
+        // Apply reference images to ALL segments sharing this actor
+        for (const segId of group.segmentIds) {
+          const seg = segments.find(s => s.id === segId);
+          if (seg && group.referenceImages.length > 0) {
+            updateSegment(segId, {
+              character: {
+                ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                referenceImages: group.referenceImages,
+              },
+              status: 'character-ready',
+            });
+          }
+        }
+
+        step++;
+        setGenerationProgress((step / totalSteps) * 30); // First 30% is character gen
+      }
+
+      // === SCENE-BY-SCENE GENERATION ===
       for (let i = 0; i < segments.length; i++) {
-        if (creditError) break; // Stop if credits exhausted
+        if (creditError) break;
         
         const segment = segments[i];
         updateSegment(segment.id, { status: 'generating' });
 
         try {
           if (segment.type === 'speaking') {
-            // Step 1: Generate character image if we don't have one
-            let referenceImage = segment.character?.referenceImages?.[0];
+            // Get reference image from pre-generated character group
+            const charKey = segment.character?.twinId || segment.id;
+            const group = characterGroups[charKey];
+            let referenceImage = group?.referenceImages?.[0] || segment.character?.referenceImages?.[0];
             
             if (!referenceImage) {
               const charDesc = segment.character?.description || 'A professional person';
-              toast.info(`Scene ${i + 1}: Generating character image...`);
+              toast.info(`Scene ${i + 1}: Generating fallback character image...`);
               const { data: imgData } = await supabase.functions.invoke('generate-scene-image', {
                 body: {
-                  prompt: `Photorealistic portrait of ${charDesc}. 85mm lens, studio lighting, neutral background, looking at camera. No text, no watermark.`,
+                  prompt: `Photorealistic portrait of ${charDesc}. Shot on RED V-RAPTOR, 85mm f/1.4 lens, cinematic studio lighting with soft key light at 45 degrees, subtle rim light, neutral background with shallow depth of field. No text, no watermark.`,
                   aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9'
                 }
               });
@@ -303,9 +391,9 @@ export function useTestimonialCommercial() {
             }
 
             step++;
-            setGenerationProgress((step / totalSteps) * 100);
+            setGenerationProgress(30 + (step / totalSteps) * 70);
 
-            // Step 2: Generate TTS audio
+            // Generate TTS audio
             toast.info(`Scene ${i + 1}: Generating voiceover...`);
             const gender = segment.character?.gender || 
               (segment.character?.description?.toLowerCase().includes('female') || 
@@ -321,7 +409,7 @@ export function useTestimonialCommercial() {
 
             let audioUrl = ttsData?.audioUrl;
             
-            // If TTS returned a data: URL, upload to storage for video API compatibility
+            // Upload data: URLs to storage for video API compatibility
             if (audioUrl?.startsWith('data:')) {
               try {
                 const base64Data = audioUrl.split(',')[1];
@@ -346,20 +434,29 @@ export function useTestimonialCommercial() {
               }
             }
 
-            // Step 3: Generate video with image + audio
+            // Generate video with ENHANCED cinematic prompt
             if (referenceImage) {
               toast.info(`Scene ${i + 1}: Generating video...`);
               
+              // Extract scene-specific action from description
+              const fullDesc = segment.character?.description || 'A person';
+              const sceneAction = fullDesc.includes('In this scene:') 
+                ? fullDesc.split('In this scene:')[1].trim()
+                : fullDesc;
+              
+              // Build a rich cinematic prompt
+              const narrativeRole = segment.script?.length && segment.script.length < 50 ? 'delivering a punchy one-liner' : 'speaking passionately and naturally';
+              const cinematicPrompt = `${sceneAction}. ${narrativeRole}. Professional cinematic lighting, natural subtle head movements and gestures, photorealistic skin detail, ${aspectRatio === '9:16' ? 'vertical 9:16 format, tight medium shot framing' : 'horizontal 16:9 widescreen, cinematic composition'}. Shot on RED V-RAPTOR, shallow depth of field, broadcast television quality. No text overlays, no watermarks, no captions.`;
+
               const videoBody: any = {
                 action: 'create',
                 model: styleConfig.speakingModel,
-                prompt: `${segment.character?.description || 'A person'} speaking naturally, professional lighting, ${aspectRatio === '9:16' ? 'vertical TikTok format' : 'horizontal format'}. Smooth natural motion, photorealistic.`,
+                prompt: cinematicPrompt,
                 imageUrls: [referenceImage],
                 duration: Math.min(segment.duration, styleConfig.maxDuration),
                 aspectRatio,
               };
               
-              // Add audio for lip-sync if available
               if (audioUrl && !audioUrl.startsWith('data:')) {
                 videoBody.audioUrl = audioUrl;
               }
@@ -377,10 +474,9 @@ export function useTestimonialCommercial() {
               
               if (data?.error) {
                 console.error(`Scene ${i + 1} video error:`, data.error);
-                // Save the audio even if video fails
                 updateSegment(segment.id, { audioUrl, status: 'error' });
                 step++;
-                setGenerationProgress((step / totalSteps) * 100);
+                setGenerationProgress(30 + (step / totalSteps) * 70);
                 continue;
               }
               
@@ -397,22 +493,24 @@ export function useTestimonialCommercial() {
               updateSegment(segment.id, { audioUrl, status: 'error' });
             }
           } else {
-            // B-roll: generate image then video
-            const prompt = segment.brollPrompts?.[0] || 'Professional B-roll footage';
+            // B-roll: generate image then video with ENHANCED cinematic prompts
+            const rawPrompt = segment.brollPrompts?.[0] || 'Professional B-roll footage';
+            // Enhance B-roll prompt with cinematic quality descriptors
+            const enhancedBrollPrompt = `${rawPrompt}. Ultra-cinematic 4K, shot on ARRI Alexa Mini with Signature Prime lenses, shallow depth of field at f/2.0, professional color grading with rich contrast, volumetric lighting, broadcast television quality. No text, no watermarks, no captions, no logos.`;
 
             // Use existing b-roll image if already generated
             let brollImage = segment.brollImages?.[0];
             
             if (!brollImage) {
-              toast.info(`B-Roll ${i + 1}: Generating image...`);
+              toast.info(`B-Roll ${i + 1}: Generating cinematic image...`);
               const { data: imgData } = await supabase.functions.invoke('generate-scene-image', {
-                body: { prompt, aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9' }
+                body: { prompt: enhancedBrollPrompt, aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9' }
               });
               if (imgData?.imageUrl) brollImage = imgData.imageUrl;
             }
 
             step++;
-            setGenerationProgress((step / totalSteps) * 100);
+            setGenerationProgress(30 + (step / totalSteps) * 70);
 
             if (brollImage) {
               updateSegment(segment.id, { brollImages: [brollImage], status: 'character-ready' });
@@ -426,13 +524,15 @@ export function useTestimonialCommercial() {
                 voiceoverAudioUrl = ttsData?.audioUrl;
               }
 
-              toast.info(`B-Roll ${i + 1}: Generating video...`);
+              toast.info(`B-Roll ${i + 1}: Generating cinematic video...`);
+              // Enhanced video prompt for B-roll
+              const brollVideoPrompt = `${rawPrompt}. Cinematic slow-motion footage, smooth camera movement, ${aspectRatio === '9:16' ? 'vertical 9:16 format' : 'horizontal 16:9 widescreen'}, professional lighting with volumetric rays, broadcast quality, shot at 60fps for buttery smooth motion. No text, no watermarks.`;
               try {
                 const { data: vidData } = await supabase.functions.invoke('wavespeed-video', {
                   body: {
                     action: 'create',
                     model: styleConfig.brollModel,
-                    prompt: `${prompt}. Cinematic motion, ${aspectRatio === '9:16' ? 'vertical format' : 'horizontal format'}, professional quality.`,
+                    prompt: brollVideoPrompt,
                     imageUrls: [brollImage],
                     duration: Math.min(segment.duration, styleConfig.maxDuration),
                     aspectRatio,
