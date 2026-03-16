@@ -3114,7 +3114,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           <Mic className="w-4 h-4 text-primary" />
                           <Label className="text-sm font-medium">Voice</Label>
                           <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                            {selectedVoice === 'ai-auto' ? 'AI Auto-Select' : 'Custom'}
+                            {selectedVoice ? 'Custom' : 'Not set'}
                           </Badge>
                         </div>
                         
