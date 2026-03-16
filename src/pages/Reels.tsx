@@ -2437,6 +2437,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setOutroText('');
     // Reset preview
     resetPreview();
+    // Reset character transformation (bug #29)
+    setCharacterTransformation('');
     // Reset save state
     setCurrentReelSaved(false);
     // Clear auto-saved draft
