@@ -117,6 +117,7 @@ export function LoopAIDirector({
   onExtendClip,
   onDuplicateSegment,
   onReorderSegments,
+  onGenerateTwinAngles,
   segments,
   targetDuration,
   onTargetDurationChange,
