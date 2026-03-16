@@ -67,6 +67,8 @@ interface LoopAIDirectorProps {
   segments: CommercialSegment[];
   targetDuration: string;
   onTargetDurationChange: (dur: string) => void;
+  focusedSegmentId?: string | null;
+  onClearFocusedSegment?: () => void;
 }
 
 function calculateDurationFromScript(script: string): number {
