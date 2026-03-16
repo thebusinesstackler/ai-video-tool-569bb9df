@@ -292,6 +292,9 @@ export default function HookEngine() {
         navigator.clipboard.writeText(hook.voiceoverVersion);
         toast.success('Voiceover script copied — paste into your TTS tool');
         break;
+      case 'use-in-reel':
+        navigate(`/reels?source=hook-engine&topic=${encodeURIComponent(hook.hookText)}`);
+        break;
     }
   };
 
