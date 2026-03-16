@@ -1434,6 +1434,17 @@ export function LoopAIDirector({
           >
             {voiceEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
           </Button>
+          {segments.length > 0 && (
+            <Button
+              variant={showAIContext ? 'default' : 'outline'}
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={() => setShowAIContext(!showAIContext)}
+              title={showAIContext ? 'Hide AI context' : 'Show what Loop AI sees'}
+            >
+              {showAIContext ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </Button>
+          )}
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={clearChat}>
               Clear
@@ -1455,6 +1466,66 @@ export function LoopAIDirector({
           </div>
         </div>
       </div>
+
+      {/* AI Context Debug Panel */}
+      {showAIContext && segments.length > 0 && (() => {
+        const { projectSummary, currentSegments, timelineIssues } = buildAIPayload();
+        return (
+          <div className="border-b border-border/50 bg-muted/30 px-4 py-3 max-h-[300px] overflow-y-auto">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Eye className="h-3 w-3" /> What Loop AI Sees
+            </div>
+
+            {/* Dashboard */}
+            <div className="bg-background/60 rounded-md border border-border/40 p-2 mb-2">
+              <div className="text-[10px] font-semibold mb-1">📊 Project Dashboard</div>
+              <div className="text-[10px] text-muted-foreground leading-relaxed">
+                {projectSummary.totalSegments} segments ({projectSummary.speakingCount} speaking, {projectSummary.brollCount} B-roll) | {projectSummary.totalDuration}s / {projectSummary.targetDuration}s target | {projectSummary.charactersReady}/{projectSummary.speakingCount} chars ready | {projectSummary.audiosReady}/{projectSummary.totalSegments} audio | {projectSummary.videosReady}/{projectSummary.totalSegments} video | {projectSummary.uniqueActors} unique actor{projectSummary.uniqueActors !== 1 ? 's' : ''}
+              </div>
+            </div>
+
+            {/* Per-scene data */}
+            {currentSegments && (
+              <div className="space-y-1.5 mb-2">
+                <div className="text-[10px] font-semibold">🎬 Live Scene Data</div>
+                {currentSegments.map((seg: any) => (
+                  <div key={seg.index} className="bg-background/60 rounded border border-border/40 p-2">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Badge variant={seg.type === 'speaking' ? 'default' : 'secondary'} className="text-[8px] h-4 px-1.5">
+                        {seg.type === 'speaking' ? `Scene #${seg.typeNumber}` : `B-Roll #${seg.typeNumber}`}
+                      </Badge>
+                      {seg.narrativeRole && <span className="text-[8px] font-medium text-primary">{seg.narrativeRole}</span>}
+                      <span className="text-[8px] text-muted-foreground ml-auto">{seg.duration}s | {seg.wordCount}w</span>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground line-clamp-2 leading-snug">
+                      {seg.script || seg.voiceoverText || seg.brollPrompts?.[0] || '(empty)'}
+                    </p>
+                    {seg.missingAssets.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {seg.missingAssets.map((a: string, i: number) => (
+                          <span key={i} className="text-[7px] bg-destructive/10 text-destructive rounded px-1 py-0.5">{a}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Issues */}
+            {timelineIssues && timelineIssues.length > 0 && (
+              <div>
+                <div className="text-[10px] font-semibold mb-1">⚠️ Detected Issues</div>
+                {timelineIssues.map((issue: any, i: number) => (
+                  <div key={i} className="text-[9px] text-destructive/80 mb-0.5">
+                    <span className="font-medium">{issue.sceneLabel}:</span> {issue.problems.join('; ')}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
