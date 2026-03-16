@@ -121,6 +121,8 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   onVoiceSelect,
   disabled = false,
   compact = false,
+  characterDescription: charDescProp,
+  characterGender: charGenderProp,
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
