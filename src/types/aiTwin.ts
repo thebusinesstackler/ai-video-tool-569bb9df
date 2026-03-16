@@ -4,7 +4,7 @@ export interface AITwin {
   name: string;
   reference_images: string[];
   voice_cloning_key: string | null;
-  voice_sample_url: string | null;
+  voice_sample_url?: string | null;
   face_description: string | null;
   gender: string | null;
   description?: string | null;
