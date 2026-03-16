@@ -1,58 +1,47 @@
-# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Status: ✅ Implemented
 
-## Changes Made
+## Problem
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+Two issues:
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+1. **Loop AI hallucinates about script content** — The conversation history includes old assistant messages that describe previous versions of scripts (e.g., from the initial strategy). When the user edits scripts in the UI, the `currentSegments` payload sends the updated data, but the AI also reads its own old messages that reference the original scripts. The old messages "win" because the AI trusts its own prior conversation over the structured segment data.
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+2. **No way to see what Loop AI sees** — Users can't verify whether the data payload matches their timeline, making it impossible to debug mismatches.
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
+## Plan
 
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
+### 1. Fix stale context: Inject a "current state override" system message (LoopAIDirector.tsx)
 
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
+Before sending the `messages` array to the edge function, prepend a system message that explicitly says:
 
-# UI Improvements for Character + Voice Flow
+```
+"IMPORTANT: The following is the LIVE current state of the timeline. Ignore any previous descriptions of scripts or scenes from earlier in this conversation — they may be outdated. ONLY reference the data in currentSegments."
+```
 
-## Status: ✅ Implemented
+This goes into the `messages` array as the last system-role message before the user's new message, so the AI prioritizes it over stale history.
 
-### Changes Made
+### 2. Add a "Show AI Context" debug toggle (LoopAIDirector.tsx)
 
-**A. Removed duplicate voice UI in beginner Step 3**
-- Removed inline "Preview Voice" button and badge from character-ready card
-- Single voice section kept as standalone "Character Voice" card
+Add a small button (e.g., 👁️ icon or "What Loop sees") near the chat header that, when clicked, renders a collapsible panel showing:
 
-**B. Added skeleton placeholders during character generation**
-- 5-cell pulsing skeleton grid shown while `isGeneratingCharacter` is true
+- **Project Dashboard** — the `projectSummary` object (segment counts, durations, readiness)
+- **Per-scene data** — a compact list showing each scene's script preview, duration, word count, missing assets, and status (matching exactly what gets sent to the AI)
+- **Issues detected** — the `timelineIssues` array
 
-**C. Switched AI Twin picker to 3-column grid in beginner mode**
-- Changed from `grid-cols-4` to `grid-cols-3` for better tap targets
-- Added voice badge indicator matching advanced mode
+This uses the same computation logic already in `handleSendWithMessage` but displays it in the UI. Extract the payload-building logic into a reusable function (`buildPayloadForAI()`) that both the send handler and the debug panel call.
 
-**D. Added sub-sections to Advanced Lip Sync**
-- "Character" section: AI Twin picker, generate character, manual upload, character description
-- "Voice & Model" section: lip sync model, voiceover source (AI/upload)
-- Each in a bordered container with header
+### 3. Extract payload builder (LoopAIDirector.tsx)
 
-**E. Added "Skip Character" shortcut**
-- Ghost button "Skip Character → Make My Reel" shown when no character is set
-- Triggers `generateAll` directly
+Refactor the inline payload computation (lines 1003-1127) into a standalone function:
+
+```typescript
+function buildAIPayload(segments, targetDuration) {
+  return { projectSummary, currentSegments, timelineIssues };
+}
+```
+
+Both `handleSendWithMessage` and the debug panel use this same function, ensuring what the user sees matches exactly what the AI receives.
+
+### Files to modify
+- `src/components/testimonial/LoopAIDirector.tsx` — Extract payload builder, add override system message, add debug panel UI
+
