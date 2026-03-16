@@ -192,7 +192,7 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
       COMPOSITION: Rule of thirds, subject centered, clean bokeh background, magazine-quality portrait.
       The subject has a natural, confident expression - slight smile, relaxed posture, direct eye contact with camera.
       Ultra high quality, photorealistic, 8K detail, professional color grading.
-      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. CLOSED MOUTH or slight smile only - NOT speaking.`;
+      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. CLOSED MOUTH or slight smile only - NOT speaking.${antiPropRule}`;
   }
 
   if (scene.isIntro) {
