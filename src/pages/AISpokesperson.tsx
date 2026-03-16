@@ -303,7 +303,14 @@ Each variation should:
 
   // Generate script
   const generateScript = async () => {
-    if (!message.trim() || !selectedTwin) return;
+    if (!message.trim()) {
+      toast({ title: "Message Required", description: "Please enter a message for your spokesperson.", variant: "destructive" });
+      return;
+    }
+    if (!selectedTwin) {
+      toast({ title: "AI Twin Required", description: "Please select an AI Twin first. Create one in the AI Twin page if you haven't yet.", variant: "destructive" });
+      return;
+    }
     
     setIsGeneratingScript(true);
     try {
