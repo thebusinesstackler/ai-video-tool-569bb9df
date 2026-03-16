@@ -100,6 +100,36 @@ export default function TestimonialCommercial() {
     fetchSaved();
   }, [currentCommercial]);
 
+  // Restore draft on mount (only if not editing a saved commercial)
+  useEffect(() => {
+    if (editId || draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    const draft = loadDraft();
+    if (draft && draft.segments.length > 0) {
+      setSegments(draft.segments);
+      setName(draft.name);
+      setTargetDuration(draft.targetDuration || '30');
+      if (draft.videoFormat) setVideoFormat(draft.videoFormat as any);
+      if (draft.videoStyle) setVideoStyle(draft.videoStyle as any);
+      if (draft.finalVideoUrl) setFinalVideoUrl(draft.finalVideoUrl);
+      if (draft.musicUrl) setMusicUrl(draft.musicUrl);
+      toast.success('Draft restored — your work is right where you left it');
+    }
+  }, [editId]);
+
+  // Auto-save draft whenever segments/name change
+  useEffect(() => {
+    saveDraftDebounced({
+      name,
+      segments,
+      targetDuration,
+      videoFormat,
+      videoStyle,
+      finalVideoUrl,
+      musicUrl,
+    });
+  }, [segments, name, targetDuration, videoFormat, videoStyle, finalVideoUrl, musicUrl, saveDraftDebounced]);
+
   useEffect(() => {
     if (editId) loadCommercial(editId);
   }, [editId, loadCommercial]);
