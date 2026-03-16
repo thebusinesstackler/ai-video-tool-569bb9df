@@ -3004,25 +3004,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               </div>
             </div>
 
-            {/* Draft Recovery Banner */}
-            {showDraftRecoveryBanner && (
-              <Alert className="border-primary/50 bg-primary/5">
-                <AlertCircle className="h-4 w-4 text-primary" />
-                <AlertTitle>Unsaved Draft Found</AlertTitle>
-                <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <span>You have an unsaved reel draft from {draftAge}. Would you like to restore it?</span>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="default" onClick={restoreDraft}>
-                      <History className="w-4 h-4 mr-1" />
-                      Restore Draft
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={dismissDraft}>
-                      Dismiss
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+
 
             {/* Video Upscaler Panel */}
             {showUpscaler && (
