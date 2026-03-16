@@ -2277,6 +2277,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       const isFemale = femaleKeywords.some(k => descLower.includes(k));
       const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
       const detectedGender = isFemale ? 'female' : 'male';
+      setDetectedCharGender(detectedGender as 'male' | 'female');
       
       const matchedVoiceId = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
       setSelectedVoice(matchedVoiceId);
