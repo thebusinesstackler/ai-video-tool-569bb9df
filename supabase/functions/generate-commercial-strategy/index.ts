@@ -363,25 +363,25 @@ When creating the storyboard JSON, the "summary" field should encapsulate the st
 
 ### Script Formula by Narrative Role:
 - **HOOK scripts**: Pattern-interrupt OR provocative question OR bold claim. Max 15 words. Examples:
-  - "What if I told you 90% of your skincare routine is doing nothing—"
-  - "I made $47K last month... and I didn't work a single overtime—"
-  - "Stop scrolling... this changed everything for me—"
+  - "What if I told you 90% of your skincare routine is doing nothing?"
+  - "I made $47K last month, and I didn't work a single overtime."
+  - "Stop scrolling. This changed everything for me."
   
 - **PROBLEM scripts**: Specific, relatable pain. Use "you" language. Include sensory details. Examples:
-  - "Every morning I'd stare at my calendar... 47 meetings, zero deep work time... it was chaos—"
-  - "I tried everything... the expensive serums, the dermatologist visits... nothing worked—"
+  - "Every morning I'd stare at my calendar. 47 meetings, zero deep work time. It was chaos."
+  - "I tried everything. The expensive serums, the dermatologist visits. Nothing worked."
 
 - **AGITATE narration** (B-roll voiceover): Bridge problem to solution. Short, punchy. Examples:
-  - "Hours wasted... opportunities missed... all because nobody told you this—"
-  - "The frustration of knowing there has to be a better way—"
+  - "Hours wasted. Opportunities missed. All because nobody told you this."
+  - "The frustration of knowing there has to be a better way."
 
 - **SOLUTION scripts**: Transformation language. "Before/after" framing. Specific results. Examples:
-  - "Then I found FlowState... and within a week my schedule practically ran itself—"
-  - "Three months later... my skin completely transformed—"
+  - "Then I found FlowState, and within a week my schedule practically ran itself."
+  - "Three months later, my skin completely transformed."
 
 - **CTA scripts**: Urgency + specific action + reason. Examples:
-  - "Try it free for 14 days... link in bio before they close signups—"
-  - "Get yours now... use code GLOW20 for 20% off this week only—"
+  - "Try it free for 14 days. Link in bio before they close signups."
+  - "Get yours now. Use code GLOW20 for 20% off this week only."
 
 ### Pacing Rules:
 - Speaking rate: ~2.5 words per second
