@@ -2261,6 +2261,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             const angleImageUrl = angleData?.imageUrl || angleData?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
             if (angleImageUrl) {
               generatedImages.push(angleImageUrl);
+              setGeneratedCharacterShots(prev => [...prev, { label: ANGLE_PROMPTS[i].label, url: angleImageUrl }]);
             }
           }
         } catch (angleErr) {
