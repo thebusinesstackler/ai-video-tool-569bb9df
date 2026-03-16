@@ -2882,9 +2882,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         } catch (cloudErr) {
           console.warn('Cloud stitch failed, falling back to canvas:', cloudErr);
           setProgressStatus('Falling back to local stitching...');
+          const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+          const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
           stitchedBlob = await canvasStitchVideos({
             videoUrls,
             audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+            width: sw, height: sh,
             onProgress: (percent) => {
               setProgress(40 + percent * 0.5);
               setProgressStatus(`Stitching... ${Math.round(percent)}%`);
