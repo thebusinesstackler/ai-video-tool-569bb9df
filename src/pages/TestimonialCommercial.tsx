@@ -37,6 +37,10 @@ export default function TestimonialCommercial() {
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
   const [musicUrl, setMusicUrl] = useState<string | null>(null);
+  const [headerVisible, setHeaderVisible] = useState(false);
+  const [timelineVisible, setTimelineVisible] = useState(false);
+  const headerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timelineTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
   const { saveDraftDebounced, loadDraft, clearDraft } = useCommercialDraft();
   const draftRestoredRef = useRef(false);
@@ -436,6 +440,24 @@ export default function TestimonialCommercial() {
     }
   }, [segments, addSegment]);
 
+  // Hover handlers for header
+  const showHeader = useCallback(() => {
+    if (headerTimeoutRef.current) clearTimeout(headerTimeoutRef.current);
+    setHeaderVisible(true);
+  }, []);
+  const hideHeader = useCallback(() => {
+    headerTimeoutRef.current = setTimeout(() => setHeaderVisible(false), 400);
+  }, []);
+
+  // Hover handlers for timeline
+  const showTimeline = useCallback(() => {
+    if (timelineTimeoutRef.current) clearTimeout(timelineTimeoutRef.current);
+    setTimelineVisible(true);
+  }, []);
+  const hideTimeline = useCallback(() => {
+    timelineTimeoutRef.current = setTimeout(() => setTimelineVisible(false), 500);
+  }, []);
+
   const speakingSegments = segments.filter(s => s.type === 'speaking');
   const brollSegments = segments.filter(s => s.type === 'broll');
   const allApproved = speakingSegments.length > 0 && speakingSegments.every(s => s.status === 'approved' || s.status === 'complete');
@@ -443,129 +465,144 @@ export default function TestimonialCommercial() {
 
   return (
     <Layout>
-      <div className="h-[calc(100vh-64px)] flex flex-col">
-        {/* Compact Header */}
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 bg-background/95 backdrop-blur shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Clapperboard className="h-4 w-4 text-primary shrink-0" />
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="text-sm font-semibold bg-transparent border-none outline-none flex-1 min-w-0 placeholder:text-muted-foreground/40"
-              placeholder="Commercial name..."
-            />
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              onClick={() => setChatOpen(!chatOpen)}
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              title={chatOpen ? 'Hide Loop AI' : 'Show Loop AI'}
-            >
-              {chatOpen ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
-              <MessageSquare className="h-3 w-3" />
+      <div className="h-[calc(100vh-64px)] flex flex-col relative">
+        {/* Hover trigger zone at top — invisible 12px strip */}
+        <div
+          className="absolute top-0 left-0 right-0 h-3 z-50"
+          onMouseEnter={showHeader}
+        />
+
+        {/* Slide-down Header */}
+        <div
+          className={cn(
+            'absolute top-0 left-0 right-0 z-40 transition-all duration-300 ease-in-out',
+            headerVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
+          )}
+          onMouseEnter={showHeader}
+          onMouseLeave={hideHeader}
+        >
+          <div className="flex items-center gap-3 px-4 py-2 border-b border-border/50 bg-background/95 backdrop-blur-lg shadow-lg">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <Button
-              onClick={() => {
-                localStorage.removeItem('loop-ai-director-chat');
-                clearDraft();
-                setSegments([]);
-                setCurrentCommercial(null);
-                setName('Untitled Commercial');
-                setFinalVideoUrl(null);
-                setMusicUrl(null);
-                setActiveTab('scenes');
-              }}
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-            >
-              <Film className="h-3 w-3 mr-1" /> New
-            </Button>
-            <Button
-              onClick={() => {
-                const demoSegments: CommercialSegment[] = [
-                  {
-                    id: crypto.randomUUID(),
-                    type: 'speaking',
-                    script: "I used to spend hours editing videos — late nights, missed deadlines, constant frustration…",
-                    character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, warm smile, professional studio background', referenceImages: [] },
-                    duration: 6,
-                    transition: 'fade-in',
-                    status: 'pending',
-                  },
-                  {
-                    id: crypto.randomUUID(),
-                    type: 'broll',
-                    brollPrompts: ['Frustrated person at a desk surrounded by multiple screens showing complex video editing software, dim office lighting, cinematic close-up of hands on keyboard'],
-                    voiceoverText: 'Traditional video editing takes forever — and costs a fortune',
-                    duration: 4,
-                    transition: 'cut',
-                    status: 'pending',
-                  },
-                  {
-                    id: crypto.randomUUID(),
-                    type: 'speaking',
-                    script: "Then I found this AI tool — and everything changed overnight. One click and my first ad was done in minutes!",
-                    character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, excited expression, gesturing with hands, professional studio background', referenceImages: [] },
-                    duration: 8,
-                    transition: 'cut',
-                    status: 'pending',
-                  },
-                  {
-                    id: crypto.randomUUID(),
-                    type: 'broll',
-                    brollPrompts: ['Sleek modern laptop showing an AI video generation dashboard with colorful progress bars, bright clean workspace, cinematic product shot with soft bokeh background'],
-                    voiceoverText: 'Create studio-quality commercials in minutes — not days',
-                    duration: 5,
-                    transition: 'crossfade',
-                    status: 'pending',
-                  },
-                  {
-                    id: crypto.randomUUID(),
-                    type: 'speaking',
-                    script: "Try it free today — you'll never go back to the old way. Trust me on that!",
-                    character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, big genuine smile, leaning slightly forward, professional studio background', referenceImages: [] },
-                    duration: 5,
-                    transition: 'cut',
-                    status: 'pending',
-                  },
-                ];
-                setSegments(demoSegments);
-                setName('AI Video Tool — Demo Ad');
-                setCurrentCommercial(null);
-                setFinalVideoUrl(null);
-                setActiveTab('scenes');
-                toast.success('Demo commercial loaded! Hit Generate to test.');
-              }}
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-            >
-              <Clapperboard className="h-3 w-3 mr-1" /> Demo
-            </Button>
-            <SavedCommercialsDrawer
-              onLoad={(id) => navigate(`?edit=${id}`)}
-              refreshTrigger={currentCommercial}
-            />
-            <Button onClick={handleSave} variant="outline" size="sm" className="h-7 text-xs">
-              <Save className="h-3 w-3 mr-1" /> Save
-            </Button>
-            {finalVideoUrl && (
-              <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                <a href={finalVideoUrl} download target="_blank" rel="noopener">
-                  <Download className="h-3 w-3 mr-1" /> Download
-                </a>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Clapperboard className="h-4 w-4 text-primary shrink-0" />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="text-sm font-semibold bg-transparent border-none outline-none flex-1 min-w-0 placeholder:text-muted-foreground/40"
+                placeholder="Commercial name..."
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                onClick={() => setChatOpen(!chatOpen)}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                title={chatOpen ? 'Hide Loop AI' : 'Show Loop AI'}
+              >
+                {chatOpen ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
+                <MessageSquare className="h-3 w-3" />
               </Button>
-            )}
+              <Button
+                onClick={() => {
+                  localStorage.removeItem('loop-ai-director-chat');
+                  clearDraft();
+                  setSegments([]);
+                  setCurrentCommercial(null);
+                  setName('Untitled Commercial');
+                  setFinalVideoUrl(null);
+                  setMusicUrl(null);
+                  setActiveTab('scenes');
+                }}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+              >
+                <Film className="h-3 w-3 mr-1" /> New
+              </Button>
+              <Button
+                onClick={() => {
+                  const demoSegments: CommercialSegment[] = [
+                    {
+                      id: crypto.randomUUID(),
+                      type: 'speaking',
+                      script: "I used to spend hours editing videos, late nights, missed deadlines, constant frustration.",
+                      character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, warm smile, professional studio background', referenceImages: [] },
+                      duration: 6,
+                      transition: 'fade-in',
+                      status: 'pending',
+                    },
+                    {
+                      id: crypto.randomUUID(),
+                      type: 'broll',
+                      brollPrompts: ['Frustrated person at a desk surrounded by multiple screens showing complex video editing software, dim office lighting, cinematic close-up of hands on keyboard'],
+                      voiceoverText: 'Traditional video editing takes forever and costs a fortune.',
+                      duration: 4,
+                      transition: 'cut',
+                      status: 'pending',
+                    },
+                    {
+                      id: crypto.randomUUID(),
+                      type: 'speaking',
+                      script: "Then I found this AI tool and everything changed overnight. One click and my first ad was done in minutes!",
+                      character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, excited expression, gesturing with hands, professional studio background', referenceImages: [] },
+                      duration: 8,
+                      transition: 'cut',
+                      status: 'pending',
+                    },
+                    {
+                      id: crypto.randomUUID(),
+                      type: 'broll',
+                      brollPrompts: ['Sleek modern laptop showing an AI video generation dashboard with colorful progress bars, bright clean workspace, cinematic product shot with soft bokeh background'],
+                      voiceoverText: 'Create studio-quality commercials in minutes, not days.',
+                      duration: 5,
+                      transition: 'crossfade',
+                      status: 'pending',
+                    },
+                    {
+                      id: crypto.randomUUID(),
+                      type: 'speaking',
+                      script: "Try it free today. You will never go back to the old way. Trust me on that!",
+                      character: { name: 'Sarah — Marketing Director', description: 'A confident 30-year-old woman with shoulder-length brown hair, wearing a navy blazer over a white top, big genuine smile, leaning slightly forward, professional studio background', referenceImages: [] },
+                      duration: 5,
+                      transition: 'cut',
+                      status: 'pending',
+                    },
+                  ];
+                  setSegments(demoSegments);
+                  setName('AI Video Tool — Demo Ad');
+                  setCurrentCommercial(null);
+                  setFinalVideoUrl(null);
+                  setActiveTab('scenes');
+                  toast.success('Demo commercial loaded! Hit Generate to test.');
+                }}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+              >
+                <Clapperboard className="h-3 w-3 mr-1" /> Demo
+              </Button>
+              <SavedCommercialsDrawer
+                onLoad={(id) => navigate(`?edit=${id}`)}
+                refreshTrigger={currentCommercial}
+              />
+              <Button onClick={handleSave} variant="outline" size="sm" className="h-7 text-xs">
+                <Save className="h-3 w-3 mr-1" /> Save
+              </Button>
+              {finalVideoUrl && (
+                <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+                  <a href={finalVideoUrl} download target="_blank" rel="noopener">
+                    <Download className="h-3 w-3 mr-1" /> Download
+                  </a>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Main Split Layout */}
+        {/* Main Split Layout — full height */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left: Loop AI Director Chat — collapsible */}
           <div
@@ -599,33 +636,50 @@ export default function TestimonialCommercial() {
           </div>
 
           {/* Right: Preview & Production Panel */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Timeline Preview + Fullscreen */}
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            {/* Hover trigger zone for timeline — invisible strip at top of right panel */}
             {segments.length > 0 && (
-              <div className="px-4 py-3 border-b border-border/50 bg-background/50 shrink-0">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Film className="h-3 w-3" /> {segments.length} segments</span>
-                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {segments.reduce((s, seg) => s + seg.duration, 0)}s total</span>
-                    <span>~{Math.ceil(segments.length * 1.5)} min to generate</span>
+              <div
+                className="absolute top-0 left-0 right-0 h-3 z-30"
+                onMouseEnter={showTimeline}
+              />
+            )}
+
+            {/* Slide-down Timeline */}
+            {segments.length > 0 && (
+              <div
+                className={cn(
+                  'absolute top-0 left-0 right-0 z-20 transition-all duration-300 ease-in-out',
+                  timelineVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
+                )}
+                onMouseEnter={showTimeline}
+                onMouseLeave={hideTimeline}
+              >
+                <div className="px-4 py-3 border-b border-border/50 bg-background/95 backdrop-blur-lg shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Film className="h-3 w-3" /> {segments.length} segments</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {segments.reduce((s, seg) => s + seg.duration, 0)}s total</span>
+                      <span>~{Math.ceil(segments.length * 1.5)} min to generate</span>
+                    </div>
+                    <Button
+                      onClick={() => setPreviewOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5"
+                    >
+                      <Eye className="h-3 w-3" /> Fullscreen Preview
+                    </Button>
                   </div>
-                  <Button
-                    onClick={() => setPreviewOpen(true)}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1.5"
-                  >
-                    <Eye className="h-3 w-3" /> Fullscreen Preview
-                  </Button>
+                  <TimelinePreview
+                    segments={segments}
+                    onReorder={reorderSegments}
+                    onSelectSegment={handleTimelineSelectSegment}
+                    onUpdateSegment={updateSegment}
+                    onDeleteSegment={deleteSegment}
+                    onDuplicateSegment={duplicateSegment}
+                  />
                 </div>
-                <TimelinePreview
-                  segments={segments}
-                  onReorder={reorderSegments}
-                  onSelectSegment={handleTimelineSelectSegment}
-                  onUpdateSegment={updateSegment}
-                  onDeleteSegment={deleteSegment}
-                  onDuplicateSegment={duplicateSegment}
-                />
               </div>
             )}
 
