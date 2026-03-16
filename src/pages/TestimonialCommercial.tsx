@@ -29,6 +29,23 @@ export default function TestimonialCommercial() {
   const [targetDuration, setTargetDuration] = useState('30');
   const [chatOpen, setChatOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
+
+  const handleTimelineSelectSegment = useCallback((segmentId: string) => {
+    const seg = segments.find(s => s.id === segmentId);
+    if (!seg) return;
+    // Switch to the correct tab
+    setActiveTab(seg.type === 'broll' ? 'broll' : 'scenes');
+    // Open chat if closed
+    if (!chatOpen) setChatOpen(true);
+    // Set focused segment for Loop AI
+    setFocusedSegmentId(segmentId);
+    // Scroll the segment card into view after a tick
+    setTimeout(() => {
+      const el = document.getElementById(`segment-card-${segmentId}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }, [segments, chatOpen]);
 
   const {
     segments,
