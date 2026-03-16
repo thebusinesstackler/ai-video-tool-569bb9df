@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   VideoIcon, 
   FileTextIcon, 
@@ -233,7 +234,7 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {isLoadingStats ? '...' : stats.videosCount}
+              {isLoadingStats ? <Skeleton className="h-8 w-12" /> : stats.videosCount}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Total projects
@@ -250,7 +251,7 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {isLoadingStats ? '...' : stats.charactersCount}
+              {isLoadingStats ? <Skeleton className="h-8 w-12" /> : stats.charactersCount}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               AI avatars ready
@@ -267,7 +268,11 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             {isLoadingStats ? (
-              <div className="text-2xl font-bold text-foreground">...</div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
             ) : stats.recentProjects.length > 0 ? (
               <div className="space-y-2">
                 {stats.recentProjects.slice(0, 3).map((p) => (
