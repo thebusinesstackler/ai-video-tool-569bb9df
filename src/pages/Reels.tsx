@@ -4554,7 +4554,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       : 'bg-destructive/10 text-destructive border border-destructive/30'
                   }`}>
                     {enableLipSync && portraitPreview 
-                      ? '🎭 Lip sync ON — speaking scenes will use Wan 2.5 with your character portrait + TTS overlay'
+                      ? videoModel === 'infinitetalk'
+                        ? '🎭 Lip sync ON — InfiniteTalk will generate talking head videos matching your audio duration'
+                        : '🎭 Lip sync ON — speaking scenes will use ' + videoModel + ' with TTS overlay'
                       : enableLipSync && !portraitPreview
                       ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
                       : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
