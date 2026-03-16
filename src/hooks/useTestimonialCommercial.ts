@@ -4,12 +4,12 @@ import { CommercialSegment, TestimonialCommercial, CharacterProfile } from '@/ty
 import { toast } from 'sonner';
 
 const ANGLE_PROMPTS = [
-  (desc: string) => `Photorealistic front portrait of ${desc}. 85mm lens, studio lighting, neutral background, direct eye contact, shoulders visible. No text, no watermark.`,
-  (desc: string) => `Photorealistic 3/4 left profile of ${desc}. 50mm lens, soft studio lighting, turned slightly left, warm expression. No text, no watermark.`,
-  (desc: string) => `Photorealistic side profile of ${desc}. 85mm lens, dramatic rim lighting, clean background, elegant pose. No text, no watermark.`,
-  (desc: string) => `Photorealistic low angle hero shot of ${desc}. 35mm lens, looking up at subject, powerful composition, confident expression. No text, no watermark.`,
-  (desc: string) => `Photorealistic 3/4 right profile of ${desc}. 50mm lens, natural lighting, turned slightly right, approachable expression. No text, no watermark.`,
-  (desc: string) => `Photorealistic casual wide shot of ${desc}. 35mm lens, environmental portrait, professional setting, relaxed pose. No text, no watermark.`,
+  (desc: string) => `Photorealistic front portrait of ${desc}. Shot on RED V-RAPTOR at 85mm f/1.4, cinematic studio lighting with soft key light at 45 degrees and subtle rim light, neutral background with shallow depth of field, direct eye contact, shoulders visible, broadcast television quality. No text, no watermark.`,
+  (desc: string) => `Photorealistic 3/4 left profile of ${desc}. Shot on ARRI Alexa at 50mm f/2.0, soft studio lighting with warm color temperature, slightly turned left, warm confident expression, professional color grading. No text, no watermark.`,
+  (desc: string) => `Photorealistic side profile of ${desc}. Shot on RED V-RAPTOR at 85mm f/1.4, dramatic rim lighting from behind creating a golden edge, clean blurred background, elegant pose, cinematic contrast. No text, no watermark.`,
+  (desc: string) => `Photorealistic low angle hero shot of ${desc}. Shot at 35mm f/2.8, looking up at subject creating a powerful composition, confident expression, dramatic upward lighting, aspirational feel. No text, no watermark.`,
+  (desc: string) => `Photorealistic 3/4 right profile of ${desc}. Shot at 50mm f/2.0, natural warm lighting, turned slightly right with approachable expression, shallow depth of field, commercial quality. No text, no watermark.`,
+  (desc: string) => `Photorealistic environmental wide shot of ${desc}. Shot at 35mm f/2.8, professional setting with contextual background, relaxed natural pose, cinematic color grading with warm highlights. No text, no watermark.`,
 ];
 
 export type VideoFormat = '9:16' | '16:9' | '1:1';
