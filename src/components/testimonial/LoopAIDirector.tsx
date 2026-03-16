@@ -958,6 +958,7 @@ export function LoopAIDirector({
           }
           break;
         }
+      }
     }
 
     if (editSummary.length > 0) {
