@@ -4013,7 +4013,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
                 <div className="flex items-end">
                   <Button 
-                    onClick={generateScripts}
+                    onClick={() => generateScripts()}
                     disabled={isGenerating || !topic.trim()}
                     className="w-full bg-gradient-primary hover:opacity-90"
                   >
