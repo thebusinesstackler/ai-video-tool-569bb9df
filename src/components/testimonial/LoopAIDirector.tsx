@@ -193,6 +193,21 @@ export function LoopAIDirector({
     }
     prevSegmentsLenRef.current = segments.length;
   }, [segments.length]);
+
+  // Fetch user's visual presets for dynamic suggestions
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('visual_presets')
+      .select('name, camera_angle, lighting_style')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data) setUserPresets(data);
+      });
+  }, [user?.id]);
+
   const [isPreviewingAudio, setIsPreviewingAudio] = useState(false);
   const [previewingSegId, setPreviewingSegId] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(() => {
