@@ -58,7 +58,6 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard },
       { name: 'Movies', href: '/movies', icon: Film },
-      { name: 'Script Generator', href: '/scripts', icon: FileTextIcon },
       { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
     ],
   },
@@ -70,7 +69,6 @@ const navGroups: NavGroup[] = [
       { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation },
       { name: 'Hook Engine', href: '/hook-engine', icon: Zap },
       { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote },
-      { name: 'Commercial Studio', href: '/commercial-studio', icon: Film },
     ],
   },
   {

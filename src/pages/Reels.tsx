@@ -5163,7 +5163,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             )}
 
             {/* Final Video / Generated Scenes */}
-            {(project.videoBlobUrl || project.generatedScenes.length > 0) && (
+            {(project.videoBlobUrl || (project.generatedScenes.length > 0 && previewScenes.length === 0)) && (
               <>
               <Card className="bg-card border-border">
                 <CardHeader>
