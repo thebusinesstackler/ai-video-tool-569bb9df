@@ -3145,7 +3145,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       <div className="p-3 rounded-lg bg-muted/30 border border-border text-sm space-y-1">
                         <p className="text-muted-foreground">📝 <span className="text-foreground font-medium">{project.scenes.length} scenes</span> • {project.scenes.reduce((acc, s) => acc + (s.duration || 0), 0)}s total</p>
                         {portraitPreview && <p className="text-muted-foreground">👤 <span className="text-foreground font-medium">Character set</span></p>}
-                        <p className="text-muted-foreground">🎙️ <span className="text-foreground font-medium">{selectedVoice === 'ai-auto' ? 'AI Auto-Select voice' : selectedVoice.replace(/_/g, ' ')}</span></p>
+                        <p className="text-muted-foreground">🎙️ <span className="text-foreground font-medium">{selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Auto-detect voice'}</span></p>
                       </div>
 
                       <div className="flex gap-2">
