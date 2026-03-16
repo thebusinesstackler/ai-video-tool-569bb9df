@@ -21,7 +21,7 @@ interface Message {
 interface CommercialStrategy {
   title: string;
   summary: string;
-  characters?: { characterId: string; name: string; description: string }[];
+  characters?: { characterId: string; name: string; description: string; gender?: string }[];
   segments: any[];
   totalDuration: number;
 }
