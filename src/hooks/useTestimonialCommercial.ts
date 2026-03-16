@@ -402,7 +402,7 @@ export function useTestimonialCommercial() {
             
             const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
               body: {
-                text: segment.script,
+                text: sanitizeForTTS(segment.script || ''),
                 voice: 'ai-auto',
                 gender,
               }
