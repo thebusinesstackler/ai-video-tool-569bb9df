@@ -57,10 +57,13 @@ const Gallery = () => {
 
     let totalMigrated = 0;
     let totalErrors = 0;
-    let remaining = 1; // Start with 1 to enter loop
+    let remaining = 1;
+    let batchCount = 0;
+    const MAX_BATCHES = 100; // Safety limit to prevent infinite loops
 
     try {
-      while (remaining > 0) {
+      while (remaining > 0 && batchCount < MAX_BATCHES) {
+        batchCount++;
         const result = await runSingleBatch();
         totalMigrated += result.migrated;
         totalErrors += result.errors;

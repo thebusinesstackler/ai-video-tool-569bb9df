@@ -284,18 +284,18 @@ const MovieSceneCreator = () => {
   // ── Debounced auto-save for movie projects ──
   const autoSaveField = useScriptAutoSave({ table: 'movie_projects', id: currentProjectId });
 
-  // Auto-save outline and movieIdea on change
+  // Auto-save outline and movieIdea on change (only when authenticated)
   useEffect(() => {
-    if (currentProjectId && outline) {
+    if (currentProjectId && outline && userId) {
       autoSaveField({ outline });
     }
-  }, [outline, currentProjectId]);
+  }, [outline, currentProjectId, userId]);
 
   useEffect(() => {
-    if (currentProjectId && movieIdea) {
+    if (currentProjectId && movieIdea && userId) {
       autoSaveField({ movie_idea: movieIdea });
     }
-  }, [movieIdea, currentProjectId]);
+  }, [movieIdea, currentProjectId, userId]);
 
   // Helper to toggle twin selection
   const toggleTwinSelection = (twin: AITwin) => {

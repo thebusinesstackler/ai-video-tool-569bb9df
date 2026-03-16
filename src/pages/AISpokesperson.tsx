@@ -168,7 +168,7 @@ const AISpokesperson = () => {
     }
   }, []);
 
-  // Auto-save draft on state changes
+  // Auto-save draft on state changes (debounced via hook)
   useEffect(() => {
     saveDraft({
       message,
@@ -184,7 +184,7 @@ const AISpokesperson = () => {
       videoUrl,
       audioUrl,
     });
-  }, [message, selectedTwinId, selectedSetting, selectedMood, selectedCameraAngle, selectedDuration, selectedQuality, generatedScript, sceneShots, showSceneGallery, videoUrl, audioUrl]);
+  }, [message, selectedTwinId, selectedSetting, selectedMood, selectedCameraAngle, selectedDuration, selectedQuality, generatedScript, videoUrl, audioUrl]);
 
   // Load twins
   useEffect(() => {
@@ -303,7 +303,14 @@ Each variation should:
 
   // Generate script
   const generateScript = async () => {
-    if (!message.trim() || !selectedTwin) return;
+    if (!message.trim()) {
+      toast({ title: "Message Required", description: "Please enter a message for your spokesperson.", variant: "destructive" });
+      return;
+    }
+    if (!selectedTwin) {
+      toast({ title: "AI Twin Required", description: "Please select an AI Twin first. Create one in the AI Twin page if you haven't yet.", variant: "destructive" });
+      return;
+    }
     
     setIsGeneratingScript(true);
     try {
@@ -323,8 +330,8 @@ Target Duration: ${selectedDuration} seconds (~${Math.round(parseInt(selectedDur
 SCRIPTWRITING RULES:
 - Write naturally and conversationally — the way a real human talks on camera
 - Use SHORT sentences (8-15 words max). Vary sentence length for rhythm
-- Add BREATHING ROOM: use em dashes (—) for natural pauses between thoughts
-- Use ellipses (...) for dramatic pauses or trailing thoughts
+- Use commas for natural pauses between thoughts. Use periods for full stops
+- Front-load the hook — the first sentence must grab attention instantly
 - Front-load the hook — the first sentence must grab attention instantly
 - Build a natural arc: Hook → Context → Key Point → Call to Action
 
