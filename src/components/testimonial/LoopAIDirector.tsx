@@ -676,9 +676,144 @@ export function LoopAIDirector({
     }]);
   };
 
+  const handleSendWithMessage = async (msg: string) => {
+    if (!msg.trim() || isLoading) return;
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
+
+    const userMessage: Message = { role: 'user', content: msg };
+    const chatMessages = messages.filter(m => m.role !== 'system-action');
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    let assistantContent = '';
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-commercial-strategy`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: msg }],
+            targetDuration: parseInt(targetDuration),
+            currentSegments: segments.length > 0 ? segments.map((s, index) => {
+              let typeNum = 0;
+              for (let j = 0; j <= index; j++) {
+                if (segments[j].type === s.type) typeNum++;
+              }
+              const speakingSegments = segments.filter(seg => seg.type === 'speaking');
+              let narrativeRole = '';
+              if (s.type === 'speaking') {
+                const speakIdx = speakingSegments.indexOf(s);
+                if (speakIdx === 0) narrativeRole = 'HOOK';
+                else if (speakIdx === speakingSegments.length - 1) narrativeRole = 'CTA';
+                else if (speakIdx === 1) narrativeRole = 'PROBLEM/STORY';
+                else narrativeRole = 'PROOF/SOLUTION';
+              }
+              return {
+                index,
+                type: s.type,
+                typeNumber: typeNum,
+                narrativeRole,
+                duration: s.duration,
+                transition: s.transition,
+                script: s.script,
+                voiceoverText: s.voiceoverText,
+                brollPrompts: s.brollPrompts,
+                brollImageUrls: s.brollImages || [],
+                character: s.character ? {
+                  name: s.character.name || '',
+                  description: s.character.description,
+                  gender: s.character.gender || '',
+                  hasImages: s.character.referenceImages.length > 0,
+                  imageCount: s.character.referenceImages.length,
+                } : undefined,
+                hasBrollImages: (s.brollImages?.length || 0) > 0,
+                hasProductImage: !!s.productImageUrl,
+                hasAudio: !!s.audioUrl,
+                hasVideo: !!s.videoUrl,
+                voiceoverId: s.voiceoverId || '',
+                status: s.status,
+              };
+            }) : undefined,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get response');
+      }
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = '';
+
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantContent += content;
+              setMessages(prev => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (updated[lastIdx]?.role === 'assistant') {
+                  updated[lastIdx] = { role: 'assistant', content: assistantContent };
+                }
+                return updated;
+              });
+            }
+          } catch {
+            textBuffer = line + '\n' + textBuffer;
+            break;
+          }
+        }
+      }
+
+      const strategy = extractStrategyFromMessage(assistantContent);
+      if (strategy) {
+        applyStrategy(strategy);
+      } else {
+        const editAction = extractEditActions(assistantContent);
+        if (editAction) {
+          applyEditActions(editAction);
+        }
+      }
+
+      speakResponse(assistantContent);
+    } catch (error) {
+      console.error('Loop AI error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to get response');
+      setMessages(prev => prev.filter(m => m.content !== ''));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
+    handleSendWithMessage(input);
 
     const userMessage: Message = { role: 'user', content: input };
     const chatMessages = messages.filter(m => m.role !== 'system-action');
