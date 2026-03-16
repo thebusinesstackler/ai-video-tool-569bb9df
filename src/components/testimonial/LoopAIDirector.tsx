@@ -175,6 +175,8 @@ export function LoopAIDirector({
   const [isListening, setIsListening] = useState(false);
   const [showAIContext, setShowAIContext] = useState(false);
   const [autoGenProgress, setAutoGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
+  const [pendingGeneration, setPendingGeneration] = useState<CommercialSegment[] | null>(null);
+  const [userPresets, setUserPresets] = useState<{ name: string; camera_angle: string; lighting_style: string }[]>([]);
   const prevSegmentsLenRef = useRef(segments.length);
 
   // Auto-greet on new project (segments cleared + no chat history)
