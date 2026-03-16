@@ -3069,7 +3069,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             {aiTwins.length > 0 && (
                               <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">Your AI Twins</Label>
-                                <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
                                   {aiTwins.map(twin => {
                                     const thumbUrl = twin.reference_images?.[0];
                                     return (
