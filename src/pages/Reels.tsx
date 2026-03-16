@@ -3130,6 +3130,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       className="min-h-[100px] bg-background border-border resize-none text-base"
                     />
 
+                    {topic.trim() && (
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={enhancePrompt}
+                          disabled={isEnhancingPrompt}
+                          className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                        >
+                          {isEnhancingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                          Enhance Prompt
+                        </Button>
+                      </div>
+                    )}
+
                     {aiTwins.length > 0 && (
                       <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
                         {aiTwins[0].reference_images?.[0] && (
