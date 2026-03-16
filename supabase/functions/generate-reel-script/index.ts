@@ -514,7 +514,7 @@ Return ONLY valid JSON array:
       const outroScene = {
         sceneNumber: scenes.length + 1,
         narration: outroNarration,
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
+        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
         duration: 2,
         isOutro: true,
         templateId: outroConfig.outroTemplate,
