@@ -813,9 +813,31 @@ export function LoopAIDirector({
   };
 
   const applyStrategy = (strategy: CommercialStrategy) => {
+    // Build character lookup from strategy's characters array for consistency
+    const characterLookup: Record<string, { name: string; description: string }> = {};
+    if (Array.isArray(strategy.characters)) {
+      for (const char of strategy.characters) {
+        if (char.characterId) {
+          characterLookup[char.characterId] = {
+            name: char.name || char.description?.slice(0, 60) || '',
+            description: char.description || '',
+          };
+        }
+      }
+    }
+
     const newSegments: CommercialSegment[] = strategy.segments.map((seg) => {
       const duration = seg.script ? calculateDurationFromScript(seg.script) : (seg.duration || 8);
       if (seg.type === 'speaking' || seg.type === 'twin-speaking') {
+        // Resolve character from characterId lookup for consistency
+        const charFromLookup = seg.characterId ? characterLookup[seg.characterId] : null;
+        // Combine: base appearance from lookup + scene-specific action from segment
+        const baseDescription = charFromLookup?.description || '';
+        const sceneAction = seg.characterDescription || '';
+        const fullDescription = baseDescription && sceneAction
+          ? `${baseDescription}. In this scene: ${sceneAction}`
+          : sceneAction || baseDescription;
+
         return {
           id: crypto.randomUUID(),
           type: 'speaking' as const,
@@ -823,10 +845,12 @@ export function LoopAIDirector({
           duration,
           transition: seg.transition || 'fade-in',
           status: 'pending' as const,
-          character: seg.characterDescription ? {
-            name: seg.characterDescription.slice(0, 60),
-            description: seg.characterDescription,
+          character: fullDescription ? {
+            name: charFromLookup?.name || fullDescription.slice(0, 60),
+            description: fullDescription,
             referenceImages: [],
+            // Store characterId for grouping during generation
+            ...(seg.characterId ? { twinId: seg.characterId } : {}),
           } : undefined,
         };
       }
@@ -846,10 +870,11 @@ export function LoopAIDirector({
     const speakingCount = newSegments.filter(s => s.type === 'speaking').length;
     const brollCount = newSegments.filter(s => s.type === 'broll').length;
     const totalDur = newSegments.reduce((sum, s) => sum + s.duration, 0);
+    const uniqueChars = Object.keys(characterLookup).length;
 
     setMessages(prev => [...prev, {
       role: 'system-action' as const,
-      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total`
+      content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total${uniqueChars > 0 ? ` (${uniqueChars} unique actor${uniqueChars !== 1 ? 's' : ''})` : ''}`
     }]);
 
     // Auto-save to DB

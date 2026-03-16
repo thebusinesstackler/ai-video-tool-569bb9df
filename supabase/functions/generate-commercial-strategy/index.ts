@@ -238,17 +238,38 @@ When the user describes a commercial idea, you MUST immediately generate a full 
 {
   "title": "Punchy Commercial Title",
   "summary": "One-line strategic pitch explaining the narrative arc",
+  "characters": [
+    { "characterId": "char-1", "name": "Maria", "description": "A confident Latina woman in her late 20s, athletic build, wearing a casual white fitted tee and gold hoop earrings, warm brown skin, dark wavy hair past her shoulders, bright modern kitchen background with marble countertops and natural light streaming through large windows—" }
+  ],
   "segments": [
-    { "type": "speaking", "narrativeRole": "HOOK", "characterDescription": "A confident Latina woman in her late 20s, wearing a casual white tee, looking straight at the camera with a knowing smirk, sitting in a bright modern kitchen—", "script": "What if I told you everything you know about [product category] is wrong—", "duration": 5, "transition": "fade-in" },
-    { "type": "broll", "narrativeRole": "CONTEXT", "brollPrompts": ["Cinematic close-up of [product] on a marble countertop, soft golden hour lighting, shallow depth of field, 4K product photography style"], "voiceover": "Narration that bridges the hook to the problem—", "duration": 5, "transition": "cut" },
-    { "type": "speaking", "narrativeRole": "PROBLEM", "characterDescription": "Same woman, now leaning forward with a frustrated expression, gesturing with her hands—", "script": "I spent thousands on products that promised results... and got nothing—", "duration": 8, "transition": "crossfade" },
-    { "type": "broll", "narrativeRole": "SOLUTION", "brollPrompts": ["Slow-motion pour of [product] with dramatic lighting, steam rising, ultra-cinematic 4K"], "voiceover": "Then I discovered something different—", "duration": 5, "transition": "cut" },
-    { "type": "speaking", "narrativeRole": "CTA", "characterDescription": "Same woman, beaming smile, holding the product up to camera—", "script": "Try it yourself... link in bio before they sell out again—", "duration": 5, "transition": "fade-in" }
+    { "type": "speaking", "narrativeRole": "HOOK", "characterId": "char-1", "characterDescription": "Maria looking straight at the camera with a knowing smirk, one hand resting on the counter, leaning in slightly as if sharing a secret, soft fill light from the left, shot on RED V-RAPTOR at 85mm f/1.4—", "script": "What if I told you everything you know about [product category] is wrong—", "duration": 5, "transition": "fade-in" },
+    { "type": "broll", "narrativeRole": "CONTEXT", "brollPrompts": ["Extreme macro close-up of [product] texture on a marble countertop, golden hour sunlight streaming through a window creating warm lens flares, shallow depth of field at f/1.2, cinematic color grading with warm highlights and cool shadows, shot on ARRI Alexa Mini, 4K anamorphic, product label clearly visible and sharp—"], "voiceover": "Narration that bridges the hook to the problem—", "duration": 5, "transition": "cut" },
+    { "type": "speaking", "narrativeRole": "PROBLEM", "characterId": "char-1", "characterDescription": "Maria leaning forward with a frustrated expression, gesturing with both hands palms-up in disbelief, same kitchen but slightly cooler lighting to match the emotional shift, eye-level medium shot at 50mm—", "script": "I spent thousands on products that promised results... and got nothing—", "duration": 8, "transition": "crossfade" },
+    { "type": "broll", "narrativeRole": "SOLUTION", "brollPrompts": ["Cinematic slow-motion pour of [product] with dramatic volumetric lighting from above, wisps of steam catching the light, ultra-shallow depth of field, dark moody background with a single golden spotlight, product packaging in sharp focus, ARRI Signature Prime lens look, 120fps slow-motion—"], "voiceover": "Then I discovered something different—", "duration": 5, "transition": "cut" },
+    { "type": "speaking", "narrativeRole": "CTA", "characterId": "char-1", "characterDescription": "Maria with a genuine warm smile, holding the product up proudly at chest height, camera slowly pushing in from medium to close-up, warm golden lighting wrapping around her face, eyes sparkling with conviction, same kitchen with soft bokeh background—", "script": "Try it yourself... link in bio before they sell out again—", "duration": 5, "transition": "fade-in" }
   ],
   "totalDuration": ${dur}
 }
 \`\`\`
-IMPORTANT: Every segment MUST have a "narrativeRole" field (HOOK, CONTEXT, PROBLEM, SOLUTION, PROOF, CTA, OUTRO). This tells the user WHY each scene exists in the commercial.
+
+## CHARACTER CONSISTENCY (CRITICAL — TV-QUALITY REQUIREMENT)
+- The "characters" array defines UNIQUE actors. Each gets a "characterId" (e.g., "char-1", "char-2").
+- Every speaking segment MUST reference a characterId from the characters array.
+- When the SAME actor appears in multiple scenes, use the SAME characterId — the system uses this to generate ONE set of reference images and reuse them across all that actor's scenes.
+- The top-level character description in the "characters" array should be a DETAILED, IMMUTABLE physical description: ethnicity, age, build, hair, skin tone, clothing, accessories, distinguishing features. This NEVER changes between scenes.
+- The per-segment "characterDescription" describes the ACTION and EMOTION for that specific scene — what they're doing, their expression, the lighting, the camera angle. This CHANGES per scene.
+- For single-actor commercials (most testimonials), use ONE characterId for ALL speaking scenes.
+- NEVER generate two separate characters for what should be the same person.
+- Every segment MUST have a "narrativeRole" (HOOK, CONTEXT, PROBLEM, SOLUTION, PROOF, CTA, OUTRO).
+
+## CINEMATIC PROMPT QUALITY (TV-WORTHY OUTPUT)
+All descriptions and prompts MUST include:
+- **Camera**: Lens focal length (35mm, 50mm, 85mm), aperture (f/1.4, f/2.8), camera system (RED, ARRI, Sony)
+- **Lighting**: Specific setup (key light direction, fill ratio, rim light, practicals, color temperature)
+- **Composition**: Shot type (extreme close-up, medium, wide), camera movement (push-in, dolly, static), framing
+- **Color**: Grade reference (warm highlights/cool shadows, desaturated, vibrant)
+- **Motion**: For B-roll — frame rate (24fps, 60fps slow-mo, 120fps), movement type
+- **Product**: ALWAYS include the product name, ensure label/branding is visible and sharp
 
 ## Golden Rules
 1. Every commercial tells ONE story
