@@ -3560,6 +3560,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       selectedVoice={selectedVoice}
                       onVoiceSelect={setSelectedVoice}
                       disabled={isGenerating}
+                      characterDescription={characterDescription}
+                      characterGender={detectedCharGender}
                     />
                     <Button
                       variant="outline"
