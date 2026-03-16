@@ -711,9 +711,10 @@ export function LoopAIDirector({
                 onGenerateCharacter(seg.id, seg.character.description);
                 regeneratedCount++;
               }
-              // Generate voice if no audio
+              // Generate voice if no audio — queue for sequential processing
               if (seg.script && !seg.audioUrl) {
-                previewAudio(seg.script, seg.id, seg.character?.description);
+                if (regeneratedCount > 0) await new Promise(r => setTimeout(r, 2000));
+                await previewAudio(seg.script, seg.id, seg.character?.description);
                 regeneratedCount++;
               }
             } else if (seg.type === 'broll') {
