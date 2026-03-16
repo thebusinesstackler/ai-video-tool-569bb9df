@@ -392,7 +392,7 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here ending with ... or — NEVER periods",
-    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: [exact character description, pose, expression - closed mouth]. LIGHTING: [specific setup e.g. warm golden hour key light, cool blue rim]. BACKGROUND: [consistent environment for ALL scenes]. COLOR GRADE: [palette e.g. warm amber tones, rich cinematic]. ATMOSPHERE: [bokeh, haze, particles]. Camera: ${CAMERA_ANGLES[0].angle}.",
+    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: [exact character description performing a TOPIC-RELEVANT action that illustrates this scene's narration - closed mouth]. LIGHTING: [specific setup e.g. warm golden hour key light, cool blue rim]. BACKGROUND: [consistent environment matching the topic for ALL scenes]. COLOR GRADE: [palette e.g. warm amber tones, rich cinematic]. ATMOSPHERE: [bokeh, haze, particles]. Camera: ${CAMERA_ANGLES[0].angle}. NOTE: The action and props MUST reflect the reel topic, not generic stock photography.",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }

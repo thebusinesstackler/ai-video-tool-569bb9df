@@ -643,7 +643,7 @@ Return ONLY valid JSON:
         <div className="px-4 py-3 border-t border-border shrink-0">
           <div className="flex gap-2">
             <Textarea
-              placeholder="Describe your character... e.g. 'A lady holding a bottle of supplements in a modern gym'"
+              placeholder="Describe your character... e.g. 'A professional woman presenting at a whiteboard in a modern office'"
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
