@@ -1266,6 +1266,7 @@ export function LoopAIDirector({
             projectSummary,
             currentSegments,
             timelineIssues,
+            visualPresets,
           }),
         }
       );
