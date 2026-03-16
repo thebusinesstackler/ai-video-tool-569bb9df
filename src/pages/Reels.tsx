@@ -3642,7 +3642,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 <CollapsibleContent>
                 {enableLipSync && (
                 <CardContent className="space-y-4 pt-0">
-                  {/* AI Twin Selector */}
+                  {/* ── Character Section ── */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary" />
+                      Character
+                    </h4>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Sparkles className="w-3 h-3 text-primary" />
