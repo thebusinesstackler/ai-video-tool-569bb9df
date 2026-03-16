@@ -2277,11 +2277,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
       const detectedGender = isFemale ? 'female' : 'male';
       
-      if (isFemale) {
-        setSelectedVoice('English_compelling_lady1');
-      } else if (isMale) {
-        setSelectedVoice('English_magnetic_voiced_man');
-      }
+      const matchedVoiceId = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
+      setSelectedVoice(matchedVoiceId);
       
       // Save as AI Twin to database
       if (user) {
