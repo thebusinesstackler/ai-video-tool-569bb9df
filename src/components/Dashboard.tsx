@@ -252,7 +252,7 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {isLoadingStats ? '...' : stats.charactersCount}
+              {isLoadingStats ? <Skeleton className="h-8 w-12" /> : stats.charactersCount}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               AI avatars ready
