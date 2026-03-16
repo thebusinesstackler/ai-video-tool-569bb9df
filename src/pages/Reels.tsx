@@ -411,7 +411,7 @@ const Reels = () => {
     captions: true,
     backgroundMusic: false
   });
-  const [_editingReel, setEditingReel] = useState<SavedReel | null>(null);
+  const [editingReel, setEditingReel] = useState<SavedReel | null>(null);
   const [showUpscaler, setShowUpscaler] = useState(false);
   
   // Strategist state for persistence
