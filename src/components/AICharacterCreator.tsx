@@ -53,7 +53,7 @@ export function AICharacterCreator({ onCharacterSaved, onClose }: AICharacterCre
   const [step, setStep] = useState<WizardStep>('chat');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{
     role: 'assistant',
-    content: "I'm Loop AI, your creative director. Describe the character you want to create — include details like gender, age, clothing, what they're holding, and the setting. For example: \"A confident woman in her 30s holding a bottle of supplements in a modern gym.\""
+    content: "I'm Loop AI, your creative director. Describe the character you want to create — include details like gender, age, clothing, actions, and the setting. For example: \"A confident woman in her 30s presenting at a whiteboard in a modern office\" or \"A young man in athletic wear stretching in a bright gym.\""
   }]);
   const [userInput, setUserInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
