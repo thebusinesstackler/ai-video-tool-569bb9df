@@ -2695,7 +2695,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         body: { text: sampleText.slice(0, 200), voice: selectedVoice }
       });
       if (error) throw error;
-      const audioUrl = data?.audioUrl || data?.url;
+      let audioUrl = data?.audioUrl || data?.url;
+      // Fallback: if only base64 audioContent returned, use as data URL
+      if (!audioUrl && data?.audioContent) {
+        audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
+      }
       if (!audioUrl) throw new Error('No audio returned');
       
       const audio = new Audio(audioUrl);
