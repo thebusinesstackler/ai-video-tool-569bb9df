@@ -115,8 +115,43 @@ export default function TestimonialCommercial() {
     if (videoUrl) {
       setFinalVideoUrl(videoUrl);
       setActiveTab('final-cut');
+      // Auto-scroll to result card
+      setTimeout(() => {
+        resultCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
     }
   };
+
+  // Build scenes array for VideoPlayerWithOverlay from segments
+  const overlayScenes = useMemo(() => {
+    let cumTime = 0;
+    return segments.map((seg, i) => {
+      const start = cumTime;
+      cumTime += seg.duration;
+      return {
+        sceneNumber: i + 1,
+        text: seg.script || seg.voiceoverText || seg.brollPrompts?.[0] || '',
+        imageUrl: seg.character?.referenceImages?.[0] || seg.brollImages?.[0] || null,
+        videoUrl: seg.videoUrl || null,
+        startTime: start,
+        endTime: cumTime,
+      };
+    });
+  }, [segments]);
+
+  const overlayVideoClips = useMemo(() =>
+    segments
+      .map((seg, i) => seg.videoUrl ? { sceneNumber: i + 1, videoUrl: seg.videoUrl } : null)
+      .filter(Boolean) as { sceneNumber: number; videoUrl: string }[],
+    [segments]
+  );
+
+  const overlayVoiceovers = useMemo(() =>
+    segments
+      .map((seg, i) => seg.audioUrl ? { sceneNumber: i + 1, audioUrl: seg.audioUrl } : null)
+      .filter(Boolean) as { sceneNumber: number; audioUrl: string }[],
+    [segments]
+  );
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('testimonial_commercials').delete().eq('id', id);
