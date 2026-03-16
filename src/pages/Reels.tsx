@@ -2200,7 +2200,82 @@ const Reels = () => {
     });
   };
 
-  const resetProject = () => {
+  // ====== QUICK MODE: Test single scene before committing ======
+  const generateQuickModeTest = async (quickTopic: string) => {
+    if (!quickTopic.trim()) return;
+    
+    setTopic(quickTopic);
+    abortRef.current = new AbortController();
+    
+    // Force no intro/outro
+    setSelectedIntro('none');
+    setSelectedOutro('none');
+    setIntroText('');
+    setOutroText('');
+    
+    // Only 1 scene for testing
+    setSelectedSceneCount('1');
+    setSelectedSceneDuration('8');
+    
+    // Auto-select AI Twin
+    let shouldEnableLipSync = false;
+    let activeLipSyncModel: string = 'infinitetalk';
+    
+    if (aiTwins.length > 0) {
+      const twin = aiTwins[0];
+      setSelectedTwinId(twin.id);
+      if (twin.reference_images?.[0]) {
+        setPortraitImage(twin.reference_images[0]);
+        setPortraitPreview(twin.reference_images[0]);
+        setPreSelectedReference(twin.reference_images[0]);
+      }
+      if (twin.face_description) setCharacterDescription(twin.face_description);
+      shouldEnableLipSync = true;
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
+    }
+    
+    // Auto-detect voice
+    let resolvedVoice = selectedVoice;
+    if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+      if (aiTwins.length > 0) {
+        const twin = aiTwins[0];
+        const twinGender = (twin as any).gender?.toLowerCase() || '';
+        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
+        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
+        if (detectedVoice) resolvedVoice = detectedVoice;
+      }
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+        resolvedVoice = detectGenderVoice(quickTopic + ' ' + characterDescription) || 'English_Trustworth_Man';
+      }
+    }
+    setSelectedVoice(resolvedVoice);
+    
+    if (abortRef.current.signal.aborted) return;
+    
+    // Generate scripts (will generate 1 scene due to selectedSceneCount)
+    const generatedScenes = await generateScripts();
+    if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
+    
+    // Take only the first scene
+    const testScene = [{
+      ...generatedScenes[0],
+      isIntro: false,
+      isOutro: false,
+      isSilentCTA: false
+    }];
+    
+    setProject(prev => ({ ...prev, scenes: testScene }));
+    
+    // Generate video for just this one scene
+    await generateVideo({ 
+      forceEnableLipSync: shouldEnableLipSync, 
+      forceLipSyncModel: activeLipSyncModel, 
+      scenesOverride: testScene 
+    });
+  };
+
+
     // Cleanup blob URL
     if (project.videoBlobUrl) {
       URL.revokeObjectURL(project.videoBlobUrl);
