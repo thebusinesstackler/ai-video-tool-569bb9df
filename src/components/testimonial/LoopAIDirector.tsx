@@ -1220,8 +1220,11 @@ export function LoopAIDirector({
       return issues.length > 0 ? issues : undefined;
     })() : undefined;
 
-    return { projectSummary, currentSegments, timelineIssues };
-  }, [segments, targetDuration]);
+    // Include user's visual presets for dynamic suggestions
+    const visualPresets = userPresets.length > 0 ? userPresets : undefined;
+
+    return { projectSummary, currentSegments, timelineIssues, visualPresets };
+  }, [segments, targetDuration, userPresets]);
 
   const handleSendWithMessage = async (msg: string) => {
     if (!msg.trim() || isLoading) return;
