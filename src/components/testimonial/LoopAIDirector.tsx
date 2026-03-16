@@ -185,7 +185,7 @@ export function LoopAIDirector({
       stopSpeaking();
       const greeting: Message = {
         role: 'assistant',
-        content: "🎬 Fresh canvas — let's build something incredible.\n\nWhat's the **product**, **audience**, and **vibe**? I'll handle the rest—"
+        content: "🎬 Fresh canvas, let's build something incredible.\n\nTell me the **product**, **audience**, and **vibe**. I'll generate the full storyboard, cast the actors, create all visuals, and produce the voiceovers automatically."
       };
       setMessages([greeting]);
     }
