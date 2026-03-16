@@ -377,7 +377,8 @@ const Reels = () => {
   const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
   const [generatedCharacterShots, setGeneratedCharacterShots] = useState<{ label: string; url: string }[]>([]);
   const [selectedShotIndex, setSelectedShotIndex] = useState(0);
-  const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3 | 4>(1); // 1=topic, 2=script review, 3=character, 4=voice+generate
+  const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3>(1); // 1=topic, 2=script review, 3=character+voice+generate
+  const [detectedCharGender, setDetectedCharGender] = useState<'male' | 'female'>('male');
   // Voice preview state
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
