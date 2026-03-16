@@ -2052,9 +2052,9 @@ const Reels = () => {
       setLipSyncModel('infinitetalk');
     }
     
-    // Only auto-detect voice if user left it on 'ai-auto' — preserve manual voice selection
+    // Auto-detect voice if user hasn't selected one — preserve manual voice selection
     let resolvedVoice = selectedVoice;
-    if (selectedVoice === 'ai-auto') {
+    if (!selectedVoice || selectedVoice === 'ai-auto') {
       // Try to detect from twin gender
       if (selectedTwinId && aiTwins.length > 0) {
         const twin = aiTwins.find(t => t.id === selectedTwinId) || aiTwins[0];
@@ -2064,12 +2064,12 @@ const Reels = () => {
         if (detectedVoice) resolvedVoice = detectedVoice;
       }
       // Fallback: detect from topic/character description
-      if (resolvedVoice === 'ai-auto') {
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
         const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
         if (topicVoice) resolvedVoice = topicVoice;
       }
-      // Final fallback — check characterDescription for gender clues before defaulting
-      if (resolvedVoice === 'ai-auto') {
+      // Final fallback
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
         const descVoice = detectGenderVoice(characterDescription);
         resolvedVoice = descVoice || 'English_Trustworth_Man';
       }
