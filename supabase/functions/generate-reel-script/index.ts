@@ -249,13 +249,16 @@ CUT SCENE RULES (IMPORTANT):
 
     // Character consistency instructions
     const characterInstructions = characterDescription ? `
-CHARACTER CONSISTENCY (CRITICAL - MUST FOLLOW):
-The user has specified this character description: "${characterDescription}"
-- ALL scenes MUST describe THIS EXACT character in every visualDescription
-- NEVER change the gender, age, ethnicity, or key physical traits specified
-- Use the EXACT characteristics provided (e.g., if "male" is specified, ALL scenes show a male)
-- Apply scene context (actions, locations, poses) TO THIS CHARACTER
-- Example: If description says "Male entrepreneur, 30s", every scene shows a male entrepreneur in his 30s
+CHARACTER CONSISTENCY (CRITICAL - ABSOLUTE HIGHEST PRIORITY):
+The user has specified this EXACT character: "${characterDescription}"
+- EVERY single visualDescription MUST start with this character's description
+- NEVER change the gender, age, ethnicity, hair, skin tone, or ANY physical traits
+- NEVER substitute a different person — if the user specified "female", ALL scenes show a FEMALE
+- If the user specified "male", ALL scenes show a MALE — no exceptions
+- Copy the character description VERBATIM into every visualDescription, then add scene-specific actions
+- Example: If description says "Young Black woman with braids, wearing a white blazer" — EVERY scene begins with "Young Black woman with braids, wearing a white blazer..."
+- VALIDATION: Before returning, verify that EVERY visualDescription contains the character's gender and key traits
+- If ANY scene shows a different person than described, the ENTIRE output is REJECTED
 ` : '';
 
     const systemPrompt = `You are a WORLD-CLASS short-form video scriptwriter and cinematographer creating PREMIUM, award-winning social media content. Think Super Bowl commercial quality meets viral TikTok energy.
