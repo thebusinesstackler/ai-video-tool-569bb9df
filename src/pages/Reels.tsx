@@ -2351,13 +2351,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             })));
           }
           
-          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created and saved as AI Twin.` });
+          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created. Generating matching voice...` });
+          
+          // Auto-generate a voice matched to this character
+          const voiceResult = await generateVoiceForCharacter(charPrompt, detectedGender as 'male' | 'female', user.id, twinName);
+          if (voiceResult) {
+            setSelectedVoice(voiceResult.voiceId);
+            toast({ title: "Voice Generated! 🎙️", description: "A matching voice was created and saved for this character." });
+          }
         } else {
           console.error('Failed to save AI Twin:', twinError);
           toast({ title: "Character Generated!", description: `${generatedImages.length} shots created. Could not save to library.` });
         }
       } else {
-        toast({ title: "Character Generated!", description: `${generatedImages.length} shots created.${isFemale ? ' Female voice auto-selected.' : isMale ? ' Male voice auto-selected.' : ''}` });
+        // No user — still try to generate voice if possible
+        toast({ title: "Character Generated!", description: `${generatedImages.length} shots created.` });
       }
       
       setShowGenerateCharacter(false);
