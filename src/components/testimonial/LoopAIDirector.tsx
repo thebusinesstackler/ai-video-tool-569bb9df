@@ -1409,11 +1409,20 @@ export function LoopAIDirector({
       content: `✅ Storyboard built — ${speakingCount} speaking scene${speakingCount !== 1 ? 's' : ''}, ${brollCount} B-roll clip${brollCount !== 1 ? 's' : ''}, ${totalDur}s total${uniqueChars > 0 ? ` (${uniqueChars} unique actor${uniqueChars !== 1 ? 's' : ''})` : ''}.\n\n⏸️ **Review the storyboard above, then click "Approve & Generate" to create all assets (images, voices, B-roll). This will consume API credits.**`
     }]);
 
-    // Auto-save to DB
+    // Auto-save storyboard to DB, but DON'T auto-generate assets
     setTimeout(() => onSaveToDb(), 500);
+  };
 
-    // Auto-generate all assets (characters + B-roll) with progress
-    setTimeout(() => autoGenerateAssets(newSegments), 1000);
+  // User-approved generation — triggered by clicking "Approve & Generate"
+  const approveAndGenerate = () => {
+    if (!pendingGeneration) return;
+    const segs = pendingGeneration;
+    setPendingGeneration(null);
+    setMessages(prev => [...prev, {
+      role: 'system-action' as const,
+      content: '🚀 Approved! Generating all characters, B-roll, and voiceovers now...'
+    }]);
+    autoGenerateAssets(segs);
   };
 
   const autoGenerateAssets = async (segs: CommercialSegment[]) => {
