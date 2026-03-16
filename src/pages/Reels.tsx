@@ -69,6 +69,7 @@ import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector, generateVoiceForCharacter } from '@/components/VoiceSelector';
+import { ProductSwapPanel } from '@/components/ProductSwapPanel';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
