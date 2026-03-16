@@ -264,6 +264,23 @@ export default function TestimonialCommercial() {
     }
   }, [segments, updateSegment, videoFormat]);
 
+  // Generate more twin angles for a character
+  const handleGenerateTwinAngles = useCallback(async (
+    twinId: string, faceDescription: string, gender: string, name: string, referenceImageUrl?: string
+  ): Promise<string[]> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-twin-angles', {
+        body: { twinId, faceDescription, gender, name, referenceImageUrl }
+      });
+      if (error) throw error;
+      return data?.generatedUrls || [];
+    } catch (err) {
+      console.error('Generate twin angles error:', err);
+      toast.error('Failed to generate additional angles');
+      return [];
+    }
+  }, []);
+
   const [isSuggestingScene, setIsSuggestingScene] = useState(false);
 
   const handleSmartAddScene = useCallback(async (type: 'speaking' | 'broll') => {
