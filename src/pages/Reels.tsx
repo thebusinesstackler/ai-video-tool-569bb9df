@@ -527,8 +527,8 @@ const Reels = () => {
             voiceovers: draft.project.voiceovers || [],
             videoUrl: null,
             videoBlobUrl: null,
-            generatedScenes: draft.project.generatedScenes || [],
-            videoClips: draft.project.videoClips || [],
+            generatedScenes: [],
+            videoClips: [],
             previewScenes: draft.project.previewScenes || [],
             status: 'idle'
           });
