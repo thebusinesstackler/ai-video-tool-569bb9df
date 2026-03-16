@@ -58,8 +58,14 @@ async function pollWaveSpeedResult(taskId: string, apiKey: string, maxAttempts: 
   return null;
 }
 
-async function generateWaveSpeedTTS(text: string, voiceId: string, apiKey: string): Promise<string> {
-  console.log(`Generating voiceover with WaveSpeed MiniMax voice: ${voiceId}`);
+async function generateWaveSpeedTTS(text: string, voiceId: string, apiKey: string, gender?: string): Promise<string> {
+  console.log(`Generating voiceover with WaveSpeed MiniMax voice: ${voiceId}, gender: ${gender || 'unknown'}`);
+  
+  // Adjust speed and emotion based on gender and voice for natural delivery
+  const isFemale = FEMALE_VOICES.includes(voiceId) || gender === 'female';
+  const speed = isFemale ? 0.95 : 0.92; // Slightly slower for gravitas, natural pace for female
+  const pitch = isFemale ? 2 : -1; // Subtle pitch adjustment for warmth
+  const emotion = 'happy'; // 'happy' gives a more engaged, natural delivery vs flat 'neutral'
   
   const ttsResponse = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
     method: 'POST',
@@ -70,10 +76,10 @@ async function generateWaveSpeedTTS(text: string, voiceId: string, apiKey: strin
     body: JSON.stringify({
       text: text.length > 10000 ? text.substring(0, 10000) : text,
       voice_id: voiceId,
-      speed: 1,
+      speed,
       volume: 1,
-      pitch: 0,
-      emotion: 'neutral',
+      pitch,
+      emotion,
       english_normalization: true
     }),
   });
@@ -169,7 +175,7 @@ serve(async (req) => {
     
     if (WAVESPEED_API_KEY) {
       try {
-        const base64Audio = await generateWaveSpeedTTS(cleanedText, resolvedVoice, WAVESPEED_API_KEY);
+        const base64Audio = await generateWaveSpeedTTS(cleanedText, resolvedVoice, WAVESPEED_API_KEY, gender);
         const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
         
         console.log('Voiceover generated with WaveSpeed MiniMax for scene:', sceneNumber);
