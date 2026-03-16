@@ -161,6 +161,96 @@ export default function TestimonialCommercial() {
     }
   }, [segments]);
 
+  // Video generation for individual segments via Loop AI
+  const handleGenerateVideo = useCallback(async (segmentId: string) => {
+    const seg = segments.find(s => s.id === segmentId);
+    if (!seg) return;
+    toast.info(`🎬 Generating video for ${seg.type === 'speaking' ? 'speaking scene' : 'B-roll'}...`);
+    try {
+      const { createWaveSpeedVideo, getWaveSpeedVideoJob } = await import('@/lib/wavespeed');
+      let taskId: string;
+      if (seg.type === 'speaking') {
+        if (!seg.character?.referenceImages?.length || !seg.audioUrl) {
+          toast.error('Scene needs character images and audio before video can be generated');
+          return;
+        }
+        taskId = await createWaveSpeedVideo({
+          prompt: seg.character?.description || 'Person speaking naturally to camera',
+          imageUrls: [seg.character.referenceImages[0]],
+          audioUrl: seg.audioUrl,
+          model: 'infinitetalk',
+          aspectRatio: videoFormat === '16:9' ? '16:9' : '9:16',
+          duration: seg.duration,
+        });
+      } else {
+        const prompt = seg.brollPrompts?.[0] || 'Cinematic B-roll';
+        const imageUrl = seg.brollImages?.[0];
+        taskId = await createWaveSpeedVideo({
+          prompt,
+          imageUrls: imageUrl ? [imageUrl] : undefined,
+          model: 'alibaba/wan-2.5/text-to-video',
+          aspectRatio: videoFormat === '16:9' ? '16:9' : '9:16',
+          duration: seg.duration,
+        });
+      }
+      const poll = async () => {
+        for (let i = 0; i < 60; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const job = await getWaveSpeedVideoJob(taskId);
+          if (job.status === 'completed' && job.videoUrl) {
+            updateSegment(segmentId, { videoUrl: job.videoUrl, status: 'complete' });
+            toast.success(`🎬 Video generated!`);
+            return;
+          }
+          if (job.status === 'failed') {
+            toast.error(`Video generation failed: ${job.error || 'Unknown error'}`);
+            return;
+          }
+        }
+        toast.error('Video generation timed out');
+      };
+      poll();
+    } catch (err) {
+      console.error('Video generation error:', err);
+      toast.error('Failed to start video generation');
+    }
+  }, [segments, updateSegment, videoFormat]);
+
+  const handleExtendClip = useCallback(async (segmentId: string, prompt: string) => {
+    const seg = segments.find(s => s.id === segmentId);
+    if (!seg?.videoUrl) { toast.error('No video to extend'); return; }
+    toast.info('⏭️ Extending video clip...');
+    try {
+      const { createWaveSpeedVideo, getWaveSpeedVideoJob } = await import('@/lib/wavespeed');
+      const taskId = await createWaveSpeedVideo({
+        prompt,
+        videoUrl: seg.videoUrl,
+        model: 'alibaba/wan-2.5/text-to-video',
+        aspectRatio: videoFormat === '16:9' ? '16:9' : '9:16',
+      });
+      const poll = async () => {
+        for (let i = 0; i < 60; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const job = await getWaveSpeedVideoJob(taskId);
+          if (job.status === 'completed' && job.videoUrl) {
+            updateSegment(segmentId, { videoUrl: job.videoUrl });
+            toast.success('⏭️ Video clip extended!');
+            return;
+          }
+          if (job.status === 'failed') {
+            toast.error(`Clip extension failed: ${job.error || 'Unknown error'}`);
+            return;
+          }
+        }
+        toast.error('Clip extension timed out');
+      };
+      poll();
+    } catch (err) {
+      console.error('Clip extension error:', err);
+      toast.error('Failed to extend clip');
+    }
+  }, [segments, updateSegment, videoFormat]);
+
   const [isSuggestingScene, setIsSuggestingScene] = useState(false);
 
   const handleSmartAddScene = useCallback(async (type: 'speaking' | 'broll') => {
