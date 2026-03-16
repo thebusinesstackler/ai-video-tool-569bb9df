@@ -2035,10 +2035,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               setProgress(92);
               setProgressStatus('Uploading final video...');
               try {
-                const fileName = `${user.id}/videos/${Date.now()}-stitched.mp4`;
+                const isWebm = finalBlob.type.includes('webm');
+                const ext = isWebm ? 'webm' : 'mp4';
+                const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
                 const { data: uploadData, error: uploadError } = await supabase.storage
                   .from('reels')
-                  .upload(fileName, finalBlob, { contentType: 'video/mp4' });
+                  .upload(fileName, finalBlob, { contentType: finalBlob.type || 'video/webm' });
                 if (!uploadError && uploadData) {
                   const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
                   persistedVideoUrl = publicUrl.publicUrl;
