@@ -623,7 +623,7 @@ export default function TestimonialCommercial() {
 
                 {finalVideoUrl && (
                   <TabsContent value="final-cut">
-                    <div className="space-y-6">
+                    <div ref={resultCardRef} className="space-y-6">
                       {/* Video Player with Caption Overlay */}
                       {overlayVideoClips.length > 0 ? (
                         <VideoPlayerWithOverlay
