@@ -1135,8 +1135,29 @@ export function LoopAIDirector({
     if (missingBroll.length > 0) {
       actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
     }
+    // Video generation — when characters + audio ready but no videos
+    const readyForVideo = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.audioUrl && !s.videoUrl);
+    if (readyForVideo.length > 0) {
+      actions.push({ label: `🎬 Generate ${readyForVideo.length} video${readyForVideo.length > 1 ? 's' : ''}`, message: 'Generate videos for all scenes that have characters and audio ready', icon: '🎬' });
+    }
     if (segments.length > 0 && !hasAnyVideo) {
       actions.push({ label: '🚀 Full production pass', message: 'Do a full production pass — generate everything that\'s missing', icon: '🚀' });
+    }
+    // Diagnose videos — when some videos exist
+    if (hasAnyVideo) {
+      actions.push({ label: '🔍 Diagnose videos', message: 'Run a full video diagnostic — check all scenes for missing assets, lip-sync readiness, and duration issues', icon: '🔍' });
+    }
+    // Product from library
+    actions.push({ label: '📦 Add product from library', message: 'Pull my product from the library and add it to all B-roll scenes', icon: '📦' });
+    // Extend clip — when a scene has video
+    const scenesWithVideo = segments.filter(s => s.videoUrl);
+    if (scenesWithVideo.length > 0) {
+      actions.push({ label: `⏭️ Extend clip`, message: 'Extend the shortest video clip to give it more screen time', icon: '⏭️' });
+    }
+    // B-roll voiceover
+    const brollMissingAudio = segments.filter(s => s.type === 'broll' && s.voiceoverText && !s.audioUrl);
+    if (brollMissingAudio.length > 0) {
+      actions.push({ label: `🎙️ B-roll voiceovers (${brollMissingAudio.length})`, message: 'Generate voiceovers for all B-roll scenes that have narration text', icon: '🎙️' });
     }
     if (segments.length > 0) {
       actions.push({ label: '📝 Script breakdown', message: 'Show me the full script flow — how all the scenes connect together with timing, camera angles, and transitions', icon: '📝' });

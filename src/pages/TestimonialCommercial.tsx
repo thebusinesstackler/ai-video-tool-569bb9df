@@ -375,6 +375,10 @@ export default function TestimonialCommercial() {
                 onGenerateBrollPreview={generateBrollPreview}
                 onSaveToDb={handleSaveToDb}
                 onGenerateMusic={handleGenerateMusic}
+                onGenerateVideo={handleGenerateVideo}
+                onExtendClip={handleExtendClip}
+                onDuplicateSegment={duplicateSegment}
+                onReorderSegments={reorderSegments}
                 segments={segments}
                 targetDuration={targetDuration}
                 onTargetDurationChange={setTargetDuration}
