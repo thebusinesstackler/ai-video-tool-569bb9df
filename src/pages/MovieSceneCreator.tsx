@@ -42,28 +42,9 @@ interface AITwin {
   gender: string | null;
 }
 
-// Helper to clean dialogue text - remove stage directions and character prefixes before TTS
+// Helper to clean dialogue text - remove stage directions and sanitize for TTS
 const cleanDialogueForTTS = (text: string): string => {
-  if (!text) return '';
-  
-  // Remove stage directions in parentheses: (sighs), (pauses), (whispers), etc.
-  let cleaned = text.replace(/\([^)]*\)/g, '');
-  
-  // Remove stage directions in brackets: [emotion], [action], etc.
-  cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
-  
-  // Remove asterisk stage directions: *sighs*, *pauses*, etc.
-  cleaned = cleaned.replace(/\*[^*]*\*/g, '');
-  
-  // Remove character name prefixes: "Character Name: " at start of lines
-  cleaned = cleaned.split('\n').map(line => {
-    return line.replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '');
-  }).join(' ');
-  
-  // Clean up multiple spaces and trim
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
-  
-  return cleaned;
+  return sanitizeForTTS(text);
 };
 
 // Helper to detect if a voice ID is a Speechify UUID format
