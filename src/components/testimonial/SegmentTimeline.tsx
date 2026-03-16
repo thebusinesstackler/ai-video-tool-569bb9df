@@ -96,6 +96,7 @@ export function SegmentTimeline({
               segment={segment}
               index={index}
               typeNumber={index + 1}
+              narrativeRole={getNarrativeRole(segment)}
               onUpdate={onUpdate}
               onDelete={onDelete}
               onDuplicate={onDuplicate}
