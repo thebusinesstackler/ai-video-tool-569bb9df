@@ -4095,6 +4095,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             setPreSelectedReference(newUrl);
                             setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s));
                           }}
+                          allShots={generatedCharacterShots}
+                          currentShotIndex={selectedShotIndex}
+                          onBatchSwapped={(updatedShots) => {
+                            setGeneratedCharacterShots(updatedShots);
+                            const currentShot = updatedShots[selectedShotIndex];
+                            if (currentShot) {
+                              setPortraitImage(currentShot.url);
+                              setPortraitPreview(currentShot.url);
+                              setPreSelectedReference(currentShot.url);
+                            }
+                          }}
                           disabled={isGenerating}
                         />
                       )}
