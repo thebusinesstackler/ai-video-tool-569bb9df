@@ -31,7 +31,7 @@ type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle' | 'generateVideo' | 'extendClip' | 'productSwapFromLibrary' | 'generateBrollVoiceover' | 'duplicateScene' | 'reorderScene' | 'videoDiagnostic';
     sceneIndex?: number | 'all';
     sceneIndices?: number[];
     changes?: Record<string, any>;
@@ -45,6 +45,9 @@ interface EditAction {
     mood?: string;
     sourceSceneIndex?: number;
     targetSceneIndices?: number[];
+    fromIndex?: number;
+    toIndex?: number;
+    productName?: string;
   }>;
 }
 
@@ -57,6 +60,10 @@ interface LoopAIDirectorProps {
   onGenerateBrollPreview: (segmentId: string, prompt: string) => Promise<void>;
   onSaveToDb: () => Promise<void>;
   onGenerateMusic?: (mood: string) => Promise<void>;
+  onGenerateVideo?: (segmentId: string) => Promise<void>;
+  onExtendClip?: (segmentId: string, prompt: string) => Promise<void>;
+  onDuplicateSegment?: (id: string) => void;
+  onReorderSegments?: (fromIndex: number, toIndex: number) => void;
   segments: CommercialSegment[];
   targetDuration: string;
   onTargetDurationChange: (dur: string) => void;
@@ -99,6 +106,10 @@ export function LoopAIDirector({
   onGenerateBrollPreview,
   onSaveToDb,
   onGenerateMusic,
+  onGenerateVideo,
+  onExtendClip,
+  onDuplicateSegment,
+  onReorderSegments,
   segments,
   targetDuration,
   onTargetDurationChange,
@@ -383,7 +394,7 @@ export function LoopAIDirector({
     return value.replace(/[\[{]\s*product\s*name\s*[\]}]/gi, replaceWith);
   };
 
-  const applyEditActions = (editAction: EditAction) => {
+  const applyEditActions = async (editAction: EditAction) => {
     const editSummary: string[] = [];
 
     for (const edit of editAction.edits) {
@@ -647,7 +658,6 @@ export function LoopAIDirector({
           }
           // Also generate music if handler available
           if (onGenerateMusic) {
-            // Infer mood from scripts
             const allScripts = segments.filter(s => s.script).map(s => s.script).join(' ');
             const autoMood = allScripts.length > 50
               ? 'cinematic commercial background music, modern and inspiring, subtle build'
@@ -657,6 +667,135 @@ export function LoopAIDirector({
           }
           editSummary.push(`🚀 Full production pass: regenerating ${regeneratedCount} assets`);
           break;
+        }
+
+        case 'generateVideo': {
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            if (onGenerateVideo) {
+              onGenerateVideo(seg.id);
+              editSummary.push(`🎬 Generating video for scene ${sceneIndex + 1}`);
+            } else {
+              editSummary.push(`⚠️ Video generation not available`);
+            }
+          }
+          break;
+        }
+
+        case 'extendClip': {
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            if (seg.videoUrl && onExtendClip) {
+              onExtendClip(seg.id, edit.prompt || 'Continue the scene naturally with smooth motion');
+              editSummary.push(`⏭️ Extending video clip for scene ${sceneIndex + 1}`);
+            } else if (!seg.videoUrl) {
+              editSummary.push(`⚠️ Scene ${sceneIndex + 1} has no video to extend`);
+            } else {
+              editSummary.push(`⚠️ Clip extension not available`);
+            }
+          }
+          break;
+        }
+
+        case 'productSwapFromLibrary': {
+          try {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (!currentUser) { editSummary.push('⚠️ Not authenticated'); break; }
+            const { data: products } = await supabase
+              .from('product_images')
+              .select('*')
+              .eq('user_id', currentUser.id)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            if (!products || products.length === 0) {
+              editSummary.push('⚠️ No products in your library — upload a product image first');
+              break;
+            }
+            // Find by name if specified, otherwise use first
+            const productName = edit.productName?.toLowerCase();
+            const product = productName
+              ? products.find(p => p.name?.toLowerCase().includes(productName)) || products[0]
+              : products[0];
+            const indexes = targetIndexes.length > 0 ? targetIndexes : segments.map((_, idx) => idx).filter(idx => segments[idx].type === 'broll');
+            for (const tIdx of indexes) {
+              const tSeg = segments[tIdx];
+              onUpdateSegment(tSeg.id, { productImageUrl: product.image_url, status: 'generating-character' });
+              const prompt = tSeg.brollPrompts?.[0] || 'Product showcase';
+              onGenerateBrollPreview(tSeg.id, prompt);
+            }
+            editSummary.push(`📦 Applied "${product.name || 'product'}" from library to ${indexes.length} scene(s)`);
+          } catch (err) {
+            editSummary.push('⚠️ Failed to fetch product library');
+          }
+          break;
+        }
+
+        case 'generateBrollVoiceover': {
+          // Find main character voice for consistency
+          const mainSpeaking = segments.find(s => s.type === 'speaking' && s.character?.description);
+          const charDesc = mainSpeaking?.character?.description || '';
+          const indexes = targetIndexes.length > 0 ? targetIndexes : segments.map((_, idx) => idx).filter(idx => segments[idx].type === 'broll' && segments[idx].voiceoverText);
+          for (const idx of indexes) {
+            const seg = segments[idx];
+            if (seg.voiceoverText) {
+              previewAudio(seg.voiceoverText, seg.id, charDesc);
+              editSummary.push(`🎙️ Generating voiceover for B-Roll scene ${idx + 1}`);
+            }
+          }
+          break;
+        }
+
+        case 'duplicateScene': {
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            if (onDuplicateSegment) {
+              onDuplicateSegment(seg.id);
+              editSummary.push(`📋 Duplicated scene ${sceneIndex + 1}`);
+            }
+          }
+          break;
+        }
+
+        case 'reorderScene': {
+          if (typeof edit.fromIndex === 'number' && typeof edit.toIndex === 'number' && onReorderSegments) {
+            onReorderSegments(edit.fromIndex, edit.toIndex);
+            editSummary.push(`🔀 Moved scene from position ${edit.fromIndex + 1} to ${edit.toIndex + 1}`);
+          }
+          break;
+        }
+
+        case 'videoDiagnostic': {
+          const diagnosticReport: string[] = [];
+          segments.forEach((seg, idx) => {
+            const issues: string[] = [];
+            if (seg.type === 'speaking') {
+              if (!seg.character?.referenceImages?.length) issues.push('❌ No character images');
+              if (!seg.audioUrl) issues.push('❌ No audio');
+              if (!seg.videoUrl) issues.push('❌ No video');
+              else issues.push('✅ Video ready');
+              if (seg.audioUrl && seg.character?.referenceImages?.length) {
+                issues.push('✅ Lip-sync ready');
+              } else if (!seg.audioUrl || !seg.character?.referenceImages?.length) {
+                issues.push('⚠️ Not lip-sync ready (needs audio + images)');
+              }
+            } else {
+              if (!seg.brollImages?.length) issues.push('❌ No preview image');
+              if (!seg.videoUrl) issues.push('❌ No video');
+              else issues.push('✅ Video ready');
+              if (!seg.voiceoverText) issues.push('⚠️ No voiceover — will be silent');
+              if (!seg.audioUrl && seg.voiceoverText) issues.push('⚠️ VO text exists but no audio generated');
+            }
+            const wc = (seg.script || seg.voiceoverText || '').split(/\s+/).filter(Boolean).length;
+            if (wc > 0 && Math.abs(Math.ceil(wc / 2.5) - seg.duration) > 2) {
+              issues.push(`⚠️ Duration mismatch: ${wc} words ≈ ${Math.ceil(wc / 2.5)}s but set to ${seg.duration}s`);
+            }
+            diagnosticReport.push(`**Scene ${idx + 1}** (${seg.type}): ${issues.join(' | ')}`);
+          });
+          const readyCount = segments.filter(s => s.videoUrl).length;
+          const totalCount = segments.length;
+          const fullReport = `🔍 **Video Diagnostic Report**\n\n${diagnosticReport.join('\n')}\n\n**Summary:** ${readyCount}/${totalCount} scenes have video. ${readyCount === totalCount ? '✅ All ready for final assembly!' : `⚠️ ${totalCount - readyCount} scene(s) still need video generation.`}`;
+          setMessages(prev => [...prev, { role: 'system-action' as const, content: fullReport }]);
+          return; // Don't add edit summary — diagnostic is its own message
         }
       }
     }
@@ -996,8 +1135,29 @@ export function LoopAIDirector({
     if (missingBroll.length > 0) {
       actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
     }
+    // Video generation — when characters + audio ready but no videos
+    const readyForVideo = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.audioUrl && !s.videoUrl);
+    if (readyForVideo.length > 0) {
+      actions.push({ label: `🎬 Generate ${readyForVideo.length} video${readyForVideo.length > 1 ? 's' : ''}`, message: 'Generate videos for all scenes that have characters and audio ready', icon: '🎬' });
+    }
     if (segments.length > 0 && !hasAnyVideo) {
       actions.push({ label: '🚀 Full production pass', message: 'Do a full production pass — generate everything that\'s missing', icon: '🚀' });
+    }
+    // Diagnose videos — when some videos exist
+    if (hasAnyVideo) {
+      actions.push({ label: '🔍 Diagnose videos', message: 'Run a full video diagnostic — check all scenes for missing assets, lip-sync readiness, and duration issues', icon: '🔍' });
+    }
+    // Product from library
+    actions.push({ label: '📦 Add product from library', message: 'Pull my product from the library and add it to all B-roll scenes', icon: '📦' });
+    // Extend clip — when a scene has video
+    const scenesWithVideo = segments.filter(s => s.videoUrl);
+    if (scenesWithVideo.length > 0) {
+      actions.push({ label: `⏭️ Extend clip`, message: 'Extend the shortest video clip to give it more screen time', icon: '⏭️' });
+    }
+    // B-roll voiceover
+    const brollMissingAudio = segments.filter(s => s.type === 'broll' && s.voiceoverText && !s.audioUrl);
+    if (brollMissingAudio.length > 0) {
+      actions.push({ label: `🎙️ B-roll voiceovers (${brollMissingAudio.length})`, message: 'Generate voiceovers for all B-roll scenes that have narration text', icon: '🎙️' });
     }
     if (segments.length > 0) {
       actions.push({ label: '📝 Script breakdown', message: 'Show me the full script flow — how all the scenes connect together with timing, camera angles, and transitions', icon: '📝' });
