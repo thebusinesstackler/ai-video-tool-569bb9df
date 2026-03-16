@@ -137,7 +137,7 @@ async function generateWaveSpeedTTS(
     }
     const base64Audio = btoa(binary);
 
-    return { audioContent: base64Audio, audioUrl };
+    return { audioContent: base64Audio, audioUrl: `data:audio/mp3;base64,${base64Audio}` };
   } catch (error) {
     console.error('WaveSpeed TTS error:', error);
     return null;

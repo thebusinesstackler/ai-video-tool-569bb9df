@@ -201,7 +201,7 @@ Place the reference person(s) naturally into this scene setting. Focus on lighti
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
+        model: 'google/gemini-3.1-flash-image-preview',
         messages: [
           {
             role: 'user',
@@ -266,7 +266,7 @@ Place the reference person(s) naturally into this scene setting. Focus on lighti
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-image-preview',
+            model: 'google/gemini-3.1-flash-image-preview',
             messages: [{ role: 'user', content: textOnlyPrompt }],
             modalities: ['image', 'text']
           }),

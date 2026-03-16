@@ -1397,96 +1397,40 @@ export function LoopAIDirector({
   };
 
   const renderMessageContent = (content: string) => {
-    return content.replace(/```json[\s\S]*?```/g, '').replace(/```action[\s\S]*?```/g, '').trim();
+    return content
+      .replace(/```json[\s\S]*?```/g, '')
+      .replace(/```action[\s\S]*?```/g, '')
+      .replace(/```suggestions[\s\S]*?```/g, '')
+      .trim();
   };
 
-  // Generate contextual quick actions based on project state
-  const getQuickActions = (): { label: string; message: string; icon: string }[] => {
-    const actions: { label: string; message: string; icon: string }[] = [];
-    
-    if (segments.length === 0) {
-      actions.push(
-        { label: '🎬 Build a 15s ad', message: 'Create a 15 second commercial for my product', icon: '🎬' },
-        { label: '⚡ Quick TikTok ad', message: 'Build a punchy 10 second TikTok-style ad', icon: '⚡' },
-        { label: '🎯 30s testimonial', message: 'Create a 30 second testimonial commercial with actors', icon: '🎯' },
-      );
-      return actions;
-    }
-
-    // Detect product image in any segment for propagation suggestion
-    const hasProductInAnyScene = segments.some(s => s.productImageUrl);
-    const brollWithoutProduct = segments.filter(s => s.type === 'broll' && !s.productImageUrl);
-
-    const missingCharacters = segments.filter(s => s.type === 'speaking' && (!s.character?.referenceImages || s.character.referenceImages.length === 0));
-    const missingAudio = segments.filter(s => s.type === 'speaking' && !s.audioUrl);
-    const missingBroll = segments.filter(s => s.type === 'broll' && (!s.brollImages || s.brollImages.length === 0));
-    const hasAnyVideo = segments.some(s => s.videoUrl);
-
-    // Product propagation — top priority
-    if (hasProductInAnyScene && brollWithoutProduct.length > 0) {
-      actions.push({ label: `📦 Swap product to ${brollWithoutProduct.length} B-roll`, message: 'Swap my product image into all B-roll scenes that are missing it', icon: '📦' });
-    }
-
-    if (missingCharacters.length > 0) {
-      actions.push({ label: `🎭 Generate ${missingCharacters.length} character${missingCharacters.length > 1 ? 's' : ''}`, message: 'Generate all missing character images', icon: '🎭' });
-    }
-    if (missingAudio.length > 0) {
-      actions.push({ label: `🎙️ Generate ${missingAudio.length} voiceover${missingAudio.length > 1 ? 's' : ''}`, message: 'Generate voiceovers for all scenes missing audio', icon: '🎙️' });
-    }
-    if (missingBroll.length > 0) {
-      actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
-    }
-    // Actor gallery — when speaking scenes have character images
-    const scenesWithCharImages = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length);
-    if (scenesWithCharImages.length > 0) {
-      actions.push({ label: '🎭 Show actor poses', message: 'Show me the actor reference images and poses for all characters', icon: '🎭' });
-    }
-    // Generate more angles — when character has few images
-    const fewImageChars = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.character.referenceImages.length < 4);
-    if (fewImageChars.length > 0) {
-      actions.push({ label: '📸 Generate more angles', message: 'Generate more camera angles for characters with few reference images', icon: '📸' });
-    }
-    // Change voice — when audio exists
-    const scenesWithAudio = segments.filter(s => s.audioUrl);
-    if (scenesWithAudio.length > 0) {
-      actions.push({ label: '🔄 Change voice', message: 'I want to try a different voice for the character — show me options', icon: '🔄' });
-    }
-    // Video generation — when characters + audio ready but no videos
-    const readyForVideo = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.audioUrl && !s.videoUrl);
-    if (readyForVideo.length > 0) {
-      actions.push({ label: `🎬 Generate ${readyForVideo.length} video${readyForVideo.length > 1 ? 's' : ''}`, message: 'Generate videos for all scenes that have characters and audio ready', icon: '🎬' });
-    }
-    if (segments.length > 0 && !hasAnyVideo) {
-      actions.push({ label: '🚀 Full production pass', message: 'Do a full production pass — generate everything that\'s missing', icon: '🚀' });
-    }
-    // Diagnose videos — when some videos exist
-    if (hasAnyVideo) {
-      actions.push({ label: '🔍 Diagnose videos', message: 'Run a full video diagnostic — check all scenes for missing assets, lip-sync readiness, and duration issues', icon: '🔍' });
-    }
-    // Product from library
-    actions.push({ label: '📦 Add product from library', message: 'Pull my product from the library and add it to all B-roll scenes', icon: '📦' });
-    // Extend clip — when a scene has video
-    const scenesWithVideo = segments.filter(s => s.videoUrl);
-    if (scenesWithVideo.length > 0) {
-      actions.push({ label: `⏭️ Extend clip`, message: 'Extend the shortest video clip to give it more screen time', icon: '⏭️' });
-    }
-    // B-roll voiceover
-    const brollMissingAudio = segments.filter(s => s.type === 'broll' && s.voiceoverText && !s.audioUrl);
-    if (brollMissingAudio.length > 0) {
-      actions.push({ label: `🎙️ B-roll voiceovers (${brollMissingAudio.length})`, message: 'Generate voiceovers for all B-roll scenes that have narration text', icon: '🎙️' });
-    }
-    if (segments.length > 0) {
-      actions.push({ label: '📝 Script breakdown', message: 'Show me the full script flow — how all the scenes connect together with timing, camera angles, and transitions', icon: '📝' });
-      actions.push({ label: '🔍 Review & polish', message: 'Review my storyboard — check scripts, camera angles, transitions, durations, and fix any issues', icon: '🔍' });
-      actions.push({ label: '➕ Add B-roll', message: 'Suggest and add a cinematic B-roll scene that fits the narrative with specific camera angles and product shots', icon: '➕' });
-      actions.push({ label: '🎵 Add music', message: 'Add background music that matches the mood of this commercial', icon: '🎵' });
-      actions.push({ label: '✏️ Punch up the hook', message: 'Make the hook scene more attention-grabbing with a stronger script and more dynamic camera angle', icon: '✏️' });
-      actions.push({ label: '⏱️ Extend duration', message: 'The story needs more time — extend scenes where the emotional beats need to breathe and adjust the pacing', icon: '⏱️' });
-      actions.push({ label: '📸 Change camera angles', message: 'Review all camera angles and suggest better cinematic angles for each scene with proper transitions between them', icon: '📸' });
-    }
-
-    return actions.slice(0, 6);
+  // Extract dynamic suggestions from the last assistant message
+  const extractSuggestions = (content: string): string[] => {
+    const match = content.match(/```suggestions\s*\n?([\s\S]*?)```/);
+    if (!match) return [];
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      if (Array.isArray(parsed)) return parsed.filter((s: any) => typeof s === 'string').slice(0, 4);
+    } catch { /* ignore */ }
+    return [];
   };
+
+  const getDynamicSuggestions = (): string[] => {
+    // Find last assistant message with suggestions
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        const suggestions = extractSuggestions(messages[i].content);
+        if (suggestions.length > 0) return suggestions;
+        break; // only check last assistant message
+      }
+    }
+    // Fallback for empty conversations
+    if (messages.length === 0 || segments.length === 0) {
+      return ['Create a 15 second commercial for my product', 'Build a punchy TikTok-style ad', 'Create a 30 second testimonial with actors'];
+    }
+    return [];
+  };
+
 
   const LoopAvatar = ({ size = 'sm' }: { size?: 'sm' | 'lg' }) => (
     <Avatar className={`${size === 'lg' ? 'h-10 w-10' : 'h-7 w-7'} shrink-0 border-2 border-primary/30 shadow-sm`}>
@@ -1721,19 +1665,19 @@ export function LoopAIDirector({
               </div>
             )}
 
-            {/* Quick action buttons — show after last message when not loading */}
-            {!isLoading && messages.length > 0 && (
+            {/* Dynamic suggestion buttons from Loop AI */}
+            {!isLoading && (messages.length > 0 || segments.length === 0) && (
               <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-border/30">
-                {getQuickActions().map((action, i) => (
+                {getDynamicSuggestions().map((suggestion, i) => (
                   <Button
                     key={i}
                     variant="outline"
                     size="sm"
                     className="text-[10px] h-auto py-1.5 px-2.5 hover:bg-primary/5 hover:border-primary/30 transition-colors"
-                    onClick={() => { handleSendWithMessage(action.message); }}
+                    onClick={() => { handleSendWithMessage(suggestion); }}
                   >
-                    <span className="mr-1">{action.icon}</span>
-                    {action.label.replace(/^[^\s]+\s/, '')}
+                    <Sparkles className="h-3 w-3 mr-1 text-primary" />
+                    {suggestion}
                   </Button>
                 ))}
               </div>
