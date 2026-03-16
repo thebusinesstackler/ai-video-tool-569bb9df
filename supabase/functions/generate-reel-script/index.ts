@@ -279,32 +279,28 @@ NARRATION RULES:
 - Every word will be spoken slowly - write naturally flowing sentences
 - Use transitional phrases between ideas: "And here's the thing...", "But wait...", "So what does this mean?"
 
-## MANDATORY TTS FORMATTING (AI WILL BE REJECTED IF NOT FOLLOWED):
+## MANDATORY TTS FORMATTING (STRICTLY ENFORCED):
 
-CRITICAL: NEVER USE PERIODS TO END SENTENCES. This causes TTS to add "s" sounds making words plural.
+RULES FOR ALL NARRATION TEXT:
+1. Use ONLY commas (,) and question marks (?) for pauses and rhythm
+2. NEVER use periods (.) — they cause TTS to add "s" sounds making words plural
+3. NEVER use em dashes (—) or double hyphens (--) — they cause 4-second silences in TTS
+4. NEVER use ellipses (...) — they cause unnatural long pauses in TTS
+5. Use commas for breathing pauses: "You know what, this changes everything, trust me"
+6. Use question marks naturally: "But why does nobody talk about this?"
+7. End sentences with commas or let them flow into the next thought
+8. Write flowing, conversational sentences connected by commas
 
-INSTEAD OF PERIODS, USE:
-- Ellipses (...) for pauses and transitions: "It's overwhelming..."
-- Em dashes (—) for abrupt stops: "Not buried in inboxes—"
-- Line breaks between EVERY thought for natural pacing
+WRONG (causes TTS errors):
+"You're probably wrestling with which CTMS is right... It's a jungle out there—"
 
-WRONG FORMAT (DO NOT WRITE LIKE THIS - causes TTS errors):
-"You're probably wrestling with which CTMS is right. It's a jungle out there. You see countless options."
+CORRECT (natural TTS flow):
+"You're probably wrestling with which CTMS is right, it's a jungle out there, you see countless options"
 
-CORRECT FORMAT (WRITE EXACTLY LIKE THIS):
-"You're probably wrestling with which CTMS is right...
-
-It's a jungle out there—
-
-You see countless options..."
-
-MORE EXAMPLES OF CORRECT FORMAT:
-- Instead of "Yeah. Me too." write "Yeah... me too—"
-- Instead of "It's complex. Right?" write "It's complex... right?"
-- Instead of "workflow." write "workflow—" (period would make it sound like "workflows")
-- Instead of "Let me tell you. It boils down to this." write "Let me tell you—it boils down to this..."
-
-EVERY sentence must end with ... or — NEVER with a period.
+MORE CORRECT EXAMPLES:
+- "Hey everyone, let me tell you something that changed my entire perspective"
+- "But here's the thing, nobody talks about this, and it's a game changer"
+- "So what does this mean for you, well let me break it down"
 
 ${cameraInstructions}
 
