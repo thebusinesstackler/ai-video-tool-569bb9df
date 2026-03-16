@@ -266,8 +266,8 @@ serve(async (req) => {
           duration: duration
         };
       } else if (params.model === 'infinitetalk') {
-        // InfiniteTalk model for AI voiceover with lip sync
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+        // InfiniteTalk Fast model for audio-driven lip sync (up to 10min)
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
         
         if (!params.imageUrls || params.imageUrls.length === 0) {
           throw new Error('Portrait image is required for InfiniteTalk model');
@@ -280,7 +280,6 @@ serve(async (req) => {
         requestBody = {
           image: params.imageUrls[0],
           audio: params.audioUrl,
-          duration: duration,
           ...(params.prompt && { prompt: params.prompt })
         };
       } else if (params.model === 'wan-animate') {
