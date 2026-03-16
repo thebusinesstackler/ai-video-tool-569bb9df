@@ -92,12 +92,21 @@ ${backgroundInstruction}
 BUT APPLY THIS TRANSFORMATION: ${characterTransformation}
 
 Keep the scene composition similar but transform the character as specified.`
-        : `Generate a scene image showing the EXACT SAME PERSON from the reference images in this new scene: ${prompt}
+        : `Generate a PHOTOREALISTIC scene image showing the EXACT SAME PERSON from the reference images in this new scene: ${prompt}
 
 CRITICAL IDENTITY RULES:
 - IGNORE any gender references in the prompt text - use the ACTUAL person from reference images
 - The person's face, body, gender, skin tone, hair MUST match the reference images EXACTLY
 - Do NOT change the person's appearance or gender under any circumstances
+
+CRITICAL REALISM RULES:
+- HYPERREALISTIC human appearance — real skin with visible pores, natural texture, subsurface scattering
+- NEVER produce plastic, CGI, airbrushed, or doll-like skin
+- Natural lighting ONLY — soft window light, golden hour, overcast daylight, practical lighting
+- Eyes with realistic catchlights, natural iris detail, slight moisture
+- Hair with individual strand detail and natural movement
+- Character should appear READY TO SPEAK — mouth slightly parted, engaged expression, direct eye contact
+- Real human proportions and natural body language
 
 ${multiRefInstruction}${characterInstruction}${cameraInstruction}${backgroundInstruction}
 
@@ -105,12 +114,12 @@ Use the reference image(s) to MAINTAIN EXACT CHARACTER IDENTITY:
 - SAME person, SAME gender, SAME facial features
 - Professional appearance and demeanor
 - Clothing style and aesthetic
-- Lighting quality and composition
+- Natural, realistic lighting
 - Scene atmosphere and framing
 
 ${cameraAngle ? `Use this SPECIFIC camera angle: ${cameraAngle}` : ''}
 
-Generate the image showing the SAME PERSON from the references in the described scene.`;
+Generate a photorealistic image showing the SAME PERSON from the references in the described scene, with natural lighting and real human skin texture.`;
 
       // Build content array with all reference images (up to 4)
       const imageContents = allReferenceImages.slice(0, 4).map(imgUrl => ({

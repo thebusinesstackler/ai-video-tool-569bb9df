@@ -933,14 +933,16 @@ export function LoopAIDirector({
       actions.push({ label: '🚀 Full production pass', message: 'Do a full production pass — generate everything that\'s missing', icon: '🚀' });
     }
     if (segments.length > 0) {
-      actions.push({ label: '📝 Show script breakdown', message: 'Show me the full script flow — how all the scenes connect together with timing', icon: '📝' });
-      actions.push({ label: '🔍 Review & polish', message: 'Review my storyboard and fix any issues', icon: '🔍' });
-      actions.push({ label: '➕ Add B-roll', message: 'Suggest and add a cinematic B-roll scene that fits the narrative', icon: '➕' });
+      actions.push({ label: '📝 Script breakdown', message: 'Show me the full script flow — how all the scenes connect together with timing, camera angles, and transitions', icon: '📝' });
+      actions.push({ label: '🔍 Review & polish', message: 'Review my storyboard — check scripts, camera angles, transitions, durations, and fix any issues', icon: '🔍' });
+      actions.push({ label: '➕ Add B-roll', message: 'Suggest and add a cinematic B-roll scene that fits the narrative with specific camera angles and product shots', icon: '➕' });
       actions.push({ label: '🎵 Add music', message: 'Add background music that matches the mood of this commercial', icon: '🎵' });
-      actions.push({ label: '✏️ Punch up the hook', message: 'Make the hook scene more attention-grabbing', icon: '✏️' });
+      actions.push({ label: '✏️ Punch up the hook', message: 'Make the hook scene more attention-grabbing with a stronger script and more dynamic camera angle', icon: '✏️' });
+      actions.push({ label: '⏱️ Extend duration', message: 'The story needs more time — extend scenes where the emotional beats need to breathe and adjust the pacing', icon: '⏱️' });
+      actions.push({ label: '📸 Change camera angles', message: 'Review all camera angles and suggest better cinematic angles for each scene with proper transitions between them', icon: '📸' });
     }
 
-    return actions.slice(0, 5);
+    return actions.slice(0, 6);
   };
 
   const LoopAvatar = ({ size = 'sm' }: { size?: 'sm' | 'lg' }) => (
