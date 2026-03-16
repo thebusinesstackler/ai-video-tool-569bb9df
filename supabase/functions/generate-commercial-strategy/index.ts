@@ -194,7 +194,7 @@ The video MUST follow an emotional journey. Start with the pain/frustration of t
 Maintain a dynamic pace. Use a mix of short, punchy scenes (2-3 seconds) and slightly longer narrative scenes (5-8 seconds). B-roll should be rapid-fire to agitate the problem and showcase the solution's benefits.
 
 ### 5. The Crystal-Clear Call to Action (CTA)
-The final scene MUST be a direct and unambiguous Call to Action. Tell the viewer exactly what to do next (e.g., "Try it free today—" "Click the link to learn more—" "Get yours now—")
+The final scene MUST be a direct and unambiguous Call to Action. Tell the viewer exactly what to do next (e.g., "Try it free today." "Click the link to learn more." "Get yours now.")
 
 ## 🔒 NON-NEGOTIABLE CONSISTENCY MANDATES
 
