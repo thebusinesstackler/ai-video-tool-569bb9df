@@ -700,46 +700,113 @@ export function LoopAIDirector({
           body: JSON.stringify({
             messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: msg }],
             targetDuration: parseInt(targetDuration),
-            currentSegments: segments.length > 0 ? segments.map((s, index) => {
-              let typeNum = 0;
-              for (let j = 0; j <= index; j++) {
-                if (segments[j].type === s.type) typeNum++;
-              }
+            currentSegments: segments.length > 0 ? (() => {
               const speakingSegments = segments.filter(seg => seg.type === 'speaking');
-              let narrativeRole = '';
-              if (s.type === 'speaking') {
-                const speakIdx = speakingSegments.indexOf(s);
-                if (speakIdx === 0) narrativeRole = 'HOOK';
-                else if (speakIdx === speakingSegments.length - 1) narrativeRole = 'CTA';
-                else if (speakIdx === 1) narrativeRole = 'PROBLEM/STORY';
-                else narrativeRole = 'PROOF/SOLUTION';
+              return segments.map((s, index) => {
+                let typeNum = 0;
+                for (let j = 0; j <= index; j++) {
+                  if (segments[j].type === s.type) typeNum++;
+                }
+                let narrativeRole = '';
+                if (s.type === 'speaking') {
+                  const speakIdx = speakingSegments.indexOf(s);
+                  if (speakIdx === 0) narrativeRole = 'HOOK';
+                  else if (speakIdx === speakingSegments.length - 1) narrativeRole = 'CTA';
+                  else if (speakIdx === 1) narrativeRole = 'PROBLEM/STORY';
+                  else narrativeRole = 'PROOF/SOLUTION';
+                }
+                const scriptText = s.type === 'speaking' ? (s.script || '') : '';
+                const voText = s.voiceoverText || '';
+                const wordCount = (scriptText || voText).split(/\s+/).filter(Boolean).length;
+                const expectedDuration = Math.ceil(wordCount / 2.5);
+                const durationMismatch = wordCount > 0 && Math.abs(expectedDuration - s.duration) > 2;
+
+                const missingAssets: string[] = [];
+                if (s.type === 'speaking') {
+                  if (!s.character?.description) missingAssets.push('no character description');
+                  if (!s.character?.referenceImages?.length) missingAssets.push('no character images');
+                  if (!s.audioUrl) missingAssets.push('no audio/voiceover');
+                  if (!s.videoUrl) missingAssets.push('no video');
+                  if (!scriptText) missingAssets.push('no script');
+                } else {
+                  if (!(s.brollImages?.length)) missingAssets.push('no B-roll preview images');
+                  if (!s.brollPrompts?.length) missingAssets.push('no B-roll prompts');
+                  if (!voText) missingAssets.push('no voiceover text');
+                  if (!s.videoUrl) missingAssets.push('no video');
+                }
+
+                return {
+                  index,
+                  type: s.type,
+                  typeNumber: typeNum,
+                  narrativeRole,
+                  duration: s.duration,
+                  transition: s.transition,
+                  script: scriptText,
+                  voiceoverText: voText,
+                  brollPrompts: s.brollPrompts,
+                  brollImageUrls: s.brollImages || [],
+                  wordCount,
+                  expectedDuration,
+                  durationMismatch,
+                  missingAssets,
+                  character: s.character ? {
+                    name: s.character.name || '',
+                    description: s.character.description,
+                    gender: s.character.gender || '',
+                    hasImages: (s.character.referenceImages?.length || 0) > 0,
+                    imageCount: s.character.referenceImages?.length || 0,
+                    referenceImageUrls: (s.character.referenceImages || []).slice(0, 2),
+                  } : undefined,
+                  hasBrollImages: (s.brollImages?.length || 0) > 0,
+                  hasProductImage: !!s.productImageUrl,
+                  hasAudio: !!s.audioUrl,
+                  hasVideo: !!s.videoUrl,
+                  audioUrl: s.audioUrl ? '✅ present' : undefined,
+                  videoUrl: s.videoUrl ? '✅ present' : undefined,
+                  voiceoverId: s.voiceoverId || '',
+                  status: s.status,
+                };
+              });
+            })() : undefined,
+            timelineIssues: segments.length > 0 ? (() => {
+              const issues: { sceneIndex: number; sceneLabel: string; problems: string[] }[] = [];
+              let consecutiveSpeaking = 0;
+              segments.forEach((s, i) => {
+                const problems: string[] = [];
+                const typeNum = segments.slice(0, i + 1).filter(seg => seg.type === s.type).length;
+                const label = s.type === 'speaking' ? `Scene #${typeNum}` : `B-Roll #${typeNum}`;
+
+                if (s.type === 'speaking') {
+                  consecutiveSpeaking++;
+                  if (!s.character?.description) problems.push('Missing character description');
+                  if (!s.character?.referenceImages?.length) problems.push('No character reference images — cannot generate video');
+                  if (!s.audioUrl) problems.push('No audio generated');
+                  if (!s.videoUrl) problems.push('No video generated');
+                  if (!s.script) problems.push('Empty script');
+                  const wc = (s.script || '').split(/\s+/).filter(Boolean).length;
+                  if (wc > s.duration * 3) problems.push(`Script too long: ${wc} words for ${s.duration}s (max ~${Math.floor(s.duration * 2.5)} words)`);
+                  if (wc > 0 && wc < s.duration * 1.5) problems.push(`Script too short: ${wc} words for ${s.duration}s (aim for ~${Math.floor(s.duration * 2.5)} words)`);
+                } else {
+                  if (consecutiveSpeaking >= 3) problems.push(`Preceded by ${consecutiveSpeaking} consecutive speaking scenes — add B-roll for visual variety`);
+                  consecutiveSpeaking = 0;
+                  if (!(s.brollImages?.length)) problems.push('No B-roll preview image');
+                  if (!s.brollPrompts?.length) problems.push('No B-roll prompt set');
+                  if (!s.voiceoverText) problems.push('No voiceover text — scene will be silent');
+                }
+                if (problems.length > 0) issues.push({ sceneIndex: i, sceneLabel: label, problems });
+              });
+              if (consecutiveSpeaking >= 3) {
+                issues.push({ sceneIndex: -1, sceneLabel: 'Overall', problems: [`Ends with ${consecutiveSpeaking} consecutive speaking scenes — consider adding B-roll`] });
               }
-              return {
-                index,
-                type: s.type,
-                typeNumber: typeNum,
-                narrativeRole,
-                duration: s.duration,
-                transition: s.transition,
-                script: s.script,
-                voiceoverText: s.voiceoverText,
-                brollPrompts: s.brollPrompts,
-                brollImageUrls: s.brollImages || [],
-                character: s.character ? {
-                  name: s.character.name || '',
-                  description: s.character.description,
-                  gender: s.character.gender || '',
-                  hasImages: s.character.referenceImages.length > 0,
-                  imageCount: s.character.referenceImages.length,
-                } : undefined,
-                hasBrollImages: (s.brollImages?.length || 0) > 0,
-                hasProductImage: !!s.productImageUrl,
-                hasAudio: !!s.audioUrl,
-                hasVideo: !!s.videoUrl,
-                voiceoverId: s.voiceoverId || '',
-                status: s.status,
-              };
-            }) : undefined,
+              // Check transition variety
+              const transitions = segments.map(s => s.transition);
+              const uniqueTransitions = new Set(transitions);
+              if (segments.length > 3 && uniqueTransitions.size === 1) {
+                issues.push({ sceneIndex: -1, sceneLabel: 'Overall', problems: [`All ${segments.length} segments use "${transitions[0]}" transition — vary transitions for better flow`] });
+              }
+              return issues.length > 0 ? issues : undefined;
+            })() : undefined,
           }),
         }
       );
