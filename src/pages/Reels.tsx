@@ -968,10 +968,11 @@ const Reels = () => {
     }
     
     try {
-      // Fetch lightweight columns first - exclude heavy scenes/draft_state to avoid JSON parse failures on large responses
+      // Fetch all columns including scenes for completed reels (needed for scene count + thumbnails)
+      // Exclude draft_state which can be very large
       const { data, error } = await supabase
         .from('reels')
-        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, caption_settings, audio_url, is_draft')
+        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, caption_settings, audio_url, is_draft, scenes')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -993,7 +994,7 @@ const Reels = () => {
         video_url: item.video_url,
         thumbnail_url: item.thumbnail_url,
         audio_url: item.audio_url,
-        scenes: [],
+        scenes: (item.scenes as any[]) || [],
         total_duration: item.total_duration ?? 0,
         created_at: item.created_at,
         caption_settings: item.caption_settings as SavedReel['caption_settings'],
