@@ -241,8 +241,11 @@ function HookCard({
 
             {/* Apply Actions */}
             <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" variant="default" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'text-overlay')}>
-                <Type className="h-3 w-3" /> Apply as Text Overlay
+              <Button size="sm" variant="default" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'use-in-reel')}>
+                <Play className="h-3 w-3" /> Use in Reel
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'text-overlay')}>
+                <Type className="h-3 w-3" /> Text Overlay
               </Button>
               <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'title-card')}>
                 <Film className="h-3 w-3" /> Title Card

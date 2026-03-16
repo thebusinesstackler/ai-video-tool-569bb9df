@@ -946,18 +946,24 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Handle Movie Scene Creator transfers
+  // Handle transfers from Movie Scene Creator and Hook Engine
   useEffect(() => {
     const source = searchParams.get('source');
     const transferredTopic = searchParams.get('topic');
     
     if (source === 'movie-scene' && transferredTopic) {
       setTopic(transferredTopic);
-      // Clear params to avoid re-triggering
       setSearchParams({});
       toast({
         title: "Movie Idea Transferred!",
         description: "Your movie idea has been imported. Ready to create your reel!",
+      });
+    } else if (source === 'hook-engine' && transferredTopic) {
+      setTopic(transferredTopic);
+      setSearchParams({});
+      toast({
+        title: "Hook Imported!",
+        description: "Your hook has been set as the reel topic. Ready to generate!",
       });
     }
   }, [searchParams]);
