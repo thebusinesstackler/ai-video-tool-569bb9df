@@ -1714,6 +1714,26 @@ export function LoopAIDirector({
               </div>
             )}
 
+            {/* Auto-generation progress bar */}
+            {autoGenProgress && (
+              <div className="flex gap-3">
+                <div className="mt-0.5"><LoopAvatar /></div>
+                <div className="bg-muted/80 rounded-xl rounded-bl-sm px-3.5 py-2.5 border border-border/30 w-full max-w-[280px]">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <span className="text-[10px] text-muted-foreground">{autoGenProgress.label}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.round((autoGenProgress.current / autoGenProgress.total) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-muted-foreground mt-1 block">{autoGenProgress.current}/{autoGenProgress.total} complete</span>
+                </div>
+              </div>
+            )}
+
             {/* Dynamic suggestion buttons from Loop AI */}
             {!isLoading && (messages.length > 0 || segments.length === 0) && (
               <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-border/30">
