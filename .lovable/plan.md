@@ -1,61 +1,31 @@
-# Simplify Movie Scene Creator — AI-First, One-Click UX
+# Platform Bug Audit — Fix Implementation
 
-## Status: ✅ Implemented
+## Status: ✅ Batch 1 Implemented (12 bugs fixed)
 
-## Changes Made
+### Fixed Bugs
 
-### 1. Hero "Make My Movie" CTA (Step 1)
-- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
-- Quick Start chips styled as pill buttons below textarea
-- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
+**Critical:**
+1. ✅ **#1-2 InfiniteTalk audio loss** — Canvas stitcher now accepts `embeddedAudioIndices` to extract audio from lip-sync video URLs instead of discarding them
+2. ✅ **#4 Array mutation** — `voiceovers.sort()` replaced with `[...voiceovers].sort()` to prevent in-place mutation
+3. ✅ **#5 Voice preview base64** — Added `data.audioContent` base64 fallback when `audioUrl` is missing
+4. ✅ **#6 Content type mismatch** — Upload now uses actual blob type (`video/webm`) instead of hardcoded `video/mp4`
 
-### 2. Ungated generateAll
-- Removed `selectedTwins.length >= 1` requirement — works with zero twins
-- Character descriptions derived from story bible when no twins selected
+**High:**
+5. ✅ **#8 Duplicate hasContent guard** — Removed duplicate `if (!hasContent) return;`
+6. ✅ **#10 Google voice IDs** — Changed from `en-US-Journey-F/D` to `Wise_Woman`/`English_Trustworth_Man` (WaveSpeed voices)
+7. ✅ **#11 Empty default voice** — Changed default from `''` to `'English_Trustworth_Man'`
+8. ✅ **#13 Voice preview base64** — Same fix as #5
 
-### 3. Simplified KeyframeSceneCard
-- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
-- Dialogue shown as read-only summary
-- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
-- Removed 3-tab navigation (Keyframes/Audio/Settings)
+**Medium:**
+9. ✅ **#27 Camera angle index shift** — Filter intro/outro BEFORE mapping angles instead of after
+10. ✅ **#29 characterTransformation leak** — Added `setCharacterTransformation('')` to `resetProject()`
 
-### 4. Simplified Header
-- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
-
-### 5. Steps 2 & 3 Simplified
-- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
-- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
-
-### 6. Step 4 Simplified
-- Clean header: "Your Movie" + "Build & Download" button
-- Bulk actions in overflow menu instead of collapsible
-- Removed per-scene Coverage & Blocking from default view
-
-# UI Improvements for Character + Voice Flow
-
-## Status: ✅ Implemented
-
-# Audit & Improvement Plan
-
-## Status: ✅ Partially Implemented
-
-### ✅ Done
-
-**1. Cloud stitching as primary method**
-- Replaced broken FFmpeg WASM in `videoStitch.ts` with Creatomate cloud stitching (canvas fallback)
-- Updated Reels manual `stitchVideos` to try cloud first, canvas fallback
-- Testimonial Ads already used cloud stitching — confirmed working
-- Removed `@ffmpeg/ffmpeg` and `@ffmpeg/util` dependencies
-
-**2. Fixed duplicate gallery condition**
-- Added `previewScenes.length === 0` guard at line 5166 in Reels.tsx
-
-**3. Cleaned up navigation**
-- Removed Script Generator, Commercial Studio from nav
-- Kept pages accessible via direct URL (not deleted)
-
-### 🔲 Deferred
-
-**4. Extract Reels into sub-components**
-- QuickModePanel, BeginnerModePanel, AdvancedModePanel, ReelResultsPanel
-- Deferred to a follow-up to reduce risk on 6000-line file
+### Remaining (Deferred)
+- #3 Double voiceover generation (needs deeper refactor of the two-pass TTS logic)
+- #7 enableLipSync defaults for new users
+- #12 Scene reorder audio corruption
+- #14 abortRef not passed to fetch calls
+- #17-20 Various unused state / video size passthrough
+- #23 Misleading 8s warning
+- #31 Reels.tsx decomposition into sub-components
+- #35-50 Edge function and code quality issues
