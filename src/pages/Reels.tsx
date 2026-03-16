@@ -2911,6 +2911,32 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         ))}
                       </div>
 
+                      {/* TTS Voice Preview */}
+                      <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">🔊 Voice Preview</p>
+                            <p className="text-[10px] text-muted-foreground">Hear how the narration will sound</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">
+                            {selectedVoice === 'ai-auto' ? 'Auto-detect' : selectedVoice.replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={previewVoice}
+                          disabled={isGenerating || isPreviewingVoice}
+                        >
+                          {isPreviewingVoice ? (
+                            <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing...</>
+                          ) : (
+                            <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                          )}
+                        </Button>
+                      </div>
+
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
