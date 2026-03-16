@@ -31,7 +31,7 @@ type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle' | 'generateVideo' | 'extendClip' | 'productSwapFromLibrary' | 'generateBrollVoiceover' | 'duplicateScene' | 'reorderScene' | 'videoDiagnostic';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle' | 'generateVideo' | 'extendClip' | 'productSwapFromLibrary' | 'generateBrollVoiceover' | 'duplicateScene' | 'reorderScene' | 'videoDiagnostic' | 'regenerateAudio' | 'changePose' | 'showActorGallery' | 'generateMoreAngles' | 'addSceneAfter';
     sceneIndex?: number | 'all';
     sceneIndices?: number[];
     changes?: Record<string, any>;
@@ -48,6 +48,10 @@ interface EditAction {
     fromIndex?: number;
     toIndex?: number;
     productName?: string;
+    voiceId?: string;
+    gender?: string;
+    newPose?: string;
+    afterIndex?: number;
   }>;
 }
 
