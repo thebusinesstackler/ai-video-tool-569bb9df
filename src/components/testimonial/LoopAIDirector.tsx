@@ -1787,10 +1787,33 @@ export function LoopAIDirector({
                       ? 'bg-primary text-primary-foreground rounded-br-sm'
                       : 'bg-muted/80 rounded-bl-sm border border-border/30'
                   }`}>
-                    {msg.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-2 [&>p]:leading-relaxed [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:text-sm [&>h2]:text-xs [&>h3]:text-xs [&>blockquote]:text-xs [&>blockquote]:border-primary/30">
-                        <ReactMarkdown>{renderMessageContent(msg.content)}</ReactMarkdown>
-                      </div>
+                    {msg.role === 'assistant' ? (() => {
+                      const rendered = renderMessageContent(msg.content);
+                      // Extract inline images from assistant markdown
+                      const imgMatches = [...rendered.matchAll(/!\[.*?\]\((https?:\/\/[^\)]+)\)/g)];
+                      const imageUrls = imgMatches.map(m => m[1]);
+                      const textOnly = rendered.replace(/!\[.*?\]\([^\)]+\)/g, '').trim();
+                      return (
+                        <div>
+                          <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-2 [&>p]:leading-relaxed [&>ul]:mb-2 [&>ol]:mb-2 [&>h1]:text-sm [&>h2]:text-xs [&>h3]:text-xs [&>blockquote]:text-xs [&>blockquote]:border-primary/30">
+                            <ReactMarkdown>{textOnly}</ReactMarkdown>
+                          </div>
+                          {imageUrls.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {imageUrls.map((url, j) => (
+                                <img
+                                  key={j}
+                                  src={url}
+                                  alt={`Generated ${j + 1}`}
+                                  className="w-16 h-16 rounded-md object-cover border border-border/30 hover:scale-110 transition-transform cursor-pointer"
+                                  onClick={() => window.open(url, '_blank')}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })() : (
                     ) : (
                       <p className="text-xs whitespace-pre-wrap">{msg.content}</p>
                     )}
