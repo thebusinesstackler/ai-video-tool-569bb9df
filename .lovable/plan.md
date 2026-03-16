@@ -1,32 +1,61 @@
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
+## Status: ✅ Implemented
 
-## Problem
+## Changes Made
 
-The "bottle in hand" issue comes from **two sources**:
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-1. **Template character descriptions** — Characters like "Maya – Fitness Influencer" have descriptions that say "holding a supplement bottle" and "Sarah – Product Ambassador" says "holding a skincare/beauty product." When a user selects one of these templates, the `characterDescription` is injected verbatim into every scene's image generation prompt via `generate-reel-video/index.ts` (`Character: ${characterDescription}`).
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-2. **Reference images** — The template character images (`template-char-product1.jpg`, `template-char-product3.jpg`) physically show people holding products/bottles. The AI model sees these reference images and reproduces the bottle/product in every generated scene, regardless of the topic.
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-## Plan
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-### 1. Sanitize character descriptions to remove product references
-In `src/components/CharacterManager.tsx`, update the template character descriptions to describe **only the person's appearance** (face, hair, build, clothing style) — not what they're holding:
-- "Sarah – Product Ambassador" → describe her appearance only (professional woman, styled hair, etc.)
-- "Maya – Fitness Influencer" → describe her appearance only (athletic build, workout attire, etc.)
-- Same for Jake and Carlos
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-### 2. Strip product/prop references from characterDescription before image generation
-In `supabase/functions/generate-reel-video/index.ts`, add a sanitizer function that strips prop-related phrases from `characterDescription` before injecting it into image prompts. Pattern: remove "holding a...", "with a...", "carrying a..." type phrases so only physical appearance remains.
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
 
-### 3. Add anti-prop instruction to image generation prompts
-In `supabase/functions/generate-reel-video/index.ts`, add an explicit instruction to the image generation prompts: "Do NOT add any objects, bottles, or products to the character's hands unless the scene description explicitly calls for it. The character's hands should be natural and empty unless specified."
+# UI Improvements for Character + Voice Flow
 
-### 4. Reinforce in generate-reel-script edge function
-The script generator already has a "NEVER default to holding a bottle" instruction, but strengthen it by also adding: "visualDescription must NEVER include 'holding a bottle', 'holding a product', or any prop in the character's hands unless the topic explicitly involves that specific item."
+## Status: ✅ Implemented
 
-### Files to modify
-- `src/components/CharacterManager.tsx` — Clean template descriptions
-- `supabase/functions/generate-reel-video/index.ts` — Sanitize characterDescription, add anti-prop prompt instructions
-- `supabase/functions/generate-reel-script/index.ts` — Strengthen visual description rules
+# Audit & Improvement Plan
 
+## Status: ✅ Partially Implemented
+
+### ✅ Done
+
+**1. Cloud stitching as primary method**
+- Replaced broken FFmpeg WASM in `videoStitch.ts` with Creatomate cloud stitching (canvas fallback)
+- Updated Reels manual `stitchVideos` to try cloud first, canvas fallback
+- Testimonial Ads already used cloud stitching — confirmed working
+- Removed `@ffmpeg/ffmpeg` and `@ffmpeg/util` dependencies
+
+**2. Fixed duplicate gallery condition**
+- Added `previewScenes.length === 0` guard at line 5166 in Reels.tsx
+
+**3. Cleaned up navigation**
+- Removed Script Generator, Commercial Studio from nav
+- Kept pages accessible via direct URL (not deleted)
+
+### 🔲 Deferred
+
+**4. Extract Reels into sub-components**
+- QuickModePanel, BeginnerModePanel, AdvancedModePanel, ReelResultsPanel
+- Deferred to a follow-up to reduce risk on 6000-line file

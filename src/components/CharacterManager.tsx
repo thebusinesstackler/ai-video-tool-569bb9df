@@ -41,28 +41,28 @@ interface CharacterTemplate {
 const CHARACTER_TEMPLATES: CharacterTemplate[] = [
   {
     name: 'Sarah – Product Ambassador',
-    description: 'Professional businesswoman holding a skincare/beauty product. Great for cosmetics, wellness, and lifestyle brand commercials.',
+    description: 'Professional businesswoman with styled brown hair, warm skin tone, wearing a tailored blazer over a clean blouse. Confident posture, polished appearance, natural makeup.',
     image: templateProduct1,
     voiceType: 'professional-female',
     personality: 'confident, trustworthy',
   },
   {
     name: 'Jake – Tech Reviewer',
-    description: 'Friendly tech enthusiast showcasing a gadget. Perfect for electronics, SaaS, and tech product demos.',
+    description: 'Friendly young man with short dark hair, clean-shaven, wearing a casual button-up shirt. Approachable smile, relaxed posture, modern style.',
     image: templateProduct2,
     voiceType: 'casual-male',
     personality: 'enthusiastic, knowledgeable',
   },
   {
     name: 'Maya – Fitness Influencer',
-    description: 'Energetic fitness instructor holding a supplement bottle. Ideal for health, fitness, and nutrition brand promotions.',
+    description: 'Athletic young woman with long dark hair pulled back, fit build, wearing stylish workout attire. Energetic expression, bright smile, healthy glow.',
     image: templateProduct3,
     voiceType: 'energetic-female',
     personality: 'energetic, motivating',
   },
   {
     name: 'Carlos – Luxury Lifestyle',
-    description: 'Stylish man in a luxury car interior. Perfect for automotive, real estate, finance, and premium lifestyle content.',
+    description: 'Stylish man with dark hair, well-groomed beard, wearing a fitted suit jacket over a crisp shirt. Sophisticated look, confident expression, polished appearance.',
     image: templateCar,
     voiceType: 'authoritative-male',
     personality: 'sophisticated, aspirational',

@@ -324,6 +324,9 @@ NO TEXT IN VISUALS (CRITICAL):
   * Business topic → character at desk reviewing documents, in boardroom setting
   * Tech topic → character with devices, coding on screen, presenting prototype
 - NEVER default to "holding a bottle" or "holding a product" unless the topic is specifically about that product
+- visualDescription must NEVER include "holding a bottle", "holding a product", "holding a supplement", or any prop in the character's hands unless the topic explicitly involves that specific item
+- Characters' hands should be natural and empty — gesturing, resting, or interacting with topic-relevant items ONLY
+- If you catch yourself writing "holding" + any generic object, REMOVE IT and replace with a natural pose or topic-relevant action
 
 VISUAL-NARRATIVE ALIGNMENT (CRITICAL):
 - The visualDescription MUST visually represent what the narration is discussing

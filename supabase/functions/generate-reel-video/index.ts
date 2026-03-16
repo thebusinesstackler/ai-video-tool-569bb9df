@@ -158,9 +158,27 @@ async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempt
 }
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
+// Sanitize character description to remove prop/product references
+function sanitizeCharacterDescription(desc: string): string {
+  if (!desc) return desc;
+  return desc
+    .replace(/\b(holding|carrying|gripping|clutching|showcasing|displaying|presenting)\s+(a\s+)?(supplement\s+)?bottle[s]?/gi, '')
+    .replace(/\b(holding|carrying|gripping|clutching|showcasing|displaying|presenting)\s+(a\s+)?(skincare|beauty|health|fitness|tech|any)?\s*product[s]?/gi, '')
+    .replace(/\b(holding|carrying|gripping|clutching|showcasing|displaying|presenting)\s+(a\s+)?(a\s+)?gadget[s]?/gi, '')
+    .replace(/\b(holding|carrying|gripping|clutching)\s+a\s+\w+/gi, (match) => {
+      // Only strip if it's a generic prop, keep if topic-relevant
+      const genericProps = /bottle|product|item|object|thing|prop|device|gadget/i;
+      return genericProps.test(match) ? '' : match;
+    })
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: boolean, characterDescription?: string, referenceImages?: string[], cameraAngleModifier?: string): string {
-  const charDesc = characterDescription ? `\nCHARACTER: ${characterDescription}. Maintain EXACT same appearance in every frame.` : '';
+  const cleanedCharDesc = characterDescription ? sanitizeCharacterDescription(characterDescription) : '';
+  const charDesc = cleanedCharDesc ? `\nCHARACTER: ${cleanedCharDesc}. Maintain EXACT same appearance in every frame.` : '';
   const refImageNote = referenceImages?.length ? `\nIMPORTANT: Match the person's appearance exactly from the reference - same face shape, skin tone, hair, features.` : '';
+  const antiPropRule = `\nCRITICAL: Do NOT add any objects, bottles, or products to the character's hands unless the scene description explicitly calls for it. The character's hands should be natural and empty unless specified.`;
   
   // For lip sync mode, generate front-facing portrait suitable for talking head
   if (enableLipSync && !scene.isIntro && !scene.isOutro) {
@@ -174,7 +192,7 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
       COMPOSITION: Rule of thirds, subject centered, clean bokeh background, magazine-quality portrait.
       The subject has a natural, confident expression - slight smile, relaxed posture, direct eye contact with camera.
       Ultra high quality, photorealistic, 8K detail, professional color grading.
-      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. CLOSED MOUTH or slight smile only - NOT speaking.`;
+      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. CLOSED MOUTH or slight smile only - NOT speaking.${antiPropRule}`;
   }
 
   if (scene.isIntro) {
@@ -208,7 +226,7 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
     COLOR: Professional color grading - rich, vibrant but natural tones. Think high-end commercial or film production.
     COMPOSITION: Rule of thirds, leading lines, dynamic framing. Vertical 9:16 format.
     QUALITY: Ultra-high resolution, photorealistic, magazine/commercial quality, sharp details.
-    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. If showing people, they should have CLOSED MOUTHS or slight smiles - NOT speaking. Natural confident poses.`;
+    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. If showing people, they should have CLOSED MOUTHS or slight smiles - NOT speaking. Natural confident poses.${antiPropRule}`;
 }
 
 // Build image generation messages with reference images for character consistency
