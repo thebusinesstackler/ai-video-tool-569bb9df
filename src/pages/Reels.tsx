@@ -2942,15 +2942,68 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 <p className="text-xs text-muted-foreground">{characterDescription || 'Custom character'}</p>
                                 {selectedTwinId && <p className="text-[10px] text-primary">Saved to AI Twins</p>}
                               </div>
-                              <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); }}>
+                              <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); setGeneratedCharacterShots([]); }}>
                                 <X className="w-4 h-4" />
                               </Button>
                             </div>
+
+                            {/* Show all generated angle shots */}
+                            {generatedCharacterShots.length > 1 && (
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Select your preferred shot:</Label>
+                                <div className="grid grid-cols-5 gap-1.5">
+                                  {generatedCharacterShots.map((shot, idx) => (
+                                    <div
+                                      key={idx}
+                                      onClick={() => {
+                                        setSelectedShotIndex(idx);
+                                        setPortraitImage(shot.url);
+                                        setPortraitPreview(shot.url);
+                                        setPreSelectedReference(shot.url);
+                                      }}
+                                      className={`cursor-pointer rounded-md overflow-hidden border-2 transition-all ${
+                                        selectedShotIndex === idx
+                                          ? 'border-primary ring-2 ring-primary/40'
+                                          : 'border-border hover:border-primary/50'
+                                      }`}
+                                    >
+                                      <img
+                                        src={shot.url}
+                                        alt={shot.label}
+                                        className="w-full aspect-square object-cover"
+                                      />
+                                      <p className="text-[8px] text-center text-muted-foreground py-0.5 truncate px-0.5">{shot.label}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Voice preview for this character */}
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={previewVoice}
+                                disabled={isGenerating || isPreviewingVoice}
+                              >
+                                {isPreviewingVoice ? (
+                                  <><MicOff className="w-3 h-3 mr-1" />Stop</>
+                                ) : (
+                                  <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                                )}
+                              </Button>
+                              <Badge variant="outline" className="text-[10px] self-center bg-muted">
+                                {selectedVoice === 'ai-auto' ? '🎙️ Auto' : `🎙️ ${selectedVoice.replace(/_/g, ' ')}`}
+                              </Badge>
+                            </div>
+
                             <Button
                               variant="outline"
                               size="sm"
                               className="w-full"
-                              onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); generateCharacter(); }}
+                              onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); setGeneratedCharacterShots([]); generateCharacter(); }}
                               disabled={isGenerating || isGeneratingCharacter}
                             >
                               {isGeneratingCharacter ? (
