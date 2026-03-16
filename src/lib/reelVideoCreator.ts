@@ -1,8 +1,5 @@
-// Client-side reel video creation using FFmpeg WASM
-// Creates a TikTok-ready MP4 from images with karaoke-style word-by-word captions
-
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+// Client-side reel video utilities
+// FFmpeg WASM removed — stitching now handled by creatomate-stitch (cloud) or canvasStitch (fallback)
 
 interface SceneInput {
   sceneNumber: number;
