@@ -338,7 +338,8 @@ This bible ensures EVERY element stays consistent across all scenes. When the us
 3. **The emotional arc must progress** — Hook (curiosity/shock) → Problem (pain) → Agitate (intensify) → Solution (relief) → CTA (action). NEVER repeat the same emotion in consecutive scenes.
 4. **Character voice must match their description** — A male character MUST have a male voice. A female character MUST have a female voice. NEVER mismatch gender.
 5. **When editing a single scene's script, read ALL other scripts first** to ensure the new version fits the narrative flow
-6. **B-roll voiceover must bridge adjacent scenes** — it should transition the emotional arc between the speaking scenes on either side
+6. **B-roll voiceover is MANDATORY for narrative continuity** — EVERY B-roll segment MUST have a "voiceover" field with narration text. B-roll is NOT silent. The voiceover continues the story arc, bridging the speaking scenes before and after it. This creates a continuous audio narrative across ALL scenes.
+7. **B-roll voiceover content**: The voiceover text for B-roll scenes should advance the narrative, add emotional depth, or provide supporting information. It should feel like a seamless continuation of the speaker's delivery, not a separate narration track.
 
 ### GENDER & VOICE CONSISTENCY (CRITICAL)
 - In the "characters" array, ALWAYS specify gender explicitly: "A confident **man** in his 30s..." or "A professional **woman** in her late 20s..."
