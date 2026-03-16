@@ -1103,7 +1103,7 @@ export function LoopAIDirector({
                     variant="outline"
                     size="sm"
                     className="text-[10px] h-auto py-1.5 px-2.5 hover:bg-primary/5 hover:border-primary/30 transition-colors"
-                    onClick={() => { setInput(action.message); }}
+                    onClick={() => { setInput(action.message); setTimeout(() => { setInput(action.message); handleSendWithMessage(action.message); }, 50); }}
                   >
                     <span className="mr-1">{action.icon}</span>
                     {action.label.replace(/^[^\s]+\s/, '')}
