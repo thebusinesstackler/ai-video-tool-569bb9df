@@ -3523,69 +3523,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             </Card>
             )}
 
-            {/* Voice Selection - Hidden in beginner mode and when using uploaded audio */}
-            {isAdvanced && customAudioMode !== 'upload' && (
-              <>
-                {selectedTwinId && aiTwins.find(t => t.id === selectedTwinId)?.voice_cloning_key ? (
-                  <Card className="bg-card border-border">
-                    <CardHeader>
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        AI Twin Cloned Voice Active
-                      </CardTitle>
-                      <CardDescription>
-                        Using cloned voice from "{aiTwins.find(t => t.id === selectedTwinId)?.name}"
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedTwinId(null);
-                          setSelectedVoice('en-US-Journey-D');
-                          toast({
-                            title: "Voice Reset",
-                            description: "Switched to standard voice selection",
-                          });
-                        }}
-                      >
-                        Switch to Standard Voice
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-2">
-                    <VoiceSelector 
-                      selectedVoice={selectedVoice}
-                      onVoiceSelect={setSelectedVoice}
-                      disabled={isGenerating}
-                      characterDescription={characterDescription}
-                      characterGender={detectedCharGender}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={previewVoice}
-                      disabled={isGenerating || selectedVoice.startsWith('clone:')}
-                    >
-                      {isPreviewingVoice ? (
-                        <>
-                          <MicOff className="w-3 h-3 mr-1" />
-                          Stop Preview
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-3 h-3 mr-1" />
-                          Preview Voice
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
+            {/* Voice Selection removed — voice is now generated from character context */}
 
             {/* Lip Sync Mode - Expandable (Advanced only) */}
             {isAdvanced && (
