@@ -18,18 +18,18 @@ import heroImage from '@/assets/hero-image.jpg';
 
 const quickActions = [
   { 
-    name: 'Create Video', 
-    description: 'Transform scripts into engaging videos with AI',
+    name: 'Create Reel', 
+    description: 'Transform topics into engaging reels with AI',
     icon: VideoIcon, 
     variant: 'hero' as const,
-    href: '/projects'
+    href: '/reels'
   },
   { 
-    name: 'Generate Script', 
-    description: 'Create AI-powered scripts using successful patterns',
+    name: 'AI Spokesperson', 
+    description: 'Create AI-powered spokesperson videos',
     icon: FileTextIcon, 
     variant: 'ai' as const,
-    href: '/scripts'
+    href: '/ai-spokesperson'
   },
   { 
     name: 'Create Character', 
