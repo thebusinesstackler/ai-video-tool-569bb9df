@@ -154,8 +154,32 @@ export function LoopAIDirector({
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-save chat to localStorage
+  // When a segment is focused from the timeline, prefill input with context
+  useEffect(() => {
+    if (!focusedSegmentId) return;
+    const seg = segments.find(s => s.id === focusedSegmentId);
+    if (!seg) return;
+    const idx = segments.indexOf(seg);
+    const typeCount = segments.slice(0, idx + 1).filter(s => s.type === seg.type).length;
+    const label = seg.type === 'speaking' ? `Scene #${typeCount}` : `B-Roll #${typeCount}`;
+    const thumb = seg.character?.referenceImages?.[0] || seg.brollImages?.[0] || null;
+    const scriptPreview = (seg.script || seg.voiceoverText || seg.brollPrompts?.[0] || '').slice(0, 80);
+
+    // Add a system-action message showing what segment is selected with thumbnail
+    const refContent = thumb
+      ? `📍 **Selected: ${label}** (${seg.duration}s)\n"${scriptPreview}…"\n![${label}](${thumb})`
+      : `📍 **Selected: ${label}** (${seg.duration}s)\n"${scriptPreview}…"`;
+
+    setMessages(prev => [...prev, { role: 'system-action' as const, content: refContent }]);
+    setInput(`For ${label}: `);
+    onClearFocusedSegment?.();
+
+    // Focus the input
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [focusedSegmentId, segments, onClearFocusedSegment]);
+
   useEffect(() => {
     if (messages.length > 0) {
       try {
