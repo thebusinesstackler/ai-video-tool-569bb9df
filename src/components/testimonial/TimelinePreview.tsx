@@ -45,7 +45,7 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
     audio.play().catch(() => setPlayingId(null));
   }, [playingId]);
 
-  // Build type-specific numbering (Scene #1, B-Roll #1, etc.)
+  // Build type-specific numbering and detect narrative roles
   const getTypeNumber = (index: number) => {
     const seg = segments[index];
     let count = 0;
@@ -53,6 +53,16 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
       if (segments[i].type === seg.type) count++;
     }
     return count;
+  };
+
+  const getNarrativeLabel = (index: number): string | null => {
+    const seg = segments[index];
+    if (seg.type !== 'speaking') return null;
+    const speakingSegs = segments.filter(s => s.type === 'speaking');
+    const speakIdx = speakingSegs.indexOf(seg);
+    if (speakIdx === 0) return 'HOOK';
+    if (speakIdx === speakingSegs.length - 1) return 'CTA';
+    return null;
   };
 
   if (segments.length === 0) return null;
@@ -134,7 +144,10 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  <div className="font-medium">{config.label} #{getTypeNumber(index)}</div>
+                  <div className="font-medium">
+                    {config.label} #{getTypeNumber(index)}
+                    {getNarrativeLabel(index) && <span className="ml-1 text-primary font-bold">({getNarrativeLabel(index)})</span>}
+                  </div>
                   <div className="text-muted-foreground">{segment.duration}s — {getTimecode(index)}</div>
                 </TooltipContent>
               </Tooltip>
@@ -212,10 +225,18 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   </div>
 
                   <div className="px-1.5 py-1 space-y-0.5">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] font-medium truncate leading-tight">
                         {segment.type === 'broll' ? `B-Roll #${getTypeNumber(index)}` : `Scene #${getTypeNumber(index)}`}
                       </span>
+                      {getNarrativeLabel(index) && (
+                        <Badge 
+                          variant={getNarrativeLabel(index) === 'HOOK' ? 'default' : 'secondary'} 
+                          className="text-[7px] h-3.5 px-1 py-0 shrink-0"
+                        >
+                          {getNarrativeLabel(index)}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-muted-foreground">{segment.duration}s</span>
