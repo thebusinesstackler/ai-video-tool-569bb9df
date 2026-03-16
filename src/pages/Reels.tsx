@@ -3032,7 +3032,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               </div>
                             )}
 
-                            {/* Voice preview for this character */}
+                            {/* Product swap for selected shot */}
+                            {portraitPreview && (
+                              <ProductSwapPanel
+                                shotImageUrl={portraitPreview}
+                                characterDescription={characterDescription}
+                                onShotSwapped={(newUrl) => {
+                                  setPortraitImage(newUrl);
+                                  setPortraitPreview(newUrl);
+                                  setPreSelectedReference(newUrl);
+                                  // Update the shot in the array too
+                                  setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s));
+                                }}
+                                disabled={isGenerating}
+                              />
+                            )
                             <div className="flex gap-2">
                               <Button
                                 variant="outline"
