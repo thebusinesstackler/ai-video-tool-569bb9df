@@ -29,6 +29,7 @@ export default function TestimonialCommercial() {
   const [targetDuration, setTargetDuration] = useState('30');
   const [chatOpen, setChatOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
 
   const {
     segments,
@@ -52,6 +53,18 @@ export default function TestimonialCommercial() {
     videoStyle,
     setVideoStyle,
   } = useTestimonialCommercial();
+
+  const handleTimelineSelectSegment = useCallback((segmentId: string) => {
+    const seg = segments.find(s => s.id === segmentId);
+    if (!seg) return;
+    setActiveTab(seg.type === 'broll' ? 'broll' : 'scenes');
+    if (!chatOpen) setChatOpen(true);
+    setFocusedSegmentId(segmentId);
+    setTimeout(() => {
+      const el = document.getElementById(`segment-card-${segmentId}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }, [segments, chatOpen]);
 
   const handleApplyStrategy = (newSegments: CommercialSegment[], commercialName: string) => {
     setSegments(newSegments);
@@ -472,6 +485,8 @@ export default function TestimonialCommercial() {
                 segments={segments}
                 targetDuration={targetDuration}
                 onTargetDurationChange={setTargetDuration}
+                focusedSegmentId={focusedSegmentId}
+                onClearFocusedSegment={() => setFocusedSegmentId(null)}
               />
             )}
           </div>
@@ -496,7 +511,7 @@ export default function TestimonialCommercial() {
                     <Eye className="h-3 w-3" /> Fullscreen Preview
                   </Button>
                 </div>
-                <TimelinePreview segments={segments} onReorder={reorderSegments} />
+                <TimelinePreview segments={segments} onReorder={reorderSegments} onSelectSegment={handleTimelineSelectSegment} />
               </div>
             )}
 

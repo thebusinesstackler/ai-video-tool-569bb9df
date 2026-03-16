@@ -67,6 +67,8 @@ interface LoopAIDirectorProps {
   segments: CommercialSegment[];
   targetDuration: string;
   onTargetDurationChange: (dur: string) => void;
+  focusedSegmentId?: string | null;
+  onClearFocusedSegment?: () => void;
 }
 
 function calculateDurationFromScript(script: string): number {
@@ -113,6 +115,8 @@ export function LoopAIDirector({
   segments,
   targetDuration,
   onTargetDurationChange,
+  focusedSegmentId,
+  onClearFocusedSegment,
 }: LoopAIDirectorProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -150,8 +154,32 @@ export function LoopAIDirector({
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-save chat to localStorage
+  // When a segment is focused from the timeline, prefill input with context
+  useEffect(() => {
+    if (!focusedSegmentId) return;
+    const seg = segments.find(s => s.id === focusedSegmentId);
+    if (!seg) return;
+    const idx = segments.indexOf(seg);
+    const typeCount = segments.slice(0, idx + 1).filter(s => s.type === seg.type).length;
+    const label = seg.type === 'speaking' ? `Scene #${typeCount}` : `B-Roll #${typeCount}`;
+    const thumb = seg.character?.referenceImages?.[0] || seg.brollImages?.[0] || null;
+    const scriptPreview = (seg.script || seg.voiceoverText || seg.brollPrompts?.[0] || '').slice(0, 80);
+
+    // Add a system-action message showing what segment is selected with thumbnail
+    const refContent = thumb
+      ? `📍 **Selected: ${label}** (${seg.duration}s)\n"${scriptPreview}…"\n![${label}](${thumb})`
+      : `📍 **Selected: ${label}** (${seg.duration}s)\n"${scriptPreview}…"`;
+
+    setMessages(prev => [...prev, { role: 'system-action' as const, content: refContent }]);
+    setInput(`For ${label}: `);
+    onClearFocusedSegment?.();
+
+    // Focus the input
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [focusedSegmentId, segments, onClearFocusedSegment]);
+
   useEffect(() => {
     if (messages.length > 0) {
       try {
@@ -1279,11 +1307,22 @@ export function LoopAIDirector({
           <div className="space-y-4">
             {messages.map((msg, i) => {
               if (msg.role === 'system-action') {
+                // Check if this is a segment reference with an image
+                const imgMatch = msg.content.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+                const textContent = msg.content.replace(/!\[.*?\]\([^\)]+\)/g, '').trim();
                 return (
                   <div key={i} className="flex justify-center">
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2 max-w-[90%]">
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      <span>{msg.content}</span>
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-4 py-2.5 text-xs font-medium max-w-[90%]">
+                      <div className="flex items-start gap-2">
+                        {imgMatch ? (
+                          <img src={imgMatch[1]} alt="Scene reference" className="w-12 h-12 rounded object-cover shrink-0 border border-border/30" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                        )}
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-1 [&>p]:leading-relaxed">
+                          <ReactMarkdown>{textContent}</ReactMarkdown>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1356,6 +1395,7 @@ export function LoopAIDirector({
             {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </Button>
           <Textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
