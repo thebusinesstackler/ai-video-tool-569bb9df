@@ -700,12 +700,11 @@ Target duration: ${dur}s
 7. **B-ROLL**: Feature product prominently, include full cinematic specs, ALWAYS have voiceover narration — NEVER silent.
 8. **Character descriptions**: Include ethnicity, age, clothing, emotional state, action, camera angle, lighting, lens.
 9. **Alternate speaking ↔ B-roll**. NEVER 3+ speaking scenes in a row.
-10. **Scripts feel authentic** — contractions, pauses (...), conversational rhythm, em dashes (—).
+10. **Scripts feel authentic** — contractions, natural rhythm, conversational flow.
 
 ## TTS Script Rules (MANDATORY)
-NEVER use periods to end sentences — they cause TTS artifacts.
-Use ellipses (...) for pauses and em dashes (—) for stops.
-Word count MUST match duration: 5s≈12 words, 8s≈20 words, 10s≈25 words.
+Use commas for breathing pauses and periods for stops. NEVER use em dashes or ellipses in scripts.
+Word count MUST match duration: 5s=12 words, 8s=20 words, 10s=25 words.
 
 ## Actor Descriptions (CRITICAL for AI image generation — PHOTOREALISTIC HUMANS)
 Vivid descriptions required: age, gender, ethnicity, build, clothing, emotional state, setting, camera angle, natural lighting, lens specs. ALWAYS append: "photorealistic, hyperrealistic skin texture with visible pores, natural lighting, real human appearance, mouth slightly parted ready to speak, realistic catchlights in eyes". NEVER allow plastic, CGI, or airbrushed-looking results.
