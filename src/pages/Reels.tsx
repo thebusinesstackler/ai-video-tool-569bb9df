@@ -1787,12 +1787,13 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       
       // Build camera angle rotation for variety across scenes
       const diverseAngles = ['eye-level', 'three-quarter', 'low-angle', 'medium-shot', 'closeup', 'profile-shot', 'golden-hour', 'cinematic'];
-      const cameraAngleRotation = scenesWithAudioDurations.map((scene, idx) => {
-        if (scene.isIntro || scene.isOutro) return undefined; // No angle for intro/outro
-        const angleId = diverseAngles[idx % diverseAngles.length];
-        const angle = CAMERA_ANGLES.find(a => a.id === angleId);
-        return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier;
-      }).filter(Boolean);
+      const cameraAngleRotation = scenesWithAudioDurations
+        .filter((scene) => !scene.isIntro && !scene.isOutro)
+        .map((scene, idx) => {
+          const angleId = diverseAngles[idx % diverseAngles.length];
+          const angle = CAMERA_ANGLES.find(a => a.id === angleId);
+          return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier || '';
+        });
       
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: { 
