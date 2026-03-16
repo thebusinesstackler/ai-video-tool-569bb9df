@@ -46,6 +46,7 @@ export function SegmentCard({
   segment,
   index,
   typeNumber,
+  narrativeRole,
   onUpdate,
   onDelete,
   onDuplicate,
