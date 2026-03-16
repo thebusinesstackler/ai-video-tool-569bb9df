@@ -946,7 +946,19 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Handle transfers from Movie Scene Creator and Hook Engine
+  // Cleanup blob URLs on unmount (#34)
+  useEffect(() => {
+    return () => {
+      if (project.videoBlobUrl && project.videoBlobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(project.videoBlobUrl);
+      }
+      project.videoClips.forEach(clip => {
+        if (clip.videoUrl?.startsWith('blob:')) URL.revokeObjectURL(clip.videoUrl);
+      });
+    };
+  }, []);
+
+
   useEffect(() => {
     const source = searchParams.get('source');
     const transferredTopic = searchParams.get('topic');
