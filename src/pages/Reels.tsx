@@ -3212,7 +3212,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <p className="text-muted-foreground">📝 <span className="text-foreground font-medium">{project.scenes.length} scenes</span> • {project.scenes.reduce((acc, s) => acc + (s.duration || 0), 0)}s total</p>
                         {portraitPreview && <p className="text-muted-foreground">👤 <span className="text-foreground font-medium">Character set</span></p>}
                         <p className="text-muted-foreground">🎙️ <span className="text-foreground font-medium">{selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Auto-detect voice'}</span></p>
-                        <p className={`${(portraitPreview || (aiTwins.length > 0)) ? 'text-green-500' : 'text-amber-500'}`}>
+                        <p className={`text-sm font-medium ${(portraitPreview || (aiTwins.length > 0)) ? 'text-primary' : 'text-destructive'}`}>
                           {(portraitPreview || (aiTwins.length > 0)) 
                             ? '🎭 Lip sync: ON — talking head scenes will be generated'
                             : '⚠️ Lip sync: OFF — no character selected. Videos will be B-roll only.'
