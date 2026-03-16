@@ -3708,6 +3708,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                   setPortraitImage(twin.reference_images[0]);
                                   setPortraitPreview(twin.reference_images[0]);
                                   setPreSelectedReference(twin.reference_images[0]);
+                                  // Lazy-load all reference images for angle shots
+                                  const fullImages = await loadTwinFullImages(twin.id);
+                                  if (fullImages && fullImages.length > 0) {
+                                    setGeneratedCharacterShots(
+                                      fullImages.map((url: string, i: number) => ({ label: `Angle ${i + 1}`, url }))
+                                    );
+                                  }
                                 }
                                 if (twin.face_description) {
                                   setCharacterDescription(twin.face_description);
