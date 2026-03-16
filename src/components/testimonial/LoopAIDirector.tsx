@@ -906,10 +906,19 @@ export function LoopAIDirector({
       return actions;
     }
 
+    // Detect product image in any segment for propagation suggestion
+    const hasProductInAnyScene = segments.some(s => s.productImageUrl);
+    const brollWithoutProduct = segments.filter(s => s.type === 'broll' && !s.productImageUrl);
+
     const missingCharacters = segments.filter(s => s.type === 'speaking' && (!s.character?.referenceImages || s.character.referenceImages.length === 0));
     const missingAudio = segments.filter(s => s.type === 'speaking' && !s.audioUrl);
     const missingBroll = segments.filter(s => s.type === 'broll' && (!s.brollImages || s.brollImages.length === 0));
     const hasAnyVideo = segments.some(s => s.videoUrl);
+
+    // Product propagation — top priority
+    if (hasProductInAnyScene && brollWithoutProduct.length > 0) {
+      actions.push({ label: `📦 Swap product to ${brollWithoutProduct.length} B-roll`, message: 'Swap my product image into all B-roll scenes that are missing it', icon: '📦' });
+    }
 
     if (missingCharacters.length > 0) {
       actions.push({ label: `🎭 Generate ${missingCharacters.length} character${missingCharacters.length > 1 ? 's' : ''}`, message: 'Generate all missing character images', icon: '🎭' });
@@ -918,18 +927,20 @@ export function LoopAIDirector({
       actions.push({ label: `🎙️ Generate ${missingAudio.length} voiceover${missingAudio.length > 1 ? 's' : ''}`, message: 'Generate voiceovers for all scenes missing audio', icon: '🎙️' });
     }
     if (missingBroll.length > 0) {
-      actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll preview${missingBroll.length > 1 ? 's' : ''}`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
+      actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
     }
     if (segments.length > 0 && !hasAnyVideo) {
       actions.push({ label: '🚀 Full production pass', message: 'Do a full production pass — generate everything that\'s missing', icon: '🚀' });
     }
     if (segments.length > 0) {
-      actions.push({ label: '🔍 Review storyboard', message: 'Review my storyboard and fix any issues', icon: '🔍' });
+      actions.push({ label: '📝 Show script breakdown', message: 'Show me the full script flow — how all the scenes connect together with timing', icon: '📝' });
+      actions.push({ label: '🔍 Review & polish', message: 'Review my storyboard and fix any issues', icon: '🔍' });
+      actions.push({ label: '➕ Add B-roll', message: 'Suggest and add a cinematic B-roll scene that fits the narrative', icon: '➕' });
       actions.push({ label: '🎵 Add music', message: 'Add background music that matches the mood of this commercial', icon: '🎵' });
       actions.push({ label: '✏️ Punch up the hook', message: 'Make the hook scene more attention-grabbing', icon: '✏️' });
     }
 
-    return actions.slice(0, 4);
+    return actions.slice(0, 5);
   };
 
   const LoopAvatar = ({ size = 'sm' }: { size?: 'sm' | 'lg' }) => (
