@@ -219,19 +219,30 @@ export function LoopAIDirector({
     setIsListening(true);
   }, [isListening]);
 
-  const previewAudio = async (script: string, segId: string, characterDescription?: string) => {
+  const previewAudio = async (script: string, segId: string, characterDescription?: string, voiceIdOverride?: string) => {
     if (isPreviewingAudio && previewingSegId === segId) {
       audioRef.current?.pause();
+      audioRef.current = null;
       setIsPreviewingAudio(false);
       setPreviewingSegId(null);
       return;
     }
+
+    // Stop any currently playing audio before starting new one
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
     setIsPreviewingAudio(true);
     setPreviewingSegId(segId);
     try {
-      const { voiceId, gender } = characterDescription
+      const { voiceId: autoVoiceId, gender: autoGender } = characterDescription
         ? pickVoiceForCharacter(characterDescription)
         : { voiceId: 'English_Trustworth_Man', gender: 'male' };
+
+      const voiceId = voiceIdOverride || autoVoiceId;
+      const gender = voiceIdOverride ? 'male' : autoGender;
 
       toast.info(`🎙️ Generating ${gender} voice preview...`);
 
@@ -240,7 +251,6 @@ export function LoopAIDirector({
       });
       if (error || !data?.audioUrl) throw new Error('TTS failed');
 
-      // Show the voice ID used so the user can copy/reuse it
       const usedVoiceId = data.voiceUsed || voiceId;
       toast.success(`🎙️ Voice generated — ID: ${usedVoiceId}`, {
         action: {
@@ -253,7 +263,6 @@ export function LoopAIDirector({
         duration: 8000,
       });
 
-      // Save audio URL and voice ID to segment in DB
       onUpdateSegment(segId, { audioUrl: data.audioUrl, voiceoverId: usedVoiceId });
 
       const audio = new Audio(data.audioUrl);
@@ -261,7 +270,6 @@ export function LoopAIDirector({
       audio.onended = () => { setIsPreviewingAudio(false); setPreviewingSegId(null); };
       audio.play();
 
-      // Auto-save after generating audio
       onSaveToDb();
     } catch {
       toast.error('Failed to generate audio preview');
