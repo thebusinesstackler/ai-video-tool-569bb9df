@@ -641,17 +641,126 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
             duration: klingDuration
           };
           
+        } else if (scene.isIntro && enableLipSync && videoModel === 'wan-2.5-video-extend' && portraitImage) {
+          // ====== WAN 2.5 VIDEO EXTEND: Hook/Intro with cinematic AI motion ======
+          console.log(`Scene ${scene.sceneNumber}: Using Video Extend pipeline for intro/hook`);
+          
+          const genderHint = characterDescription?.toLowerCase().includes('woman') || 
+                            characterDescription?.toLowerCase().includes('female') || 
+                            characterDescription?.toLowerCase().includes('girl') ||
+                            characterDescription?.toLowerCase().includes('lady')
+                            ? 'female' : 'male';
+          
+          try {
+            // AI Super Prompt for hook scene
+            const hookSuperPromptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-3-flash-preview',
+                messages: [{
+                  role: 'user',
+                  content: `You are Loop AI, a cinematic video director. Create a concise, vivid video-extend prompt (max 2 sentences) for the OPENING HOOK of a reel.
+
+Scene context: "${scene.narration || 'Cinematic intro'}"
+Character: ${characterDescription || 'Professional speaker'}
+Topic: ${topic}
+
+Rules:
+- This is the HOOK — the most important scene. Make the motion dramatic and attention-grabbing.
+- Describe: dynamic camera push-in, confident character entrance, dramatic lighting shift, captivating eye contact
+- Focus on: bold camera movement, powerful presence, magnetic energy
+- Do NOT mention text, captions, watermarks
+- Keep under 50 words. Write only the prompt.`
+                }]
+              }),
+            });
+
+            let hookSuperPrompt = `Dramatic camera push-in toward ${genderHint} speaker who looks up with magnetic confidence. Bold lighting shift, cinematic depth, commanding presence.`;
+            
+            if (hookSuperPromptResponse.ok) {
+              const spData = await hookSuperPromptResponse.json();
+              const aiPrompt = spData.choices?.[0]?.message?.content?.trim();
+              if (aiPrompt && aiPrompt.length > 10) {
+                hookSuperPrompt = aiPrompt;
+              }
+            }
+
+            // Step 1: Base video from portrait
+            const baseVideoResponse = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1-i2v-480p', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                image: portraitImage,
+                prompt: `A ${genderHint} speaker with magnetic confident expression. ${charContext} Professional lighting, direct eye contact. No text or captions.`
+              }),
+            });
+
+            if (!baseVideoResponse.ok) throw new Error('Base video failed for intro');
+
+            const baseVideoData = await baseVideoResponse.json();
+            const baseTaskId = baseVideoData.data?.id;
+            if (!baseTaskId) throw new Error('No task ID for intro base video');
+
+            let baseVideoUrl: string | null = null;
+            for (let attempt = 0; attempt < 60; attempt++) {
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              const statusResponse = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${baseTaskId}/result`, {
+                headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` },
+              });
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                if (statusData.data?.status === 'completed' && statusData.data?.outputs?.length > 0) {
+                  baseVideoUrl = statusData.data.outputs[0];
+                  break;
+                } else if (statusData.data?.status === 'failed') throw new Error('Intro base video failed');
+              }
+            }
+            if (!baseVideoUrl) throw new Error('Intro base video polling timed out');
+
+            // Step 2: Video extend with hook super prompt
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/video-extend';
+            requestBody = {
+              video: baseVideoUrl,
+              prompt: hookSuperPrompt,
+              duration: Math.max(3, Math.min(10, clipDuration)),
+              resolution: '720p',
+              enable_prompt_expansion: false
+            };
+            sceneHasEmbeddedAudio = false;
+            
+          } catch (introExtendError) {
+            console.error(`Scene ${scene.sceneNumber}: Intro video-extend failed, falling back to Sora 2:`, introExtendError);
+            // Fallback to Sora 2
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+            const sora2Duration = clipDuration <= 5 ? 4 : clipDuration <= 10 ? 8 : 12;
+            requestBody = {
+              image: imageUrl,
+              prompt: `Premium cinematic intro for a reel about "${topic}". ${charContext}
+Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
+Ultra high quality, film-grade. Sets the mood for powerful content ahead.
+No text, no captions, no subtitles, no watermarks.`,
+              duration: sora2Duration,
+              aspect_ratio: '9:16'
+            };
+          }
+          
         } else if (scene.isIntro) {
-          // ====== SORA 2: Intro scene — cinematic quality ======
+          // ====== SORA 2: Intro scene — cinematic quality (fallback / non-lip-sync) ======
           console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for intro`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-          // Sora 2 supports 4s, 8s, or 12s
           const sora2Duration = clipDuration <= 5 ? 4 : clipDuration <= 10 ? 8 : 12;
           
           requestBody = {
             image: imageUrl,
-            prompt: `Premium cinematic intro for a reel about "${topic}".
+            prompt: `Premium cinematic intro for a reel about "${topic}". ${charContext}
 Elegant slow zoom in with shallow depth of field, volumetric light rays, smooth professional motion.
 Ultra high quality, film-grade. Atmospheric, sets the mood for the content ahead.
 No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
@@ -660,17 +769,23 @@ No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
           };
           
         } else if (scene.isOutro) {
-          // ====== SORA 2: Outro scene — cinematic quality ======
+          // ====== SORA 2: Outro scene — cinematic quality with character/topic context ======
           console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for outro`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
           const sora2Duration = clipDuration <= 5 ? 4 : clipDuration <= 10 ? 8 : 12;
           
+          const outroCharDesc = characterDescription 
+            ? `The ${characterDescription} is in frame with a warm, inviting closing expression.` 
+            : 'Warm, inviting atmosphere.';
+          const outroNarration = scene.narration ? `The scene conveys: "${scene.narration}"` : '';
+          
           requestBody = {
             image: imageUrl,
-            prompt: `Premium cinematic outro for a reel about "${topic}".
-Elegant slow zoom out with atmospheric lighting, smooth professional motion, film-grade quality.
-Warm, inviting feel that encourages engagement. Sophisticated ending.
+            prompt: `Premium cinematic outro for a reel about "${topic}". ${outroCharDesc}
+${outroNarration}
+Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
+The subject has a knowing smile, relaxed and inviting posture. Film-grade quality.
 No text, no captions, no subtitles, no watermarks.`,
             duration: sora2Duration,
             aspect_ratio: '9:16'

@@ -341,7 +341,11 @@ Each scene should be approximately ${finalSceneDuration} seconds when narrated.
 STORY FLOW (each scene MUST connect to the next):
 - Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
 - Scene 2-${sceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${sceneCount} (CLOSE): Deliver the payoff, conclusion, or call-to-action
+- Scene ${sceneCount} (CLOSE): Write a SPOKEN closing that naturally wraps up the topic. NOT just "Follow for more" — instead:
+  * Tie back to the hook promise ("Remember when I said X? Here's your next step...")
+  * Deliver a topic-specific takeaway the viewer can act on
+  * Weave the call-to-action into natural speech ("If you want more strategies like this... you know what to do—")
+  * The CTA should feel like a natural conclusion to the story, not a generic sign-off
 
 NARRATION REQUIREMENTS:
 - Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
@@ -505,12 +509,12 @@ Return ONLY valid JSON array:
     }
 
     if (hasOutro) {
-      const outroNarration = formatScriptForTTS(outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate));
+      const outroNarration = formatScriptForTTS(outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate, topic));
       
       const outroScene = {
         sceneNumber: scenes.length + 1,
         narration: outroNarration,
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
+        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
         duration: 2,
         isOutro: true,
         templateId: outroConfig.outroTemplate,
@@ -521,7 +525,7 @@ Return ONLY valid JSON array:
       const ctaHoldScene = {
         sceneNumber: scenes.length + 1,
         narration: '',
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
+        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
         duration: 2,
         isOutro: true,
         isSilentCTA: true,
@@ -705,18 +709,30 @@ function getDefaultIntroText(templateId: string, topic: string, hookStyle?: stri
   }
 }
 
-function getDefaultOutroText(templateId: string): string {
+function getDefaultOutroText(templateId: string, topic?: string): string {
+  const topicShort = topic ? topic.split(' ').slice(0, 5).join(' ') : '';
+  
   switch (templateId) {
     case 'cta-follow':
-      return 'Follow for more!';
+      return topicShort 
+        ? `If you want more insights like this on ${topicShort}... follow along— I've got a lot more coming—`
+        : 'If you found this valuable... follow along— there\'s a lot more where this came from—';
     case 'cta-subscribe':
-      return 'Subscribe now!';
+      return topicShort
+        ? `Subscribe if you want to go deeper on ${topicShort}... I break this down every week—`
+        : 'Subscribe if you want more like this... new content drops every week—';
     case 'cta-comment':
-      return 'Comment below!';
+      return topicShort
+        ? `I want to hear your take on ${topicShort}... drop your thoughts in the comments—`
+        : 'Tell me what you think in the comments— I read every single one—';
     case 'cta-share':
-      return 'Share this!';
+      return topicShort
+        ? `If someone you know needs to hear this about ${topicShort}... send it their way—`
+        : 'Share this with someone who needs to hear it— it might change their perspective—';
     default:
-      return 'Save this!';
+      return topicShort
+        ? `Save this for later when you need it... trust me on ${topicShort}—`
+        : 'Save this for later— you\'ll want to come back to it—';
   }
 }
 
@@ -737,19 +753,28 @@ function getIntroVisualDescription(templateId: string, topic: string, baseStyle:
   }
 }
 
-function getOutroVisualDescription(templateId: string, baseStyle: string): string {
+function getOutroVisualDescription(templateId: string, baseStyle: string, topic?: string, characterDescription?: string): string {
   const commonStyle = baseStyle || 'Cinematic 4K, vibrant saturated colors, professional lighting';
+  const charDesc = characterDescription || 'Confident professional person';
+  const topicContext = topic ? `related to "${topic}"` : '';
   
+  const baseOutro = `Style: ${commonStyle}. Shot on RED V-RAPTOR, 85mm lens, f/2.0 depth of field.
+SUBJECT: ${charDesc} in a confident, inviting closing pose ${topicContext}. Natural relaxed expression, slight knowing smile, direct eye contact with camera.
+LIGHTING: Warm golden hour key light, soft fill, subtle rim light creating depth and warmth.
+COMPOSITION: Rule of thirds, medium shot, clean bokeh background matching the reel's visual style.
+ATMOSPHERE: Warm, inviting, trustworthy energy. Professional color grading with warm amber tones.
+CRITICAL: No text, no captions, no subtitles, no watermarks. CLOSED MOUTH. Vertical 9:16.`;
+
   switch (templateId) {
     case 'cta-follow':
-      return `Style: ${commonStyle}. Subject: Animated follow button with glow effects, social media icons, floating hearts and plus signs. Camera: medium shot, centered, direct engagement. Lighting: Bright, inviting warmth. Background: Gradient with subtle social media motifs. Colors: Platform reds, pinks, warm tones. Mood: Friendly, welcoming. Keywords: social media outro, vertical 9:16, engagement, no faces, no text.`;
+      return `${baseOutro} The subject gestures invitingly toward the camera, welcoming energy, as if saying "come along for the journey."`;
     case 'cta-subscribe':
-      return `Style: ${commonStyle}. Subject: Subscribe button animation with notification bell glowing. Camera: close-up, engaging direct frame. Lighting: Exciting, dynamic lighting. Background: Teaser preview atmosphere, countdown elements. Colors: Red button, yellow bell, anticipation colors. Mood: Exciting, cliffhanger. Keywords: YouTube style, vertical 9:16, teaser, no faces, no text.`;
+      return `${baseOutro} The subject leans slightly forward with engaged energy, as if sharing one last exciting secret.`;
     case 'cta-comment':
-      return `Style: ${commonStyle}. Subject: Comment bubble graphics, interactive chat elements floating. Camera: medium shot, inviting, conversational angle. Lighting: Warm, friendly glow. Background: Community discussion vibes, multiple chat bubbles. Colors: Friendly blues, conversation greens. Mood: Conversational, inclusive. Keywords: engagement, vertical 9:16, discussion, no faces, no text.`;
+      return `${baseOutro} The subject has an open, curious expression, tilting head slightly, inviting conversation and dialogue.`;
     case 'cta-share':
-      return `Style: ${commonStyle}. Subject: Share arrow icons multiplying, viral spread visualization, network expansion graphics. Camera: wide shot, dynamic outward motion. Lighting: Energetic, spreading light rays. Background: Network connections, spreading ripples effect. Colors: Viral purples, sharing blues. Mood: Shareable, viral energy. Keywords: viral, vertical 9:16, network effect, no faces, no text.`;
+      return `${baseOutro} The subject gestures outward with open hands, generous sharing energy, confident and warm.`;
     default:
-      return `Style: ${commonStyle}. Subject: Eye-catching save/bookmark icon with pulse animation. Camera: close-up, centered frame. Lighting: Warm, inviting glow. Background: Subtle gradient with save iconography. Colors: Warm golden tones, bookmark oranges. Mood: Valuable, must-save content. Keywords: save, bookmark, vertical 9:16, no faces, no text.`;
+      return `${baseOutro} The subject has a satisfied, knowing expression, as if the viewer just learned something valuable worth remembering.`;
   }
 }
