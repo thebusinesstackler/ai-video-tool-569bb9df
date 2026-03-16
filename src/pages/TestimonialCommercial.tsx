@@ -36,6 +36,7 @@ export default function TestimonialCommercial() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
+  const [musicUrl, setMusicUrl] = useState<string | null>(null);
   const resultCardRef = useRef<HTMLDivElement>(null);
   const { saveDraftDebounced, loadDraft, clearDraft } = useCommercialDraft();
   const draftRestoredRef = useRef(false);
