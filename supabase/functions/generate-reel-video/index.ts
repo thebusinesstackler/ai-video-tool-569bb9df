@@ -438,47 +438,65 @@ serve(async (req) => {
         const topicContext = `Topic: ${topic}.`;
         
         // ====== SCENE TYPE ROUTING ======
-        // Speaking/narrator scenes → VEO 3 (generates voice + video from prompt)
-        // B-roll, intro, outro → Kling 3.0 Pro (highest quality visuals, silent)
+        // Speaking/narrator scenes with lip sync → use selected lip sync model (infinitetalk-fast, avatar-omni-human-1.5)
+        // Speaking scenes WITHOUT lip sync → Kling 3.0 Pro (cinematic visuals, TTS overlaid by client)
+        // B-roll, intro, outro → Kling 3.0 Pro or Sora 2
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
         if (isNarratorScene && enableLipSync) {
-          // ====== VEO 3: Speaking scenes with AI-generated voice ======
-          // VEO 3 generates synchronized audio + video from text prompt
-          // No separate TTS needed — the AI assumes the character's voice from context
-          console.log(`Scene ${scene.sceneNumber}: Using VEO 3 for narrator scene with AI voice`);
+          // ====== LIP SYNC MODELS: Speaking scenes with character animation ======
+          // These models require: image (portrait) + audio (pre-generated TTS)
+          // They produce video with the character speaking in sync with the audio
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/text-to-video';
-          sceneHasEmbeddedAudio = true;
+          const hasAudio = audioUrl && audioUrl.trim() !== '' && !audioUrl.startsWith('data:');
           
-          // Build a rich, detailed prompt that gives VEO 3 full context for voice + visuals
-          const genderHint = characterDescription?.toLowerCase().includes('woman') || 
-                            characterDescription?.toLowerCase().includes('female') || 
-                            characterDescription?.toLowerCase().includes('girl') ||
-                            characterDescription?.toLowerCase().includes('lady')
-                            ? 'female' : 'male';
-          
-          const veo3Prompt = `A ${genderHint} narrator speaks directly to camera in a professional social media video.
-${charContext}
-${topicContext}
-
-THE NARRATOR SAYS (speak this dialogue naturally with emotion and conviction):
-"${scene.narration}"
-
-VISUAL SCENE: ${scene.visualDescription}
-MOOD: Confident, engaging, authentic — like a top content creator delivering valuable insight.
-CINEMATOGRAPHY: Close-up to medium shot, shallow depth of field, professional studio or lifestyle setting.
-LIGHTING: Soft, flattering key light with warm tones. Professional social media quality.
-AUDIO: Clear, professional voice. Natural speaking pace with emphasis on key points. No background music.
-The speaker maintains eye contact with the camera, uses subtle hand gestures, and has genuine facial expressions.
-CRITICAL: No on-screen text, no captions, no watermarks. Portrait 9:16 vertical format.`;
-          
-          requestBody = {
-            prompt: veo3Prompt,
-            duration: Math.min(clipDuration, 8), // VEO 3 max 8s
-            aspect_ratio: '9:16'
-          };
+          if (!hasAudio) {
+            // No pre-generated audio URL available — fall back to Kling B-roll
+            console.log(`Scene ${scene.sceneNumber}: No audio URL for lip sync, falling back to Kling B-roll`);
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+            const klingDuration = clipDuration <= 7 ? 5 : 10;
+            requestBody = {
+              image: imageUrl,
+              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Context: The narrator is saying "${scene.narration}" over this visual.
+Premium cinematic motion — smooth parallax, professional color grading.
+If showing a person: natural expression, confident pose — NOT speaking. Closed mouth.
+No text, no captions, no subtitles, no watermarks.`,
+              duration: klingDuration
+            };
+          } else if (lipSyncModel === 'avatar-omni-human-1.5') {
+            // ====== AVATAR OMNI HUMAN 1.5: Best quality, emotional expressions ======
+            console.log(`Scene ${scene.sceneNumber}: Using Avatar Omni Human 1.5 for lip sync`);
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/avatar-omni-human-1.5';
+            sceneHasEmbeddedAudio = true;
+            
+            requestBody = {
+              image: imageUrl,
+              audio: audioUrl,
+              duration: clipDuration
+            };
+          } else {
+            // ====== INFINITETALK-FAST (default): Fast, precise lip sync up to 10min ======
+            console.log(`Scene ${scene.sceneNumber}: Using InfiniteTalk Fast for lip sync`);
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
+            sceneHasEmbeddedAudio = true;
+            
+            // Build a prompt with narration context for better motion matching
+            const genderHint = characterDescription?.toLowerCase().includes('woman') || 
+                              characterDescription?.toLowerCase().includes('female') || 
+                              characterDescription?.toLowerCase().includes('girl') ||
+                              characterDescription?.toLowerCase().includes('lady')
+                              ? 'female' : 'male';
+            
+            const lipSyncPrompt = `A ${genderHint} speaker delivering the following message with natural expression and confidence: "${scene.narration}". ${charContext} Professional, engaging delivery with eye contact.`;
+            
+            requestBody = {
+              image: imageUrl,
+              audio: audioUrl,
+              prompt: lipSyncPrompt
+            };
+          }
           
         } else if (isNarratorScene && !enableLipSync) {
           // ====== KLING 3.0 PRO: Narrator scene WITHOUT lip sync ======
