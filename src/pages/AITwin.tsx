@@ -41,20 +41,33 @@ interface AITwin {
 }
 
 const CACHE_KEY = 'ai_twins_cache';
+const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CachedTwinsData {
+  twins: AITwin[];
+  savedAt: number;
+}
 
 function getCachedTwins(): AITwin[] | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed: CachedTwinsData = JSON.parse(raw);
+    if (Date.now() - parsed.savedAt > CACHE_EXPIRY_MS) {
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    return parsed.twins;
   } catch {
+    localStorage.removeItem(CACHE_KEY);
     return null;
   }
 }
 
 function setCachedTwins(twins: AITwin[]) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(twins));
+    const data: CachedTwinsData = { twins, savedAt: Date.now() };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
   } catch { /* ignore quota errors */ }
 }
 

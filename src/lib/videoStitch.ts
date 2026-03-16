@@ -38,7 +38,11 @@ async function cloudStitch(
         body: { audioUrls }
       });
       mergedAudioUrl = data?.audioUrl || audioUrls[0];
-    } catch {
+      if (!data?.audioUrl) {
+        console.warn('merge-audio: fallback to first audio track, other tracks lost');
+      }
+    } catch (err) {
+      console.warn('merge-audio failed, using first audio only:', err);
       mergedAudioUrl = audioUrls[0];
     }
   }
