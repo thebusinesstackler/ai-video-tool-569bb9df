@@ -281,6 +281,16 @@ serve(async (req) => {
       );
     }
 
+    // Validate each scene has required fields (#46)
+    for (const scene of scenes) {
+      if (typeof scene.sceneNumber !== 'number') {
+        return new Response(
+          JSON.stringify({ error: `Scene missing sceneNumber` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     console.log('Generating reel video for topic:', topic);
     console.log('Scenes:', scenes.length);
     console.log('Add captions:', addCaptions);
