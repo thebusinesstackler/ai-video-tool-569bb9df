@@ -2908,6 +2908,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           },
           onStatus: (s) => setProgressStatus(s)
         });
+      }
+
+      videoBlobRef.current = stitchedBlob;
+      const blobUrl = URL.createObjectURL(stitchedBlob);
       let savedVideoUrl = blobUrl;
       
       if (user) {
