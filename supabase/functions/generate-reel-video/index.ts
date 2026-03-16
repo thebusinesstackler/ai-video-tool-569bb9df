@@ -438,50 +438,34 @@ serve(async (req) => {
         const topicContext = `Topic: ${topic}.`;
         
         // ====== SCENE TYPE ROUTING ======
-        // Speaking/narrator scenes with lip sync → InfiniteTalk Fast (cost-effective, great quality)
+        // Speaking/narrator scenes → Wan 2.5 I2V 480p (cost-effective, good quality for testing)
         // Speaking scenes WITHOUT lip sync → Kling 3.0 Pro (cinematic visuals, TTS overlaid by client)
         // B-roll, intro, outro → Kling 3.0 Pro or Sora 2
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
         if (isNarratorScene && enableLipSync) {
-          // ====== INFINITETALK-FAST: Fast, precise lip sync up to 10min ======
-          const hasAudio = audioUrl && audioUrl.trim() !== '' && !audioUrl.startsWith('data:');
+          // ====== WAN 2.5 I2V 480p: Fast, cheap image-to-video for testing ======
+          // Audio is NOT embedded — client stitcher overlays TTS audio
+          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.5 I2V 480p for narrator scene`);
           
-          if (!hasAudio) {
-            // No pre-generated audio URL available — fall back to Kling B-roll
-            console.log(`Scene ${scene.sceneNumber}: No audio URL for lip sync, falling back to Kling B-roll`);
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
-            const klingDuration = clipDuration <= 7 ? 5 : 10;
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
-Context: The narrator is saying "${scene.narration}" over this visual.
-Premium cinematic motion — smooth parallax, professional color grading.
-If showing a person: natural expression, confident pose — NOT speaking. Closed mouth.
-No text, no captions, no subtitles, no watermarks.`,
-              duration: klingDuration
-            };
-          } else {
-            // ====== INFINITETALK-FAST: Best cost/quality for Reels & Stories ======
-            console.log(`Scene ${scene.sceneNumber}: Using InfiniteTalk Fast for lip sync`);
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
-            sceneHasEmbeddedAudio = true;
-            
-            const genderHint = characterDescription?.toLowerCase().includes('woman') || 
-                              characterDescription?.toLowerCase().includes('female') || 
-                              characterDescription?.toLowerCase().includes('girl') ||
-                              characterDescription?.toLowerCase().includes('lady')
-                              ? 'female' : 'male';
-            
-            const lipSyncPrompt = `A ${genderHint} speaker delivering the following message with natural expression and confidence: "${scene.narration}". ${charContext} Professional, engaging delivery with eye contact.`;
-            
-            requestBody = {
-              image: imageUrl,
-              audio: audioUrl,
-              prompt: lipSyncPrompt
-            };
-          }
+          const genderHint = characterDescription?.toLowerCase().includes('woman') || 
+                            characterDescription?.toLowerCase().includes('female') || 
+                            characterDescription?.toLowerCase().includes('girl') ||
+                            characterDescription?.toLowerCase().includes('lady')
+                            ? 'female' : 'male';
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1-i2v-480p';
+          // wan-2.1 supports 5s duration
+          requestBody = {
+            image: imageUrl,
+            prompt: `A ${genderHint} speaker delivering a message with natural expression and confidence: "${scene.narration}". ${charContext} ${topicContext}
+Professional, engaging delivery with eye contact. Natural lip movements and facial expressions matching speech.
+Cinematic lighting, shallow depth of field, premium quality.
+No text, no captions, no subtitles, no watermarks.`
+          };
+          // Audio NOT embedded — will be overlaid by client
+          sceneHasEmbeddedAudio = false;
           
         } else if (isNarratorScene && !enableLipSync) {
           // ====== KLING 3.0 PRO: Narrator scene WITHOUT lip sync ======

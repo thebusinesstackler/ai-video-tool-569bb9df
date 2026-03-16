@@ -2200,6 +2200,81 @@ const Reels = () => {
     });
   };
 
+  // ====== QUICK MODE: Test single scene before committing ======
+  const generateQuickModeTest = async (quickTopic: string) => {
+    if (!quickTopic.trim()) return;
+    
+    setTopic(quickTopic);
+    abortRef.current = new AbortController();
+    
+    // Force no intro/outro
+    setSelectedIntro('none');
+    setSelectedOutro('none');
+    setIntroText('');
+    setOutroText('');
+    
+    // Only 1 scene for testing
+    setSelectedSceneCount('1');
+    setSelectedSceneDuration('8');
+    
+    // Auto-select AI Twin
+    let shouldEnableLipSync = false;
+    let activeLipSyncModel: string = 'infinitetalk';
+    
+    if (aiTwins.length > 0) {
+      const twin = aiTwins[0];
+      setSelectedTwinId(twin.id);
+      if (twin.reference_images?.[0]) {
+        setPortraitImage(twin.reference_images[0]);
+        setPortraitPreview(twin.reference_images[0]);
+        setPreSelectedReference(twin.reference_images[0]);
+      }
+      if (twin.face_description) setCharacterDescription(twin.face_description);
+      shouldEnableLipSync = true;
+      setEnableLipSync(true);
+      setLipSyncModel('infinitetalk');
+    }
+    
+    // Auto-detect voice
+    let resolvedVoice = selectedVoice;
+    if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+      if (aiTwins.length > 0) {
+        const twin = aiTwins[0];
+        const twinGender = (twin as any).gender?.toLowerCase() || '';
+        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
+        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
+        if (detectedVoice) resolvedVoice = detectedVoice;
+      }
+      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
+        resolvedVoice = detectGenderVoice(quickTopic + ' ' + characterDescription) || 'English_Trustworth_Man';
+      }
+    }
+    setSelectedVoice(resolvedVoice);
+    
+    if (abortRef.current.signal.aborted) return;
+    
+    // Generate scripts (will generate 1 scene due to selectedSceneCount)
+    const generatedScenes = await generateScripts();
+    if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
+    
+    // Take only the first scene
+    const testScene = [{
+      ...generatedScenes[0],
+      isIntro: false,
+      isOutro: false,
+      isSilentCTA: false
+    }];
+    
+    setProject(prev => ({ ...prev, scenes: testScene }));
+    
+    // Generate video for just this one scene
+    await generateVideo({ 
+      forceEnableLipSync: shouldEnableLipSync, 
+      forceLipSyncModel: activeLipSyncModel, 
+      scenesOverride: testScene 
+    });
+  };
+
   const resetProject = () => {
     // Cleanup blob URL
     if (project.videoBlobUrl) {
@@ -2922,18 +2997,29 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </div>
                     )}
 
-                    <Button
-                      onClick={() => generateQuickMode(topic)}
-                      disabled={!topic.trim()}
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 h-12 text-base"
-                      size="lg"
-                    >
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Make My Reel ⚡
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => generateQuickModeTest(topic)}
+                        disabled={!topic.trim()}
+                        variant="outline"
+                        className="flex-1 h-12 text-sm border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <Play className="w-4 h-4 mr-1" />
+                        Test 1 Scene
+                      </Button>
+                      <Button
+                        onClick={() => generateQuickMode(topic)}
+                        disabled={!topic.trim()}
+                        className="flex-[2] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 h-12 text-base"
+                        size="lg"
+                      >
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Make Full Reel ⚡
+                      </Button>
+                    </div>
 
                     <p className="text-center text-[10px] text-muted-foreground">
-                      Takes ~2-4 minutes depending on scene count. You can switch to Easy or Advanced mode for more control.
+                      Test 1 Scene generates a single clip to preview quality. Make Full Reel produces all 4 scenes.
                     </p>
                   </div>
                 </CardContent>
@@ -4317,12 +4403,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
                   {/* Model Selection */}
                   <div className="space-y-2">
-                    <Label>Lip Sync Model</Label>
+                    <Label>Video Model</Label>
                     <div className="p-2.5 rounded-md bg-muted/50 border border-border text-sm font-medium text-foreground">
-                      🎙️ InfiniteTalk Fast
+                      🎬 Wan 2.5 I2V (480p Test)
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Fast, precise lip sync with natural head/body motion. Up to 10min. Cost-effective and best all-round choice for Reels & Stories.
+                      Fast image-to-video at 480p for testing. TTS audio overlaid by stitcher. Switch to higher quality model when ready for production.
                     </p>
                   </div>
 
@@ -4333,7 +4419,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       : 'bg-destructive/10 text-destructive border border-destructive/30'
                   }`}>
                     {enableLipSync && portraitPreview 
-                      ? '🎭 Lip sync ON — speaking scenes will use InfiniteTalk Fast with your character portrait'
+                      ? '🎭 Lip sync ON — speaking scenes will use Wan 2.5 with your character portrait + TTS overlay'
                       : enableLipSync && !portraitPreview
                       ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
                       : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
