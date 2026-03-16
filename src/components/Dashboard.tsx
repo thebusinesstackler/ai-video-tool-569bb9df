@@ -97,12 +97,22 @@ export const Dashboard = () => {
       // Fetch reels count for total videos
       const { data: reels, error: reelsError } = await supabase
         .from('reels')
-        .select('id')
-        .eq('user_id', currentUser.id);
+        .select('id, topic, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
 
       // Fetch movie projects count
       const { data: movieProjects, error: movieError } = await supabase
         .from('movie_projects')
+        .select('id, title, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // Fetch AI Twins count
+      const { data: aiTwins } = await supabase
+        .from('ai_twins')
         .select('id')
         .eq('user_id', currentUser.id);
 
@@ -117,10 +127,17 @@ export const Dashboard = () => {
       // Total videos = projects + reels + movie projects
       const totalVideos = (projects?.length || 0) + (reels?.length || 0) + (movieProjects?.length || 0);
 
+      // Build recent projects from all content types
+      const allRecent = [
+        ...(projects?.slice(0, 3).map(p => ({ id: p.id, title: p.title, created_at: p.created_at, model_type: p.model_type })) || []),
+        ...(reels?.map(r => ({ id: r.id, title: r.topic, created_at: r.created_at, model_type: 'reel' })) || []),
+        ...(movieProjects?.map(m => ({ id: m.id, title: m.title, created_at: m.created_at, model_type: 'movie' })) || []),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
+
       setStats({
         videosCount: totalVideos,
-        charactersCount: characters?.length || 0,
-        recentProjects: []
+        charactersCount: (characters?.length || 0) + (aiTwins?.length || 0),
+        recentProjects: allRecent
       });
     } catch (error) {
       console.error('Error loading stats:', error);
