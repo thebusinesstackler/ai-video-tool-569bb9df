@@ -381,6 +381,7 @@ const Reels = () => {
   const [selectedShotIndex, setSelectedShotIndex] = useState(0);
   const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3>(1); // 1=topic, 2=script review, 3=character+voice+generate
   const [detectedCharGender, setDetectedCharGender] = useState<'male' | 'female'>('male');
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   // Voice preview state
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
