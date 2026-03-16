@@ -27,16 +27,35 @@ const MALE_VOICES = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'C
 const FEMALE_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
 
 function cleanTextForTTS(text: string): string {
-  return text
-    .replace(/[""]/g, '"')
-    .replace(/['']/g, "'")
-    .replace(/…/g, '...')
-    .replace(/\.(\s|$)/g, '—$1')
-    .replace(/–/g, '—')
-    .replace(/\s+/g, ' ')
-    .replace(/(\b\w+\b)\s+\1\b/gi, '$1')
-    .replace(/,([A-Za-z])/g, ', $1')
-    .trim();
+  if (!text) return '';
+  let c = text;
+  // Stage directions
+  c = c.replace(/\([^)]*\)/g, '');
+  c = c.replace(/\[[^\]]*\]/g, '');
+  c = c.replace(/\*[^*]*\*/g, '');
+  // Em-dashes, en-dashes, double-hyphens → comma (prevents 4s silences)
+  c = c.replace(/—/g, ', ');
+  c = c.replace(/–/g, ', ');
+  c = c.replace(/--/g, ', ');
+  // Ellipses → period
+  c = c.replace(/…/g, '.');
+  c = c.replace(/\.{2,}/g, '.');
+  // Smart quotes
+  c = c.replace(/[""]/g, '"');
+  c = c.replace(/['']/g, "'");
+  // Semicolons/colons → comma
+  c = c.replace(/;/g, ',');
+  c = c.replace(/:(?!\d)/g, ',');
+  // Repeated words
+  c = c.replace(/(\b\w+\b)\s+\1\b/gi, '$1');
+  // Missing space after comma
+  c = c.replace(/,([A-Za-z])/g, ', $1');
+  // Collapse duplicate punctuation
+  c = c.replace(/,{2,}/g, ',');
+  c = c.replace(/\.{2,}/g, '.');
+  c = c.replace(/,\s*\./g, '.');
+  c = c.replace(/\s+/g, ' ').trim();
+  return c;
 }
 
 async function pollWaveSpeedResult(taskId: string, apiKey: string, maxAttempts: number = 60): Promise<string | null> {
