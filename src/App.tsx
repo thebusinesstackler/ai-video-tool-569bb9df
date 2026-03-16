@@ -59,8 +59,8 @@ const App = () => (
             <Route path="/ai-twin" element={<ProtectedRoute><AITwin /></ProtectedRoute>} />
             <Route path="/testimonial-commercial" element={<ProtectedRoute><TestimonialCommercial /></ProtectedRoute>} />
             <Route path="/ai-spokesperson" element={<ProtectedRoute><AISpokesperson /></ProtectedRoute>} />
-            <Route path="/videos" element={<ProtectedRoute><Videos /></ProtectedRoute>} />
-            <Route path="/commercial-studio" element={<ProtectedRoute><CommercialStudio /></ProtectedRoute>} />
+            <Route path="/videos" element={<Navigate to="/reels" replace />} />
+            <Route path="/commercial-studio" element={<Navigate to="/testimonial-commercial" replace />} />
             <Route path="/hook-engine" element={<ProtectedRoute><HookEngine /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
