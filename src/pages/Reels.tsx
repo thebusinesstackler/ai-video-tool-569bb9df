@@ -479,7 +479,7 @@ const Reels = () => {
   const [showDraftRecoveryBanner, setShowDraftRecoveryBanner] = useState(false);
   const [draftAge, setDraftAge] = useState('');
 
-  // Check for draft on mount
+  // Auto-restore draft on mount
   useEffect(() => {
     if (draftRestoredRef.current) return;
     
@@ -488,8 +488,70 @@ const Reels = () => {
     if (source === 'movie-scene') return;
     
     if (hasDraft()) {
-      setDraftAge(getDraftAge());
-      setShowDraftRecoveryBanner(true);
+      // Auto-restore the draft immediately instead of showing a banner
+      const draft = loadDraft();
+      if (draft) {
+        draftRestoredRef.current = true;
+
+        setTopic(draft.topic || '');
+        setSelectedSceneCount(draft.selectedSceneCount || '4');
+        setSelectedSceneDuration(draft.selectedSceneDuration || '12');
+        setSelectedVoice(draft.selectedVoice || '');
+        setSelectedVideoSize(draft.selectedVideoSize || '9:16');
+        setTransitionStyle((draft.transitionStyle as any) || 'crossfade');
+        setHookStyle(draft.hookStyle || 'auto');
+        setCharacterDescription(draft.characterDescription || '');
+        setPreSelectedReference(draft.preSelectedReference);
+        setSelectedTwinId(draft.selectedTwinId);
+        setSelectedIntro(draft.selectedIntro || 'none');
+        setSelectedOutro(draft.selectedOutro || 'none');
+        setIntroText(draft.introText || '');
+        setOutroText(draft.outroText || '');
+        setEnableCutScenes(draft.enableCutScenes || false);
+        setEnableLipSync(draft.enableLipSync || false);
+        setPortraitImage(draft.portraitImage);
+        setFeatureToggles(draft.featureToggles || {
+          introOutro: false,
+          cutScenes: false,
+          upscaler: false,
+          lipSync: false,
+          captions: true,
+          backgroundMusic: false
+        });
+
+        if (draft.project) {
+          setProject({
+            topic: draft.project.topic || '',
+            scenes: draft.project.scenes || [],
+            voiceovers: draft.project.voiceovers || [],
+            videoUrl: null,
+            videoBlobUrl: null,
+            generatedScenes: draft.project.generatedScenes || [],
+            videoClips: draft.project.videoClips || [],
+            previewScenes: draft.project.previewScenes || [],
+            status: 'idle'
+          });
+        }
+
+        if (draft.strategist) {
+          setStrategistState(draft.strategist);
+        }
+
+        // Restore beginner step based on progress
+        if (isBeginner) {
+          const hasScenes = (draft.project?.scenes?.length || 0) > 0;
+          const hasCharacter = !!draft.portraitImage || !!draft.selectedTwinId;
+          if (hasCharacter) {
+            setBeginnerStep(3);
+          } else if (hasScenes) {
+            setBeginnerStep(2);
+          } else {
+            setBeginnerStep(1);
+          }
+        }
+
+        notifyDraftRestored();
+      }
     }
   }, []);
 
