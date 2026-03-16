@@ -353,7 +353,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Mic className="w-5 h-5 text-primary" />
-          Narrator Voice
+          Character Voice
           <Badge variant="outline" className="ml-auto text-xs bg-primary/10 text-primary border-primary/30">
             <Sparkles className="w-3 h-3 mr-1" />
             My Voices
