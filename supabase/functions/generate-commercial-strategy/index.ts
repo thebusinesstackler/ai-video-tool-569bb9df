@@ -794,8 +794,8 @@ All descriptions and prompts MUST include:
 1. Every commercial tells ONE story with a clear PAS emotional arc
 2. B-roll must directly illustrate what's being said AND feature the product with cinematic quality
 3. Character descriptions include full cinematography specs for every scene
-4. Scripts use ellipses (...) and em dashes (—), NEVER periods
-5. Camera angles should VARY between scenes — no two consecutive identical angles
+4. Scripts use commas for breathing pauses and periods for stops. NEVER use ellipsis or em dashes.
+5. Camera angles should VARY between scenes. No two consecutive identical angles.
 6. Lighting should SHIFT with the emotional arc (cool/dramatic for problem, warm/bright for solution)
 7. EVERY commercial MUST start with a HOOK and include B-roll
 8. When in doubt, DO MORE — regenerate, fix, improve. You're the director.
