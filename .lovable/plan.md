@@ -1,36 +1,33 @@
 
+# Simplify Movie Scene Creator — AI-First, One-Click UX
 
-## Plan: Embed Winning Commercial Case Studies into Loop AI's Training Prompt
+## Status: ✅ Implemented
 
-**Goal**: Inject the Dollar Shave Club and Old Spice strategic breakdowns directly into the system prompt as reference examples, so Loop AI learns from proven winners and applies those patterns when creating commercials.
+## Changes Made
 
-### What Changes
+### 1. Hero "Make My Movie" CTA (Step 1)
+- Replaced complex multi-panel layout with single hero card: textarea + "Make My Movie ✨" button
+- Quick Start chips styled as pill buttons below textarea
+- Pete AI, character selection, movie length moved into "Advanced Options" collapsible
 
-**1. Add "Case Study Library" section to the system prompt** (`supabase/functions/generate-commercial-strategy/index.ts`)
+### 2. Ungated generateAll
+- Removed `selectedTwins.length >= 1` requirement — works with zero twins
+- Character descriptions derived from story bible when no twins selected
 
-Insert a new `## 🏆 WINNING COMMERCIAL CASE STUDIES` section into `buildSystemPrompt()` (after the Golden Rules, before the segment context). This section includes:
+### 3. Simplified KeyframeSceneCard
+- Default view: title, description (2 lines), start frame image, video preview, single "Generate Scene ✨" button
+- Dialogue shown as read-only summary
+- All manual controls (prompts, camera angles, positions, lighting, mood, transitions) hidden behind "Customize" collapsible
+- Removed 3-tab navigation (Keyframes/Audio/Settings)
 
-- **Dollar Shave Club** — Pattern-interrupt hook via directness + humor, PAS through calling out overpriced razors → absurd features → simple $1/month solution, single authentic founder as consistent character, warehouse walk-through as continuous B-roll, benefit-driven CTA
-- **Old Spice** — Fourth-wall-breaking hook addressing the *purchaser* (not the user), aspirational PAS (your man isn't this → but he could smell like this), seamless scene transitions as visual velocity, implicit CTA via memorable punchline
+### 4. Simplified Header
+- Reduced to: Title + Save button + overflow menu (⋮) with New/Load/Transfer to Reels
 
-Each case study is distilled into ~8-10 lines covering: Hook technique, PAS execution, Emotional lever, Pacing style, CTA approach, and a **"Apply This When..."** directive telling Loop AI when to use each pattern.
+### 5. Steps 2 & 3 Simplified
+- Step 2 (Story Bible): Read-only summary with "Looks good, continue →" CTA; voice assignments in collapsible
+- Step 3 (Outline): Read-only formatted text by default with "Edit" toggle; "Generate Scenes" as hero CTA
 
-**2. Add "Strategic Patterns" reference table**
-
-A concise lookup that maps common commercial types to the best-fit case study pattern:
-
-- **Disruptor/startup product** → Dollar Shave Club pattern (humor + directness + price comparison)
-- **Brand revitalization / aspirational** → Old Spice pattern (fourth-wall break + aspiration + absurdist pacing)
-- **Tech/productivity SaaS** → Hybrid (DSC directness + Old Spice visual velocity)
-- **Luxury/lifestyle** → Old Spice emotional aspiration + cinematic slow reveals
-
-**3. Reinforce in the JSON generation instructions**
-
-Add a line in the storyboard JSON section: "Before generating, identify which winning pattern (DSC-disruptor, OldSpice-aspirational, or hybrid) best fits this product and audience, then apply that pattern's hook style, PAS cadence, and CTA approach."
-
-### Files Modified
-- `supabase/functions/generate-commercial-strategy/index.ts` — add ~60 lines to system prompt with case studies + pattern matching directive
-
-### What This Achieves
-Loop AI will reference real-world proven strategies when building storyboards, producing commercials that mirror the structural and emotional techniques of billion-dollar campaigns rather than generic template output.
-
+### 6. Step 4 Simplified
+- Clean header: "Your Movie" + "Build & Download" button
+- Bulk actions in overflow menu instead of collapsible
+- Removed per-scene Coverage & Blocking from default view
