@@ -15,6 +15,8 @@ import { Sparkles, Film, ChevronRight, ChevronLeft, ChevronDown, Save, FolderOpe
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
+import { sanitizeForTTS } from '@/lib/audioSanitizer';
+import { useScriptAutoSave } from '@/hooks/useScriptAutoSave';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
