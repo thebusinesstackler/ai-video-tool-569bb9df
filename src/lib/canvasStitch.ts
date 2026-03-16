@@ -4,6 +4,8 @@
 interface CanvasStitchOptions {
   videoUrls: string[];
   audioUrls?: string[];
+  /** Indices into videoUrls that have embedded audio to extract */
+  embeddedAudioIndices?: number[];
   width?: number;
   height?: number;
   onProgress?: (percent: number) => void;
