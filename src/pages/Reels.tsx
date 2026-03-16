@@ -2002,9 +2002,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               }
               // Merge new voiceovers with existing ones (no mutation)
               const mergedAudios = [...sortedAudios, ...newVoiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
-              // Replace sortedAudios reference for downstream use
-              sortedAudios.length = 0;
-              sortedAudios.push(...mergedAudios);
+              // Replace sortedAudios for downstream use (immutable)
+              sortedAudios.splice(0, sortedAudios.length, ...mergedAudios);
             }
             
             // Only include audio for scenes that need overlay (non-VEO 3 scenes)
@@ -2029,10 +2028,21 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
             
             console.log('[Stitch] Embedded audio indices:', embeddedAudioIndices, 'Overlay audio count:', audioUrlsForStitch.length);
             
+            // Map selectedVideoSize to pixel dimensions
+            const sizeMap: Record<string, [number, number]> = {
+              '9:16': [1080, 1920],
+              '1:1': [1080, 1080],
+              '16:9': [1920, 1080],
+              '4:5': [1080, 1350],
+            };
+            const [stitchWidth, stitchHeight] = sizeMap[selectedVideoSize] || [1080, 1920];
+            
             const finalBlob = await canvasStitchVideos({
               videoUrls,
               audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
               embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+              width: stitchWidth,
+              height: stitchHeight,
               onProgress: (p) => {
                 setProgress(75 + Math.round(p * 0.2));
                 setProgressStatus(`Stitching... ${Math.round(p)}%`);
@@ -2872,9 +2882,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         } catch (cloudErr) {
           console.warn('Cloud stitch failed, falling back to canvas:', cloudErr);
           setProgressStatus('Falling back to local stitching...');
+          const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+          const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
           stitchedBlob = await canvasStitchVideos({
             videoUrls,
             audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+            width: sw, height: sh,
             onProgress: (percent) => {
               setProgress(40 + percent * 0.5);
               setProgressStatus(`Stitching... ${Math.round(percent)}%`);
@@ -2883,9 +2896,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           });
         }
       } else {
+        const sizeMap2: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+        const [sw2, sh2] = sizeMap2[selectedVideoSize] || [1080, 1920];
         stitchedBlob = await canvasStitchVideos({
           videoUrls,
           audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+          width: sw2, height: sh2,
           onProgress: (percent) => {
             setProgress(40 + percent * 0.5);
             setProgressStatus(`Stitching... ${Math.round(percent)}%`);
@@ -2900,10 +2916,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       
       if (user) {
         try {
-          const fileName = `${user.id}/${Date.now()}-stitched.mp4`;
+          const isWebm = stitchedBlob.type.includes('webm');
+          const ext = isWebm ? 'webm' : 'mp4';
+          const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('reels')
-            .upload(fileName, stitchedBlob, { contentType: 'video/mp4' });
+            .upload(fileName, stitchedBlob, { contentType: stitchedBlob.type || 'video/webm' });
           if (!uploadError && uploadData) {
             const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
             savedVideoUrl = publicUrl.publicUrl;

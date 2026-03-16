@@ -93,11 +93,21 @@ async function generateClonedVoiceTTS(
 }
 
 async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempts: number = 60): Promise<string | null> {
+  const timeout = 90_000; // 90 second total timeout
+  const startTime = Date.now();
   for (let i = 0; i < maxAttempts; i++) {
+    if (Date.now() - startTime > timeout) {
+      console.error(`WaveSpeed TTS polling timed out after ${timeout}ms`);
+      return null;
+    }
     try {
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 10_000);
       const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
         headers: { 'Authorization': `Bearer ${apiKey}` },
+        signal: controller.signal,
       });
+      clearTimeout(fetchTimeout);
       if (!response.ok) { await new Promise(r => setTimeout(r, 1000)); continue; }
       const data = await response.json();
       if (data.code === 200 && data.data) {
@@ -106,7 +116,12 @@ async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempt
         } else if (data.data.status === 'failed') return null;
       }
       await new Promise(r => setTimeout(r, 1000));
-    } catch { await new Promise(r => setTimeout(r, 1000)); }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        console.warn('WaveSpeed poll request timed out, retrying...');
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
   return null;
 }
@@ -287,6 +302,10 @@ serve(async (req) => {
         } else {
           resolvedVoice = 'English_Trustworth_Man';
         }
+      } else if (!WAVESPEED_VOICES.includes(voice)) {
+        // Unknown voice ID — fall back to default
+        console.warn(`Unknown voice ID "${voice}", falling back to English_Trustworth_Man`);
+        resolvedVoice = 'English_Trustworth_Man';
       }
       
       const result = await generateWaveSpeedTTS(text, waveSpeedApiKey, resolvedVoice, validatedSpeed);

@@ -90,11 +90,15 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     videoUrls, 
     audioUrls = [], 
     embeddedAudioIndices = [],
-    width = 1080, 
-    height = 1920, 
+    width: inputWidth, 
+    height: inputHeight, 
     onProgress, 
     onStatus 
   } = options;
+
+  // Default to 9:16 portrait (1080x1920), but respect caller-specified dimensions
+  const width = inputWidth || 1080;
+  const height = inputHeight || 1920;
 
   if (!videoUrls || videoUrls.length === 0) {
     throw new Error('No video URLs provided');

@@ -60,8 +60,6 @@ export const Dashboard = () => {
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // Force component re-render to clear any cached errors
-  const componentKey = `dashboard-${Date.now()}`;
 
   useEffect(() => {
     if (user) {
@@ -180,7 +178,7 @@ export const Dashboard = () => {
   }
 
   return (
-    <div key={componentKey} className="space-y-8 animate-slide-in">{/* Force re-render */}
+    <div className="space-y-8 animate-slide-in">
       {/* Hero Section */}
       <div className="relative overflow-hidden rounded-2xl glass">
         <div 
@@ -197,9 +195,11 @@ export const Dashboard = () => {
               and automated production using the latest VEO3 technology.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button variant="hero" size="lg">
-                <PlayIcon className="w-5 h-5" />
-                Start Creating
+              <Button variant="hero" size="lg" asChild>
+                <Link to="/reels">
+                  <PlayIcon className="w-5 h-5" />
+                  Start Creating
+                </Link>
               </Button>
             </div>
           </div>
