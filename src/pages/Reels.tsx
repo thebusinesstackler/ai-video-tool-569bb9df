@@ -2066,9 +2066,15 @@ const Reels = () => {
         const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
         if (topicVoice) resolvedVoice = topicVoice;
       }
-      // Final fallback
-      if (resolvedVoice === 'ai-auto') resolvedVoice = 'English_magnetic_voiced_man';
+      // Final fallback — check characterDescription for gender clues before defaulting
+      if (resolvedVoice === 'ai-auto') {
+        const descVoice = detectGenderVoice(characterDescription);
+        resolvedVoice = descVoice || 'English_Trustworth_Man';
+      }
     }
+    
+    // Write resolved voice back to state so generateVideo uses it
+    setSelectedVoice(resolvedVoice);
 
     if (abortRef.current.signal.aborted) return;
     
