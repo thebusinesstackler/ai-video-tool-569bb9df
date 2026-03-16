@@ -3701,7 +3701,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           return (
                             <div
                               key={twin.id}
-                              onClick={() => {
+                              onClick={async () => {
                                 if (isGenerating) return;
                                 setSelectedTwinId(twin.id);
                                 if (twin.reference_images?.[0]) {
