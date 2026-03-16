@@ -121,7 +121,7 @@ export function LoopAIDirector({
     if (prevSegmentsLenRef.current > 0 && segments.length === 0 && messages.length === 0) {
       const greeting: Message = {
         role: 'assistant',
-        content: "🎬 **Fresh canvas!** What are we building?\n\nTell me the **product**, **audience**, and **vibe** — I'll create your full storyboard. Or try:\n- *\"30s TikTok ad for a protein bar aimed at gym bros\"*\n- *\"Luxury skincare testimonial, calm & elegant\"*\n- *\"High-energy product launch for a tech gadget\"*"
+        content: "🎬 **The Ultimate Video Pro is here!** Fresh canvas — let's build something incredible.\n\nTell me the **product**, **audience**, and **vibe** — I'll architect a full PAS-framework storyboard with cinematic camera angles, lighting, and pacing built in. Or try:\n- *\"30s testimonial for a fitness app targeting busy moms\"*\n- *\"15s TikTok ad for luxury candles, warm & dreamy vibes\"*\n- *\"60s YouTube ad for an AI calendar, modern & techy\"*\n\nI'll handle the strategy, scripts, camera work, character casting, and voice direction — you just bring the vision 🔥"
       };
       setMessages([greeting]);
     }
