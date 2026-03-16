@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, VolumeX, CheckCircle2, Sparkles, Plus } from 'lucide-react';
+import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, VolumeX, CheckCircle2, Sparkles, Plus, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { CommercialSegment } from '@/types/testimonialCommercial';
@@ -135,6 +135,7 @@ export function LoopAIDirector({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showAIContext, setShowAIContext] = useState(false);
   const prevSegmentsLenRef = useRef(segments.length);
 
   // Auto-greet on new project (segments cleared + no chat history)
@@ -976,6 +977,137 @@ export function LoopAIDirector({
     }]);
   };
 
+  // Extract payload builder so both the send handler and debug panel use the same data
+  const buildAIPayload = useCallback(() => {
+    const speakingSegs = segments.filter(s => s.type === 'speaking');
+    const brollSegs = segments.filter(s => s.type === 'broll');
+    const uniqueActorDescs = new Set(speakingSegs.map(s => s.character?.twinId || s.character?.description).filter(Boolean));
+
+    const projectSummary = {
+      totalSegments: segments.length,
+      speakingCount: speakingSegs.length,
+      brollCount: brollSegs.length,
+      totalDuration: segments.reduce((s, seg) => s + seg.duration, 0),
+      targetDuration: parseInt(targetDuration),
+      videosReady: segments.filter(s => s.videoUrl).length,
+      audiosReady: segments.filter(s => s.audioUrl).length,
+      charactersReady: speakingSegs.filter(s => s.character?.referenceImages?.length).length,
+      uniqueActors: uniqueActorDescs.size,
+      hasMusic: false,
+      productImagesInUse: segments.filter(s => s.productImageUrl).length,
+    };
+
+    const currentSegments = segments.length > 0 ? (() => {
+      const speakingSegments = segments.filter(seg => seg.type === 'speaking');
+      return segments.map((s, index) => {
+        let typeNum = 0;
+        for (let j = 0; j <= index; j++) {
+          if (segments[j].type === s.type) typeNum++;
+        }
+        let narrativeRole = '';
+        if (s.type === 'speaking') {
+          const speakIdx = speakingSegments.indexOf(s);
+          if (speakIdx === 0) narrativeRole = 'HOOK';
+          else if (speakIdx === speakingSegments.length - 1) narrativeRole = 'CTA';
+          else if (speakIdx === 1) narrativeRole = 'PROBLEM/STORY';
+          else narrativeRole = 'PROOF/SOLUTION';
+        }
+        const scriptText = s.type === 'speaking' ? (s.script || '') : '';
+        const voText = s.voiceoverText || '';
+        const wordCount = (scriptText || voText).split(/\s+/).filter(Boolean).length;
+        const expectedDuration = Math.ceil(wordCount / 2.5);
+        const durationMismatch = wordCount > 0 && Math.abs(expectedDuration - s.duration) > 2;
+
+        const missingAssets: string[] = [];
+        if (s.type === 'speaking') {
+          if (!s.character?.description) missingAssets.push('no character description');
+          if (!s.character?.referenceImages?.length) missingAssets.push('no character images');
+          if (!s.audioUrl) missingAssets.push('no audio/voiceover');
+          if (!s.videoUrl) missingAssets.push('no video');
+          if (!scriptText) missingAssets.push('no script');
+        } else {
+          if (!(s.brollImages?.length)) missingAssets.push('no B-roll preview images');
+          if (!s.brollPrompts?.length) missingAssets.push('no B-roll prompts');
+          if (!voText) missingAssets.push('no voiceover text');
+          if (!s.videoUrl) missingAssets.push('no video');
+        }
+
+        return {
+          index,
+          type: s.type,
+          typeNumber: typeNum,
+          narrativeRole,
+          duration: s.duration,
+          transition: s.transition,
+          script: scriptText,
+          voiceoverText: voText,
+          brollPrompts: s.brollPrompts,
+          brollImageUrls: s.brollImages || [],
+          wordCount,
+          expectedDuration,
+          durationMismatch,
+          missingAssets,
+          character: s.character ? {
+            name: s.character.name || '',
+            description: s.character.description,
+            gender: s.character.gender || '',
+            hasImages: (s.character.referenceImages?.length || 0) > 0,
+            imageCount: s.character.referenceImages?.length || 0,
+            referenceImageUrls: (s.character.referenceImages || []).slice(0, 2),
+          } : undefined,
+          hasBrollImages: (s.brollImages?.length || 0) > 0,
+          hasProductImage: !!s.productImageUrl,
+          hasAudio: !!s.audioUrl,
+          hasVideo: !!s.videoUrl,
+          audioUrl: s.audioUrl ? '✅ present' : undefined,
+          videoUrl: s.videoUrl ? '✅ present' : undefined,
+          voiceoverId: s.voiceoverId || '',
+          status: s.status,
+        };
+      });
+    })() : undefined;
+
+    const timelineIssues = segments.length > 0 ? (() => {
+      const issues: { sceneIndex: number; sceneLabel: string; problems: string[] }[] = [];
+      let consecutiveSpeaking = 0;
+      segments.forEach((s, i) => {
+        const problems: string[] = [];
+        const typeNum = segments.slice(0, i + 1).filter(seg => seg.type === s.type).length;
+        const label = s.type === 'speaking' ? `Scene #${typeNum}` : `B-Roll #${typeNum}`;
+
+        if (s.type === 'speaking') {
+          consecutiveSpeaking++;
+          if (!s.character?.description) problems.push('Missing character description');
+          if (!s.character?.referenceImages?.length) problems.push('No character reference images — cannot generate video');
+          if (!s.audioUrl) problems.push('No audio generated');
+          if (!s.videoUrl) problems.push('No video generated');
+          if (!s.script) problems.push('Empty script');
+          const wc = (s.script || '').split(/\s+/).filter(Boolean).length;
+          if (wc > s.duration * 3) problems.push(`Script too long: ${wc} words for ${s.duration}s (max ~${Math.floor(s.duration * 2.5)} words)`);
+          if (wc > 0 && wc < s.duration * 1.5) problems.push(`Script too short: ${wc} words for ${s.duration}s (aim for ~${Math.floor(s.duration * 2.5)} words)`);
+        } else {
+          if (consecutiveSpeaking >= 3) problems.push(`Preceded by ${consecutiveSpeaking} consecutive speaking scenes — add B-roll for visual variety`);
+          consecutiveSpeaking = 0;
+          if (!(s.brollImages?.length)) problems.push('No B-roll preview image');
+          if (!s.brollPrompts?.length) problems.push('No B-roll prompt set');
+          if (!s.voiceoverText) problems.push('No voiceover text — scene will be silent');
+        }
+        if (problems.length > 0) issues.push({ sceneIndex: i, sceneLabel: label, problems });
+      });
+      if (consecutiveSpeaking >= 3) {
+        issues.push({ sceneIndex: -1, sceneLabel: 'Overall', problems: [`Ends with ${consecutiveSpeaking} consecutive speaking scenes — consider adding B-roll`] });
+      }
+      const transitions = segments.map(s => s.transition);
+      const uniqueTransitions = new Set(transitions);
+      if (segments.length > 3 && uniqueTransitions.size === 1) {
+        issues.push({ sceneIndex: -1, sceneLabel: 'Overall', problems: [`All ${segments.length} segments use "${transitions[0]}" transition — vary transitions for better flow`] });
+      }
+      return issues.length > 0 ? issues : undefined;
+    })() : undefined;
+
+    return { projectSummary, currentSegments, timelineIssues };
+  }, [segments, targetDuration]);
+
   const handleSendWithMessage = async (msg: string) => {
     if (!msg.trim() || isLoading) return;
     if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
@@ -989,6 +1121,19 @@ export function LoopAIDirector({
     let assistantContent = '';
 
     try {
+      const { projectSummary, currentSegments, timelineIssues } = buildAIPayload();
+
+      // Build messages array with a context override to prevent hallucination from stale history
+      const outgoingMessages = [
+        ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+        // Inject override right before user message so AI prioritizes live data
+        {
+          role: 'system' as const,
+          content: `⚠️ CONTEXT OVERRIDE — The following currentSegments data is the LIVE state of the timeline as of RIGHT NOW. Ignore any previous descriptions of scripts, scenes, or character details from earlier in this conversation — they may be outdated. ONLY reference the data provided in currentSegments and projectSummary for the current state of the project.`
+        },
+        { role: 'user', content: msg },
+      ];
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-commercial-strategy`,
         {
@@ -998,133 +1143,11 @@ export function LoopAIDirector({
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: msg }],
+            messages: outgoingMessages,
             targetDuration: parseInt(targetDuration),
-            projectSummary: (() => {
-              const speakingSegs = segments.filter(s => s.type === 'speaking');
-              const brollSegs = segments.filter(s => s.type === 'broll');
-              const uniqueActorDescs = new Set(speakingSegs.map(s => s.character?.twinId || s.character?.description).filter(Boolean));
-              return {
-                totalSegments: segments.length,
-                speakingCount: speakingSegs.length,
-                brollCount: brollSegs.length,
-                totalDuration: segments.reduce((s, seg) => s + seg.duration, 0),
-                targetDuration: parseInt(targetDuration),
-                videosReady: segments.filter(s => s.videoUrl).length,
-                audiosReady: segments.filter(s => s.audioUrl).length,
-                charactersReady: speakingSegs.filter(s => s.character?.referenceImages?.length).length,
-                uniqueActors: uniqueActorDescs.size,
-                hasMusic: false,
-                productImagesInUse: segments.filter(s => s.productImageUrl).length,
-              };
-            })(),
-            currentSegments: segments.length > 0 ? (() => {
-              const speakingSegments = segments.filter(seg => seg.type === 'speaking');
-              return segments.map((s, index) => {
-                let typeNum = 0;
-                for (let j = 0; j <= index; j++) {
-                  if (segments[j].type === s.type) typeNum++;
-                }
-                let narrativeRole = '';
-                if (s.type === 'speaking') {
-                  const speakIdx = speakingSegments.indexOf(s);
-                  if (speakIdx === 0) narrativeRole = 'HOOK';
-                  else if (speakIdx === speakingSegments.length - 1) narrativeRole = 'CTA';
-                  else if (speakIdx === 1) narrativeRole = 'PROBLEM/STORY';
-                  else narrativeRole = 'PROOF/SOLUTION';
-                }
-                const scriptText = s.type === 'speaking' ? (s.script || '') : '';
-                const voText = s.voiceoverText || '';
-                const wordCount = (scriptText || voText).split(/\s+/).filter(Boolean).length;
-                const expectedDuration = Math.ceil(wordCount / 2.5);
-                const durationMismatch = wordCount > 0 && Math.abs(expectedDuration - s.duration) > 2;
-
-                const missingAssets: string[] = [];
-                if (s.type === 'speaking') {
-                  if (!s.character?.description) missingAssets.push('no character description');
-                  if (!s.character?.referenceImages?.length) missingAssets.push('no character images');
-                  if (!s.audioUrl) missingAssets.push('no audio/voiceover');
-                  if (!s.videoUrl) missingAssets.push('no video');
-                  if (!scriptText) missingAssets.push('no script');
-                } else {
-                  if (!(s.brollImages?.length)) missingAssets.push('no B-roll preview images');
-                  if (!s.brollPrompts?.length) missingAssets.push('no B-roll prompts');
-                  if (!voText) missingAssets.push('no voiceover text');
-                  if (!s.videoUrl) missingAssets.push('no video');
-                }
-
-                return {
-                  index,
-                  type: s.type,
-                  typeNumber: typeNum,
-                  narrativeRole,
-                  duration: s.duration,
-                  transition: s.transition,
-                  script: scriptText,
-                  voiceoverText: voText,
-                  brollPrompts: s.brollPrompts,
-                  brollImageUrls: s.brollImages || [],
-                  wordCount,
-                  expectedDuration,
-                  durationMismatch,
-                  missingAssets,
-                  character: s.character ? {
-                    name: s.character.name || '',
-                    description: s.character.description,
-                    gender: s.character.gender || '',
-                    hasImages: (s.character.referenceImages?.length || 0) > 0,
-                    imageCount: s.character.referenceImages?.length || 0,
-                    referenceImageUrls: (s.character.referenceImages || []).slice(0, 2),
-                  } : undefined,
-                  hasBrollImages: (s.brollImages?.length || 0) > 0,
-                  hasProductImage: !!s.productImageUrl,
-                  hasAudio: !!s.audioUrl,
-                  hasVideo: !!s.videoUrl,
-                  audioUrl: s.audioUrl ? '✅ present' : undefined,
-                  videoUrl: s.videoUrl ? '✅ present' : undefined,
-                  voiceoverId: s.voiceoverId || '',
-                  status: s.status,
-                };
-              });
-            })() : undefined,
-            timelineIssues: segments.length > 0 ? (() => {
-              const issues: { sceneIndex: number; sceneLabel: string; problems: string[] }[] = [];
-              let consecutiveSpeaking = 0;
-              segments.forEach((s, i) => {
-                const problems: string[] = [];
-                const typeNum = segments.slice(0, i + 1).filter(seg => seg.type === s.type).length;
-                const label = s.type === 'speaking' ? `Scene #${typeNum}` : `B-Roll #${typeNum}`;
-
-                if (s.type === 'speaking') {
-                  consecutiveSpeaking++;
-                  if (!s.character?.description) problems.push('Missing character description');
-                  if (!s.character?.referenceImages?.length) problems.push('No character reference images — cannot generate video');
-                  if (!s.audioUrl) problems.push('No audio generated');
-                  if (!s.videoUrl) problems.push('No video generated');
-                  if (!s.script) problems.push('Empty script');
-                  const wc = (s.script || '').split(/\s+/).filter(Boolean).length;
-                  if (wc > s.duration * 3) problems.push(`Script too long: ${wc} words for ${s.duration}s (max ~${Math.floor(s.duration * 2.5)} words)`);
-                  if (wc > 0 && wc < s.duration * 1.5) problems.push(`Script too short: ${wc} words for ${s.duration}s (aim for ~${Math.floor(s.duration * 2.5)} words)`);
-                } else {
-                  if (consecutiveSpeaking >= 3) problems.push(`Preceded by ${consecutiveSpeaking} consecutive speaking scenes — add B-roll for visual variety`);
-                  consecutiveSpeaking = 0;
-                  if (!(s.brollImages?.length)) problems.push('No B-roll preview image');
-                  if (!s.brollPrompts?.length) problems.push('No B-roll prompt set');
-                  if (!s.voiceoverText) problems.push('No voiceover text — scene will be silent');
-                }
-                if (problems.length > 0) issues.push({ sceneIndex: i, sceneLabel: label, problems });
-              });
-              if (consecutiveSpeaking >= 3) {
-                issues.push({ sceneIndex: -1, sceneLabel: 'Overall', problems: [`Ends with ${consecutiveSpeaking} consecutive speaking scenes — consider adding B-roll`] });
-              }
-              // Check transition variety
-              const transitions = segments.map(s => s.transition);
-              const uniqueTransitions = new Set(transitions);
-              if (segments.length > 3 && uniqueTransitions.size === 1) {
-                issues.push({ sceneIndex: -1, sceneLabel: 'Overall', problems: [`All ${segments.length} segments use "${transitions[0]}" transition — vary transitions for better flow`] });
-              }
-              return issues.length > 0 ? issues : undefined;
-            })() : undefined,
+            projectSummary,
+            currentSegments,
+            timelineIssues,
           }),
         }
       );
@@ -1411,6 +1434,17 @@ export function LoopAIDirector({
           >
             {voiceEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
           </Button>
+          {segments.length > 0 && (
+            <Button
+              variant={showAIContext ? 'default' : 'outline'}
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={() => setShowAIContext(!showAIContext)}
+              title={showAIContext ? 'Hide AI context' : 'Show what Loop AI sees'}
+            >
+              {showAIContext ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </Button>
+          )}
           {messages.length > 0 && (
             <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={clearChat}>
               Clear
@@ -1432,6 +1466,66 @@ export function LoopAIDirector({
           </div>
         </div>
       </div>
+
+      {/* AI Context Debug Panel */}
+      {showAIContext && segments.length > 0 && (() => {
+        const { projectSummary, currentSegments, timelineIssues } = buildAIPayload();
+        return (
+          <div className="border-b border-border/50 bg-muted/30 px-4 py-3 max-h-[300px] overflow-y-auto">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Eye className="h-3 w-3" /> What Loop AI Sees
+            </div>
+
+            {/* Dashboard */}
+            <div className="bg-background/60 rounded-md border border-border/40 p-2 mb-2">
+              <div className="text-[10px] font-semibold mb-1">📊 Project Dashboard</div>
+              <div className="text-[10px] text-muted-foreground leading-relaxed">
+                {projectSummary.totalSegments} segments ({projectSummary.speakingCount} speaking, {projectSummary.brollCount} B-roll) | {projectSummary.totalDuration}s / {projectSummary.targetDuration}s target | {projectSummary.charactersReady}/{projectSummary.speakingCount} chars ready | {projectSummary.audiosReady}/{projectSummary.totalSegments} audio | {projectSummary.videosReady}/{projectSummary.totalSegments} video | {projectSummary.uniqueActors} unique actor{projectSummary.uniqueActors !== 1 ? 's' : ''}
+              </div>
+            </div>
+
+            {/* Per-scene data */}
+            {currentSegments && (
+              <div className="space-y-1.5 mb-2">
+                <div className="text-[10px] font-semibold">🎬 Live Scene Data</div>
+                {currentSegments.map((seg: any) => (
+                  <div key={seg.index} className="bg-background/60 rounded border border-border/40 p-2">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Badge variant={seg.type === 'speaking' ? 'default' : 'secondary'} className="text-[8px] h-4 px-1.5">
+                        {seg.type === 'speaking' ? `Scene #${seg.typeNumber}` : `B-Roll #${seg.typeNumber}`}
+                      </Badge>
+                      {seg.narrativeRole && <span className="text-[8px] font-medium text-primary">{seg.narrativeRole}</span>}
+                      <span className="text-[8px] text-muted-foreground ml-auto">{seg.duration}s | {seg.wordCount}w</span>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground line-clamp-2 leading-snug">
+                      {seg.script || seg.voiceoverText || seg.brollPrompts?.[0] || '(empty)'}
+                    </p>
+                    {seg.missingAssets.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {seg.missingAssets.map((a: string, i: number) => (
+                          <span key={i} className="text-[7px] bg-destructive/10 text-destructive rounded px-1 py-0.5">{a}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Issues */}
+            {timelineIssues && timelineIssues.length > 0 && (
+              <div>
+                <div className="text-[10px] font-semibold mb-1">⚠️ Detected Issues</div>
+                {timelineIssues.map((issue: any, i: number) => (
+                  <div key={i} className="text-[9px] text-destructive/80 mb-0.5">
+                    <span className="font-medium">{issue.sceneLabel}:</span> {issue.problems.join('; ')}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
