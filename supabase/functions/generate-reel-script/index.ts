@@ -646,56 +646,30 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
   return description;
 }
 
-// AGGRESSIVE TTS formatter - converts ALL periods to prevent "s" sound artifacts
+// TTS sanitizer - removes problematic punctuation that causes TTS artifacts
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
-  // First normalize special characters
-  let text = narration
+  return narration
     // Normalize curly apostrophes to straight
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
-    // Normalize Unicode ellipsis (…) directly to em dash
-    .replace(/\u2026/g, '—');
-  
-  return text
-    // FIRST: Handle greeting and transition phrases WITH their trailing punctuation
-    // This captures "Hey everyone..," or "Let me tell you," and formats with em dash
-    .replace(/(Hey everyone|Hey there|Hello everyone|Hi everyone|Welcome back|Hey guys|Hey folks|But here's the thing|And here's the truth|Here's what I mean|Now imagine|Think about it|And here's why|Here's the problem|The truth is|Let me tell you|You see|Well|So here's|Now here's|But wait)[,:\.\s]*/gi, '$1—\n\n')
-    
-    // SECOND: Convert existing ellipses to em dash (remove any period after)
-    .replace(/\.{2,}\s*/g, '—\n\n')
-    
-    // THIRD: Convert sentence-ending periods to em dashes
-    // But NOT if preceded by another period (to avoid hitting ellipses)
-    .replace(/([^.])\.(\s|$)/g, '$1—\n\n')
-    
-    // Convert commas before conjunctions to em dashes for breath pauses
-    .replace(/,\s+(and|but|so|because|or|if|when|while)\b/gi, '—\n\n$1')
-    
-    // Add line breaks after question marks
-    .replace(/\?\s+/g, '?\n\n')
-    
-    // Add line breaks after exclamation marks  
-    .replace(/!\s+/g, '!\n\n')
-    
-    // CLEANUP: Remove leading punctuation from lines (orphaned commas, etc)
-    .replace(/\n\n[,;:\s]+/g, '\n\n')
-    
-    // Clean up double em dashes
-    .replace(/—\s*—/g, '—')
-    
-    // Ensure proper formatting around em dashes
-    .replace(/\s*—\s*/g, '—\n\n')
-    
-    // Clean up ellipses followed by em dashes (..—)
-    .replace(/\.+—/g, '—')
-    
-    // Clean up multiple line breaks
-    .replace(/\n{3,}/g, '\n\n')
-    
+    // Replace em dashes with commas (prevents 4-second silences)
+    .replace(/\u2014/g, ',')
+    .replace(/—/g, ',')
+    .replace(/--/g, ',')
+    // Replace ellipses with commas (prevents long pauses)
+    .replace(/\u2026/g, ',')
+    .replace(/\.{2,}/g, ',')
+    // Replace sentence-ending periods with commas (prevents "s" sound artifacts)
+    .replace(/\.(\s|$)/g, ',$1')
+    // Clean up double/triple commas
+    .replace(/,\s*,+/g, ',')
+    // Clean up comma at start of text
+    .replace(/^,\s*/, '')
     // Clean up multiple spaces
     .replace(/  +/g, ' ')
-    
+    // Clean up excessive newlines
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
