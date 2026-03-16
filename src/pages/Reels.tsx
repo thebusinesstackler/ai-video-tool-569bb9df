@@ -1930,7 +1930,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         const sortedVideos = completedVideos
           .filter(v => v.videoUrl && v.videoUrl.trim() !== '')
           .sort((a, b) => a.sceneNumber - b.sceneNumber);
-        const sortedAudios = voiceovers.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        const sortedAudios = [...voiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
         
         if (sortedVideos.length === 0) {
           throw new Error('All video scenes failed to generate. Please try again.');
