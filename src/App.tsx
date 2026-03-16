@@ -50,9 +50,9 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/movie-scene-creator" element={<ProtectedRoute><MovieSceneCreator /></ProtectedRoute>} />
             <Route path="/movies" element={<ProtectedRoute><Movies /></ProtectedRoute>} />
-            <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
+            <Route path="/scripts" element={<Navigate to="/reels" replace />} />
             <Route path="/characters" element={<ProtectedRoute><Characters /></ProtectedRoute>} />
-            <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
+            <Route path="/projects" element={<Navigate to="/reels" replace />} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
             <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
