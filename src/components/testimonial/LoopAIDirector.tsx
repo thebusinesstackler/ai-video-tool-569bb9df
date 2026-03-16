@@ -1391,7 +1391,54 @@ export function LoopAIDirector({
 
     // Auto-save to DB
     setTimeout(() => onSaveToDb(), 500);
+
+    // Auto-generate all assets (characters + B-roll) with progress
+    setTimeout(() => autoGenerateAssets(newSegments), 1000);
   };
+
+  const autoGenerateAssets = async (segs: CommercialSegment[]) => {
+    const speakingSegs = segs.filter(s => s.type === 'speaking' && s.character?.description);
+    const brollSegs = segs.filter(s => s.type === 'broll' && s.brollPrompts?.[0]);
+    const total = speakingSegs.length + brollSegs.length;
+    if (total === 0) return;
+
+    let current = 0;
+    setAutoGenProgress({ current: 0, total, label: 'Generating characters...' });
+
+    setMessages(prev => [...prev, {
+      role: 'system-action' as const,
+      content: `🎨 Auto-generating ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''} and ${brollSegs.length} B-roll preview${brollSegs.length !== 1 ? 's' : ''}...`
+    }]);
+
+    // Generate characters first
+    for (const seg of speakingSegs) {
+      try {
+        setAutoGenProgress({ current, total, label: `Generating character ${current + 1}/${speakingSegs.length}...` });
+        await onGenerateCharacter(seg.id, seg.character!.description);
+      } catch (e) {
+        console.error('Auto-gen character failed:', e);
+      }
+      current++;
+      setAutoGenProgress({ current, total, label: current < speakingSegs.length ? `Generating character ${current + 1}/${speakingSegs.length}...` : 'Generating B-roll previews...' });
+    }
+
+    // Then B-roll previews
+    for (const seg of brollSegs) {
+      try {
+        setAutoGenProgress({ current, total, label: `Generating B-roll ${current - speakingSegs.length + 1}/${brollSegs.length}...` });
+        await onGenerateBrollPreview(seg.id, seg.brollPrompts![0]);
+      } catch (e) {
+        console.error('Auto-gen B-roll failed:', e);
+      }
+      current++;
+      setAutoGenProgress({ current, total, label: `Generating B-roll ${Math.min(current - speakingSegs.length + 1, brollSegs.length)}/${brollSegs.length}...` });
+    }
+
+    setAutoGenProgress(null);
+    setMessages(prev => [...prev, {
+      role: 'system-action' as const,
+      content: `✅ All assets generated — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''} and ${brollSegs.length} B-roll preview${brollSegs.length !== 1 ? 's' : ''} ready. Review the timeline and let me know what to adjust.`
+    }]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
