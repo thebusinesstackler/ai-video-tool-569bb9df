@@ -1084,11 +1084,11 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
     
     try {
-      // Fetch all columns including scenes for completed reels (needed for scene count + thumbnails)
-      // Exclude draft_state which can be very large
+      // Exclude scenes and draft_state which can contain massive base64 data (50MB+)
+      // Scene count is derived from scenes JSON length on-demand when editing
       const { data, error } = await supabase
         .from('reels')
-        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, caption_settings, audio_url, is_draft, scenes')
+        .select('id, topic, video_url, thumbnail_url, total_duration, created_at, caption_settings, audio_url, is_draft')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
