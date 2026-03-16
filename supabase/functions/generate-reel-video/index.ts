@@ -445,7 +445,59 @@ serve(async (req) => {
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
-        if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
+        if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
+          // ====== INFINITETALK: Audio-driven lip sync (up to 10 min) ======
+          // Takes portrait image + audio URL, produces video with embedded lip-synced audio
+          // Duration auto-matches the audio length — no cap needed
+          console.log(`Scene ${scene.sceneNumber}: Using InfiniteTalk for lip-sync narrator scene`);
+          
+          // We need an audio URL for infinitetalk
+          let sceneAudioUrl = audioUrl;
+          
+          // If audio is base64, upload to storage first
+          if (sceneAudioUrl && sceneAudioUrl.startsWith('data:') && supabase) {
+            try {
+              const base64Match = sceneAudioUrl.match(/^data:([^;]+);base64,(.+)$/);
+              if (base64Match) {
+                const audioBytes = base64ToUint8Array(base64Match[2]);
+                const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}-tts.mp3`;
+                const { error: audioUploadError } = await supabase.storage
+                  .from('reels')
+                  .upload(audioFileName, audioBytes, { contentType: base64Match[1], upsert: true });
+                
+                if (!audioUploadError) {
+                  const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
+                  sceneAudioUrl = audioPublicUrl.publicUrl;
+                  console.log(`Scene ${scene.sceneNumber}: Uploaded base64 audio to storage: ${sceneAudioUrl}`);
+                }
+              }
+            } catch (audioUploadErr) {
+              console.error(`Scene ${scene.sceneNumber}: Failed to upload audio to storage:`, audioUploadErr);
+            }
+          }
+          
+          if (!sceneAudioUrl) {
+            console.warn(`Scene ${scene.sceneNumber}: No audio URL for InfiniteTalk, falling back to Kling`);
+            // Fall through to kling fallback below
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
+            const klingDuration = clipDuration <= 7 ? 5 : 10;
+            requestBody = {
+              image: imageUrl,
+              prompt: `${scene.visualDescription}. ${charContext} ${topicContext} Natural expression, cinematic quality. No text.`,
+              duration: klingDuration
+            };
+            sceneHasEmbeddedAudio = false;
+          } else {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
+            requestBody = {
+              image: imageUrl,
+              audio: sceneAudioUrl,
+            };
+            sceneHasEmbeddedAudio = true; // InfiniteTalk embeds audio in the video
+            console.log(`Scene ${scene.sceneNumber}: InfiniteTalk request — image + audio, duration will match audio length`);
+          }
+          
+        } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
           // ====== WAN 2.5 VIDEO EXTEND: Two-step pipeline ======
           // Step 1: Generate a short base video from image using wan-2.1-i2v
           // Step 2: Extend it with video-extend using AI super-prompted narration
