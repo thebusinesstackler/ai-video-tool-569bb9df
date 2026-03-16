@@ -174,6 +174,7 @@ export function LoopAIDirector({
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showAIContext, setShowAIContext] = useState(false);
+  const [autoGenProgress, setAutoGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const prevSegmentsLenRef = useRef(segments.length);
 
   // Auto-greet on new project (segments cleared + no chat history)
