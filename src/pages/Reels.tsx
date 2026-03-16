@@ -1051,13 +1051,17 @@ const Reels = () => {
 
     try {
       // Build scenes data from preview scenes or project scenes
+      // Build scenes data - merge videoClip URLs when available
+      const videoClipMap = new Map(project.videoClips.map(v => [v.sceneNumber, v.videoUrl]));
+      const voiceoverMap = new Map(project.voiceovers.map(v => [v.sceneNumber, { url: v.storageUrl || v.audioUrl, duration: v.duration }]));
+      
       const scenesData = previewScenes.length > 0
         ? previewScenes.map((scene) => ({
             sceneNumber: scene.sceneNumber,
             text: scene.narration,
             imageUrl: scene.imageUrl,
-            videoUrl: null,
-            audioUrl: scene.audioUrl,
+            videoUrl: videoClipMap.get(scene.sceneNumber) || null,
+            audioUrl: scene.audioUrl || voiceoverMap.get(scene.sceneNumber)?.url || null,
             startTime: 0,
             endTime: scene.audioDuration
           }))
@@ -1066,8 +1070,8 @@ const Reels = () => {
               sceneNumber: scene.sceneNumber,
               text: scene.narration,
               imageUrl: scene.imageUrl,
-              videoUrl: null,
-              audioUrl: scene.audioUrl,
+              videoUrl: videoClipMap.get(scene.sceneNumber) || null,
+              audioUrl: scene.audioUrl || voiceoverMap.get(scene.sceneNumber)?.url || null,
               startTime: 0,
               endTime: scene.audioDuration
             }))
@@ -1075,7 +1079,7 @@ const Reels = () => {
               sceneNumber: scene.sceneNumber,
               text: scene.text,
               imageUrl: scene.imageUrl,
-              videoUrl: scene.videoUrl || null,
+              videoUrl: videoClipMap.get(scene.sceneNumber) || scene.videoUrl || null,
               startTime: scene.startTime,
               endTime: scene.endTime
             }));
