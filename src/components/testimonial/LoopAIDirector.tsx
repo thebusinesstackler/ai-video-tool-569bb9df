@@ -1811,6 +1811,42 @@ export function LoopAIDirector({
               </div>
             )}
 
+            {/* Confirmation interceptor — Approve & Generate button */}
+            {pendingGeneration && !autoGenProgress && (
+              <div className="flex gap-3">
+                <div className="mt-0.5"><LoopAvatar /></div>
+                <div className="bg-muted/80 rounded-xl rounded-bl-sm px-3.5 py-3 border border-primary/30 w-full max-w-[320px]">
+                  <p className="text-xs text-muted-foreground mb-2.5">
+                    {pendingGeneration.filter(s => s.type === 'speaking').length} characters + {pendingGeneration.filter(s => s.type === 'broll').length} B-roll clips ready to generate.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={approveAndGenerate}
+                    >
+                      <Zap className="h-3 w-3" />
+                      Approve & Generate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        setPendingGeneration(null);
+                        setMessages(prev => [...prev, {
+                          role: 'system-action' as const,
+                          content: '⏸️ Generation skipped. You can edit the storyboard first, then tell me "generate everything" when ready.'
+                        }]);
+                      }}
+                    >
+                      Skip
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Auto-generation progress bar */}
             {autoGenProgress && (
               <div className="flex gap-3">
