@@ -24,7 +24,16 @@ serve(async (req) => {
   }
 
   try {
-    const { action, taskId, videoUrl, mode = '2x', userId } = await req.json() as UpscaleRequest;
+    const body = await req.json() as UpscaleRequest;
+    const { action, taskId, videoUrl, mode = '2x', userId } = body;
+
+    // Validate video URL size for base64 payloads
+    if (videoUrl && videoUrl.startsWith('data:') && videoUrl.length > 50_000_000) {
+      return new Response(JSON.stringify({ error: 'Video too large. Maximum size is ~37MB. Please use a smaller video.' }), {
+        status: 413,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Status check for async task
     if (action === 'status' && taskId) {
