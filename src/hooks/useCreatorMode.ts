@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 
-export type CreatorMode = 'beginner' | 'advanced';
+export type CreatorMode = 'quick' | 'beginner' | 'advanced';
 
 export function useCreatorMode() {
   const { session } = useAuth();
@@ -44,7 +44,6 @@ export function useCreatorMode() {
     if (!userId) return;
 
     try {
-      // Upsert preference
       const { error } = await supabase
         .from('user_preferences')
         .upsert(
@@ -60,6 +59,7 @@ export function useCreatorMode() {
 
   const isAdvanced = mode === 'advanced';
   const isBeginner = mode === 'beginner';
+  const isQuick = mode === 'quick';
 
-  return { mode, setMode, isAdvanced, isBeginner, loading };
+  return { mode, setMode, isAdvanced, isBeginner, isQuick, loading };
 }
