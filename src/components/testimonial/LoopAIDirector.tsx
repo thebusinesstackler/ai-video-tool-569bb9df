@@ -1307,11 +1307,22 @@ export function LoopAIDirector({
           <div className="space-y-4">
             {messages.map((msg, i) => {
               if (msg.role === 'system-action') {
+                // Check if this is a segment reference with an image
+                const imgMatch = msg.content.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+                const textContent = msg.content.replace(/!\[.*?\]\([^\)]+\)/g, '').trim();
                 return (
                   <div key={i} className="flex justify-center">
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2 max-w-[90%]">
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      <span>{msg.content}</span>
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-4 py-2.5 text-xs font-medium max-w-[90%]">
+                      <div className="flex items-start gap-2">
+                        {imgMatch ? (
+                          <img src={imgMatch[1]} alt="Scene reference" className="w-12 h-12 rounded object-cover shrink-0 border border-border/30" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                        )}
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-xs [&>p]:mb-1 [&>p]:leading-relaxed">
+                          <ReactMarkdown>{textContent}</ReactMarkdown>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
