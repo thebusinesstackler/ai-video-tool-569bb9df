@@ -1675,7 +1675,7 @@ export function LoopAIDirector({
             </div>
             <h3 className="text-lg font-bold mb-1">Loop AI Director</h3>
             <p className="text-xs text-muted-foreground max-w-[280px] mb-6 leading-relaxed">
-              Hey, I'm your creative director — here to help you build amazing commercials. Tell me about your product and I'll set up the whole thing — actors, scripts, B-roll, transitions. Need changes? Just tell me — I've got you—
+              I'm your creative director. Tell me about your product and I'll build the full commercial: storyboard, actors, B-roll, voiceovers, everything. Need changes? Just say the word.
             </p>
             <div className="flex flex-col gap-2 w-full max-w-[320px]">
               {[
