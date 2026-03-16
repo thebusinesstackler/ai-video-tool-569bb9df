@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import heroImage from '@/assets/hero-image.jpg';
-import { isDevPreview } from '@/lib/devBypass';
+
 
 const quickActions = [
   { 
