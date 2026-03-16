@@ -2188,7 +2188,9 @@ const Reels = () => {
     if (abortRef.current.signal.aborted) return;
     
     // Generate scripts — strip any intro/outro flags to ensure all scenes are narrator scenes
-    const generatedScenes = await generateScripts();
+    // Pass character description override to avoid stale React state
+    const twinCharDesc = aiTwins.length > 0 ? (aiTwins[0].face_description || '') : characterDescription;
+    const generatedScenes = await generateScripts({ characterDescriptionOverride: twinCharDesc, topicOverride: quickTopic });
     if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
     
     // Force all scenes to be narrator scenes (remove isIntro/isOutro/isSilentCTA)
