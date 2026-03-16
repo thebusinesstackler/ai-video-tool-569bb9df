@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, VolumeX, CheckCircle2, Sparkles, Plus, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Send, Mic, MicOff, Clock, Clapperboard, Play, Volume2, VolumeX, CheckCircle2, Sparkles, Plus, Eye, EyeOff, Zap } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { CommercialSegment } from '@/types/testimonialCommercial';
