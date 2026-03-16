@@ -2341,11 +2341,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }]);
           setSelectedTwinId(twinData.id);
           
-          // Update portrait to use the stored URL
-          if (storedImageUrls[0]) {
-            setPortraitImage(storedImageUrls[0]);
-            setPortraitPreview(storedImageUrls[0]);
-            setPreSelectedReference(storedImageUrls[0]);
+          // Update portrait and shots to use stored URLs
+          if (storedImageUrls.length > 0) {
+            const selectedUrl = storedImageUrls[selectedShotIndex] || storedImageUrls[0];
+            setPortraitImage(selectedUrl);
+            setPortraitPreview(selectedUrl);
+            setPreSelectedReference(selectedUrl);
+            // Update shots with stored URLs
+            setGeneratedCharacterShots(storedImageUrls.map((url, idx) => ({
+              label: ANGLE_PROMPTS[idx]?.label || `Shot ${idx + 1}`,
+              url
+            })));
           }
           
           toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created and saved as AI Twin.` });
