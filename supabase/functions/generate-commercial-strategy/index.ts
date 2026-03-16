@@ -824,7 +824,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, targetDuration, currentSegments, timelineIssues, projectSummary } = await req.json();
+    const { messages, targetDuration, currentSegments, timelineIssues, projectSummary, visualPresets } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -832,7 +832,14 @@ serve(async (req) => {
     }
 
     const dur = targetDuration || 30;
-    const segmentContext = buildSegmentContext(currentSegments, timelineIssues, projectSummary);
+    let segmentContext = buildSegmentContext(currentSegments, timelineIssues, projectSummary);
+    
+    // Append user's saved visual presets for dynamic suggestions
+    if (visualPresets && Array.isArray(visualPresets) && visualPresets.length > 0) {
+      const presetLines = visualPresets.map((p: any) => `- "${p.name}": Camera: ${p.camera_angle}, Lighting: ${p.lighting_style}`).join('\n');
+      segmentContext += `\n\n## 🎨 User's Saved Visual Presets\nThe user has saved these camera/lighting presets. Reference them by name when suggesting angles or lighting:\n${presetLines}\n\nWhen suggesting camera angles or lighting, prefer the user's saved presets over generic ones. Say "I'd use your '${visualPresets[0].name}' preset here" instead of generic descriptions.`;
+    }
+    
     const systemPrompt = buildSystemPrompt(dur, segmentContext);
 
     const allMessages = [
