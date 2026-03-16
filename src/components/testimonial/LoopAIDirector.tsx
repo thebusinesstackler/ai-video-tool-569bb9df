@@ -31,7 +31,7 @@ type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle' | 'generateVideo' | 'extendClip' | 'productSwapFromLibrary' | 'generateBrollVoiceover' | 'duplicateScene' | 'reorderScene' | 'videoDiagnostic';
     sceneIndex?: number | 'all';
     sceneIndices?: number[];
     changes?: Record<string, any>;
@@ -45,6 +45,9 @@ interface EditAction {
     mood?: string;
     sourceSceneIndex?: number;
     targetSceneIndices?: number[];
+    fromIndex?: number;
+    toIndex?: number;
+    productName?: string;
   }>;
 }
 
