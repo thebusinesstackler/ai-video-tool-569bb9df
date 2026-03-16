@@ -445,11 +445,20 @@ export function LoopAIDirector({
 
       switch (edit.action) {
         case 'update': {
+          const audioRegenQueue: { seg: CommercialSegment; sceneIndex: number }[] = [];
           for (const sceneIndex of targetIndexes) {
             const seg = segments[sceneIndex];
             const changes: Partial<CommercialSegment> = {};
             if (typeof edit.changes?.duration === 'number') changes.duration = edit.changes.duration;
-            if (typeof edit.changes?.script === 'string') changes.script = edit.changes.script;
+            if (typeof edit.changes?.script === 'string') {
+              changes.script = edit.changes.script;
+              // When script changes, clear old audio so it gets regenerated
+              if (edit.changes.script !== seg.script) {
+                changes.audioUrl = undefined;
+                changes.voiceoverId = undefined;
+                audioRegenQueue.push({ seg, sceneIndex });
+              }
+            }
             if (Array.isArray(edit.changes?.brollPrompts)) changes.brollPrompts = edit.changes.brollPrompts;
             if (typeof edit.changes?.transition === 'string' && ['fade-in', 'cut', 'crossfade'].includes(edit.changes.transition)) {
               changes.transition = edit.changes.transition as CommercialSegment['transition'];
@@ -466,6 +475,19 @@ export function LoopAIDirector({
             if (Object.keys(changes).length > 0) {
               onUpdateSegment(seg.id, changes);
               editSummary.push(`Updated scene ${sceneIndex + 1}`);
+            }
+          }
+          // Auto-regenerate voiceovers sequentially for changed scripts
+          if (audioRegenQueue.length > 0) {
+            editSummary.push(`🎙️ Regenerating voiceovers for ${audioRegenQueue.length} updated scene${audioRegenQueue.length > 1 ? 's' : ''}...`);
+            // Run sequentially with delays to prevent audio overlap
+            for (let qi = 0; qi < audioRegenQueue.length; qi++) {
+              const { seg, sceneIndex } = audioRegenQueue[qi];
+              const newScript = edit.changes?.script || seg.script || '';
+              const charDesc = seg.character?.description || '';
+              // Delay subsequent calls to avoid audio overlap
+              if (qi > 0) await new Promise(r => setTimeout(r, 2000));
+              await previewAudio(newScript, seg.id, charDesc);
             }
           }
           break;
