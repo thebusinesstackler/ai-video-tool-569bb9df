@@ -2922,18 +2922,29 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </div>
                     )}
 
-                    <Button
-                      onClick={() => generateQuickMode(topic)}
-                      disabled={!topic.trim()}
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 h-12 text-base"
-                      size="lg"
-                    >
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Make My Reel ⚡
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => generateQuickModeTest(topic)}
+                        disabled={!topic.trim()}
+                        variant="outline"
+                        className="flex-1 h-12 text-sm border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <Play className="w-4 h-4 mr-1" />
+                        Test 1 Scene
+                      </Button>
+                      <Button
+                        onClick={() => generateQuickMode(topic)}
+                        disabled={!topic.trim()}
+                        className="flex-[2] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 h-12 text-base"
+                        size="lg"
+                      >
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Make Full Reel ⚡
+                      </Button>
+                    </div>
 
                     <p className="text-center text-[10px] text-muted-foreground">
-                      Takes ~2-4 minutes depending on scene count. You can switch to Easy or Advanced mode for more control.
+                      Test 1 Scene generates a single clip to preview quality. Make Full Reel produces all 4 scenes.
                     </p>
                   </div>
                 </CardContent>
