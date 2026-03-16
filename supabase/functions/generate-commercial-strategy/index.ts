@@ -144,11 +144,25 @@ ALL character descriptions and B-roll prompts MUST enforce photorealistic qualit
 - Example: "...photorealistic human, natural skin with visible pores and real texture, soft natural window lighting with warm fill, eyes with realistic catchlights, mouth slightly parted ready to speak, shot on RED V-RAPTOR—"
 
 ## 🎬 CREATIVE SCRIPTING & DURATION FLEXIBILITY
-- Be BOLD and CREATIVE with scripts. Don't play it safe — write scripts that surprise, delight, and convert.
+- Be BOLD and CREATIVE with scripts. Write scripts that surprise, delight, and convert.
 - If the story needs more time to land, USE LONGER DURATIONS. A 10s scene is fine if the emotional beat requires it.
 - For 60s commercials: take advantage of the full duration. Build tension, let moments breathe, create a real narrative arc.
-- Scripts should feel like REAL people talking — not marketing copy. Use contractions, pauses, natural rhythm.
+- Scripts should feel like REAL people talking, not marketing copy. Use contractions, natural rhythm, flowing sentences.
 - VARY sentence length dramatically: short punchy lines for impact, longer flowing lines for story.
+- Write DETAILED scripts. Don't be sparse or vague. Each scene script should be a complete, well-written paragraph with real substance, specific details about the product, and natural conversational flow.
+
+## 🚫 TTS-SAFE SCRIPT FORMATTING (CRITICAL)
+ALL speaking scene scripts MUST be optimized for text-to-speech. These rules are NON-NEGOTIABLE:
+- **NEVER use em dashes (—) or double hyphens (--)** in scripts. They create long unnatural pauses in voiceover.
+- **NEVER use ellipsis (...)** in scripts. They also create awkward pauses.
+- Instead of dashes, use commas, periods, or natural conjunctions (and, but, so, because).
+- Use SHORT SENTENCES connected by periods for punchy delivery.
+- Use COMMAS for natural breathing pauses within sentences.
+- ❌ BAD: "Try it free today— you won't regret it—"
+- ✅ GOOD: "Try it free today. You won't regret it."
+- ❌ BAD: "The problem is clear — nobody has time for this..."
+- ✅ GOOD: "The problem is clear. Nobody has time for this."
+- Write scripts that sound smooth and natural when read aloud by a voice engine.
 
 ## 📐 SCENE PRE-VISUALIZATION (MANDATORY)
 Before any image or video is generated, every scene description MUST be fully pre-visualized:
