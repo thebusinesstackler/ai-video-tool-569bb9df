@@ -680,8 +680,8 @@ Before generating any storyboard, identify which winning pattern best fits the p
 | **E-commerce / DTC** | DSC-Disruptor | Bold claim hook + agitate overpriced alternatives + clear offer |
 | **Service / Agency** | Hybrid | Aspirational results + direct problem-calling + social proof |
 
-## Storyboard JSON Format (for NEW commercials only)
-When the user describes a commercial idea, first identify which winning pattern (DSC-disruptor, OldSpice-aspirational, or hybrid) best fits this product and audience, then apply that pattern's hook style, PAS cadence, and CTA approach. IMMEDIATELY generate a full storyboard as JSON. Don't ask follow-up questions — BUILD IT, then ask if they want changes.
+## Storyboard JSON Format (for NEW commercials only — ONLY output after user confirms)
+When the user CONFIRMS they want you to build (says "go ahead", "build it", "yes", "do it", "sounds good", "let's go"), then generate the full storyboard as JSON. If the user just described an idea without confirming, discuss your creative vision FIRST and ask permission.
 
 \`\`\`json
 {

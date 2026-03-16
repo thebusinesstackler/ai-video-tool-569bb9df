@@ -222,10 +222,18 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment }: Timeli
                   </div>
 
                   <div className="px-1.5 py-1 space-y-0.5">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] font-medium truncate leading-tight">
                         {segment.type === 'broll' ? `B-Roll #${getTypeNumber(index)}` : `Scene #${getTypeNumber(index)}`}
                       </span>
+                      {getNarrativeLabel(index) && (
+                        <Badge 
+                          variant={getNarrativeLabel(index) === 'HOOK' ? 'default' : 'secondary'} 
+                          className="text-[7px] h-3.5 px-1 py-0 shrink-0"
+                        >
+                          {getNarrativeLabel(index)}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-muted-foreground">{segment.duration}s</span>
