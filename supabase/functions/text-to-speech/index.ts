@@ -227,7 +227,10 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { text, voice = 'English_Trustworth_Man', speed = 1, voiceCloningKey, speechifyVoiceId, gender } = await req.json();
+    const { text: rawText, voice = 'English_Trustworth_Man', speed = 1, voiceCloningKey, speechifyVoiceId, gender } = await req.json();
+
+    // Sanitize text before any TTS engine sees it
+    const text = sanitizeForTTS(rawText);
 
     if (!text || typeof text !== 'string') {
       return new Response(JSON.stringify({ error: 'Text is required' }),
