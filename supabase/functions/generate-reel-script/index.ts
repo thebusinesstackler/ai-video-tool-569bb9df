@@ -341,7 +341,11 @@ Each scene should be approximately ${finalSceneDuration} seconds when narrated.
 STORY FLOW (each scene MUST connect to the next):
 - Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
 - Scene 2-${sceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${sceneCount} (CLOSE): Deliver the payoff, conclusion, or call-to-action
+- Scene ${sceneCount} (CLOSE): Write a SPOKEN closing that naturally wraps up the topic. NOT just "Follow for more" — instead:
+  * Tie back to the hook promise ("Remember when I said X? Here's your next step...")
+  * Deliver a topic-specific takeaway the viewer can act on
+  * Weave the call-to-action into natural speech ("If you want more strategies like this... you know what to do—")
+  * The CTA should feel like a natural conclusion to the story, not a generic sign-off
 
 NARRATION REQUIREMENTS:
 - Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
