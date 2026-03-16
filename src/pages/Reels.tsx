@@ -4882,10 +4882,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               )}
                               <div className="ml-auto flex items-center gap-1.5">
                                 {actualDuration ? (
-                                  actualDuration > 8 ? (
-                                    <span className="text-xs font-medium text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-full flex items-center gap-1" title="Audio exceeds 8s video limit - will carry over to next clip">
+                                    actualDuration > 8 ? (
+                                    <span className="text-xs font-medium text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-full flex items-center gap-1" title="Long narration — InfiniteTalk will auto-match video length to audio">
                                       <Mic className="w-3 h-3" />
-                                      {actualDuration.toFixed(1)}s ⚠️
+                                      {actualDuration.toFixed(1)}s
                                     </span>
                                   ) : (
                                     <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full flex items-center gap-1">
