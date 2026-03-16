@@ -280,7 +280,8 @@ serve(async (req) => {
         requestBody = {
           image: params.imageUrls[0],
           audio: params.audioUrl,
-          duration: duration
+          duration: duration,
+          ...(params.prompt && { prompt: params.prompt })
         };
       } else if (params.model === 'wan-animate') {
         // WAN Animate model for character animation with lip sync
