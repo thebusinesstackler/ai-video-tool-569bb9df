@@ -49,7 +49,7 @@ const MALE_VOICES = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'C
 const FEMALE_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
 
 function isWaveSpeedVoice(voice: string): boolean {
-  return WAVESPEED_VOICES.includes(voice) || !voice.startsWith('en-');
+  return WAVESPEED_VOICES.includes(voice);
 }
 
 // Legacy Google mapping for cloned voice support

@@ -39,12 +39,21 @@ const GENDER_VOICE_POOLS = {
     { value: 'English_radiant_girl', label: 'Radiant Girl', desc: 'Bright & Energetic' },
     { value: 'Calm_Woman', label: 'Calm Woman', desc: 'Soothing & Relaxed' },
     { value: 'Inspirational_girl', label: 'Inspirational', desc: 'Motivational & Warm' },
+    { value: 'Lovely_Girl', label: 'Lovely Girl', desc: 'Sweet & Cheerful' },
+    { value: 'Lively_Girl', label: 'Lively Girl', desc: 'Upbeat & Dynamic' },
+    { value: 'Wise_Woman', label: 'Wise Woman', desc: 'Mature & Thoughtful' },
   ],
   male: [
     { value: 'English_magnetic_voiced_man', label: 'Magnetic Man', desc: 'Deep & Authoritative' },
     { value: 'English_Trustworth_Man', label: 'Trustworthy', desc: 'Warm & Reliable' },
     { value: 'Casual_Guy', label: 'Casual Guy', desc: 'Friendly & Natural' },
     { value: 'Deep_Voice_Man', label: 'Deep Voice', desc: 'Rich & Cinematic' },
+    { value: 'English_expressive_narrator', label: 'Expressive Narrator', desc: 'Dramatic & Storytelling' },
+    { value: 'English_Aussie_Bloke', label: 'Aussie Bloke', desc: 'Casual Australian' },
+    { value: 'Elegant_Man', label: 'Elegant Man', desc: 'Refined & Polished' },
+    { value: 'Determined_Man', label: 'Determined Man', desc: 'Strong & Driven' },
+    { value: 'Patient_Man', label: 'Patient Man', desc: 'Calm & Measured' },
+    { value: 'Decent_Boy', label: 'Decent Boy', desc: 'Young & Approachable' },
   ],
 };
 
