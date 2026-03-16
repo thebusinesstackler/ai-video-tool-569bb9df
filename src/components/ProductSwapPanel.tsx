@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Upload, Loader2, Wand2, X, FolderOpen, Trash2 } from 'lucide-react';
+import { Package, Upload, Loader2, Wand2, X, FolderOpen, Trash2, RefreshCw } from 'lucide-react';
 
 interface ProductSwapPanelProps {
   /** The character shot image URL to swap the product into */
@@ -14,6 +15,12 @@ interface ProductSwapPanelProps {
   characterDescription: string;
   /** Callback when the shot image is replaced with product-swapped version */
   onShotSwapped: (newImageUrl: string) => void;
+  /** All character shots for batch propagation */
+  allShots?: { label: string; url: string }[];
+  /** Callback to update all shots after batch swap */
+  onBatchSwapped?: (updatedShots: { label: string; url: string }[]) => void;
+  /** Index of the currently selected shot */
+  currentShotIndex?: number;
   disabled?: boolean;
 }
 
@@ -28,6 +35,9 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
   shotImageUrl,
   characterDescription,
   onShotSwapped,
+  allShots,
+  onBatchSwapped,
+  currentShotIndex = 0,
   disabled = false,
 }) => {
   const { user } = useAuth();
@@ -36,8 +46,11 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
 
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
+  const [productPrompt, setProductPrompt] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
+  const [isBatchSwapping, setIsBatchSwapping] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showLibrary, setShowLibrary] = useState(false);
 
   useEffect(() => {
@@ -68,7 +81,6 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
 
       const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
 
-      // Save to product library
       const { error: dbError } = await supabase.from('product_images').insert({
         user_id: user.id,
         image_url: publicUrl,
@@ -87,13 +99,29 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
     }
   };
 
+  const buildSwapPrompt = () => {
+    const basePrompt = productPrompt.trim()
+      ? `Replace the product/item the person is holding with: ${productPrompt.trim()}.`
+      : `Replace the product/item the person is holding with the product shown in the second reference image.`;
+    
+    return `${basePrompt}
+
+CRITICAL RULES — DO NOT VIOLATE:
+- Keep the ENTIRE scene EXACTLY identical: same person, same face, same pose, same clothing, same hand position, same background, same lighting, same colors, same composition.
+- ONLY change the product/object in the person's hand. Nothing else changes.
+- The new product must match the size, angle, and perspective of the original item being held.
+- Do NOT alter the person's expression, skin tone, hair, or any body part.
+- Do NOT change the background, lighting, shadows, or any environmental element.
+- The result should look like the SAME photo with ONLY the held item swapped.`;
+  };
+
   const handleSwap = async () => {
     if (!selectedProductUrl || !shotImageUrl) return;
     setIsSwapping(true);
     try {
       const { data, error } = await supabase.functions.invoke('edit-scene-image', {
         body: {
-          prompt: `Replace any product/item the person is holding with the product shown in the second reference image. Keep the person EXACTLY the same — same face, pose, clothing, lighting, and background. Only swap the product/item in their hand with the new product.`,
+          prompt: buildSwapPrompt(),
           referenceImages: [shotImageUrl, selectedProductUrl],
           characterDescription,
         }
@@ -101,7 +129,15 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
       if (error) throw error;
       if (data?.imageUrl) {
         onShotSwapped(data.imageUrl);
-        toast({ title: 'Product swapped! ✨', description: 'Character image updated with your product' });
+        toast({ title: 'Product swapped! ✨', description: 'Only the product was replaced — scene preserved.' });
+        
+        // Auto-propagate to other shots if available
+        if (allShots && allShots.length > 1 && onBatchSwapped) {
+          const shouldBatch = confirm(`Swap this product into all ${allShots.length - 1} other angle shots too?`);
+          if (shouldBatch) {
+            await handleBatchSwap(data.imageUrl);
+          }
+        }
       } else {
         throw new Error('No image returned');
       }
@@ -110,6 +146,50 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
     } finally {
       setIsSwapping(false);
     }
+  };
+
+  const handleBatchSwap = async (firstSwappedUrl?: string) => {
+    if (!selectedProductUrl || !allShots || !onBatchSwapped) return;
+    setIsBatchSwapping(true);
+    
+    const otherShots = allShots.filter((_, i) => i !== currentShotIndex);
+    setBatchProgress({ current: 0, total: otherShots.length });
+    
+    const updatedShots = [...allShots];
+    // If we already have the first swap result, update it
+    if (firstSwappedUrl) {
+      updatedShots[currentShotIndex] = { ...updatedShots[currentShotIndex], url: firstSwappedUrl };
+    }
+    
+    for (let i = 0; i < otherShots.length; i++) {
+      const shot = otherShots[i];
+      const originalIndex = allShots.findIndex(s => s === shot);
+      setBatchProgress({ current: i + 1, total: otherShots.length });
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('edit-scene-image', {
+          body: {
+            prompt: buildSwapPrompt(),
+            referenceImages: [shot.url, selectedProductUrl],
+            characterDescription,
+          }
+        });
+        
+        if (!error && data?.imageUrl) {
+          updatedShots[originalIndex] = { ...updatedShots[originalIndex], url: data.imageUrl };
+        }
+      } catch (err) {
+        console.error(`Batch swap failed for shot ${originalIndex}:`, err);
+      }
+    }
+    
+    onBatchSwapped(updatedShots);
+    setIsBatchSwapping(false);
+    setBatchProgress({ current: 0, total: 0 });
+    toast({ 
+      title: 'Product swapped across all shots! ✨', 
+      description: `Updated ${otherShots.length + 1} angle shots with your product.` 
+    });
   };
 
   const deleteProduct = async (id: string) => {
@@ -127,7 +207,7 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Package className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium">Product Image</span>
+          <span className="text-xs font-medium">Product Swap</span>
         </div>
         {productImages.length > 0 && (
           <Button
@@ -167,31 +247,69 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
         </div>
       )}
 
-      {/* Selected product preview + swap */}
+      {/* Selected product preview + prompt + swap */}
       {selectedProductUrl ? (
-        <div className="flex items-center gap-3">
-          <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0">
-            <img src={selectedProductUrl} alt="Product" className="w-full h-full object-cover" />
-            <button
-              className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
-              onClick={() => setSelectedProductUrl(null)}
-            >
-              <X className="h-2 w-2 text-white" />
-            </button>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0">
+              <img src={selectedProductUrl} alt="Product" className="w-full h-full object-cover" />
+              <button
+                className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
+                onClick={() => setSelectedProductUrl(null)}
+              >
+                <X className="h-2 w-2 text-white" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-1">
+              <Input
+                placeholder="Optional: describe the product (e.g. 'blue water bottle')"
+                value={productPrompt}
+                onChange={(e) => setProductPrompt(e.target.value)}
+                className="h-7 text-xs"
+                disabled={isSwapping || isBatchSwapping || disabled}
+              />
+            </div>
           </div>
-          <Button
-            size="sm"
-            className="gap-1 text-xs h-8 flex-1"
-            onClick={handleSwap}
-            disabled={isSwapping || disabled || !shotImageUrl}
-          >
-            {isSwapping ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Wand2 className="h-3 w-3" />
+          
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="gap-1 text-xs h-8 flex-1"
+              onClick={handleSwap}
+              disabled={isSwapping || isBatchSwapping || disabled || !shotImageUrl}
+            >
+              {isSwapping ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Wand2 className="h-3 w-3" />
+              )}
+              Swap Product
+            </Button>
+            
+            {allShots && allShots.length > 1 && onBatchSwapped && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 text-xs h-8"
+                onClick={() => handleBatchSwap()}
+                disabled={isSwapping || isBatchSwapping || disabled}
+                title="Swap product in all angle shots"
+              >
+                {isBatchSwapping ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                All ({allShots.length})
+              </Button>
             )}
-            Swap Product In
-          </Button>
+          </div>
+          
+          {isBatchSwapping && batchProgress.total > 0 && (
+            <p className="text-[10px] text-muted-foreground text-center">
+              Swapping {batchProgress.current}/{batchProgress.total} remaining shots...
+            </p>
+          )}
         </div>
       ) : (
         <div className="flex gap-2">
@@ -228,6 +346,10 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
           )}
         </div>
       )}
+      
+      <p className="text-[9px] text-muted-foreground leading-tight">
+        Only the held product is replaced — scene, person, pose & lighting stay identical.
+      </p>
     </div>
   );
 };
