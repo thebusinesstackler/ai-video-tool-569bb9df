@@ -34,6 +34,8 @@ export default function TestimonialCommercial() {
   const [chatOpen, setChatOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [focusedSegmentId, setFocusedSegmentId] = useState<string | null>(null);
+  const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
+  const resultCardRef = useRef<HTMLDivElement>(null);
 
   const {
     segments,
