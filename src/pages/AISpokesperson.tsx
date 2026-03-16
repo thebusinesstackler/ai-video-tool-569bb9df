@@ -26,14 +26,7 @@ import { VideoEditorPanel } from '@/components/VideoEditorPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 
-interface AITwin {
-  id: string;
-  name: string;
-  reference_images: string[];
-  voice_cloning_key: string | null;
-  face_description: string | null;
-  gender: string | null;
-}
+import type { AITwin } from '@/types/aiTwin';
 
 interface SceneDirection {
   type: 'speaking' | 'broll' | 'transition';
