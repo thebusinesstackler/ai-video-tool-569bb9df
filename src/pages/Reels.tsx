@@ -381,6 +381,7 @@ const Reels = () => {
   const [selectedShotIndex, setSelectedShotIndex] = useState(0);
   const [beginnerStep, setBeginnerStep] = useState<1 | 2 | 3>(1); // 1=topic, 2=script review, 3=character+voice+generate
   const [detectedCharGender, setDetectedCharGender] = useState<'male' | 'female'>('male');
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   // Voice preview state
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
@@ -775,7 +776,33 @@ const Reels = () => {
     }
   };
 
-  // Handle portrait image upload for lip sync
+  const enhancePrompt = async () => {
+    if (!topic.trim() || isEnhancingPrompt) return;
+    setIsEnhancingPrompt(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: 'You are a viral social media content strategist. The user will give you a rough topic or idea for a short-form video reel. Your job is to enhance it into a compelling, specific, scroll-stopping topic that would perform well on Instagram/TikTok/YouTube Shorts. Return ONLY the enhanced topic text — no explanation, no quotes, no labels. Keep it under 2 sentences.' },
+            { role: 'user', content: topic }
+          ]
+        }
+      });
+      if (error) throw error;
+      const enhanced = data?.choices?.[0]?.message?.content?.trim();
+      if (enhanced) {
+        setTopic(enhanced);
+        toast({ title: "Prompt Enhanced ✨", description: "Your topic has been upgraded for maximum engagement." });
+      }
+    } catch (err) {
+      console.error('Enhance prompt error:', err);
+      toast({ title: "Enhancement Failed", description: "Could not enhance your prompt. Try again.", variant: "destructive" });
+    } finally {
+      setIsEnhancingPrompt(false);
+    }
+  };
+
+
   const handlePortraitUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3103,6 +3130,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       className="min-h-[100px] bg-background border-border resize-none text-base"
                     />
 
+                    {topic.trim() && (
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={enhancePrompt}
+                          disabled={isEnhancingPrompt}
+                          className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                        >
+                          {isEnhancingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                          Enhance Prompt
+                        </Button>
+                      </div>
+                    )}
+
                     {aiTwins.length > 0 && (
                       <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
                         {aiTwins[0].reference_images?.[0] && (
@@ -3333,6 +3375,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         className="min-h-[100px] bg-background border-border resize-none text-base"
                         disabled={isGenerating}
                       />
+
+                      {topic.trim() && (
+                        <div className="flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={enhancePrompt}
+                            disabled={isEnhancingPrompt || isGenerating}
+                            className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                          >
+                            {isEnhancingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                            Enhance Prompt
+                          </Button>
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label className="text-sm text-muted-foreground">Hook Style (First Scene)</Label>
@@ -3865,6 +3922,20 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </span>
                     )}
                   </div>
+                  {topic.trim() && (
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={enhancePrompt}
+                        disabled={isEnhancingPrompt || isGenerating}
+                        className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        {isEnhancingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                        Enhance Prompt
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Podcast Mode Toggle */}
