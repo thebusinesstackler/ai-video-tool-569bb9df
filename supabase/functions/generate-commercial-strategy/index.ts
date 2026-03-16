@@ -363,33 +363,56 @@ When creating the storyboard JSON, the "summary" field should encapsulate the st
 
 ### Script Formula by Narrative Role:
 - **HOOK scripts**: Pattern-interrupt OR provocative question OR bold claim. Max 15 words. Examples:
-  - "What if I told you 90% of your skincare routine is doing nothing—"
-  - "I made $47K last month... and I didn't work a single overtime—"
-  - "Stop scrolling... this changed everything for me—"
+  - "What if I told you 90% of your skincare routine is doing nothing?"
+  - "I made $47K last month, and I didn't work a single overtime."
+  - "Stop scrolling. This changed everything for me."
   
 - **PROBLEM scripts**: Specific, relatable pain. Use "you" language. Include sensory details. Examples:
-  - "Every morning I'd stare at my calendar... 47 meetings, zero deep work time... it was chaos—"
-  - "I tried everything... the expensive serums, the dermatologist visits... nothing worked—"
+  - "Every morning I'd stare at my calendar. 47 meetings, zero deep work time. It was chaos."
+  - "I tried everything. The expensive serums, the dermatologist visits. Nothing worked."
 
 - **AGITATE narration** (B-roll voiceover): Bridge problem to solution. Short, punchy. Examples:
-  - "Hours wasted... opportunities missed... all because nobody told you this—"
-  - "The frustration of knowing there has to be a better way—"
+  - "Hours wasted. Opportunities missed. All because nobody told you this."
+  - "The frustration of knowing there has to be a better way."
 
 - **SOLUTION scripts**: Transformation language. "Before/after" framing. Specific results. Examples:
-  - "Then I found FlowState... and within a week my schedule practically ran itself—"
-  - "Three months later... my skin completely transformed—"
+  - "Then I found FlowState, and within a week my schedule practically ran itself."
+  - "Three months later, my skin completely transformed."
 
 - **CTA scripts**: Urgency + specific action + reason. Examples:
-  - "Try it free for 14 days... link in bio before they close signups—"
-  - "Get yours now... use code GLOW20 for 20% off this week only—"
+  - "Try it free for 14 days. Link in bio before they close signups."
+  - "Get yours now. Use code GLOW20 for 20% off this week only."
 
 ### Pacing Rules:
 - Speaking rate: ~2.5 words per second
-- 5s scene ≈ 12-13 words max
-- 8s scene ≈ 20 words max  
-- 10s scene ≈ 25 words max
-- NEVER exceed word limits — causes rushed delivery
-- Use "..." for 0.5s pauses, "—" for hard stops
+- 5s scene = 12-13 words max
+- 8s scene = 20 words max  
+- 10s scene = 25 words max
+- NEVER exceed word limits. This causes rushed delivery.
+- Use commas for natural breathing pauses. Use periods for hard stops.
+- NEVER use "..." (ellipsis) or em dashes in scripts. They cause long unnatural pauses in TTS voiceover.
+
+## 🎥 WAVESPEED VIDEO MODEL KNOWLEDGE BASE
+You have access to these video generation models. Choose the best one based on the scene requirements:
+
+| Model | Best For | Max Duration | Resolution | Notes |
+|---|---|---|---|---|
+| **infinitetalk** | Speaking scenes with lip-sync | 10s | 720p | Primary for dialogue. Syncs lips to audio perfectly. ALWAYS use for speaking segments. |
+| **infinitetalk-fast** | Quick speaking previews | 10s | 480p | Faster but lower quality lip-sync. Good for drafts. |
+| **alibaba/wan-2.5/text-to-video** | B-roll, product shots | 5s | 720p | Best visual quality for non-speaking scenes. Cinematic motion. |
+| **alibaba/wan-2.1-i2v-480p** | Image-to-video conversion | 5s | 480p | Low-cost testing. Takes a still image and adds motion. |
+| **alibaba/wan-2.5/video-extend** | Extending existing clips | 5s extension | 720p | Extends a video clip. Needs a base clip first. Two-step pipeline. |
+| **kwaivgi/kling-v3.0-pro** | High-quality cinematic B-roll | 5s | 720p | Premium quality fallback. Great for hero product shots. |
+| **openai/sora-2** | Cinematic intros/outros | 10s | 1080p | Best quality but most expensive. Use for hero moments only. |
+
+### Model Selection Rules:
+- **Speaking segments**: ALWAYS use infinitetalk (lip-sync is critical)
+- **B-roll under 5s**: Use alibaba/wan-2.5/text-to-video (best visual quality)
+- **B-roll over 5s**: Split into 5s clips or use video-extend pipeline
+- **Hero product reveals**: Use kling-v3.0-pro for maximum cinematic quality
+- **Budget-conscious**: Use wan-2.1-i2v-480p for B-roll testing
+- Scene durations MUST respect model limits (most models max at 5-10s per clip)
+- For scenes longer than 10s, the system will auto-split into multiple clips
 
 ## EDITING STORYBOARDS — YOUR SUPERPOWERS
 
@@ -771,8 +794,8 @@ All descriptions and prompts MUST include:
 1. Every commercial tells ONE story with a clear PAS emotional arc
 2. B-roll must directly illustrate what's being said AND feature the product with cinematic quality
 3. Character descriptions include full cinematography specs for every scene
-4. Scripts use ellipses (...) and em dashes (—), NEVER periods
-5. Camera angles should VARY between scenes — no two consecutive identical angles
+4. Scripts use commas for breathing pauses and periods for stops. NEVER use ellipsis or em dashes.
+5. Camera angles should VARY between scenes. No two consecutive identical angles.
 6. Lighting should SHIFT with the emotional arc (cool/dramatic for problem, warm/bright for solution)
 7. EVERY commercial MUST start with a HOOK and include B-roll
 8. When in doubt, DO MORE — regenerate, fix, improve. You're the director.
@@ -811,6 +834,7 @@ serve(async (req) => {
         model: 'google/gemini-2.5-pro',
         messages: allMessages,
         stream: true,
+        max_tokens: 16384,
       }),
     });
 

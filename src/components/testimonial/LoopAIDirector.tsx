@@ -174,6 +174,7 @@ export function LoopAIDirector({
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showAIContext, setShowAIContext] = useState(false);
+  const [autoGenProgress, setAutoGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const prevSegmentsLenRef = useRef(segments.length);
 
   // Auto-greet on new project (segments cleared + no chat history)
@@ -1390,6 +1391,54 @@ export function LoopAIDirector({
 
     // Auto-save to DB
     setTimeout(() => onSaveToDb(), 500);
+
+    // Auto-generate all assets (characters + B-roll) with progress
+    setTimeout(() => autoGenerateAssets(newSegments), 1000);
+  };
+
+  const autoGenerateAssets = async (segs: CommercialSegment[]) => {
+    const speakingSegs = segs.filter(s => s.type === 'speaking' && s.character?.description);
+    const brollSegs = segs.filter(s => s.type === 'broll' && s.brollPrompts?.[0]);
+    const total = speakingSegs.length + brollSegs.length;
+    if (total === 0) return;
+
+    let current = 0;
+    setAutoGenProgress({ current: 0, total, label: 'Generating characters...' });
+
+    setMessages(prev => [...prev, {
+      role: 'system-action' as const,
+      content: `🎨 Auto-generating ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''} and ${brollSegs.length} B-roll preview${brollSegs.length !== 1 ? 's' : ''}...`
+    }]);
+
+    // Generate characters first
+    for (const seg of speakingSegs) {
+      try {
+        setAutoGenProgress({ current, total, label: `Generating character ${current + 1}/${speakingSegs.length}...` });
+        await onGenerateCharacter(seg.id, seg.character!.description);
+      } catch (e) {
+        console.error('Auto-gen character failed:', e);
+      }
+      current++;
+      setAutoGenProgress({ current, total, label: current < speakingSegs.length ? `Generating character ${current + 1}/${speakingSegs.length}...` : 'Generating B-roll previews...' });
+    }
+
+    // Then B-roll previews
+    for (const seg of brollSegs) {
+      try {
+        setAutoGenProgress({ current, total, label: `Generating B-roll ${current - speakingSegs.length + 1}/${brollSegs.length}...` });
+        await onGenerateBrollPreview(seg.id, seg.brollPrompts![0]);
+      } catch (e) {
+        console.error('Auto-gen B-roll failed:', e);
+      }
+      current++;
+      setAutoGenProgress({ current, total, label: `Generating B-roll ${Math.min(current - speakingSegs.length + 1, brollSegs.length)}/${brollSegs.length}...` });
+    }
+
+    setAutoGenProgress(null);
+    setMessages(prev => [...prev, {
+      role: 'system-action' as const,
+      content: `✅ All assets generated — ${speakingSegs.length} character${speakingSegs.length !== 1 ? 's' : ''} and ${brollSegs.length} B-roll preview${brollSegs.length !== 1 ? 's' : ''} ready. Review the timeline and let me know what to adjust.`
+    }]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1661,6 +1710,26 @@ export function LoopAIDirector({
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
                     <span className="text-[10px] text-muted-foreground italic">Loop AI is crafting your vision...</span>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Auto-generation progress bar */}
+            {autoGenProgress && (
+              <div className="flex gap-3">
+                <div className="mt-0.5"><LoopAvatar /></div>
+                <div className="bg-muted/80 rounded-xl rounded-bl-sm px-3.5 py-2.5 border border-border/30 w-full max-w-[280px]">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <span className="text-[10px] text-muted-foreground">{autoGenProgress.label}</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.round((autoGenProgress.current / autoGenProgress.total) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-muted-foreground mt-1 block">{autoGenProgress.current}/{autoGenProgress.total} complete</span>
                 </div>
               </div>
             )}
