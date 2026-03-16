@@ -493,22 +493,24 @@ export function useTestimonialCommercial() {
               updateSegment(segment.id, { audioUrl, status: 'error' });
             }
           } else {
-            // B-roll: generate image then video
-            const prompt = segment.brollPrompts?.[0] || 'Professional B-roll footage';
+            // B-roll: generate image then video with ENHANCED cinematic prompts
+            const rawPrompt = segment.brollPrompts?.[0] || 'Professional B-roll footage';
+            // Enhance B-roll prompt with cinematic quality descriptors
+            const enhancedBrollPrompt = `${rawPrompt}. Ultra-cinematic 4K, shot on ARRI Alexa Mini with Signature Prime lenses, shallow depth of field at f/2.0, professional color grading with rich contrast, volumetric lighting, broadcast television quality. No text, no watermarks, no captions, no logos.`;
 
             // Use existing b-roll image if already generated
             let brollImage = segment.brollImages?.[0];
             
             if (!brollImage) {
-              toast.info(`B-Roll ${i + 1}: Generating image...`);
+              toast.info(`B-Roll ${i + 1}: Generating cinematic image...`);
               const { data: imgData } = await supabase.functions.invoke('generate-scene-image', {
-                body: { prompt, aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9' }
+                body: { prompt: enhancedBrollPrompt, aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9' }
               });
               if (imgData?.imageUrl) brollImage = imgData.imageUrl;
             }
 
             step++;
-            setGenerationProgress((step / totalSteps) * 100);
+            setGenerationProgress(30 + (step / totalSteps) * 70);
 
             if (brollImage) {
               updateSegment(segment.id, { brollImages: [brollImage], status: 'character-ready' });
@@ -522,13 +524,15 @@ export function useTestimonialCommercial() {
                 voiceoverAudioUrl = ttsData?.audioUrl;
               }
 
-              toast.info(`B-Roll ${i + 1}: Generating video...`);
+              toast.info(`B-Roll ${i + 1}: Generating cinematic video...`);
+              // Enhanced video prompt for B-roll
+              const brollVideoPrompt = `${rawPrompt}. Cinematic slow-motion footage, smooth camera movement, ${aspectRatio === '9:16' ? 'vertical 9:16 format' : 'horizontal 16:9 widescreen'}, professional lighting with volumetric rays, broadcast quality, shot at 60fps for buttery smooth motion. No text, no watermarks.`;
               try {
                 const { data: vidData } = await supabase.functions.invoke('wavespeed-video', {
                   body: {
                     action: 'create',
                     model: styleConfig.brollModel,
-                    prompt: `${prompt}. Cinematic motion, ${aspectRatio === '9:16' ? 'vertical format' : 'horizontal format'}, professional quality.`,
+                    prompt: brollVideoPrompt,
                     imageUrls: [brollImage],
                     duration: Math.min(segment.duration, styleConfig.maxDuration),
                     aspectRatio,
