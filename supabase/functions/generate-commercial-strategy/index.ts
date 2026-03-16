@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-function buildSegmentContext(currentSegments: any[], timelineIssues?: any[]) {
+function buildSegmentContext(currentSegments: any[], timelineIssues?: any[], projectSummary?: any) {
   if (!currentSegments || currentSegments.length === 0) return '';
 
   let speakingNum = 0;
@@ -57,7 +57,19 @@ ${issueLines.join('\n')}
 4. NEVER gloss over missing assets — they are blockers`;
   }
 
-  return `\n\n## Current Storyboard State
+  // Project dashboard
+  let dashboardSection = '';
+  if (projectSummary) {
+    const ps = projectSummary;
+    dashboardSection = `
+## 📊 Project Dashboard
+${ps.totalSegments} segments (${ps.speakingCount} speaking, ${ps.brollCount} B-roll) | ${ps.totalDuration}s total (target: ${ps.targetDuration}s) | ${ps.charactersReady}/${ps.speakingCount} characters ready | ${ps.audiosReady}/${ps.totalSegments} audio ready | ${ps.videosReady}/${ps.totalSegments} videos ready | ${ps.uniqueActors} unique actor${ps.uniqueActors !== 1 ? 's' : ''}${ps.productImagesInUse > 0 ? ` | ${ps.productImagesInUse} product images` : ''}
+`;
+  }
+
+  return `
+${dashboardSection}
+## Current Storyboard State
 The user currently has ${currentSegments.length} total segments (${speakingNum} speaking scenes, ${brollNum} B-roll clips):
 ${lines.join('\n')}
 ${issuesSection}
@@ -347,6 +359,11 @@ Output action blocks like this:
 - **duplicateScene**: Clone a scene. Useful for creating variations. Example: \`{ "action": "duplicateScene", "sceneIndex": 0 }\`
 - **reorderScene**: Move a scene to a different position. Requires "fromIndex" and "toIndex" (0-based). Example: \`{ "action": "reorderScene", "fromIndex": 4, "toIndex": 1 }\`
 - **videoDiagnostic**: Analyze ALL scenes for video readiness (lip-sync status, duration match, missing audio/images). Use when user asks to "check videos", "diagnose", or "are my videos ready". Example: \`{ "action": "videoDiagnostic" }\`
+- **regenerateAudio**: Re-generate voiceover for a scene with optional voice override. Use "voiceId" for specific voice, "gender" for gender-based selection ("male"/"female"). Available voices — Female: English_compelling_lady1, English_radiant_girl, Calm_Woman, Inspirational_girl. Male: English_magnetic_voiced_man, English_Trustworth_Man, Casual_Guy, Deep_Voice_Man. Example: \`{ "action": "regenerateAudio", "sceneIndex": 0, "voiceId": "Calm_Woman", "gender": "female" }\`
+- **changePose**: Change a character's camera angle/pose and regenerate their images in one step. Provide "newPose" with cinematography description. Example: \`{ "action": "changePose", "sceneIndex": 0, "newPose": "low angle hero shot looking up, powerful framing, rim lighting from behind, 35mm f/2.8" }\`
+- **showActorGallery**: Display all existing reference images for a character and show AI Twin library matches. Use when user asks about actor poses, references, or existing shots. Example: \`{ "action": "showActorGallery", "sceneIndex": 0 }\`
+- **generateMoreAngles**: Generate additional camera angles for a character using their AI Twin profile. Requires character to have a twinId. Example: \`{ "action": "generateMoreAngles", "sceneIndex": 0 }\`
+- **addSceneAfter**: Insert a new scene at a specific position (after given index). Use "afterIndex" to specify position. Example: \`{ "action": "addSceneAfter", "afterIndex": 2, "segment": { "type": "broll", "brollPrompts": ["..."], "voiceover": "...", "duration": 5 } }\`
 
 ### VOICE & GENDER AWARENESS (CRITICAL)
 The system automatically picks male or female voices based on the character description.
@@ -354,6 +371,25 @@ The system automatically picks male or female voices based on the character desc
 - "change the transition to crossfade" → use \`update\` with \`{ "transition": "crossfade" }\`
 - "change camera to low angle" → use \`update\` with \`{ "cameraAngle": "low-angle" }\` and update characterDescription accordingly
 - You can combine multiple changes in ONE update action
+
+### ACTOR GALLERY AWARENESS (CRITICAL)
+When a user asks about an actor's poses, references, existing shots, or "show me the character":
+1. Use **showActorGallery** to display all existing reference images
+2. Show how many images exist and suggest **generateMoreAngles** if they want more variety
+3. When a character has fewer than 4 reference images, proactively suggest generating more angles
+
+### VOICE CONTROL (CRITICAL)
+When a user says "change the voice", "different voice", "make it female/male", "try a deeper voice":
+1. Use **regenerateAudio** with the appropriate voiceId and/or gender
+2. Available female voices: English_compelling_lady1, English_radiant_girl, Calm_Woman, Inspirational_girl
+3. Available male voices: English_magnetic_voiced_man, English_Trustworth_Man, Casual_Guy, Deep_Voice_Man
+4. Match voice personality to character: compelling/radiant for confident women, calm for gentle, deep for authoritative men, casual for friendly
+
+### POSE CHANGES (CRITICAL)
+When a user says "change the angle", "different pose", "make it a close-up", "low angle", "hero shot":
+1. Use **changePose** with a detailed newPose cinematography description
+2. Include camera angle, lighting, lens specs, and action in the newPose
+3. This automatically regenerates character images — no need to also call regenerateCharacter
 
 ### CHARACTER DESCRIPTIONS MUST DESCRIBE ACTIONS + CINEMATOGRAPHY
 Every character description MUST include:
@@ -585,7 +621,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, targetDuration, currentSegments, timelineIssues } = await req.json();
+    const { messages, targetDuration, currentSegments, timelineIssues, projectSummary } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -593,7 +629,7 @@ serve(async (req) => {
     }
 
     const dur = targetDuration || 30;
-    const segmentContext = buildSegmentContext(currentSegments, timelineIssues);
+    const segmentContext = buildSegmentContext(currentSegments, timelineIssues, projectSummary);
     const systemPrompt = buildSystemPrompt(dur, segmentContext);
 
     const allMessages = [

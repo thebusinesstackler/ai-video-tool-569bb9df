@@ -31,7 +31,7 @@ type ReplaceScope = 'script' | 'voiceover' | 'brollPrompts' | 'all';
 interface EditAction {
   type: 'edit';
   edits: Array<{
-    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle' | 'generateVideo' | 'extendClip' | 'productSwapFromLibrary' | 'generateBrollVoiceover' | 'duplicateScene' | 'reorderScene' | 'videoDiagnostic';
+    action: 'update' | 'add' | 'delete' | 'setDuration' | 'generateVoice' | 'regenerateCharacter' | 'regenerateBroll' | 'updateCharacterDescription' | 'replaceText' | 'generateMusic' | 'regenerateAll' | 'productSwap' | 'setCameraAngle' | 'generateVideo' | 'extendClip' | 'productSwapFromLibrary' | 'generateBrollVoiceover' | 'duplicateScene' | 'reorderScene' | 'videoDiagnostic' | 'regenerateAudio' | 'changePose' | 'showActorGallery' | 'generateMoreAngles' | 'addSceneAfter';
     sceneIndex?: number | 'all';
     sceneIndices?: number[];
     changes?: Record<string, any>;
@@ -48,6 +48,10 @@ interface EditAction {
     fromIndex?: number;
     toIndex?: number;
     productName?: string;
+    voiceId?: string;
+    gender?: string;
+    newPose?: string;
+    afterIndex?: number;
   }>;
 }
 
@@ -64,6 +68,7 @@ interface LoopAIDirectorProps {
   onExtendClip?: (segmentId: string, prompt: string) => Promise<void>;
   onDuplicateSegment?: (id: string) => void;
   onReorderSegments?: (fromIndex: number, toIndex: number) => void;
+  onGenerateTwinAngles?: (twinId: string, faceDescription: string, gender: string, name: string, referenceImageUrl?: string) => Promise<string[]>;
   segments: CommercialSegment[];
   targetDuration: string;
   onTargetDurationChange: (dur: string) => void;
@@ -112,6 +117,7 @@ export function LoopAIDirector({
   onExtendClip,
   onDuplicateSegment,
   onReorderSegments,
+  onGenerateTwinAngles,
   segments,
   targetDuration,
   onTargetDurationChange,
@@ -792,38 +798,165 @@ export function LoopAIDirector({
           break;
         }
 
-        case 'videoDiagnostic': {
-          const diagnosticReport: string[] = [];
-          segments.forEach((seg, idx) => {
-            const issues: string[] = [];
-            if (seg.type === 'speaking') {
-              if (!seg.character?.referenceImages?.length) issues.push('❌ No character images');
-              if (!seg.audioUrl) issues.push('❌ No audio');
-              if (!seg.videoUrl) issues.push('❌ No video');
-              else issues.push('✅ Video ready');
-              if (seg.audioUrl && seg.character?.referenceImages?.length) {
-                issues.push('✅ Lip-sync ready');
-              } else if (!seg.audioUrl || !seg.character?.referenceImages?.length) {
-                issues.push('⚠️ Not lip-sync ready (needs audio + images)');
+        case 'regenerateAudio': {
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            const script = seg.script || seg.voiceoverText || '';
+            if (!script) { editSummary.push(`⚠️ Scene ${sceneIndex + 1} has no script/text for audio`); continue; }
+            
+            if (edit.voiceId) {
+              // Use specific voice ID override
+              try {
+                toast.info(`🎙️ Regenerating audio with voice: ${edit.voiceId}...`);
+                const { data, error } = await supabase.functions.invoke('text-to-speech', {
+                  body: { text: script, voice: edit.voiceId, gender: edit.gender || 'male' }
+                });
+                if (error || !data?.audioUrl) throw new Error('TTS failed');
+                onUpdateSegment(seg.id, { audioUrl: data.audioUrl, voiceoverId: data.voiceUsed || edit.voiceId });
+                editSummary.push(`🎙️ Regenerated audio for scene ${sceneIndex + 1} with voice "${edit.voiceId}"`);
+              } catch {
+                editSummary.push(`⚠️ Failed to regenerate audio for scene ${sceneIndex + 1}`);
               }
             } else {
-              if (!seg.brollImages?.length) issues.push('❌ No preview image');
-              if (!seg.videoUrl) issues.push('❌ No video');
-              else issues.push('✅ Video ready');
-              if (!seg.voiceoverText) issues.push('⚠️ No voiceover — will be silent');
-              if (!seg.audioUrl && seg.voiceoverText) issues.push('⚠️ VO text exists but no audio generated');
+              // Auto-detect voice from gender or description
+              const charDesc = edit.gender
+                ? (edit.gender === 'female' ? 'A professional woman' : 'A professional man')
+                : (seg.character?.description || '');
+              previewAudio(script, seg.id, charDesc);
+              editSummary.push(`🎙️ Regenerating audio for scene ${sceneIndex + 1}${edit.gender ? ` (${edit.gender} voice)` : ''}`);
             }
-            const wc = (seg.script || seg.voiceoverText || '').split(/\s+/).filter(Boolean).length;
-            if (wc > 0 && Math.abs(Math.ceil(wc / 2.5) - seg.duration) > 2) {
-              issues.push(`⚠️ Duration mismatch: ${wc} words ≈ ${Math.ceil(wc / 2.5)}s but set to ${seg.duration}s`);
+          }
+          break;
+        }
+
+        case 'changePose': {
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            const newPose = edit.newPose || edit.description || '';
+            if (!newPose) { editSummary.push(`⚠️ No pose description provided for scene ${sceneIndex + 1}`); continue; }
+            
+            // Merge existing character base with new pose
+            const baseDesc = seg.character?.description || '';
+            const poseDesc = baseDesc
+              ? `${baseDesc.split('.')[0]}. ${newPose}`
+              : newPose;
+            
+            onUpdateSegment(seg.id, {
+              character: {
+                ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                description: poseDesc,
+                name: poseDesc.slice(0, 60),
+                referenceImages: [],
+              },
+              status: 'generating-character',
+            });
+            onGenerateCharacter(seg.id, poseDesc);
+            editSummary.push(`📸 Changed pose for scene ${sceneIndex + 1} — regenerating character`);
+          }
+          break;
+        }
+
+        case 'showActorGallery': {
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            const imgs = seg.character?.referenceImages || [];
+            const typeNum = segments.slice(0, sceneIndex + 1).filter(s => s.type === seg.type).length;
+            const label = seg.type === 'speaking' ? `Scene #${typeNum}` : `B-Roll #${typeNum}`;
+            
+            if (imgs.length === 0) {
+              setMessages(prev => [...prev, { role: 'system-action' as const, content: `🎭 **${label}** has no character images yet. Want me to generate them?` }]);
+              continue;
             }
-            diagnosticReport.push(`**Scene ${idx + 1}** (${seg.type}): ${issues.join(' | ')}`);
-          });
-          const readyCount = segments.filter(s => s.videoUrl).length;
-          const totalCount = segments.length;
-          const fullReport = `🔍 **Video Diagnostic Report**\n\n${diagnosticReport.join('\n')}\n\n**Summary:** ${readyCount}/${totalCount} scenes have video. ${readyCount === totalCount ? '✅ All ready for final assembly!' : `⚠️ ${totalCount - readyCount} scene(s) still need video generation.`}`;
-          setMessages(prev => [...prev, { role: 'system-action' as const, content: fullReport }]);
-          return; // Don't add edit summary — diagnostic is its own message
+            
+            // Build gallery message with thumbnails
+            const galleryImages = imgs.slice(0, 6).map((url, i) => `![Angle ${i + 1}](${url})`).join(' ');
+            let galleryMsg = `🎭 **Actor Gallery — ${label}**\n${seg.character?.name || 'Character'} • ${imgs.length} reference image${imgs.length !== 1 ? 's' : ''}\n\n${galleryImages}`;
+            
+            // Check for matching AI twins
+            try {
+              const { data: { user: currentUser } } = await supabase.auth.getUser();
+              if (currentUser) {
+                const { data: twins } = await supabase
+                  .from('ai_twins')
+                  .select('id, name, reference_images, face_description, gender')
+                  .eq('user_id', currentUser.id)
+                  .not('reference_images', 'is', null);
+                
+                if (twins && twins.length > 0) {
+                  const twinList = twins.map(t => `• **${t.name}** (${(t.reference_images as string[])?.length || 0} images)`).join('\n');
+                  galleryMsg += `\n\n📚 **Your AI Twin Library:**\n${twinList}\n\nWant me to generate more angles for this character?`;
+                }
+              }
+            } catch {}
+            
+            setMessages(prev => [...prev, { role: 'system-action' as const, content: galleryMsg }]);
+          }
+          return; // Gallery is its own message
+        }
+
+        case 'generateMoreAngles': {
+          for (const sceneIndex of targetIndexes) {
+            const seg = segments[sceneIndex];
+            const twinId = seg.character?.twinId || seg.twinId;
+            const faceDesc = seg.character?.description || '';
+            const gender = seg.character?.gender || detectGenderFromDescription(faceDesc);
+            const name = seg.character?.name || 'Character';
+            const refImg = seg.character?.referenceImages?.[0];
+            
+            if (!faceDesc) { editSummary.push(`⚠️ Scene ${sceneIndex + 1} has no character description for angle generation`); continue; }
+            
+            if (onGenerateTwinAngles && twinId) {
+              try {
+                toast.info(`📸 Generating more angles for ${name}...`);
+                const newUrls = await onGenerateTwinAngles(twinId, faceDesc, gender, name, refImg);
+                if (newUrls.length > 0) {
+                  const existingImgs = seg.character?.referenceImages || [];
+                  onUpdateSegment(seg.id, {
+                    character: {
+                      ...(seg.character || { name: '', description: '', referenceImages: [] }),
+                      referenceImages: [...existingImgs, ...newUrls],
+                    }
+                  });
+                  editSummary.push(`📸 Generated ${newUrls.length} new angles for scene ${sceneIndex + 1} (total: ${existingImgs.length + newUrls.length})`);
+                }
+              } catch (err) {
+                editSummary.push(`⚠️ Failed to generate angles for scene ${sceneIndex + 1}`);
+              }
+            } else {
+              editSummary.push(`⚠️ Scene ${sceneIndex + 1} needs a saved AI Twin to generate more angles`);
+            }
+          }
+          break;
+        }
+
+        case 'addSceneAfter': {
+          if (edit.segment) {
+            const type = edit.segment.type || 'speaking';
+            const prefill: Partial<CommercialSegment> = {
+              script: edit.segment.script || '',
+              duration: edit.segment.duration || 8,
+              transition: edit.segment.transition || 'cut',
+              ...(edit.segment.characterDescription ? {
+                character: {
+                  name: edit.segment.characterDescription.slice(0, 60),
+                  description: edit.segment.characterDescription,
+                  referenceImages: [],
+                }
+              } : {}),
+              ...(edit.segment.brollPrompts ? { brollPrompts: edit.segment.brollPrompts } : {}),
+              ...(edit.segment.voiceover ? { voiceoverText: edit.segment.voiceover } : {}),
+            };
+            onAddSegment(type as 'speaking' | 'broll', prefill);
+            
+            // If afterIndex specified, reorder the new segment (appended at end) to afterIndex + 1
+            if (typeof edit.afterIndex === 'number' && onReorderSegments) {
+              const newIdx = segments.length; // will be at end after add
+              const targetIdx = Math.min(edit.afterIndex + 1, segments.length);
+              setTimeout(() => onReorderSegments(newIdx, targetIdx), 100);
+            }
+            editSummary.push(`➕ Added new ${type} scene${typeof edit.afterIndex === 'number' ? ` after position ${edit.afterIndex + 1}` : ''}`);
+          }
+          break;
         }
       }
     }
@@ -867,6 +1000,24 @@ export function LoopAIDirector({
           body: JSON.stringify({
             messages: [...chatMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: msg }],
             targetDuration: parseInt(targetDuration),
+            projectSummary: (() => {
+              const speakingSegs = segments.filter(s => s.type === 'speaking');
+              const brollSegs = segments.filter(s => s.type === 'broll');
+              const uniqueActorDescs = new Set(speakingSegs.map(s => s.character?.twinId || s.character?.description).filter(Boolean));
+              return {
+                totalSegments: segments.length,
+                speakingCount: speakingSegs.length,
+                brollCount: brollSegs.length,
+                totalDuration: segments.reduce((s, seg) => s + seg.duration, 0),
+                targetDuration: parseInt(targetDuration),
+                videosReady: segments.filter(s => s.videoUrl).length,
+                audiosReady: segments.filter(s => s.audioUrl).length,
+                charactersReady: speakingSegs.filter(s => s.character?.referenceImages?.length).length,
+                uniqueActors: uniqueActorDescs.size,
+                hasMusic: false,
+                productImagesInUse: segments.filter(s => s.productImageUrl).length,
+              };
+            })(),
             currentSegments: segments.length > 0 ? (() => {
               const speakingSegments = segments.filter(seg => seg.type === 'speaking');
               return segments.map((s, index) => {
@@ -1162,6 +1313,21 @@ export function LoopAIDirector({
     }
     if (missingBroll.length > 0) {
       actions.push({ label: `🎞️ Generate ${missingBroll.length} B-roll`, message: 'Generate preview images for all B-roll scenes', icon: '🎞️' });
+    }
+    // Actor gallery — when speaking scenes have character images
+    const scenesWithCharImages = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length);
+    if (scenesWithCharImages.length > 0) {
+      actions.push({ label: '🎭 Show actor poses', message: 'Show me the actor reference images and poses for all characters', icon: '🎭' });
+    }
+    // Generate more angles — when character has few images
+    const fewImageChars = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.character.referenceImages.length < 4);
+    if (fewImageChars.length > 0) {
+      actions.push({ label: '📸 Generate more angles', message: 'Generate more camera angles for characters with few reference images', icon: '📸' });
+    }
+    // Change voice — when audio exists
+    const scenesWithAudio = segments.filter(s => s.audioUrl);
+    if (scenesWithAudio.length > 0) {
+      actions.push({ label: '🔄 Change voice', message: 'I want to try a different voice for the character — show me options', icon: '🔄' });
     }
     // Video generation — when characters + audio ready but no videos
     const readyForVideo = segments.filter(s => s.type === 'speaking' && s.character?.referenceImages?.length && s.audioUrl && !s.videoUrl);
