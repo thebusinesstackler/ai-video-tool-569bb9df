@@ -438,17 +438,14 @@ serve(async (req) => {
         const topicContext = `Topic: ${topic}.`;
         
         // ====== SCENE TYPE ROUTING ======
-        // Speaking/narrator scenes with lip sync → use selected lip sync model (infinitetalk-fast, avatar-omni-human-1.5)
+        // Speaking/narrator scenes with lip sync → InfiniteTalk Fast (cost-effective, great quality)
         // Speaking scenes WITHOUT lip sync → Kling 3.0 Pro (cinematic visuals, TTS overlaid by client)
         // B-roll, intro, outro → Kling 3.0 Pro or Sora 2
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
         if (isNarratorScene && enableLipSync) {
-          // ====== LIP SYNC MODELS: Speaking scenes with character animation ======
-          // These models require: image (portrait) + audio (pre-generated TTS)
-          // They produce video with the character speaking in sync with the audio
-          
+          // ====== INFINITETALK-FAST: Fast, precise lip sync up to 10min ======
           const hasAudio = audioUrl && audioUrl.trim() !== '' && !audioUrl.startsWith('data:');
           
           if (!hasAudio) {
@@ -465,24 +462,12 @@ If showing a person: natural expression, confident pose — NOT speaking. Closed
 No text, no captions, no subtitles, no watermarks.`,
               duration: klingDuration
             };
-          } else if (lipSyncModel === 'avatar-omni-human-1.5') {
-            // ====== AVATAR OMNI HUMAN 1.5: Best quality, emotional expressions ======
-            console.log(`Scene ${scene.sceneNumber}: Using Avatar Omni Human 1.5 for lip sync`);
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/avatar-omni-human-1.5';
-            sceneHasEmbeddedAudio = true;
-            
-            requestBody = {
-              image: imageUrl,
-              audio: audioUrl,
-              duration: clipDuration
-            };
           } else {
-            // ====== INFINITETALK-FAST (default): Fast, precise lip sync up to 10min ======
+            // ====== INFINITETALK-FAST: Best cost/quality for Reels & Stories ======
             console.log(`Scene ${scene.sceneNumber}: Using InfiniteTalk Fast for lip sync`);
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
             sceneHasEmbeddedAudio = true;
             
-            // Build a prompt with narration context for better motion matching
             const genderHint = characterDescription?.toLowerCase().includes('woman') || 
                               characterDescription?.toLowerCase().includes('female') || 
                               characterDescription?.toLowerCase().includes('girl') ||
