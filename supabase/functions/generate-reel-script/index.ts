@@ -525,7 +525,7 @@ Return ONLY valid JSON array:
       const ctaHoldScene = {
         sceneNumber: scenes.length + 1,
         narration: '',
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle),
+        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
         duration: 2,
         isOutro: true,
         isSilentCTA: true,
