@@ -394,7 +394,7 @@ export function LoopAIDirector({
     return value.replace(/[\[{]\s*product\s*name\s*[\]}]/gi, replaceWith);
   };
 
-  const applyEditActions = (editAction: EditAction) => {
+  const applyEditActions = async (editAction: EditAction) => {
     const editSummary: string[] = [];
 
     for (const edit of editAction.edits) {
