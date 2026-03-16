@@ -226,7 +226,7 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
     COLOR: Professional color grading - rich, vibrant but natural tones. Think high-end commercial or film production.
     COMPOSITION: Rule of thirds, leading lines, dynamic framing. Vertical 9:16 format.
     QUALITY: Ultra-high resolution, photorealistic, magazine/commercial quality, sharp details.
-    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. If showing people, they should have CLOSED MOUTHS or slight smiles - NOT speaking. Natural confident poses.`;
+    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. If showing people, they should have CLOSED MOUTHS or slight smiles - NOT speaking. Natural confident poses.${antiPropRule}`;
 }
 
 // Build image generation messages with reference images for character consistency
