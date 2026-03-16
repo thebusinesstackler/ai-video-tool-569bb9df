@@ -1461,8 +1461,10 @@ const Reels = () => {
     }
   };
 
-  const generateScripts = async (): Promise<Scene[] | null> => {
-    if (!topic.trim()) {
+  const generateScripts = async (overrides?: { characterDescriptionOverride?: string; topicOverride?: string }): Promise<Scene[] | null> => {
+    const effectiveTopic = overrides?.topicOverride || topic;
+    const effectiveCharDesc = overrides?.characterDescriptionOverride ?? characterDescription;
+    if (!effectiveTopic.trim()) {
       toast({
         title: "Topic Required",
         description: "Please enter a topic for your reel.",
@@ -1473,7 +1475,7 @@ const Reels = () => {
 
     if (abortRef.current?.signal.aborted) return null;
     setIsGenerating(true);
-    setProject(prev => ({ ...prev, status: 'generating-script', topic }));
+    setProject(prev => ({ ...prev, status: 'generating-script', topic: effectiveTopic }));
     setProgress(10);
 
     // For podcast mode, use 1 scene with the full duration
@@ -1489,13 +1491,13 @@ const Reels = () => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
         body: { 
-          topic, 
+          topic: effectiveTopic, 
           sceneCount,
           sceneDuration,
           targetDuration,
           hookStyle,
           enableCutScenes: isPodcastMode ? false : enableCutScenes,
-          characterDescription: characterDescription.trim() || undefined,
+          characterDescription: effectiveCharDesc.trim() || undefined,
           isPodcastMode,
           characterId: selectedCharacterId,
           characterName: selectedCharacter?.name,
@@ -2118,9 +2120,10 @@ const Reels = () => {
       console.log('Beginner mode: using pre-generated scripts from review step');
       generatedScenes = project.scenes;
     } else {
-      generatedScenes = await generateScripts();
+      // Pass character description directly to avoid stale React state
+      const twinCharDesc = selectedTwinId ? (aiTwins.find(t => t.id === selectedTwinId)?.face_description || characterDescription) : characterDescription;
+      generatedScenes = await generateScripts({ characterDescriptionOverride: twinCharDesc });
     }
-    
     if (abortRef.current?.signal.aborted) return;
     
     if (generatedScenes && generatedScenes.length > 0) {
@@ -2185,7 +2188,9 @@ const Reels = () => {
     if (abortRef.current.signal.aborted) return;
     
     // Generate scripts — strip any intro/outro flags to ensure all scenes are narrator scenes
-    const generatedScenes = await generateScripts();
+    // Pass character description override to avoid stale React state
+    const twinCharDesc = aiTwins.length > 0 ? (aiTwins[0].face_description || '') : characterDescription;
+    const generatedScenes = await generateScripts({ characterDescriptionOverride: twinCharDesc, topicOverride: quickTopic });
     if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
     
     // Force all scenes to be narrator scenes (remove isIntro/isOutro/isSilentCTA)
@@ -2261,7 +2266,8 @@ const Reels = () => {
     if (abortRef.current.signal.aborted) return;
     
     // Generate scripts (will generate 1 scene due to selectedSceneCount)
-    const generatedScenes = await generateScripts();
+    const twinCharDesc = aiTwins.length > 0 ? (aiTwins[0].face_description || '') : characterDescription;
+    const generatedScenes = await generateScripts({ characterDescriptionOverride: twinCharDesc, topicOverride: quickTopic });
     if (!generatedScenes || generatedScenes.length === 0 || abortRef.current?.signal.aborted) return;
     
     // Take only the first scene
@@ -4011,7 +4017,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
                 <div className="flex items-end">
                   <Button 
-                    onClick={generateScripts}
+                    onClick={() => generateScripts()}
                     disabled={isGenerating || !topic.trim()}
                     className="w-full bg-gradient-primary hover:opacity-90"
                   >
