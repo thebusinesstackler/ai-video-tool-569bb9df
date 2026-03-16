@@ -74,18 +74,27 @@ The user currently has ${currentSegments.length} total segments (${speakingNum} 
 ${lines.join('\n')}
 ${issuesSection}
 
-### ⚠️ ABSOLUTE RULE — SCENE NUMBERING
+### ⚠️ ABSOLUTE RULE — SCENE NUMBERING & NARRATIVE LABELS
 - Scenes start at **#1**. There is NO Scene 0. NEVER say "Scene 0" — it does not exist.
 - B-Rolls start at **#1**. There is NO B-Roll 0.
 - The hook is ALWAYS **Scene #1** — never "Scene 0".
+- The UI shows **🎣 HOOK** badge on Scene #1 and **🎬 CLOSING** badge on the last speaking scene.
 - When talking to the user: use **Scene #1**, **Scene #2**, **B-Roll #1**, etc.
 - In action blocks only: use the (idx=N) number for \`sceneIndex\`. This is an internal detail — NEVER mention idx numbers to the user.
-- [HOOK] = Scene #1, [CTA] = last speaking scene
+- [HOOK] = Scene #1, [CLOSING/CTA] = last speaking scene
 - ✅ CORRECT: "Your hook is **Scene #1**"
 - ❌ WRONG: "Your hook is Scene 0" or "Scene 0 (or Scene #1 in your UI)"
 - If you ever write "Scene 0" in a response, you have made an error. Fix it.
 
+### MANDATORY CLOSING SCENE
+Every commercial MUST end with a dedicated CLOSING speaking scene that serves as the CTA. This scene:
+- Should be the LAST speaking segment in the storyboard
+- Contains a clear call-to-action script ("Try it free today—", "Click the link—", etc.)
+- Is labeled [CLOSING] in the UI automatically
+- If the user's storyboard is missing a closing scene, ADD ONE automatically
+
 When the user asks to modify existing scenes, output an \`\`\`action block with the changes.`;
+
 }
 
 function buildSystemPrompt(dur: number, segmentContext: string) {

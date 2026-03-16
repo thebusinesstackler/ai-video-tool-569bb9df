@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 interface SegmentTimelineProps {
   segments: CommercialSegment[];
+  allSegments?: CommercialSegment[]; // Full unfiltered list for narrative role detection
   onUpdate: (id: string, updates: Partial<CommercialSegment>) => void;
   onDelete: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -18,6 +19,7 @@ interface SegmentTimelineProps {
 
 export function SegmentTimeline({
   segments,
+  allSegments,
   onUpdate,
   onDelete,
   onDuplicate,
@@ -39,6 +41,18 @@ export function SegmentTimeline({
   const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
   const Icon = segmentFilter === 'broll' ? Film : User;
   const label = segmentFilter === 'broll' ? 'B-Roll' : 'Scene';
+
+  // Compute narrative roles from the full segment list
+  const speakingIds = (allSegments || segments).filter(s => s.type === 'speaking').map(s => s.id);
+  const firstSpeakingId = speakingIds[0] || null;
+  const lastSpeakingId = speakingIds.length > 1 ? speakingIds[speakingIds.length - 1] : null;
+
+  const getNarrativeRole = (seg: CommercialSegment): 'HOOK' | 'CLOSING' | null => {
+    if (seg.type !== 'speaking') return null;
+    if (seg.id === firstSpeakingId) return 'HOOK';
+    if (seg.id === lastSpeakingId) return 'CLOSING';
+    return null;
+  };
 
   return (
     <div className="space-y-4">
@@ -82,6 +96,7 @@ export function SegmentTimeline({
               segment={segment}
               index={index}
               typeNumber={index + 1}
+              narrativeRole={getNarrativeRole(segment)}
               onUpdate={onUpdate}
               onDelete={onDelete}
               onDuplicate={onDuplicate}
