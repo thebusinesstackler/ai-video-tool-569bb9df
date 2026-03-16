@@ -3124,7 +3124,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           compact
                         />
                         
-                        {selectedVoice !== 'ai-auto' && !selectedVoice.startsWith('clone:') && (
+                        {selectedVoice && !selectedVoice.startsWith('clone:') && (
                           <Button
                             variant="outline"
                             size="sm"
