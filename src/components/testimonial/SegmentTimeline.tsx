@@ -42,6 +42,18 @@ export function SegmentTimeline({
   const Icon = segmentFilter === 'broll' ? Film : User;
   const label = segmentFilter === 'broll' ? 'B-Roll' : 'Scene';
 
+  // Compute narrative roles from the full segment list
+  const speakingIds = (allSegments || segments).filter(s => s.type === 'speaking').map(s => s.id);
+  const firstSpeakingId = speakingIds[0] || null;
+  const lastSpeakingId = speakingIds.length > 1 ? speakingIds[speakingIds.length - 1] : null;
+
+  const getNarrativeRole = (seg: CommercialSegment): 'HOOK' | 'CLOSING' | null => {
+    if (seg.type !== 'speaking') return null;
+    if (seg.id === firstSpeakingId) return 'HOOK';
+    if (seg.id === lastSpeakingId) return 'CLOSING';
+    return null;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
