@@ -333,8 +333,8 @@ const Reels = () => {
   const [videoModel, setVideoModel] = useState<'infinitetalk' | 'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
-  // Voice selection for TTS (WaveSpeed MiniMax HD voices)
-  const [selectedVoice, setSelectedVoice] = useState<string>('English_Trustworth_Man');
+  // Voice selection — defaults empty, resolved from AI Twin cloned voice
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
