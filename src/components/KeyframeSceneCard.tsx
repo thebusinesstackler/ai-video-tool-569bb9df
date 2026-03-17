@@ -141,6 +141,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   onGenerateEndImage,
   onGenerateVideo,
   onGenerateTransitionVideo,
+  onCheckVideoStatus,
   onGenerateDialogue,
   onDescribeScene,
   onDescribeAndGenerate,
