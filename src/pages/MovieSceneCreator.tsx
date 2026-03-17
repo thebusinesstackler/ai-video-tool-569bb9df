@@ -1353,6 +1353,40 @@ const MovieSceneCreator = () => {
     }
   };
 
+  // Helper: ensure project exists in DB (create if needed) and return its ID
+  const ensureProjectSaved = async (extraFields: Record<string, any> = {}): Promise<string | null> => {
+    if (!userId) return null;
+    const title = projectTitle || `Movie: ${movieIdea.slice(0, 50)}...`;
+    const projectData: any = {
+      user_id: userId,
+      title,
+      movie_idea: movieIdea,
+      outline: outline || '',
+      scenes: scenes as any,
+      story_bible: storyBible as any,
+      updated_at: new Date().toISOString(),
+      ...extraFields,
+    };
+
+    try {
+      if (currentProjectId) {
+        await supabase.from('movie_projects').update(projectData).eq('id', currentProjectId);
+        return currentProjectId;
+      } else {
+        const { data, error } = await supabase.from('movie_projects').insert([projectData]).select().single();
+        if (error) throw error;
+        if (data) {
+          setCurrentProjectId(data.id);
+          setProjectTitle(title);
+          return data.id;
+        }
+      }
+    } catch (err) {
+      console.error('ensureProjectSaved failed:', err);
+    }
+    return currentProjectId;
+  };
+
   // One-click Generate All - chains story bible → outline → scenes → dialogue → images → videos → stitch
   const generateAll = async () => {
     if (!movieIdea.trim()) {
@@ -1366,8 +1400,11 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
-    // Track generation so user can recover if they leave
-    if (currentProjectId) trackGenerationStart(currentProjectId);
+
+    // ── STEP 0: Immediately persist the project so the movie idea is never lost ──
+    const savedProjectId = await ensureProjectSaved();
+    if (savedProjectId) trackGenerationStart(savedProjectId);
+
     try {
       // Step 1: Generate Story Bible (5%)
       setGenerateAllStep('Creating Story Bible...');
@@ -1409,6 +1446,9 @@ const MovieSceneCreator = () => {
       }
       setStoryBible(storyBibleWithVoices);
       setGenerateAllProgress(15);
+
+      // ── Progressive save: story bible done ──
+      await ensureProjectSaved({ story_bible: storyBibleWithVoices });
 
       // Step 2: Generate Outline (25%)
       setGenerateAllStep('Generating Outline...');
