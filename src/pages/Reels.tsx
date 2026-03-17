@@ -5203,8 +5203,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           }
                         }
                         const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
-                        // Use voice_cloning_key which is the Speechify voice ID
-                        const speechifyVoiceId = selectedTwin?.voice_cloning_key || undefined;
+                        // Resolve full voice config from AI Twin
+                        const voiceConfig = resolveVoiceForGeneration();
                         // Pass all reference images from the AI Twin for character consistency
                         const allTwinReferenceImages = selectedTwin?.reference_images || [];
                         
@@ -5216,13 +5216,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           project.scenes, 
                           user?.id, 
                           referenceToUse || undefined, 
-                          selectedVoice,
+                          voiceConfig.voice || selectedVoice,
                           characterRefImage || undefined,
                           characterDescription || selectedTwin?.face_description || undefined,
-                          speechifyVoiceId,
+                          voiceConfig.speechifyVoiceId || selectedTwin?.voice_cloning_key || undefined,
                           allTwinReferenceImages,
                           customAudio,
-                          customDuration
+                          customDuration,
+                          voiceConfig.voiceEngine,
+                          voiceConfig.googleVoiceId
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
