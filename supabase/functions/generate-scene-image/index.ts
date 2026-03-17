@@ -208,7 +208,8 @@ Place the reference person(s) naturally into this scene setting. Focus on lighti
             content: messageContent
           }
         ],
-        modalities: ['image', 'text']
+        modalities: ['image', 'text'],
+        image_generation_config: { aspect_ratio: '9:16' }
       }),
     });
 
