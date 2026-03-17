@@ -3963,6 +3963,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           characterDescription={characterDescription}
                           characterGender={detectedCharGender}
                         />
+                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
                         
                         {selectedVoice && !selectedVoice.startsWith('clone:') && (
                           <Button
