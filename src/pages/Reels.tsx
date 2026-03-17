@@ -82,6 +82,7 @@ import { ReelEditor } from '@/components/ReelEditor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TopicStrategist, ContentStrategy } from '@/components/TopicStrategist';
 import { VideoQueue } from '@/components/VideoQueue';
+import { useBackgroundVideo } from '@/contexts/BackgroundVideoContext';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -271,6 +272,7 @@ const VIDEO_SIZE_OPTIONS = [
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { registerJob, activeJobs } = useBackgroundVideo();
   const isMobile = useIsMobile();
   const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner, isQuick } = useCreatorMode();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -486,6 +488,33 @@ const Reels = () => {
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const draftRestoredRef = useRef(false);
+  
+  // Track active generation for background handoff on unmount
+  const activeGenerationRef = useRef<{
+    videoTasks: { taskId: string; sceneNumber: number; hasEmbeddedAudio?: boolean }[];
+    generatedScenes: GeneratedScene[];
+    voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[];
+    hasEmbeddedAudio: boolean;
+    topic: string;
+  } | null>(null);
+  
+  // On unmount during active generation, hand off to background context
+  useEffect(() => {
+    return () => {
+      const gen = activeGenerationRef.current;
+      if (gen && gen.videoTasks.length > 0 && user) {
+        console.log('Handing off active generation to background context');
+        registerJob({
+          topic: gen.topic,
+          userId: user.id,
+          videoTasks: gen.videoTasks,
+          generatedScenes: gen.generatedScenes,
+          voiceovers: gen.voiceovers,
+          hasEmbeddedAudio: gen.hasEmbeddedAudio,
+        });
+      }
+    };
+  }, [user, registerJob]);
 
   // Auto-save hook
   const { 
@@ -1101,6 +1130,14 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       loadAiTwins();
     }
   }, [user]);
+
+  // Refresh saved reels when background jobs complete
+  const completedJobCount = activeJobs.filter(j => j.status === 'complete').length;
+  useEffect(() => {
+    if (completedJobCount > 0 && user) {
+      fetchSavedReels();
+    }
+  }, [completedJobCount, user]);
 
   const fetchSavedReels = async (retryCount = 0) => {
     if (!user) return;
@@ -2041,6 +2078,15 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
       // Step 3: If we have video tasks, poll for completion
       if (videoTasks.length > 0) {
+        // Register active generation for background handoff if user navigates away
+        activeGenerationRef.current = {
+          videoTasks: videoTasks.map((t: any) => ({ taskId: t.taskId, sceneNumber: t.sceneNumber, hasEmbeddedAudio: t.hasEmbeddedAudio })),
+          generatedScenes,
+          voiceovers,
+          hasEmbeddedAudio,
+          topic: project.topic
+        };
+        
         setProject(prev => ({ ...prev, status: 'rendering-video' }));
         setProgressStatus(`Generating ${videoTasks.length} video clips with WaveSpeed...`);
 
@@ -2299,6 +2345,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               } catch (saveError) { console.error('Auto-save failed:', saveError); }
             }
 
+            activeGenerationRef.current = null; // Clear background handoff on success
             setProgress(100);
             setProgressStatus('Complete!');
             toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video and saved to library!` });
@@ -2348,6 +2395,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setProject(prev => ({ ...prev, status: 'idle' }));
     } finally {
       setIsGenerating(false);
+      activeGenerationRef.current = null; // Clear background handoff
     }
   };
 

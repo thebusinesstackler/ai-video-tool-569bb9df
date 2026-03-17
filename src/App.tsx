@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/AuthProvider";
+import { BackgroundVideoProvider } from "@/contexts/BackgroundVideoContext";
+import { BackgroundJobIndicator } from "@/components/BackgroundJobIndicator";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import MovieSceneCreator from "./pages/MovieSceneCreator";
@@ -38,31 +40,34 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/movie-scene-creator" element={<ProtectedRoute><MovieSceneCreator /></ProtectedRoute>} />
-            <Route path="/movies" element={<ProtectedRoute><Movies /></ProtectedRoute>} />
-            <Route path="/scripts" element={<Navigate to="/reels" replace />} />
-            <Route path="/characters" element={<ProtectedRoute><Characters /></ProtectedRoute>} />
-            <Route path="/projects" element={<Navigate to="/reels" replace />} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
-            <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
-            <Route path="/ai-twin" element={<ProtectedRoute><AITwin /></ProtectedRoute>} />
-            <Route path="/testimonial-commercial" element={<ProtectedRoute><TestimonialCommercial /></ProtectedRoute>} />
-            <Route path="/ai-spokesperson" element={<ProtectedRoute><AISpokesperson /></ProtectedRoute>} />
-            <Route path="/videos" element={<Navigate to="/reels" replace />} />
-            <Route path="/commercial-studio" element={<Navigate to="/testimonial-commercial" replace />} />
-            <Route path="/hook-engine" element={<ProtectedRoute><HookEngine /></ProtectedRoute>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <BackgroundVideoProvider>
+        <TooltipProvider>
+          <Toaster />
+          <BackgroundJobIndicator />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/movie-scene-creator" element={<ProtectedRoute><MovieSceneCreator /></ProtectedRoute>} />
+              <Route path="/movies" element={<ProtectedRoute><Movies /></ProtectedRoute>} />
+              <Route path="/scripts" element={<Navigate to="/reels" replace />} />
+              <Route path="/characters" element={<ProtectedRoute><Characters /></ProtectedRoute>} />
+              <Route path="/projects" element={<Navigate to="/reels" replace />} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
+              <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+              <Route path="/ai-twin" element={<ProtectedRoute><AITwin /></ProtectedRoute>} />
+              <Route path="/testimonial-commercial" element={<ProtectedRoute><TestimonialCommercial /></ProtectedRoute>} />
+              <Route path="/ai-spokesperson" element={<ProtectedRoute><AISpokesperson /></ProtectedRoute>} />
+              <Route path="/videos" element={<Navigate to="/reels" replace />} />
+              <Route path="/commercial-studio" element={<Navigate to="/testimonial-commercial" replace />} />
+              <Route path="/hook-engine" element={<ProtectedRoute><HookEngine /></ProtectedRoute>} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </BackgroundVideoProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
