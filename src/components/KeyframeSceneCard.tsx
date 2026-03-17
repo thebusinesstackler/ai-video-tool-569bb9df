@@ -572,7 +572,22 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
           <DialogTitle className="sr-only">{viewingVideo?.title || 'Video Preview'}</DialogTitle>
           <div className="relative">
             <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 bg-background/80" onClick={() => setViewingVideo(null)}><X className="h-4 w-4" /></Button>
-            {viewingVideo && <video src={viewingVideo.src} controls autoPlay className="w-full h-auto max-h-[80vh]" />}
+            {viewingVideo && (
+              <>
+                <video 
+                  src={viewingVideo.src} 
+                  controls 
+                  autoPlay 
+                  className="w-full h-auto max-h-[80vh]"
+                  ref={(el) => {
+                    if (el && fullscreenAudioRef.current && audioDataUrl) {
+                      syncAudioToVideo(el, fullscreenAudioRef.current);
+                    }
+                  }}
+                />
+                {audioDataUrl && <audio ref={fullscreenAudioRef} src={audioDataUrl} preload="auto" />}
+              </>
+            )}
             <div className="p-4 border-t border-border"><p className="text-sm text-muted-foreground text-center">{viewingVideo?.title}</p></div>
           </div>
         </DialogContent>
