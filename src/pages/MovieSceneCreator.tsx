@@ -3377,42 +3377,63 @@ const MovieSceneCreator = () => {
         )
       );
 
-      // Poll for video completion
+      // Poll for video completion with max retries
+      let pollAttempts = 0;
+      const maxPollAttempts = 100; // ~5 minutes at 3s intervals
+      
       const checkStatus = async () => {
-        const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
-          body: {
-            action: 'status',
-            taskId: videoData.taskId
+        pollAttempts++;
+        try {
+          const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+            body: {
+              action: 'status',
+              taskId: videoData.taskId
+            }
+          });
+
+          if (statusError) throw statusError;
+
+          if (statusData.status === 'completed' && statusData.videoUrl) {
+            setScenes(prevScenes => {
+              const updated = prevScenes.map(s => 
+                s.sceneNumber === sceneNumber 
+                  ? { ...s, generatedVideo: statusData.videoUrl, videoTaskId: videoData.taskId }
+                  : s
+              );
+              setTimeout(() => autoSaveProject(updated), 500);
+              return updated;
+            });
+            setGeneratingVideoFor(null);
+            
+            toast({
+              title: "Transition Video Ready!",
+              description: `Scene ${sceneNumber} keyframe transition video is complete.`,
+            });
+          } else if (statusData.status === 'failed') {
+            throw new Error('Video generation failed on WaveSpeed');
+          } else if (pollAttempts >= maxPollAttempts) {
+            // Timed out but task may still complete - save taskId for recovery
+            setGeneratingVideoFor(null);
+            toast({
+              title: "Video Still Processing",
+              description: `Scene ${sceneNumber} is taking longer than expected. Use the "Check Status" button on the scene card to retrieve it when ready.`,
+            });
+          } else {
+            setTimeout(checkStatus, 3000);
           }
-        });
-
-        if (statusError) throw statusError;
-
-        if (statusData.status === 'completed' && statusData.videoUrl) {
-          // Video is ready - store the video URL
-          // Note: Audio merging with video would require additional processing
-          // For now, store both separately and the user can combine them if needed
-          setScenes(prevScenes => {
-            const updated = prevScenes.map(s => 
-              s.sceneNumber === sceneNumber 
-                ? { ...s, generatedVideo: statusData.videoUrl }
-                : s
-            );
-            // Auto-save after video generation
-            setTimeout(() => autoSaveProject(updated), 500);
-            return updated;
-          });
-          setGeneratingVideoFor(null);
-          
-          toast({
-            title: "Transition Video Ready!",
-            description: `Scene ${sceneNumber} keyframe transition video is complete.`,
-          });
-        } else if (statusData.status === 'failed') {
-          throw new Error('Video generation failed');
-        } else {
-          // Continue polling
-          setTimeout(checkStatus, 3000);
+        } catch (pollErr) {
+          console.error('Poll error:', pollErr);
+          if (pollAttempts < 3) {
+            // Retry on transient errors
+            setTimeout(checkStatus, 5000);
+          } else {
+            setGeneratingVideoFor(null);
+            toast({
+              title: "Polling Error",
+              description: `Lost connection to video status. Use "Check Status" on the scene card to retrieve your video.`,
+              variant: "destructive"
+            });
+          }
         }
       };
 
