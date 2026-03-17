@@ -387,16 +387,16 @@ VISUAL RULES:
 ${CAMERA_ANGLES.slice(0, sceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
 CRITICAL VALIDATION BEFORE RETURNING:
-- Verify narration contains ZERO periods, ZERO em dashes (—), ZERO ellipses (...)
-- Only commas and question marks for pauses
-- Write flowing conversational sentences
+- Write complete sentences with proper punctuation (periods, commas, question marks)
+- Do NOT use em dashes (—), double hyphens (--), or ellipses (...)
+- Every narration must end with a period or question mark, NEVER a trailing comma
 - Scene 1 HOOK narration must be a COMPLETE, compelling sentence (15+ words minimum), not a fragment like "I" or "Hook:"
 
 Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here using ONLY commas and question marks, NO periods, NO em dashes, NO ellipses",
+    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here. Use periods and commas naturally. NO em dashes, NO ellipses. Must end with a period or question mark.",
     "visualDescription": "SUBJECT: ${characterDescription ? `${characterDescription}, ` : ''}[action relevant to narration topic, closed mouth, natural expression]. SETTING: [location and key props matching the topic]. MOOD: [lighting and color tone in 2-3 words].${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
