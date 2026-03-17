@@ -672,6 +672,25 @@ Rules:
             sceneHasEmbeddedAudio = false;
           }
           
+        } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.6-i2v') {
+          // ====== WAN 2.6 I2V: High quality image-to-video, 5/10/15s clips ======
+          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.6 I2V for narrator scene`);
+          
+          // Clamp to allowed durations: 5, 10, or 15
+          const wan26Duration = clipDuration <= 7 ? 5 : clipDuration <= 12 ? 10 : 15;
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.6/image-to-video';
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Context: The narrator is saying "${scene.narration}" over this visual.
+Smooth cinematic motion, professional color grading, photorealistic quality.
+Natural confident expression, engaging body language.
+Absolutely no text, no captions, no subtitles, no watermarks.`,
+            duration: wan26Duration
+          };
+          sceneHasEmbeddedAudio = false;
+          
         } else if (isNarratorScene && enableLipSync && videoModel === 'kling-v3.0-pro') {
           // ====== KLING 3.0 PRO: Cinematic lip sync scenes ======
           console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for narrator scene (lip sync)`);

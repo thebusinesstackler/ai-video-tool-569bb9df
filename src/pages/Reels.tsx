@@ -4639,6 +4639,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing (no lip sync, ~4s)' },
                           { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 720p, 3-10s clips (no lip sync)' },
                           { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips (no lip sync)' },
+                          { value: 'wan-2.6-i2v' as const, label: '🌟 Wan 2.6 I2V', desc: 'High quality — 5s, 10s, or 15s clips (no lip sync)' },
                         ].map((m) => (
                          <button
                            key={m.value}
