@@ -335,14 +335,14 @@ VISUAL-NARRATIVE ALIGNMENT (CRITICAL):
 - Each scene's visual should illustrate the specific point being made in that scene's narration
 - NEVER use generic stock-photo poses unrelated to the content
 
-PREMIUM CINEMATOGRAPHY (CRITICAL):
-- Every visualDescription MUST include specific cinematography details:
-  - Camera: Specify lens (35mm, 50mm, 85mm), depth of field (f/1.4 bokeh, f/2.8), camera movement
-  - Lighting: Describe precise lighting setup (golden hour, studio 3-point, rim light, motivated light)
-  - Color grade: Specify color palette/mood (warm amber tones, cool desaturated, rich cinematic)
-  - Composition: Rule of thirds, leading lines, negative space, framing elements
-- Think RED V-RAPTOR / ARRI Alexa quality - every frame should look like a high-end commercial
-- Include atmospheric details: lens flare, volumetric light, bokeh particles, subtle haze
+VISUAL STYLE (keep it simple):
+- Every visualDescription must follow this format:
+  - SUBJECT: Who/what, their action, expression, pose
+  - SETTING: Location and key props relevant to the topic
+  - MOOD: Lighting quality and color tone (2-3 words max)
+- Do NOT include lens mm, f-stop numbers, camera brand names, or particle effects
+- Focus on what the viewer SEES, not technical camera specs
+- Keep descriptions under 50 words
 
 VISUAL CONTINUITY:
 - If showing a person/character, describe them IDENTICALLY in each scene
