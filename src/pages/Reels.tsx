@@ -340,6 +340,7 @@ const Reels = () => {
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection — defaults empty, resolved from AI Twin cloned voice
   const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [voicePitch, setVoicePitch] = useState<number>(0);
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
