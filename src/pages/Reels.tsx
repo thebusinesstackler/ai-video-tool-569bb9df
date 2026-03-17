@@ -2404,6 +2404,29 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           voiceovers: voiceovers.map(v => ({ ...v, duration: v.duration || 5 })),
           status: 'complete'
         }));
+
+        // Auto-save images-only reel to library
+        if (user) {
+          try {
+            const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+            const totalDuration = voiceovers.reduce((acc, a) => acc + (a.duration || 5), 0);
+            const scenesData = generatedScenes.map((scene) => {
+              const audio = voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
+              return { ...scene, videoUrl: null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
+            });
+            await supabase.from('reels').insert([{
+              user_id: user.id,
+              topic: project.topic || topic || 'Untitled Reel',
+              video_url: null,
+              thumbnail_url: thumbnailUrl,
+              scenes: scenesData as unknown as any,
+              total_duration: Math.round(totalDuration)
+            }]);
+            handleReelSavedSuccessfully();
+            fetchSavedReels();
+          } catch (saveError) { console.error('Auto-save failed (images only):', saveError); }
+        }
+
         setProgress(100);
         setProgressStatus('Images generated (no video tasks created)');
 
