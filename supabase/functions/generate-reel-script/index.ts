@@ -529,54 +529,14 @@ Return ONLY valid JSON array:
       };
     });
 
-    // Renumber scenes to account for intro
-    const hasIntro = introConfig?.introTemplate && introConfig.introTemplate !== 'none';
-    const hasOutro = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none';
-
-    if (hasIntro) {
-      scenes = scenes.map((scene: any, index: number) => ({
-        ...scene,
-        sceneNumber: index + 2
-      }));
-
-      const introNarration = introConfig.introText || getDefaultIntroText(introConfig.introTemplate, topic, hookStyle);
-      const introScene = {
-        sceneNumber: 1,
-        narration: formatScriptForTTS(introNarration),
-        visualDescription: getIntroVisualDescription(introConfig.introTemplate, topic, baseVisualStyle),
-        duration: 3,
-        isIntro: true,
-        templateId: introConfig.introTemplate,
-        cameraAngle: 'close-up, direct engagement'
-      };
-      scenes.unshift(introScene);
+    // Ensure intro/outro flags are properly set (AI may not always include them)
+    if (hasIntro && scenes.length > 0) {
+      scenes[0].isIntro = true;
+      scenes[0].duration = 3;
     }
-
-    if (hasOutro) {
-      const outroNarration = formatScriptForTTS(outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate, topic));
-      
-      const outroScene = {
-        sceneNumber: scenes.length + 1,
-        narration: outroNarration,
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
-        duration: 2,
-        isOutro: true,
-        templateId: outroConfig.outroTemplate,
-        cameraAngle: 'medium shot, call-to-action framing'
-      };
-      scenes.push(outroScene);
-      
-      const ctaHoldScene = {
-        sceneNumber: scenes.length + 1,
-        narration: '',
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
-        duration: 2,
-        isOutro: true,
-        isSilentCTA: true,
-        templateId: outroConfig.outroTemplate,
-        cameraAngle: 'medium shot, hold on CTA'
-      };
-      scenes.push(ctaHoldScene);
+    if (hasOutro && scenes.length > 0) {
+      scenes[scenes.length - 1].isOutro = true;
+      scenes[scenes.length - 1].duration = 2;
     }
 
     console.log('Generated scenes:', scenes.length, 'with intro:', hasIntro, 'outro:', hasOutro);
