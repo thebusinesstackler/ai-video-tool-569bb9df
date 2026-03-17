@@ -1469,6 +1469,9 @@ const MovieSceneCreator = () => {
       setOutline(outlineData.outline);
       setGenerateAllProgress(30);
 
+      // ── Progressive save: outline done ──
+      await ensureProjectSaved({ outline: outlineData.outline });
+
       // Step 3: Extract Locations (35%)
       setGenerateAllStep('Extracting Locations...');
       
