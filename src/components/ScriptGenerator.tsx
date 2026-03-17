@@ -548,14 +548,74 @@ Return ONLY valid JSON:
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="topic">Video Topic</Label>
-            <Textarea
-              id="topic"
-              placeholder="Describe your video topic, key messages, or product details..."
-              value={params.topic}
-              onChange={(e) => setParams(prev => ({ ...prev, topic: e.target.value }))}
-              className="min-h-[100px]"
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="topic">Video Topic</Label>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant={isListening ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={toggleListening}
+                  className={`h-8 gap-1.5 ${isListening ? 'animate-pulse' : ''}`}
+                >
+                  {isListening ? <MicOffIcon className="w-3.5 h-3.5" /> : <MicIcon className="w-3.5 h-3.5" />}
+                  {isListening ? 'Stop' : 'Speak'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={enhanceTopic}
+                  disabled={isEnhancing || !params.topic.trim()}
+                  className="h-8 gap-1.5"
+                >
+                  {isEnhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  Enhance
+                </Button>
+              </div>
+            </div>
+            <div className="relative">
+              <Textarea
+                id="topic"
+                placeholder={isListening ? "🎤 Listening... speak your video idea" : "Describe your video topic, key messages, or product details..."}
+                value={params.topic}
+                onChange={(e) => setParams(prev => ({ ...prev, topic: e.target.value }))}
+                className={`min-h-[100px] ${isListening ? 'border-destructive/50 bg-destructive/5' : ''}`}
+              />
+              {isListening && (
+                <div className="absolute top-2 right-2">
+                  <span className="flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* AI Suggestions */}
+            {aiSuggestions.length > 0 && (
+              <div className="space-y-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Alternative Angles
+                </p>
+                <div className="space-y-1.5">
+                  {aiSuggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setParams(prev => ({ ...prev, topic: suggestion }));
+                        setAiSuggestions([]);
+                        toast({ title: "Topic Updated", description: "Switched to suggested angle." });
+                      }}
+                      className="w-full text-left text-xs p-2 rounded-md border border-border hover:border-primary/30 hover:bg-muted/50 transition-all text-foreground"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* AI Twin Selector */}
