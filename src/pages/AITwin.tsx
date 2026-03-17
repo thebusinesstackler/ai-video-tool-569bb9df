@@ -123,7 +123,7 @@ const AITwin = () => {
 
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('id, user_id, name, reference_images, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, created_at, updated_at')
+        .select('id, user_id, name, reference_images, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, voice_engine, google_voice_id, created_at, updated_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .abortSignal(controller.signal);
