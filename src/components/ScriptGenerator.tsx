@@ -157,7 +157,7 @@ export const ScriptGenerator = ({ onUseInReel }: ScriptGeneratorProps = {}) => {
     try {
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
-          prompt: `You are a viral content strategist. The user described a video idea (possibly via voice, so it may be rough/unpolished):
+          message: `You are a viral content strategist. The user described a video idea (possibly via voice, so it may be rough/unpolished):
 
 "${params.topic}"
 
@@ -176,7 +176,7 @@ Return ONLY valid JSON:
 
       if (error) throw error;
 
-      const text = data?.text || data?.result || '';
+      const text = data?.response || '';
       // Parse JSON from response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
