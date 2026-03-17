@@ -231,6 +231,9 @@ interface DraftState {
   customAudioUrl: string | null;
   customAudioDuration: number;
   voicePitch?: number;
+  generatedScenes?: GeneratedScene[];
+  backgroundMusicUrl?: string | null;
+  backgroundMusicMood?: string;
 }
 
 const SCENE_COUNT_OPTIONS = [
