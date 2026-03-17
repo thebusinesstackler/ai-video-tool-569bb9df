@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,7 @@ export interface MovieSceneWithKeyframes {
   selectedLighting?: string;
   mood?: string;
   suggestedMusic?: string;
+  transitionAudioContent?: string; // Base64 audio to sync with silent video
 }
 
 export const CAMERA_MOVEMENTS = [
@@ -152,6 +153,52 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   const [viewingImage, setViewingImage] = useState<{ src: string; title: string } | null>(null);
   const [viewingVideo, setViewingVideo] = useState<{ src: string; title: string } | null>(null);
 
+  // Audio sync refs for transition videos with separate audio
+  const inlineAudioRef = useRef<HTMLAudioElement | null>(null);
+  const inlineVideoRef = useRef<HTMLVideoElement | null>(null);
+  const fullscreenAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const audioDataUrl = scene.transitionAudioContent 
+    ? `data:audio/mp3;base64,${scene.transitionAudioContent}` 
+    : null;
+
+  // Sync audio with video playback
+  const syncAudioToVideo = useCallback((videoEl: HTMLVideoElement, audioEl: HTMLAudioElement | null) => {
+    if (!audioEl) return;
+    
+    const onPlay = () => { audioEl.currentTime = videoEl.currentTime; audioEl.play().catch(() => {}); };
+    const onPause = () => { audioEl.pause(); };
+    const onSeeked = () => { audioEl.currentTime = videoEl.currentTime; };
+    const onEnded = () => { audioEl.pause(); audioEl.currentTime = 0; };
+
+    videoEl.addEventListener('play', onPlay);
+    videoEl.addEventListener('pause', onPause);
+    videoEl.addEventListener('seeked', onSeeked);
+    videoEl.addEventListener('ended', onEnded);
+
+    return () => {
+      videoEl.removeEventListener('play', onPlay);
+      videoEl.removeEventListener('pause', onPause);
+      videoEl.removeEventListener('seeked', onSeeked);
+      videoEl.removeEventListener('ended', onEnded);
+    };
+  }, []);
+
+  // Attach sync to inline video
+  useEffect(() => {
+    if (inlineVideoRef.current && inlineAudioRef.current) {
+      return syncAudioToVideo(inlineVideoRef.current, inlineAudioRef.current);
+    }
+  }, [scene.generatedVideo, scene.transitionAudioContent, syncAudioToVideo]);
+
+  // Clean up audio when video dialog closes
+  useEffect(() => {
+    if (!viewingVideo && fullscreenAudioRef.current) {
+      fullscreenAudioRef.current.pause();
+      fullscreenAudioRef.current.currentTime = 0;
+    }
+  }, [viewingVideo]);
+
   const canLinkToPrevious = sceneIndex > 0 && previousSceneEndFrame?.generatedImage;
   const hasStartFrame = !!scene.startFrame?.generatedImage;
   const hasEndFrame = !!scene.endFrame?.generatedImage;
@@ -226,10 +273,22 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
             >
               {hasVideo ? (
                 <>
-                  <video src={scene.generatedVideo} className="w-full h-full object-cover" controls onClick={(e) => e.stopPropagation()} />
+                  <video 
+                    ref={inlineVideoRef}
+                    src={scene.generatedVideo} 
+                    className="w-full h-full object-cover" 
+                    controls 
+                    onClick={(e) => e.stopPropagation()} 
+                  />
+                  {audioDataUrl && <audio ref={inlineAudioRef} src={audioDataUrl} preload="auto" />}
                   <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Expand className="w-3 h-3" />Fullscreen
                   </div>
+                  {audioDataUrl && (
+                    <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                      <Volume2 className="w-3 h-3" />Audio synced
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
@@ -513,7 +572,22 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
           <DialogTitle className="sr-only">{viewingVideo?.title || 'Video Preview'}</DialogTitle>
           <div className="relative">
             <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 bg-background/80" onClick={() => setViewingVideo(null)}><X className="h-4 w-4" /></Button>
-            {viewingVideo && <video src={viewingVideo.src} controls autoPlay className="w-full h-auto max-h-[80vh]" />}
+            {viewingVideo && (
+              <>
+                <video 
+                  src={viewingVideo.src} 
+                  controls 
+                  autoPlay 
+                  className="w-full h-auto max-h-[80vh]"
+                  ref={(el) => {
+                    if (el && fullscreenAudioRef.current && audioDataUrl) {
+                      syncAudioToVideo(el, fullscreenAudioRef.current);
+                    }
+                  }}
+                />
+                {audioDataUrl && <audio ref={fullscreenAudioRef} src={audioDataUrl} preload="auto" />}
+              </>
+            )}
             <div className="p-4 border-t border-border"><p className="text-sm text-muted-foreground text-center">{viewingVideo?.title}</p></div>
           </div>
         </DialogContent>
