@@ -2488,11 +2488,11 @@ const MovieSceneCreator = () => {
     try {
       toast({
         title: "Generating Blockbuster Dialogue",
-        description: `Creating cinematic dialogue...`
+        description: `Creating cinematic dialogue for ${characterNames.length > 0 ? characterNames.join(' & ') : 'this scene'}...`
       });
 
       // For 2+ characters, use conversation dialogue with story context
-      if (selectedTwins.length >= 2) {
+      if (characterNames.length >= 2) {
         // Build character personalities
         const characterPersonalities: Record<string, string> = {};
         selectedTwins.forEach(twin => {
