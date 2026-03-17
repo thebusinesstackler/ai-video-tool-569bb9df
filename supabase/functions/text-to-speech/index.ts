@@ -131,7 +131,8 @@ async function generateWaveSpeedTTS(
   apiKey: string,
   voiceId: string = 'English_Trustworth_Man',
   speed: number = 1,
-  emotion: string = 'neutral'
+  emotion: string = 'neutral',
+  pitch: number = 0
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
     console.log(`Generating TTS with WaveSpeed MiniMax voice: ${voiceId}`);
