@@ -47,6 +47,7 @@ Your task is to create a complete STORY BIBLE that ensures total consistency thr
    Each character MUST have:
    - name: Character's name
    - role: "protagonist" | "deuteragonist" | "antagonist" | "supporting"
+   - gender: "male" | "female" (REQUIRED - used for voice casting)
    - age: Approximate age range
    - appearance: Physical description (hair, skin, eyes, build)
    - wardrobe: SPECIFIC outfit they wear THROUGHOUT the entire film (this MUST be consistent in EVERY scene)
@@ -79,6 +80,7 @@ CRITICAL: Return ONLY valid JSON with this structure (no markdown):
     {
       "name": "Character Name",
       "role": "protagonist",
+      "gender": "female",
       "age": "mid-30s",
       "appearance": "Detailed physical description",
       "wardrobe": "Red leather jacket over white t-shirt, dark blue jeans, black boots",

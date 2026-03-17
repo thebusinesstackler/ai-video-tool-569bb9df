@@ -104,6 +104,7 @@ interface StoryBibleCharacter {
   role: 'protagonist' | 'deuteragonist' | 'antagonist' | 'supporting';
   age: string;
   appearance: string;
+  gender?: string;
   wardrobe: string;
   voiceStyle: string;
   personality: string;
@@ -167,8 +168,19 @@ interface MovieScene {
   transitionCameraMovement?: string;
 }
 
-const MOOD_ICONS: Record<string, string> = {
-  tense: '😰',
+/** Infer gender from a StoryBibleCharacter's explicit gender or appearance description */
+function inferCharacterGender(char: StoryBibleCharacter): string {
+  if (char.gender) {
+    const g = char.gender.toLowerCase();
+    if (g === 'female' || g === 'male') return g;
+  }
+  const desc = (char.appearance || '').toLowerCase();
+  if (desc.includes('woman') || desc.includes('female') || desc.includes('girl') || desc.includes(' she ') || desc.includes(' her ')) return 'female';
+  if (desc.includes('man') || desc.includes('male') || desc.includes('boy') || desc.includes(' he ') || desc.includes(' his ')) return 'male';
+  return 'male';
+}
+
+  const MOOD_ICONS: Record<string, string> = {
   romantic: '💕',
   action: '💥',
   melancholic: '😢',
@@ -1849,15 +1861,20 @@ const MovieSceneCreator = () => {
       setScenes([...scenesWithDialogue]);
 
       // Auto-stitch all videos into final movie
-      const scenesWithVideos = scenesWithDialogue.filter(s => s.generatedVideo);
+      const sortedForStitch = [...scenesWithDialogue].sort((a, b) => a.sceneNumber - b.sceneNumber);
+      const scenesWithVideos = sortedForStitch.filter(s => s.generatedVideo);
+      console.log(`[GenerateAll] Stitching: ${scenesWithVideos.length}/${sortedForStitch.length} scenes have videos`);
       if (scenesWithVideos.length >= 2) {
         setGenerateAllStep('Stitching final movie...');
         try {
           const videosToStitch = scenesWithVideos.map(s => s.generatedVideo as string);
-          const audiosToStitch = scenesWithVideos
-            .map(s => (s as any).transitionAudioContent)
-            .filter(Boolean)
-            .map((audioBase64: string) => `data:audio/mp3;base64,${audioBase64}`);
+          const audiosToStitch: string[] = [];
+          scenesWithVideos.forEach(s => {
+            const audioContent = (s as any).transitionAudioContent;
+            if (audioContent) {
+              audiosToStitch.push(`data:audio/mp3;base64,${audioContent}`);
+            }
+          });
 
           const stitchedBlob = await stitchVideosWithAudio({
             videoUrls: videosToStitch,
@@ -2798,11 +2815,17 @@ const MovieSceneCreator = () => {
                   characterName: char.name,
                   speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
                   voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
-                  gender: twin.gender || undefined,
+                  gender: twin.gender || inferCharacterGender(char),
                   voiceEngine: twin.voice_engine || undefined,
                   googleVoiceId: twin.google_voice_id || undefined,
                 });
               }
+            } else {
+              // No twin assigned — use inferred gender for voice matching
+              voiceAssignments.push({
+                characterName: char.name,
+                gender: inferCharacterGender(char),
+              });
             }
           }
         }
@@ -2919,7 +2942,25 @@ const MovieSceneCreator = () => {
         } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
           ttsVoiceParams = { voiceEngine: 'google-cloud', googleVoiceId: voiceToUse.googleVoiceId };
         } else {
-          ttsVoiceParams = { voice: 'ai-auto', gender: voiceToUse?.gender || 'male' };
+          // Infer gender from story bible character if available
+          const charGender = (() => {
+            if (voiceToUse?.gender) return voiceToUse.gender;
+            if (storyBible?.characters) {
+              const speakerName = Array.isArray(scene.dialogue) && scene.dialogue.length > 0
+                ? scene.dialogue[0].character?.toLowerCase() : '';
+              const matchedChar = storyBible.characters.find(c => c.name.toLowerCase() === speakerName)
+                || storyBible.characters.find(c => speakerName?.includes(c.name.toLowerCase()));
+              if (matchedChar) {
+                const genderFromChar = matchedChar.gender?.toLowerCase();
+                if (genderFromChar && (genderFromChar === 'female' || genderFromChar === 'male')) return genderFromChar;
+                // Infer from appearance description
+                const desc = (matchedChar.appearance || '').toLowerCase();
+                if (desc.includes('woman') || desc.includes('female') || desc.includes('girl') || desc.includes('she ') || desc.includes('her ')) return 'female';
+              }
+            }
+            return 'male';
+          })();
+          ttsVoiceParams = { voice: 'ai-auto', gender: charGender };
         }
 
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
@@ -3147,12 +3188,19 @@ const MovieSceneCreator = () => {
                   characterName: char.name,
                   speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
                   voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
-                  gender: twin.gender || undefined,
+                  gender: twin.gender || inferCharacterGender(char),
                   voiceEngine: twin.voice_engine || undefined,
                   googleVoiceId: twin.google_voice_id || undefined,
-                  defaultVoice: char.role === 'protagonist' ? 'en-US-Journey-D' : 'en-US-Journey-F'
+                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
                 });
               }
+            } else {
+              // No twin assigned — use inferred gender for voice matching
+              voiceAssignments.push({
+                characterName: char.name,
+                gender: inferCharacterGender(char),
+                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
+              });
             }
           }
         }
@@ -3708,16 +3756,29 @@ const MovieSceneCreator = () => {
   };
 
   const stitchAllVideos = async () => {
-    // Check if all scenes have generated videos
-    // Collect videos and their corresponding audio
-    const scenesWithVideos = scenes.filter(scene => scene.generatedVideo);
+    // Sort scenes by scene number to ensure correct order
+    const sortedScenes = [...scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+    
+    // Log which scenes have videos and which don't
+    const scenesWithVideos = sortedScenes.filter(scene => scene.generatedVideo);
+    const scenesWithoutVideos = sortedScenes.filter(scene => !scene.generatedVideo);
+    
+    console.log(`[BuildMovie] Total scenes: ${sortedScenes.length}`);
+    scenesWithVideos.forEach(s => console.log(`  ✓ Scene ${s.sceneNumber}: "${s.title}" — has video`));
+    scenesWithoutVideos.forEach(s => console.log(`  ✗ Scene ${s.sceneNumber}: "${s.title}" — NO video`));
+    
     const videosToStitch = scenesWithVideos.map(scene => scene.generatedVideo as string);
     
-    // Fix #1: Collect audio for each scene (transitionAudioContent is base64)
-    const audiosToStitch = scenesWithVideos
-      .map(scene => (scene as any).transitionAudioContent)
-      .filter(Boolean)
-      .map(audioBase64 => `data:audio/mp3;base64,${audioBase64}`);
+    // Collect audio per scene, keeping alignment with video array (null for scenes without audio)
+    const audiosToStitch: string[] = [];
+    const embeddedAudioIndices: number[] = [];
+    scenesWithVideos.forEach((scene, idx) => {
+      const audioContent = (scene as any).transitionAudioContent;
+      if (audioContent) {
+        audiosToStitch.push(`data:audio/mp3;base64,${audioContent}`);
+        embeddedAudioIndices.push(idx);
+      }
+    });
 
     if (videosToStitch.length === 0) {
       toast({
@@ -3728,10 +3789,10 @@ const MovieSceneCreator = () => {
       return;
     }
 
-    if (videosToStitch.length < scenes.length) {
+    if (scenesWithoutVideos.length > 0) {
       toast({
-        title: "Warning",
-        description: `Only ${videosToStitch.length} of ${scenes.length} scenes have videos. Missing scenes will be skipped.`,
+        title: "Some Scenes Missing Videos",
+        description: `Scenes ${scenesWithoutVideos.map(s => s.sceneNumber).join(', ')} don't have videos and will be skipped. ${videosToStitch.length} scenes will be included.`,
       });
     }
 
