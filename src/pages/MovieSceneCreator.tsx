@@ -2801,9 +2801,12 @@ const MovieSceneCreator = () => {
           };
         }
 
+        const voiceType = voiceToUse?.speechifyVoiceId ? 'cloned' : voiceToUse?.voiceCloningKey ? 'cloned' : voiceToUse?.voiceEngine === 'google-cloud' ? 'Google Cloud' : 'WaveSpeed AI';
         toast({
           title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
-          description: voiceToUse ? `Creating voiceover using ${voiceToUse.name}'s voice...` : "Creating voiceover for the scene...",
+          description: voiceToUse 
+            ? `Creating ${voiceToUse.gender || 'character'} voiceover for ${voiceToUse.name} via ${voiceType}...`
+            : "Creating voiceover for the scene...",
         });
 
         let ttsVoiceParams: any = {};
