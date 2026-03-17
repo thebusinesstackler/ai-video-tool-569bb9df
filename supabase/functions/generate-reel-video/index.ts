@@ -73,9 +73,8 @@ async function generateWaveSpeedTTS(
   try {
     console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD...');
     
-    // Use English voice from MiniMax
-    // Accept voice parameter, default to English_Trustworth_Man
-    let voiceId = 'English_Trustworth_Man';
+    // Use the selected voice, default to English_Trustworth_Man
+    const voiceId = selectedVoice || 'English_Trustworth_Man';
     
     // Calculate speed to match target duration
     const speed = calculateTTSSpeed(text, targetDuration);
