@@ -104,6 +104,7 @@ interface StoryBibleCharacter {
   role: 'protagonist' | 'deuteragonist' | 'antagonist' | 'supporting';
   age: string;
   appearance: string;
+  gender?: string;
   wardrobe: string;
   voiceStyle: string;
   personality: string;
