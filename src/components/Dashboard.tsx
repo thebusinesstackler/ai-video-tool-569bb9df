@@ -117,6 +117,22 @@ export const Dashboard = () => {
         .select('id')
         .eq('user_id', currentUser.id);
 
+      // Fetch testimonial commercials count
+      const { data: commercials } = await supabase
+        .from('testimonial_commercials')
+        .select('id, name, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // Fetch video hooks count
+      const { data: hooks } = await supabase
+        .from('video_hooks')
+        .select('id, video_title, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
       if (projectsError) {
         console.error('Error loading projects:', projectsError);
       }
@@ -125,8 +141,8 @@ export const Dashboard = () => {
         console.error('Error loading characters:', charactersError);
       }
 
-      // Total videos = projects + reels + movie projects
-      const totalVideos = (projects?.length || 0) + (reels?.length || 0) + (movieProjects?.length || 0);
+      // Total videos = projects + reels + movie projects + commercials + hooks
+      const totalVideos = (projects?.length || 0) + (reels?.length || 0) + (movieProjects?.length || 0) + (commercials?.length || 0) + (hooks?.length || 0);
 
       // Build recent projects from all content types
       const allRecent = [
