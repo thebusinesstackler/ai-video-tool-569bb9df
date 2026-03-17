@@ -1335,6 +1335,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setCustomAudioMode(ds.customAudioMode || 'tts');
     setCustomAudioUrl(ds.customAudioUrl || null);
     setCustomAudioDuration(ds.customAudioDuration || 0);
+    setVoicePitch(ds.voicePitch || 0);
 
     // Restore strategist state
     if (ds.strategist) {
