@@ -1695,15 +1695,16 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         }
         
         try {
-          // Use AI Twin cloned voice (Speechify) if available
-          const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-          const twinVoiceId = selectedTwin?.voice_cloning_key || null;
+          // Use resolved voice from AI Twin configuration
+          const voiceConfig = resolveVoiceForGeneration();
           
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
             body: { 
               text: scene.narration, 
-              speechifyVoiceId: twinVoiceId || undefined,
-              voice: twinVoiceId ? undefined : (selectedVoice || 'English_Trustworth_Man'),
+              speechifyVoiceId: voiceConfig.speechifyVoiceId,
+              voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'),
+              voiceEngine: voiceConfig.voiceEngine,
+              googleVoiceId: voiceConfig.googleVoiceId,
             }
           });
           
