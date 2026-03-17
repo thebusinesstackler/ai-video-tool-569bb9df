@@ -2346,6 +2346,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                   scenes: scenesWithAllAssets as unknown as any,
                   total_duration: totalDuration
                 }]);
+                handleReelSavedSuccessfully();
                 fetchSavedReels();
               } catch (saveError) { console.error('Auto-save failed:', saveError); }
             }
@@ -2357,15 +2358,40 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           } catch (stitchErr) {
             console.error('Stitching failed:', stitchErr);
             // Final fallback: show individual clips
+            const fallbackVideoUrl = sortedVideos[0]?.videoUrl;
             setProject(prev => ({
               ...prev,
-              videoUrl: sortedVideos[0]?.videoUrl,
-              videoBlobUrl: sortedVideos[0]?.videoUrl,
+              videoUrl: fallbackVideoUrl,
+              videoBlobUrl: fallbackVideoUrl,
               generatedScenes,
               voiceovers: sortedAudios,
               videoClips: sortedVideos,
               status: 'complete'
             }));
+
+            // Auto-save to library even when stitching fails
+            if (user) {
+              try {
+                const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
+                const scenesWithAllAssets = generatedScenes.map((scene) => {
+                  const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                  const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                  return { ...scene, videoUrl: video?.videoUrl || null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
+                });
+                await supabase.from('reels').insert([{
+                  user_id: user.id,
+                  topic: project.topic || topic || 'Untitled Reel',
+                  video_url: fallbackVideoUrl,
+                  thumbnail_url: thumbnailUrl,
+                  scenes: scenesWithAllAssets as unknown as any,
+                  total_duration: Math.round(totalDuration)
+                }]);
+                handleReelSavedSuccessfully();
+                fetchSavedReels();
+              } catch (saveError) { console.error('Auto-save failed after stitch error:', saveError); }
+            }
+
             setProgress(100);
             setProgressStatus('Complete (individual clips)');
             toast({ title: "Videos Generated!", description: `Generated ${sortedVideos.length} clips. Stitching failed — use clip navigation below.` });
@@ -2379,6 +2405,29 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           voiceovers: voiceovers.map(v => ({ ...v, duration: v.duration || 5 })),
           status: 'complete'
         }));
+
+        // Auto-save images-only reel to library
+        if (user) {
+          try {
+            const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+            const totalDuration = voiceovers.reduce((acc, a) => acc + (a.duration || 5), 0);
+            const scenesData = generatedScenes.map((scene) => {
+              const audio = voiceovers.find(a => a.sceneNumber === scene.sceneNumber);
+              return { ...scene, videoUrl: null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
+            });
+            await supabase.from('reels').insert([{
+              user_id: user.id,
+              topic: project.topic || topic || 'Untitled Reel',
+              video_url: null,
+              thumbnail_url: thumbnailUrl,
+              scenes: scenesData as unknown as any,
+              total_duration: Math.round(totalDuration)
+            }]);
+            handleReelSavedSuccessfully();
+            fetchSavedReels();
+          } catch (saveError) { console.error('Auto-save failed (images only):', saveError); }
+        }
+
         setProgress(100);
         setProgressStatus('Images generated (no video tasks created)');
 
