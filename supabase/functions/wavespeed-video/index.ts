@@ -560,17 +560,33 @@ serve(async (req) => {
         throw new Error(`WaveSpeed AI API error: ${errorMessage}`);
       }
       
+      // Log task to video_tasks table for recovery
+      const taskId = data.data.id;
+      const userId = body.userId; // Optional: passed from client for tracking
+      if (userId) {
+        try {
+          await dbClient.from('video_tasks').insert({
+            user_id: userId,
+            task_id: taskId,
+            model: params.model || 'wan-2.2',
+            status: 'pending',
+            source: body.source || null,
+            source_id: body.sourceId || null,
+            scene_number: body.sceneNumber ?? null,
+            prompt: params.prompt?.substring(0, 500) || null
+          });
+          console.log('[video_tasks] Logged new task:', taskId);
+        } catch (logErr) {
+          console.error('[video_tasks] Failed to log task:', logErr);
+        }
+      }
+
       return new Response(
-        JSON.stringify({ taskId: data.data.id }), 
+        JSON.stringify({ taskId }), 
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
-
-    } else if (action === 'status') {
-      const taskId = body.taskId;
-      
-      if (!taskId) {
         return new Response(
           JSON.stringify({ error: 'taskId parameter is required' }), 
           {
