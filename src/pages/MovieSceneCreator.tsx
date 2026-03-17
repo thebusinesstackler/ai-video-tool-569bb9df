@@ -2920,7 +2920,25 @@ const MovieSceneCreator = () => {
         } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
           ttsVoiceParams = { voiceEngine: 'google-cloud', googleVoiceId: voiceToUse.googleVoiceId };
         } else {
-          ttsVoiceParams = { voice: 'ai-auto', gender: voiceToUse?.gender || 'male' };
+          // Infer gender from story bible character if available
+          const charGender = (() => {
+            if (voiceToUse?.gender) return voiceToUse.gender;
+            if (storyBible?.characters) {
+              const speakerName = Array.isArray(scene.dialogue) && scene.dialogue.length > 0
+                ? scene.dialogue[0].character?.toLowerCase() : '';
+              const matchedChar = storyBible.characters.find(c => c.name.toLowerCase() === speakerName)
+                || storyBible.characters.find(c => speakerName?.includes(c.name.toLowerCase()));
+              if (matchedChar) {
+                const genderFromChar = matchedChar.gender?.toLowerCase();
+                if (genderFromChar && (genderFromChar === 'female' || genderFromChar === 'male')) return genderFromChar;
+                // Infer from appearance description
+                const desc = (matchedChar.appearance || '').toLowerCase();
+                if (desc.includes('woman') || desc.includes('female') || desc.includes('girl') || desc.includes('she ') || desc.includes('her ')) return 'female';
+              }
+            }
+            return 'male';
+          })();
+          ttsVoiceParams = { voice: 'ai-auto', gender: charGender };
         }
 
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
