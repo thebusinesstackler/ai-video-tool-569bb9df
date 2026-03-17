@@ -272,6 +272,7 @@ const VIDEO_SIZE_OPTIONS = [
 const Reels = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { registerJob, activeJobs } = useBackgroundVideo();
   const isMobile = useIsMobile();
   const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner, isQuick } = useCreatorMode();
   const [searchParams, setSearchParams] = useSearchParams();
