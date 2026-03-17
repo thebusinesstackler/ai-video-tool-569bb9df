@@ -5865,6 +5865,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         Re-generate with Lip Sync
                       </Button>
                     )}
+                    {/* Post-Production: Add B-Roll */}
+                    {project.videoBlobUrl && project.videoClips.length === 0 && (
+                      <Button
+                        variant="outline"
+                        className="border-accent/50 gap-1"
+                        onClick={() => setShowAppendBroll(!showAppendBroll)}
+                      >
+                        <Film className="w-4 h-4" />
+                        {showAppendBroll ? 'Hide B-Roll Panel' : 'Add B-Roll Clips'}
+                      </Button>
+                    )}
                     {/* Save to My Reels button */}
                     {!currentReelSaved && (project.generatedScenes.length > 0 || project.previewScenes.length > 0 || project.videoBlobUrl) && (
                       <Button 
