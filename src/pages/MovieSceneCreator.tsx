@@ -4661,6 +4661,7 @@ const MovieSceneCreator = () => {
                       onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
                       onGenerateVideo={generateLipSyncVideo}
                       onGenerateTransitionVideo={generateTransitionVideo}
+                      onCheckVideoStatus={checkPendingVideoStatus}
                       onGenerateDialogue={generateDialogue}
                       onDescribeScene={describeScene}
                       onDescribeAndGenerate={describeAndGenerateScene}
