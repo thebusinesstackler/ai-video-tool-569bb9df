@@ -168,7 +168,18 @@ interface MovieScene {
   transitionCameraMovement?: string;
 }
 
-const MOOD_ICONS: Record<string, string> = {
+/** Infer gender from a StoryBibleCharacter's explicit gender or appearance description */
+function inferCharacterGender(char: StoryBibleCharacter): string {
+  if (char.gender) {
+    const g = char.gender.toLowerCase();
+    if (g === 'female' || g === 'male') return g;
+  }
+  const desc = (char.appearance || '').toLowerCase();
+  if (desc.includes('woman') || desc.includes('female') || desc.includes('girl') || desc.includes(' she ') || desc.includes(' her ')) return 'female';
+  if (desc.includes('man') || desc.includes('male') || desc.includes('boy') || desc.includes(' he ') || desc.includes(' his ')) return 'male';
+  return 'male';
+}
+
   tense: '😰',
   romantic: '💕',
   action: '💥',
