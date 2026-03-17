@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
@@ -132,7 +132,9 @@ export function useScenePreview(): UseScenePreviewResult {
     speechifyVoiceId?: string,
     allReferenceImages?: string[],
     customAudioUrl?: string,
-    customAudioDuration?: number
+    customAudioDuration?: number,
+    voiceEngine?: string,
+    googleVoiceId?: string
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     // Use all reference images if provided, otherwise use just the active reference
@@ -203,7 +205,9 @@ export function useScenePreview(): UseScenePreviewResult {
               body: { 
                 text: scene.narration, 
                 voice: speechifyVoiceId ? undefined : voice,
-                speechifyVoiceId: speechifyVoiceId || undefined
+                speechifyVoiceId: speechifyVoiceId || undefined,
+                voiceEngine: voiceEngine || undefined,
+                googleVoiceId: googleVoiceId || undefined
               }
             });
 

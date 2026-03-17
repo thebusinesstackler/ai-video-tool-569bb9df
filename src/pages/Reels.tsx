@@ -4221,7 +4221,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             const characterRefImage = selectedCharacter?.reference_images?.[0];
                             if (referenceToUse) { setExternalReference(referenceToUse); if (preReferenceTransformation) setCharacterTransformation(preReferenceTransformation); }
                             const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
-                            generatePreview(project.scenes, user?.id, referenceToUse || undefined, selectedVoice, characterRefImage || undefined, characterDescription || selectedTwin?.face_description || undefined, selectedTwin?.voice_cloning_key || undefined, selectedTwin?.reference_images || [], customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined, customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined);
+                            const voiceConfig = resolveVoiceForGeneration();
+                            generatePreview(project.scenes, user?.id, referenceToUse || undefined, voiceConfig.voice || selectedVoice, characterRefImage || undefined, characterDescription || selectedTwin?.face_description || undefined, voiceConfig.speechifyVoiceId || selectedTwin?.voice_cloning_key || undefined, selectedTwin?.reference_images || [], customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined, customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined, voiceConfig.voiceEngine, voiceConfig.googleVoiceId);
                           }} disabled={isGenerating || isGeneratingPreview} className="w-full bg-gradient-primary hover:opacity-90">
                             {isGeneratingPreview ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-2" />}
                             Generate Preview
@@ -5202,8 +5203,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           }
                         }
                         const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
-                        // Use voice_cloning_key which is the Speechify voice ID
-                        const speechifyVoiceId = selectedTwin?.voice_cloning_key || undefined;
+                        // Resolve full voice config from AI Twin
+                        const voiceConfig = resolveVoiceForGeneration();
                         // Pass all reference images from the AI Twin for character consistency
                         const allTwinReferenceImages = selectedTwin?.reference_images || [];
                         
@@ -5215,13 +5216,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           project.scenes, 
                           user?.id, 
                           referenceToUse || undefined, 
-                          selectedVoice,
+                          voiceConfig.voice || selectedVoice,
                           characterRefImage || undefined,
                           characterDescription || selectedTwin?.face_description || undefined,
-                          speechifyVoiceId,
+                          voiceConfig.speechifyVoiceId || selectedTwin?.voice_cloning_key || undefined,
                           allTwinReferenceImages,
                           customAudio,
-                          customDuration
+                          customDuration,
+                          voiceConfig.voiceEngine,
+                          voiceConfig.googleVoiceId
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
