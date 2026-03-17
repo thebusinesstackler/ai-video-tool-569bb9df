@@ -416,6 +416,7 @@ CRITICAL VALIDATION BEFORE RETURNING:
 - Do NOT use em dashes (—), double hyphens (--), or ellipses (...)
 - Every narration must end with a period or question mark, NEVER a trailing comma
 - Scene 1 HOOK narration must be a COMPLETE, compelling sentence (15+ words minimum), not a fragment like "I" or "Hook:"
+- The LAST scene's narration MUST contain a clear call-to-action (follow, subscribe, comment, share, try something). NEVER end with just information.
 ${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
 ${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
 
