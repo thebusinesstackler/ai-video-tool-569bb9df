@@ -4669,6 +4669,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           characterGender={detectedCharGender}
                           disabled={isGenerating}
                         />
+                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
                         {selectedVoice && (
                           <Button variant="outline" size="sm" className="w-full" onClick={previewVoice} disabled={isGenerating}>
                             {isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview Voice</>}
