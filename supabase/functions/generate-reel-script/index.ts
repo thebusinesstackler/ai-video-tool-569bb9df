@@ -385,7 +385,9 @@ ${introInstructions}
 ${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
 - Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
 - Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${totalSceneCount} (CLOSE): Write a SPOKEN closing that naturally wraps up the topic`}
+- Scene ${totalSceneCount} (CLOSING CTA - MANDATORY): End with a STRONG call-to-action. Tell the viewer exactly what to do next: follow, subscribe, comment, share, try something, visit a link, or engage. This MUST feel like a natural conclusion that motivates action. Examples: "Follow me for more tips like this", "Drop a comment if this changed your perspective", "Share this with someone who needs to hear it", "Try this today and watch what happens"`}
+
+MANDATORY: The LAST scene MUST always contain a clear call-to-action or goal for the viewer. NEVER end on just information — always tell them what to DO next.
 
 NARRATION REQUIREMENTS:
 - Content scenes: Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
