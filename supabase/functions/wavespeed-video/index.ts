@@ -586,7 +586,11 @@ serve(async (req) => {
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      );
+
+    } else if (action === 'status') {
+      const taskId = body.taskId;
+      
+      if (!taskId) {
         return new Response(
           JSON.stringify({ error: 'taskId parameter is required' }), 
           {
