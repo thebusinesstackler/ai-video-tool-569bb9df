@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { CommercialSegment } from '@/types/testimonialCommercial';
 import { User, Film, Play, Pause, ChevronUp, ChevronDown, Volume2, Clock, RefreshCw, Mic, Pencil, Trash2, Copy, FileText, Lock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -9,39 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-
-interface TimelinePreviewProps {
-  segments: CommercialSegment[];
-  onReorder?: (fromIndex: number, toIndex: number) => void;
-  onSelectSegment?: (id: string) => void;
-  onUpdateSegment?: (id: string, updates: Partial<CommercialSegment>) => void;
-  onDeleteSegment?: (id: string) => void;
-  onDuplicateSegment?: (id: string) => void;
-}
-
-const WAVESPEED_VOICES = {
-  male: [
-    { id: 'English_magnetic_voiced_man', label: 'Magnetic Man' },
-    { id: 'English_Trustworth_Man', label: 'Trustworthy Man' },
-    { id: 'Casual_Guy', label: 'Casual Guy' },
-    { id: 'Deep_Voice_Man', label: 'Deep Voice Man' },
-    { id: 'Elegant_Man', label: 'Elegant Man' },
-    { id: 'Determined_Man', label: 'Determined Man' },
-    { id: 'Patient_Man', label: 'Patient Man' },
-    { id: 'Decent_Boy', label: 'Decent Boy' },
-  ],
-  female: [
-    { id: 'English_compelling_lady1', label: 'Compelling Lady' },
-    { id: 'English_radiant_girl', label: 'Radiant Girl' },
-    { id: 'Calm_Woman', label: 'Calm Woman' },
-    { id: 'Inspirational_girl', label: 'Inspirational Girl' },
-    { id: 'Lovely_Girl', label: 'Lovely Girl' },
-    { id: 'Lively_Girl', label: 'Lively Girl' },
-    { id: 'Wise_Woman', label: 'Wise Woman' },
-  ],
-};
 
 const segmentConfig = {
   speaking: { label: 'Speaking', color: 'bg-primary', border: 'border-primary/60', icon: User },
