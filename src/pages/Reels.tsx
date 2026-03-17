@@ -62,7 +62,9 @@ import {
   Pencil,
   ChevronUp,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Film,
+  Plus
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
