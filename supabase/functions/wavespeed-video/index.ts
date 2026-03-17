@@ -333,9 +333,10 @@ serve(async (req) => {
           throw new Error('Image is required for Sora 2 model');
         }
 
-        // Sora 2 supports 4s, 8s, or 12s durations
-        const sora2Duration = duration <= 5 ? 4 : duration <= 10 ? 8 : 12;
-        console.log(`Sora 2: requested duration ${duration}s, using ${sora2Duration}s (allowed: 4, 8, 12)`);
+        // Sora 2 supports 4s, 8s, 12s, 16s, and 20s durations
+        const sora2Durations = [4, 8, 12, 16, 20];
+        const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - duration) < Math.abs(best - duration) ? d : best, 4);
+        console.log(`Sora 2: requested duration ${duration}s, using ${sora2Duration}s (allowed: 4, 8, 12, 16, 20)`);
 
         requestBody = {
           image: params.imageUrls[0],
