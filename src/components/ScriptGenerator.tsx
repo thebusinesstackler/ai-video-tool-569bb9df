@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,11 +17,14 @@ import {
   DownloadIcon,
   RefreshCwIcon,
   MicIcon,
+  MicOffIcon,
   PlayIcon,
   VideoIcon,
   User,
   ImageIcon,
-  Volume2
+  Volume2,
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -81,10 +84,118 @@ export const ScriptGenerator = ({ onUseInReel }: ScriptGeneratorProps = {}) => {
   const [selectedGender, setSelectedGender] = useState<string>('auto');
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
   
+  // Voice input state
+  const [isListening, setIsListening] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const recognitionRef = useRef<any>(null);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // API keys are now securely handled server-side via Supabase edge functions
+  // Speech recognition setup
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ title: "Not Supported", description: "Speech recognition is not available in your browser.", variant: "destructive" });
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setParams(prev => ({ ...prev, topic: transcript }));
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+    toast({ title: "🎤 Listening...", description: "Speak your video topic. Click the mic again to stop." });
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // AI enhance the spoken/typed topic
+  const enhanceTopic = async () => {
+    if (!params.topic.trim()) {
+      toast({ title: "Enter a topic first", description: "Type or speak your video idea before enhancing.", variant: "destructive" });
+      return;
+    }
+
+    setIsEnhancing(true);
+    setAiSuggestions([]);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          prompt: `You are a viral content strategist. The user described a video idea (possibly via voice, so it may be rough/unpolished):
+
+"${params.topic}"
+
+Do TWO things:
+1. Rewrite their idea into a clear, compelling video topic description (2-3 sentences max). Fix grammar, add specificity, make it actionable for script generation.
+2. Suggest 3 alternative angles or variations they could take on this topic that would perform well on social media.
+
+Return ONLY valid JSON:
+{
+  "enhanced": "the polished topic description",
+  "suggestions": ["angle 1", "angle 2", "angle 3"]
+}`,
+          model: 'google/gemini-2.5-flash'
+        }
+      });
+
+      if (error) throw error;
+
+      const text = data?.text || data?.result || '';
+      // Parse JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        setParams(prev => ({ ...prev, topic: parsed.enhanced || prev.topic }));
+        setAiSuggestions(parsed.suggestions || []);
+        toast({ title: "✨ Topic Enhanced", description: "Your idea has been polished and suggestions added." });
+      } else {
+        // Fallback: use the whole response as enhanced topic
+        setParams(prev => ({ ...prev, topic: text.trim() }));
+        toast({ title: "✨ Topic Enhanced", description: "Your idea has been polished by AI." });
+      }
+    } catch (err) {
+      console.error('Topic enhancement error:', err);
+      toast({ title: "Enhancement Failed", description: "Could not enhance topic. Try again.", variant: "destructive" });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
   useEffect(() => {
     // API is always configured since we use server-side keys
     setApiConfigured(true);
@@ -437,14 +548,74 @@ export const ScriptGenerator = ({ onUseInReel }: ScriptGeneratorProps = {}) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="topic">Video Topic</Label>
-            <Textarea
-              id="topic"
-              placeholder="Describe your video topic, key messages, or product details..."
-              value={params.topic}
-              onChange={(e) => setParams(prev => ({ ...prev, topic: e.target.value }))}
-              className="min-h-[100px]"
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="topic">Video Topic</Label>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant={isListening ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={toggleListening}
+                  className={`h-8 gap-1.5 ${isListening ? 'animate-pulse' : ''}`}
+                >
+                  {isListening ? <MicOffIcon className="w-3.5 h-3.5" /> : <MicIcon className="w-3.5 h-3.5" />}
+                  {isListening ? 'Stop' : 'Speak'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={enhanceTopic}
+                  disabled={isEnhancing || !params.topic.trim()}
+                  className="h-8 gap-1.5"
+                >
+                  {isEnhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  Enhance
+                </Button>
+              </div>
+            </div>
+            <div className="relative">
+              <Textarea
+                id="topic"
+                placeholder={isListening ? "🎤 Listening... speak your video idea" : "Describe your video topic, key messages, or product details..."}
+                value={params.topic}
+                onChange={(e) => setParams(prev => ({ ...prev, topic: e.target.value }))}
+                className={`min-h-[100px] ${isListening ? 'border-destructive/50 bg-destructive/5' : ''}`}
+              />
+              {isListening && (
+                <div className="absolute top-2 right-2">
+                  <span className="flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* AI Suggestions */}
+            {aiSuggestions.length > 0 && (
+              <div className="space-y-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Alternative Angles
+                </p>
+                <div className="space-y-1.5">
+                  {aiSuggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setParams(prev => ({ ...prev, topic: suggestion }));
+                        setAiSuggestions([]);
+                        toast({ title: "Topic Updated", description: "Switched to suggested angle." });
+                      }}
+                      className="w-full text-left text-xs p-2 rounded-md border border-border hover:border-primary/30 hover:bg-muted/50 transition-all text-foreground"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* AI Twin Selector */}
