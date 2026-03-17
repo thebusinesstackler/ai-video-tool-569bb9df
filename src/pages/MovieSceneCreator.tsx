@@ -2747,11 +2747,11 @@ const MovieSceneCreator = () => {
 
       if (videoError) throw videoError;
 
-      // Update scene with task ID
+      // Update scene with task ID and store audio as fallback
       setScenes(prevScenes => 
         prevScenes.map(s => 
           s.sceneNumber === sceneNumber 
-            ? { ...s, videoTaskId: videoData.taskId }
+            ? { ...s, videoTaskId: videoData.taskId, transitionAudioContent: ttsData.audioContent }
             : s
         )
       );
