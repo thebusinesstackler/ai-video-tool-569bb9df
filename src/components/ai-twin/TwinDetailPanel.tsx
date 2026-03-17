@@ -824,25 +824,32 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
 
   return (
     <div className="space-y-6">
-      {/* Save All Button - sticky top */}
-      {hasUnsavedChanges && (
-        <div className="flex items-center justify-between p-3 rounded-lg border border-primary/30 bg-primary/5">
-          <span className="text-sm text-muted-foreground">You have unsaved changes</span>
-          <Button 
-            onClick={saveAllChanges}
-            disabled={isSavingAll}
-            size="sm"
-            className="bg-gradient-primary hover:opacity-90"
-          >
-            {isSavingAll ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
-            Save All Changes
-          </Button>
-        </div>
-      )}
+      {/* Save All Banner - always visible */}
+      <div className={`flex items-center justify-between p-3 rounded-lg border ${hasUnsavedChanges ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/30'}`}>
+        {hasUnsavedChanges ? (
+          <>
+            <span className="text-sm text-muted-foreground">You have unsaved changes</span>
+            <Button 
+              onClick={saveAllChanges}
+              disabled={isSavingAll}
+              size="sm"
+              className="bg-gradient-primary hover:opacity-90"
+            >
+              {isSavingAll ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Save All Changes
+            </Button>
+          </>
+        ) : (
+          <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Check className="w-3.5 h-3.5 text-green-500" />
+            All changes saved
+          </span>
+        )}
+      </div>
 
       {/* Twin Info Header */}
       <div className="flex items-start gap-4">
@@ -1227,10 +1234,16 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                 )}
               </Button>
               {voiceCloningKey && voiceEngine === 'wavespeed' && (
-                <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
-                  <Check className="w-3 h-3 mr-1" />
-                  WaveSpeed Voice Ready
-                </Badge>
+                <div className="space-y-1">
+                  <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
+                    <Check className="w-3 h-3 mr-1" />
+                    WaveSpeed Voice Ready
+                  </Badge>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Check className="w-3 h-3 text-green-500" />
+                    Voice changes are auto-saved
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -1245,6 +1258,10 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         googleVoiceId={googleVoiceId}
         gender={twin.gender}
       />
+      <p className="text-xs text-muted-foreground flex items-center gap-1 -mt-4">
+        <Check className="w-3 h-3 text-green-500" />
+        Voice engine and settings are auto-saved
+      </p>
 
       {/* Reference Images Gallery */}
       <Card>
