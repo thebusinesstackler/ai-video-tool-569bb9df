@@ -2070,6 +2070,15 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
       // Step 3: If we have video tasks, poll for completion
       if (videoTasks.length > 0) {
+        // Register active generation for background handoff if user navigates away
+        activeGenerationRef.current = {
+          videoTasks: videoTasks.map((t: any) => ({ taskId: t.taskId, sceneNumber: t.sceneNumber, hasEmbeddedAudio: t.hasEmbeddedAudio })),
+          generatedScenes,
+          voiceovers,
+          hasEmbeddedAudio,
+          topic: project.topic
+        };
+        
         setProject(prev => ({ ...prev, status: 'rendering-video' }));
         setProgressStatus(`Generating ${videoTasks.length} video clips with WaveSpeed...`);
 
