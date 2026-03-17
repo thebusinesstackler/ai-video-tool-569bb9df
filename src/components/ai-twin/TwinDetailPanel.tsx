@@ -223,7 +223,85 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
     }
   };
 
-  const generateTwinImage = async (angle: CameraAngle) => {
+  const saveFaceDescription = async () => {
+    setIsSavingFaceDesc(true);
+    try {
+      const { error } = await supabase
+        .from('ai_twins')
+        .update({ face_description: editedFaceDesc.trim() || null })
+        .eq('id', twin.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Face description saved',
+        description: 'AI face description has been updated'
+      });
+      setIsEditingFaceDesc(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error saving face description:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save face description',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingFaceDesc(false);
+    }
+  };
+
+  const generateWavespeedVoice = async () => {
+    setIsGeneratingWavespeedVoice(true);
+    try {
+      const sampleText = `Hello, my name is ${twin.name}. This is a preview of how I sound using the WaveSpeed MiniMax voice engine.`;
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: sampleText,
+          gender: twin.gender || 'male',
+          voice: 'ai-auto',
+        }
+      });
+
+      if (error) throw error;
+
+      // Save a marker key so we know wavespeed voice is configured
+      const voiceKey = `wavespeed-${twin.gender || 'male'}`;
+      setVoiceCloningKey(voiceKey);
+      await supabase
+        .from('ai_twins')
+        .update({ voice_cloning_key: voiceKey })
+        .eq('id', twin.id);
+
+      // Play the preview
+      const audioUrl = data?.audioUrl || data?.url;
+      if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.play().catch(() => {});
+      } else if (data?.audioContent) {
+        const dataUrl = `data:audio/mp3;base64,${data.audioContent}`;
+        const audio = new Audio(dataUrl);
+        audio.play().catch(() => {});
+      }
+
+      toast({
+        title: 'WaveSpeed Voice Generated!',
+        description: 'Voice is ready. Click Regenerate if you want a different result.'
+      });
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error generating WaveSpeed voice:', error);
+      toast({
+        title: 'Voice Generation Failed',
+        description: error.message || 'Failed to generate voice',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingWavespeedVoice(false);
+    }
+  };
+
+
     if (!twin.reference_images?.[0]) {
       toast({
         title: 'No reference image',
