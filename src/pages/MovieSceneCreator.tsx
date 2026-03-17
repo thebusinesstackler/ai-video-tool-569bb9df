@@ -3505,6 +3505,7 @@ const MovieSceneCreator = () => {
     });
   }, [scenes.length > 0 && currentProjectId]); // Only run when project loads
 
+  const loadSavedProjects = async () => {
     if (!userId) return;
 
     try {
