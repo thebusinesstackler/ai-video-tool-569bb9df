@@ -691,11 +691,25 @@ function formatScriptForTTS(narration: string): string {
   return result;
 }
 
+// Strip HTML tags and decode entities from topic text
+function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, '') // remove HTML tags
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Helper functions for intro/outro defaults - now with dynamic hooks
 function smartTruncate(text: string, maxLen = 60): string {
-  if (text.length <= maxLen) return text;
-  // Find last natural break (comma, space) before maxLen
-  const truncated = text.substring(0, maxLen);
+  const clean = stripHtml(text);
+  if (clean.length <= maxLen) return clean;
+  const truncated = clean.substring(0, maxLen);
   const lastComma = truncated.lastIndexOf(',');
   const lastSpace = truncated.lastIndexOf(' ');
   const breakAt = lastComma > maxLen * 0.4 ? lastComma : lastSpace;
