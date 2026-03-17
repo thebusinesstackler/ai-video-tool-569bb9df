@@ -229,6 +229,7 @@ interface DraftState {
   customAudioMode: 'tts' | 'upload';
   customAudioUrl: string | null;
   customAudioDuration: number;
+  voicePitch?: number;
 }
 
 const SCENE_COUNT_OPTIONS = [
