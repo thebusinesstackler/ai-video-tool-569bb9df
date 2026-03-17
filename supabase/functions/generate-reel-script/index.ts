@@ -356,20 +356,41 @@ VISUAL CONTINUITY:
 
 ${cutSceneInstructions}`;
 
-    const userPrompt = `Write ${sceneCount} scenes for a reel about: "${topic}"
-Each scene should be approximately ${finalSceneDuration} seconds when narrated.
+    // Build intro/outro AI instructions
+    const introInstructions = hasIntro ? `
+INTRO SCENE (Scene 1 — MANDATORY):
+- This is a 3-second spoken intro hook. Write 5-8 words maximum.
+- Style hint: "${introConfig.introTemplate}" ${introConfig.introText ? `— user suggested: "${introConfig.introText}"` : ''}
+- The narration must be a short, punchy hook that grabs attention instantly
+- Mark with "isIntro": true
+- Visual: ${getIntroVisualDescription(introConfig.introTemplate, topic, extractVisualStyle(''))}
+` : '';
 
-STORY FLOW (each scene MUST connect to the next):
+    const outroInstructions = hasOutro ? `
+OUTRO SCENE (Final Scene — MANDATORY):
+- This is a 2-second spoken call-to-action. Write 8-15 words maximum.
+- CTA style: "${outroConfig.outroTemplate}" ${outroConfig.outroText ? `— user suggested: "${outroConfig.outroText}"` : ''}
+- The narration must be a natural, topic-specific CTA — NOT generic "Follow for more"
+- Tie back to the topic and give a reason to engage
+- Mark with "isOutro": true
+- Visual: ${getOutroVisualDescription(outroConfig.outroTemplate, '', topic, characterDescription)}
+` : '';
+
+    const userPrompt = `Write ${totalSceneCount} scenes for a reel about: "${topic}"
+Each CONTENT scene should be approximately ${finalSceneDuration} seconds when narrated.
+
+${introInstructions ? `SCENE STRUCTURE:
+${introInstructions}
+- Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
+${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
 - Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
-- Scene 2-${sceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${sceneCount} (CLOSE): Write a SPOKEN closing that naturally wraps up the topic. NOT just "Follow for more" — instead:
-  * Tie back to the hook promise ("Remember when I said X? Here's your next step...")
-  * Deliver a topic-specific takeaway the viewer can act on
-  * Weave the call-to-action into natural speech ("If you want more strategies like this... you know what to do—")
-  * The CTA should feel like a natural conclusion to the story, not a generic sign-off
+- Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
+- Scene ${totalSceneCount} (CLOSE): Write a SPOKEN closing that naturally wraps up the topic`}
 
 NARRATION REQUIREMENTS:
-- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
+- Content scenes: Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
+${hasIntro ? '- Intro scene: Write 5-8 words only (3 seconds)' : ''}
+${hasOutro ? '- Outro scene: Write 8-15 words only (2 seconds)' : ''}
 - Write conversational sentences that flow naturally when spoken
 - Each scene should transition smoothly to the next
 - Use complete thoughts and natural pauses
@@ -386,13 +407,15 @@ VISUAL RULES:
 - Use ONE consistent visual style AND background across all scenes
 - If showing a person, describe them identically each scene
 - Camera angle should vary per scene for visual interest:
-${CAMERA_ANGLES.slice(0, sceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
+${CAMERA_ANGLES.slice(0, totalSceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
 CRITICAL VALIDATION BEFORE RETURNING:
 - Write complete sentences with proper punctuation (periods, commas, question marks)
 - Do NOT use em dashes (—), double hyphens (--), or ellipses (...)
 - Every narration must end with a period or question mark, NEVER a trailing comma
 - Scene 1 HOOK narration must be a COMPLETE, compelling sentence (15+ words minimum), not a fragment like "I" or "Hook:"
+${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
+${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
 
 Return ONLY valid JSON array:
 [
@@ -401,7 +424,7 @@ Return ONLY valid JSON array:
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here. Use periods and commas naturally. NO em dashes, NO ellipses. Must end with a period or question mark.",
     "visualDescription": "SUBJECT: ${characterDescription ? `${characterDescription}, ` : ''}[action relevant to narration topic, closed mouth, natural expression]. SETTING: [location and key props matching the topic]. MOOD: [lighting and color tone in 2-3 words].${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
     "duration": ${finalSceneDuration},
-    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
+    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true  // Only for scene 1 when intro is enabled' : ''}${hasOutro ? ',\n    "isOutro": true  // Only for the last scene when outro is enabled' : ''}
   }
 ]`;
 
