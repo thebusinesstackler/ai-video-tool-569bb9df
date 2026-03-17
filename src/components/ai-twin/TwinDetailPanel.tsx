@@ -825,7 +825,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
   return (
     <div className="space-y-6">
       {/* Save All Banner - always visible */}
-      <div className={`flex items-center justify-between p-3 rounded-lg border ${hasUnsavedChanges ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/30'}`}>
+      <div className={`sticky top-0 z-10 flex items-center justify-between p-3 rounded-lg border ${hasUnsavedChanges ? 'border-primary/30 bg-primary/5' : 'border-border bg-muted/30'}`}>
         {hasUnsavedChanges ? (
           <>
             <span className="text-sm text-muted-foreground">You have unsaved changes</span>
