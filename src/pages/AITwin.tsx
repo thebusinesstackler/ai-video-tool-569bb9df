@@ -86,11 +86,15 @@ function classifyError(error: unknown): ErrorKind {
   return 'generic';
 }
 
+const PAGE_SIZE = 12;
+
 const AITwin = () => {
   const { toast } = useToast();
   const { user, clearLocalSession, authServiceDown } = useAuth();
   const [twins, setTwins] = useState<AITwin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<ErrorKind>('generic');
   const [isStale, setIsStale] = useState(false);
@@ -126,6 +130,7 @@ const AITwin = () => {
         .select('id, user_id, name, reference_images, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, voice_engine, google_voice_id, created_at, updated_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        .range(0, PAGE_SIZE - 1)
         .abortSignal(controller.signal);
 
       clearTimeout(timeout);
@@ -138,6 +143,7 @@ const AITwin = () => {
       })) as AITwin[];
 
       setTwins(twinsData);
+      setHasMore(twinsData.length === PAGE_SIZE);
       setCachedTwins(twinsData);
       toastShownRef.current = false;
     } catch (error: any) {
@@ -170,6 +176,42 @@ const AITwin = () => {
       setIsLoading(false);
     }
   }, [user?.id, toast]);
+
+  const loadMore = useCallback(async () => {
+    if (!user?.id || isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const from = twins.length;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, error } = await supabase
+        .from('ai_twins')
+        .select('id, user_id, name, reference_images, voice_sample_url, voice_cloning_key, consent_audio_url, description, face_description, gender, voice_engine, google_voice_id, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const newTwins = (data || []).map((twin) => ({
+        ...twin,
+        reference_images: twin.reference_images || []
+      })) as AITwin[];
+
+      setTwins(prev => [...prev, ...newTwins]);
+      setHasMore(newTwins.length === PAGE_SIZE);
+    } catch (error: any) {
+      console.error('Error loading more twins:', error);
+      toast({
+        title: 'Failed to load more',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [user?.id, twins.length, isLoadingMore, hasMore, toast]);
 
   useEffect(() => {
     if (!user?.id) {
