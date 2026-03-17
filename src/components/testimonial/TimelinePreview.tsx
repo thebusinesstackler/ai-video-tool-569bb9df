@@ -99,8 +99,13 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
       if (!targetSeg.script) continue;
       setRegeneratingId(targetSeg.id);
       try {
+        // Check if voiceId is a Speechify cloned voice (not a WaveSpeed preset ID)
+        const isTwinVoice = twinVoices.some(t => t.voice_cloning_key === voiceId);
         const { data, error } = await supabase.functions.invoke('text-to-speech', {
-          body: { text: targetSeg.script, voice: voiceId }
+          body: { 
+            text: targetSeg.script, 
+            ...(isTwinVoice ? { speechifyVoiceId: voiceId } : { voice: voiceId })
+          }
         });
         if (error) throw error;
         if (data?.audioUrl) {
