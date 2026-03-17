@@ -205,7 +205,9 @@ export function useScenePreview(): UseScenePreviewResult {
               body: { 
                 text: scene.narration, 
                 voice: speechifyVoiceId ? undefined : voice,
-                speechifyVoiceId: speechifyVoiceId || undefined
+                speechifyVoiceId: speechifyVoiceId || undefined,
+                voiceEngine: voiceEngine || undefined,
+                googleVoiceId: googleVoiceId || undefined
               }
             });
 
