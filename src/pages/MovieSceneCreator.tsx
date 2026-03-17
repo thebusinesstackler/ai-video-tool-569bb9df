@@ -1614,6 +1614,9 @@ const MovieSceneCreator = () => {
       setScenes(scenesWithDialogue);
       setGenerateAllProgress(75);
 
+      // ── Progressive save: scenes + dialogue done ──
+      await ensureProjectSaved({ scenes: scenesWithDialogue as any });
+
       // Step 6: Generate start frame images for ALL scenes (75% → 85%)
       setGenerateAllStep('Generating scene images...');
       const referenceImages = selectedTwins.length > 0 
