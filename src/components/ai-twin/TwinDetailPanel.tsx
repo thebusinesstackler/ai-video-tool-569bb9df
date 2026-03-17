@@ -843,6 +843,9 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           </Button>
         </div>
       )}
+
+      {/* Twin Info Header */}
+      <div className="flex items-start gap-4">
         {twin.reference_images?.[0] && (
           <img 
             src={twin.reference_images[0]} 
