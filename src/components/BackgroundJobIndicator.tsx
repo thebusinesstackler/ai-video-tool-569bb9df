@@ -19,7 +19,7 @@ export const BackgroundJobIndicator = () => {
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               {job.status === 'complete' ? (
-                <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                <CheckCircle className="w-4 h-4 text-primary shrink-0" />
               ) : job.status === 'failed' ? (
                 <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
               ) : (
