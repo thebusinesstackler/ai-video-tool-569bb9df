@@ -757,9 +757,33 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
               </Button>
             </div>
           )}
-          {twin.gender && (
-            <Badge variant="outline" className="mt-1 capitalize">{twin.gender}</Badge>
-          )}
+          <div className="mt-1">
+            <Select
+              value={twin.gender || 'male'}
+              onValueChange={async (newGender) => {
+                try {
+                  const { error } = await supabase
+                    .from('ai_twins')
+                    .update({ gender: newGender })
+                    .eq('id', twin.id);
+                  if (error) throw error;
+                  toast({ title: 'Gender updated' });
+                  onUpdate();
+                } catch (err: any) {
+                  toast({ title: 'Failed to update gender', description: err.message, variant: 'destructive' });
+                }
+              }}
+            >
+              <SelectTrigger className="h-7 w-32 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="non-binary">Non-binary</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
             <Badge variant={twin.voice_cloning_key ? "default" : "secondary"}>
               <Volume2 className="w-3 h-3 mr-1" />
