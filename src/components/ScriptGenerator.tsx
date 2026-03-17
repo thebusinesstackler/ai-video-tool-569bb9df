@@ -897,10 +897,28 @@ export const ScriptGenerator = ({ onUseInReel }: ScriptGeneratorProps = {}) => {
                   <Badge variant="outline">Tone: {params.tone}</Badge>
                 </div>
                 
+                {onUseInReel && scenePreview.length > 0 && (
+                  <Button 
+                    onClick={() => {
+                      const reelScenes = scenePreview.map((scene: any, idx: number) => ({
+                        sceneNumber: idx + 1,
+                        narration: scene.description,
+                        visualDescription: scene.description,
+                        duration: parseInt(params.secondsPerScene) || 10,
+                      }));
+                      onUseInReel(reelScenes);
+                    }}
+                    className="w-full"
+                    variant="default"
+                  >
+                    <SparklesIcon className="w-4 h-4 mr-2" />
+                    Use in Reel
+                  </Button>
+                )}
                 <Button 
                   onClick={handleCreateVideo}
                   className="w-full"
-                  variant="default"
+                  variant={onUseInReel ? "outline" : "default"}
                 >
                   <VideoIcon className="w-4 h-4 mr-2" />
                   Create Video from Script
