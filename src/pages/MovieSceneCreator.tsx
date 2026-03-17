@@ -3751,16 +3751,29 @@ const MovieSceneCreator = () => {
   };
 
   const stitchAllVideos = async () => {
-    // Check if all scenes have generated videos
-    // Collect videos and their corresponding audio
-    const scenesWithVideos = scenes.filter(scene => scene.generatedVideo);
+    // Sort scenes by scene number to ensure correct order
+    const sortedScenes = [...scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+    
+    // Log which scenes have videos and which don't
+    const scenesWithVideos = sortedScenes.filter(scene => scene.generatedVideo);
+    const scenesWithoutVideos = sortedScenes.filter(scene => !scene.generatedVideo);
+    
+    console.log(`[BuildMovie] Total scenes: ${sortedScenes.length}`);
+    scenesWithVideos.forEach(s => console.log(`  ✓ Scene ${s.sceneNumber}: "${s.title}" — has video`));
+    scenesWithoutVideos.forEach(s => console.log(`  ✗ Scene ${s.sceneNumber}: "${s.title}" — NO video`));
+    
     const videosToStitch = scenesWithVideos.map(scene => scene.generatedVideo as string);
     
-    // Fix #1: Collect audio for each scene (transitionAudioContent is base64)
-    const audiosToStitch = scenesWithVideos
-      .map(scene => (scene as any).transitionAudioContent)
-      .filter(Boolean)
-      .map(audioBase64 => `data:audio/mp3;base64,${audioBase64}`);
+    // Collect audio per scene, keeping alignment with video array (null for scenes without audio)
+    const audiosToStitch: string[] = [];
+    const embeddedAudioIndices: number[] = [];
+    scenesWithVideos.forEach((scene, idx) => {
+      const audioContent = (scene as any).transitionAudioContent;
+      if (audioContent) {
+        audiosToStitch.push(`data:audio/mp3;base64,${audioContent}`);
+        embeddedAudioIndices.push(idx);
+      }
+    });
 
     if (videosToStitch.length === 0) {
       toast({
@@ -3771,10 +3784,10 @@ const MovieSceneCreator = () => {
       return;
     }
 
-    if (videosToStitch.length < scenes.length) {
+    if (scenesWithoutVideos.length > 0) {
       toast({
-        title: "Warning",
-        description: `Only ${videosToStitch.length} of ${scenes.length} scenes have videos. Missing scenes will be skipped.`,
+        title: "Some Scenes Missing Videos",
+        description: `Scenes ${scenesWithoutVideos.map(s => s.sceneNumber).join(', ')} don't have videos and will be skipped. ${videosToStitch.length} scenes will be included.`,
       });
     }
 
