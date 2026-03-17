@@ -448,30 +448,32 @@ const AITwin = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {twins.map((twin) => (
-              <TwinCard
-                key={twin.id}
-                twin={twin}
-                onDelete={() => deleteTwin(twin.id)}
-                onSelect={() => setSelectedTwin(twin)}
-              />
-            ))}
-          </div>
-          {hasMore && (
-            <div className="flex justify-center pt-6">
-              <Button
-                variant="outline"
-                onClick={loadMore}
-                disabled={isLoadingMore}
-              >
-                {isLoadingMore ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : null}
-                {isLoadingMore ? 'Loading...' : 'Load More'}
-              </Button>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {twins.map((twin) => (
+                <TwinCard
+                  key={twin.id}
+                  twin={twin}
+                  onDelete={() => deleteTwin(twin.id)}
+                  onSelect={() => setSelectedTwin(twin)}
+                />
+              ))}
             </div>
-          )}
+            {hasMore && (
+              <div className="flex justify-center pt-6">
+                <Button
+                  variant="outline"
+                  onClick={loadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : null}
+                  {isLoadingMore ? 'Loading...' : 'Load More'}
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         {/* Creation Wizard Dialog */}
