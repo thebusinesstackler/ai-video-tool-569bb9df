@@ -13,7 +13,7 @@ interface WaveSpeedVideoParams {
   endFrameUrl?: string;
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro' | 'sora-2';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'wan-2.6-i2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro' | 'sora-2';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -339,6 +339,29 @@ serve(async (req) => {
         };
 
         console.log('Using Sora 2 for cinematic image-to-video generation');
+      } else if (params.model === 'wan-2.6-i2v') {
+        // Wan 2.6 Image-to-Video — supports 5, 10, or 15 second durations
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.6/image-to-video';
+        
+        if (!params.imageUrls || params.imageUrls.length === 0) {
+          throw new Error('Image is required for Wan 2.6 I2V model');
+        }
+
+        // Clamp duration to allowed values: 5, 10, or 15
+        const wan26Duration = duration <= 7 ? 5 : duration <= 12 ? 10 : 15;
+        console.log(`Wan 2.6 I2V: requested duration ${duration}s, using ${wan26Duration}s (allowed: 5, 10, 15)`);
+
+        requestBody = {
+          image: params.imageUrls[0],
+          duration: wan26Duration
+        };
+
+        // Prompt is optional for Wan 2.6
+        if (params.prompt) {
+          requestBody.prompt = params.prompt;
+        }
+
+        console.log('Using Wan 2.6 for image-to-video generation');
       } else if (params.model === 'kling-v3.0-pro') {
         // Kling V3.0 Pro - high quality image-to-video
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
