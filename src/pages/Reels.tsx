@@ -1693,15 +1693,15 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         }
         
         try {
-          // Check if using cloned voice from AI Twin
+          // Use AI Twin cloned voice (Speechify) if available
           const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-          const clonedVoiceUrl = selectedTwin?.voice_cloning_key || null;
+          const twinVoiceId = selectedTwin?.voice_cloning_key || null;
           
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
             body: { 
               text: scene.narration, 
-              voice: clonedVoiceUrl ? undefined : selectedVoice,
-              clonedVoiceUrl 
+              speechifyVoiceId: twinVoiceId || undefined,
+              voice: twinVoiceId ? undefined : (selectedVoice || 'English_Trustworth_Man'),
             }
           });
           
