@@ -322,10 +322,28 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Create Supabase client for storage uploads
+    // Create Supabase client for storage uploads and task logging
     const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY 
       ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
       : null;
+
+    // Extract user ID from auth header for task logging
+    let currentUserId: string | null = null;
+    if (supabase) {
+      try {
+        const authHeader = req.headers.get('authorization');
+        if (authHeader) {
+          const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+          const authClient = createClient(SUPABASE_URL!, anonKey!, {
+            global: { headers: { Authorization: authHeader } }
+          });
+          const { data: { user } } = await authClient.auth.getUser();
+          currentUserId = user?.id || null;
+        }
+      } catch (e) {
+        console.warn('Could not extract user ID for task logging:', e);
+      }
+    }
 
     // Generate images for each scene using AI
     const sceneImages: string[] = [];
