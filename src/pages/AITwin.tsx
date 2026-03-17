@@ -36,6 +36,8 @@ interface AITwin {
   description: string | null;
   face_description: string | null;
   gender: string | null;
+  voice_engine?: string;
+  google_voice_id?: string | null;
   created_at: string;
   updated_at: string;
 }
