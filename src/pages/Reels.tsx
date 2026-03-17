@@ -357,7 +357,7 @@ const Reels = () => {
   const [preSelectedReference, setPreSelectedReference] = useState<string | null>(null);
   const [preReferenceTransformation, setPreReferenceTransformation] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; reference_images: string[] }[]>([]);
-  const [aiTwins, setAiTwins] = useState<{ id: string; name: string; reference_images: string[]; voice_cloning_key: string | null; voice_sample_url: string | null; face_description: string | null }[]>([]);
+  const [aiTwins, setAiTwins] = useState<{ id: string; name: string; reference_images: string[]; voice_cloning_key: string | null; voice_sample_url: string | null; face_description: string | null; gender?: string | null; voice_engine?: string; google_voice_id?: string | null }[]>([]);
   const [selectedTwinId, setSelectedTwinId] = useState<string | null>(null);
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
@@ -1028,6 +1028,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           face_description: t.face_description,
           gender: t.gender,
           image_count: t.image_count,
+          voice_engine: t.voice_engine || 'speechify',
+          google_voice_id: t.google_voice_id,
         }));
         setAiTwins(mapped);
       }
@@ -1693,15 +1695,16 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         }
         
         try {
-          // Use AI Twin cloned voice (Speechify) if available
-          const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-          const twinVoiceId = selectedTwin?.voice_cloning_key || null;
+          // Use resolved voice from AI Twin configuration
+          const voiceConfig = resolveVoiceForGeneration();
           
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
             body: { 
               text: scene.narration, 
-              speechifyVoiceId: twinVoiceId || undefined,
-              voice: twinVoiceId ? undefined : (selectedVoice || 'English_Trustworth_Man'),
+              speechifyVoiceId: voiceConfig.speechifyVoiceId,
+              voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'),
+              voiceEngine: voiceConfig.voiceEngine,
+              googleVoiceId: voiceConfig.googleVoiceId,
             }
           });
           
@@ -1979,10 +1982,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                   continue;
                 }
                 try {
-                  const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-                  const twinVoiceId = selectedTwin?.voice_cloning_key || null;
+                  const voiceConfig = resolveVoiceForGeneration();
                   const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-                    body: { text: scene.narration, speechifyVoiceId: twinVoiceId || undefined, voice: twinVoiceId ? undefined : (selectedVoice || 'English_Trustworth_Man') }
+                    body: { text: scene.narration, speechifyVoiceId: voiceConfig.speechifyVoiceId, voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'), voiceEngine: voiceConfig.voiceEngine, googleVoiceId: voiceConfig.googleVoiceId }
                   });
                   if (!ttsError && ttsData?.audioContent) {
                     const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
@@ -2163,13 +2165,26 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Resolve the best voice: always prefer AI Twin cloned voice, fallback to gender-based default
-  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string } => {
-    // Priority 1: Selected AI Twin with cloned voice
+  // Resolve the best voice: always prefer AI Twin configured voice, fallback to gender-based default
+  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string; voiceEngine?: string; googleVoiceId?: string } => {
+    // Priority 1: Selected AI Twin with a configured voice
     if (selectedTwinId) {
       const twin = aiTwins.find(t => t.id === selectedTwinId);
-      if (twin?.voice_cloning_key) {
-        return { speechifyVoiceId: twin.voice_cloning_key };
+      if (twin) {
+        const engine = twin.voice_engine || 'speechify';
+        // Google Cloud TTS voice
+        if (engine === 'google-cloud' && twin.google_voice_id) {
+          return { voiceEngine: 'google-cloud', googleVoiceId: twin.google_voice_id };
+        }
+        // WaveSpeed engine — use gender-based default voice
+        if (engine === 'wavespeed') {
+          const isFemale = twin.gender === 'female';
+          return { voice: isFemale ? 'English_compelling_lady1' : 'English_Trustworth_Man' };
+        }
+        // Speechify cloned voice
+        if (twin.voice_cloning_key) {
+          return { speechifyVoiceId: twin.voice_cloning_key };
+        }
       }
     }
     // Priority 2: Any AI Twin with a cloned voice
@@ -3689,9 +3704,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                           </div>
                                         )}
                                         <p className="text-[9px] font-medium text-foreground truncate">{twin.name}</p>
-                                        {twin.voice_cloning_key && (
+                                        {(twin.voice_cloning_key || twin.voice_engine === 'google-cloud' || twin.voice_engine === 'wavespeed') && (
                                           <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">
-                                            🎙️ Voice
+                                            {twin.voice_engine === 'google-cloud' ? '🔊 Google' : twin.voice_engine === 'wavespeed' ? '🌊 Voice' : '🎙️ Voice'}
                                           </Badge>
                                         )}
                                       </div>
@@ -4083,7 +4098,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 }} className={`cursor-pointer rounded-lg border-2 p-1.5 transition-all text-center ${isSelected ? 'border-primary ring-2 ring-primary/40 bg-primary/5' : 'border-border hover:border-primary/50 bg-muted/30'} ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                                   {thumbUrl ? <img src={thumbUrl} alt={twin.name} className="w-full aspect-square object-cover rounded-md mb-1" /> : <div className="w-full aspect-square rounded-md bg-muted flex items-center justify-center mb-1"><User className="w-6 h-6 text-muted-foreground" /></div>}
                                   <p className="text-[10px] font-medium text-foreground truncate">{twin.name}</p>
-                                  {twin.voice_cloning_key && <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">🎙️</Badge>}
+                                  {(twin.voice_cloning_key || twin.voice_engine === 'google-cloud' || twin.voice_engine === 'wavespeed') && <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">{twin.voice_engine === 'google-cloud' ? '🔊' : twin.voice_engine === 'wavespeed' ? '🌊' : '🎙️'}</Badge>}
                                 </div>
                               );
                             })}
