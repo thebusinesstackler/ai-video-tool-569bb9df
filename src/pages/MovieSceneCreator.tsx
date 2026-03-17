@@ -1320,32 +1320,42 @@ const MovieSceneCreator = () => {
       if (!textForAudio) textForAudio = "This moment is everything. I have to keep going.";
 
       let voiceParams: any = {};
+      // Find the speaking character's twin
+      let speakerTwin: AITwin | undefined;
+      
       if (storyBible?.characters) {
         const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
         if (protagonist?.assignedTwinId) {
-          const twin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
-          if (twin?.voice_cloning_key) {
-            const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
-            voiceParams = {
-              speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
-              voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
-            };
-          }
+          speakerTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
         }
       }
-      if (!voiceParams.speechifyVoiceId && !voiceParams.voiceCloningKey) {
-        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
-        if (twinWithVoice?.voice_cloning_key) {
-          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
+      if (!speakerTwin) {
+        speakerTwin = selectedTwins[0];
+      }
+      
+      if (speakerTwin) {
+        if (speakerTwin.voice_cloning_key) {
+          const isSpeechify = isSpeechifyVoiceId(speakerTwin.voice_cloning_key);
           voiceParams = {
-            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
-            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
+            speechifyVoiceId: isSpeechify ? speakerTwin.voice_cloning_key : undefined,
+            voiceCloningKey: !isSpeechify ? speakerTwin.voice_cloning_key : undefined
+          };
+        } else if (speakerTwin.voice_engine === 'google-cloud' && speakerTwin.google_voice_id) {
+          voiceParams = {
+            voiceEngine: 'google-cloud',
+            googleVoiceId: speakerTwin.google_voice_id
+          };
+        } else {
+          // Use gender-appropriate WaveSpeed voice
+          voiceParams = {
+            gender: speakerTwin.gender || 'male',
+            voice: 'ai-auto'
           };
         }
       }
 
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: textForAudio, voice: 'en-US-Journey-D', ...voiceParams }
+        body: { text: textForAudio, voice: voiceParams.voice || 'ai-auto', ...voiceParams }
       });
       if (ttsError) throw ttsError;
       audioContent = ttsData.audioContent;
