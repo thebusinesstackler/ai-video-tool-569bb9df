@@ -357,7 +357,7 @@ const Reels = () => {
   const [preSelectedReference, setPreSelectedReference] = useState<string | null>(null);
   const [preReferenceTransformation, setPreReferenceTransformation] = useState('');
   const [characters, setCharacters] = useState<{ id: string; name: string; reference_images: string[] }[]>([]);
-  const [aiTwins, setAiTwins] = useState<{ id: string; name: string; reference_images: string[]; voice_cloning_key: string | null; voice_sample_url: string | null; face_description: string | null }[]>([]);
+  const [aiTwins, setAiTwins] = useState<{ id: string; name: string; reference_images: string[]; voice_cloning_key: string | null; voice_sample_url: string | null; face_description: string | null; voice_engine?: string; google_voice_id?: string | null }[]>([]);
   const [selectedTwinId, setSelectedTwinId] = useState<string | null>(null);
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
