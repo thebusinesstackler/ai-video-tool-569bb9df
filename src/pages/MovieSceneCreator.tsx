@@ -4033,7 +4033,7 @@ const MovieSceneCreator = () => {
             )}
 
             {/* Scene summary cards (beginner — read-only) */}
-            {scenes.length > 0 && !stitchedVideoUrl && (
+            {scenes.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
