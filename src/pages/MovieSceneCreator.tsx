@@ -2584,29 +2584,102 @@ const MovieSceneCreator = () => {
     }
 
     setIsRegeneratingDialogue(true);
-    const characterName = selectedTwins.length > 0 ? selectedTwins.map(t => t.name).join(' & ') : selectedCharacter?.name;
 
     try {
       toast({
         title: "Regenerating All Dialogue",
-        description: `Creating longer 30+ second dialogue for ${scenes.length} scenes...`,
+        description: `Creating cinematic dialogue for ${scenes.length} scenes with character context...`,
       });
 
       const updatedScenes = await Promise.all(
-        scenes.map(async (scene) => {
+        scenes.map(async (scene, sceneIdx) => {
           try {
-            const sceneContext = {
-              sceneDescription: scene.description,
-              sceneTitle: scene.title,
-              location: scene.location,
-              timeOfDay: scene.timeOfDay,
-              characterName,
-              tone: scene.mood || 'natural'
-            };
+            // Determine which characters are in THIS specific scene
+            let sceneCharacterNames: string[] = [];
 
-            // Generate main character dialogue
+            // 1. Check story bible's sceneDialogueMap for this scene
+            if (storyBible?.sceneDialogueMap) {
+              const sceneMap = storyBible.sceneDialogueMap.find(
+                m => m.sceneNumber === scene.sceneNumber
+              );
+              if (sceneMap?.charactersPresent?.length) {
+                sceneCharacterNames = sceneMap.charactersPresent;
+              }
+            }
+
+            // 2. Check scene's own charactersInScene field
+            if (sceneCharacterNames.length === 0 && scene.charactersInScene?.length) {
+              sceneCharacterNames = scene.charactersInScene;
+            }
+
+            // 3. Fallback to selected twins / character
+            if (sceneCharacterNames.length === 0) {
+              if (selectedTwins.length > 0) {
+                sceneCharacterNames = selectedTwins.map(t => t.name);
+              } else if (selectedCharacter?.name) {
+                sceneCharacterNames = [selectedCharacter.name];
+              }
+            }
+
+            // Build character personalities from story bible
+            const characterPersonalities: Record<string, string> = {};
+            if (storyBible?.characters) {
+              for (const char of storyBible.characters) {
+                if (sceneCharacterNames.some(n => n.toLowerCase() === char.name.toLowerCase())) {
+                  characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
+                }
+              }
+            }
+
+            // Get scene position for narrative context
+            const totalScenes = scenes.length;
+            let scenePosition = `${sceneIdx + 1} of ${totalScenes}`;
+            if (sceneIdx === 0) scenePosition = 'opening';
+            else if (sceneIdx === totalScenes - 1) scenePosition = 'resolution/final';
+
+            const previousSceneSummary = sceneIdx > 0
+              ? `${scenes[sceneIdx - 1].title}: ${scenes[sceneIdx - 1].description?.substring(0, 150)}...`
+              : undefined;
+
+            // Use conversation dialogue for 2+ characters
+            if (sceneCharacterNames.length >= 2) {
+              const { data: convData, error: convError } = await supabase.functions.invoke('generate-conversation-dialogue', {
+                body: {
+                  sceneDescription: scene.description,
+                  sceneTitle: scene.title,
+                  location: scene.location,
+                  timeOfDay: scene.timeOfDay,
+                  characterNames: sceneCharacterNames,
+                  tone: scene.mood || 'dramatic',
+                  movieIdea,
+                  storyBible: storyBible ? {
+                    theme: storyBible.theme,
+                    logline: storyBible.logline,
+                    tone: storyBible.emotionalArc?.join(', ')
+                  } : undefined,
+                  scenePosition,
+                  previousSceneSummary,
+                  characterPersonalities,
+                  transitionAction: scene.transitionAction
+                }
+              });
+
+              if (!convError && convData?.conversation) {
+                return { ...scene, dialogue: convData.conversation, charactersInScene: sceneCharacterNames };
+              }
+            }
+
+            // Single character or fallback
             const { data: mainDialogueData, error: mainDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
-              body: { ...sceneContext, isMainCharacter: true }
+              body: {
+                sceneDescription: scene.description,
+                sceneTitle: scene.title,
+                location: scene.location,
+                timeOfDay: scene.timeOfDay,
+                characterName: sceneCharacterNames[0] || 'the protagonist',
+                tone: scene.mood || 'natural',
+                isMainCharacter: true
+              }
             });
 
             if (mainDialogueError) {
@@ -2614,25 +2687,7 @@ const MovieSceneCreator = () => {
               return scene;
             }
 
-            // Check if scene involves multiple characters
-            const hasOtherCharacters = /interact|conversation|talk|speak|meet|confront|argue|discuss|responds|replies|another|other person|companion|partner|friend|enemy|stranger/i.test(scene.description);
-            
-            let otherDialogue = null;
-            if (hasOtherCharacters && characterName) {
-              const { data: otherDialogueData, error: otherDialogueError } = await supabase.functions.invoke('generate-scene-dialogue', {
-                body: { ...sceneContext, isMainCharacter: false }
-              });
-
-              if (!otherDialogueError && otherDialogueData?.dialogue) {
-                otherDialogue = otherDialogueData.dialogue;
-              }
-            }
-
-            return { 
-              ...scene, 
-              dialogue: mainDialogueData.dialogue,
-              otherCharacterDialogue: otherDialogue
-            };
+            return { ...scene, dialogue: mainDialogueData.dialogue, charactersInScene: sceneCharacterNames };
           } catch (err) {
             console.error(`Error regenerating dialogue for scene ${scene.sceneNumber}:`, err);
             return scene;
@@ -2643,7 +2698,7 @@ const MovieSceneCreator = () => {
       setScenes(updatedScenes);
       toast({
         title: "Dialogue Regenerated!",
-        description: `Updated dialogue for ${scenes.length} scenes with longer 30+ second content.`,
+        description: `Updated dialogue for ${scenes.length} scenes with per-scene character context.`,
       });
     } catch (error: any) {
       console.error('Error regenerating dialogue:', error);
