@@ -4027,7 +4027,7 @@ const MovieSceneCreator = () => {
                       <Download className="w-3.5 h-3.5" /> Download
                     </Button>
                   </div>
-                  <video src={stitchedVideoUrl} controls className="w-full rounded-lg border border-border" />
+                  <video src={stitchedVideoUrl} controls className="w-full max-h-[70vh] object-contain rounded-lg border border-border" />
                 </CardContent>
               </Card>
             )}
