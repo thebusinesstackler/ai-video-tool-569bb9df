@@ -2907,12 +2907,15 @@ const MovieSceneCreator = () => {
 
         // Also add selected twins as fallback assignments
         for (const twin of selectedTwins) {
-          if (twin.voice_cloning_key && !voiceAssignments.find(v => v.characterName.toLowerCase() === twin.name.toLowerCase())) {
-            const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+          if (!voiceAssignments.find(v => v.characterName.toLowerCase() === twin.name.toLowerCase())) {
+            const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
             voiceAssignments.push({
               characterName: twin.name,
-              speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
-              voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
+              speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+              voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+              gender: twin.gender || undefined,
+              voiceEngine: twin.voice_engine || undefined,
+              googleVoiceId: twin.google_voice_id || undefined,
             });
           }
         }
