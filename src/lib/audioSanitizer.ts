@@ -3,9 +3,9 @@
  * Cleans script text before it reaches ANY TTS engine to prevent
  * awkward pauses, 4-second silences, and unnatural delivery.
  *
- * Rules enforced (from project memory):
+ * Rules enforced:
  *  - Em dashes (—), en dashes (–), double hyphens (--) → comma + space
- *  - Ellipses (… or ...) → period
+ *  - Excessive ellipses reduced to max 1 per passage; extras → period
  *  - Smart quotes → straight quotes
  *  - Stage directions in parens/brackets/asterisks removed
  *  - Repeated words collapsed
@@ -27,8 +27,17 @@ export function sanitizeForTTS(text: string): string {
   cleaned = cleaned.replace(/–/g, ', ');
   cleaned = cleaned.replace(/--/g, ', ');
 
-  // 3. Replace ellipses with period
-  cleaned = cleaned.replace(/…/g, '.');
+  // 3. Reduce excessive ellipses — keep max 1, convert rest to periods
+  // First convert unicode ellipsis to dots
+  cleaned = cleaned.replace(/…/g, '...');
+  // Now limit: keep the first "..." as a brief pause, replace all subsequent with "."
+  let ellipsisCount = 0;
+  cleaned = cleaned.replace(/\.{3}/g, () => {
+    ellipsisCount++;
+    if (ellipsisCount <= 1) return ','; // First ellipsis becomes a brief comma pause
+    return '.'; // All others become clean sentence breaks
+  });
+  // Clean up any remaining multi-dots
   cleaned = cleaned.replace(/\.{2,}/g, '.');
 
   // 4. Smart quotes → straight quotes
@@ -70,4 +79,4 @@ export function sanitizeForTTS(text: string): string {
  * Same logic as sanitizeForTTS but exported as a standalone string
  * so it can be copy-pasted into edge functions without module imports.
  */
-export const SANITIZER_VERSION = '1.0.0';
+export const SANITIZER_VERSION = '1.1.0';
