@@ -273,10 +273,22 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
             >
               {hasVideo ? (
                 <>
-                  <video src={scene.generatedVideo} className="w-full h-full object-cover" controls onClick={(e) => e.stopPropagation()} />
+                  <video 
+                    ref={inlineVideoRef}
+                    src={scene.generatedVideo} 
+                    className="w-full h-full object-cover" 
+                    controls 
+                    onClick={(e) => e.stopPropagation()} 
+                  />
+                  {audioDataUrl && <audio ref={inlineAudioRef} src={audioDataUrl} preload="auto" />}
                   <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Expand className="w-3 h-3" />Fullscreen
                   </div>
+                  {audioDataUrl && (
+                    <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                      <Volume2 className="w-3 h-3" />Audio synced
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
