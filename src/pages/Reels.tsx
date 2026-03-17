@@ -1722,6 +1722,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'),
               voiceEngine: voiceConfig.voiceEngine,
               googleVoiceId: voiceConfig.googleVoiceId,
+              pitch: voicePitch,
             }
           });
           
