@@ -965,6 +965,18 @@ People should have closed mouths — not speaking or mouthing words.`,
                 model: apiEndpoint,
                 hasEmbeddedAudio: sceneHasEmbeddedAudio
               });
+              // Log to video_tasks table
+              if (supabase && currentUserId) {
+                supabase.from('video_tasks').insert({
+                  user_id: currentUserId,
+                  task_id: videoData.data.id,
+                  model: apiEndpoint.split('/').pop() || 'unknown',
+                  status: 'pending',
+                  source: 'reel',
+                  scene_number: scene.sceneNumber,
+                  prompt: (scene.visualDescription || '').substring(0, 500)
+                }).then(({ error }) => { if (error) console.error('[video_tasks] log error:', error); });
+              }
             }
           } else {
             const errorText = await videoResponse.text();
