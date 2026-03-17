@@ -2346,6 +2346,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                   scenes: scenesWithAllAssets as unknown as any,
                   total_duration: totalDuration
                 }]);
+                handleReelSavedSuccessfully();
                 fetchSavedReels();
               } catch (saveError) { console.error('Auto-save failed:', saveError); }
             }
