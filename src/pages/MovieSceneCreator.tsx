@@ -2658,144 +2658,211 @@ const MovieSceneCreator = () => {
 
     setGeneratingVideoFor(sceneNumber);
     try {
-      // Generate audio from dialogue (never use description as dialogue)
-      let textForAudio = '';
-      if (scene.dialogue) {
-        if (Array.isArray(scene.dialogue)) {
-          textForAudio = scene.dialogue.map(d => d.line).join(' ');
-        } else {
-          textForAudio = scene.dialogue;
-        }
-      }
-      
-      // Clean dialogue text - remove stage directions before TTS
-      textForAudio = cleanDialogueForTTS(textForAudio);
-      
-      // If no dialogue, use a simple default
-      if (!textForAudio) {
-        textForAudio = "This moment is everything. I have to keep going.";
-      }
-      
-      // Determine voice to use based on story bible character assignments or selected twins
-      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string; gender?: string; voiceEngine?: string; googleVoiceId?: string } | null = null;
-      
-      // Check if we have a story bible with voice assignments
-      if (storyBible?.characters) {
-        // For conversation-style dialogue, find the first speaking character
-        if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
-          const firstSpeaker = scene.dialogue[0].character;
-          const assignedChar = storyBible.characters.find(c => 
-            c.name.toLowerCase() === firstSpeaker.toLowerCase()
-          );
-          if (assignedChar?.assignedTwinId) {
-            const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
-            if (assignedTwin) {
-              const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
-              voiceToUse = { 
-                name: assignedTwin.name,
-                speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
-                voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
-                gender: assignedTwin.gender || undefined,
-                voiceEngine: assignedTwin.voice_engine || undefined,
-                googleVoiceId: assignedTwin.google_voice_id || undefined,
-              };
-            }
-          }
-        } else {
-          // For non-conversation dialogue, use protagonist's voice if assigned
-          const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
-          if (protagonist?.assignedTwinId) {
-            const assignedTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
-            if (assignedTwin) {
-              const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
-              voiceToUse = { 
-                name: assignedTwin.name,
-                speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
-                voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
-                gender: assignedTwin.gender || undefined,
-                voiceEngine: assignedTwin.voice_engine || undefined,
-                googleVoiceId: assignedTwin.google_voice_id || undefined,
-              };
-            }
-          }
-        }
-      }
-      
-      // Fallback to first selected twin
-      if (!voiceToUse && selectedTwins.length > 0) {
-        const twin = selectedTwins[0];
-        const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
-        voiceToUse = { 
-          name: twin.name, 
-          speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
-          voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
-          gender: twin.gender || undefined,
-          voiceEngine: twin.voice_engine || undefined,
-          googleVoiceId: twin.google_voice_id || undefined,
-        };
-      }
-      
-      toast({
-        title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
-        description: voiceToUse 
-          ? `Creating voiceover using ${voiceToUse.name}'s voice...`
-          : "Creating voiceover for the scene...",
-      });
+      const isConversation = Array.isArray(scene.dialogue) && scene.dialogue.length > 1;
+      const uniqueSpeakers = isConversation ? new Set(scene.dialogue.map((d: any) => d.character?.toLowerCase())).size : 1;
+      const isMultiCharacter = isConversation && uniqueSpeakers >= 2;
 
-      // Build TTS params based on voice configuration
-      let ttsVoiceParams: any = {};
-      if (voiceToUse?.speechifyVoiceId || voiceToUse?.voiceCloningKey) {
-        ttsVoiceParams = {
-          speechifyVoiceId: voiceToUse.speechifyVoiceId,
-          voiceCloningKey: voiceToUse.voiceCloningKey,
-        };
-      } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
-        ttsVoiceParams = {
-          voiceEngine: 'google-cloud',
-          googleVoiceId: voiceToUse.googleVoiceId,
-        };
+      let audioContent: string | null = null;
+      let estimatedDuration = 5;
+
+      if (isMultiCharacter) {
+        // ===== MULTI-CHARACTER: Use multi-voice TTS (Gemini multi-speaker) =====
+        toast({
+          title: "Generating Multi-Voice Audio",
+          description: `Creating conversation with ${uniqueSpeakers} distinct character voices...`,
+        });
+
+        const voiceAssignments: Array<{
+          characterName: string;
+          speechifyVoiceId?: string;
+          voiceCloningKey?: string;
+          defaultVoice?: string;
+          gender?: string;
+          voiceEngine?: string;
+          googleVoiceId?: string;
+        }> = [];
+
+        if (storyBible?.characters) {
+          for (const char of storyBible.characters) {
+            if (char.assignedTwinId) {
+              const twin = aiTwins.find(t => t.id === char.assignedTwinId);
+              if (twin) {
+                const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
+                voiceAssignments.push({
+                  characterName: char.name,
+                  speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+                  voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+                  gender: twin.gender || undefined,
+                  voiceEngine: twin.voice_engine || undefined,
+                  googleVoiceId: twin.google_voice_id || undefined,
+                });
+              }
+            }
+          }
+        }
+
+        for (const twin of selectedTwins) {
+          if (!voiceAssignments.find(v => v.characterName.toLowerCase() === twin.name.toLowerCase())) {
+            const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
+            voiceAssignments.push({
+              characterName: twin.name,
+              speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+              voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+              gender: twin.gender || undefined,
+              voiceEngine: twin.voice_engine || undefined,
+              googleVoiceId: twin.google_voice_id || undefined,
+            });
+          }
+        }
+
+        console.log('Multi-voice TTS assignments:', voiceAssignments);
+
+        const { data: multiVoiceData, error: multiVoiceError } = await supabase.functions.invoke('multi-voice-tts', {
+          body: { dialogue: scene.dialogue, voiceAssignments }
+        });
+        if (multiVoiceError) throw new Error('Failed to generate multi-voice audio');
+
+        audioContent = multiVoiceData.audioContent;
+        const totalWords = scene.dialogue.reduce((acc: number, d: any) => acc + (d.line?.split(/\s+/).length || 0), 0);
+        estimatedDuration = Math.max(5, Math.min(30, Math.ceil(totalWords / 2.5)));
       } else {
-        ttsVoiceParams = {
-          voice: 'ai-auto',
-          gender: voiceToUse?.gender || 'male',
-        };
-      }
-
-      console.log('TTS request with voice:', voiceToUse, ttsVoiceParams);
-      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { 
-          text: textForAudio, 
-          ...ttsVoiceParams,
+        // ===== SINGLE CHARACTER: Use single-voice TTS =====
+        let textForAudio = '';
+        if (scene.dialogue) {
+          if (Array.isArray(scene.dialogue)) {
+            textForAudio = scene.dialogue.map((d: any) => d.line).join(' ');
+          } else {
+            textForAudio = scene.dialogue;
+          }
         }
-      });
+        textForAudio = cleanDialogueForTTS(textForAudio);
+        if (!textForAudio) textForAudio = "This moment is everything. I have to keep going.";
 
-      if (ttsError) throw ttsError;
+        let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string; gender?: string; voiceEngine?: string; googleVoiceId?: string } | null = null;
+
+        if (storyBible?.characters) {
+          if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
+            const firstSpeaker = scene.dialogue[0].character;
+            const assignedChar = storyBible.characters.find(c => c.name.toLowerCase() === firstSpeaker.toLowerCase());
+            if (assignedChar?.assignedTwinId) {
+              const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
+              if (assignedTwin) {
+                const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
+                voiceToUse = {
+                  name: assignedTwin.name,
+                  speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                  voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                  gender: assignedTwin.gender || undefined,
+                  voiceEngine: assignedTwin.voice_engine || undefined,
+                  googleVoiceId: assignedTwin.google_voice_id || undefined,
+                };
+              }
+            }
+          } else {
+            const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
+            if (protagonist?.assignedTwinId) {
+              const assignedTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
+              if (assignedTwin) {
+                const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
+                voiceToUse = {
+                  name: assignedTwin.name,
+                  speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                  voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                  gender: assignedTwin.gender || undefined,
+                  voiceEngine: assignedTwin.voice_engine || undefined,
+                  googleVoiceId: assignedTwin.google_voice_id || undefined,
+                };
+              }
+            }
+          }
+        }
+
+        if (!voiceToUse && selectedTwins.length > 0) {
+          const twin = selectedTwins[0];
+          const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
+          voiceToUse = {
+            name: twin.name,
+            speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+            voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+            gender: twin.gender || undefined,
+            voiceEngine: twin.voice_engine || undefined,
+            googleVoiceId: twin.google_voice_id || undefined,
+          };
+        }
+
+        toast({
+          title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
+          description: voiceToUse ? `Creating voiceover using ${voiceToUse.name}'s voice...` : "Creating voiceover for the scene...",
+        });
+
+        let ttsVoiceParams: any = {};
+        if (voiceToUse?.speechifyVoiceId || voiceToUse?.voiceCloningKey) {
+          ttsVoiceParams = { speechifyVoiceId: voiceToUse.speechifyVoiceId, voiceCloningKey: voiceToUse.voiceCloningKey };
+        } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
+          ttsVoiceParams = { voiceEngine: 'google-cloud', googleVoiceId: voiceToUse.googleVoiceId };
+        } else {
+          ttsVoiceParams = { voice: 'ai-auto', gender: voiceToUse?.gender || 'male' };
+        }
+
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+          body: { text: textForAudio, ...ttsVoiceParams }
+        });
+        if (ttsError) throw ttsError;
+        audioContent = ttsData.audioContent;
+
+        const wordCount = textForAudio.split(/\s+/).length;
+        estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5)));
+      }
 
       toast({
         title: "Generating Video",
-        description: voiceToUse 
-          ? `Creating lip-synced video with ${voiceToUse.name}'s voice...`
-          : "Creating lip-synced video using default voice...",
+        description: isMultiCharacter
+          ? `Creating cinematic video with ${uniqueSpeakers} characters in conversation...`
+          : "Creating lip-synced video...",
       });
 
-      // Generate video with lip sync using InfiniteTalk model
-      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
-        body: {
+      // Build cinematic movement prompt from scene data
+      const movementDetails: string[] = [];
+      if (scene.transitionAction) movementDetails.push(scene.transitionAction);
+      if (scene.transitionCameraMovement) movementDetails.push(`Camera: ${scene.transitionCameraMovement}`);
+      if (scene.selectedCameraAngle && scene.selectedCameraAngle !== 'eye-level') {
+        const cam = CAMERA_ANGLES.find(a => a.id === scene.selectedCameraAngle);
+        if (cam) movementDetails.push(cam.description);
+      }
+      const sceneDesc = scene.description || scene.title || '';
+      const movementPrompt = movementDetails.length > 0 ? movementDetails.join('. ') + '.' : '';
+
+      let videoBody: any;
+      if (isMultiCharacter) {
+        // Multi-character: use image-to-video with rich cinematic prompt
+        videoBody = {
+          action: 'create',
+          model: 'wan-2.5-i2v',
+          imageUrls: [imageToUse],
+          prompt: `${sceneDesc}. Characters engaged in intense conversation, gesturing naturally, shifting weight, making eye contact, turning heads between speakers. ${movementPrompt} Cinematic quality, natural body language, professional cinematography, dynamic camera movement.`,
+          duration: Math.min(estimatedDuration, 10),
+          aspectRatio: '16:9'
+        };
+      } else {
+        // Single character: InfiniteTalk lip-sync (auto-syncs to audio length)
+        videoBody = {
           action: 'create',
           model: 'infinitetalk',
           imageUrls: [imageToUse],
-          audioUrl: `data:audio/mp3;base64,${ttsData.audioContent}`,
-          duration: 5
-        }
-      });
+          audioUrl: `data:audio/mp3;base64,${audioContent}`,
+        };
+      }
 
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+        body: videoBody
+      });
       if (videoError) throw videoError;
 
-      // Update scene with task ID and store audio as fallback
-      setScenes(prevScenes => 
-        prevScenes.map(s => 
-          s.sceneNumber === sceneNumber 
-            ? { ...s, videoTaskId: videoData.taskId, transitionAudioContent: ttsData.audioContent }
+      // Store audio for multi-character scenes (needed for stitching)
+      setScenes(prevScenes =>
+        prevScenes.map(s =>
+          s.sceneNumber === sceneNumber
+            ? { ...s, videoTaskId: videoData.taskId, transitionAudioContent: audioContent || undefined }
             : s
         )
       );
@@ -2803,35 +2870,28 @@ const MovieSceneCreator = () => {
       // Poll for video completion
       const checkStatus = async () => {
         const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
-          body: {
-            action: 'status',
-            taskId: videoData.taskId
-          }
+          body: { action: 'status', taskId: videoData.taskId }
         });
-
         if (statusError) throw statusError;
 
         if (statusData.status === 'completed' && statusData.videoUrl) {
           setScenes(prevScenes => {
-            const updated = prevScenes.map(s => 
-              s.sceneNumber === sceneNumber 
+            const updated = prevScenes.map(s =>
+              s.sceneNumber === sceneNumber
                 ? { ...s, generatedVideo: statusData.videoUrl }
                 : s
             );
-            // Auto-save after lip-sync video generation
             setTimeout(() => autoSaveProject(updated), 500);
             return updated;
           });
           setGeneratingVideoFor(null);
-          
           toast({
             title: "Video Generated!",
-            description: `Scene ${sceneNumber} lip-sync video is ready.`,
+            description: `Scene ${sceneNumber} ${isMultiCharacter ? 'multi-character' : 'lip-sync'} video is ready.`,
           });
         } else if (statusData.status === 'failed') {
           throw new Error('Video generation failed');
         } else {
-          // Continue polling
           setTimeout(checkStatus, 3000);
         }
       };
