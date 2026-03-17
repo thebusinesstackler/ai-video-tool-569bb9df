@@ -80,6 +80,7 @@ CRITICAL: Return ONLY valid JSON with this structure (no markdown):
     {
       "name": "Character Name",
       "role": "protagonist",
+      "gender": "female",
       "age": "mid-30s",
       "appearance": "Detailed physical description",
       "wardrobe": "Red leather jacket over white t-shirt, dark blue jeans, black boots",
