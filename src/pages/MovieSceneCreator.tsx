@@ -2493,14 +2493,15 @@ const MovieSceneCreator = () => {
 
       // For 2+ characters, use conversation dialogue with story context
       if (characterNames.length >= 2) {
-        // Build character personalities
+        // Build character personalities from story bible + twins
         const characterPersonalities: Record<string, string> = {};
-        selectedTwins.forEach(twin => {
-          characterPersonalities[twin.name] = twin.description || twin.face_description || '';
+        characterNames.forEach(name => {
+          const twin = selectedTwins.find(t => t.name.toLowerCase() === name.toLowerCase());
+          characterPersonalities[name] = twin?.description || twin?.face_description || '';
         });
         if (storyBible?.characters) {
           storyBible.characters.forEach((char: StoryBibleCharacter) => {
-            if (characterPersonalities[char.name] !== undefined) {
+            if (characterNames.some(n => n.toLowerCase() === char.name.toLowerCase())) {
               characterPersonalities[char.name] = `${char.personality}. Arc: ${char.arc}`;
             }
           });
