@@ -40,6 +40,8 @@ interface AITwin {
   description: string | null;
   face_description: string | null;
   gender: string | null;
+  voice_engine?: string | null;
+  google_voice_id?: string | null;
 }
 
 // Helper to clean dialogue text - remove stage directions and sanitize for TTS
@@ -893,7 +895,7 @@ const MovieSceneCreator = () => {
     try {
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('id, name, reference_images, voice_cloning_key, description, face_description')
+        .select('id, name, reference_images, voice_cloning_key, description, face_description, gender, voice_engine, google_voice_id')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -1253,32 +1255,41 @@ const MovieSceneCreator = () => {
         speechifyVoiceId?: string;
         voiceCloningKey?: string;
         defaultVoice?: string;
+        gender?: string;
+        voiceEngine?: string;
+        googleVoiceId?: string;
       }> = [];
 
       if (storyBible?.characters) {
         for (const char of storyBible.characters) {
           if (char.assignedTwinId) {
             const twin = aiTwins.find(t => t.id === char.assignedTwinId);
-            if (twin?.voice_cloning_key) {
-              const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+            if (twin) {
+              const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
               voiceAssignments.push({
                 characterName: char.name,
-                speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
-                voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined,
-                defaultVoice: char.role === 'protagonist' ? 'en-US-Journey-D' : 'en-US-Journey-F'
+                speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+                voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+                gender: twin.gender || undefined,
+                voiceEngine: twin.voice_engine || undefined,
+                googleVoiceId: twin.google_voice_id || undefined,
               });
             }
           }
         }
       }
 
+      // Also add any selected twins not already in voice assignments
       for (const twin of selectedTwins) {
-        if (twin.voice_cloning_key && !voiceAssignments.find(v => v.characterName.toLowerCase() === twin.name.toLowerCase())) {
-          const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
+        if (!voiceAssignments.find(v => v.characterName.toLowerCase() === twin.name.toLowerCase())) {
+          const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
           voiceAssignments.push({
             characterName: twin.name,
-            speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
-            voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
+            speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+            voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+            gender: twin.gender || undefined,
+            voiceEngine: twin.voice_engine || undefined,
+            googleVoiceId: twin.google_voice_id || undefined,
           });
         }
       }
@@ -1287,7 +1298,6 @@ const MovieSceneCreator = () => {
         body: {
           dialogue: scene.dialogue,
           voiceAssignments,
-          defaultVoice: 'en-US-Journey-D'
         }
       });
       if (multiVoiceError) throw new Error('Failed to generate multi-voice audio');
@@ -1310,32 +1320,42 @@ const MovieSceneCreator = () => {
       if (!textForAudio) textForAudio = "This moment is everything. I have to keep going.";
 
       let voiceParams: any = {};
+      // Find the speaking character's twin
+      let speakerTwin: AITwin | undefined;
+      
       if (storyBible?.characters) {
         const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
         if (protagonist?.assignedTwinId) {
-          const twin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
-          if (twin?.voice_cloning_key) {
-            const isSpeechify = isSpeechifyVoiceId(twin.voice_cloning_key);
-            voiceParams = {
-              speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
-              voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
-            };
-          }
+          speakerTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
         }
       }
-      if (!voiceParams.speechifyVoiceId && !voiceParams.voiceCloningKey) {
-        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
-        if (twinWithVoice?.voice_cloning_key) {
-          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
+      if (!speakerTwin) {
+        speakerTwin = selectedTwins[0];
+      }
+      
+      if (speakerTwin) {
+        if (speakerTwin.voice_cloning_key) {
+          const isSpeechify = isSpeechifyVoiceId(speakerTwin.voice_cloning_key);
           voiceParams = {
-            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
-            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
+            speechifyVoiceId: isSpeechify ? speakerTwin.voice_cloning_key : undefined,
+            voiceCloningKey: !isSpeechify ? speakerTwin.voice_cloning_key : undefined
+          };
+        } else if (speakerTwin.voice_engine === 'google-cloud' && speakerTwin.google_voice_id) {
+          voiceParams = {
+            voiceEngine: 'google-cloud',
+            googleVoiceId: speakerTwin.google_voice_id
+          };
+        } else {
+          // Use gender-appropriate WaveSpeed voice
+          voiceParams = {
+            gender: speakerTwin.gender || 'male',
+            voice: 'ai-auto'
           };
         }
       }
 
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: textForAudio, voice: 'en-US-Journey-D', ...voiceParams }
+        body: { text: textForAudio, voice: voiceParams.voice || 'ai-auto', ...voiceParams }
       });
       if (ttsError) throw ttsError;
       audioContent = ttsData.audioContent;
@@ -2657,7 +2677,7 @@ const MovieSceneCreator = () => {
       }
       
       // Determine voice to use based on story bible character assignments or selected twins
-      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string } | null = null;
+      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string; gender?: string; voiceEngine?: string; googleVoiceId?: string } | null = null;
       
       // Check if we have a story bible with voice assignments
       if (storyBible?.characters) {
@@ -2669,12 +2689,15 @@ const MovieSceneCreator = () => {
           );
           if (assignedChar?.assignedTwinId) {
             const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
-            if (assignedTwin?.voice_cloning_key) {
-              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+            if (assignedTwin) {
+              const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
               voiceToUse = { 
                 name: assignedTwin.name,
-                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
-                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+                speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                gender: assignedTwin.gender || undefined,
+                voiceEngine: assignedTwin.voice_engine || undefined,
+                googleVoiceId: assignedTwin.google_voice_id || undefined,
               };
             }
           }
@@ -2683,45 +2706,66 @@ const MovieSceneCreator = () => {
           const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
           if (protagonist?.assignedTwinId) {
             const assignedTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
-            if (assignedTwin?.voice_cloning_key) {
-              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+            if (assignedTwin) {
+              const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
               voiceToUse = { 
                 name: assignedTwin.name,
-                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
-                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+                speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                gender: assignedTwin.gender || undefined,
+                voiceEngine: assignedTwin.voice_engine || undefined,
+                googleVoiceId: assignedTwin.google_voice_id || undefined,
               };
             }
           }
         }
       }
       
-      // Fallback to selected twins if no story bible assignment
-      if (!voiceToUse) {
-        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
-        if (twinWithVoice?.voice_cloning_key) {
-          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
-          voiceToUse = { 
-            name: twinWithVoice.name, 
-            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
-            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
-          };
-        }
+      // Fallback to first selected twin
+      if (!voiceToUse && selectedTwins.length > 0) {
+        const twin = selectedTwins[0];
+        const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
+        voiceToUse = { 
+          name: twin.name, 
+          speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+          voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+          gender: twin.gender || undefined,
+          voiceEngine: twin.voice_engine || undefined,
+          googleVoiceId: twin.google_voice_id || undefined,
+        };
       }
       
       toast({
-        title: voiceToUse ? "Generating Cloned Voice Audio" : "Generating Audio",
+        title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
         description: voiceToUse 
-          ? `Creating voiceover using ${voiceToUse.name}'s cloned voice...`
+          ? `Creating voiceover using ${voiceToUse.name}'s voice...`
           : "Creating voiceover for the scene...",
       });
 
-      console.log('TTS request with voice:', voiceToUse);
+      // Build TTS params based on voice configuration
+      let ttsVoiceParams: any = {};
+      if (voiceToUse?.speechifyVoiceId || voiceToUse?.voiceCloningKey) {
+        ttsVoiceParams = {
+          speechifyVoiceId: voiceToUse.speechifyVoiceId,
+          voiceCloningKey: voiceToUse.voiceCloningKey,
+        };
+      } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
+        ttsVoiceParams = {
+          voiceEngine: 'google-cloud',
+          googleVoiceId: voiceToUse.googleVoiceId,
+        };
+      } else {
+        ttsVoiceParams = {
+          voice: 'ai-auto',
+          gender: voiceToUse?.gender || 'male',
+        };
+      }
+
+      console.log('TTS request with voice:', voiceToUse, ttsVoiceParams);
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
         body: { 
           text: textForAudio, 
-          voice: 'en-US-Journey-D',
-          speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
-          voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
+          ...ttsVoiceParams,
         }
       });
 
