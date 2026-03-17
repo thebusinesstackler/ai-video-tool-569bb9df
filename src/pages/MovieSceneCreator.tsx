@@ -2462,7 +2462,28 @@ const MovieSceneCreator = () => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     if (!scene) return;
 
-    const characterNames = selectedTwins.length > 0 ? selectedTwins.map(t => t.name) : [selectedCharacter?.name].filter(Boolean);
+    // Determine characters for THIS scene specifically
+    let characterNames: string[] = [];
+
+    // 1. Check story bible sceneDialogueMap for this scene's characters
+    if (storyBible?.sceneDialogueMap) {
+      const sceneMap = storyBible.sceneDialogueMap.find(m => m.sceneNumber === sceneNumber);
+      if (sceneMap?.charactersPresent?.length) {
+        characterNames = sceneMap.charactersPresent;
+      }
+    }
+
+    // 2. Fall back to scene's own charactersInScene
+    if (characterNames.length === 0 && scene.charactersInScene?.length) {
+      characterNames = scene.charactersInScene;
+    }
+
+    // 3. Fall back to selected twins / character
+    if (characterNames.length === 0) {
+      characterNames = selectedTwins.length > 0 
+        ? selectedTwins.map(t => t.name) 
+        : [selectedCharacter?.name].filter(Boolean) as string[];
+    }
 
     try {
       toast({
