@@ -330,7 +330,8 @@ const Reels = () => {
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
-  const [videoModel, setVideoModel] = useState<'infinitetalk' | 'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro'>('infinitetalk');
+  const [videoModel, setVideoModel] = useState<'infinitetalk' | 'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro' | 'wan-2.6-i2v'>('infinitetalk');
+  const [wan26Duration, setWan26Duration] = useState<5 | 10 | 15>(5);
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection — defaults empty, resolved from AI Twin cloned voice
