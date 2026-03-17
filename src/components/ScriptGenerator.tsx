@@ -47,7 +47,11 @@ interface ScriptParams {
   characterId?: string;
 }
 
-export const ScriptGenerator = () => {
+interface ScriptGeneratorProps {
+  onUseInReel?: (scenes: { sceneNumber: number; narration: string; visualDescription: string; duration: number }[]) => void;
+}
+
+export const ScriptGenerator = ({ onUseInReel }: ScriptGeneratorProps = {}) => {
   const [params, setParams] = useState<ScriptParams>({
     topic: '',
     duration: '60',

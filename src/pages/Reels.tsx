@@ -5680,6 +5680,40 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   onCharacterTransformationChange={setCharacterTransformation}
                 />
                 
+                {/* Background Music Panel */}
+                {featureToggles.backgroundMusic && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="pt-4 space-y-3">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        🎵 Background Music
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="e.g. upbeat corporate, lo-fi chill, cinematic epic..."
+                          value={backgroundMusicMood}
+                          onChange={(e) => setBackgroundMusicMood(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={generateBackgroundMusic}
+                          disabled={isGeneratingMusic || !backgroundMusicMood.trim()}
+                          size="sm"
+                        >
+                          {isGeneratingMusic ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      {backgroundMusicUrl && (
+                        <div className="space-y-2">
+                          <audio controls className="w-full h-8" src={backgroundMusicUrl} />
+                          <Button variant="ghost" size="sm" onClick={() => setBackgroundMusicUrl(null)} className="text-xs text-muted-foreground">
+                            <X className="w-3 h-3 mr-1" /> Remove Music
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
                 {/* Save Draft Button */}
                 <div className="flex justify-center">
                   <Button 
