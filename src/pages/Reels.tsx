@@ -4169,12 +4169,25 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1', desc: 'Fast' },
                             { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5', desc: '720p' },
                             { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0', desc: 'Cinematic' },
+                            { value: 'wan-2.6-i2v' as const, label: '🌟 Wan 2.6', desc: '5s/10s/15s' },
                           ].map((m) => (
                             <button key={m.value} type="button" onClick={() => setVideoModel(m.value)} className={`text-left p-2 rounded-md border text-xs transition-colors ${videoModel === m.value ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
                               <span className="font-medium">{m.label}</span> <span className="opacity-70">{m.desc}</span>
                             </button>
                           ))}
                         </div>
+                        {videoModel === 'wan-2.6-i2v' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Clip Duration</Label>
+                            <div className="flex gap-1.5">
+                              {([5, 10, 15] as const).map((d) => (
+                                <button key={d} type="button" onClick={() => setWan26Duration(d)} className={`flex-1 py-1.5 rounded-md border text-xs font-medium transition-colors ${wan26Duration === d ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
+                                  {d}s
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-border">
