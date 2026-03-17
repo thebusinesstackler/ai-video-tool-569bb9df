@@ -220,13 +220,15 @@ Remember:
       );
     }
 
+    // Determine if intro/outro are enabled
+    const hasIntro = introConfig?.introTemplate && introConfig.introTemplate !== 'none';
+    const hasOutro = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none';
+
+    // Adjust scene count: AI generates intro/outro as part of the scene array
+    const totalSceneCount = sceneCount + (hasIntro ? 1 : 0) + (hasOutro ? 1 : 0);
+
     // Calculate scene duration - use provided value or calculate from target duration
-    const introDuration = introConfig?.introTemplate && introConfig.introTemplate !== 'none' ? 3 : 0;
-    const outroDuration = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none' ? 3 : 0;
-    const contentDuration = targetDuration - introDuration - outroDuration;
-    
-    // Use explicit sceneDuration if provided, otherwise calculate from total
-    const finalSceneDuration = sceneDuration || Math.round(contentDuration / sceneCount);
+    const finalSceneDuration = sceneDuration || Math.round(targetDuration / sceneCount);
     
     // Calculate word count based on scene duration
     // At 0.6x speed, about 2.5 words per second
@@ -354,20 +356,41 @@ VISUAL CONTINUITY:
 
 ${cutSceneInstructions}`;
 
-    const userPrompt = `Write ${sceneCount} scenes for a reel about: "${topic}"
-Each scene should be approximately ${finalSceneDuration} seconds when narrated.
+    // Build intro/outro AI instructions
+    const introInstructions = hasIntro ? `
+INTRO SCENE (Scene 1 — MANDATORY):
+- This is a 3-second spoken intro hook. Write 5-8 words maximum.
+- Style hint: "${introConfig.introTemplate}" ${introConfig.introText ? `— user suggested: "${introConfig.introText}"` : ''}
+- The narration must be a short, punchy hook that grabs attention instantly
+- Mark with "isIntro": true
+- Visual: ${getIntroVisualDescription(introConfig.introTemplate, topic, extractVisualStyle(''))}
+` : '';
 
-STORY FLOW (each scene MUST connect to the next):
+    const outroInstructions = hasOutro ? `
+OUTRO SCENE (Final Scene — MANDATORY):
+- This is a 2-second spoken call-to-action. Write 8-15 words maximum.
+- CTA style: "${outroConfig.outroTemplate}" ${outroConfig.outroText ? `— user suggested: "${outroConfig.outroText}"` : ''}
+- The narration must be a natural, topic-specific CTA — NOT generic "Follow for more"
+- Tie back to the topic and give a reason to engage
+- Mark with "isOutro": true
+- Visual: ${getOutroVisualDescription(outroConfig.outroTemplate, '', topic, characterDescription)}
+` : '';
+
+    const userPrompt = `Write ${totalSceneCount} scenes for a reel about: "${topic}"
+Each CONTENT scene should be approximately ${finalSceneDuration} seconds when narrated.
+
+${introInstructions ? `SCENE STRUCTURE:
+${introInstructions}
+- Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
+${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
 - Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
-- Scene 2-${sceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${sceneCount} (CLOSE): Write a SPOKEN closing that naturally wraps up the topic. NOT just "Follow for more" — instead:
-  * Tie back to the hook promise ("Remember when I said X? Here's your next step...")
-  * Deliver a topic-specific takeaway the viewer can act on
-  * Weave the call-to-action into natural speech ("If you want more strategies like this... you know what to do—")
-  * The CTA should feel like a natural conclusion to the story, not a generic sign-off
+- Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
+- Scene ${totalSceneCount} (CLOSE): Write a SPOKEN closing that naturally wraps up the topic`}
 
 NARRATION REQUIREMENTS:
-- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
+- Content scenes: Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
+${hasIntro ? '- Intro scene: Write 5-8 words only (3 seconds)' : ''}
+${hasOutro ? '- Outro scene: Write 8-15 words only (2 seconds)' : ''}
 - Write conversational sentences that flow naturally when spoken
 - Each scene should transition smoothly to the next
 - Use complete thoughts and natural pauses
@@ -384,13 +407,15 @@ VISUAL RULES:
 - Use ONE consistent visual style AND background across all scenes
 - If showing a person, describe them identically each scene
 - Camera angle should vary per scene for visual interest:
-${CAMERA_ANGLES.slice(0, sceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
+${CAMERA_ANGLES.slice(0, totalSceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
 CRITICAL VALIDATION BEFORE RETURNING:
 - Write complete sentences with proper punctuation (periods, commas, question marks)
 - Do NOT use em dashes (—), double hyphens (--), or ellipses (...)
 - Every narration must end with a period or question mark, NEVER a trailing comma
 - Scene 1 HOOK narration must be a COMPLETE, compelling sentence (15+ words minimum), not a fragment like "I" or "Hook:"
+${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
+${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
 
 Return ONLY valid JSON array:
 [
@@ -399,7 +424,7 @@ Return ONLY valid JSON array:
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here. Use periods and commas naturally. NO em dashes, NO ellipses. Must end with a period or question mark.",
     "visualDescription": "SUBJECT: ${characterDescription ? `${characterDescription}, ` : ''}[action relevant to narration topic, closed mouth, natural expression]. SETTING: [location and key props matching the topic]. MOOD: [lighting and color tone in 2-3 words].${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
     "duration": ${finalSceneDuration},
-    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
+    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true  // Only for scene 1 when intro is enabled' : ''}${hasOutro ? ',\n    "isOutro": true  // Only for the last scene when outro is enabled' : ''}
   }
 ]`;
 
@@ -504,54 +529,14 @@ Return ONLY valid JSON array:
       };
     });
 
-    // Renumber scenes to account for intro
-    const hasIntro = introConfig?.introTemplate && introConfig.introTemplate !== 'none';
-    const hasOutro = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none';
-
-    if (hasIntro) {
-      scenes = scenes.map((scene: any, index: number) => ({
-        ...scene,
-        sceneNumber: index + 2
-      }));
-
-      const introNarration = introConfig.introText || getDefaultIntroText(introConfig.introTemplate, topic, hookStyle);
-      const introScene = {
-        sceneNumber: 1,
-        narration: formatScriptForTTS(introNarration),
-        visualDescription: getIntroVisualDescription(introConfig.introTemplate, topic, baseVisualStyle),
-        duration: 3,
-        isIntro: true,
-        templateId: introConfig.introTemplate,
-        cameraAngle: 'close-up, direct engagement'
-      };
-      scenes.unshift(introScene);
+    // Ensure intro/outro flags are properly set (AI may not always include them)
+    if (hasIntro && scenes.length > 0) {
+      scenes[0].isIntro = true;
+      scenes[0].duration = 3;
     }
-
-    if (hasOutro) {
-      const outroNarration = formatScriptForTTS(outroConfig.outroText || getDefaultOutroText(outroConfig.outroTemplate, topic));
-      
-      const outroScene = {
-        sceneNumber: scenes.length + 1,
-        narration: outroNarration,
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
-        duration: 2,
-        isOutro: true,
-        templateId: outroConfig.outroTemplate,
-        cameraAngle: 'medium shot, call-to-action framing'
-      };
-      scenes.push(outroScene);
-      
-      const ctaHoldScene = {
-        sceneNumber: scenes.length + 1,
-        narration: '',
-        visualDescription: getOutroVisualDescription(outroConfig.outroTemplate, baseVisualStyle, topic, characterDescription),
-        duration: 2,
-        isOutro: true,
-        isSilentCTA: true,
-        templateId: outroConfig.outroTemplate,
-        cameraAngle: 'medium shot, hold on CTA'
-      };
-      scenes.push(ctaHoldScene);
+    if (hasOutro && scenes.length > 0) {
+      scenes[scenes.length - 1].isOutro = true;
+      scenes[scenes.length - 1].duration = 2;
     }
 
     console.log('Generated scenes:', scenes.length, 'with intro:', hasIntro, 'outro:', hasOutro);
@@ -708,64 +693,7 @@ function stripHtml(text: string): string {
     .trim();
 }
 
-// Helper functions for intro/outro defaults - now with dynamic hooks
-function smartTruncate(text: string, maxLen = 60): string {
-  const clean = stripHtml(text);
-  if (clean.length <= maxLen) return clean;
-  const truncated = clean.substring(0, maxLen);
-  const lastComma = truncated.lastIndexOf(',');
-  const lastSpace = truncated.lastIndexOf(' ');
-  const breakAt = lastComma > maxLen * 0.4 ? lastComma : lastSpace;
-  return breakAt > 0 ? truncated.substring(0, breakAt).trim() : truncated.trim();
-}
-
-function getDefaultIntroText(templateId: string, topic: string, hookStyle?: string): string {
-  const topicShort = smartTruncate(topic);
-  
-  switch (templateId) {
-    case 'hook-text':
-      if (hookStyle === 'question') return `Have you ever wondered about ${topicShort}?`;
-      if (hookStyle === 'secret') return `The secret about ${topicShort} that nobody talks about.`;
-      if (hookStyle === 'story') return `Here's what happened when I tried ${topicShort}.`;
-      return `This is going to change how you think about ${topicShort}.`;
-    case 'topic-title':
-      if (hookStyle === 'controversy') return `Unpopular opinion on ${topicShort}.`;
-      return `The truth about ${topicShort}.`;
-    case 'question-hook':
-      return `Why does everyone get ${topicShort} wrong?`;
-    case 'countdown':
-      return `The top things you need to know about ${topicShort}.`;
-    default:
-      return `You need to see this about ${topicShort}.`;
-  }
-}
-
-function getDefaultOutroText(templateId: string, topic?: string): string {
-  const topicShort = topic ? smartTruncate(topic) : '';
-  
-  switch (templateId) {
-    case 'cta-follow':
-      return topicShort 
-        ? `If you want more insights like this on ${topicShort}, follow along, I've got a lot more coming.`
-        : 'If you found this valuable, follow along, there is a lot more where this came from.';
-    case 'cta-subscribe':
-      return topicShort
-        ? `Subscribe if you want to go deeper on ${topicShort}, I break this down every week.`
-        : 'Subscribe if you want more like this, new content drops every week.';
-    case 'cta-comment':
-      return topicShort
-        ? `I want to hear your take on ${topicShort}, drop your thoughts in the comments.`
-        : 'Tell me what you think in the comments, I read every single one.';
-    case 'cta-share':
-      return topicShort
-        ? `If someone you know needs to hear this about ${topicShort}, send it their way.`
-        : 'Share this with someone who needs to hear it, it might change their perspective.';
-    default:
-      return topicShort
-        ? `Save this for later when you need it, trust me on ${topicShort}.`
-        : 'Save this for later, you will want to come back to it.';
-  }
-}
+// Visual description helpers kept for AI prompt context
 
 function getIntroVisualDescription(templateId: string, topic: string, baseStyle: string): string {
   const commonStyle = baseStyle || 'Cinematic 4K, vibrant saturated colors, professional studio lighting';

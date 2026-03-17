@@ -3887,376 +3887,386 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               </Card>
             )}
 
-            {/* ===== ADVANCED MODE: Full controls ===== */}
+            {/* ===== ADVANCED MODE: Tabbed layout ===== */}
             {isAdvanced && (
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  Create Your Reel
-                </CardTitle>
-                <CardDescription>
-                  Choose a duration and enter a topic to generate scene scripts with captions
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* AI Topic Strategist */}
-                <TopicStrategist
-                  onApplyStrategy={async (strategy) => {
-                    // Build topic with title and hook
-                    setTopic(`${strategy.title}\n\nHook: ${strategy.hookText}`);
-                    
-                    // Set scene count
-                    setSelectedSceneCount(strategy.sceneCount.toString());
-                    
-                    // Calculate average scene duration
-                    const avgDuration = Math.round(strategy.targetDuration / strategy.sceneCount);
-                    setSelectedSceneDuration(avgDuration.toString());
-                    
-                    // Set hook style
-                    setHookStyle(strategy.hookStyle);
-                    
-                    // Set outro template if available
-                    if (strategy.outroTemplate) {
-                      setSelectedOutro(strategy.outroTemplate);
-                    }
-                    
-                    // Set CTA text for promotional content
-                    if (strategy.callToAction) {
-                      setOutroText(strategy.callToAction);
-                      setFeatureToggles(prev => ({ ...prev, introOutro: true }));
-                      setTemplateSectionOpen(true);
-                    }
+              <Card className="bg-card border-border">
+                <Tabs defaultValue="settings" className="w-full">
+                  <CardHeader className="pb-2">
+                    <TabsList className="w-full grid grid-cols-4">
+                      <TabsTrigger value="settings" className="text-xs gap-1"><Sparkles className="w-3 h-3" /> Settings</TabsTrigger>
+                      <TabsTrigger value="script" className="text-xs gap-1" disabled={project.scenes.length === 0}><FileText className="w-3 h-3" /> Script</TabsTrigger>
+                      <TabsTrigger value="character" className="text-xs gap-1"><User className="w-3 h-3" /> Character</TabsTrigger>
+                      <TabsTrigger value="video" className="text-xs gap-1" disabled={project.scenes.length === 0}><Video className="w-3 h-3" /> Video</TabsTrigger>
+                    </TabsList>
+                  </CardHeader>
 
-                    // Auto-generate the script so the user can start immediately
-                    toast({ title: "Idea Applied!", description: "Generating script..." });
-                    // Use setTimeout to let state updates propagate before generating
-                    setTimeout(async () => {
-                      await generateScripts();
-                    }, 100);
-                  }}
-                  disabled={isGenerating}
-                  initialState={strategistState}
-                  onStateChange={setStrategistState}
-                />
-
-                <div className="space-y-2">
-                  <Label htmlFor="topic">Topic / Idea</Label>
-                  <div className="relative">
-                    <Textarea
-                      id="topic"
-                      placeholder="E.g., 5 productivity tips for remote workers, How to make the perfect coffee, Travel hacks for budget trips..."
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
-                      className="min-h-[100px] bg-background border-border pr-12"
-                      disabled={isGenerating}
-                    />
-                    <Button
-                      type="button"
-                      variant={isListening ? "destructive" : "secondary"}
-                      size="icon"
-                      className="absolute right-2 top-2"
-                      onClick={isListening ? stopListening : startListening}
-                      disabled={isGenerating}
-                    >
-                      {isListening ? (
-                        <MicOff className="w-4 h-4" />
-                      ) : (
-                        <Mic className="w-4 h-4" />
-                      )}
-                    </Button>
-                    {isListening && (
-                      <span className="absolute right-14 top-3 text-xs text-destructive animate-pulse">
-                        Listening...
-                      </span>
-                    )}
-                  </div>
-                  {topic.trim() && (
-                    <div className="flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={enhancePrompt}
-                        disabled={isEnhancingPrompt || isGenerating}
-                        className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
-                      >
-                        {isEnhancingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                        Enhance Prompt
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Podcast Mode Toggle */}
-                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-500/10 to-primary/10 rounded-lg border border-purple-500/20">
-                  <div className="flex items-center gap-3">
-                    <Mic className="w-5 h-5 text-purple-500" />
-                    <div>
-                      <p className="font-medium text-sm">Podcast Mode</p>
-                      <p className="text-xs text-muted-foreground">Single character monologue (up to 5 minutes)</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={isPodcastMode}
-                    onCheckedChange={(checked) => {
-                      setIsPodcastMode(checked);
-                      if (checked) {
-                        setEnableLipSync(true); // Auto-enable lip sync for podcast
-                      }
-                    }}
-                    disabled={isGenerating}
-                  />
-                </div>
-
-                {isPodcastMode ? (
-                  // Podcast Mode Settings
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-purple-500/5 rounded-lg border border-purple-500/20">
-                    <div className="space-y-2">
-                      <Label>Podcast Duration</Label>
-                      <Select value={podcastDuration} onValueChange={setPodcastDuration} disabled={isGenerating}>
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PODCAST_DURATION_OPTIONS.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        ~{Math.round(parseInt(podcastDuration) * 2.5)} words
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Character</Label>
-                      <Select 
-                        value={selectedCharacterId || ''} 
-                        onValueChange={(v) => {
-                          setSelectedCharacterId(v || null);
-                          // Set character's first reference image as portrait
-                          const char = characters.find(c => c.id === v);
-                          if (char && char.reference_images?.[0]) {
-                            setPortraitImage(char.reference_images[0]);
-                            setPortraitPreview(char.reference_images[0]);
-                            analyzeReferenceImage(char.reference_images[0]);
-                          }
-                        }} 
+                  {/* ── SETTINGS TAB ── */}
+                  <TabsContent value="settings">
+                    <CardContent className="space-y-4 pt-2">
+                      <TopicStrategist
+                        onApplyStrategy={async (strategy) => {
+                          setTopic(`${strategy.title}\n\nHook: ${strategy.hookText}`);
+                          setSelectedSceneCount(strategy.sceneCount.toString());
+                          setSelectedSceneDuration(Math.round(strategy.targetDuration / strategy.sceneCount).toString());
+                          setHookStyle(strategy.hookStyle);
+                          if (strategy.outroTemplate) setSelectedOutro(strategy.outroTemplate);
+                          if (strategy.callToAction) { setOutroText(strategy.callToAction); setFeatureToggles(prev => ({ ...prev, introOutro: true })); setTemplateSectionOpen(true); }
+                          toast({ title: "Idea Applied!", description: "Generating script..." });
+                          setTimeout(async () => { await generateScripts(); }, 100);
+                        }}
                         disabled={isGenerating}
-                      >
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue placeholder="Select character..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {characters.map(char => (
-                            <SelectItem key={char.id} value={char.id}>
-                              {char.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {characters.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          No characters found. Create one in the Characters page.
-                        </p>
-                      )}
-                    </div>
+                        initialState={strategistState}
+                        onStateChange={setStrategistState}
+                      />
 
-                  </div>
-                ) : (
-                  // Normal Reel Mode Settings
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label>Number of Scenes</Label>
-                      <Select value={selectedSceneCount} onValueChange={setSelectedSceneCount} disabled={isGenerating}>
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SCENE_COUNT_OPTIONS.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="topic">Topic / Idea</Label>
+                        <div className="relative">
+                          <Textarea id="topic" placeholder="E.g., 5 productivity tips for remote workers..." value={topic} onChange={(e) => setTopic(e.target.value)} className="min-h-[80px] bg-background border-border pr-12" disabled={isGenerating} />
+                          <Button type="button" variant={isListening ? "destructive" : "secondary"} size="icon" className="absolute right-2 top-2" onClick={isListening ? stopListening : startListening} disabled={isGenerating}>
+                            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                        {topic.trim() && (
+                          <div className="flex justify-end">
+                            <Button variant="outline" size="sm" onClick={enhancePrompt} disabled={isEnhancingPrompt || isGenerating} className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10">
+                              {isEnhancingPrompt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                              Enhance Prompt
+                            </Button>
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label>Scene Duration</Label>
-                      <Select value={selectedSceneDuration} onValueChange={setSelectedSceneDuration} disabled={isGenerating}>
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SCENE_DURATION_OPTIONS.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Total: ~{parseInt(selectedSceneCount) * parseInt(selectedSceneDuration)}s
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Hook Style</Label>
-                      <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auto">Auto (Topic-based)</SelectItem>
-                          <SelectItem value="bold_claim">Bold Claim</SelectItem>
-                          <SelectItem value="question">Question</SelectItem>
-                          <SelectItem value="controversy">Controversy</SelectItem>
-                          <SelectItem value="story">Story</SelectItem>
-                          <SelectItem value="secret">Secret Reveal</SelectItem>
-                          <SelectItem value="countdown">Countdown/List</SelectItem>
-                          <SelectItem value="fomo">FOMO</SelectItem>
-                          <SelectItem value="curiosity">Curiosity Gap</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-
-                    <div className="space-y-2">
-                      <Label>Transition Style</Label>
-                      <Select value={transitionStyle} onValueChange={(v) => setTransitionStyle(v as typeof transitionStyle)} disabled={isGenerating}>
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="crossfade">Crossfade (Smooth)</SelectItem>
-                          <SelectItem value="fade">Fade (Quick)</SelectItem>
-                          <SelectItem value="slide">Slide (Dynamic)</SelectItem>
-                          <SelectItem value="zoom">Zoom (Cinematic)</SelectItem>
-                          <SelectItem value="wipe">Wipe (Directional)</SelectItem>
-                          <SelectItem value="blur">Blur (Dreamy)</SelectItem>
-                          <SelectItem value="dissolve">Dissolve (Soft)</SelectItem>
-                          <SelectItem value="spin">Spin (Energetic)</SelectItem>
-                          <SelectItem value="flip">Flip (3D Effect)</SelectItem>
-                          <SelectItem value="none">None (Hard Cut)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
-
-                {/* Video Size Selection */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Video className="w-4 h-4 text-primary" />
-                    Video Size / Aspect Ratio
-                  </Label>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                    {VIDEO_SIZE_OPTIONS.map(option => (
-                      <button
-                        key={option.value}
-                        onClick={() => setSelectedVideoSize(option.value)}
-                        disabled={isGenerating}
-                        className={`p-3 rounded-lg border text-left transition-all ${
-                          selectedVideoSize === option.value
-                            ? 'border-primary bg-primary/10 ring-1 ring-primary'
-                            : 'border-border bg-muted/30 hover:border-primary/50'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        <div className="font-medium text-sm">{option.label}</div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5">{option.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Cut Scenes Toggle with Expandable Options */}
-                <Collapsible open={cutScenesExpanded} onOpenChange={setCutScenesExpanded}>
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <CollapsibleTrigger asChild>
-                      <div 
-                        className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${
-                          enableCutScenes ? 'bg-primary/10' : 'bg-muted/50 hover:bg-muted'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Layers className="w-4 h-4 text-primary" />
+                      {/* Podcast Mode */}
+                      <div className="flex items-center justify-between p-2.5 bg-gradient-to-r from-purple-500/10 to-primary/10 rounded-lg border border-purple-500/20">
+                        <div className="flex items-center gap-2">
+                          <Mic className="w-4 h-4 text-purple-500" />
                           <div>
-                            <Label className="text-sm font-medium cursor-pointer">Insert Cut Scenes</Label>
-                            <p className="text-xs text-muted-foreground">Add 1-2s transition scenes for better flow</p>
+                            <p className="font-medium text-sm">Podcast Mode</p>
+                            <p className="text-[10px] text-muted-foreground">Single character monologue</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={enableCutScenes}
-                            onCheckedChange={(checked) => {
-                              setEnableCutScenes(checked);
-                              setFeatureToggles(prev => ({ ...prev, cutScenes: checked }));
-                              if (checked) setCutScenesExpanded(true);
-                            }}
-                            disabled={isGenerating}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${cutScenesExpanded ? 'rotate-180' : ''}`} />
-                        </div>
+                        <Switch checked={isPodcastMode} onCheckedChange={(checked) => { setIsPodcastMode(checked); if (checked) setEnableLipSync(true); }} disabled={isGenerating} />
                       </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="p-4 border-t border-border bg-background space-y-4">
-                        <div className="space-y-2">
-                          <Label className="text-sm">Cut Scene Style</Label>
-                          <Select defaultValue="dynamic" disabled={isGenerating || !enableCutScenes}>
-                            <SelectTrigger className="bg-muted/50 border-border">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="dynamic">Dynamic (Motion)</SelectItem>
-                              <SelectItem value="subtle">Subtle (Fade)</SelectItem>
-                              <SelectItem value="dramatic">Dramatic (Zoom)</SelectItem>
-                              <SelectItem value="minimal">Minimal (Quick Cut)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm">Cut Scene Duration</Label>
-                          <Select defaultValue="1.5" disabled={isGenerating || !enableCutScenes}>
-                            <SelectTrigger className="bg-muted/50 border-border">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0.5">0.5 seconds</SelectItem>
-                              <SelectItem value="1">1 second</SelectItem>
-                              <SelectItem value="1.5">1.5 seconds</SelectItem>
-                              <SelectItem value="2">2 seconds</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Cut scenes will be automatically inserted between main scenes to create smooth transitions.
-                        </p>
-                      </div>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
 
-                <div className="flex items-end">
-                  <Button 
-                    onClick={() => generateScripts()}
-                    disabled={isGenerating || !topic.trim()}
-                    className="w-full bg-gradient-primary hover:opacity-90"
-                  >
-                    {isGenerating && project.status === 'generating-script' ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="w-4 h-4 mr-2" />
-                    )}
-                    Generate Scripts
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                      {/* Compact Settings Grid */}
+                      {isPodcastMode ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Duration</Label>
+                            <Select value={podcastDuration} onValueChange={setPodcastDuration} disabled={isGenerating}>
+                              <SelectTrigger className="bg-background border-border h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>{PODCAST_DURATION_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Character</Label>
+                            <Select value={selectedCharacterId || ''} onValueChange={(v) => { setSelectedCharacterId(v || null); const char = characters.find(c => c.id === v); if (char?.reference_images?.[0]) { setPortraitImage(char.reference_images[0]); setPortraitPreview(char.reference_images[0]); analyzeReferenceImage(char.reference_images[0]); } }} disabled={isGenerating}>
+                              <SelectTrigger className="bg-background border-border h-9"><SelectValue placeholder="Select..." /></SelectTrigger>
+                              <SelectContent>{characters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Scenes</Label>
+                            <Select value={selectedSceneCount} onValueChange={setSelectedSceneCount} disabled={isGenerating}>
+                              <SelectTrigger className="bg-background border-border h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>{SCENE_COUNT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Duration</Label>
+                            <Select value={selectedSceneDuration} onValueChange={setSelectedSceneDuration} disabled={isGenerating}>
+                              <SelectTrigger className="bg-background border-border h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>{SCENE_DURATION_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Hook Style</Label>
+                            <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
+                              <SelectTrigger className="bg-background border-border h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="auto">Auto</SelectItem>
+                                <SelectItem value="bold_claim">Bold Claim</SelectItem>
+                                <SelectItem value="question">Question</SelectItem>
+                                <SelectItem value="controversy">Controversy</SelectItem>
+                                <SelectItem value="story">Story</SelectItem>
+                                <SelectItem value="secret">Secret</SelectItem>
+                                <SelectItem value="countdown">Countdown</SelectItem>
+                                <SelectItem value="fomo">FOMO</SelectItem>
+                                <SelectItem value="curiosity">Curiosity</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Transition</Label>
+                            <Select value={transitionStyle} onValueChange={(v) => setTransitionStyle(v as typeof transitionStyle)} disabled={isGenerating}>
+                              <SelectTrigger className="bg-background border-border h-9"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="crossfade">Crossfade</SelectItem>
+                                <SelectItem value="fade">Fade</SelectItem>
+                                <SelectItem value="slide">Slide</SelectItem>
+                                <SelectItem value="zoom">Zoom</SelectItem>
+                                <SelectItem value="wipe">Wipe</SelectItem>
+                                <SelectItem value="blur">Blur</SelectItem>
+                                <SelectItem value="dissolve">Dissolve</SelectItem>
+                                <SelectItem value="spin">Spin</SelectItem>
+                                <SelectItem value="flip">Flip</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Video Size as Select */}
+                      <div className="space-y-1">
+                        <Label className="text-xs flex items-center gap-1"><Video className="w-3 h-3 text-primary" /> Video Size</Label>
+                        <Select value={selectedVideoSize} onValueChange={setSelectedVideoSize} disabled={isGenerating}>
+                          <SelectTrigger className="bg-background border-border h-9"><SelectValue /></SelectTrigger>
+                          <SelectContent>{VIDEO_SIZE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Inline toggles */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center justify-between p-2 rounded-md border border-border bg-muted/30">
+                          <span className="text-xs font-medium">🎞️ Cut Scenes</span>
+                          <Switch checked={enableCutScenes} onCheckedChange={(c) => { setEnableCutScenes(c); setFeatureToggles(prev => ({ ...prev, cutScenes: c })); }} disabled={isGenerating} />
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-md border border-border bg-muted/30">
+                          <span className="text-xs font-medium">🎬 Intro/Outro</span>
+                          <Switch checked={featureToggles.introOutro} onCheckedChange={(c) => handleFeatureChange('introOutro', c)} disabled={isGenerating} />
+                        </div>
+                      </div>
+
+                      {featureToggles.introOutro && (
+                        <div className="p-3 rounded-lg border border-border bg-muted/30">
+                          <TemplateSelector selectedIntro={selectedIntro} selectedOutro={selectedOutro} introText={introText} outroText={outroText} onIntroChange={setSelectedIntro} onOutroChange={setSelectedOutro} onIntroTextChange={setIntroText} onOutroTextChange={setOutroText} selectedLogoUrl={selectedLogoUrl} selectedLogoAnimation={selectedLogoAnimation} onLogoChange={setSelectedLogoUrl} onLogoAnimationChange={setSelectedLogoAnimation} disabled={isGenerating} />
+                        </div>
+                      )}
+
+                      <Button onClick={() => generateScripts()} disabled={isGenerating || !topic.trim()} className="w-full bg-gradient-primary hover:opacity-90">
+                        {isGenerating && project.status === 'generating-script' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+                        Generate Scripts
+                      </Button>
+                      <p className="text-[10px] text-center text-muted-foreground">~{parseInt(selectedSceneCount) * parseInt(selectedSceneDuration)}s total</p>
+                    </CardContent>
+                  </TabsContent>
+
+                  {/* ── SCRIPT TAB ── */}
+                  <TabsContent value="script">
+                    <CardContent className="space-y-4 pt-2">
+                      {project.scenes.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">Generate scripts first in the Settings tab.</p>
+                        </div>
+                      ) : (
+                        <>
+                          {project.voiceovers.length > 0 && (
+                            <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg border border-primary/20">
+                              <span className="text-xs font-medium flex items-center gap-1"><Mic className="w-3 h-3 text-primary" />Total Voiceover</span>
+                              <span className="text-xs font-bold text-primary">{project.voiceovers.reduce((acc, v) => acc + v.duration, 0).toFixed(1)}s</span>
+                            </div>
+                          )}
+                          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                            {project.scenes.map((scene) => {
+                              const voiceover = project.voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
+                              return (
+                                <div key={scene.sceneNumber} className={`p-3 rounded-lg border bg-background space-y-2 ${scene.isIntro || scene.isOutro ? 'border-primary/30 ring-1 ring-primary/20' : 'border-border'}`}>
+                                  <div className="flex items-center justify-between">
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {(scene as any).isIntro ? '🎬 Intro' : (scene as any).isOutro ? '📢 Outro' : (scene as any).isCutScene ? '🎞️ Cut' : `Scene ${scene.sceneNumber}`}
+                                    </Badge>
+                                    <span className="text-[10px] text-muted-foreground">{voiceover ? `${voiceover.duration.toFixed(1)}s` : `~${scene.duration}s`}</span>
+                                  </div>
+                                  {scene.narration ? (
+                                    <Textarea value={scene.narration} onChange={(e) => updateSceneNarration(scene.sceneNumber, e.target.value)} className="text-sm bg-muted/30 border-0 resize-none min-h-[60px]" rows={2} disabled={isGenerating} />
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground italic">Silent scene</p>
+                                  )}
+                                  <p className="text-[10px] text-muted-foreground line-clamp-1">📷 {(scene as any).visualDescription?.substring(0, 80)}...</p>
+                                  {voiceover?.audioUrl && <audio controls src={voiceover.audioUrl} className="w-full h-7" />}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded-lg border border-border bg-muted/30">
+                            <span className="text-xs font-medium flex items-center gap-1"><Mic className="w-3 h-3 text-primary" />{selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'No voice'}</span>
+                            <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="h-7 text-xs">
+                              {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
+                            </Button>
+                          </div>
+                          <Button variant="outline" onClick={() => generateScripts()} disabled={isGenerating} className="w-full h-8 text-xs">
+                            <RefreshCw className="w-3 h-3 mr-1" /> Regenerate Script
+                          </Button>
+                        </>
+                      )}
+                    </CardContent>
+                  </TabsContent>
+
+                  {/* ── CHARACTER TAB ── */}
+                  <TabsContent value="character">
+                    <CardContent className="space-y-4 pt-2">
+                      <div className="flex items-center justify-between p-2 rounded-md border border-border bg-muted/30">
+                        <div className="flex items-center gap-2"><User className="w-4 h-4 text-primary" /><span className="text-sm font-medium">Lip Sync</span></div>
+                        <Switch checked={enableLipSync} onCheckedChange={(c) => { setEnableLipSync(c); setFeatureToggles(prev => ({ ...prev, lipSync: c })); }} disabled={isGenerating} />
+                      </div>
+
+                      {aiTwins.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Your AI Twins</Label>
+                          <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                            {aiTwins.map(twin => {
+                              const isSelected = selectedTwinId === twin.id;
+                              const thumbUrl = twin.reference_images?.[0];
+                              return (
+                                <div key={twin.id} onClick={async () => {
+                                  if (isGenerating) return;
+                                  setSelectedTwinId(twin.id);
+                                  if (twin.reference_images?.[0]) { setPortraitImage(twin.reference_images[0]); setPortraitPreview(twin.reference_images[0]); setPreSelectedReference(twin.reference_images[0]); const fullImages = await loadTwinFullImages(twin.id); if (fullImages && fullImages.length > 0) { setGeneratedCharacterShots(fullImages.map((url: string, i: number) => ({ label: `Angle ${i + 1}`, url }))); } }
+                                  if (twin.face_description) setCharacterDescription(twin.face_description);
+                                  toast({ title: `"${twin.name}" selected ✨` });
+                                }} className={`cursor-pointer rounded-lg border-2 p-1.5 transition-all text-center ${isSelected ? 'border-primary ring-2 ring-primary/40 bg-primary/5' : 'border-border hover:border-primary/50 bg-muted/30'} ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
+                                  {thumbUrl ? <img src={thumbUrl} alt={twin.name} className="w-full aspect-square object-cover rounded-md mb-1" /> : <div className="w-full aspect-square rounded-md bg-muted flex items-center justify-center mb-1"><User className="w-6 h-6 text-muted-foreground" /></div>}
+                                  <p className="text-[10px] font-medium text-foreground truncate">{twin.name}</p>
+                                  {twin.voice_cloning_key && <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">🎙️</Badge>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="relative flex items-center"><div className="flex-1 border-t border-border" /><span className="px-3 text-xs text-muted-foreground">{aiTwins.length > 0 ? 'or generate new' : 'Generate a character'}</span><div className="flex-1 border-t border-border" /></div>
+
+                      {generatedCharacterShots.length > 0 && portraitPreview ? (
+                        <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+                          <div className="flex items-center gap-3">
+                            <img src={portraitPreview} alt="Character" className="w-14 h-14 rounded-lg object-cover border border-border" />
+                            <div className="flex-1"><p className="text-sm font-medium">Character ready! ✨</p><p className="text-xs text-muted-foreground line-clamp-1">{characterDescription || 'Custom character'}</p></div>
+                            <Button variant="ghost" size="sm" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setCharacterDescription(''); setSelectedTwinId(null); setGeneratedCharacterShots([]); }}><X className="w-4 h-4" /></Button>
+                          </div>
+                          {generatedCharacterShots.length > 1 && (
+                            <div className="grid grid-cols-5 gap-1.5">
+                              {generatedCharacterShots.map((shot, idx) => (
+                                <div key={idx} onClick={() => { setSelectedShotIndex(idx); setPortraitImage(shot.url); setPortraitPreview(shot.url); setPreSelectedReference(shot.url); }} className={`cursor-pointer rounded-md overflow-hidden border-2 transition-all ${selectedShotIndex === idx ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
+                                  <img src={shot.url} alt={shot.label} className="w-full aspect-square object-cover" />
+                                  <p className="text-[8px] text-center text-muted-foreground py-0.5 truncate px-0.5">{shot.label}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {portraitPreview && <ProductSwapPanel shotImageUrl={portraitPreview} characterDescription={characterDescription} onShotSwapped={(newUrl) => { setPortraitImage(newUrl); setPortraitPreview(newUrl); setPreSelectedReference(newUrl); setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s)); }} allShots={generatedCharacterShots} currentShotIndex={selectedShotIndex} onBatchSwapped={(updatedShots) => { setGeneratedCharacterShots(updatedShots); const cur = updatedShots[selectedShotIndex]; if (cur) { setPortraitImage(cur.url); setPortraitPreview(cur.url); setPreSelectedReference(cur.url); } }} disabled={isGenerating} />}
+                          <Button variant="outline" size="sm" className="w-full" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); setGeneratedCharacterShots([]); generateCharacter(); }} disabled={isGenerating || isGeneratingCharacter}>
+                            {isGeneratingCharacter ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerating...</> : <><RefreshCw className="w-4 h-4 mr-2" />Regenerate</>}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input placeholder="Describe character or leave blank" value={generateCharacterPrompt} onChange={(e) => setGenerateCharacterPrompt(e.target.value)} disabled={isGenerating || isGeneratingCharacter} className="bg-background" />
+                          <Button variant="outline" className="w-full" onClick={generateCharacter} disabled={isGenerating || isGeneratingCharacter || (!generateCharacterPrompt.trim() && !topic.trim())}>
+                            {isGeneratingCharacter ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</> : <><Wand2 className="w-4 h-4 mr-2" />Generate Character (5 Shots)</>}
+                          </Button>
+                          {isGeneratingCharacter && <div className="grid grid-cols-5 gap-1.5">{[...Array(5)].map((_, i) => <div key={i}><div className="aspect-square rounded-md bg-muted animate-pulse" /></div>)}</div>}
+                        </div>
+                      )}
+
+                      <div className="relative flex items-center"><div className="flex-1 border-t border-border" /><span className="px-3 text-xs text-muted-foreground">or upload</span><div className="flex-1 border-t border-border" /></div>
+                      {!portraitPreview && (
+                        <div className="flex gap-2">
+                          <div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50" onClick={() => portraitInputRef.current?.click()}><Upload className="w-5 h-5 text-muted-foreground mb-1" /><span className="text-[10px] text-muted-foreground">Upload</span></div>
+                          <GalleryImagePicker onSelect={(imageUrl) => { setPortraitPreview(imageUrl); setPortraitImage(imageUrl); setPreSelectedReference(imageUrl); analyzeReferenceImage(imageUrl); }} title="Select Portrait" trigger={<div className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50"><FolderOpen className="w-5 h-5 text-muted-foreground mb-1" /><span className="text-[10px] text-muted-foreground">Gallery</span></div>} />
+                        </div>
+                      )}
+                      <Input ref={portraitInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { handlePortraitUpload(e); const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onload = async (ev) => { const url = ev.target?.result as string; setPreSelectedReference(url); analyzeReferenceImage(url); }; reader.readAsDataURL(file); } }} />
+
+                      <div className="space-y-1">
+                        <Label className="text-xs flex items-center gap-1"><User className="w-3 h-3" /> Character Description {isAnalyzingReference && <Loader2 className="w-3 h-3 animate-spin text-primary" />}</Label>
+                        <Input placeholder="e.g., Male entrepreneur, 30s" value={characterDescription} onChange={(e) => setCharacterDescription(e.target.value)} className="text-sm" disabled={isAnalyzingReference} />
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <Label className="text-xs flex items-center gap-1"><Mic className="w-3 h-3 text-primary" /> Voice</Label>
+                        <VoiceSelector selectedVoice={selectedVoice} onVoiceSelect={setSelectedVoice} compact characterDescription={characterDescription} characterGender={detectedCharGender} disabled={isGenerating} />
+                        {selectedVoice && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <Label className="text-xs">Video Model</Label>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {[
+                            { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk', desc: 'Lip sync' },
+                            { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1', desc: 'Fast' },
+                            { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5', desc: '720p' },
+                            { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0', desc: 'Cinematic' },
+                          ].map((m) => (
+                            <button key={m.value} type="button" onClick={() => setVideoModel(m.value)} className={`text-left p-2 rounded-md border text-xs transition-colors ${videoModel === m.value ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
+                              <span className="font-medium">{m.label}</span> <span className="opacity-70">{m.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <Label className="text-xs">Audio Source</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button type="button" variant={customAudioMode === 'tts' ? 'default' : 'outline'} size="sm" onClick={() => setCustomAudioMode('tts')} disabled={isGenerating} className="h-8 text-xs"><Sparkles className="w-3 h-3 mr-1" />AI Voice</Button>
+                          <Button type="button" variant={customAudioMode === 'upload' ? 'default' : 'outline'} size="sm" onClick={() => setCustomAudioMode('upload')} disabled={isGenerating} className="h-8 text-xs"><Upload className="w-3 h-3 mr-1" />Upload</Button>
+                        </div>
+                        {customAudioMode === 'upload' && (
+                          <div className="p-2 bg-muted/30 rounded-lg border border-border">
+                            <input type="file" ref={customAudioInputRef} accept=".mp3,.wav,.m4a,.webm,audio/*" className="hidden" onChange={handleCustomAudioUpload} />
+                            {!customAudioUrl ? (
+                              <div className="border-2 border-dashed border-border rounded-lg p-3 text-center cursor-pointer hover:border-primary/50" onClick={() => customAudioInputRef.current?.click()}>
+                                {isUploadingAudio ? <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" /> : <><Upload className="w-6 h-6 mx-auto text-muted-foreground mb-1" /><p className="text-xs text-muted-foreground">Upload audio</p></>}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2"><audio src={customAudioUrl} controls className="h-7 flex-1" /><Button variant="ghost" size="icon" onClick={removeCustomAudio} className="h-7 w-7 text-destructive"><X className="w-3 h-3" /></Button></div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </TabsContent>
+
+                  {/* ── VIDEO TAB ── */}
+                  <TabsContent value="video">
+                    <CardContent className="space-y-4 pt-2">
+                      {project.scenes.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground"><Video className="w-10 h-10 mx-auto mb-2 opacity-50" /><p className="text-sm">Generate scripts first.</p></div>
+                      ) : (
+                        <>
+                          {enableLipSync && portraitPreview ? (
+                            <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 border border-primary/20">
+                              <img src={portraitPreview} alt="Ref" className="w-12 h-12 object-cover rounded-lg border-2 border-primary" />
+                              <div><p className="text-xs font-medium text-primary flex items-center gap-1"><Camera className="w-3 h-3" />Character Set</p><p className="text-[10px] text-muted-foreground">{characterDescription || 'Ready'}</p></div>
+                            </div>
+                          ) : enableLipSync ? (
+                            <div className="p-2 rounded-md text-xs bg-destructive/10 border border-destructive/30 text-destructive">⚠️ No portrait. Select in Character tab.</div>
+                          ) : (
+                            <div className="p-2 rounded-md text-xs bg-muted/30 border border-border text-muted-foreground">📹 B-roll mode — enable Lip Sync in Character tab for talking head.</div>
+                          )}
+                          <Button onClick={() => {
+                            const referenceToUse = (enableLipSync && portraitImage) ? portraitImage : preSelectedReference;
+                            const selectedCharacter = selectedCharacterId ? characters.find(c => c.id === selectedCharacterId) : null;
+                            const characterRefImage = selectedCharacter?.reference_images?.[0];
+                            if (referenceToUse) { setExternalReference(referenceToUse); if (preReferenceTransformation) setCharacterTransformation(preReferenceTransformation); }
+                            const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
+                            generatePreview(project.scenes, user?.id, referenceToUse || undefined, selectedVoice, characterRefImage || undefined, characterDescription || selectedTwin?.face_description || undefined, selectedTwin?.voice_cloning_key || undefined, selectedTwin?.reference_images || [], customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined, customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined);
+                          }} disabled={isGenerating || isGeneratingPreview} className="w-full bg-gradient-primary hover:opacity-90">
+                            {isGeneratingPreview ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-2" />}
+                            Generate Preview
+                          </Button>
+                        </>
+                      )}
+                    </CardContent>
+                  </TabsContent>
+                </Tabs>
+              </Card>
             )}
 
             {/* Voice Selection removed — voice is now generated from character context */}
