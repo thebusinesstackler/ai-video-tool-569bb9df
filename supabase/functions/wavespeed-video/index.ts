@@ -586,6 +586,7 @@ serve(async (req) => {
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
+      );
 
     } else if (action === 'status') {
       const taskId = body.taskId;
