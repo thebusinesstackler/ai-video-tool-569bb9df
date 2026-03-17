@@ -872,17 +872,66 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </CardContent>
       </Card>
 
-      {/* Face Description (AI-generated) */}
-      {twin.face_description && (
+      {/* Face Description (AI-generated, editable & saveable) */}
+      {(twin.face_description || isEditingFaceDesc) && (
         <Card className="bg-muted/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
-              AI-Analyzed Face Description
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                AI-Analyzed Face Description
+              </CardTitle>
+              {!isEditingFaceDesc && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setEditedFaceDesc(twin.face_description || '');
+                    setIsEditingFaceDesc(true);
+                  }}
+                >
+                  <Edit2 className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{twin.face_description}</p>
+            {isEditingFaceDesc ? (
+              <div className="space-y-3">
+                <Textarea
+                  value={editedFaceDesc}
+                  onChange={(e) => setEditedFaceDesc(e.target.value)}
+                  placeholder="Describe the face features for consistent image generation..."
+                  rows={4}
+                  className="resize-none"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={saveFaceDescription}
+                    disabled={isSavingFaceDesc}
+                  >
+                    {isSavingFaceDesc ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-1" />
+                    )}
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsEditingFaceDesc(false)}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{twin.face_description}</p>
+            )}
           </CardContent>
         </Card>
       )}
