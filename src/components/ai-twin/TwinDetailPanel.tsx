@@ -98,6 +98,8 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   // Voice cloning state
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
+  const [voiceEngine, setVoiceEngine] = useState<string>(twin.voice_engine || 'speechify');
+  const [googleVoiceId, setGoogleVoiceId] = useState<string | null>(twin.google_voice_id || null);
 
   // Batch generation state
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
