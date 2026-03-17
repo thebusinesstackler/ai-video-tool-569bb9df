@@ -47,6 +47,7 @@ Your task is to create a complete STORY BIBLE that ensures total consistency thr
    Each character MUST have:
    - name: Character's name
    - role: "protagonist" | "deuteragonist" | "antagonist" | "supporting"
+   - gender: "male" | "female" (REQUIRED - used for voice casting)
    - age: Approximate age range
    - appearance: Physical description (hair, skin, eyes, build)
    - wardrobe: SPECIFIC outfit they wear THROUGHOUT the entire film (this MUST be consistent in EVERY scene)
