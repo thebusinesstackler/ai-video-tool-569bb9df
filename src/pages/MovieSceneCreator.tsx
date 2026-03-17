@@ -3183,12 +3183,19 @@ const MovieSceneCreator = () => {
                   characterName: char.name,
                   speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
                   voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
-                  gender: twin.gender || undefined,
+                  gender: twin.gender || inferCharacterGender(char),
                   voiceEngine: twin.voice_engine || undefined,
                   googleVoiceId: twin.google_voice_id || undefined,
-                  defaultVoice: char.role === 'protagonist' ? 'en-US-Journey-D' : 'en-US-Journey-F'
+                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
                 });
               }
+            } else {
+              // No twin assigned — use inferred gender for voice matching
+              voiceAssignments.push({
+                characterName: char.name,
+                gender: inferCharacterGender(char),
+                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
+              });
             }
           }
         }
