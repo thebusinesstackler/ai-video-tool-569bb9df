@@ -832,29 +832,34 @@ const MovieSceneCreator = () => {
       setStitchedVideoUrl((data as any).stitched_video_url || null);
       setStoryBible((data as any).story_bible || null);
 
-      // Check if project has scenes with images but no videos — offer to continue
-      const hasUnfinishedScenes = loadedScenes.some((s: any) => 
-        (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo
-      );
-      if (hasUnfinishedScenes) {
-        setIsPreviewingBeforeVideo(true);
-        setPendingVideoGeneration(loadedScenes);
-        if (isAdvanced) setCurrentStep(3);
-        toast({
-          title: "Project Recovered",
-          description: `"${data.title}" loaded. Review your scenes and continue generating videos.`,
-        });
+      // ── Determine which wizard step to restore to ──
+      if (loadedScenes.length > 0) {
+        setCurrentStep(3);
+        // Check if project has scenes with images but no videos — offer to continue
+        const hasUnfinishedScenes = loadedScenes.some((s: any) => 
+          (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo
+        );
+        if (hasUnfinishedScenes) {
+          setIsPreviewingBeforeVideo(true);
+          setPendingVideoGeneration(loadedScenes);
+        }
+      } else if (data.outline) {
+        setCurrentStep(2);
+      } else if ((data as any).story_bible) {
+        setCurrentStep(1);
       } else {
-        toast({
-          title: "Project Loaded",
-          description: `"${data.title}" loaded.`,
-        });
+        setCurrentStep(0);
       }
+
+      toast({
+        title: "Project Restored",
+        description: `"${data.title}" loaded — pick up where you left off.`,
+      });
     } catch (error: any) {
       console.error('Error recovering project:', error);
       toast({
         title: "Recovery Failed",
-        description: "Couldn't load the interrupted project.",
+        description: "Couldn't load the project.",
         variant: "destructive"
       });
     }
