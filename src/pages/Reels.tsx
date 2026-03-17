@@ -70,9 +70,11 @@ import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector, generateVoiceForCharacter } from '@/components/VoiceSelector';
+import { VoicePitchSlider } from '@/components/VoicePitchSlider';
 import { ProductSwapPanel } from '@/components/ProductSwapPanel';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScriptGenerator } from '@/components/ScriptGenerator';
@@ -228,6 +230,7 @@ interface DraftState {
   customAudioMode: 'tts' | 'upload';
   customAudioUrl: string | null;
   customAudioDuration: number;
+  voicePitch?: number;
 }
 
 const SCENE_COUNT_OPTIONS = [
@@ -338,6 +341,7 @@ const Reels = () => {
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   // Voice selection — defaults empty, resolved from AI Twin cloned voice
   const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [voicePitch, setVoicePitch] = useState<number>(0);
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
@@ -1242,7 +1246,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         voiceovers: previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers,
         customAudioMode,
         customAudioUrl,
-        customAudioDuration
+        customAudioDuration,
+        voicePitch
       };
 
       const { error } = await supabase.from('reels').insert([{
@@ -1331,6 +1336,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setCustomAudioMode(ds.customAudioMode || 'tts');
     setCustomAudioUrl(ds.customAudioUrl || null);
     setCustomAudioDuration(ds.customAudioDuration || 0);
+    setVoicePitch(ds.voicePitch || 0);
 
     // Restore strategist state
     if (ds.strategist) {
@@ -1717,6 +1723,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'),
               voiceEngine: voiceConfig.voiceEngine,
               googleVoiceId: voiceConfig.googleVoiceId,
+              pitch: voicePitch,
             }
           });
           
@@ -1997,7 +2004,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 try {
                   const voiceConfig = resolveVoiceForGeneration();
                   const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-                    body: { text: scene.narration, speechifyVoiceId: voiceConfig.speechifyVoiceId, voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'), voiceEngine: voiceConfig.voiceEngine, googleVoiceId: voiceConfig.googleVoiceId }
+                    body: { text: scene.narration, speechifyVoiceId: voiceConfig.speechifyVoiceId, voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'), voiceEngine: voiceConfig.voiceEngine, googleVoiceId: voiceConfig.googleVoiceId, pitch: voicePitch }
                   });
                   if (!ttsError && ttsData?.audioContent) {
                     const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
@@ -2706,7 +2713,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     setIsPreviewingVoice(true);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: sampleText.slice(0, 200), voice: selectedVoice }
+        body: { text: sampleText.slice(0, 200), voice: selectedVoice, pitch: voicePitch }
       });
       if (error) throw error;
       let audioUrl = data?.audioUrl || data?.url;
@@ -3677,6 +3684,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             {selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Not selected'}
                           </Badge>
                         </div>
+                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
                         <Button
                           variant="outline"
                           size="sm"
@@ -3955,6 +3963,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           characterDescription={characterDescription}
                           characterGender={detectedCharGender}
                         />
+                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
                         
                         {selectedVoice && !selectedVoice.startsWith('clone:') && (
                           <Button
@@ -4223,11 +4232,36 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               );
                             })}
                           </div>
-                          <div className="flex items-center justify-between p-2 rounded-lg border border-border bg-muted/30">
-                            <span className="text-xs font-medium flex items-center gap-1"><Mic className="w-3 h-3 text-primary" />{selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'No voice'}</span>
-                            <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="h-7 text-xs">
-                              {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
-                            </Button>
+                          <div className="space-y-3 p-2 rounded-lg border border-border bg-muted/30">
+                            <div className="space-y-2">
+                              <Label className="text-xs flex items-center gap-1"><Mic className="w-3 h-3 text-primary" /> Voice</Label>
+                              <VoiceSelector selectedVoice={selectedVoice} onVoiceSelect={(v) => { setSelectedVoice(v); setProject(prev => ({ ...prev, voiceovers: [] })); }} compact characterDescription={characterDescription} characterGender={detectedCharGender} disabled={isGenerating} />
+                              <VoicePitchSlider pitch={voicePitch} onPitchChange={(p) => { setVoicePitch(p); setProject(prev => ({ ...prev, voiceovers: [] })); }} disabled={isGenerating} compact />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Audio Source</Label>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <Button type="button" variant={customAudioMode === 'tts' ? 'default' : 'outline'} size="sm" onClick={() => setCustomAudioMode('tts')} disabled={isGenerating} className="h-7 text-[10px]"><Sparkles className="w-3 h-3 mr-1" />AI Voice</Button>
+                                <Button type="button" variant={customAudioMode === 'upload' ? 'default' : 'outline'} size="sm" onClick={() => setCustomAudioMode('upload')} disabled={isGenerating} className="h-7 text-[10px]"><Upload className="w-3 h-3 mr-1" />Upload MP3</Button>
+                              </div>
+                              {customAudioMode === 'upload' && (
+                                <div className="p-2 bg-background rounded-lg border border-border">
+                                  <input type="file" ref={customAudioInputRef} accept=".mp3,.wav,.m4a,.webm,audio/*" className="hidden" onChange={handleCustomAudioUpload} />
+                                  {!customAudioUrl ? (
+                                    <div className="border-2 border-dashed border-border rounded-lg p-2 text-center cursor-pointer hover:border-primary/50" onClick={() => customAudioInputRef.current?.click()}>
+                                      {isUploadingAudio ? <Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" /> : <><Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" /><p className="text-[10px] text-muted-foreground">Upload audio (Google AI Studio, etc.)</p></>}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2"><audio src={customAudioUrl} controls className="h-7 flex-1" /><Button variant="ghost" size="icon" onClick={removeCustomAudio} className="h-7 w-7 text-destructive"><X className="w-3 h-3" /></Button></div>
+                                  )}
+                                </div>
+                              )}
+                              {customAudioMode === 'tts' && (
+                                <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="w-full h-7 text-xs">
+                                  {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           <Button variant="outline" onClick={() => generateScripts()} disabled={isGenerating} className="w-full h-8 text-xs">
                             <RefreshCw className="w-3 h-3 mr-1" /> Regenerate Script
@@ -4321,6 +4355,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       <div className="space-y-2 pt-2 border-t border-border">
                         <Label className="text-xs flex items-center gap-1"><Mic className="w-3 h-3 text-primary" /> Voice</Label>
                         <VoiceSelector selectedVoice={selectedVoice} onVoiceSelect={setSelectedVoice} compact characterDescription={characterDescription} characterGender={detectedCharGender} disabled={isGenerating} />
+                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
                         {selectedVoice && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
                       </div>
 
@@ -4634,6 +4669,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           characterGender={detectedCharGender}
                           disabled={isGenerating}
                         />
+                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
                         {selectedVoice && (
                           <Button variant="outline" size="sm" className="w-full" onClick={previewVoice} disabled={isGenerating}>
                             {isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview Voice</>}

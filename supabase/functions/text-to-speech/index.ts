@@ -131,7 +131,8 @@ async function generateWaveSpeedTTS(
   apiKey: string,
   voiceId: string = 'English_Trustworth_Man',
   speed: number = 1,
-  emotion: string = 'neutral'
+  emotion: string = 'neutral',
+  pitch: number = 0
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
     console.log(`Generating TTS with WaveSpeed MiniMax voice: ${voiceId}`);
@@ -147,7 +148,7 @@ async function generateWaveSpeedTTS(
         voice_id: voiceId,
         speed,
         volume: 1,
-        pitch: 0,
+        pitch,
         emotion,
         english_normalization: true
       }),
@@ -242,7 +243,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { text: rawText, voice = 'English_Trustworth_Man', speed = 1, voiceCloningKey, speechifyVoiceId, gender, voiceEngine, googleVoiceId } = await req.json();
+    const { text: rawText, voice = 'English_Trustworth_Man', speed = 1, pitch: rawPitch = 0, voiceCloningKey, speechifyVoiceId, gender, voiceEngine, googleVoiceId } = await req.json();
 
     // Sanitize text before any TTS engine sees it
     const text = sanitizeForTTS(rawText);
@@ -258,8 +259,9 @@ serve(async (req) => {
     }
 
     const validatedSpeed = typeof speed === 'number' ? Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed)) : 1.0;
+    const validatedPitch = typeof rawPitch === 'number' ? Math.max(-10, Math.min(10, rawPitch)) : 0;
 
-    console.log(`TTS request - Voice: ${voice}, Engine: ${voiceEngine || 'auto'}, Text length: ${text.length}`);
+    console.log(`TTS request - Voice: ${voice}, Engine: ${voiceEngine || 'auto'}, Pitch: ${validatedPitch}, Text length: ${text.length}`);
 
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
@@ -278,7 +280,7 @@ serve(async (req) => {
         body: JSON.stringify({
           input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
           voice: { languageCode: 'en-US', name: voiceName, ssmlGender },
-          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: 0, effectsProfileId: ['headphone-class-device'] }
+          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: validatedPitch, effectsProfileId: ['headphone-class-device'] }
         }),
       });
 
@@ -335,7 +337,7 @@ serve(async (req) => {
         resolvedVoice = 'English_Trustworth_Man';
       }
       
-      const result = await generateWaveSpeedTTS(text, waveSpeedApiKey, resolvedVoice, validatedSpeed);
+      const result = await generateWaveSpeedTTS(text, waveSpeedApiKey, resolvedVoice, validatedSpeed, 'neutral', validatedPitch);
       if (result) {
         return new Response(JSON.stringify({ ...result, provider: 'wavespeed', voiceUsed: resolvedVoice }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -352,7 +354,7 @@ serve(async (req) => {
         body: JSON.stringify({
           input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
           voice: { languageCode: voiceConfig.languageCode, name: voiceConfig.name, ssmlGender: voiceConfig.ssmlGender },
-          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: 0, effectsProfileId: ['headphone-class-device'] }
+          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: validatedPitch, effectsProfileId: ['headphone-class-device'] }
         }),
       });
 
