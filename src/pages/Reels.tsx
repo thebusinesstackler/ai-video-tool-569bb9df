@@ -2688,6 +2688,18 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
   };
 
   const resetProject = () => {
+    // Auto-save current work before resetting
+    if (project.scenes.length > 0 || topic?.trim() || project.previewScenes.length > 0) {
+      saveDraftDebounced({
+        topic, selectedSceneCount, selectedSceneDuration, selectedVoice,
+        selectedVideoSize, transitionStyle, hookStyle, characterDescription,
+        preSelectedReference, selectedTwinId, selectedIntro, selectedOutro,
+        introText, outroText, enableCutScenes, enableLipSync, portraitImage,
+        project, featureToggles, strategist: strategistState
+      });
+      toast({ title: "Draft Saved", description: "Your current reel has been saved as a draft." });
+    }
+
     // Cleanup blob URL
     if (project.videoBlobUrl) {
       URL.revokeObjectURL(project.videoBlobUrl);
@@ -2710,19 +2722,13 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setProgress(0);
     setProgressStatus('');
     setVideoError(null);
-    // Reset templates
     setSelectedIntro('none');
     setSelectedOutro('none');
     setIntroText('');
     setOutroText('');
-    // Reset preview
     resetPreview();
-    // Reset character transformation (bug #29)
     setCharacterTransformation('');
-    // Reset save state
     setCurrentReelSaved(false);
-    // Clear auto-saved draft
-    clearDraft();
     setBeginnerStep(1);
   };
 
