@@ -1474,6 +1474,13 @@ const MovieSceneCreator = () => {
       return;
     }
 
+    // Clear stale state from previous movie
+    setScenes([]);
+    setStitchedVideoUrl(null);
+    setOutline('');
+    setStoryBible(null);
+    setCurrentStep(0);
+
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
 
@@ -3684,6 +3691,16 @@ const MovieSceneCreator = () => {
     setOutline('');
     setScenes([]);
     setStitchedVideoUrl(null);
+    setStoryBible(null);
+    setCurrentStep(0);
+    setGenerateAllProgress(0);
+    setGenerateAllStep('');
+    setIsGeneratingAll(false);
+    setLocations([]);
+    setSceneCoverages(new Map());
+    setSceneBlockings(new Map());
+    setActiveSceneIndex(0);
+    setShowStoryBibleEditor(false);
     toast({
       title: "New Project",
       description: "Started a new movie project.",
@@ -4010,13 +4027,13 @@ const MovieSceneCreator = () => {
                       <Download className="w-3.5 h-3.5" /> Download
                     </Button>
                   </div>
-                  <video src={stitchedVideoUrl} controls className="w-full rounded-lg border border-border" />
+                  <video src={stitchedVideoUrl} controls className="w-full max-h-[70vh] object-contain rounded-lg border border-border" />
                 </CardContent>
               </Card>
             )}
 
             {/* Scene summary cards (beginner — read-only) */}
-            {scenes.length > 0 && !stitchedVideoUrl && (
+            {scenes.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -4623,7 +4640,7 @@ const MovieSceneCreator = () => {
                           <Download className="w-3.5 h-3.5" /> Download
                         </Button>
                       </div>
-                      <video src={stitchedVideoUrl} controls className="w-full rounded-lg border border-border" />
+                      <video src={stitchedVideoUrl} controls className="w-full max-h-[70vh] object-contain rounded-lg border border-border" />
                     </CardContent>
                   </Card>
                 )}
