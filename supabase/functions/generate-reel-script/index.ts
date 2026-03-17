@@ -653,7 +653,7 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
-  return narration
+  let result = narration
     // Normalize curly apostrophes to straight
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
     // Replace em dashes with commas (prevents 4-second silences)
@@ -663,8 +663,7 @@ function formatScriptForTTS(narration: string): string {
     // Replace ellipses with commas (prevents long pauses)
     .replace(/\u2026/g, ',')
     .replace(/\.{2,}/g, ',')
-    // Replace sentence-ending periods with commas (prevents "s" sound artifacts)
-    .replace(/\.(\s|$)/g, ',$1')
+    // Keep periods — they create natural pauses in TTS (DO NOT convert to commas)
     // Clean up double/triple commas
     .replace(/,\s*,+/g, ',')
     // Clean up comma at start of text
@@ -674,6 +673,22 @@ function formatScriptForTTS(narration: string): string {
     // Clean up excessive newlines
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  
+  // Remove trailing commas, articles, and prepositions that create incomplete-sounding endings
+  const trailingJunkPattern = /[\s,]+(a|an|the|of|in|to|for|with|on|at|by|and|but|or|is|are|was|were|that|this|it)\s*[,.]?\s*$/i;
+  while (trailingJunkPattern.test(result)) {
+    result = result.replace(trailingJunkPattern, '').trim();
+  }
+  
+  // Replace trailing comma with period
+  result = result.replace(/,\s*$/, '.');
+  
+  // Ensure narration ends with proper punctuation
+  if (result && !/[.!?]$/.test(result)) {
+    result += '.';
+  }
+  
+  return result;
 }
 
 // Helper functions for intro/outro defaults - now with dynamic hooks
