@@ -103,6 +103,44 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   // WaveSpeed voice generation state
   const [isGeneratingWavespeedVoice, setIsGeneratingWavespeedVoice] = useState(false);
 
+  // Unified save state
+  const [isSavingAll, setIsSavingAll] = useState(false);
+
+  const hasUnsavedChanges = 
+    editedName !== twin.name ||
+    editedDescription !== (twin.description || '') ||
+    editedFaceDesc !== (twin.face_description || '');
+
+  const saveAllChanges = async () => {
+    const trimmedName = editedName.trim();
+    if (!trimmedName) {
+      toast({ title: 'Invalid name', description: 'Name cannot be empty', variant: 'destructive' });
+      return;
+    }
+    setIsSavingAll(true);
+    try {
+      const { error } = await supabase
+        .from('ai_twins')
+        .update({
+          name: trimmedName,
+          description: editedDescription.trim() || null,
+          face_description: editedFaceDesc.trim() || null,
+        })
+        .eq('id', twin.id);
+      if (error) throw error;
+      toast({ title: 'All changes saved', description: 'Your AI Twin has been updated' });
+      setIsEditingName(false);
+      setIsEditingDescription(false);
+      setIsEditingFaceDesc(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error saving all:', error);
+      toast({ title: 'Error', description: 'Failed to save changes', variant: 'destructive' });
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
   // Voice cloning state
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
@@ -786,6 +824,26 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
 
   return (
     <div className="space-y-6">
+      {/* Save All Button - sticky top */}
+      {hasUnsavedChanges && (
+        <div className="flex items-center justify-between p-3 rounded-lg border border-primary/30 bg-primary/5">
+          <span className="text-sm text-muted-foreground">You have unsaved changes</span>
+          <Button 
+            onClick={saveAllChanges}
+            disabled={isSavingAll}
+            size="sm"
+            className="bg-gradient-primary hover:opacity-90"
+          >
+            {isSavingAll ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Save All Changes
+          </Button>
+        </div>
+      )}
+
       {/* Twin Info Header */}
       <div className="flex items-start gap-4">
         {twin.reference_images?.[0] && (
