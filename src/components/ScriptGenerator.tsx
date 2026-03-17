@@ -84,10 +84,118 @@ export const ScriptGenerator = ({ onUseInReel }: ScriptGeneratorProps = {}) => {
   const [selectedGender, setSelectedGender] = useState<string>('auto');
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
   
+  // Voice input state
+  const [isListening, setIsListening] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const recognitionRef = useRef<any>(null);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // API keys are now securely handled server-side via Supabase edge functions
+  // Speech recognition setup
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ title: "Not Supported", description: "Speech recognition is not available in your browser.", variant: "destructive" });
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setParams(prev => ({ ...prev, topic: transcript }));
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+    toast({ title: "🎤 Listening...", description: "Speak your video topic. Click the mic again to stop." });
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // AI enhance the spoken/typed topic
+  const enhanceTopic = async () => {
+    if (!params.topic.trim()) {
+      toast({ title: "Enter a topic first", description: "Type or speak your video idea before enhancing.", variant: "destructive" });
+      return;
+    }
+
+    setIsEnhancing(true);
+    setAiSuggestions([]);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          prompt: `You are a viral content strategist. The user described a video idea (possibly via voice, so it may be rough/unpolished):
+
+"${params.topic}"
+
+Do TWO things:
+1. Rewrite their idea into a clear, compelling video topic description (2-3 sentences max). Fix grammar, add specificity, make it actionable for script generation.
+2. Suggest 3 alternative angles or variations they could take on this topic that would perform well on social media.
+
+Return ONLY valid JSON:
+{
+  "enhanced": "the polished topic description",
+  "suggestions": ["angle 1", "angle 2", "angle 3"]
+}`,
+          model: 'google/gemini-2.5-flash'
+        }
+      });
+
+      if (error) throw error;
+
+      const text = data?.text || data?.result || '';
+      // Parse JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        setParams(prev => ({ ...prev, topic: parsed.enhanced || prev.topic }));
+        setAiSuggestions(parsed.suggestions || []);
+        toast({ title: "✨ Topic Enhanced", description: "Your idea has been polished and suggestions added." });
+      } else {
+        // Fallback: use the whole response as enhanced topic
+        setParams(prev => ({ ...prev, topic: text.trim() }));
+        toast({ title: "✨ Topic Enhanced", description: "Your idea has been polished by AI." });
+      }
+    } catch (err) {
+      console.error('Topic enhancement error:', err);
+      toast({ title: "Enhancement Failed", description: "Could not enhance topic. Try again.", variant: "destructive" });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
   useEffect(() => {
     // API is always configured since we use server-side keys
     setApiConfigured(true);
