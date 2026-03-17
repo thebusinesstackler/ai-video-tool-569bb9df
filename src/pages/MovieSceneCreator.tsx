@@ -2658,8 +2658,9 @@ const MovieSceneCreator = () => {
 
     setGeneratingVideoFor(sceneNumber);
     try {
-      const isConversation = Array.isArray(scene.dialogue) && scene.dialogue.length > 1;
-      const uniqueSpeakers = isConversation ? new Set(scene.dialogue.map((d: any) => d.character?.toLowerCase())).size : 1;
+      const dialogueArray = Array.isArray(scene.dialogue) ? scene.dialogue : [];
+      const isConversation = dialogueArray.length > 1;
+      const uniqueSpeakers = isConversation ? new Set(dialogueArray.map((d: any) => d.character?.toLowerCase())).size : 1;
       const isMultiCharacter = isConversation && uniqueSpeakers >= 2;
 
       let audioContent: string | null = null;
