@@ -67,13 +67,14 @@ async function generateWaveSpeedTTS(
   text: string, 
   apiKey: string,
   emotion: string = 'neutral',
-  targetDuration: number = 8
+  targetDuration: number = 8,
+  selectedVoice: string = 'English_Trustworth_Man'
 ): Promise<{ audioUrl: string; taskId: string } | null> {
   try {
     console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD...');
     
-    // Use English voice from MiniMax
-    const voiceId = 'English_Trustworth_Man';
+    // Use the selected voice, default to English_Trustworth_Man
+    const voiceId = selectedVoice || 'English_Trustworth_Man';
     
     // Calculate speed to match target duration
     const speed = calculateTTSSpeed(text, targetDuration);
@@ -181,55 +182,57 @@ function getTemplateImagePrompt(scene: Scene, topic: string, enableLipSync: bool
   const cleanedCharDesc = characterDescription ? sanitizeCharacterDescription(characterDescription) : '';
   const charDesc = cleanedCharDesc ? `\nCHARACTER: ${cleanedCharDesc}. Maintain EXACT same appearance in every frame.` : '';
   const refImageNote = referenceImages?.length ? `\nIMPORTANT: Match the person's appearance exactly from the reference - same face shape, skin tone, hair, features.` : '';
-  const antiPropRule = `\nCRITICAL: Do NOT add any objects, bottles, or products to the character's hands unless the scene description explicitly calls for it. The character's hands should be natural and empty unless specified.`;
+  const antiPropRule = `\nDo NOT add any objects, bottles, or products to the character's hands unless the scene description explicitly calls for it. Hands should be natural and empty.`;
   
   // For lip sync mode, generate front-facing portrait suitable for talking head
   if (enableLipSync && !scene.isIntro && !scene.isOutro) {
-    const angleNote = cameraAngleModifier ? `\n      CAMERA ANGLE: ${cameraAngleModifier}` : '';
-    return `Generate a premium cinematic portrait photo for a high-end social media video.
-      Scene context: ${scene.visualDescription}
-      Topic: ${topic}
-      NARRATION THIS SCENE WILL DELIVER: "${scene.narration}"${charDesc}${refImageNote}${angleNote}
-      CINEMATOGRAPHY: Shot on RED V-RAPTOR, 85mm lens, f/1.4 shallow depth of field.
-      LIGHTING: Professional 3-point studio lighting with soft key light, subtle rim light creating depth, warm color temperature.
-      COMPOSITION: Rule of thirds, subject centered, clean bokeh background, magazine-quality portrait.
-      The subject has a natural, confident expression - slight smile, relaxed posture, direct eye contact with camera.
-      Ultra high quality, photorealistic, 8K detail, professional color grading.
-      CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. CLOSED MOUTH or slight smile only - NOT speaking.${antiPropRule}`;
+    const angleNote = cameraAngleModifier ? `\nCAMERA ANGLE: ${cameraAngleModifier}` : '';
+    return `LOOKING DIRECTLY AT THE CAMERA. Front-facing portrait photo of a person making direct eye contact with the viewer.${charDesc}${refImageNote}${angleNote}
+
+Scene context: ${scene.visualDescription}
+Topic being discussed: ${topic}
+
+REQUIREMENTS:
+- Eyes locked on camera, head facing forward
+- Natural confident expression, slight smile, closed mouth
+- Soft studio lighting, clean blurred background
+- Photorealistic, high quality portrait
+- Vertical 9:16 format
+- NO text, captions, watermarks, or written words${antiPropRule}`;
   }
 
   if (scene.isIntro) {
     const basePrompt = scene.visualDescription || 'Modern social media intro background';
     return `${basePrompt}. Topic: ${topic}. 
-      CONTEXT: This is the opening shot for a reel about "${topic}".
-      STYLE: Premium cinematic intro - think Apple keynote quality. Rich colors, sophisticated gradient lighting, volumetric atmosphere.
-      QUALITY: 8K resolution, professional color grading, lens flare accents, subtle particle effects.
-      Vertical 9:16 format, abstract or thematic background.
-      CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words. Pure visual design only.`;
+Opening shot for a reel about "${topic}".
+Premium cinematic intro with rich colors, sophisticated lighting, volumetric atmosphere.
+Vertical 9:16 format, abstract or thematic background.
+NO text, captions, subtitles, titles, watermarks, or written words. Pure visual design only.`;
   }
   
   if (scene.isOutro) {
     const basePrompt = scene.visualDescription || 'Social media call-to-action background';
     return `${basePrompt}. 
-      CONTEXT: This is the closing shot for a reel about "${topic}".
-      STYLE: Premium cinematic outro - elegant, sophisticated, high-end brand feel. Deep colors, atmospheric lighting.
-      QUALITY: 8K resolution, professional color grading, subtle depth effects.
-      Vertical 9:16 format.
-      CRITICAL: Absolutely NO text, NO captions, NO subtitles, NO titles, NO watermarks, NO written words. Pure visual background only.`;
+Closing shot for a reel about "${topic}".
+Elegant, sophisticated, high-end brand feel with deep colors and atmospheric lighting.
+Vertical 9:16 format.
+NO text, captions, subtitles, titles, watermarks, or written words. Pure visual background only.`;
   }
   
-  const angleModifier = cameraAngleModifier ? `\n    CAMERA ANGLE: ${cameraAngleModifier}` : '';
+  const angleModifier = cameraAngleModifier ? `\nCAMERA ANGLE: ${cameraAngleModifier}` : '';
   
-  return `Generate a PREMIUM cinematic image for a high-end social media reel.
-    Scene: ${scene.visualDescription}
-    Topic: ${topic}
-    NARRATION THIS SCENE WILL DELIVER: "${scene.narration}"${charDesc}${refImageNote}${angleModifier}
-    CINEMATOGRAPHY: Shot on RED V-RAPTOR or ARRI Alexa, cinematic lens, shallow depth of field with beautiful bokeh.
-    LIGHTING: Professional cinematic lighting - motivated light sources, volumetric atmosphere, rich shadows and highlights.
-    COLOR: Professional color grading - rich, vibrant but natural tones. Think high-end commercial or film production.
-    COMPOSITION: Rule of thirds, leading lines, dynamic framing. Vertical 9:16 format.
-    QUALITY: Ultra-high resolution, photorealistic, magazine/commercial quality, sharp details.
-    CRITICAL: Do NOT include any text, captions, subtitles, watermarks, titles, or written words. If showing people, they should have CLOSED MOUTHS or slight smiles - NOT speaking. Natural confident poses.${antiPropRule}`;
+  return `LOOKING DIRECTLY AT THE CAMERA. The subject faces the viewer with direct eye contact.${charDesc}${refImageNote}${angleModifier}
+
+Scene: ${scene.visualDescription}
+Topic: ${topic}
+What the character is talking about: "${scene.narration}"
+
+REQUIREMENTS:
+- Direct eye contact with camera, head facing forward
+- Natural confident pose, closed mouth or slight smile
+- Professional lighting, clean composition
+- Photorealistic, high quality, vertical 9:16 format
+- NO text, captions, watermarks, or written words${antiPropRule}`;
 }
 
 // Build image generation messages with reference images for character consistency
@@ -367,7 +370,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-3.1-flash-image-preview',
+            model: 'google/gemini-3-pro-image-preview',
             messages,
             modalities: ['image', 'text']
           }),
