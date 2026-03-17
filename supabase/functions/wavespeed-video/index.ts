@@ -37,6 +37,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Create service-role Supabase client for logging tasks
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const dbClient = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     
