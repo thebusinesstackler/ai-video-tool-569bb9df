@@ -2386,6 +2386,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setProject(prev => ({ ...prev, status: 'idle' }));
     } finally {
       setIsGenerating(false);
+      activeGenerationRef.current = null; // Clear background handoff
     }
   };
 
