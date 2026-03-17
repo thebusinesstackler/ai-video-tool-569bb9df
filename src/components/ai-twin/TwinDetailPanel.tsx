@@ -103,6 +103,44 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   // WaveSpeed voice generation state
   const [isGeneratingWavespeedVoice, setIsGeneratingWavespeedVoice] = useState(false);
 
+  // Unified save state
+  const [isSavingAll, setIsSavingAll] = useState(false);
+
+  const hasUnsavedChanges = 
+    editedName !== twin.name ||
+    editedDescription !== (twin.description || '') ||
+    editedFaceDesc !== (twin.face_description || '');
+
+  const saveAllChanges = async () => {
+    const trimmedName = editedName.trim();
+    if (!trimmedName) {
+      toast({ title: 'Invalid name', description: 'Name cannot be empty', variant: 'destructive' });
+      return;
+    }
+    setIsSavingAll(true);
+    try {
+      const { error } = await supabase
+        .from('ai_twins')
+        .update({
+          name: trimmedName,
+          description: editedDescription.trim() || null,
+          face_description: editedFaceDesc.trim() || null,
+        })
+        .eq('id', twin.id);
+      if (error) throw error;
+      toast({ title: 'All changes saved', description: 'Your AI Twin has been updated' });
+      setIsEditingName(false);
+      setIsEditingDescription(false);
+      setIsEditingFaceDesc(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error saving all:', error);
+      toast({ title: 'Error', description: 'Failed to save changes', variant: 'destructive' });
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
   // Voice cloning state
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
