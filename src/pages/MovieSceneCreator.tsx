@@ -2767,13 +2767,16 @@ const MovieSceneCreator = () => {
         if (statusError) throw statusError;
 
         if (statusData.status === 'completed' && statusData.videoUrl) {
-          setScenes(prevScenes => 
-            prevScenes.map(s => 
+          setScenes(prevScenes => {
+            const updated = prevScenes.map(s => 
               s.sceneNumber === sceneNumber 
                 ? { ...s, generatedVideo: statusData.videoUrl }
                 : s
-            )
-          );
+            );
+            // Auto-save after lip-sync video generation
+            setTimeout(() => autoSaveProject(updated), 500);
+            return updated;
+          });
           setGeneratingVideoFor(null);
           
           toast({
