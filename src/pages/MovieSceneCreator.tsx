@@ -3236,10 +3236,21 @@ const MovieSceneCreator = () => {
       setProjectTitle(data.title);
       setMovieIdea(data.movie_idea);
       setOutline(data.outline || '');
-      setScenes((data.scenes as any) || []); // Cast from Json to MovieScene[]
+      setScenes((data.scenes as any) || []);
       setStitchedVideoUrl((data as any).stitched_video_url || null);
-      // Fix #2: Load story bible from saved project
       setStoryBible((data as any).story_bible || null);
+
+      // ── Set wizard step based on content ──
+      const loadedScenes = (data.scenes as any) || [];
+      if (loadedScenes.length > 0) {
+        setCurrentStep(3);
+      } else if (data.outline) {
+        setCurrentStep(2);
+      } else if ((data as any).story_bible) {
+        setCurrentStep(1);
+      } else {
+        setCurrentStep(0);
+      }
 
       setIsLoadDialogOpen(false);
       toast({
