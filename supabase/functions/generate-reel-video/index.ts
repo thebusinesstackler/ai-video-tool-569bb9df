@@ -278,7 +278,8 @@ serve(async (req) => {
       referenceImages = [],
       characterDescription = '',
       cameraAngles = [],
-      videoModel = 'wan-2.1-i2v-480p'
+      videoModel = 'wan-2.1-i2v-480p',
+      sceneDuration = undefined
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
