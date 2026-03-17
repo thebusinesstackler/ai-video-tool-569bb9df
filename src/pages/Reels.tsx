@@ -1522,6 +1522,142 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     });
   };
 
+  // Restore a completed reel as a new draft (preserving all assets)
+  const restoreAsDraft = async (reel: SavedReel) => {
+    if (!user) return;
+
+    try {
+      // Fetch full reel data
+      const { data: fullReel, error: fetchErr } = await supabase
+        .from('reels')
+        .select('scenes, draft_state')
+        .eq('id', reel.id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const scenes = (fullReel?.scenes as unknown as GeneratedScene[]) || reel.scenes || [];
+      const scriptScenes: Scene[] = scenes.map((scene, index) => ({
+        sceneNumber: index + 1,
+        narration: scene.text || '',
+        visualDescription: scene.text || '',
+        duration: Math.round((scene.endTime || 0) - (scene.startTime || 0)) || 12,
+      }));
+
+      const draftState: DraftState = {
+        selectedSceneCount: String(scenes.length),
+        selectedSceneDuration: '12',
+        selectedVoice: '',
+        selectedVideoSize: '9:16',
+        transitionStyle: 'crossfade',
+        hookStyle: 'auto',
+        characterDescription: '',
+        preSelectedReference: null,
+        selectedTwinId: null,
+        selectedIntro: 'none',
+        selectedOutro: 'none',
+        introText: '',
+        outroText: '',
+        enableCutScenes: false,
+        enableLipSync: false,
+        portraitImage: null,
+        featureToggles: { introOutro: false, cutScenes: false, upscaler: false, lipSync: false, captions: true, backgroundMusic: false },
+        scenes: scriptScenes,
+        previewScenes: scenes.map(s => ({
+          sceneNumber: s.sceneNumber,
+          narration: s.text || '',
+          visualDescription: s.text || '',
+          imageUrl: s.imageUrl || null,
+          audioUrl: null,
+          audioDuration: 0,
+          isGenerating: false
+        })),
+        voiceovers: [],
+        customAudioMode: 'tts',
+        customAudioUrl: null,
+        customAudioDuration: 0,
+        voicePitch: 0,
+        generatedScenes: scenes,
+      };
+
+      const { error } = await supabase.from('reels').insert([{
+        user_id: user.id,
+        topic: reel.topic,
+        video_url: null,
+        thumbnail_url: scenes[0]?.imageUrl || null,
+        scenes: scenes as unknown as any,
+        total_duration: reel.total_duration,
+        is_draft: true,
+        draft_state: draftState as unknown as any
+      }]);
+
+      if (error) throw error;
+
+      fetchSavedReels();
+      setActiveTab('drafts');
+
+      toast({
+        title: "Restored as Draft",
+        description: "Reel saved as a draft with all assets. Continue editing from the Drafts tab."
+      });
+    } catch (error: any) {
+      console.error('Error restoring as draft:', error);
+      toast({
+        title: "Restore Failed",
+        description: error.message || "Failed to restore reel as draft.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Generate background music using the generate-music edge function
+  const generateBackgroundMusic = async () => {
+    if (!backgroundMusicMood.trim()) {
+      toast({
+        title: "Mood Required",
+        description: "Describe the mood or style of music you want.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingMusic(true);
+    try {
+      const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0) || 30;
+      const { data, error } = await supabase.functions.invoke('generate-music', {
+        body: { mood: backgroundMusicMood, duration: Math.min(totalDuration, 120) }
+      });
+
+      if (error) throw error;
+
+      if (data?.needsKey) {
+        toast({
+          title: "API Key Required",
+          description: "ElevenLabs API key is needed for music generation. Add it in Settings.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data?.audioUrl) {
+        setBackgroundMusicUrl(data.audioUrl);
+        toast({ title: "Music Generated!", description: `Background track for "${backgroundMusicMood}" is ready.` });
+      } else if (data?.audioContent) {
+        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+        setBackgroundMusicUrl(audioUrl);
+        toast({ title: "Music Generated!", description: `Background track for "${backgroundMusicMood}" is ready.` });
+      }
+    } catch (error: any) {
+      console.error('Music generation error:', error);
+      toast({
+        title: "Music Generation Failed",
+        description: error.message || "Failed to generate background music.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingMusic(false);
+    }
+  };
+
   // Manual save to My Reels
   const saveToMyReels = async () => {
     if (!user) {
