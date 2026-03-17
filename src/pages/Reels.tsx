@@ -1982,10 +1982,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                   continue;
                 }
                 try {
-                  const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-                  const twinVoiceId = selectedTwin?.voice_cloning_key || null;
+                  const voiceConfig = resolveVoiceForGeneration();
                   const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-                    body: { text: scene.narration, speechifyVoiceId: twinVoiceId || undefined, voice: twinVoiceId ? undefined : (selectedVoice || 'English_Trustworth_Man') }
+                    body: { text: scene.narration, speechifyVoiceId: voiceConfig.speechifyVoiceId, voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'), voiceEngine: voiceConfig.voiceEngine, googleVoiceId: voiceConfig.googleVoiceId }
                   });
                   if (!ttsError && ttsData?.audioContent) {
                     const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
