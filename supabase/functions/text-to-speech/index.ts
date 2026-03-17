@@ -242,7 +242,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { text: rawText, voice = 'English_Trustworth_Man', speed = 1, voiceCloningKey, speechifyVoiceId, gender } = await req.json();
+    const { text: rawText, voice = 'English_Trustworth_Man', speed = 1, voiceCloningKey, speechifyVoiceId, gender, voiceEngine, googleVoiceId } = await req.json();
 
     // Sanitize text before any TTS engine sees it
     const text = sanitizeForTTS(rawText);
