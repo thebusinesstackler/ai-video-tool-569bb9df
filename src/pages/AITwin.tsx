@@ -458,6 +458,20 @@ const AITwin = () => {
               />
             ))}
           </div>
+          {hasMore && (
+            <div className="flex justify-center pt-6">
+              <Button
+                variant="outline"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {isLoadingMore ? 'Loading...' : 'Load More'}
+              </Button>
+            </div>
+          )}
         )}
 
         {/* Creation Wizard Dialog */}
