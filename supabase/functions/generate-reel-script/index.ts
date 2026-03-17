@@ -220,13 +220,15 @@ Remember:
       );
     }
 
+    // Determine if intro/outro are enabled
+    const hasIntro = introConfig?.introTemplate && introConfig.introTemplate !== 'none';
+    const hasOutro = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none';
+
+    // Adjust scene count: AI generates intro/outro as part of the scene array
+    const totalSceneCount = sceneCount + (hasIntro ? 1 : 0) + (hasOutro ? 1 : 0);
+
     // Calculate scene duration - use provided value or calculate from target duration
-    const introDuration = introConfig?.introTemplate && introConfig.introTemplate !== 'none' ? 3 : 0;
-    const outroDuration = outroConfig?.outroTemplate && outroConfig.outroTemplate !== 'none' ? 3 : 0;
-    const contentDuration = targetDuration - introDuration - outroDuration;
-    
-    // Use explicit sceneDuration if provided, otherwise calculate from total
-    const finalSceneDuration = sceneDuration || Math.round(contentDuration / sceneCount);
+    const finalSceneDuration = sceneDuration || Math.round(targetDuration / sceneCount);
     
     // Calculate word count based on scene duration
     // At 0.6x speed, about 2.5 words per second
