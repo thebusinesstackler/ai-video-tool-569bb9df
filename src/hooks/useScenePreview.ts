@@ -132,7 +132,9 @@ export function useScenePreview(): UseScenePreviewResult {
     speechifyVoiceId?: string,
     allReferenceImages?: string[],
     customAudioUrl?: string,
-    customAudioDuration?: number
+    customAudioDuration?: number,
+    voiceEngine?: string,
+    googleVoiceId?: string
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     // Use all reference images if provided, otherwise use just the active reference
