@@ -372,7 +372,8 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'google/gemini-3-pro-image-preview',
             messages,
-            modalities: ['image', 'text']
+            modalities: ['image', 'text'],
+            image_generation_config: { aspect_ratio: '9:16' }
           }),
         });
 
