@@ -453,6 +453,11 @@ const Reels = () => {
     // Sync with existing state and expand sections when enabled
     if (feature === 'introOutro') {
       setTemplateSectionOpen(value);
+      // Auto-select default intro/outro when enabling the toggle
+      if (value) {
+        if (selectedIntro === 'none') setSelectedIntro('hook-text');
+        if (selectedOutro === 'none') setSelectedOutro('cta-follow');
+      }
     } else if (feature === 'cutScenes') {
       setEnableCutScenes(value);
       if (value) setCutScenesExpanded(true);
