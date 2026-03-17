@@ -3887,10 +3887,19 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               </Card>
             )}
 
-            {/* ===== ADVANCED MODE: Full controls ===== */}
+            {/* ===== ADVANCED MODE: Tabbed layout ===== */}
             {isAdvanced && (
-            <Card className="bg-card border-border">
-              <CardHeader>
+              <Card className="bg-card border-border">
+                <Tabs defaultValue="settings" className="w-full">
+                  <CardHeader className="pb-2">
+                    <TabsList className="w-full grid grid-cols-4">
+                      <TabsTrigger value="settings" className="text-xs gap-1"><Sparkles className="w-3 h-3" /> Settings</TabsTrigger>
+                      <TabsTrigger value="script" className="text-xs gap-1" disabled={project.scenes.length === 0}><FileText className="w-3 h-3" /> Script</TabsTrigger>
+                      <TabsTrigger value="character" className="text-xs gap-1"><User className="w-3 h-3" /> Character</TabsTrigger>
+                      <TabsTrigger value="video" className="text-xs gap-1" disabled={project.scenes.length === 0}><Video className="w-3 h-3" /> Video</TabsTrigger>
+                    </TabsList>
+                  </CardHeader>
+              <CardHeader className="hidden">
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary" />
                   Create Your Reel
