@@ -62,7 +62,9 @@ import {
   Pencil,
   ChevronUp,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Film,
+  Plus
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -412,6 +414,15 @@ const Reels = () => {
   });
   const [editingReel, setEditingReel] = useState<SavedReel | null>(null);
   const [showUpscaler, setShowUpscaler] = useState(false);
+  
+  // Post-production: append B-roll
+  const [showAppendBroll, setShowAppendBroll] = useState(false);
+  const [appendBrollPrompt, setAppendBrollPrompt] = useState('');
+  const [appendBrollDuration, setAppendBrollDuration] = useState<5 | 10 | 15>(5);
+  const [appendBrollModel, setAppendBrollModel] = useState<'wan-2.6-i2v' | 'wan-2.1-i2v-480p' | 'kling-v3.0-pro'>('wan-2.6-i2v');
+  const [isAppendingBroll, setIsAppendingBroll] = useState(false);
+  const [appendedClips, setAppendedClips] = useState<{ videoUrl: string; prompt: string; duration: number }[]>([]);
+  const [isRestitching, setIsRestitching] = useState(false);
   
   // Strategist state for persistence
   const [strategistState, setStrategistState] = useState<StrategistState>({
@@ -2931,6 +2942,157 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       });
     } finally {
       setIsManualStitching(false);
+    }
+  };
+
+  // Post-production: generate and append a B-roll clip
+  const appendBrollClip = async () => {
+    if (!appendBrollPrompt.trim()) {
+      toast({ title: "Enter a prompt", description: "Describe the B-roll scene you want to add.", variant: "destructive" });
+      return;
+    }
+
+    setIsAppendingBroll(true);
+    try {
+      // Use a reference image from existing scenes if available
+      const refImage = project.generatedScenes[0]?.imageUrl || null;
+      
+      const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          prompt: appendBrollPrompt,
+          imageUrls: refImage ? [refImage] : undefined,
+          model: appendBrollModel,
+          aspectRatio: selectedVideoSize === '16:9' ? '16:9' : '9:16',
+          duration: appendBrollModel === 'wan-2.6-i2v' ? appendBrollDuration : undefined,
+        }
+      });
+
+      if (error || !data?.taskId) throw new Error(data?.error || 'Failed to start B-roll generation');
+
+      toast({ title: "Generating B-Roll", description: "Your clip is being created..." });
+
+      // Poll for completion
+      const taskId = data.taskId;
+      const maxTime = 300_000;
+      const start = Date.now();
+      while (Date.now() - start < maxTime) {
+        await new Promise(r => setTimeout(r, 3000));
+        const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId }
+        });
+        if (status?.status === 'completed' && status?.videoUrl) {
+          setAppendedClips(prev => [...prev, { videoUrl: status.videoUrl, prompt: appendBrollPrompt, duration: appendBrollDuration }]);
+          setAppendBrollPrompt('');
+          toast({ title: "B-Roll Ready!", description: "Clip added. Re-stitch when ready." });
+          break;
+        }
+        if (status?.status === 'failed') throw new Error(status?.error || 'B-roll generation failed');
+      }
+    } catch (err: any) {
+      console.error('Append B-roll error:', err);
+      toast({ title: "B-Roll Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsAppendingBroll(false);
+    }
+  };
+
+  // Re-stitch: combine original video with appended B-roll clips
+  const restitchWithAppendedClips = async () => {
+    if (appendedClips.length === 0) {
+      toast({ title: "No clips to add", description: "Generate at least one B-roll clip first.", variant: "destructive" });
+      return;
+    }
+
+    setIsRestitching(true);
+    setProgress(5);
+    setProgressStatus('Preparing to re-stitch...');
+
+    try {
+      // Gather all video URLs: original scenes + appended clips
+      const originalClipUrls = project.generatedScenes
+        .sort((a, b) => a.sceneNumber - b.sceneNumber)
+        .map(s => {
+          const clip = project.videoClips.find(v => v.sceneNumber === s.sceneNumber);
+          return clip?.videoUrl || s.videoUrl;
+        })
+        .filter(Boolean) as string[];
+
+      // If we have a single stitched video, use that as the base
+      const baseUrls = originalClipUrls.length > 0 ? originalClipUrls : (project.videoBlobUrl ? [project.videoBlobUrl] : []);
+      const appendedUrls = appendedClips.map(c => c.videoUrl);
+      const allUrls = [...baseUrls, ...appendedUrls];
+
+      if (allUrls.length < 2) {
+        toast({ title: "Not enough clips", description: "Need at least 2 clips to stitch.", variant: "destructive" });
+        return;
+      }
+
+      setProgress(20);
+      setProgressStatus('Stitching clips together...');
+
+      const allPublic = allUrls.every(u => u.startsWith('http'));
+      let stitchedBlob: Blob;
+
+      if (allPublic) {
+        try {
+          const clips = allUrls.map(url => ({ url, duration: 5 }));
+          const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+            body: { clips, transition: transitionStyle || 'crossfade' }
+          });
+          if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error('Cloud stitch failed');
+
+          let cloudUrl: string | null = null;
+          for (let attempt = 0; attempt < 60; attempt++) {
+            await new Promise(r => setTimeout(r, 3000));
+            const { data: status } = await supabase.functions.invoke('creatomate-status', {
+              body: { renderId: stitchData.renderId }
+            });
+            if (status?.status === 'succeeded' && status?.url) { cloudUrl = status.url; break; }
+            if (status?.status === 'failed') throw new Error('Cloud render failed');
+            setProgress(20 + Math.min(70, (attempt / 60) * 70));
+          }
+          if (!cloudUrl) throw new Error('Cloud render timed out');
+          const resp = await fetch(cloudUrl);
+          stitchedBlob = await resp.blob();
+        } catch (cloudErr) {
+          console.warn('Cloud re-stitch failed, using canvas:', cloudErr);
+          const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+          const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
+          stitchedBlob = await canvasStitchVideos({ videoUrls: allUrls, width: sw, height: sh, onProgress: (p) => setProgress(20 + p * 0.7) });
+        }
+      } else {
+        const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+        const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
+        stitchedBlob = await canvasStitchVideos({ videoUrls: allUrls, width: sw, height: sh, onProgress: (p) => setProgress(20 + p * 0.7) });
+      }
+
+      // Upload and save
+      const blobUrl = URL.createObjectURL(stitchedBlob);
+      let savedUrl = blobUrl;
+      if (user) {
+        try {
+          const ext = stitchedBlob.type.includes('webm') ? 'webm' : 'mp4';
+          const fileName = `${user.id}/videos/${Date.now()}-restitched.${ext}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('reels')
+            .upload(fileName, stitchedBlob, { contentType: stitchedBlob.type || 'video/webm' });
+          if (!uploadError && uploadData) {
+            const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+            savedUrl = publicUrl.publicUrl;
+          }
+        } catch (e) { console.error('Upload failed:', e); }
+      }
+
+      setProject(prev => ({ ...prev, videoBlobUrl: savedUrl, videoClips: [], status: 'complete' }));
+      setAppendedClips([]);
+      setShowAppendBroll(false);
+      toast({ title: "Re-stitched!", description: "Your updated reel is ready." });
+      setProgress(100);
+    } catch (err: any) {
+      toast({ title: "Re-stitch Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsRestitching(false);
     }
   };
 
@@ -5703,6 +5865,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         Re-generate with Lip Sync
                       </Button>
                     )}
+                    {/* Post-Production: Add B-Roll */}
+                    {project.videoBlobUrl && project.videoClips.length === 0 && (
+                      <Button
+                        variant="outline"
+                        className="border-accent/50 gap-1"
+                        onClick={() => setShowAppendBroll(!showAppendBroll)}
+                      >
+                        <Film className="w-4 h-4" />
+                        {showAppendBroll ? 'Hide B-Roll Panel' : 'Add B-Roll Clips'}
+                      </Button>
+                    )}
                     {/* Save to My Reels button */}
                     {!currentReelSaved && (project.generatedScenes.length > 0 || project.previewScenes.length > 0 || project.videoBlobUrl) && (
                       <Button 
@@ -5729,6 +5902,119 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       Create Another
                     </Button>
                   </div>
+
+                  {/* Post-Production B-Roll Panel */}
+                  {showAppendBroll && project.videoBlobUrl && (
+                    <div className="mt-6 border-t pt-6 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Film className="w-5 h-5 text-primary" />
+                        <h3 className="font-semibold text-lg">Add B-Roll Clips</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Generate additional cinematic B-roll clips and re-stitch them into your reel.
+                      </p>
+
+                      {/* Model & Duration */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Model</Label>
+                          <Select value={appendBrollModel} onValueChange={(v: any) => setAppendBrollModel(v)}>
+                            <SelectTrigger className="h-9 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="wan-2.6-i2v">🌟 Wan 2.6 (5-15s)</SelectItem>
+                              <SelectItem value="wan-2.1-i2v-480p">⚡ Wan 2.1 (fast)</SelectItem>
+                              <SelectItem value="kling-v3.0-pro">🎬 Kling v3 Pro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {appendBrollModel === 'wan-2.6-i2v' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Duration</Label>
+                            <div className="flex gap-1">
+                              {([5, 10, 15] as const).map(d => (
+                                <Button
+                                  key={d}
+                                  size="sm"
+                                  variant={appendBrollDuration === d ? 'default' : 'outline'}
+                                  className="flex-1 h-9 text-xs"
+                                  onClick={() => setAppendBrollDuration(d)}
+                                >
+                                  {d}s
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Prompt */}
+                      <div className="space-y-1">
+                        <Label className="text-xs">Scene Description</Label>
+                        <Textarea
+                          value={appendBrollPrompt}
+                          onChange={(e) => setAppendBrollPrompt(e.target.value)}
+                          placeholder="e.g. Aerial drone shot of a modern city skyline at golden hour..."
+                          rows={2}
+                          className="text-sm"
+                        />
+                      </div>
+
+                      <Button
+                        onClick={appendBrollClip}
+                        disabled={isAppendingBroll || !appendBrollPrompt.trim()}
+                        className="w-full gap-2"
+                      >
+                        {isAppendingBroll ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+                        ) : (
+                          <><Plus className="w-4 h-4" /> Generate B-Roll Clip</>
+                        )}
+                      </Button>
+
+                      {/* Queued clips */}
+                      {appendedClips.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">{appendedClips.length} clip{appendedClips.length !== 1 ? 's' : ''} ready to append</Label>
+                          {appendedClips.map((clip, i) => (
+                            <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg p-2">
+                              <video src={clip.videoUrl} className="w-16 h-10 rounded object-cover" muted />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs truncate">{clip.prompt}</p>
+                                <p className="text-xs text-muted-foreground">{clip.duration}s</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => setAppendedClips(prev => prev.filter((_, idx) => idx !== i))}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            onClick={restitchWithAppendedClips}
+                            disabled={isRestitching}
+                            className="w-full gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                          >
+                            {isRestitching ? (
+                              <><Loader2 className="w-4 h-4 animate-spin" /> Re-stitching...</>
+                            ) : (
+                              <><Layers className="w-4 h-4" /> Re-stitch with {appendedClips.length} New Clip{appendedClips.length !== 1 ? 's' : ''}</>
+                            )}
+                          </Button>
+                          {isRestitching && (
+                            <div className="space-y-1">
+                              <Progress value={progress} className="h-2" />
+                              <p className="text-xs text-center text-muted-foreground">{progressStatus}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
