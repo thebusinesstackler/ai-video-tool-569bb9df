@@ -3244,6 +3244,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           model: appendBrollModel,
           aspectRatio: selectedVideoSize === '16:9' ? '16:9' : '9:16',
           duration: appendBrollModel === 'wan-2.6-i2v' ? appendBrollDuration : undefined,
+          userId: user?.id,
+          source: 'reel',
         }
       });
 
