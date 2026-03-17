@@ -2229,31 +2229,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setLipSyncModel('infinitetalk');
     }
     
-    // Auto-detect voice if user hasn't selected one — preserve manual voice selection
-    let resolvedVoice = selectedVoice;
-    if (!selectedVoice || selectedVoice === 'ai-auto') {
-      // Try to detect from twin gender
-      if (selectedTwinId && aiTwins.length > 0) {
-        const twin = aiTwins.find(t => t.id === selectedTwinId) || aiTwins[0];
-        const twinGender = (twin as any).gender?.toLowerCase() || '';
-        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
-        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
-        if (detectedVoice) resolvedVoice = detectedVoice;
-      }
-      // Fallback: detect from topic/character description
-      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-        const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
-        if (topicVoice) resolvedVoice = topicVoice;
-      }
-      // Final fallback
-      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-        const descVoice = detectGenderVoice(characterDescription);
-        resolvedVoice = descVoice || 'English_Trustworth_Man';
-      }
-    }
-    
-    // Write resolved voice back to state so generateVideo uses it
-    setSelectedVoice(resolvedVoice);
+    // Voice is resolved at TTS call time from AI Twin — no need to pre-resolve
 
     if (abortRef.current.signal.aborted) return;
     
