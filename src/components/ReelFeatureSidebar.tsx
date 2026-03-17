@@ -57,12 +57,6 @@ const MODES = [
     icon: <Video className="w-5 h-5" />
   },
   { 
-    id: 'podcast' as ReelMode, 
-    label: 'Podcast Mode', 
-    description: 'Long-form audio-focused content',
-    icon: <Mic className="w-5 h-5" />
-  },
-  { 
     id: 'ai-twin' as ReelMode, 
     label: 'AI Twin Mode', 
     description: 'Use your digital twin with cloned voice',
@@ -76,19 +70,13 @@ const MODES = [
   },
 ];
 
-const FEATURES = [
-  {
-    id: 'introOutro',
-    label: 'Intro & Outro',
-    description: 'Add branded intro and outro screens',
-    icon: <Film className="w-4 h-4" />
-  },
-  {
-    id: 'captions',
-    label: 'Captions',
-    description: 'Add animated text captions to video',
-    icon: <Captions className="w-4 h-4" />
-  },
+const FEATURES: Array<{
+  id: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  comingSoon?: boolean;
+}> = [
   {
     id: 'backgroundMusic',
     label: 'Background Music',
@@ -96,10 +84,10 @@ const FEATURES = [
     icon: <Music className="w-4 h-4" />
   },
   {
-    id: 'cutScenes',
-    label: 'Cut Scenes',
-    description: 'Add B-roll and transition scenes',
-    icon: <Sparkles className="w-4 h-4" />
+    id: 'lipSync',
+    label: 'Lip Sync',
+    description: 'Animate portrait with speech',
+    icon: <User className="w-4 h-4" />
   },
   {
     id: 'upscaler',
@@ -108,10 +96,25 @@ const FEATURES = [
     icon: <Wand2 className="w-4 h-4" />
   },
   {
-    id: 'lipSync',
-    label: 'Lip Sync',
-    description: 'Animate portrait with speech',
-    icon: <User className="w-4 h-4" />
+    id: 'introOutro',
+    label: 'Intro & Outro',
+    description: 'Branded intro/outro — coming soon',
+    icon: <Film className="w-4 h-4" />,
+    comingSoon: true
+  },
+  {
+    id: 'captions',
+    label: 'Captions',
+    description: 'Burned-in captions — coming soon',
+    icon: <Captions className="w-4 h-4" />,
+    comingSoon: true
+  },
+  {
+    id: 'cutScenes',
+    label: 'Cut Scenes',
+    description: 'B-roll interleaving — coming soon',
+    icon: <Sparkles className="w-4 h-4" />,
+    comingSoon: true
   },
 ];
 
@@ -199,38 +202,43 @@ export function ReelFeatureSidebar({
           
           {FEATURES.map((feature) => {
             const isEnabled = features[feature.id as keyof typeof features];
+            const isComing = feature.comingSoon;
             return (
               <Tooltip key={feature.id}>
                 <TooltipTrigger asChild>
                   <div 
                     className={cn(
-                      "flex items-center gap-3 rounded-md transition-all duration-200 cursor-pointer",
+                      "flex items-center gap-3 rounded-md transition-all duration-200",
+                      isComing ? "cursor-default opacity-50" : "cursor-pointer",
                       isExpanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center",
-                      isEnabled 
+                      !isComing && isEnabled 
                         ? "bg-sidebar-primary/10 text-sidebar-primary" 
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                     )}
-                    onClick={() => !disabled && onFeatureChange(feature.id as keyof typeof features, !isEnabled)}
+                    onClick={() => !disabled && !isComing && onFeatureChange(feature.id as keyof typeof features, !isEnabled)}
                   >
                     <div className="flex-shrink-0 relative">
                       {feature.icon}
-                      {!isExpanded && isEnabled && (
+                      {!isExpanded && isEnabled && !isComing && (
                         <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-sidebar-primary" />
                       )}
                     </div>
                     {isExpanded && (
                       <>
-                        <span className="flex-1 text-sm font-medium">
+                        <span className="flex-1 text-sm font-medium truncate">
                           {feature.label}
+                          {isComing && <span className="ml-1 text-[10px] text-muted-foreground font-normal">Soon</span>}
                         </span>
-                        <Switch
-                          checked={isEnabled}
-                          onCheckedChange={(value) => 
-                            onFeatureChange(feature.id as keyof typeof features, value)
-                          }
-                          disabled={disabled}
-                          className="data-[state=checked]:bg-sidebar-primary"
-                        />
+                        {!isComing && (
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={(value) => 
+                              onFeatureChange(feature.id as keyof typeof features, value)
+                            }
+                            disabled={disabled}
+                            className="data-[state=checked]:bg-sidebar-primary"
+                          />
+                        )}
                       </>
                     )}
                   </div>
@@ -239,14 +247,16 @@ export function ReelFeatureSidebar({
                   <TooltipContent side="right" className="bg-popover text-popover-foreground border-border">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{feature.label}</p>
-                      <Switch
-                        checked={isEnabled}
-                        onCheckedChange={(value) => 
-                          onFeatureChange(feature.id as keyof typeof features, value)
-                        }
-                        disabled={disabled}
-                        className="data-[state=checked]:bg-primary"
-                      />
+                      {!isComing && (
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(value) => 
+                            onFeatureChange(feature.id as keyof typeof features, value)
+                          }
+                          disabled={disabled}
+                          className="data-[state=checked]:bg-primary"
+                        />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">{feature.description}</p>
                   </TooltipContent>

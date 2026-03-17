@@ -77,7 +77,6 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
       { name: 'Characters', href: '/characters', icon: UsersIcon },
-      { name: 'Projects', href: '/projects', icon: PlayCircleIcon },
     ],
   },
 ];

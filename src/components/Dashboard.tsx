@@ -117,6 +117,22 @@ export const Dashboard = () => {
         .select('id')
         .eq('user_id', currentUser.id);
 
+      // Fetch testimonial commercials count
+      const { data: commercials } = await supabase
+        .from('testimonial_commercials')
+        .select('id, name, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      // Fetch video hooks count
+      const { data: hooks } = await supabase
+        .from('video_hooks')
+        .select('id, video_title, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
       if (projectsError) {
         console.error('Error loading projects:', projectsError);
       }
@@ -125,14 +141,16 @@ export const Dashboard = () => {
         console.error('Error loading characters:', charactersError);
       }
 
-      // Total videos = projects + reels + movie projects
-      const totalVideos = (projects?.length || 0) + (reels?.length || 0) + (movieProjects?.length || 0);
+      // Total videos = projects + reels + movie projects + commercials + hooks
+      const totalVideos = (projects?.length || 0) + (reels?.length || 0) + (movieProjects?.length || 0) + (commercials?.length || 0) + (hooks?.length || 0);
 
       // Build recent projects from all content types
       const allRecent = [
         ...(projects?.slice(0, 3).map(p => ({ id: p.id, title: p.title, created_at: p.created_at, model_type: p.model_type })) || []),
         ...(reels?.map(r => ({ id: r.id, title: r.topic, created_at: r.created_at, model_type: 'reel' })) || []),
         ...(movieProjects?.map(m => ({ id: m.id, title: m.title, created_at: m.created_at, model_type: 'movie' })) || []),
+        ...(commercials?.map(c => ({ id: c.id, title: c.name, created_at: c.created_at, model_type: 'commercial' })) || []),
+        ...(hooks?.map(h => ({ id: h.id, title: h.video_title || 'Hook', created_at: h.created_at, model_type: 'hook' })) || []),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
 
       setStats({
