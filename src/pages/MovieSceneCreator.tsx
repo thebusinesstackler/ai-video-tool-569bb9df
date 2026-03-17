@@ -752,12 +752,46 @@ const MovieSceneCreator = () => {
       try {
         const { projectId } = JSON.parse(saved);
         if (projectId) {
+          // Auto-recover immediately so user never loses their work
           setRecoveryProjectId(projectId);
           setShowRecoveryBanner(true);
         }
       } catch { /* ignore */ }
     }
+
+    // Also check for the most recent draft if no generation was interrupted
+    if (!saved) {
+      loadMostRecentDraft();
+    }
   }, [userId]);
+
+  // Load the most recent in-progress project as a draft
+  const loadMostRecentDraft = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('movie_projects')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (error || !data?.length) return;
+
+      const project = data[0];
+      // Only auto-restore if the project was updated recently (within last 24 hours) and has content
+      const updatedAt = new Date(project.updated_at).getTime();
+      const isRecent = Date.now() - updatedAt < 24 * 60 * 60 * 1000;
+      const hasContent = project.movie_idea && (project.outline || (project.scenes as any[])?.length > 0);
+
+      if (isRecent && hasContent && !currentProjectId) {
+        setRecoveryProjectId(project.id);
+        setShowRecoveryBanner(true);
+      }
+    } catch (err) {
+      console.error('Failed to check for recent drafts:', err);
+    }
+  };
 
   // Helper to save/clear generation tracking
   const trackGenerationStart = (projectId: string) => {
@@ -798,29 +832,34 @@ const MovieSceneCreator = () => {
       setStitchedVideoUrl((data as any).stitched_video_url || null);
       setStoryBible((data as any).story_bible || null);
 
-      // Check if project has scenes with images but no videos — offer to continue
-      const hasUnfinishedScenes = loadedScenes.some((s: any) => 
-        (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo
-      );
-      if (hasUnfinishedScenes) {
-        setIsPreviewingBeforeVideo(true);
-        setPendingVideoGeneration(loadedScenes);
-        if (isAdvanced) setCurrentStep(3);
-        toast({
-          title: "Project Recovered",
-          description: `"${data.title}" loaded. Review your scenes and continue generating videos.`,
-        });
+      // ── Determine which wizard step to restore to ──
+      if (loadedScenes.length > 0) {
+        setCurrentStep(3);
+        // Check if project has scenes with images but no videos — offer to continue
+        const hasUnfinishedScenes = loadedScenes.some((s: any) => 
+          (s.startFrame?.generatedImage || s.generatedImage) && !s.generatedVideo
+        );
+        if (hasUnfinishedScenes) {
+          setIsPreviewingBeforeVideo(true);
+          setPendingVideoGeneration(loadedScenes);
+        }
+      } else if (data.outline) {
+        setCurrentStep(2);
+      } else if ((data as any).story_bible) {
+        setCurrentStep(1);
       } else {
-        toast({
-          title: "Project Loaded",
-          description: `"${data.title}" loaded.`,
-        });
+        setCurrentStep(0);
       }
+
+      toast({
+        title: "Project Restored",
+        description: `"${data.title}" loaded — pick up where you left off.`,
+      });
     } catch (error: any) {
       console.error('Error recovering project:', error);
       toast({
         title: "Recovery Failed",
-        description: "Couldn't load the interrupted project.",
+        description: "Couldn't load the project.",
         variant: "destructive"
       });
     }
@@ -1353,6 +1392,40 @@ const MovieSceneCreator = () => {
     }
   };
 
+  // Helper: ensure project exists in DB (create if needed) and return its ID
+  const ensureProjectSaved = async (extraFields: Record<string, any> = {}): Promise<string | null> => {
+    if (!userId) return null;
+    const title = projectTitle || `Movie: ${movieIdea.slice(0, 50)}...`;
+    const projectData: any = {
+      user_id: userId,
+      title,
+      movie_idea: movieIdea,
+      outline: outline || '',
+      scenes: scenes as any,
+      story_bible: storyBible as any,
+      updated_at: new Date().toISOString(),
+      ...extraFields,
+    };
+
+    try {
+      if (currentProjectId) {
+        await supabase.from('movie_projects').update(projectData).eq('id', currentProjectId);
+        return currentProjectId;
+      } else {
+        const { data, error } = await supabase.from('movie_projects').insert([projectData]).select().single();
+        if (error) throw error;
+        if (data) {
+          setCurrentProjectId(data.id);
+          setProjectTitle(title);
+          return data.id;
+        }
+      }
+    } catch (err) {
+      console.error('ensureProjectSaved failed:', err);
+    }
+    return currentProjectId;
+  };
+
   // One-click Generate All - chains story bible → outline → scenes → dialogue → images → videos → stitch
   const generateAll = async () => {
     if (!movieIdea.trim()) {
@@ -1366,8 +1439,11 @@ const MovieSceneCreator = () => {
 
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
-    // Track generation so user can recover if they leave
-    if (currentProjectId) trackGenerationStart(currentProjectId);
+
+    // ── STEP 0: Immediately persist the project so the movie idea is never lost ──
+    const savedProjectId = await ensureProjectSaved();
+    if (savedProjectId) trackGenerationStart(savedProjectId);
+
     try {
       // Step 1: Generate Story Bible (5%)
       setGenerateAllStep('Creating Story Bible...');
@@ -1410,6 +1486,9 @@ const MovieSceneCreator = () => {
       setStoryBible(storyBibleWithVoices);
       setGenerateAllProgress(15);
 
+      // ── Progressive save: story bible done ──
+      await ensureProjectSaved({ story_bible: storyBibleWithVoices });
+
       // Step 2: Generate Outline (25%)
       setGenerateAllStep('Generating Outline...');
       
@@ -1428,6 +1507,9 @@ const MovieSceneCreator = () => {
       if (outlineError) throw outlineError;
       setOutline(outlineData.outline);
       setGenerateAllProgress(30);
+
+      // ── Progressive save: outline done ──
+      await ensureProjectSaved({ outline: outlineData.outline });
 
       // Step 3: Extract Locations (35%)
       setGenerateAllStep('Extracting Locations...');
@@ -1571,6 +1653,9 @@ const MovieSceneCreator = () => {
       setScenes(scenesWithDialogue);
       setGenerateAllProgress(75);
 
+      // ── Progressive save: scenes + dialogue done ──
+      await ensureProjectSaved({ scenes: scenesWithDialogue as any });
+
       // Step 6: Generate start frame images for ALL scenes (75% → 85%)
       setGenerateAllStep('Generating scene images...');
       const referenceImages = selectedTwins.length > 0 
@@ -1632,11 +1717,8 @@ const MovieSceneCreator = () => {
       }
 
       setGenerateAllProgress(85);
-      setTimeout(() => {
-        autoSaveProject(scenesWithDialogue);
-        // Update tracking with project ID (may have been created during auto-save)
-        if (currentProjectId) trackGenerationStart(currentProjectId);
-      }, 500);
+      // ── Progressive save: images done ──
+      await ensureProjectSaved({ scenes: scenesWithDialogue as any });
       sendNotification('🎬 Scenes Ready!', 'Your scenes, dialogue, and images are ready for preview.');
 
       // PAUSE: Show preview before video generation
@@ -3154,10 +3236,21 @@ const MovieSceneCreator = () => {
       setProjectTitle(data.title);
       setMovieIdea(data.movie_idea);
       setOutline(data.outline || '');
-      setScenes((data.scenes as any) || []); // Cast from Json to MovieScene[]
+      setScenes((data.scenes as any) || []);
       setStitchedVideoUrl((data as any).stitched_video_url || null);
-      // Fix #2: Load story bible from saved project
       setStoryBible((data as any).story_bible || null);
+
+      // ── Set wizard step based on content ──
+      const loadedScenes = (data.scenes as any) || [];
+      if (loadedScenes.length > 0) {
+        setCurrentStep(3);
+      } else if (data.outline) {
+        setCurrentStep(2);
+      } else if ((data as any).story_bible) {
+        setCurrentStep(1);
+      } else {
+        setCurrentStep(0);
+      }
 
       setIsLoadDialogOpen(false);
       toast({
