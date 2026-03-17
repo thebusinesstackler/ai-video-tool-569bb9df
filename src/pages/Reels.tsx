@@ -698,7 +698,7 @@ const Reels = () => {
         
         toast({
           title: "Character Detected",
-          description: `Auto-filled: ${data.description}${isFemale ? ' (female voice set)' : isMale ? ' (male voice set)' : ''}`,
+          description: `Auto-filled: ${data.description}${isFemale ? ' (female detected)' : ''}`,
         });
       }
     } catch (error: any) {
