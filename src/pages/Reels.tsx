@@ -2353,21 +2353,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setLipSyncModel('infinitetalk');
     }
     
-    // Auto-detect voice
-    let resolvedVoice = selectedVoice;
-    if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-      if (aiTwins.length > 0) {
-        const twin = aiTwins[0];
-        const twinGender = (twin as any).gender?.toLowerCase() || '';
-        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
-        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
-        if (detectedVoice) resolvedVoice = detectedVoice;
-      }
-      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-        resolvedVoice = detectGenderVoice(quickTopic + ' ' + characterDescription) || 'English_Trustworth_Man';
-      }
-    }
-    setSelectedVoice(resolvedVoice);
+    // Voice is resolved at TTS call time from AI Twin
     
     if (abortRef.current.signal.aborted) return;
     
