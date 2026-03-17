@@ -196,7 +196,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                         {twin.name}'s Voice
                       </span>
                       <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">
-                        🎙️ Cloned
+                        {twin.voice_engine === 'google-cloud' ? '🔊 Google' : twin.voice_engine === 'wavespeed' ? '🌊 WaveSpeed' : '🎙️ Cloned'}
                       </Badge>
                     </div>
                   </button>
