@@ -904,27 +904,109 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </Button>
       </div>
 
-      {/* Voice Cloning Section */}
+      {/* Voice Engine Selector */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Volume2 className="w-4 h-4" />
-            Voice Cloning
-            {voiceCloningKey && (
-              <Badge className="bg-green-500 ml-2">
-                <Check className="w-3 h-3 mr-1" />
-                Cloned
-              </Badge>
-            )}
+            Voice Engine
+            <Badge variant="outline" className="ml-auto text-xs">
+              {voiceEngine === 'speechify' ? '🎙️ Cloned' : voiceEngine === 'google-cloud' ? '🔊 Google' : '🌊 WaveSpeed'}
+            </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <VoiceCloner
-            voiceSampleUrl={voiceSampleUrl}
-            voiceCloningKey={voiceCloningKey}
-            onVoiceSampleChange={handleVoiceSampleChange}
-            onVoiceCloningKeyChange={handleVoiceCloningKeyChange}
-          />
+        <CardContent className="space-y-3">
+          <Select
+            value={voiceEngine}
+            onValueChange={async (newEngine) => {
+              setVoiceEngine(newEngine);
+              try {
+                const updateData: any = { voice_engine: newEngine };
+                // If switching to google-cloud and no voice selected, pick a default
+                if (newEngine === 'google-cloud' && !googleVoiceId) {
+                  const genderVoices = GOOGLE_CLOUD_VOICES.filter(v => v.gender === (twin.gender || 'male'));
+                  const defaultVoice = genderVoices[0] || GOOGLE_CLOUD_VOICES[0];
+                  setGoogleVoiceId(defaultVoice.id);
+                  updateData.google_voice_id = defaultVoice.id;
+                }
+                const { error } = await supabase
+                  .from('ai_twins')
+                  .update(updateData)
+                  .eq('id', twin.id);
+                if (error) throw error;
+                toast({ title: 'Voice engine updated' });
+                onUpdate();
+              } catch (err: any) {
+                toast({ title: 'Failed to update', description: err.message, variant: 'destructive' });
+              }
+            }}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="speechify">🎙️ Cloned Voice (Speechify)</SelectItem>
+              <SelectItem value="google-cloud">🔊 Google Cloud TTS (Premium)</SelectItem>
+              <SelectItem value="wavespeed">🌊 WaveSpeed MiniMax</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {voiceEngine === 'google-cloud' && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Select a Google Cloud premium voice:</p>
+              <Select
+                value={googleVoiceId || ''}
+                onValueChange={async (voiceId) => {
+                  setGoogleVoiceId(voiceId);
+                  try {
+                    const { error } = await supabase
+                      .from('ai_twins')
+                      .update({ google_voice_id: voiceId })
+                      .eq('id', twin.id);
+                    if (error) throw error;
+                    toast({ title: 'Google voice updated' });
+                    onUpdate();
+                  } catch (err: any) {
+                    toast({ title: 'Failed to update', description: err.message, variant: 'destructive' });
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Choose a voice" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GOOGLE_CLOUD_VOICES.map((voice) => (
+                    <SelectItem key={voice.id} value={voice.id}>
+                      {voice.label} ({voice.family} · {voice.gender})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {voiceEngine === 'speechify' && (
+            <>
+              <VoiceCloner
+                voiceSampleUrl={voiceSampleUrl}
+                voiceCloningKey={voiceCloningKey}
+                onVoiceSampleChange={handleVoiceSampleChange}
+                onVoiceCloningKeyChange={handleVoiceCloningKeyChange}
+              />
+              {voiceCloningKey && (
+                <Badge className="bg-primary/20 text-primary border-primary/30" variant="outline">
+                  <Check className="w-3 h-3 mr-1" />
+                  Voice Cloned
+                </Badge>
+              )}
+            </>
+          )}
+
+          {voiceEngine === 'wavespeed' && (
+            <p className="text-xs text-muted-foreground">
+              WaveSpeed will auto-select a voice based on gender. No additional setup needed.
+            </p>
+          )}
         </CardContent>
       </Card>
 

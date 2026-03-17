@@ -25,6 +25,8 @@ interface AITwinVoice {
   voice_cloning_key: string;
   first_image?: string;
   gender?: string;
+  voice_engine?: string;
+  google_voice_id?: string | null;
 }
 
 // Keep export for backward compatibility — returns empty since we no longer use preset voices
