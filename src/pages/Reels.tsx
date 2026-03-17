@@ -3684,6 +3684,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             {selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Not selected'}
                           </Badge>
                         </div>
+                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
                         <Button
                           variant="outline"
                           size="sm"
