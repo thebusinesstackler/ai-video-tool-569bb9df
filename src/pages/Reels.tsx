@@ -5902,6 +5902,119 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       Create Another
                     </Button>
                   </div>
+
+                  {/* Post-Production B-Roll Panel */}
+                  {showAppendBroll && project.videoBlobUrl && (
+                    <div className="mt-6 border-t pt-6 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Film className="w-5 h-5 text-primary" />
+                        <h3 className="font-semibold text-lg">Add B-Roll Clips</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Generate additional cinematic B-roll clips and re-stitch them into your reel.
+                      </p>
+
+                      {/* Model & Duration */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Model</Label>
+                          <Select value={appendBrollModel} onValueChange={(v: any) => setAppendBrollModel(v)}>
+                            <SelectTrigger className="h-9 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="wan-2.6-i2v">🌟 Wan 2.6 (5-15s)</SelectItem>
+                              <SelectItem value="wan-2.1-i2v-480p">⚡ Wan 2.1 (fast)</SelectItem>
+                              <SelectItem value="kling-v3.0-pro">🎬 Kling v3 Pro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {appendBrollModel === 'wan-2.6-i2v' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Duration</Label>
+                            <div className="flex gap-1">
+                              {([5, 10, 15] as const).map(d => (
+                                <Button
+                                  key={d}
+                                  size="sm"
+                                  variant={appendBrollDuration === d ? 'default' : 'outline'}
+                                  className="flex-1 h-9 text-xs"
+                                  onClick={() => setAppendBrollDuration(d)}
+                                >
+                                  {d}s
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Prompt */}
+                      <div className="space-y-1">
+                        <Label className="text-xs">Scene Description</Label>
+                        <Textarea
+                          value={appendBrollPrompt}
+                          onChange={(e) => setAppendBrollPrompt(e.target.value)}
+                          placeholder="e.g. Aerial drone shot of a modern city skyline at golden hour..."
+                          rows={2}
+                          className="text-sm"
+                        />
+                      </div>
+
+                      <Button
+                        onClick={appendBrollClip}
+                        disabled={isAppendingBroll || !appendBrollPrompt.trim()}
+                        className="w-full gap-2"
+                      >
+                        {isAppendingBroll ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+                        ) : (
+                          <><Plus className="w-4 h-4" /> Generate B-Roll Clip</>
+                        )}
+                      </Button>
+
+                      {/* Queued clips */}
+                      {appendedClips.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">{appendedClips.length} clip{appendedClips.length !== 1 ? 's' : ''} ready to append</Label>
+                          {appendedClips.map((clip, i) => (
+                            <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg p-2">
+                              <video src={clip.videoUrl} className="w-16 h-10 rounded object-cover" muted />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs truncate">{clip.prompt}</p>
+                                <p className="text-xs text-muted-foreground">{clip.duration}s</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => setAppendedClips(prev => prev.filter((_, idx) => idx !== i))}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            onClick={restitchWithAppendedClips}
+                            disabled={isRestitching}
+                            className="w-full gap-2 bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                          >
+                            {isRestitching ? (
+                              <><Loader2 className="w-4 h-4 animate-spin" /> Re-stitching...</>
+                            ) : (
+                              <><Layers className="w-4 h-4" /> Re-stitch with {appendedClips.length} New Clip{appendedClips.length !== 1 ? 's' : ''}</>
+                            )}
+                          </Button>
+                          {isRestitching && (
+                            <div className="space-y-1">
+                              <Progress value={progress} className="h-2" />
+                              <p className="text-xs text-center text-muted-foreground">{progressStatus}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
