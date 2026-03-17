@@ -3450,7 +3450,61 @@ const MovieSceneCreator = () => {
     }
   };
 
-  const loadSavedProjects = async () => {
+  // Recovery: Check status of a pending video task by its taskId
+  const checkPendingVideoStatus = async (sceneNumber: number) => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!scene?.videoTaskId) {
+      toast({ title: "No pending video task", description: "This scene has no pending video to check.", variant: "destructive" });
+      return;
+    }
+
+    setGeneratingVideoFor(sceneNumber);
+    try {
+      const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId: scene.videoTaskId }
+      });
+
+      if (statusError) throw statusError;
+
+      if (statusData.status === 'completed' && statusData.videoUrl) {
+        setScenes(prevScenes => {
+          const updated = prevScenes.map(s => 
+            s.sceneNumber === sceneNumber 
+              ? { ...s, generatedVideo: statusData.videoUrl }
+              : s
+          );
+          setTimeout(() => autoSaveProject(updated), 500);
+          return updated;
+        });
+        toast({ title: "Video Retrieved!", description: `Scene ${sceneNumber} video has been recovered successfully.` });
+      } else if (statusData.status === 'failed') {
+        toast({ title: "Video Failed", description: "The video generation failed on the server. Please try again.", variant: "destructive" });
+      } else {
+        toast({ title: "Still Processing", description: `Scene ${sceneNumber} video is still being generated (${statusData.status}). Try again in a minute.` });
+      }
+    } catch (error: any) {
+      toast({ title: "Check Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setGeneratingVideoFor(null);
+    }
+  };
+
+  // On mount/load: auto-recover any scenes that have taskId but no video
+  useEffect(() => {
+    if (scenes.length === 0) return;
+    const pendingScenes = scenes.filter(s => s.videoTaskId && !s.generatedVideo);
+    if (pendingScenes.length === 0) return;
+
+    console.log(`Found ${pendingScenes.length} scenes with pending video tasks, checking status...`);
+    
+    pendingScenes.forEach(scene => {
+      // Delay each check slightly to avoid hammering the API
+      setTimeout(() => {
+        checkPendingVideoStatus(scene.sceneNumber);
+      }, 1000);
+    });
+  }, [scenes.length > 0 && currentProjectId]); // Only run when project loads
+
     if (!userId) return;
 
     try {
