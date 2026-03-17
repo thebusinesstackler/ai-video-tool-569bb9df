@@ -692,25 +692,34 @@ function formatScriptForTTS(narration: string): string {
 }
 
 // Helper functions for intro/outro defaults - now with dynamic hooks
+function smartTruncate(text: string, maxLen = 60): string {
+  if (text.length <= maxLen) return text;
+  // Find last natural break (comma, space) before maxLen
+  const truncated = text.substring(0, maxLen);
+  const lastComma = truncated.lastIndexOf(',');
+  const lastSpace = truncated.lastIndexOf(' ');
+  const breakAt = lastComma > maxLen * 0.4 ? lastComma : lastSpace;
+  return breakAt > 0 ? truncated.substring(0, breakAt).trim() : truncated.trim();
+}
+
 function getDefaultIntroText(templateId: string, topic: string, hookStyle?: string): string {
-  // Use hook style to generate dynamic intro text
-  const topicShort = topic.split(' ').slice(0, 5).join(' ');
+  const topicShort = smartTruncate(topic);
   
   switch (templateId) {
     case 'hook-text':
       if (hookStyle === 'question') return `Have you ever wondered about ${topicShort}?`;
-      if (hookStyle === 'secret') return `The secret about ${topicShort} that nobody talks about...`;
-      if (hookStyle === 'story') return `Here\'s what happened when I tried ${topicShort}...`;
-      return `This is going to change how you think about ${topicShort}...`;
+      if (hookStyle === 'secret') return `The secret about ${topicShort} that nobody talks about.`;
+      if (hookStyle === 'story') return `Here's what happened when I tried ${topicShort}.`;
+      return `This is going to change how you think about ${topicShort}.`;
     case 'topic-title':
-      if (hookStyle === 'controversy') return `Unpopular opinion on ${topicShort}...`;
-      return `The truth about ${topicShort}...`;
+      if (hookStyle === 'controversy') return `Unpopular opinion on ${topicShort}.`;
+      return `The truth about ${topicShort}.`;
     case 'question-hook':
       return `Why does everyone get ${topicShort} wrong?`;
     case 'countdown':
-      return `The top things you need to know about ${topicShort}...`;
+      return `The top things you need to know about ${topicShort}.`;
     default:
-      return `You need to see this about ${topicShort}...`;
+      return `You need to see this about ${topicShort}.`;
   }
 }
 
