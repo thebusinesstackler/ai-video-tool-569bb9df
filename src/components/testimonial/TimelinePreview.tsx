@@ -123,11 +123,16 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
 
   const handleRegenerateAudio = async (segment: CommercialSegment) => {
     if (!segment.script) return;
-    const voiceId = lockedVoiceId || segment.voiceoverId || 'English_Trustworth_Man';
+    const voiceId = lockedVoiceId || segment.voiceoverId || '';
+    if (!voiceId) { toast.error('No voice selected'); return; }
+    const isTwinVoice = twinVoices.some(t => t.voice_cloning_key === voiceId);
     setRegeneratingId(segment.id);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: segment.script, voice: voiceId }
+        body: { 
+          text: segment.script, 
+          ...(isTwinVoice ? { speechifyVoiceId: voiceId } : { voice: voiceId })
+        }
       });
       if (error) throw error;
       if (data?.audioUrl) {
