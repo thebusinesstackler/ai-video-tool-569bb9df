@@ -2724,7 +2724,7 @@ const MovieSceneCreator = () => {
         if (multiVoiceError) throw new Error('Failed to generate multi-voice audio');
 
         audioContent = multiVoiceData.audioContent;
-        const totalWords = scene.dialogue.reduce((acc: number, d: any) => acc + (d.line?.split(/\s+/).length || 0), 0);
+        const totalWords = dialogueArray.reduce((acc: number, d: any) => acc + (d.line?.split(/\s+/).length || 0), 0);
         estimatedDuration = Math.max(5, Math.min(30, Math.ceil(totalWords / 2.5)));
       } else {
         // ===== SINGLE CHARACTER: Use single-voice TTS =====
