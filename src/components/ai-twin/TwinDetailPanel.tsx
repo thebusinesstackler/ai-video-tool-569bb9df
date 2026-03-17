@@ -1014,6 +1014,9 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
       <TwinSpeaker 
         twinName={twin.name}
         speechifyVoiceId={voiceCloningKey}
+        voiceEngine={voiceEngine}
+        googleVoiceId={googleVoiceId}
+        gender={twin.gender}
       />
 
       {/* Reference Images Gallery */}
