@@ -2357,15 +2357,40 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           } catch (stitchErr) {
             console.error('Stitching failed:', stitchErr);
             // Final fallback: show individual clips
+            const fallbackVideoUrl = sortedVideos[0]?.videoUrl;
             setProject(prev => ({
               ...prev,
-              videoUrl: sortedVideos[0]?.videoUrl,
-              videoBlobUrl: sortedVideos[0]?.videoUrl,
+              videoUrl: fallbackVideoUrl,
+              videoBlobUrl: fallbackVideoUrl,
               generatedScenes,
               voiceovers: sortedAudios,
               videoClips: sortedVideos,
               status: 'complete'
             }));
+
+            // Auto-save to library even when stitching fails
+            if (user) {
+              try {
+                const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
+                const totalDuration = sortedAudios.reduce((acc, a) => acc + a.duration, 0);
+                const scenesWithAllAssets = generatedScenes.map((scene) => {
+                  const video = sortedVideos.find(v => v.sceneNumber === scene.sceneNumber);
+                  const audio = sortedAudios.find(a => a.sceneNumber === scene.sceneNumber);
+                  return { ...scene, videoUrl: video?.videoUrl || null, audioUrl: audio?.storageUrl || null, audioDuration: audio?.duration || null };
+                });
+                await supabase.from('reels').insert([{
+                  user_id: user.id,
+                  topic: project.topic || topic || 'Untitled Reel',
+                  video_url: fallbackVideoUrl,
+                  thumbnail_url: thumbnailUrl,
+                  scenes: scenesWithAllAssets as unknown as any,
+                  total_duration: Math.round(totalDuration)
+                }]);
+                handleReelSavedSuccessfully();
+                fetchSavedReels();
+              } catch (saveError) { console.error('Auto-save failed after stitch error:', saveError); }
+            }
+
             setProgress(100);
             setProgressStatus('Complete (individual clips)');
             toast({ title: "Videos Generated!", description: `Generated ${sortedVideos.length} clips. Stitching failed — use clip navigation below.` });
