@@ -618,14 +618,20 @@ const Reels = () => {
         topic: draft.project.topic || '',
         scenes: draft.project.scenes || [],
         voiceovers: draft.project.voiceovers || [],
-        videoUrl: null, // Don't restore blob URLs
+        videoUrl: null,
         videoBlobUrl: null,
-        generatedScenes: [],
+        generatedScenes: draft.project.generatedScenes || [],
         videoClips: [],
         previewScenes: draft.project.previewScenes || [],
-        status: 'idle' // Reset status
+        status: 'idle'
       });
     }
+    
+    // Reset completion state
+    setProgress(0);
+    setProgressStatus('');
+    setIsGenerating(false);
+    setVideoError(null);
 
     // Restore strategist state
     if (draft.strategist) {
