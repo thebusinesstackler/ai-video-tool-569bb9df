@@ -693,64 +693,7 @@ function stripHtml(text: string): string {
     .trim();
 }
 
-// Helper functions for intro/outro defaults - now with dynamic hooks
-function smartTruncate(text: string, maxLen = 60): string {
-  const clean = stripHtml(text);
-  if (clean.length <= maxLen) return clean;
-  const truncated = clean.substring(0, maxLen);
-  const lastComma = truncated.lastIndexOf(',');
-  const lastSpace = truncated.lastIndexOf(' ');
-  const breakAt = lastComma > maxLen * 0.4 ? lastComma : lastSpace;
-  return breakAt > 0 ? truncated.substring(0, breakAt).trim() : truncated.trim();
-}
-
-function getDefaultIntroText(templateId: string, topic: string, hookStyle?: string): string {
-  const topicShort = smartTruncate(topic);
-  
-  switch (templateId) {
-    case 'hook-text':
-      if (hookStyle === 'question') return `Have you ever wondered about ${topicShort}?`;
-      if (hookStyle === 'secret') return `The secret about ${topicShort} that nobody talks about.`;
-      if (hookStyle === 'story') return `Here's what happened when I tried ${topicShort}.`;
-      return `This is going to change how you think about ${topicShort}.`;
-    case 'topic-title':
-      if (hookStyle === 'controversy') return `Unpopular opinion on ${topicShort}.`;
-      return `The truth about ${topicShort}.`;
-    case 'question-hook':
-      return `Why does everyone get ${topicShort} wrong?`;
-    case 'countdown':
-      return `The top things you need to know about ${topicShort}.`;
-    default:
-      return `You need to see this about ${topicShort}.`;
-  }
-}
-
-function getDefaultOutroText(templateId: string, topic?: string): string {
-  const topicShort = topic ? smartTruncate(topic) : '';
-  
-  switch (templateId) {
-    case 'cta-follow':
-      return topicShort 
-        ? `If you want more insights like this on ${topicShort}, follow along, I've got a lot more coming.`
-        : 'If you found this valuable, follow along, there is a lot more where this came from.';
-    case 'cta-subscribe':
-      return topicShort
-        ? `Subscribe if you want to go deeper on ${topicShort}, I break this down every week.`
-        : 'Subscribe if you want more like this, new content drops every week.';
-    case 'cta-comment':
-      return topicShort
-        ? `I want to hear your take on ${topicShort}, drop your thoughts in the comments.`
-        : 'Tell me what you think in the comments, I read every single one.';
-    case 'cta-share':
-      return topicShort
-        ? `If someone you know needs to hear this about ${topicShort}, send it their way.`
-        : 'Share this with someone who needs to hear it, it might change their perspective.';
-    default:
-      return topicShort
-        ? `Save this for later when you need it, trust me on ${topicShort}.`
-        : 'Save this for later, you will want to come back to it.';
-  }
-}
+// Visual description helpers kept for AI prompt context
 
 function getIntroVisualDescription(templateId: string, topic: string, baseStyle: string): string {
   const commonStyle = baseStyle || 'Cinematic 4K, vibrant saturated colors, professional studio lighting';
