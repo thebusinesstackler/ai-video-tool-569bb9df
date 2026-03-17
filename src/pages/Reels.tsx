@@ -2337,6 +2337,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               } catch (saveError) { console.error('Auto-save failed:', saveError); }
             }
 
+            activeGenerationRef.current = null; // Clear background handoff on success
             setProgress(100);
             setProgressStatus('Complete!');
             toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video and saved to library!` });
