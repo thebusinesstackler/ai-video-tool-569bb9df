@@ -95,6 +95,14 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [editedName, setEditedName] = useState(twin.name);
   const [isSavingName, setIsSavingName] = useState(false);
 
+  // Face description editing state
+  const [isEditingFaceDesc, setIsEditingFaceDesc] = useState(false);
+  const [editedFaceDesc, setEditedFaceDesc] = useState(twin.face_description || '');
+  const [isSavingFaceDesc, setIsSavingFaceDesc] = useState(false);
+
+  // WaveSpeed voice generation state
+  const [isGeneratingWavespeedVoice, setIsGeneratingWavespeedVoice] = useState(false);
+
   // Voice cloning state
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
@@ -212,6 +220,84 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
       });
     } finally {
       setIsSavingDescription(false);
+    }
+  };
+
+  const saveFaceDescription = async () => {
+    setIsSavingFaceDesc(true);
+    try {
+      const { error } = await supabase
+        .from('ai_twins')
+        .update({ face_description: editedFaceDesc.trim() || null })
+        .eq('id', twin.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Face description saved',
+        description: 'AI face description has been updated'
+      });
+      setIsEditingFaceDesc(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error saving face description:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save face description',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSavingFaceDesc(false);
+    }
+  };
+
+  const generateWavespeedVoice = async () => {
+    setIsGeneratingWavespeedVoice(true);
+    try {
+      const sampleText = `Hello, my name is ${twin.name}. This is a preview of how I sound using the WaveSpeed MiniMax voice engine.`;
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: sampleText,
+          gender: twin.gender || 'male',
+          voice: 'ai-auto',
+        }
+      });
+
+      if (error) throw error;
+
+      // Save a marker key so we know wavespeed voice is configured
+      const voiceKey = `wavespeed-${twin.gender || 'male'}`;
+      setVoiceCloningKey(voiceKey);
+      await supabase
+        .from('ai_twins')
+        .update({ voice_cloning_key: voiceKey })
+        .eq('id', twin.id);
+
+      // Play the preview
+      const audioUrl = data?.audioUrl || data?.url;
+      if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.play().catch(() => {});
+      } else if (data?.audioContent) {
+        const dataUrl = `data:audio/mp3;base64,${data.audioContent}`;
+        const audio = new Audio(dataUrl);
+        audio.play().catch(() => {});
+      }
+
+      toast({
+        title: 'WaveSpeed Voice Generated!',
+        description: 'Voice is ready. Click Regenerate if you want a different result.'
+      });
+      onUpdate();
+    } catch (error: any) {
+      console.error('Error generating WaveSpeed voice:', error);
+      toast({
+        title: 'Voice Generation Failed',
+        description: error.message || 'Failed to generate voice',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingWavespeedVoice(false);
     }
   };
 
@@ -790,9 +876,12 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </Select>
           </div>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Badge variant={twin.voice_cloning_key ? "default" : "secondary"}>
+            <Badge variant={(voiceCloningKey || voiceEngine === 'google-cloud' || voiceEngine === 'wavespeed') ? "default" : "secondary"}>
               <Volume2 className="w-3 h-3 mr-1" />
-              {twin.voice_cloning_key ? "Voice Cloned" : "No Voice"}
+              {voiceEngine === 'google-cloud' ? '🔊 Google Voice' 
+                : voiceEngine === 'wavespeed' ? '🌊 WaveSpeed Voice'
+                : voiceCloningKey ? '🎙️ Voice Cloned' 
+                : 'No Voice'}
             </Badge>
             <Badge variant="outline">
               <ImageIcon className="w-3 h-3 mr-1" />
@@ -869,17 +958,66 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </CardContent>
       </Card>
 
-      {/* Face Description (AI-generated) */}
-      {twin.face_description && (
+      {/* Face Description (AI-generated, editable & saveable) */}
+      {(twin.face_description || isEditingFaceDesc) && (
         <Card className="bg-muted/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4" />
-              AI-Analyzed Face Description
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                AI-Analyzed Face Description
+              </CardTitle>
+              {!isEditingFaceDesc && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setEditedFaceDesc(twin.face_description || '');
+                    setIsEditingFaceDesc(true);
+                  }}
+                >
+                  <Edit2 className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{twin.face_description}</p>
+            {isEditingFaceDesc ? (
+              <div className="space-y-3">
+                <Textarea
+                  value={editedFaceDesc}
+                  onChange={(e) => setEditedFaceDesc(e.target.value)}
+                  placeholder="Describe the face features for consistent image generation..."
+                  rows={4}
+                  className="resize-none"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={saveFaceDescription}
+                    disabled={isSavingFaceDesc}
+                  >
+                    {isSavingFaceDesc ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-1" />
+                    )}
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsEditingFaceDesc(false)}
+                  >
+                    <XCircle className="w-4 h-4 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{twin.face_description}</p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1003,9 +1141,40 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           )}
 
           {voiceEngine === 'wavespeed' && (
-            <p className="text-xs text-muted-foreground">
-              WaveSpeed will auto-select a voice based on gender. No additional setup needed.
-            </p>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                WaveSpeed MiniMax HD voice — generate a sample to preview.
+              </p>
+              <Button
+                onClick={generateWavespeedVoice}
+                disabled={isGeneratingWavespeedVoice}
+                variant="outline"
+                className="w-full"
+              >
+                {isGeneratingWavespeedVoice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating Voice...
+                  </>
+                ) : voiceCloningKey && voiceEngine === 'wavespeed' ? (
+                  <>
+                    <Volume2 className="w-4 h-4 mr-2" />
+                    Regenerate WaveSpeed Voice
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate WaveSpeed Voice
+                  </>
+                )}
+              </Button>
+              {voiceCloningKey && voiceEngine === 'wavespeed' && (
+                <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
+                  <Check className="w-3 h-3 mr-1" />
+                  WaveSpeed Voice Ready
+                </Badge>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
