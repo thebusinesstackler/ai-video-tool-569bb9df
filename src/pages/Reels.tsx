@@ -4656,6 +4656,18 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                          </button>
                        ))}
                      </div>
+                     {videoModel === 'wan-2.6-i2v' && (
+                       <div className="space-y-2">
+                         <Label>Clip Duration</Label>
+                         <div className="flex gap-2">
+                           {([5, 10, 15] as const).map((d) => (
+                             <button key={d} type="button" onClick={() => setWan26Duration(d)} className={`flex-1 py-2 rounded-md border text-sm font-medium transition-colors ${wan26Duration === d ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
+                               {d}s
+                             </button>
+                           ))}
+                         </div>
+                       </div>
+                     )}
                    </div>
 
                   {/* Lip Sync Status Indicator */}
