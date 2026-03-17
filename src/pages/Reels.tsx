@@ -1132,12 +1132,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
   }, [user]);
 
   // Refresh saved reels when background jobs complete
+  const completedJobCount = activeJobs.filter(j => j.status === 'complete').length;
   useEffect(() => {
-    const completedJobs = activeJobs.filter(j => j.status === 'complete');
-    if (completedJobs.length > 0 && user) {
+    if (completedJobCount > 0 && user) {
       fetchSavedReels();
     }
-  }, [activeJobs.filter(j => j.status === 'complete').length, user]);
+  }, [completedJobCount, user]);
 
   const fetchSavedReels = async (retryCount = 0) => {
     if (!user) return;
