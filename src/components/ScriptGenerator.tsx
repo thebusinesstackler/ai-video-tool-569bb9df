@@ -287,9 +287,20 @@ Return ONLY valid JSON:
       setGeneratedScript(detailedScriptContent);
       setCleanScript(cleanScriptContent);
       
-      // Parse clean script into scene previews
-      const scenes = parseScriptIntoScenes(cleanScriptContent);
-      setScenePreview(scenes);
+      // Use structured scenes from edge function if available, else fall back to parsing
+      if (Array.isArray(data.scenes) && data.scenes.length > 0) {
+        const structuredScenes = data.scenes.map((s: any, idx: number) => ({
+          id: `scene-${idx}`,
+          sceneNumber: idx + 1,
+          narration: s.narration || '',
+          visualDescription: s.visualDescription || '',
+          description: s.visualDescription || '', // backward compat
+        }));
+        setScenePreview(structuredScenes);
+      } else {
+        const scenes = parseScriptIntoScenes(cleanScriptContent);
+        setScenePreview(scenes);
+      }
 
       // Save script to database
       const { data: { user } } = await supabase.auth.getUser();
