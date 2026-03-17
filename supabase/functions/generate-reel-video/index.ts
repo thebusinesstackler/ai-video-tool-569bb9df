@@ -205,9 +205,9 @@ REQUIREMENTS:
     const basePrompt = scene.visualDescription || 'Modern social media intro background';
     return `${basePrompt}. Topic: ${topic}. 
 Opening shot for a reel about "${topic}".
-Premium cinematic intro with rich colors, sophisticated lighting, volumetric atmosphere.
-Vertical 9:16 format, abstract or thematic background.
-NO text, captions, subtitles, titles, watermarks, or written words. Pure visual design only.`;
+Clean cinematic intro with rich colors, sophisticated lighting.
+Vertical 9:16 portrait format.
+ABSOLUTELY NO TEXT of any kind. No words, no letters, no titles, no captions, no watermarks, no typography. Pure visual imagery only. If you generate any text at all, the image is wrong.`;
   }
   
   if (scene.isOutro) {
@@ -372,7 +372,8 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'google/gemini-3-pro-image-preview',
             messages,
-            modalities: ['image', 'text']
+            modalities: ['image', 'text'],
+            image_generation_config: { aspect_ratio: '9:16' }
           }),
         });
 

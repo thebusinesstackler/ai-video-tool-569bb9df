@@ -770,17 +770,18 @@ function getDefaultOutroText(templateId: string, topic?: string): string {
 function getIntroVisualDescription(templateId: string, topic: string, baseStyle: string): string {
   const commonStyle = baseStyle || 'Cinematic 4K, vibrant saturated colors, professional studio lighting';
   
+  // ALL intros must be pure visual imagery — NO text, typography, or written words
   switch (templateId) {
     case 'hook-text':
-      return `Style: ${commonStyle}. Subject: Bold attention-grabbing text graphic with kinetic typography, dramatic reveal animation. Camera: close-up, front facing, eye level. Lighting: High contrast dramatic lighting with rim light. Background: Dark gradient with subtle animated particles, depth blur. Colors: Electric purple, hot pink, cyan accents on dark background. Mood: Urgent, exciting, must-watch energy. Keywords: social media intro, vertical 9:16, motion graphics, trending TikTok style, no faces, abstract dynamic background.`;
+      return `Style: ${commonStyle}. Abstract cinematic opening. Dramatic light rays cutting through darkness, deep rich colors, electric purple and cyan gradients. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY. Pure abstract visual only.`;
     case 'topic-title':
-      return `Style: ${commonStyle}. Subject: Elegant title card with topic "${topic}" in premium typography, subtle animation. Camera: close-up, centered frame, slight zoom in motion. Lighting: Soft diffused professional lighting. Background: Clean gradient backdrop with subtle texture, bokeh elements. Colors: Sophisticated palette matching brand, gold accents. Mood: Premium, trustworthy, professional. Keywords: title slide, social media, vertical 9:16, clean design, no faces, modern minimalist.`;
+      return `Style: ${commonStyle}. Elegant cinematic establishing shot related to "${topic}". Soft professional lighting, clean sophisticated composition. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
     case 'question-hook':
-      return `Style: ${commonStyle}. Subject: Intriguing visual with floating question marks, puzzle elements, mystery atmosphere. Camera: medium shot, slightly low angle, dynamic. Lighting: Moody atmospheric with highlights. Background: Abstract curious environment, thought-provoking imagery. Colors: Deep blues, purples, with golden highlights. Mood: Mysterious, thought-provoking, curiosity-inducing. Keywords: question hook, vertical 9:16, intrigue, abstract, no faces, conceptual art.`;
+      return `Style: ${commonStyle}. Mysterious atmospheric scene, moody lighting with highlights, deep blues and purples with golden accents. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
     case 'countdown':
-      return `Style: ${commonStyle}. Subject: Energetic countdown "3" with bold numbers, dynamic motion trails, excitement building. Camera: close-up, dynamic angle with movement. Lighting: High energy, multiple colored lights. Background: Dark with neon accents, particle effects, energy burst. Colors: Neon green, electric blue, hot white highlights. Mood: Energetic, anticipation, excitement. Keywords: countdown, hype intro, vertical 9:16, dynamic, no faces, motion energy.`;
+      return `Style: ${commonStyle}. Energetic dynamic abstract scene, vibrant neon colors, high energy lighting. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO NUMBERS, NO LETTERS, NO TYPOGRAPHY.`;
     default:
-      return `Style: ${commonStyle}. Subject: Engaging intro graphic, bold typography, dynamic elements. Camera: close-up, eye level, professional framing. Lighting: Studio quality. Background: Modern gradient with depth. Colors: Vibrant, attention-grabbing. Mood: Professional, engaging. Keywords: social media intro, vertical 9:16, no faces.`;
+      return `Style: ${commonStyle}. Professional cinematic opening, modern clean composition, vibrant colors. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
   }
 }
 
@@ -789,12 +790,11 @@ function getOutroVisualDescription(templateId: string, baseStyle: string, topic?
   const charDesc = characterDescription || 'Confident professional person';
   const topicContext = topic ? `related to "${topic}"` : '';
   
-  const baseOutro = `Style: ${commonStyle}. Shot on RED V-RAPTOR, 85mm lens, f/2.0 depth of field.
+  const baseOutro = `Style: ${commonStyle}.
 SUBJECT: ${charDesc} in a confident, inviting closing pose ${topicContext}. Natural relaxed expression, slight knowing smile, direct eye contact with camera.
-LIGHTING: Warm golden hour key light, soft fill, subtle rim light creating depth and warmth.
-COMPOSITION: Rule of thirds, medium shot, clean bokeh background matching the reel's visual style.
-ATMOSPHERE: Warm, inviting, trustworthy energy. Professional color grading with warm amber tones.
-CRITICAL: No text, no captions, no subtitles, no watermarks. CLOSED MOUTH. Vertical 9:16.`;
+LIGHTING: Warm golden hour key light, soft fill.
+COMPOSITION: Medium shot, clean blurred background.
+CRITICAL: No text, no captions, no subtitles, no watermarks. CLOSED MOUTH. Vertical 9:16 portrait format.`;
 
   switch (templateId) {
     case 'cta-follow':
