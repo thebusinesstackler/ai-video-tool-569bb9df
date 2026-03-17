@@ -691,18 +691,10 @@ const Reels = () => {
       if (data?.description) {
         setCharacterDescription(data.description);
         
-        // Auto-detect gender from the analysis and set matching voice
+        // Gender detection for display only — voice comes from AI Twin
         const descLower = data.description.toLowerCase();
         const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'sister'];
-        const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'brother'];
         const isFemale = femaleKeywords.some(k => descLower.includes(k));
-        const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
-        
-        if (isFemale) {
-          setSelectedVoice('English_compelling_lady1');
-        } else if (isMale) {
-          setSelectedVoice('English_magnetic_voiced_man');
-        }
         
         toast({
           title: "Character Detected",
