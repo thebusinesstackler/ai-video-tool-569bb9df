@@ -1063,9 +1063,40 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
           )}
 
           {voiceEngine === 'wavespeed' && (
-            <p className="text-xs text-muted-foreground">
-              WaveSpeed will auto-select a voice based on gender. No additional setup needed.
-            </p>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                WaveSpeed MiniMax HD voice — generate a sample to preview.
+              </p>
+              <Button
+                onClick={generateWavespeedVoice}
+                disabled={isGeneratingWavespeedVoice}
+                variant="outline"
+                className="w-full"
+              >
+                {isGeneratingWavespeedVoice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating Voice...
+                  </>
+                ) : voiceCloningKey && voiceEngine === 'wavespeed' ? (
+                  <>
+                    <Volume2 className="w-4 h-4 mr-2" />
+                    Regenerate WaveSpeed Voice
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate WaveSpeed Voice
+                  </>
+                )}
+              </Button>
+              {voiceCloningKey && voiceEngine === 'wavespeed' && (
+                <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
+                  <Check className="w-3 h-3 mr-1" />
+                  WaveSpeed Voice Ready
+                </Badge>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
