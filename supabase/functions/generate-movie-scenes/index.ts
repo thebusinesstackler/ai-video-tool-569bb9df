@@ -166,11 +166,34 @@ AVAILABLE MOODS (pick the most fitting):
 - "nostalgic": Memory, past, bittersweet - Suggested music: Vintage sounds, music box, warm analog tones
 - "inspiring": Hope, motivation, uplift - Suggested music: Rising crescendo, major key, building energy
 
-DIALOGUE FORMAT - CRITICAL:
-- Dialogue MUST be a CONVERSATION ARRAY, not a single string
-- Each scene should have back-and-forth dialogue between characters
-- Use the story bible's sceneDialogueMap to assign who speaks
-- Different characters MUST have distinct speaking styles
+DIALOGUE FORMAT — CRITICAL:
+- Dialogue MUST be a CONVERSATION ARRAY with clearly labeled speakers
+- Every single line must have the exact character name in the "character" field
+- Each scene should have natural back-and-forth between characters
+- Different characters MUST sound completely different — distinct vocabulary, rhythm, personality
+
+DIALOGUE WRITING RULES (MANDATORY):
+1. EVERY LINE IS LABELED: {"character": "ExactName", "line": "Their words", "emotion": "delivery direction"}
+2. NO EXCESSIVE ELLIPSES: Maximum ONE "..." per entire scene. Use periods and commas for pacing.
+   - WRONG: "I just... I don't know... maybe we should..."
+   - RIGHT: "I don't know. Maybe we should go."
+3. SOUND LIKE REAL ACTORS: Write how real people talk in emotional moments — not robotic AI text.
+4. DISTINCT VOICES: A tough character sounds different from a nervous one. Match personality to dialogue style.
+5. EMOTIONAL DIRECTION: Include "emotion" field with specific, actable direction: "angry but controlled", "quiet devastation", "sarcastic", "barely holding it together"
+6. NO STAGE DIRECTIONS in the "line" field — no (sighs), [pauses], *whispers*. The "emotion" field handles delivery.
+7. NATURAL RHYTHM: Mix short punchy lines ("No. Not anymore.") with longer flowing ones.
+8. SUBTEXT: Characters hint at deeper meanings, don't over-explain everything.
+9. EVERY LINE MATTERS: No filler. Each line reveals character, builds tension, or moves the story.
+10. CONVERSATIONAL FLOW: Characters react to each other, interrupt, push back. Not random lines stacked together.
+
+DIALOGUE EXAMPLE (follow this quality):
+[
+  {"character": "Marcus", "line": "You should have told me the truth.", "emotion": "low, frustrated"},
+  {"character": "Ava", "line": "I was trying to protect you.", "emotion": "hurt, defensive"},
+  {"character": "Marcus", "line": "No. You were protecting yourself.", "emotion": "sharper now"},
+  {"character": "Ava", "line": "That's not fair.", "emotion": "voice shaking"},
+  {"character": "Marcus", "line": "Maybe not. But it's true.", "emotion": "quiet, disappointed"}
+]
 
 CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown, no code blocks):
 [
@@ -184,7 +207,7 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
     "dialogue": [
       { "character": "Maria", "line": "We need to find the key before sunset.", "emotion": "urgent" },
       { "character": "James", "line": "Are you sure this is the right place?", "emotion": "doubtful" },
-      { "character": "Maria", "line": "Trust me. I know what I'm doing.", "emotion": "confident" }
+      { "character": "Maria", "line": "Trust me. I know what I'm doing.", "emotion": "confident, steely" }
     ],
     "narration": "Optional scene narration or voiceover...",
     "startFrame": {
@@ -209,10 +232,10 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
 ]
 
 IMPORTANT FORMATTING RULES:
-- Dialogue MUST be an array of conversation turns, not a single string
-- Each dialogue entry needs: character (name), line (what they say), emotion (how they feel)
+- Dialogue MUST be an array of conversation turns with character, line, and emotion fields
+- Character names in dialogue MUST exactly match names in charactersInScene
 - Different characters should sound different based on their voiceStyle from the story bible
-- NO character speaks to themselves - scenes must have actual conversations
+- NO character speaks to themselves — scenes must have actual conversations
 - Make scenes 60-120 seconds when narration + dialogue are spoken
 - ALWAYS include startFrame, endFrame, transitionAction, and transitionCameraMovement
 - The END frame of scene N should visually connect to the START frame of scene N+1
