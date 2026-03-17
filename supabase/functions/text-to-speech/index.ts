@@ -148,7 +148,7 @@ async function generateWaveSpeedTTS(
         voice_id: voiceId,
         speed,
         volume: 1,
-        pitch: 0,
+        pitch,
         emotion,
         english_normalization: true
       }),
