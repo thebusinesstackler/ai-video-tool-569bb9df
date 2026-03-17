@@ -2677,7 +2677,7 @@ const MovieSceneCreator = () => {
       }
       
       // Determine voice to use based on story bible character assignments or selected twins
-      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string } | null = null;
+      let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string; gender?: string; voiceEngine?: string; googleVoiceId?: string } | null = null;
       
       // Check if we have a story bible with voice assignments
       if (storyBible?.characters) {
@@ -2689,12 +2689,15 @@ const MovieSceneCreator = () => {
           );
           if (assignedChar?.assignedTwinId) {
             const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
-            if (assignedTwin?.voice_cloning_key) {
-              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+            if (assignedTwin) {
+              const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
               voiceToUse = { 
                 name: assignedTwin.name,
-                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
-                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+                speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                gender: assignedTwin.gender || undefined,
+                voiceEngine: assignedTwin.voice_engine || undefined,
+                googleVoiceId: assignedTwin.google_voice_id || undefined,
               };
             }
           }
@@ -2703,45 +2706,66 @@ const MovieSceneCreator = () => {
           const protagonist = storyBible.characters.find(c => c.role === 'protagonist');
           if (protagonist?.assignedTwinId) {
             const assignedTwin = aiTwins.find(t => t.id === protagonist.assignedTwinId);
-            if (assignedTwin?.voice_cloning_key) {
-              const isSpeechify = isSpeechifyVoiceId(assignedTwin.voice_cloning_key);
+            if (assignedTwin) {
+              const isSpeechify = assignedTwin.voice_cloning_key ? isSpeechifyVoiceId(assignedTwin.voice_cloning_key) : false;
               voiceToUse = { 
                 name: assignedTwin.name,
-                speechifyVoiceId: isSpeechify ? assignedTwin.voice_cloning_key : undefined,
-                voiceCloningKey: !isSpeechify ? assignedTwin.voice_cloning_key : undefined
+                speechifyVoiceId: (assignedTwin.voice_cloning_key && isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                voiceCloningKey: (assignedTwin.voice_cloning_key && !isSpeechify) ? assignedTwin.voice_cloning_key : undefined,
+                gender: assignedTwin.gender || undefined,
+                voiceEngine: assignedTwin.voice_engine || undefined,
+                googleVoiceId: assignedTwin.google_voice_id || undefined,
               };
             }
           }
         }
       }
       
-      // Fallback to selected twins if no story bible assignment
-      if (!voiceToUse) {
-        const twinWithVoice = selectedTwins.find(t => t.voice_cloning_key);
-        if (twinWithVoice?.voice_cloning_key) {
-          const isSpeechify = isSpeechifyVoiceId(twinWithVoice.voice_cloning_key);
-          voiceToUse = { 
-            name: twinWithVoice.name, 
-            speechifyVoiceId: isSpeechify ? twinWithVoice.voice_cloning_key : undefined,
-            voiceCloningKey: !isSpeechify ? twinWithVoice.voice_cloning_key : undefined
-          };
-        }
+      // Fallback to first selected twin
+      if (!voiceToUse && selectedTwins.length > 0) {
+        const twin = selectedTwins[0];
+        const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
+        voiceToUse = { 
+          name: twin.name, 
+          speechifyVoiceId: (twin.voice_cloning_key && isSpeechify) ? twin.voice_cloning_key : undefined,
+          voiceCloningKey: (twin.voice_cloning_key && !isSpeechify) ? twin.voice_cloning_key : undefined,
+          gender: twin.gender || undefined,
+          voiceEngine: twin.voice_engine || undefined,
+          googleVoiceId: twin.google_voice_id || undefined,
+        };
       }
       
       toast({
-        title: voiceToUse ? "Generating Cloned Voice Audio" : "Generating Audio",
+        title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
         description: voiceToUse 
-          ? `Creating voiceover using ${voiceToUse.name}'s cloned voice...`
+          ? `Creating voiceover using ${voiceToUse.name}'s voice...`
           : "Creating voiceover for the scene...",
       });
 
-      console.log('TTS request with voice:', voiceToUse);
+      // Build TTS params based on voice configuration
+      let ttsVoiceParams: any = {};
+      if (voiceToUse?.speechifyVoiceId || voiceToUse?.voiceCloningKey) {
+        ttsVoiceParams = {
+          speechifyVoiceId: voiceToUse.speechifyVoiceId,
+          voiceCloningKey: voiceToUse.voiceCloningKey,
+        };
+      } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
+        ttsVoiceParams = {
+          voiceEngine: 'google-cloud',
+          googleVoiceId: voiceToUse.googleVoiceId,
+        };
+      } else {
+        ttsVoiceParams = {
+          voice: 'ai-auto',
+          gender: voiceToUse?.gender || 'male',
+        };
+      }
+
+      console.log('TTS request with voice:', voiceToUse, ttsVoiceParams);
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
         body: { 
           text: textForAudio, 
-          voice: 'en-US-Journey-D',
-          speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
-          voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
+          ...ttsVoiceParams,
         }
       });
 

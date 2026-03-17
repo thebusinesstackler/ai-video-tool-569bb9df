@@ -16,173 +16,174 @@ interface VoiceAssignment {
   voiceCloningKey?: string;
   speechifyVoiceId?: string;
   defaultVoice?: string;
+  gender?: string;
+  voiceEngine?: string;
+  googleVoiceId?: string;
 }
 
 interface MultiVoiceTTSRequest {
   dialogue: DialogueLine[];
   voiceAssignments: VoiceAssignment[];
-  defaultVoice?: string;
 }
 
-// Google Cloud TTS with cloned voice
-async function generateClonedVoiceTTS(
+// WaveSpeed MiniMax voices by gender
+const MALE_WAVESPEED_VOICES = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man', 'Determined_Man', 'Elegant_Man'];
+const FEMALE_WAVESPEED_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl', 'Lively_Girl', 'Lovely_Girl'];
+
+// ── WaveSpeed MiniMax TTS ──────────────────────────────────────────
+async function pollWaveSpeedResult(taskId: string, apiKey: string): Promise<string | null> {
+  const timeout = 90_000;
+  const startTime = Date.now();
+  for (let i = 0; i < 60; i++) {
+    if (Date.now() - startTime > timeout) return null;
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 10_000);
+      const res = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        signal: controller.signal,
+      });
+      clearTimeout(t);
+      if (!res.ok) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      const data = await res.json();
+      if (data.code === 200 && data.data) {
+        if (data.data.status === 'completed' || data.data.status === 'succeeded') {
+          return data.data.outputs?.[0] || null;
+        }
+        if (data.data.status === 'failed') return null;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    } catch {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  return null;
+}
+
+async function generateWaveSpeedTTS(
   text: string,
   apiKey: string,
-  voiceCloningKey: string
+  voiceId: string,
 ): Promise<Uint8Array | null> {
   try {
-    console.log('Generating cloned voice TTS for:', text.substring(0, 50));
+    console.log(`WaveSpeed MiniMax TTS: voice=${voiceId}, text="${text.substring(0, 50)}..."`);
+    const res = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text.length > 10000 ? text.substring(0, 10000) : text,
+        voice_id: voiceId,
+        speed: 1,
+        volume: 1,
+        pitch: 0,
+        emotion: 'neutral',
+        english_normalization: true,
+      }),
+    });
+    if (!res.ok) { console.error('WaveSpeed TTS error:', res.status); return null; }
+    const data = await res.json();
+    if (data.code !== 200 || !data.data?.id) return null;
 
-    const response = await fetch(`https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`, {
+    const audioUrl = await pollWaveSpeedResult(data.data.id, apiKey);
+    if (!audioUrl) return null;
+
+    const audioRes = await fetch(audioUrl);
+    if (!audioRes.ok) return null;
+    return new Uint8Array(await audioRes.arrayBuffer());
+  } catch (e) {
+    console.error('WaveSpeed TTS error:', e);
+    return null;
+  }
+}
+
+// ── Google Cloud TTS (cloned voice) ────────────────────────────────
+async function generateClonedVoiceTTS(
+  text: string, apiKey: string, voiceCloningKey: string
+): Promise<Uint8Array | null> {
+  try {
+    const res = await fetch(`https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
-        voice: {
-          languageCode: 'en-US',
-          voiceClone: { voiceCloningKey }
-        },
+        input: { text: text.substring(0, 5000) },
+        voice: { languageCode: 'en-US', voiceClone: { voiceCloningKey } },
         audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 },
       }),
     });
-
-    if (!response.ok) {
-      console.error('Google cloned TTS error:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    if (data.audioContent) {
-      const binaryString = atob(data.audioContent);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return bytes;
-    }
-    return null;
-  } catch (error) {
-    console.error('Cloned voice TTS error:', error);
-    return null;
-  }
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.audioContent) return null;
+    const bin = atob(data.audioContent);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  } catch { return null; }
 }
 
-// Speechify TTS
-async function generateSpeechifyTTS(
-  text: string,
-  apiKey: string,
-  voiceId: string
-): Promise<Uint8Array | null> {
-  try {
-    console.log('Generating Speechify TTS for:', text.substring(0, 50));
-
-    const response = await fetch('https://api.sws.speechify.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        input: text.length > 5000 ? text.substring(0, 5000) : text,
-        voice_id: voiceId,
-        audio_format: 'mp3'
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('Speechify TTS error:', response.status);
-      return null;
-    }
-
-    const contentType = response.headers.get('content-type') || '';
-    
-    if (contentType.includes('application/json')) {
-      const jsonResponse = await response.json();
-      if (jsonResponse.audio_data) {
-        const binaryString = atob(jsonResponse.audio_data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        return bytes;
-      }
-    } else {
-      const audioBuffer = await response.arrayBuffer();
-      return new Uint8Array(audioBuffer);
-    }
-    return null;
-  } catch (error) {
-    console.error('Speechify TTS error:', error);
-    return null;
-  }
-}
-
-// Google Cloud TTS with standard voice
+// ── Google Cloud TTS (standard voice) ──────────────────────────────
 async function generateGoogleTTS(
-  text: string,
-  apiKey: string,
-  voiceName: string = 'en-US-Journey-D'
+  text: string, apiKey: string, voiceName: string
 ): Promise<Uint8Array | null> {
   try {
-    console.log('Generating Google TTS for:', text.substring(0, 50));
-
-    const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
+    const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+        input: { text: text.substring(0, 5000) },
         voice: {
           languageCode: 'en-US',
           name: voiceName,
-          ssmlGender: voiceName.includes('-F') ? 'FEMALE' : 'MALE'
+          ssmlGender: voiceName.includes('-F') || voiceName.includes('-O') || voiceName.includes('-C') ? 'FEMALE' : 'MALE',
         },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          speakingRate: 1.0,
-          pitch: 0,
-          effectsProfileId: ['headphone-class-device']
-        }
+        audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0, effectsProfileId: ['headphone-class-device'] },
       }),
     });
-
-    if (!response.ok) {
-      console.error('Google TTS error:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    if (data.audioContent) {
-      const binaryString = atob(data.audioContent);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return bytes;
-    }
-    return null;
-  } catch (error) {
-    console.error('Google TTS error:', error);
-    return null;
-  }
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.audioContent) return null;
+    const bin = atob(data.audioContent);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  } catch { return null; }
 }
 
-// Generate a small silence buffer (100ms) between dialogue lines
+// ── Speechify TTS ──────────────────────────────────────────────────
+async function generateSpeechifyTTS(
+  text: string, apiKey: string, voiceId: string
+): Promise<Uint8Array | null> {
+  try {
+    const res = await fetch('https://api.sws.speechify.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: text.substring(0, 5000), voice_id: voiceId, audio_format: 'mp3' }),
+    });
+    if (!res.ok) return null;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const json = await res.json();
+      if (!json.audio_data) return null;
+      const bin = atob(json.audio_data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    } else {
+      return new Uint8Array(await res.arrayBuffer());
+    }
+  } catch { return null; }
+}
+
+// ── Silence generator ──────────────────────────────────────────────
 function generateSilence(durationMs: number = 300): Uint8Array {
-  // Simple MP3 silence frame - this is a minimal valid MP3 frame
-  // For production, you might want to use a proper silence audio file
-  const silenceFrameCount = Math.ceil(durationMs / 26); // ~26ms per MP3 frame
-  const silenceFrame = new Uint8Array([
+  const frameCount = Math.ceil(durationMs / 26);
+  const frame = new Uint8Array([
     0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   ]);
-  
-  const totalLength = silenceFrame.length * silenceFrameCount;
-  const result = new Uint8Array(totalLength);
-  for (let i = 0; i < silenceFrameCount; i++) {
-    result.set(silenceFrame, i * silenceFrame.length);
-  }
+  const result = new Uint8Array(frame.length * frameCount);
+  for (let i = 0; i < frameCount; i++) result.set(frame, i * frame.length);
   return result;
 }
 
@@ -192,131 +193,122 @@ serve(async (req) => {
   }
 
   try {
-    const { dialogue, voiceAssignments, defaultVoice = 'en-US-Journey-D' } = await req.json() as MultiVoiceTTSRequest;
+    const { dialogue, voiceAssignments } = await req.json() as MultiVoiceTTSRequest;
 
     if (!dialogue || !Array.isArray(dialogue) || dialogue.length === 0) {
       throw new Error('Dialogue array is required');
     }
 
-    console.log(`Processing ${dialogue.length} dialogue lines with ${voiceAssignments?.length || 0} voice assignments`);
+    console.log(`Processing ${dialogue.length} lines with ${voiceAssignments?.length || 0} voice assignments`);
 
+    const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
 
-    if (!googleApiKey) {
-      throw new Error('TTS API key not configured');
-    }
-
-    // Create a map of character -> voice assignment
+    // Build character → voice assignment map
     const voiceMap = new Map<string, VoiceAssignment>();
     if (voiceAssignments) {
-      for (const assignment of voiceAssignments) {
-        voiceMap.set(assignment.characterName.toLowerCase(), assignment);
-      }
+      for (const a of voiceAssignments) voiceMap.set(a.characterName.toLowerCase(), a);
     }
 
-    // Alternate voices for characters without assignments
-    const alternateVoices = ['en-US-Journey-D', 'en-US-Journey-F', 'en-US-Neural2-D', 'en-US-Neural2-F'];
-    const usedDefaultVoices = new Map<string, string>();
-    let voiceIndex = 0;
+    // Track which WaveSpeed voice each unassigned character gets (deterministic per-character)
+    const assignedWaveSpeedVoices = new Map<string, string>();
+    let maleIdx = 0;
+    let femaleIdx = 0;
 
-    // Generate audio for each dialogue line
+    function pickWaveSpeedVoice(charLower: string, gender: string): string {
+      const existing = assignedWaveSpeedVoices.get(charLower);
+      if (existing) return existing;
+      let voice: string;
+      if (gender === 'female') {
+        voice = FEMALE_WAVESPEED_VOICES[femaleIdx % FEMALE_WAVESPEED_VOICES.length];
+        femaleIdx++;
+      } else {
+        voice = MALE_WAVESPEED_VOICES[maleIdx % MALE_WAVESPEED_VOICES.length];
+        maleIdx++;
+      }
+      assignedWaveSpeedVoices.set(charLower, voice);
+      console.log(`Assigned WaveSpeed voice "${voice}" to character "${charLower}" (gender: ${gender})`);
+      return voice;
+    }
+
     const audioBuffers: Uint8Array[] = [];
-    const silence = generateSilence(400); // 400ms pause between speakers
+    const silence = generateSilence(400);
 
     for (let i = 0; i < dialogue.length; i++) {
       const line = dialogue[i];
-      const characterLower = line.character.toLowerCase();
-      
-      // Clean the line - remove character name prefixes and stage directions
-      let cleanedLine = line.line
-        .replace(/\([^)]*\)/g, '') // Remove parentheses
-        .replace(/\[[^\]]*\]/g, '') // Remove brackets
-        .replace(/\*[^*]*\*/g, '') // Remove asterisks
-        .replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '') // Remove character prefix
-        .trim();
+      const charLower = line.character.toLowerCase();
 
-      if (!cleanedLine) continue;
+      // Clean text
+      let text = line.line
+        .replace(/\([^)]*\)/g, '')
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/\*[^*]*\*/g, '')
+        .replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '')
+        .trim();
+      if (!text) continue;
 
       let audioData: Uint8Array | null = null;
+      const assignment = voiceMap.get(charLower);
 
-      // Try to find voice assignment for this character
-      const voiceAssignment = voiceMap.get(characterLower);
-
-      if (voiceAssignment) {
-        // Try Speechify cloned voice first
-        if (voiceAssignment.speechifyVoiceId && speechifyApiKey) {
-          audioData = await generateSpeechifyTTS(cleanedLine, speechifyApiKey, voiceAssignment.speechifyVoiceId);
+      if (assignment) {
+        // Priority 1: Speechify cloned voice
+        if (assignment.speechifyVoiceId && speechifyApiKey) {
+          audioData = await generateSpeechifyTTS(text, speechifyApiKey, assignment.speechifyVoiceId);
         }
-        
-        // Try Google cloned voice
-        if (!audioData && voiceAssignment.voiceCloningKey && googleApiKey) {
-          audioData = await generateClonedVoiceTTS(cleanedLine, googleApiKey, voiceAssignment.voiceCloningKey);
+        // Priority 2: Google cloned voice
+        if (!audioData && assignment.voiceCloningKey && googleApiKey) {
+          audioData = await generateClonedVoiceTTS(text, googleApiKey, assignment.voiceCloningKey);
         }
-        
-        // Try default voice for this assignment
-        if (!audioData && voiceAssignment.defaultVoice && googleApiKey) {
-          audioData = await generateGoogleTTS(cleanedLine, googleApiKey, voiceAssignment.defaultVoice);
+        // Priority 3: Google Cloud TTS engine with specific voice
+        if (!audioData && assignment.voiceEngine === 'google-cloud' && assignment.googleVoiceId && googleApiKey) {
+          audioData = await generateGoogleTTS(text, googleApiKey, assignment.googleVoiceId);
+        }
+        // Priority 4: WaveSpeed gender-appropriate voice
+        if (!audioData && waveSpeedApiKey) {
+          const wsVoice = pickWaveSpeedVoice(charLower, assignment.gender || 'male');
+          audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
         }
       }
 
-      // Fallback: assign alternating voices to different characters
+      // No assignment at all → WaveSpeed with default male
+      if (!audioData && waveSpeedApiKey) {
+        const wsVoice = pickWaveSpeedVoice(charLower, 'male');
+        audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
+      }
+
+      // Last resort: Google standard voice
       if (!audioData && googleApiKey) {
-        let voiceToUse = usedDefaultVoices.get(characterLower);
-        if (!voiceToUse) {
-          voiceToUse = alternateVoices[voiceIndex % alternateVoices.length];
-          usedDefaultVoices.set(characterLower, voiceToUse);
-          voiceIndex++;
-          console.log(`Assigned voice ${voiceToUse} to character ${line.character}`);
-        }
-        audioData = await generateGoogleTTS(cleanedLine, googleApiKey, voiceToUse);
+        audioData = await generateGoogleTTS(text, googleApiKey, 'en-US-Journey-D');
       }
 
       if (audioData) {
         audioBuffers.push(audioData);
-        
-        // Add silence between speakers (except after last line)
-        if (i < dialogue.length - 1) {
-          audioBuffers.push(silence);
-        }
-        
-        console.log(`Generated audio for ${line.character}: ${cleanedLine.substring(0, 30)}...`);
+        if (i < dialogue.length - 1) audioBuffers.push(silence);
+        console.log(`✓ Audio for ${line.character}: "${text.substring(0, 30)}..."`);
       } else {
-        console.error(`Failed to generate audio for ${line.character}`);
+        console.error(`✗ Failed audio for ${line.character}`);
       }
     }
 
-    if (audioBuffers.length === 0) {
-      throw new Error('Failed to generate any audio');
-    }
+    if (audioBuffers.length === 0) throw new Error('Failed to generate any audio');
 
-    // Concatenate all audio buffers
-    const totalLength = audioBuffers.reduce((acc, buf) => acc + buf.length, 0);
-    const mergedAudio = new Uint8Array(totalLength);
+    // Merge buffers
+    const totalLength = audioBuffers.reduce((a, b) => a + b.length, 0);
+    const merged = new Uint8Array(totalLength);
     let offset = 0;
+    for (const buf of audioBuffers) { merged.set(buf, offset); offset += buf.length; }
 
-    for (const buffer of audioBuffers) {
-      mergedAudio.set(buffer, offset);
-      offset += buffer.length;
-    }
-
-    // Convert to base64
+    // Base64 encode
     let binary = '';
-    const chunkSize = 32768;
-    for (let i = 0; i < mergedAudio.length; i += chunkSize) {
-      const chunk = mergedAudio.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    const chunk = 32768;
+    for (let i = 0; i < merged.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, Array.from(merged.subarray(i, i + chunk)));
     }
-    const base64Audio = btoa(binary);
-
-    console.log(`Generated multi-voice audio, total size: ${mergedAudio.length}, base64 length: ${base64Audio.length}`);
+    const base64 = btoa(binary);
 
     return new Response(
-      JSON.stringify({ 
-        audioContent: base64Audio,
-        audioUrl: `data:audio/mp3;base64,${base64Audio}`,
-        lineCount: dialogue.length
-      }),
+      JSON.stringify({ audioContent: base64, audioUrl: `data:audio/mp3;base64,${base64}`, lineCount: dialogue.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
