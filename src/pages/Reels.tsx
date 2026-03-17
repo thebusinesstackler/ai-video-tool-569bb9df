@@ -1290,7 +1290,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setTopic(draft.topic);
     setSelectedSceneCount(ds.selectedSceneCount || '4');
     setSelectedSceneDuration(ds.selectedSceneDuration || '12');
-    setSelectedVoice(ds.selectedVoice || 'English_Trustworth_Man');
+    setSelectedVoice(ds.selectedVoice || '');
     setSelectedVideoSize(ds.selectedVideoSize || '9:16');
     setTransitionStyle((ds.transitionStyle as any) || 'crossfade');
     setHookStyle(ds.hookStyle || 'auto');
