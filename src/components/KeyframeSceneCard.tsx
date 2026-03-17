@@ -116,6 +116,7 @@ interface KeyframeSceneCardProps {
   onGenerateEndImage: (sceneNumber: number) => void;
   onGenerateVideo: (sceneNumber: number) => void;
   onGenerateTransitionVideo?: (sceneNumber: number) => void;
+  onCheckVideoStatus?: (sceneNumber: number) => void;
   onGenerateDialogue: (sceneNumber: number) => void;
   onDescribeScene?: (sceneNumber: number, frame: 'start' | 'end') => void;
   onDescribeAndGenerate?: (sceneNumber: number, frame: 'start' | 'end') => void;
