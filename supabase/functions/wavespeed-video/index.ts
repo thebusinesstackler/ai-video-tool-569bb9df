@@ -698,6 +698,18 @@ serve(async (req) => {
         }
       }
 
+      // Update video_tasks table if status is terminal
+      if (status === 'completed' || status === 'failed') {
+        try {
+          const updateData: any = { status, updated_at: new Date().toISOString() };
+          if (videoUrl) updateData.video_url = videoUrl;
+          await dbClient.from('video_tasks').update(updateData).eq('task_id', taskId);
+          console.log('[video_tasks] Updated task status:', taskId, status);
+        } catch (updateErr) {
+          console.error('[video_tasks] Failed to update task:', updateErr);
+        }
+      }
+
       const jobStatus: WaveSpeedVideoJob = {
         taskId: taskData.id || taskId,
         status,
