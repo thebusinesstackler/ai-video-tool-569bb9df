@@ -1367,11 +1367,21 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       voiceovers: ds.voiceovers || [],
       videoUrl: null,
       videoBlobUrl: null,
-      generatedScenes: [],
+      generatedScenes: ds.generatedScenes || [],
       videoClips: [],
       previewScenes: ds.previewScenes || [],
       status: 'idle'
     });
+
+    // Reset completion state so editor view shows, not "reel ready"
+    setProgress(0);
+    setProgressStatus('');
+    setIsGenerating(false);
+    setVideoError(null);
+    
+    // Restore background music
+    if (ds.backgroundMusicUrl) setBackgroundMusicUrl(ds.backgroundMusicUrl);
+    if (ds.backgroundMusicMood) setBackgroundMusicMood(ds.backgroundMusicMood);
 
     // Restore beginner step based on progress
     if (isBeginner) {
