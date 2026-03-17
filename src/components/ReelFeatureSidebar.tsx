@@ -57,12 +57,6 @@ const MODES = [
     icon: <Video className="w-5 h-5" />
   },
   { 
-    id: 'podcast' as ReelMode, 
-    label: 'Podcast Mode', 
-    description: 'Long-form audio-focused content',
-    icon: <Mic className="w-5 h-5" />
-  },
-  { 
     id: 'ai-twin' as ReelMode, 
     label: 'AI Twin Mode', 
     description: 'Use your digital twin with cloned voice',
