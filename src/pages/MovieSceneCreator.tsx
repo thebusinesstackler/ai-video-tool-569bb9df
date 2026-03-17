@@ -40,6 +40,8 @@ interface AITwin {
   description: string | null;
   face_description: string | null;
   gender: string | null;
+  voice_engine?: string | null;
+  google_voice_id?: string | null;
 }
 
 // Helper to clean dialogue text - remove stage directions and sanitize for TTS
