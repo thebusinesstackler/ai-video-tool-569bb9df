@@ -1258,6 +1258,10 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         googleVoiceId={googleVoiceId}
         gender={twin.gender}
       />
+      <p className="text-xs text-muted-foreground flex items-center gap-1 -mt-4">
+        <Check className="w-3 h-3 text-green-500" />
+        Voice engine and settings are auto-saved
+      </p>
 
       {/* Reference Images Gallery */}
       <Card>
