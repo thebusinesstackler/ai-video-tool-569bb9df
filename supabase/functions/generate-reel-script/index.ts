@@ -396,7 +396,7 @@ Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here using ONLY commas and question marks, NO periods, NO em dashes, NO ellipses",
+    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here. Use periods and commas naturally. NO em dashes, NO ellipses. Must end with a period or question mark.",
     "visualDescription": "SUBJECT: ${characterDescription ? `${characterDescription}, ` : ''}[action relevant to narration topic, closed mouth, natural expression]. SETTING: [location and key props matching the topic]. MOOD: [lighting and color tone in 2-3 words].${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
