@@ -73,6 +73,7 @@ import { VoiceSelector, generateVoiceForCharacter } from '@/components/VoiceSele
 import { ProductSwapPanel } from '@/components/ProductSwapPanel';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScriptGenerator } from '@/components/ScriptGenerator';
