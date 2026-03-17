@@ -2165,13 +2165,26 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Resolve the best voice: always prefer AI Twin cloned voice, fallback to gender-based default
-  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string } => {
-    // Priority 1: Selected AI Twin with cloned voice
+  // Resolve the best voice: always prefer AI Twin configured voice, fallback to gender-based default
+  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string; voiceEngine?: string; googleVoiceId?: string } => {
+    // Priority 1: Selected AI Twin with a configured voice
     if (selectedTwinId) {
       const twin = aiTwins.find(t => t.id === selectedTwinId);
-      if (twin?.voice_cloning_key) {
-        return { speechifyVoiceId: twin.voice_cloning_key };
+      if (twin) {
+        const engine = twin.voice_engine || 'speechify';
+        // Google Cloud TTS voice
+        if (engine === 'google-cloud' && twin.google_voice_id) {
+          return { voiceEngine: 'google-cloud', googleVoiceId: twin.google_voice_id };
+        }
+        // WaveSpeed engine — use gender-based default voice
+        if (engine === 'wavespeed') {
+          const isFemale = twin.gender === 'female';
+          return { voice: isFemale ? 'English_compelling_lady1' : 'English_Trustworth_Man' };
+        }
+        // Speechify cloned voice
+        if (twin.voice_cloning_key) {
+          return { speechifyVoiceId: twin.voice_cloning_key };
+        }
       }
     }
     // Priority 2: Any AI Twin with a cloned voice
