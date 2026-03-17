@@ -1364,24 +1364,25 @@ const MovieSceneCreator = () => {
       estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5)));
     }
 
-    // Choose video model based on dialogue type:
-    // - Single character with image → infinitetalk (lip-sync)  
-    // - Multi-character conversation → image-to-video (wan-2.5-i2v) with audio overlay
+    // Build cinematic movement prompt from scene data
+    const movementDetails: string[] = [];
+    if (scene.transitionAction) movementDetails.push(scene.transitionAction);
+    if (scene.transitionCameraMovement) movementDetails.push(`Camera: ${scene.transitionCameraMovement}`);
+    const sceneDesc = scene.description || scene.title || '';
+    const movementPrompt = movementDetails.length > 0 ? movementDetails.join('. ') + '.' : '';
+
+    // Choose video model based on dialogue type
     let videoBody: any;
     if (isConversation) {
-      // Use image-to-video model — the scene image shows both characters
-      // Audio will be overlaid during stitching
       videoBody = {
         action: 'create',
         model: 'wan-2.5-i2v',
         imageUrls: [imageToUse],
-        prompt: `${scene.description || scene.title}. Two characters having a conversation. Cinematic quality, natural movements, professional cinematography.`,
-        duration: Math.min(estimatedDuration, 8),
+        prompt: `${sceneDesc}. Characters engaged in intense conversation, gesturing naturally, shifting weight, making eye contact, turning heads between speakers. ${movementPrompt} Cinematic quality, natural body language, professional cinematography, dynamic camera movement.`,
+        duration: Math.min(estimatedDuration, 10),
         aspectRatio: '16:9'
       };
     } else {
-      // Single character lip-sync — InfiniteTalk derives duration from audio length
-      // No duration cap needed; the model auto-syncs to the audio
       videoBody = {
         action: 'create',
         model: 'infinitetalk',
