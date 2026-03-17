@@ -26,11 +26,15 @@ interface MultiVoiceTTSRequest {
   voiceAssignments: VoiceAssignment[];
 }
 
-// WaveSpeed MiniMax voices by gender
+// Gemini voices by gender
+const MALE_GEMINI_VOICES = ['Charon', 'Fenrir', 'Puck', 'Orus', 'Enceladus', 'Iapetus', 'Umbriel', 'Algenib', 'Rasalgethi', 'Alnilam', 'Schedar'];
+const FEMALE_GEMINI_VOICES = ['Kore', 'Aoede', 'Zephyr', 'Leda', 'Despina', 'Callirrhoe', 'Autonoe', 'Erinome', 'Algieba', 'Laomedeia', 'Achernar'];
+
+// WaveSpeed MiniMax voices by gender (fallback)
 const MALE_WAVESPEED_VOICES = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man', 'Determined_Man', 'Elegant_Man'];
 const FEMALE_WAVESPEED_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl', 'Lively_Girl', 'Lovely_Girl'];
 
-// ── WaveSpeed MiniMax TTS ──────────────────────────────────────────
+// ── Polling helper ─────────────────────────────────────────────────
 async function pollWaveSpeedResult(taskId: string, apiKey: string): Promise<string | null> {
   const timeout = 90_000;
   const startTime = Date.now();
@@ -60,40 +64,122 @@ async function pollWaveSpeedResult(taskId: string, apiKey: string): Promise<stri
   return null;
 }
 
-async function generateWaveSpeedTTS(
-  text: string,
+// ── Gemini 2.5 Pro Multi-Speaker TTS ───────────────────────────────
+async function generateGeminiMultiSpeakerTTS(
+  dialogue: DialogueLine[],
+  voiceAssignments: VoiceAssignment[],
   apiKey: string,
-  voiceId: string,
 ): Promise<Uint8Array | null> {
   try {
-    console.log(`WaveSpeed MiniMax TTS: voice=${voiceId}, text="${text.substring(0, 50)}..."`);
+    // Build gender map from assignments
+    const genderMap = new Map<string, string>();
+    for (const a of voiceAssignments) {
+      genderMap.set(a.characterName.toLowerCase(), a.gender || 'male');
+    }
+
+    // Get unique characters in order of appearance
+    const seen = new Set<string>();
+    const uniqueChars: string[] = [];
+    for (const line of dialogue) {
+      const lower = line.character.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        uniqueChars.push(line.character);
+      }
+    }
+
+    // Assign Gemini voices deterministically
+    let maleIdx = 0, femaleIdx = 0;
+    const speakers: { speaker: string; voice: string }[] = [];
+    for (const char of uniqueChars) {
+      const gender = genderMap.get(char.toLowerCase()) || 'male';
+      let voice: string;
+      if (gender === 'female') {
+        voice = FEMALE_GEMINI_VOICES[femaleIdx % FEMALE_GEMINI_VOICES.length];
+        femaleIdx++;
+      } else {
+        voice = MALE_GEMINI_VOICES[maleIdx % MALE_GEMINI_VOICES.length];
+        maleIdx++;
+      }
+      speakers.push({ speaker: char, voice });
+      console.log(`Gemini voice: "${char}" → ${voice} (${gender})`);
+    }
+
+    // Format script as "Speaker: dialogue" lines
+    const scriptLines = dialogue.map(d => {
+      let text = d.line
+        .replace(/\([^)]*\)/g, '')
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/\*[^*]*\*/g, '')
+        .replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '')
+        .trim();
+      return `${d.character}: ${text}`;
+    }).filter(l => l.split(': ')[1]?.trim());
+
+    const scriptText = scriptLines.join('\n');
+    console.log(`Gemini multi-speaker TTS: ${uniqueChars.length} speakers, ${scriptLines.length} lines, ${scriptText.length} chars`);
+
+    const res = await fetch('https://api.wavespeed.ai/api/v3/google/gemini-2.5-pro/text-to-speech', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: scriptText,
+        language: 'English (United States)',
+        speakers,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Gemini TTS API error ${res.status}: ${errText}`);
+      return null;
+    }
+
+    const data = await res.json();
+    if (data.code !== 200 || !data.data?.id) {
+      console.error('Gemini TTS unexpected response:', JSON.stringify(data).substring(0, 200));
+      return null;
+    }
+
+    console.log(`Gemini TTS task created: ${data.data.id}, polling...`);
+    const audioUrl = await pollWaveSpeedResult(data.data.id, apiKey);
+    if (!audioUrl) {
+      console.error('Gemini TTS polling failed or timed out');
+      return null;
+    }
+
+    console.log(`Gemini TTS audio ready: ${audioUrl.substring(0, 80)}...`);
+    const audioRes = await fetch(audioUrl);
+    if (!audioRes.ok) return null;
+    return new Uint8Array(await audioRes.arrayBuffer());
+  } catch (e) {
+    console.error('Gemini multi-speaker TTS error:', e);
+    return null;
+  }
+}
+
+// ── WaveSpeed MiniMax TTS (per-line fallback) ──────────────────────
+async function generateWaveSpeedTTS(
+  text: string, apiKey: string, voiceId: string,
+): Promise<Uint8Array | null> {
+  try {
     const res = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: text.length > 10000 ? text.substring(0, 10000) : text,
-        voice_id: voiceId,
-        speed: 1,
-        volume: 1,
-        pitch: 0,
-        emotion: 'neutral',
-        english_normalization: true,
+        voice_id: voiceId, speed: 1, volume: 1, pitch: 0, emotion: 'neutral', english_normalization: true,
       }),
     });
-    if (!res.ok) { console.error('WaveSpeed TTS error:', res.status); return null; }
+    if (!res.ok) return null;
     const data = await res.json();
     if (data.code !== 200 || !data.data?.id) return null;
-
     const audioUrl = await pollWaveSpeedResult(data.data.id, apiKey);
     if (!audioUrl) return null;
-
     const audioRes = await fetch(audioUrl);
     if (!audioRes.ok) return null;
     return new Uint8Array(await audioRes.arrayBuffer());
-  } catch (e) {
-    console.error('WaveSpeed TTS error:', e);
-    return null;
-  }
+  } catch { return null; }
 }
 
 // ── Google Cloud TTS (cloned voice) ────────────────────────────────
@@ -131,8 +217,7 @@ async function generateGoogleTTS(
       body: JSON.stringify({
         input: { text: text.substring(0, 5000) },
         voice: {
-          languageCode: 'en-US',
-          name: voiceName,
+          languageCode: 'en-US', name: voiceName,
           ssmlGender: voiceName.includes('-F') || voiceName.includes('-O') || voiceName.includes('-C') ? 'FEMALE' : 'MALE',
         },
         audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0, effectsProfileId: ['headphone-class-device'] },
@@ -187,6 +272,81 @@ function generateSilence(durationMs: number = 300): Uint8Array {
   return result;
 }
 
+// ── Check if any character has a cloned voice ──────────────────────
+function hasAnyClonedVoice(dialogue: DialogueLine[], voiceMap: Map<string, VoiceAssignment>): boolean {
+  for (const line of dialogue) {
+    const a = voiceMap.get(line.character.toLowerCase());
+    if (a?.voiceCloningKey || a?.speechifyVoiceId) return true;
+  }
+  return false;
+}
+
+// ── Per-line fallback generation ───────────────────────────────────
+async function generatePerLineFallback(
+  dialogue: DialogueLine[],
+  voiceMap: Map<string, VoiceAssignment>,
+  waveSpeedApiKey: string | undefined,
+  googleApiKey: string | undefined,
+  speechifyApiKey: string | undefined,
+): Promise<Uint8Array[]> {
+  const assignedWaveSpeedVoices = new Map<string, string>();
+  let maleIdx = 0, femaleIdx = 0;
+
+  function pickWaveSpeedVoice(charLower: string, gender: string): string {
+    const existing = assignedWaveSpeedVoices.get(charLower);
+    if (existing) return existing;
+    let voice: string;
+    if (gender === 'female') {
+      voice = FEMALE_WAVESPEED_VOICES[femaleIdx % FEMALE_WAVESPEED_VOICES.length];
+      femaleIdx++;
+    } else {
+      voice = MALE_WAVESPEED_VOICES[maleIdx % MALE_WAVESPEED_VOICES.length];
+      maleIdx++;
+    }
+    assignedWaveSpeedVoices.set(charLower, voice);
+    return voice;
+  }
+
+  const audioBuffers: Uint8Array[] = [];
+  const silence = generateSilence(400);
+
+  for (let i = 0; i < dialogue.length; i++) {
+    const line = dialogue[i];
+    const charLower = line.character.toLowerCase();
+    let text = line.line.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').replace(/\*[^*]*\*/g, '').replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '').trim();
+    if (!text) continue;
+
+    let audioData: Uint8Array | null = null;
+    const assignment = voiceMap.get(charLower);
+
+    if (assignment) {
+      if (assignment.speechifyVoiceId && speechifyApiKey)
+        audioData = await generateSpeechifyTTS(text, speechifyApiKey, assignment.speechifyVoiceId);
+      if (!audioData && assignment.voiceCloningKey && googleApiKey)
+        audioData = await generateClonedVoiceTTS(text, googleApiKey, assignment.voiceCloningKey);
+      if (!audioData && assignment.voiceEngine === 'google-cloud' && assignment.googleVoiceId && googleApiKey)
+        audioData = await generateGoogleTTS(text, googleApiKey, assignment.googleVoiceId);
+      if (!audioData && waveSpeedApiKey) {
+        const wsVoice = pickWaveSpeedVoice(charLower, assignment.gender || 'male');
+        audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
+      }
+    }
+
+    if (!audioData && waveSpeedApiKey) {
+      const wsVoice = pickWaveSpeedVoice(charLower, 'male');
+      audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
+    }
+    if (!audioData && googleApiKey)
+      audioData = await generateGoogleTTS(text, googleApiKey, 'en-US-Journey-D');
+
+    if (audioData) {
+      audioBuffers.push(audioData);
+      if (i < dialogue.length - 1) audioBuffers.push(silence);
+    }
+  }
+  return audioBuffers;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -205,90 +365,35 @@ serve(async (req) => {
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
 
-    // Build character → voice assignment map
+    // Build voice map
     const voiceMap = new Map<string, VoiceAssignment>();
     if (voiceAssignments) {
       for (const a of voiceAssignments) voiceMap.set(a.characterName.toLowerCase(), a);
     }
 
-    // Track which WaveSpeed voice each unassigned character gets (deterministic per-character)
-    const assignedWaveSpeedVoices = new Map<string, string>();
-    let maleIdx = 0;
-    let femaleIdx = 0;
+    // Count unique characters
+    const uniqueChars = new Set(dialogue.map(d => d.character.toLowerCase()));
+    const isMultiSpeaker = uniqueChars.size >= 2;
+    const hasCloned = hasAnyClonedVoice(dialogue, voiceMap);
 
-    function pickWaveSpeedVoice(charLower: string, gender: string): string {
-      const existing = assignedWaveSpeedVoices.get(charLower);
-      if (existing) return existing;
-      let voice: string;
-      if (gender === 'female') {
-        voice = FEMALE_WAVESPEED_VOICES[femaleIdx % FEMALE_WAVESPEED_VOICES.length];
-        femaleIdx++;
+    let audioBuffers: Uint8Array[] = [];
+
+    // PRIMARY PATH: Gemini multi-speaker for 2+ characters without cloned voices
+    if (isMultiSpeaker && !hasCloned && waveSpeedApiKey) {
+      console.log(`Trying Gemini 2.5 Pro multi-speaker TTS (${uniqueChars.size} speakers)...`);
+      const geminiAudio = await generateGeminiMultiSpeakerTTS(dialogue, voiceAssignments || [], waveSpeedApiKey);
+      if (geminiAudio) {
+        console.log(`✓ Gemini multi-speaker TTS succeeded (${geminiAudio.length} bytes)`);
+        audioBuffers = [geminiAudio];
       } else {
-        voice = MALE_WAVESPEED_VOICES[maleIdx % MALE_WAVESPEED_VOICES.length];
-        maleIdx++;
+        console.log('Gemini multi-speaker failed, falling back to per-line...');
       }
-      assignedWaveSpeedVoices.set(charLower, voice);
-      console.log(`Assigned WaveSpeed voice "${voice}" to character "${charLower}" (gender: ${gender})`);
-      return voice;
     }
 
-    const audioBuffers: Uint8Array[] = [];
-    const silence = generateSilence(400);
-
-    for (let i = 0; i < dialogue.length; i++) {
-      const line = dialogue[i];
-      const charLower = line.character.toLowerCase();
-
-      // Clean text
-      let text = line.line
-        .replace(/\([^)]*\)/g, '')
-        .replace(/\[[^\]]*\]/g, '')
-        .replace(/\*[^*]*\*/g, '')
-        .replace(/^[A-Z][a-zA-Z\s]*:\s*/i, '')
-        .trim();
-      if (!text) continue;
-
-      let audioData: Uint8Array | null = null;
-      const assignment = voiceMap.get(charLower);
-
-      if (assignment) {
-        // Priority 1: Speechify cloned voice
-        if (assignment.speechifyVoiceId && speechifyApiKey) {
-          audioData = await generateSpeechifyTTS(text, speechifyApiKey, assignment.speechifyVoiceId);
-        }
-        // Priority 2: Google cloned voice
-        if (!audioData && assignment.voiceCloningKey && googleApiKey) {
-          audioData = await generateClonedVoiceTTS(text, googleApiKey, assignment.voiceCloningKey);
-        }
-        // Priority 3: Google Cloud TTS engine with specific voice
-        if (!audioData && assignment.voiceEngine === 'google-cloud' && assignment.googleVoiceId && googleApiKey) {
-          audioData = await generateGoogleTTS(text, googleApiKey, assignment.googleVoiceId);
-        }
-        // Priority 4: WaveSpeed gender-appropriate voice
-        if (!audioData && waveSpeedApiKey) {
-          const wsVoice = pickWaveSpeedVoice(charLower, assignment.gender || 'male');
-          audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
-        }
-      }
-
-      // No assignment at all → WaveSpeed with default male
-      if (!audioData && waveSpeedApiKey) {
-        const wsVoice = pickWaveSpeedVoice(charLower, 'male');
-        audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
-      }
-
-      // Last resort: Google standard voice
-      if (!audioData && googleApiKey) {
-        audioData = await generateGoogleTTS(text, googleApiKey, 'en-US-Journey-D');
-      }
-
-      if (audioData) {
-        audioBuffers.push(audioData);
-        if (i < dialogue.length - 1) audioBuffers.push(silence);
-        console.log(`✓ Audio for ${line.character}: "${text.substring(0, 30)}..."`);
-      } else {
-        console.error(`✗ Failed audio for ${line.character}`);
-      }
+    // FALLBACK: Per-line generation (also used when cloned voices exist)
+    if (audioBuffers.length === 0) {
+      console.log(`Using per-line TTS fallback${hasCloned ? ' (cloned voices detected)' : ''}...`);
+      audioBuffers = await generatePerLineFallback(dialogue, voiceMap, waveSpeedApiKey, googleApiKey, speechifyApiKey);
     }
 
     if (audioBuffers.length === 0) throw new Error('Failed to generate any audio');
