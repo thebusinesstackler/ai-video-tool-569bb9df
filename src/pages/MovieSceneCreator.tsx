@@ -1364,21 +1364,36 @@ const MovieSceneCreator = () => {
       estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5)));
     }
 
-    // Build cinematic movement prompt from scene data
-    const movementDetails: string[] = [];
-    if (scene.transitionAction) movementDetails.push(scene.transitionAction);
-    if (scene.transitionCameraMovement) movementDetails.push(`Camera: ${scene.transitionCameraMovement}`);
-    const sceneDesc = scene.description || scene.title || '';
-    const movementPrompt = movementDetails.length > 0 ? movementDetails.join('. ') + '.' : '';
+    // Build rich cinematic prompt from scene data
+    const buildBatchPrompt = () => {
+      const parts: string[] = [];
+      const sceneDesc = scene.description || scene.title || '';
+      if (sceneDesc) parts.push(sceneDesc);
+      if (scene.startFrame?.imagePrompt && scene.endFrame?.imagePrompt) {
+        parts.push(`Transitions from: ${scene.startFrame.imagePrompt} to: ${scene.endFrame.imagePrompt}`);
+      }
+      const startPos = scene.startFrame?.position || '';
+      const endPos = scene.endFrame?.position || '';
+      if (startPos && endPos && startPos !== endPos) parts.push(`Characters move from ${startPos} to ${endPos}`);
+      if (scene.transitionAction) parts.push(scene.transitionAction);
+      if (scene.transitionCameraMovement && scene.transitionCameraMovement !== 'static') parts.push(`Camera: ${scene.transitionCameraMovement}`);
+      if (scene.mood) parts.push(`Mood: ${scene.mood}`);
+      if (isConversation) {
+        parts.push('Characters actively gesturing, leaning in, shifting weight, turning heads, using hand gestures, natural body sway and micro-expressions');
+      } else {
+        parts.push('Character with natural head movement, subtle gestures, expressive face, slight body sway');
+      }
+      parts.push('Cinematic film quality, smooth natural motion, professional cinematography, dynamic alive scene');
+      return parts.join('. ') + '.';
+    };
 
-    // Choose video model based on dialogue type
     let videoBody: any;
     if (isConversation) {
       videoBody = {
         action: 'create',
         model: 'wan-2.5-i2v',
         imageUrls: [imageToUse],
-        prompt: `${sceneDesc}. Characters engaged in intense conversation, gesturing naturally, shifting weight, making eye contact, turning heads between speakers. ${movementPrompt} Cinematic quality, natural body language, professional cinematography, dynamic camera movement.`,
+        prompt: buildBatchPrompt(),
         duration: Math.min(estimatedDuration, 10),
         aspectRatio: '16:9'
       };
