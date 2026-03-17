@@ -604,10 +604,12 @@ export type Database = {
           face_description: string
           first_image: string
           gender: string
+          google_voice_id: string
           id: string
           image_count: number
           name: string
           voice_cloning_key: string
+          voice_engine: string
           voice_sample_url: string
         }[]
       }
