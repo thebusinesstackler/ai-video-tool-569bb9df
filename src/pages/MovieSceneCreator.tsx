@@ -726,12 +726,13 @@ const MovieSceneCreator = () => {
   }, [userId]);
 
   // Periodic auto-save every 60 seconds when there's unsaved content
+  // Pass current scenes explicitly to avoid stale closure issues
   useEffect(() => {
     if (!userId) return;
     if (!scenes.length && !outline) return;
 
     const interval = setInterval(() => {
-      autoSaveProject();
+      autoSaveProject(scenes);
     }, 60000); // Auto-save every 60 seconds
 
     return () => clearInterval(interval);
