@@ -13,6 +13,21 @@ import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+interface TimelinePreviewProps {
+  segments: CommercialSegment[];
+  onReorder?: (fromIndex: number, toIndex: number) => void;
+  onSelectSegment?: (id: string) => void;
+  onUpdateSegment?: (id: string, updates: Partial<CommercialSegment>) => void;
+  onDeleteSegment?: (id: string) => void;
+  onDuplicateSegment?: (id: string) => void;
+}
+
+interface AITwinVoiceOption {
+  id: string;
+  name: string;
+  voice_cloning_key: string;
+}
+
 const segmentConfig = {
   speaking: { label: 'Speaking', color: 'bg-primary', border: 'border-primary/60', icon: User },
   broll: { label: 'B-Roll', color: 'bg-amber-500', border: 'border-amber-500/60', icon: Film },
