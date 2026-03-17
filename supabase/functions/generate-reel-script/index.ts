@@ -44,7 +44,7 @@ serve(async (req) => {
   }
 
   try {
-    const { 
+    let { 
       topic, 
       sceneCount = 4, 
       sceneDuration,
@@ -65,6 +65,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Strip any HTML tags and entities from topic before using it anywhere
+    topic = topic.replace(/<[^>]*>/g, '').replace(/&\w+;/g, ' ').replace(/\s+/g, ' ').trim();
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -691,11 +694,25 @@ function formatScriptForTTS(narration: string): string {
   return result;
 }
 
+// Strip HTML tags and decode entities from topic text
+function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, '') // remove HTML tags
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Helper functions for intro/outro defaults - now with dynamic hooks
 function smartTruncate(text: string, maxLen = 60): string {
-  if (text.length <= maxLen) return text;
-  // Find last natural break (comma, space) before maxLen
-  const truncated = text.substring(0, maxLen);
+  const clean = stripHtml(text);
+  if (clean.length <= maxLen) return clean;
+  const truncated = clean.substring(0, maxLen);
   const lastComma = truncated.lastIndexOf(',');
   const lastSpace = truncated.lastIndexOf(' ');
   const breakAt = lastComma > maxLen * 0.4 ? lastComma : lastSpace;
