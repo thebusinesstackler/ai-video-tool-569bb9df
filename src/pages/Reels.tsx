@@ -462,7 +462,10 @@ const Reels = () => {
     } else if (feature === 'captions') {
       // Captions are enabled by default - could add caption settings expansion
     } else if (feature === 'backgroundMusic') {
-      // Background music toggle - could add music selection UI
+      if (!value) {
+        setBackgroundMusicUrl(null);
+        setBackgroundMusicMood('');
+      }
     }
   };
   
