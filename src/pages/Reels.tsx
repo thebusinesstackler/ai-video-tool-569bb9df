@@ -4230,11 +4230,36 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               );
                             })}
                           </div>
-                          <div className="flex items-center justify-between p-2 rounded-lg border border-border bg-muted/30">
-                            <span className="text-xs font-medium flex items-center gap-1"><Mic className="w-3 h-3 text-primary" />{selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'No voice'}</span>
-                            <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="h-7 text-xs">
-                              {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
-                            </Button>
+                          <div className="space-y-3 p-2 rounded-lg border border-border bg-muted/30">
+                            <div className="space-y-2">
+                              <Label className="text-xs flex items-center gap-1"><Mic className="w-3 h-3 text-primary" /> Voice</Label>
+                              <VoiceSelector selectedVoice={selectedVoice} onVoiceSelect={(v) => { setSelectedVoice(v); setProject(prev => ({ ...prev, voiceovers: [] })); }} compact characterDescription={characterDescription} characterGender={detectedCharGender} disabled={isGenerating} />
+                              <VoicePitchSlider pitch={voicePitch} onPitchChange={(p) => { setVoicePitch(p); setProject(prev => ({ ...prev, voiceovers: [] })); }} disabled={isGenerating} compact />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] text-muted-foreground">Audio Source</Label>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <Button type="button" variant={customAudioMode === 'tts' ? 'default' : 'outline'} size="sm" onClick={() => setCustomAudioMode('tts')} disabled={isGenerating} className="h-7 text-[10px]"><Sparkles className="w-3 h-3 mr-1" />AI Voice</Button>
+                                <Button type="button" variant={customAudioMode === 'upload' ? 'default' : 'outline'} size="sm" onClick={() => setCustomAudioMode('upload')} disabled={isGenerating} className="h-7 text-[10px]"><Upload className="w-3 h-3 mr-1" />Upload MP3</Button>
+                              </div>
+                              {customAudioMode === 'upload' && (
+                                <div className="p-2 bg-background rounded-lg border border-border">
+                                  <input type="file" ref={customAudioInputRef} accept=".mp3,.wav,.m4a,.webm,audio/*" className="hidden" onChange={handleCustomAudioUpload} />
+                                  {!customAudioUrl ? (
+                                    <div className="border-2 border-dashed border-border rounded-lg p-2 text-center cursor-pointer hover:border-primary/50" onClick={() => customAudioInputRef.current?.click()}>
+                                      {isUploadingAudio ? <Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" /> : <><Upload className="w-5 h-5 mx-auto text-muted-foreground mb-1" /><p className="text-[10px] text-muted-foreground">Upload audio (Google AI Studio, etc.)</p></>}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2"><audio src={customAudioUrl} controls className="h-7 flex-1" /><Button variant="ghost" size="icon" onClick={removeCustomAudio} className="h-7 w-7 text-destructive"><X className="w-3 h-3" /></Button></div>
+                                  )}
+                                </div>
+                              )}
+                              {customAudioMode === 'tts' && (
+                                <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="w-full h-7 text-xs">
+                                  {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           <Button variant="outline" onClick={() => generateScripts()} disabled={isGenerating} className="w-full h-8 text-xs">
                             <RefreshCw className="w-3 h-3 mr-1" /> Regenerate Script
