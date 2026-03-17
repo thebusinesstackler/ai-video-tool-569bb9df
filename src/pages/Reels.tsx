@@ -82,6 +82,7 @@ import { ReelEditor } from '@/components/ReelEditor';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TopicStrategist, ContentStrategy } from '@/components/TopicStrategist';
 import { VideoQueue } from '@/components/VideoQueue';
+import { useBackgroundVideo } from '@/contexts/BackgroundVideoContext';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
