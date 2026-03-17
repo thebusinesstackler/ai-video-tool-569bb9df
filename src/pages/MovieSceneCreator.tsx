@@ -180,7 +180,7 @@ function inferCharacterGender(char: StoryBibleCharacter): string {
   return 'male';
 }
 
-  tense: '😰',
+  const MOOD_ICONS: Record<string, string> = {
   romantic: '💕',
   action: '💥',
   melancholic: '😢',
