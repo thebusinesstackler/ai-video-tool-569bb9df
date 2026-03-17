@@ -439,6 +439,11 @@ const Reels = () => {
     strategy: null
   });
   
+  // Background music state
+  const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(null);
+  const [backgroundMusicMood, setBackgroundMusicMood] = useState('');
+  const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
+  
   // Sync feature toggles with existing state
   const handleFeatureChange = (feature: keyof typeof featureToggles, value: boolean) => {
     setFeatureToggles(prev => ({ ...prev, [feature]: value }));
