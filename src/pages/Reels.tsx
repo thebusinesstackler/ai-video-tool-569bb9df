@@ -6740,7 +6740,25 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               Script Generator
             </DialogTitle>
           </DialogHeader>
-          <ScriptGenerator />
+          <ScriptGenerator onUseInReel={(scenes) => {
+            setProject(prev => ({
+              ...prev,
+              topic: topic || prev.topic,
+              scenes,
+              status: 'idle',
+              generatedScenes: [],
+              videoClips: [],
+              voiceovers: [],
+              previewScenes: [],
+              videoBlobUrl: null,
+              videoUrl: null
+            }));
+            setSelectedSceneCount(String(scenes.length));
+            setShowScriptGenerator(false);
+            if (activeMode === 'script-only') setActiveMode('standard');
+            resetPreview();
+            toast({ title: "Script Imported", description: `${scenes.length} scenes imported into your reel.` });
+          }} />
         </DialogContent>
       </Dialog>
 
