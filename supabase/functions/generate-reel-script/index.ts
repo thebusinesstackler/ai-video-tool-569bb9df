@@ -44,7 +44,7 @@ serve(async (req) => {
   }
 
   try {
-    const { 
+    let { 
       topic, 
       sceneCount = 4, 
       sceneDuration,
@@ -66,8 +66,8 @@ serve(async (req) => {
       );
     }
 
-    // Strip any HTML tags from topic before using it anywhere
-    const cleanTopic = topic.replace(/<[^>]*>/g, '').replace(/&\w+;/g, ' ').replace(/\s+/g, ' ').trim();
+    // Strip any HTML tags and entities from topic before using it anywhere
+    topic = topic.replace(/<[^>]*>/g, '').replace(/&\w+;/g, ' ').replace(/\s+/g, ' ').trim();
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
