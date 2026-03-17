@@ -443,14 +443,18 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
                     <SelectValue placeholder="Select voice..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <div className="text-[9px] font-medium text-muted-foreground px-2 py-1">Male Voices</div>
-                    {WAVESPEED_VOICES.male.map(v => (
-                      <SelectItem key={v.id} value={v.id} className="text-xs">{v.label}</SelectItem>
-                    ))}
-                    <div className="text-[9px] font-medium text-muted-foreground px-2 py-1 mt-1">Female Voices</div>
-                    {WAVESPEED_VOICES.female.map(v => (
-                      <SelectItem key={v.id} value={v.id} className="text-xs">{v.label}</SelectItem>
-                    ))}
+                    {twinVoices.length > 0 ? (
+                      <>
+                        <div className="text-[9px] font-medium text-muted-foreground px-2 py-1">AI Twin Voices</div>
+                        {twinVoices.map(t => (
+                          <SelectItem key={t.id} value={t.voice_cloning_key} className="text-xs">🎙️ {t.name}'s Voice</SelectItem>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="px-2 py-3 text-[10px] text-muted-foreground text-center">
+                        No cloned voices. Create an AI Twin with a cloned voice first.
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
                 <Button
