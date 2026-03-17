@@ -43,6 +43,7 @@ export interface MovieSceneWithKeyframes {
   selectedLighting?: string;
   mood?: string;
   suggestedMusic?: string;
+  transitionAudioContent?: string; // Base64 audio to sync with silent video
 }
 
 export const CAMERA_MOVEMENTS = [
