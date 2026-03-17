@@ -71,8 +71,20 @@ CRITICAL SCENE TIMING CONSTRAINT:
 IMPORTANT: Return your response in this EXACT JSON format:
 {
   "detailedScript": "the full script with timestamps (e.g., 0:00-0:${params.secondsPerScene.toString().padStart(2, '0')}), scene numbers, visual directions, text on screen instructions, etc.",
-  "cleanScript": "the same script but ONLY scene descriptions for video generation - no timestamps, no scene numbers, no 'Visual:', no text on screen instructions, just pure scene descriptions with character details (age, appearance, actions). Each scene should be on a new line."
+  "cleanScript": "the same script but ONLY scene descriptions for video generation - no timestamps, no scene numbers, no 'Visual:', no text on screen instructions, just pure scene descriptions with character details (age, appearance, actions). Each scene should be on a new line.",
+  "scenes": [
+    {
+      "narration": "The spoken voiceover text the viewer will HEAR for this scene. This is the actual dialogue or narration read aloud.",
+      "visualDescription": "What the camera SEES. Detailed visual description for AI video generation - character appearance, actions, environment, expressions. No dialogue."
+    }
+  ]
 }
+
+SCENES ARRAY RULES:
+- The "scenes" array must have exactly ${numScenes} entries (one per scene)
+- "narration" = the spoken words the narrator/presenter says during this scene. Write natural, engaging voiceover text. This is what gets sent to text-to-speech.
+- "visualDescription" = what the camera sees during this scene. Detailed physical descriptions for AI video generation. NO spoken words, NO text overlays, NO dialogue.
+- These two fields must be DIFFERENT. The narration is what you HEAR, the visual description is what you SEE.
 
 Requirements for BOTH versions:
 1. Hooks the viewer in the first ${params.secondsPerScene} seconds
@@ -239,11 +251,26 @@ serve(async (req) => {
       // If parsing fails, use the raw content for both
     }
 
+    // Extract structured scenes array if present
+    let scenes: { narration: string; visualDescription: string }[] = [];
+    try {
+      let jsonContent = generatedScript.trim();
+      const jsonMatch2 = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (jsonMatch2) jsonContent = jsonMatch2[1];
+      const parsed2 = JSON.parse(jsonContent);
+      if (Array.isArray(parsed2.scenes)) {
+        scenes = parsed2.scenes;
+      }
+    } catch (_) {
+      // scenes will remain empty, client will fall back to parsing cleanScript
+    }
+
     return new Response(
       JSON.stringify({ 
         script: detailedScript,
         detailedScript: detailedScript,
-        cleanScript: cleanScript
+        cleanScript: cleanScript,
+        scenes: scenes
       }), 
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

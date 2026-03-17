@@ -287,9 +287,20 @@ Return ONLY valid JSON:
       setGeneratedScript(detailedScriptContent);
       setCleanScript(cleanScriptContent);
       
-      // Parse clean script into scene previews
-      const scenes = parseScriptIntoScenes(cleanScriptContent);
-      setScenePreview(scenes);
+      // Use structured scenes from edge function if available, else fall back to parsing
+      if (Array.isArray(data.scenes) && data.scenes.length > 0) {
+        const structuredScenes = data.scenes.map((s: any, idx: number) => ({
+          id: `scene-${idx}`,
+          sceneNumber: idx + 1,
+          narration: s.narration || '',
+          visualDescription: s.visualDescription || '',
+          description: s.visualDescription || '', // backward compat
+        }));
+        setScenePreview(structuredScenes);
+      } else {
+        const scenes = parseScriptIntoScenes(cleanScriptContent);
+        setScenePreview(scenes);
+      }
 
       // Save script to database
       const { data: { user } } = await supabase.auth.getUser();
@@ -1003,36 +1014,54 @@ Return ONLY valid JSON:
                     {scenePreview.length > 0 ? (
                       scenePreview.map((scene, index) => (
                         <Card key={scene.id} className="p-3">
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3 flex-1">
-                                <Badge variant="outline" className="mt-1 shrink-0">Scene {scene.sceneNumber}</Badge>
-                                <Textarea
-                                  value={scene.description}
-                                  onChange={(e) => {
-                                    const updated = [...scenePreview];
-                                    updated[index].description = e.target.value;
-                                    setScenePreview(updated);
-                                  }}
-                                  className="min-h-[60px] text-sm flex-1"
-                                  placeholder="Describe the visual scene..."
-                                />
-                              </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline" className="shrink-0">Scene {scene.sceneNumber}</Badge>
+                              <span className="text-xs text-muted-foreground">{params.secondsPerScene}s</span>
                             </div>
-                            <div className="flex items-center gap-2 pt-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleTestScene(scene)}
-                                className="text-xs"
-                              >
-                                <PlayIcon className="w-3 h-3 mr-1" />
-                                Test Generate
-                              </Button>
-                              <span className="text-xs text-muted-foreground">
-                                {params.secondsPerScene}s duration
-                              </span>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Volume2 className="w-3 h-3" /> Narration (voiceover)
+                              </Label>
+                              <Textarea
+                                value={scene.narration || ''}
+                                onChange={(e) => {
+                                  const updated = [...scenePreview];
+                                  updated[index].narration = e.target.value;
+                                  setScenePreview(updated);
+                                }}
+                                className="min-h-[50px] text-sm"
+                                placeholder="What the narrator says..."
+                              />
                             </div>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                                <ImageIcon className="w-3 h-3" /> Visual Description (video prompt)
+                              </Label>
+                              <Textarea
+                                value={scene.visualDescription || scene.description || ''}
+                                onChange={(e) => {
+                                  const updated = [...scenePreview];
+                                  updated[index].visualDescription = e.target.value;
+                                  updated[index].description = e.target.value;
+                                  setScenePreview(updated);
+                                }}
+                                className="min-h-[50px] text-sm"
+                                placeholder="What the camera sees..."
+                              />
+                            </div>
+
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleTestScene(scene)}
+                              className="text-xs"
+                            >
+                              <PlayIcon className="w-3 h-3 mr-1" />
+                              Test Generate
+                            </Button>
                           </div>
                         </Card>
                       ))
@@ -1073,8 +1102,8 @@ Return ONLY valid JSON:
                     onClick={() => {
                       const reelScenes = scenePreview.map((scene: any, idx: number) => ({
                         sceneNumber: idx + 1,
-                        narration: scene.description,
-                        visualDescription: scene.description,
+                        narration: scene.narration || scene.description || '',
+                        visualDescription: scene.visualDescription || scene.description || '',
                         duration: parseInt(params.secondsPerScene) || 10,
                       }));
                       onUseInReel(reelScenes);
