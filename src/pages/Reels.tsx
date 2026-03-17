@@ -231,6 +231,9 @@ interface DraftState {
   customAudioUrl: string | null;
   customAudioDuration: number;
   voicePitch?: number;
+  generatedScenes?: GeneratedScene[];
+  backgroundMusicUrl?: string | null;
+  backgroundMusicMood?: string;
 }
 
 const SCENE_COUNT_OPTIONS = [
@@ -436,6 +439,11 @@ const Reels = () => {
     strategy: null
   });
   
+  // Background music state
+  const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(null);
+  const [backgroundMusicMood, setBackgroundMusicMood] = useState('');
+  const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
+  
   // Sync feature toggles with existing state
   const handleFeatureChange = (feature: keyof typeof featureToggles, value: boolean) => {
     setFeatureToggles(prev => ({ ...prev, [feature]: value }));
@@ -454,7 +462,10 @@ const Reels = () => {
     } else if (feature === 'captions') {
       // Captions are enabled by default - could add caption settings expansion
     } else if (feature === 'backgroundMusic') {
-      // Background music toggle - could add music selection UI
+      if (!value) {
+        setBackgroundMusicUrl(null);
+        setBackgroundMusicMood('');
+      }
     }
   };
   
@@ -607,14 +618,20 @@ const Reels = () => {
         topic: draft.project.topic || '',
         scenes: draft.project.scenes || [],
         voiceovers: draft.project.voiceovers || [],
-        videoUrl: null, // Don't restore blob URLs
+        videoUrl: null,
         videoBlobUrl: null,
-        generatedScenes: [],
+        generatedScenes: draft.project.generatedScenes || [],
         videoClips: [],
         previewScenes: draft.project.previewScenes || [],
-        status: 'idle' // Reset status
+        status: 'idle'
       });
     }
+    
+    // Reset completion state
+    setProgress(0);
+    setProgressStatus('');
+    setIsGenerating(false);
+    setVideoError(null);
 
     // Restore strategist state
     if (draft.strategist) {
@@ -1247,7 +1264,10 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         customAudioMode,
         customAudioUrl,
         customAudioDuration,
-        voicePitch
+        voicePitch,
+        generatedScenes: project.generatedScenes,
+        backgroundMusicUrl,
+        backgroundMusicMood
       };
 
       const { error } = await supabase.from('reels').insert([{
@@ -1350,11 +1370,21 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       voiceovers: ds.voiceovers || [],
       videoUrl: null,
       videoBlobUrl: null,
-      generatedScenes: [],
+      generatedScenes: ds.generatedScenes || [],
       videoClips: [],
       previewScenes: ds.previewScenes || [],
       status: 'idle'
     });
+
+    // Reset completion state so editor view shows, not "reel ready"
+    setProgress(0);
+    setProgressStatus('');
+    setIsGenerating(false);
+    setVideoError(null);
+    
+    // Restore background music
+    if (ds.backgroundMusicUrl) setBackgroundMusicUrl(ds.backgroundMusicUrl);
+    if (ds.backgroundMusicMood) setBackgroundMusicMood(ds.backgroundMusicMood);
 
     // Restore beginner step based on progress
     if (isBeginner) {
@@ -1490,6 +1520,142 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       title: "Reel Duplicated",
       description: "Script loaded. You can now regenerate with modifications.",
     });
+  };
+
+  // Restore a completed reel as a new draft (preserving all assets)
+  const restoreAsDraft = async (reel: SavedReel) => {
+    if (!user) return;
+
+    try {
+      // Fetch full reel data
+      const { data: fullReel, error: fetchErr } = await supabase
+        .from('reels')
+        .select('scenes, draft_state')
+        .eq('id', reel.id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const scenes = (fullReel?.scenes as unknown as GeneratedScene[]) || reel.scenes || [];
+      const scriptScenes: Scene[] = scenes.map((scene, index) => ({
+        sceneNumber: index + 1,
+        narration: scene.text || '',
+        visualDescription: scene.text || '',
+        duration: Math.round((scene.endTime || 0) - (scene.startTime || 0)) || 12,
+      }));
+
+      const draftState: DraftState = {
+        selectedSceneCount: String(scenes.length),
+        selectedSceneDuration: '12',
+        selectedVoice: '',
+        selectedVideoSize: '9:16',
+        transitionStyle: 'crossfade',
+        hookStyle: 'auto',
+        characterDescription: '',
+        preSelectedReference: null,
+        selectedTwinId: null,
+        selectedIntro: 'none',
+        selectedOutro: 'none',
+        introText: '',
+        outroText: '',
+        enableCutScenes: false,
+        enableLipSync: false,
+        portraitImage: null,
+        featureToggles: { introOutro: false, cutScenes: false, upscaler: false, lipSync: false, captions: true, backgroundMusic: false },
+        scenes: scriptScenes,
+        previewScenes: scenes.map(s => ({
+          sceneNumber: s.sceneNumber,
+          narration: s.text || '',
+          visualDescription: s.text || '',
+          imageUrl: s.imageUrl || null,
+          audioUrl: null,
+          audioDuration: 0,
+          isGenerating: false
+        })),
+        voiceovers: [],
+        customAudioMode: 'tts',
+        customAudioUrl: null,
+        customAudioDuration: 0,
+        voicePitch: 0,
+        generatedScenes: scenes,
+      };
+
+      const { error } = await supabase.from('reels').insert([{
+        user_id: user.id,
+        topic: reel.topic,
+        video_url: null,
+        thumbnail_url: scenes[0]?.imageUrl || null,
+        scenes: scenes as unknown as any,
+        total_duration: reel.total_duration,
+        is_draft: true,
+        draft_state: draftState as unknown as any
+      }]);
+
+      if (error) throw error;
+
+      fetchSavedReels();
+      setActiveTab('drafts');
+
+      toast({
+        title: "Restored as Draft",
+        description: "Reel saved as a draft with all assets. Continue editing from the Drafts tab."
+      });
+    } catch (error: any) {
+      console.error('Error restoring as draft:', error);
+      toast({
+        title: "Restore Failed",
+        description: error.message || "Failed to restore reel as draft.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Generate background music using the generate-music edge function
+  const generateBackgroundMusic = async () => {
+    if (!backgroundMusicMood.trim()) {
+      toast({
+        title: "Mood Required",
+        description: "Describe the mood or style of music you want.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingMusic(true);
+    try {
+      const totalDuration = project.scenes.reduce((acc, s) => acc + s.duration, 0) || 30;
+      const { data, error } = await supabase.functions.invoke('generate-music', {
+        body: { mood: backgroundMusicMood, duration: Math.min(totalDuration, 120) }
+      });
+
+      if (error) throw error;
+
+      if (data?.needsKey) {
+        toast({
+          title: "API Key Required",
+          description: "ElevenLabs API key is needed for music generation. Add it in Settings.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data?.audioUrl) {
+        setBackgroundMusicUrl(data.audioUrl);
+        toast({ title: "Music Generated!", description: `Background track for "${backgroundMusicMood}" is ready.` });
+      } else if (data?.audioContent) {
+        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+        setBackgroundMusicUrl(audioUrl);
+        toast({ title: "Music Generated!", description: `Background track for "${backgroundMusicMood}" is ready.` });
+      }
+    } catch (error: any) {
+      console.error('Music generation error:', error);
+      toast({
+        title: "Music Generation Failed",
+        description: error.message || "Failed to generate background music.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingMusic(false);
+    }
   };
 
   // Manual save to My Reels
@@ -5514,6 +5680,40 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   onCharacterTransformationChange={setCharacterTransformation}
                 />
                 
+                {/* Background Music Panel */}
+                {featureToggles.backgroundMusic && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="pt-4 space-y-3">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        🎵 Background Music
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="e.g. upbeat corporate, lo-fi chill, cinematic epic..."
+                          value={backgroundMusicMood}
+                          onChange={(e) => setBackgroundMusicMood(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={generateBackgroundMusic}
+                          disabled={isGeneratingMusic || !backgroundMusicMood.trim()}
+                          size="sm"
+                        >
+                          {isGeneratingMusic ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      {backgroundMusicUrl && (
+                        <div className="space-y-2">
+                          <audio controls className="w-full h-8" src={backgroundMusicUrl} />
+                          <Button variant="ghost" size="sm" onClick={() => setBackgroundMusicUrl(null)} className="text-xs text-muted-foreground">
+                            <X className="w-3 h-3 mr-1" /> Remove Music
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
                 {/* Save Draft Button */}
                 <div className="flex justify-center">
                   <Button 
@@ -6478,6 +6678,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => restoreAsDraft(reel)}
+                            title="Restore as editable draft"
+                          >
+                            <FolderOpen className="w-4 h-4 mr-2" />
+                            Restore
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => setEditingReel(reel)}
                           >
                             <Wand2 className="w-4 h-4 mr-2" />
@@ -6531,7 +6740,25 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               Script Generator
             </DialogTitle>
           </DialogHeader>
-          <ScriptGenerator />
+          <ScriptGenerator onUseInReel={(scenes) => {
+            setProject(prev => ({
+              ...prev,
+              topic: topic || prev.topic,
+              scenes,
+              status: 'idle',
+              generatedScenes: [],
+              videoClips: [],
+              voiceovers: [],
+              previewScenes: [],
+              videoBlobUrl: null,
+              videoUrl: null
+            }));
+            setSelectedSceneCount(String(scenes.length));
+            setShowScriptGenerator(false);
+            if (activeMode === 'script-only') setActiveMode('standard');
+            resetPreview();
+            toast({ title: "Script Imported", description: `${scenes.length} scenes imported into your reel.` });
+          }} />
         </DialogContent>
       </Dialog>
 
