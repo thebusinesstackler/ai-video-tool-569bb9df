@@ -2711,7 +2711,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     setIsPreviewingVoice(true);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: sampleText.slice(0, 200), voice: selectedVoice }
+        body: { text: sampleText.slice(0, 200), voice: selectedVoice, pitch: voicePitch }
       });
       if (error) throw error;
       let audioUrl = data?.audioUrl || data?.url;
