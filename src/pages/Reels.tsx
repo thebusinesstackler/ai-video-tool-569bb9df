@@ -4357,7 +4357,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
                         {selectedVoice && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
                       </div>
-                      </div>
 
                       <div className="space-y-2 pt-2 border-t border-border">
                         <Label className="text-xs">Video Model</Label>
