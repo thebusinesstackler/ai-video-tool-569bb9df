@@ -1019,6 +1019,18 @@ People should have closed mouths — not speaking or mouthing words.`,
                     model: fallbackEndpoint,
                     hasEmbeddedAudio: false
                   });
+                  // Log fallback task
+                  if (supabase && currentUserId) {
+                    supabase.from('video_tasks').insert({
+                      user_id: currentUserId,
+                      task_id: fallbackData.data.id,
+                      model: fallbackEndpoint.split('/').pop() || 'unknown',
+                      status: 'pending',
+                      source: 'reel',
+                      scene_number: scene.sceneNumber,
+                      prompt: (scene.visualDescription || '').substring(0, 500)
+                    }).then(({ error }) => { if (error) console.error('[video_tasks] fallback log error:', error); });
+                  }
                 }
               }
             } catch (fallbackErr) {
