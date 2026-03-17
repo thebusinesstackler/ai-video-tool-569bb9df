@@ -563,6 +563,51 @@ export type Database = {
         }
         Relationships: []
       }
+      video_tasks: {
+        Row: {
+          created_at: string
+          id: string
+          model: string | null
+          prompt: string | null
+          scene_number: number | null
+          source: string | null
+          source_id: string | null
+          status: string
+          task_id: string
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model?: string | null
+          prompt?: string | null
+          scene_number?: number | null
+          source?: string | null
+          source_id?: string | null
+          status?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model?: string | null
+          prompt?: string | null
+          scene_number?: number | null
+          source?: string | null
+          source_id?: string | null
+          status?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       visual_presets: {
         Row: {
           camera_angle: string
