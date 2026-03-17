@@ -21,12 +21,14 @@ export type Database = {
           description: string | null
           face_description: string | null
           gender: string | null
+          google_voice_id: string | null
           id: string
           name: string
           reference_images: string[] | null
           updated_at: string
           user_id: string
           voice_cloning_key: string | null
+          voice_engine: string
           voice_sample_url: string | null
         }
         Insert: {
@@ -35,12 +37,14 @@ export type Database = {
           description?: string | null
           face_description?: string | null
           gender?: string | null
+          google_voice_id?: string | null
           id?: string
           name: string
           reference_images?: string[] | null
           updated_at?: string
           user_id: string
           voice_cloning_key?: string | null
+          voice_engine?: string
           voice_sample_url?: string | null
         }
         Update: {
@@ -49,12 +53,14 @@ export type Database = {
           description?: string | null
           face_description?: string | null
           gender?: string | null
+          google_voice_id?: string | null
           id?: string
           name?: string
           reference_images?: string[] | null
           updated_at?: string
           user_id?: string
           voice_cloning_key?: string | null
+          voice_engine?: string
           voice_sample_url?: string | null
         }
         Relationships: []
@@ -598,10 +604,12 @@ export type Database = {
           face_description: string
           first_image: string
           gender: string
+          google_voice_id: string
           id: string
           image_count: number
           name: string
           voice_cloning_key: string
+          voice_engine: string
           voice_sample_url: string
         }[]
       }

@@ -25,6 +25,8 @@ interface AITwinVoice {
   voice_cloning_key: string;
   first_image?: string;
   gender?: string;
+  voice_engine?: string;
+  google_voice_id?: string | null;
 }
 
 // Keep export for backward compatibility — returns empty since we no longer use preset voices
@@ -66,13 +68,15 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
       const { data, error } = await supabase.rpc('get_twins_summary', { _user_id: user.id });
       if (error) throw error;
       const withVoice = (data || [])
-        .filter((t: any) => t.voice_cloning_key)
+        .filter((t: any) => t.voice_cloning_key || t.voice_engine === 'google-cloud' || t.voice_engine === 'wavespeed')
         .map((t: any) => ({
           id: t.id,
           name: t.name,
-          voice_cloning_key: t.voice_cloning_key,
+          voice_cloning_key: t.voice_cloning_key || '',
           first_image: t.first_image,
           gender: t.gender,
+          voice_engine: t.voice_engine || 'speechify',
+          google_voice_id: t.google_voice_id,
         }));
       setTwins(withVoice);
     } catch (err) {
@@ -192,7 +196,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                         {twin.name}'s Voice
                       </span>
                       <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">
-                        🎙️ Cloned
+                        {twin.voice_engine === 'google-cloud' ? '🔊 Google' : twin.voice_engine === 'wavespeed' ? '🌊 WaveSpeed' : '🎙️ Cloned'}
                       </Badge>
                     </div>
                   </button>
