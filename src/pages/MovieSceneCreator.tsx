@@ -3684,6 +3684,16 @@ const MovieSceneCreator = () => {
     setOutline('');
     setScenes([]);
     setStitchedVideoUrl(null);
+    setStoryBible(null);
+    setCurrentStep(0);
+    setGenerateAllProgress(0);
+    setGenerateAllStep('');
+    setIsGeneratingAll(false);
+    setLocations([]);
+    setSceneCoverages(new Map());
+    setSceneBlockings(new Map());
+    setActiveSceneIndex(0);
+    setShowStoryBibleEditor(false);
     toast({
       title: "New Project",
       description: "Started a new movie project.",
