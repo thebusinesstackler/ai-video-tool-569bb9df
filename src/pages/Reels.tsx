@@ -413,6 +413,15 @@ const Reels = () => {
   const [editingReel, setEditingReel] = useState<SavedReel | null>(null);
   const [showUpscaler, setShowUpscaler] = useState(false);
   
+  // Post-production: append B-roll
+  const [showAppendBroll, setShowAppendBroll] = useState(false);
+  const [appendBrollPrompt, setAppendBrollPrompt] = useState('');
+  const [appendBrollDuration, setAppendBrollDuration] = useState<5 | 10 | 15>(5);
+  const [appendBrollModel, setAppendBrollModel] = useState<'wan-2.6-i2v' | 'wan-2.1-i2v-480p' | 'kling-v3.0-pro'>('wan-2.6-i2v');
+  const [isAppendingBroll, setIsAppendingBroll] = useState(false);
+  const [appendedClips, setAppendedClips] = useState<{ videoUrl: string; prompt: string; duration: number }[]>([]);
+  const [isRestitching, setIsRestitching] = useState(false);
+  
   // Strategist state for persistence
   const [strategistState, setStrategistState] = useState<StrategistState>({
     niche: '',
