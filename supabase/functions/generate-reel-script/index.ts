@@ -335,14 +335,14 @@ VISUAL-NARRATIVE ALIGNMENT (CRITICAL):
 - Each scene's visual should illustrate the specific point being made in that scene's narration
 - NEVER use generic stock-photo poses unrelated to the content
 
-PREMIUM CINEMATOGRAPHY (CRITICAL):
-- Every visualDescription MUST include specific cinematography details:
-  - Camera: Specify lens (35mm, 50mm, 85mm), depth of field (f/1.4 bokeh, f/2.8), camera movement
-  - Lighting: Describe precise lighting setup (golden hour, studio 3-point, rim light, motivated light)
-  - Color grade: Specify color palette/mood (warm amber tones, cool desaturated, rich cinematic)
-  - Composition: Rule of thirds, leading lines, negative space, framing elements
-- Think RED V-RAPTOR / ARRI Alexa quality - every frame should look like a high-end commercial
-- Include atmospheric details: lens flare, volumetric light, bokeh particles, subtle haze
+VISUAL STYLE (keep it simple):
+- Every visualDescription must follow this format:
+  - SUBJECT: Who/what, their action, expression, pose
+  - SETTING: Location and key props relevant to the topic
+  - MOOD: Lighting quality and color tone (2-3 words max)
+- Do NOT include lens mm, f-stop numbers, camera brand names, or particle effects
+- Focus on what the viewer SEES, not technical camera specs
+- Keep descriptions under 50 words
 
 VISUAL CONTINUITY:
 - If showing a person/character, describe them IDENTICALLY in each scene
@@ -394,7 +394,7 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here using ONLY commas and question marks, NO periods, NO em dashes, NO ellipses",
-    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: ${characterDescription ? `${characterDescription} — ` : ''}[${characterDescription ? 'this EXACT character' : 'detailed character description with age, ethnicity, clothing, expression'} performing a TOPIC-RELEVANT action that illustrates this scene's narration - closed mouth, natural expression]. LIGHTING: [specific setup e.g. warm golden hour key light from left, cool blue rim light from right, soft fill]. BACKGROUND: [detailed consistent environment matching the topic]. COLOR GRADE: [specific palette e.g. warm amber tones with lifted shadows, rich cinematic contrast]. ATMOSPHERE: [bokeh quality, haze, volumetric light, particles]. NOTE: Scene 1 HOOK must have the MOST visually striking, attention-grabbing cinematography.${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
+    "visualDescription": "SUBJECT: ${characterDescription ? `${characterDescription}, ` : ''}[action relevant to narration topic, closed mouth, natural expression]. SETTING: [location and key props matching the topic]. MOOD: [lighting and color tone in 2-3 words].${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }
@@ -653,7 +653,7 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
-  return narration
+  let result = narration
     // Normalize curly apostrophes to straight
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
     // Replace em dashes with commas (prevents 4-second silences)
@@ -663,8 +663,7 @@ function formatScriptForTTS(narration: string): string {
     // Replace ellipses with commas (prevents long pauses)
     .replace(/\u2026/g, ',')
     .replace(/\.{2,}/g, ',')
-    // Replace sentence-ending periods with commas (prevents "s" sound artifacts)
-    .replace(/\.(\s|$)/g, ',$1')
+    // Keep periods — they create natural pauses in TTS (DO NOT convert to commas)
     // Clean up double/triple commas
     .replace(/,\s*,+/g, ',')
     // Clean up comma at start of text
@@ -674,55 +673,80 @@ function formatScriptForTTS(narration: string): string {
     // Clean up excessive newlines
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  
+  // Remove trailing commas, articles, and prepositions that create incomplete-sounding endings
+  const trailingJunkPattern = /[\s,]+(a|an|the|of|in|to|for|with|on|at|by|and|but|or|is|are|was|were|that|this|it)\s*[,.]?\s*$/i;
+  while (trailingJunkPattern.test(result)) {
+    result = result.replace(trailingJunkPattern, '').trim();
+  }
+  
+  // Replace trailing comma with period
+  result = result.replace(/,\s*$/, '.');
+  
+  // Ensure narration ends with proper punctuation
+  if (result && !/[.!?]$/.test(result)) {
+    result += '.';
+  }
+  
+  return result;
 }
 
 // Helper functions for intro/outro defaults - now with dynamic hooks
+function smartTruncate(text: string, maxLen = 60): string {
+  if (text.length <= maxLen) return text;
+  // Find last natural break (comma, space) before maxLen
+  const truncated = text.substring(0, maxLen);
+  const lastComma = truncated.lastIndexOf(',');
+  const lastSpace = truncated.lastIndexOf(' ');
+  const breakAt = lastComma > maxLen * 0.4 ? lastComma : lastSpace;
+  return breakAt > 0 ? truncated.substring(0, breakAt).trim() : truncated.trim();
+}
+
 function getDefaultIntroText(templateId: string, topic: string, hookStyle?: string): string {
-  // Use hook style to generate dynamic intro text
-  const topicShort = topic.split(' ').slice(0, 5).join(' ');
+  const topicShort = smartTruncate(topic);
   
   switch (templateId) {
     case 'hook-text':
       if (hookStyle === 'question') return `Have you ever wondered about ${topicShort}?`;
-      if (hookStyle === 'secret') return `The secret about ${topicShort} that nobody talks about...`;
-      if (hookStyle === 'story') return `Here\'s what happened when I tried ${topicShort}...`;
-      return `This is going to change how you think about ${topicShort}...`;
+      if (hookStyle === 'secret') return `The secret about ${topicShort} that nobody talks about.`;
+      if (hookStyle === 'story') return `Here's what happened when I tried ${topicShort}.`;
+      return `This is going to change how you think about ${topicShort}.`;
     case 'topic-title':
-      if (hookStyle === 'controversy') return `Unpopular opinion on ${topicShort}...`;
-      return `The truth about ${topicShort}...`;
+      if (hookStyle === 'controversy') return `Unpopular opinion on ${topicShort}.`;
+      return `The truth about ${topicShort}.`;
     case 'question-hook':
       return `Why does everyone get ${topicShort} wrong?`;
     case 'countdown':
-      return `The top things you need to know about ${topicShort}...`;
+      return `The top things you need to know about ${topicShort}.`;
     default:
-      return `You need to see this about ${topicShort}...`;
+      return `You need to see this about ${topicShort}.`;
   }
 }
 
 function getDefaultOutroText(templateId: string, topic?: string): string {
-  const topicShort = topic ? topic.split(' ').slice(0, 5).join(' ') : '';
+  const topicShort = topic ? smartTruncate(topic) : '';
   
   switch (templateId) {
     case 'cta-follow':
       return topicShort 
-        ? `If you want more insights like this on ${topicShort}... follow along— I've got a lot more coming—`
-        : 'If you found this valuable... follow along— there\'s a lot more where this came from—';
+        ? `If you want more insights like this on ${topicShort}, follow along, I've got a lot more coming.`
+        : 'If you found this valuable, follow along, there is a lot more where this came from.';
     case 'cta-subscribe':
       return topicShort
-        ? `Subscribe if you want to go deeper on ${topicShort}... I break this down every week—`
-        : 'Subscribe if you want more like this... new content drops every week—';
+        ? `Subscribe if you want to go deeper on ${topicShort}, I break this down every week.`
+        : 'Subscribe if you want more like this, new content drops every week.';
     case 'cta-comment':
       return topicShort
-        ? `I want to hear your take on ${topicShort}... drop your thoughts in the comments—`
-        : 'Tell me what you think in the comments— I read every single one—';
+        ? `I want to hear your take on ${topicShort}, drop your thoughts in the comments.`
+        : 'Tell me what you think in the comments, I read every single one.';
     case 'cta-share':
       return topicShort
-        ? `If someone you know needs to hear this about ${topicShort}... send it their way—`
-        : 'Share this with someone who needs to hear it— it might change their perspective—';
+        ? `If someone you know needs to hear this about ${topicShort}, send it their way.`
+        : 'Share this with someone who needs to hear it, it might change their perspective.';
     default:
       return topicShort
-        ? `Save this for later when you need it... trust me on ${topicShort}—`
-        : 'Save this for later— you\'ll want to come back to it—';
+        ? `Save this for later when you need it, trust me on ${topicShort}.`
+        : 'Save this for later, you will want to come back to it.';
   }
 }
 
