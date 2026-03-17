@@ -6849,23 +6849,47 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             </DialogTitle>
           </DialogHeader>
           <ScriptGenerator onUseInReel={(scenes) => {
-            setProject(prev => ({
-              ...prev,
-              topic: topic || prev.topic,
+            // Save current work as draft before starting fresh
+            if (project.scenes.length > 0 || topic?.trim()) {
+              saveDraftDebounced({
+                topic, selectedSceneCount, selectedSceneDuration, selectedVoice,
+                selectedVideoSize, transitionStyle, hookStyle, characterDescription,
+                preSelectedReference, selectedTwinId, selectedIntro, selectedOutro,
+                introText, outroText, enableCutScenes, enableLipSync, portraitImage,
+                project, featureToggles, strategist: strategistState
+              });
+            }
+
+            // Start completely fresh reel with imported scenes
+            const sceneTopic = scenes[0]?.narration?.slice(0, 60) || 'Imported Script';
+            setTopic(sceneTopic);
+            setProject({
+              topic: sceneTopic,
               scenes,
-              status: 'idle',
+              voiceovers: [],
+              videoUrl: null,
+              videoBlobUrl: null,
               generatedScenes: [],
               videoClips: [],
-              voiceovers: [],
               previewScenes: [],
-              videoBlobUrl: null,
-              videoUrl: null
-            }));
+              status: 'idle'
+            });
             setSelectedSceneCount(String(scenes.length));
+            setSelectedClipIndex(0);
+            setProgress(0);
+            setProgressStatus('');
+            setVideoError(null);
+            setSelectedIntro('none');
+            setSelectedOutro('none');
+            setIntroText('');
+            setOutroText('');
+            setCharacterTransformation('');
+            setCurrentReelSaved(false);
+            setBeginnerStep(isBeginner ? 2 : 1);
+            resetPreview();
             setShowScriptGenerator(false);
             if (activeMode === 'script-only') setActiveMode('standard');
-            resetPreview();
-            toast({ title: "Script Imported", description: `${scenes.length} scenes imported into your reel.` });
+            toast({ title: "Script Imported", description: `${scenes.length} scenes imported into a fresh reel.` });
           }} />
         </DialogContent>
       </Dialog>
