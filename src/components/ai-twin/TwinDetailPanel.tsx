@@ -824,8 +824,25 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
 
   return (
     <div className="space-y-6">
-      {/* Twin Info Header */}
-      <div className="flex items-start gap-4">
+      {/* Save All Button - sticky top */}
+      {hasUnsavedChanges && (
+        <div className="flex items-center justify-between p-3 rounded-lg border border-primary/30 bg-primary/5">
+          <span className="text-sm text-muted-foreground">You have unsaved changes</span>
+          <Button 
+            onClick={saveAllChanges}
+            disabled={isSavingAll}
+            size="sm"
+            className="bg-gradient-primary hover:opacity-90"
+          >
+            {isSavingAll ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Save All Changes
+          </Button>
+        </div>
+      )}
         {twin.reference_images?.[0] && (
           <img 
             src={twin.reference_images[0]} 
