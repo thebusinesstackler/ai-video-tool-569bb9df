@@ -40,6 +40,8 @@ export function useAITwins() {
         face_description: t.face_description,
         gender: t.gender,
         image_count: t.image_count,
+        voice_engine: t.voice_engine || 'speechify',
+        google_voice_id: t.google_voice_id,
       }));
 
       setTwins(mapped);
