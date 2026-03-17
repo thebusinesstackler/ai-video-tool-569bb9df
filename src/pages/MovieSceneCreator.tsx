@@ -895,7 +895,7 @@ const MovieSceneCreator = () => {
     try {
       const { data, error } = await supabase
         .from('ai_twins')
-        .select('id, name, reference_images, voice_cloning_key, description, face_description')
+        .select('id, name, reference_images, voice_cloning_key, description, face_description, gender, voice_engine, google_voice_id')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50);
