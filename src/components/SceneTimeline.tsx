@@ -12,6 +12,10 @@ interface SceneTimelineProps {
   onSelectScene: (index: number) => void;
   autoLinkEnabled: boolean;
   onToggleAutoLink: () => void;
+  onBuildMovie?: () => void;
+  isBuildingMovie?: boolean;
+  buildProgress?: number;
+  hasVideos?: boolean;
 }
 
 export const SceneTimeline: React.FC<SceneTimelineProps> = ({
@@ -20,7 +24,13 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
   onSelectScene,
   autoLinkEnabled,
   onToggleAutoLink,
+  onBuildMovie,
+  isBuildingMovie = false,
+  buildProgress = 0,
+  hasVideos = false,
 }) => {
+  const readyScenes = scenes.filter(s => s.startFrame?.generatedImage && s.endFrame?.generatedImage);
+  const videoScenes = scenes.filter(s => !!s.generatedVideo);
   return (
     <div className="space-y-2">
       {/* Timeline Header */}
@@ -153,6 +163,31 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
         <p className="text-xs text-muted-foreground px-2">
           Scene endings will automatically link to the next scene's start for continuity.
         </p>
+      )}
+
+      {/* Build Movie Bar */}
+      {hasVideos && onBuildMovie && (
+        <div className="flex items-center justify-between px-2 py-2 rounded-lg bg-primary/5 border border-primary/20">
+          <div className="flex items-center gap-2 text-sm">
+            <Video className="w-4 h-4 text-primary" />
+            <span className="text-muted-foreground">
+              {videoScenes.length}/{scenes.length} scenes have videos
+            </span>
+          </div>
+          {isBuildingMovie ? (
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${buildProgress}%` }} />
+              </div>
+              <span className="text-xs font-mono text-muted-foreground">{buildProgress}%</span>
+            </div>
+          ) : (
+            <Button onClick={onBuildMovie} size="sm" className="h-7 text-xs gap-1.5">
+              <Video className="w-3 h-3" />
+              Build Movie
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
