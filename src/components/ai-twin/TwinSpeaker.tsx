@@ -20,13 +20,25 @@ import {
 interface TwinSpeakerProps {
   twinName: string;
   speechifyVoiceId: string | null;
+  voiceEngine?: string;
+  googleVoiceId?: string | null;
+  gender?: string | null;
 }
 
 export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({ 
   twinName, 
-  speechifyVoiceId
+  speechifyVoiceId,
+  voiceEngine = 'speechify',
+  googleVoiceId,
+  gender,
 }) => {
-  const hasClonedVoice = !!speechifyVoiceId;
+  // Voice is available if: cloned voice exists (speechify), or google-cloud with a voice selected, or wavespeed
+  const hasVoice = voiceEngine === 'google-cloud' 
+    ? !!googleVoiceId 
+    : voiceEngine === 'wavespeed' 
+      ? true 
+      : !!speechifyVoiceId;
+
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
   
@@ -97,10 +109,10 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
       return;
     }
 
-    if (!hasClonedVoice) {
+    if (!hasVoice) {
       toast({
-        title: 'No cloned voice',
-        description: 'Clone a voice first in the Voice section above',
+        title: 'No voice configured',
+        description: 'Select a voice engine in the Voice Engine section above',
         variant: 'destructive'
       });
       return;
@@ -110,11 +122,21 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
     setAudioUrl(null);
     
     try {
+      // Build TTS request body based on voice engine
+      const ttsBody: any = { text: script };
+
+      if (voiceEngine === 'google-cloud' && googleVoiceId) {
+        ttsBody.voiceEngine = 'google-cloud';
+        ttsBody.googleVoiceId = googleVoiceId;
+      } else if (voiceEngine === 'wavespeed') {
+        ttsBody.gender = gender || 'male';
+        ttsBody.voice = 'ai-auto';
+      } else if (speechifyVoiceId) {
+        ttsBody.speechifyVoiceId = speechifyVoiceId;
+      }
+
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: {
-          text: script,
-          speechifyVoiceId: speechifyVoiceId
-        }
+        body: ttsBody
       });
 
       if (error) throw error;
@@ -195,6 +217,12 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
     return new Blob([byteArray], { type: mimeType });
   };
 
+  const noVoiceMessage = voiceEngine === 'speechify' 
+    ? 'Clone a voice first to make your AI Twin speak with their own voice.'
+    : voiceEngine === 'google-cloud'
+      ? 'Select a Google Cloud voice in the Voice Engine section above.'
+      : 'Configure a voice engine above to enable speaking.';
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card>
@@ -212,12 +240,12 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
         
         <CollapsibleContent>
           <CardContent className="space-y-4">
-            {/* Warning if no cloned voice */}
-            {!hasClonedVoice && (
+            {/* Warning if no voice */}
+            {!hasVoice && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
                 <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                 <p className="text-muted-foreground">
-                  Clone a voice first to make your AI Twin speak with their own voice.
+                  {noVoiceMessage}
                 </p>
               </div>
             )}
@@ -266,7 +294,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
             {/* Speak Button */}
             <Button
               onClick={speakScript}
-              disabled={isGeneratingSpeech || !script.trim() || !hasClonedVoice}
+              disabled={isGeneratingSpeech || !script.trim() || !hasVoice}
               className="w-full bg-gradient-primary hover:opacity-90"
             >
               {isGeneratingSpeech ? (
