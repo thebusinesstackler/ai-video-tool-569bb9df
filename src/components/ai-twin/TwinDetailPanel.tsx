@@ -1234,10 +1234,16 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
                 )}
               </Button>
               {voiceCloningKey && voiceEngine === 'wavespeed' && (
-                <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
-                  <Check className="w-3 h-3 mr-1" />
-                  WaveSpeed Voice Ready
-                </Badge>
+                <div className="space-y-1">
+                  <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
+                    <Check className="w-3 h-3 mr-1" />
+                    WaveSpeed Voice Ready
+                  </Badge>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Check className="w-3 h-3 text-green-500" />
+                    Voice changes are auto-saved
+                  </p>
+                </div>
               )}
             </div>
           )}
