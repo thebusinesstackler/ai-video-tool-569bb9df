@@ -1474,6 +1474,13 @@ const MovieSceneCreator = () => {
       return;
     }
 
+    // Clear stale state from previous movie
+    setScenes([]);
+    setStitchedVideoUrl(null);
+    setOutline('');
+    setStoryBible(null);
+    setCurrentStep(0);
+
     setIsGeneratingAll(true);
     setGenerateAllProgress(0);
 
