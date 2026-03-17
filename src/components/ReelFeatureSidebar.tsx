@@ -76,19 +76,13 @@ const MODES = [
   },
 ];
 
-const FEATURES = [
-  {
-    id: 'introOutro',
-    label: 'Intro & Outro',
-    description: 'Add branded intro and outro screens',
-    icon: <Film className="w-4 h-4" />
-  },
-  {
-    id: 'captions',
-    label: 'Captions',
-    description: 'Add animated text captions to video',
-    icon: <Captions className="w-4 h-4" />
-  },
+const FEATURES: Array<{
+  id: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  comingSoon?: boolean;
+}> = [
   {
     id: 'backgroundMusic',
     label: 'Background Music',
@@ -96,10 +90,10 @@ const FEATURES = [
     icon: <Music className="w-4 h-4" />
   },
   {
-    id: 'cutScenes',
-    label: 'Cut Scenes',
-    description: 'Add B-roll and transition scenes',
-    icon: <Sparkles className="w-4 h-4" />
+    id: 'lipSync',
+    label: 'Lip Sync',
+    description: 'Animate portrait with speech',
+    icon: <User className="w-4 h-4" />
   },
   {
     id: 'upscaler',
@@ -108,10 +102,25 @@ const FEATURES = [
     icon: <Wand2 className="w-4 h-4" />
   },
   {
-    id: 'lipSync',
-    label: 'Lip Sync',
-    description: 'Animate portrait with speech',
-    icon: <User className="w-4 h-4" />
+    id: 'introOutro',
+    label: 'Intro & Outro',
+    description: 'Branded intro/outro — coming soon',
+    icon: <Film className="w-4 h-4" />,
+    comingSoon: true
+  },
+  {
+    id: 'captions',
+    label: 'Captions',
+    description: 'Burned-in captions — coming soon',
+    icon: <Captions className="w-4 h-4" />,
+    comingSoon: true
+  },
+  {
+    id: 'cutScenes',
+    label: 'Cut Scenes',
+    description: 'B-roll interleaving — coming soon',
+    icon: <Sparkles className="w-4 h-4" />,
+    comingSoon: true
   },
 ];
 
