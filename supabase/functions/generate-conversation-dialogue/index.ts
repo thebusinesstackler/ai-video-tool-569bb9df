@@ -13,18 +13,17 @@ serve(async (req) => {
   try {
     const { 
       sceneDescription, 
-      characterNames, // Array of character names [char1, char2]
+      characterNames,
       tone, 
       location, 
       timeOfDay, 
       sceneTitle,
-      // NEW: Story context for blockbuster-quality dialogue
       storyBible,
       movieIdea,
-      scenePosition, // e.g., "1 of 6", "opening", "climax", "resolution"
+      scenePosition,
       previousSceneSummary,
-      characterPersonalities, // Object: { "CharName": "personality description" }
-      transitionAction // What happens in this scene
+      characterPersonalities,
+      transitionAction
     } = await req.json();
 
     if (!sceneDescription) {
@@ -43,22 +42,18 @@ serve(async (req) => {
     const char1 = characterNames[0];
     const char2 = characterNames[1];
 
-    console.log('Generating blockbuster dialogue between:', char1, 'and', char2);
+    console.log('Generating cinematic dialogue between:', char1, 'and', char2);
     console.log('Scene context:', { sceneTitle, location, tone, scenePosition });
 
-    // Build rich story context
+    // Build story context
     let storyContext = '';
-    if (movieIdea) {
-      storyContext += `\nMOVIE CONCEPT: ${movieIdea}\n`;
-    }
+    if (movieIdea) storyContext += `MOVIE CONCEPT: ${movieIdea}\n`;
     if (storyBible) {
       if (storyBible.theme) storyContext += `THEME: ${storyBible.theme}\n`;
       if (storyBible.setting) storyContext += `SETTING: ${storyBible.setting}\n`;
       if (storyBible.tone) storyContext += `OVERALL TONE: ${storyBible.tone}\n`;
     }
-    if (previousSceneSummary) {
-      storyContext += `\nPREVIOUSLY: ${previousSceneSummary}\n`;
-    }
+    if (previousSceneSummary) storyContext += `\nPREVIOUSLY: ${previousSceneSummary}\n`;
 
     // Build character context
     let characterContext = '';
@@ -68,73 +63,89 @@ serve(async (req) => {
         .join('\n');
     }
 
-    // Determine scene type for dialogue style
+    // Scene position guidance
     let sceneTypeGuidance = '';
     if (scenePosition) {
       if (scenePosition.includes('1 of') || scenePosition.toLowerCase().includes('opening')) {
-        sceneTypeGuidance = 'This is an OPENING scene - establish the characters and their dynamic. Build intrigue.';
+        sceneTypeGuidance = 'OPENING scene — establish the characters and their dynamic. Build intrigue and tension.';
       } else if (scenePosition.toLowerCase().includes('climax')) {
-        sceneTypeGuidance = 'This is a CLIMAX scene - high emotional stakes, tension, confrontation or revelation.';
+        sceneTypeGuidance = 'CLIMAX scene — maximum emotional stakes. Confrontation, revelation, or breaking point.';
       } else if (scenePosition.toLowerCase().includes('resolution') || scenePosition.toLowerCase().includes('final')) {
-        sceneTypeGuidance = 'This is a RESOLUTION scene - provide closure, emotional payoff, or a memorable ending.';
+        sceneTypeGuidance = 'RESOLUTION scene — emotional payoff, closure, or a haunting final beat.';
       }
     }
 
-    const prompt = `You are an AWARD-WINNING SCREENWRITER known for creating dialogue that sounds like a BLOCKBUSTER MOVIE TRAILER.
+    const prompt = `You are writing dialogue for a REAL MOVIE SCENE between two characters. This should sound like professional actors performing — not AI-generated text.
 
-${storyContext}
+${storyContext ? `STORY CONTEXT:\n${storyContext}` : ''}
 
-CHARACTERS IN THIS SCENE:
+CHARACTERS:
 1. ${char1}
 2. ${char2}
 ${characterContext ? `\nCHARACTER PERSONALITIES:\n${characterContext}` : ''}
 
-SCENE DETAILS:
-- Title: ${sceneTitle || 'Untitled Scene'}
-- Location: ${location || 'Unknown'}
-- Time: ${timeOfDay || 'Day'}
-- Mood/Tone: ${tone || 'dramatic'}
-- Scene Position: ${scenePosition || 'middle of story'}
-${transitionAction ? `- What happens: ${transitionAction}` : ''}
+SCENE: "${sceneTitle || 'Untitled'}"
+LOCATION: ${location || 'Unknown'} — ${timeOfDay || 'Day'}
+MOOD: ${tone || 'dramatic'}
+${scenePosition ? `POSITION IN STORY: ${scenePosition}` : ''}
 ${sceneTypeGuidance ? `\n${sceneTypeGuidance}` : ''}
-${previousSceneSummary ? `\nSTORY SO FAR (dialogue must continue this narrative thread):\n${previousSceneSummary}` : ''}
+${transitionAction ? `WHAT HAPPENS: ${transitionAction}` : ''}
+${previousSceneSummary ? `\nSTORY SO FAR:\n${previousSceneSummary}` : ''}
 
 SCENE DESCRIPTION:
 ${sceneDescription}
 
-YOUR TASK:
-Write BLOCKBUSTER MOVIE DIALOGUE - the kind that gives you chills in a trailer. 
+WRITING RULES — READ CAREFULLY:
 
-DIALOGUE RULES:
-1. SHORT, PUNCHY LINES - Most lines should be 5-15 words. Impact over length.
-2. SUBTEXT - Characters hint at deeper meanings, don't explain everything
-3. TENSION - Even casual exchanges should have underlying stakes
-4. CHARACTER VOICE - Each character sounds distinct based on their personality
-5. EMOTIONAL BEATS - Build to a moment of impact (revelation, confrontation, realization)
-6. NO EXPOSITION DUMPS - Show, don't tell. No "As you know..." dialogue
-7. NATURALISTIC - People interrupt, trail off, react emotionally
+1. EVERY LINE MUST BE LABELED WITH THE EXACT CHARACTER NAME
+   Format: {"character": "${char1}", "line": "Their words here"}
+   Never leave a line without a speaker. The voice engine MUST know who is talking.
 
-DIALOGUE EXAMPLES (for inspiration):
-- "You knew. This whole time... you knew." / "I did what I had to do."
-- "We have 24 hours. That's it." / "Then we make them count."
-- "Promise me you'll come back." / "I'm not making promises I can't keep."
-- "They're coming." / "Let them come."
+2. SOUND LIKE REAL ACTORS IN A REAL MOVIE
+   - Write how real people talk in emotionally charged moments
+   - Each character must sound DISTINCT — different vocabulary, rhythm, personality
+   - ${char1} and ${char2} should NOT sound like the same person
+   - Lines should have subtext: what they MEAN vs what they SAY
+   - Write for performance — a good actor should nail this on first read
 
-CRITICAL FORMAT RULES:
-- Return a JSON array of dialogue entries
-- Each entry has "character" (exact name from above) and "line" (spoken words only)
-- NO stage directions, NO parentheses, NO asterisks, NO brackets
-- ONLY the spoken words
+3. ABSOLUTELY NO EXCESSIVE ELLIPSES
+   - Maximum ONE "..." in the ENTIRE conversation, and only if truly dramatic
+   - WRONG: "I just... I don't know... maybe we should..."
+   - RIGHT: "I don't know. Maybe we should go."
+   - RIGHT: "I don't know what to say to that."
+   - Use periods and commas for pacing, NOT ellipses
 
-Return ONLY valid JSON in this exact format:
+4. NATURAL CONVERSATIONAL RHYTHM
+   - Mix short punchy lines (3-8 words) with longer ones (15-25 words)
+   - Characters can interrupt or react sharply
+   - Include emotional turns — the conversation should SHIFT somewhere
+   - Build tension toward a peak moment
+   - Some lines should land like a punch: "No. Not anymore."
+   - Others should breathe: "I waited three years for you to walk through that door, and now you're here, and I don't know what to do."
+
+5. EMOTIONAL DIRECTION (include in "emotion" field)
+   - Each line needs an emotion tag that helps the voice engine
+   - Use specific, actable emotions: "angry but controlled", "quiet devastation", "forced calm", "barely holding it together", "cold and measured", "desperate", "sarcastic edge"
+   - NOT generic like "happy" or "sad" — be specific and performance-ready
+
+6. NO STAGE DIRECTIONS IN THE LINE TEXT
+   - NO parentheses like (sighs) or (pauses) inside the "line" field
+   - NO brackets or asterisks
+   - The "emotion" field handles delivery guidance
+   - The "line" field is ONLY spoken words
+
+7. EVERY LINE MUST MATTER
+   - No filler dialogue that adds nothing
+   - Every line reveals character, builds tension, or moves the story
+   - Cut anything that sounds like placeholder text
+
+Return ONLY a valid JSON array:
 [
-  {"character": "${char1}", "line": "Their line here..."},
-  {"character": "${char2}", "line": "Their response..."},
-  {"character": "${char1}", "line": "Next line..."},
-  {"character": "${char2}", "line": "Reply..."}
+  {"character": "${char1}", "line": "Their exact words.", "emotion": "specific emotional direction"},
+  {"character": "${char2}", "line": "Their response.", "emotion": "specific emotional direction"}
 ]
 
-Generate 4-8 exchanges (8-16 total lines). Make it CINEMATIC. Return ONLY the JSON array.`;
+Generate 6-10 exchanges (12-20 total lines). Make it CINEMATIC. Return ONLY the JSON array.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -147,12 +158,9 @@ Generate 4-8 exchanges (8-16 total lines). Make it CINEMATIC. Return ONLY the JS
         messages: [
           {
             role: 'system',
-            content: 'You are an Oscar-winning screenwriter. Your dialogue is legendary - memorable, emotional, and perfectly suited for movie trailers. You write conversations that reveal character through conflict and subtext. Always return valid JSON only.'
+            content: 'You are an Oscar-caliber screenwriter. Your dialogue is legendary — sharp, emotionally devastating, and impossible to forget. You write like Aaron Sorkin meets Taylor Sheridan: every line crackles with subtext and tension. You NEVER use ellipses as a crutch. Your pacing comes from sentence structure, word choice, and emotional rhythm. Each character has a completely distinct voice. You always return valid JSON only.'
           },
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'user', content: prompt }
         ],
       }),
     });
@@ -180,18 +188,17 @@ Generate 4-8 exchanges (8-16 total lines). Make it CINEMATIC. Return ONLY the JS
     const data = await response.json();
     let dialogueContent = data.choices[0].message.content.trim();
     
-    // Clean up the response - remove markdown code blocks if present
+    // Clean markdown code blocks
     dialogueContent = dialogueContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
     console.log('Raw dialogue content:', dialogueContent);
 
-    // Parse the JSON array
+    // Parse JSON
     let conversation;
     try {
       conversation = JSON.parse(dialogueContent);
     } catch (parseError) {
       console.error('Failed to parse dialogue JSON:', parseError);
-      // Try to extract JSON from the response
       const jsonMatch = dialogueContent.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         conversation = JSON.parse(jsonMatch[0]);
@@ -200,67 +207,74 @@ Generate 4-8 exchanges (8-16 total lines). Make it CINEMATIC. Return ONLY the JS
       }
     }
 
-    // Validate the structure
     if (!Array.isArray(conversation)) {
       throw new Error('Dialogue response is not an array');
     }
 
-    // Clean up each entry and normalize character names
+    // Clean and normalize
     const cleanedConversation = conversation.map((entry: any) => {
       let charName = entry.character || 'Unknown';
       
-      // Normalize character names - match to provided names (fuzzy matching)
+      // Fuzzy match to provided character names
       const char1Lower = char1.toLowerCase().replace(/\s+/g, '');
       const char2Lower = char2.toLowerCase().replace(/\s+/g, '');
       const entryCharLower = charName.toLowerCase().replace(/\s+/g, '');
       
-      // Check if entry character matches char1 or char2
       if (entryCharLower.includes(char1Lower) || char1Lower.includes(entryCharLower)) {
         charName = char1;
       } else if (entryCharLower.includes(char2Lower) || char2Lower.includes(entryCharLower)) {
         charName = char2;
       }
+
+      // Clean the line text — strip excessive ellipses
+      let line = (entry.line || '')
+        .replace(/\([^)]*\)/g, '')
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/\*[^*]*\*/g, '')
+        .trim();
+      
+      // Replace chains of "... word ..." with proper punctuation
+      // "I just... I don't know... maybe" → "I just. I don't know. Maybe"
+      let ellipsisCount = 0;
+      line = line.replace(/\.{3}/g, () => {
+        ellipsisCount++;
+        return ellipsisCount <= 1 ? '...' : '.';
+      });
+      // Also handle unicode ellipsis
+      line = line.replace(/…/g, () => {
+        ellipsisCount++;
+        return ellipsisCount <= 1 ? '...' : '.';
+      });
       
       return {
         character: charName,
-        line: (entry.line || '')
-          .replace(/\([^)]*\)/g, '')  // Remove (parentheses)
-          .replace(/\[[^\]]*\]/g, '') // Remove [brackets]
-          .replace(/\*[^*]*\*/g, '')  // Remove *asterisks*
-          .trim()
+        line,
+        emotion: entry.emotion || undefined,
       };
     }).filter((entry: any) => entry.line.length > 0);
 
-    console.log('Generated blockbuster conversation:', cleanedConversation.length, 'lines');
+    console.log('Generated cinematic conversation:', cleanedConversation.length, 'lines');
 
     // Also return separate dialogue by character for TTS
     const dialogueByCharacter: Record<string, string> = {};
     dialogueByCharacter[char1] = cleanedConversation
       .filter((e: any) => e.character === char1)
       .map((e: any) => e.line)
-      .join(' ... ');
+      .join(' ');
     dialogueByCharacter[char2] = cleanedConversation
       .filter((e: any) => e.character === char2)
       .map((e: any) => e.line)
-      .join(' ... ');
+      .join(' ');
 
     return new Response(
-      JSON.stringify({ 
-        conversation: cleanedConversation,
-        dialogueByCharacter
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ conversation: cleanedConversation, dialogueByCharacter }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error in generate-conversation-dialogue:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
