@@ -2743,9 +2743,12 @@ const MovieSceneCreator = () => {
         let voiceToUse: { name: string; speechifyVoiceId?: string; voiceCloningKey?: string; gender?: string; voiceEngine?: string; googleVoiceId?: string } | null = null;
 
         if (storyBible?.characters) {
+          // For conversation dialogue, match first speaker to a character
           if (Array.isArray(scene.dialogue) && scene.dialogue.length > 0) {
-            const firstSpeaker = scene.dialogue[0].character;
-            const assignedChar = storyBible.characters.find(c => c.name.toLowerCase() === firstSpeaker.toLowerCase());
+            const firstSpeaker = scene.dialogue[0].character?.toLowerCase() || '';
+            // Try exact match first, then partial/includes match
+            const assignedChar = storyBible.characters.find(c => c.name.toLowerCase() === firstSpeaker)
+              || storyBible.characters.find(c => firstSpeaker.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(firstSpeaker));
             if (assignedChar?.assignedTwinId) {
               const assignedTwin = aiTwins.find(t => t.id === assignedChar.assignedTwinId);
               if (assignedTwin) {
@@ -2779,8 +2782,14 @@ const MovieSceneCreator = () => {
           }
         }
 
+        // Fallback: try matching dialogue character name directly to a selected twin
         if (!voiceToUse && selectedTwins.length > 0) {
-          const twin = selectedTwins[0];
+          const speakerName = Array.isArray(scene.dialogue) && scene.dialogue.length > 0 
+            ? scene.dialogue[0].character?.toLowerCase() : '';
+          const matchedTwin = speakerName 
+            ? selectedTwins.find(t => t.name.toLowerCase() === speakerName || speakerName.includes(t.name.toLowerCase()))
+            : null;
+          const twin = matchedTwin || selectedTwins[0];
           const isSpeechify = twin.voice_cloning_key ? isSpeechifyVoiceId(twin.voice_cloning_key) : false;
           voiceToUse = {
             name: twin.name,
@@ -2792,9 +2801,12 @@ const MovieSceneCreator = () => {
           };
         }
 
+        const voiceType = voiceToUse?.speechifyVoiceId ? 'cloned' : voiceToUse?.voiceCloningKey ? 'cloned' : voiceToUse?.voiceEngine === 'google-cloud' ? 'Google Cloud' : 'WaveSpeed AI';
         toast({
           title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
-          description: voiceToUse ? `Creating voiceover using ${voiceToUse.name}'s voice...` : "Creating voiceover for the scene...",
+          description: voiceToUse 
+            ? `Creating ${voiceToUse.gender || 'character'} voiceover for ${voiceToUse.name} via ${voiceType}...`
+            : "Creating voiceover for the scene...",
         });
 
         let ttsVoiceParams: any = {};
