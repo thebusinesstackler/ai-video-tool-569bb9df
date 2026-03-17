@@ -394,7 +394,7 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here using ONLY commas and question marks, NO periods, NO em dashes, NO ellipses",
-    "visualDescription": "CAMERA: [lens mm, f-stop, movement e.g. slow dolly in]. SUBJECT: ${characterDescription ? `${characterDescription} — ` : ''}[${characterDescription ? 'this EXACT character' : 'detailed character description with age, ethnicity, clothing, expression'} performing a TOPIC-RELEVANT action that illustrates this scene's narration - closed mouth, natural expression]. LIGHTING: [specific setup e.g. warm golden hour key light from left, cool blue rim light from right, soft fill]. BACKGROUND: [detailed consistent environment matching the topic]. COLOR GRADE: [specific palette e.g. warm amber tones with lifted shadows, rich cinematic contrast]. ATMOSPHERE: [bokeh quality, haze, volumetric light, particles]. NOTE: Scene 1 HOOK must have the MOST visually striking, attention-grabbing cinematography.${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
+    "visualDescription": "SUBJECT: ${characterDescription ? `${characterDescription}, ` : ''}[action relevant to narration topic, closed mouth, natural expression]. SETTING: [location and key props matching the topic]. MOOD: [lighting and color tone in 2-3 words].${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}
   }
