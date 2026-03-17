@@ -1861,15 +1861,20 @@ const MovieSceneCreator = () => {
       setScenes([...scenesWithDialogue]);
 
       // Auto-stitch all videos into final movie
-      const scenesWithVideos = scenesWithDialogue.filter(s => s.generatedVideo);
+      const sortedForStitch = [...scenesWithDialogue].sort((a, b) => a.sceneNumber - b.sceneNumber);
+      const scenesWithVideos = sortedForStitch.filter(s => s.generatedVideo);
+      console.log(`[GenerateAll] Stitching: ${scenesWithVideos.length}/${sortedForStitch.length} scenes have videos`);
       if (scenesWithVideos.length >= 2) {
         setGenerateAllStep('Stitching final movie...');
         try {
           const videosToStitch = scenesWithVideos.map(s => s.generatedVideo as string);
-          const audiosToStitch = scenesWithVideos
-            .map(s => (s as any).transitionAudioContent)
-            .filter(Boolean)
-            .map((audioBase64: string) => `data:audio/mp3;base64,${audioBase64}`);
+          const audiosToStitch: string[] = [];
+          scenesWithVideos.forEach(s => {
+            const audioContent = (s as any).transitionAudioContent;
+            if (audioContent) {
+              audiosToStitch.push(`data:audio/mp3;base64,${audioContent}`);
+            }
+          });
 
           const stitchedBlob = await stitchVideosWithAudio({
             videoUrls: videosToStitch,
