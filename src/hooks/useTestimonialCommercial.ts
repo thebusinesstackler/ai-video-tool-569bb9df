@@ -432,10 +432,10 @@ export function useTestimonialCommercial() {
             step++;
             setGenerationProgress(30 + (step / totalSteps) * 70);
 
-            // Generate TTS audio — use locked voice from registry
+            // Generate TTS audio — use AI Twin cloned voice or fallback
             toast.info(`Scene ${i + 1}: Generating voiceover...`);
             const voiceCharKey = segment.character?.twinId || segment.character?.name || segment.id;
-            const lockedVoice = voiceRegistry[voiceCharKey] || 'English_Trustworth_Man';
+            const lockedVoiceConfig = voiceRegistry[voiceCharKey] || { voice: 'English_Trustworth_Man' };
             const gender = segment.character?.gender || 
               (segment.character?.description?.toLowerCase().includes('female') || 
                segment.character?.description?.toLowerCase().includes('woman') ? 'female' : 'male');
@@ -443,8 +443,9 @@ export function useTestimonialCommercial() {
             const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
               body: {
                 text: sanitizeForTTS(segment.script || ''),
-                voice: lockedVoice,
-                gender,
+                ...(lockedVoiceConfig.speechifyVoiceId 
+                  ? { speechifyVoiceId: lockedVoiceConfig.speechifyVoiceId }
+                  : { voice: lockedVoiceConfig.voice, gender }),
               }
             });
 
