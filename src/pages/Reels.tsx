@@ -333,8 +333,8 @@ const Reels = () => {
   const [videoModel, setVideoModel] = useState<'infinitetalk' | 'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro'>('infinitetalk');
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
-  // Voice selection for TTS (WaveSpeed MiniMax HD voices)
-  const [selectedVoice, setSelectedVoice] = useState<string>('English_Trustworth_Man');
+  // Voice selection — defaults empty, resolved from AI Twin cloned voice
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
   
   // Custom audio upload for lip sync
   const [customAudioMode, setCustomAudioMode] = useState<'tts' | 'upload'>('tts');
@@ -492,7 +492,7 @@ const Reels = () => {
         setTopic(draft.topic || '');
         setSelectedSceneCount(draft.selectedSceneCount || '4');
         setSelectedSceneDuration(draft.selectedSceneDuration || '12');
-        setSelectedVoice(draft.selectedVoice || 'English_Trustworth_Man');
+        setSelectedVoice(draft.selectedVoice || '');
         setSelectedVideoSize(draft.selectedVideoSize || '9:16');
         setTransitionStyle((draft.transitionStyle as any) || 'crossfade');
         setHookStyle(draft.hookStyle || 'auto');
@@ -691,22 +691,14 @@ const Reels = () => {
       if (data?.description) {
         setCharacterDescription(data.description);
         
-        // Auto-detect gender from the analysis and set matching voice
+        // Gender detection for display only — voice comes from AI Twin
         const descLower = data.description.toLowerCase();
         const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'sister'];
-        const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'brother'];
         const isFemale = femaleKeywords.some(k => descLower.includes(k));
-        const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
-        
-        if (isFemale) {
-          setSelectedVoice('English_compelling_lady1');
-        } else if (isMale) {
-          setSelectedVoice('English_magnetic_voiced_man');
-        }
         
         toast({
           title: "Character Detected",
-          description: `Auto-filled: ${data.description}${isFemale ? ' (female voice set)' : isMale ? ' (male voice set)' : ''}`,
+          description: `Auto-filled: ${data.description}${isFemale ? ' (female detected)' : ''}`,
         });
       }
     } catch (error: any) {
@@ -1298,7 +1290,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setTopic(draft.topic);
     setSelectedSceneCount(ds.selectedSceneCount || '4');
     setSelectedSceneDuration(ds.selectedSceneDuration || '12');
-    setSelectedVoice(ds.selectedVoice || 'English_Trustworth_Man');
+    setSelectedVoice(ds.selectedVoice || '');
     setSelectedVideoSize(ds.selectedVideoSize || '9:16');
     setTransitionStyle((ds.transitionStyle as any) || 'crossfade');
     setHookStyle(ds.hookStyle || 'auto');
@@ -1701,15 +1693,15 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         }
         
         try {
-          // Check if using cloned voice from AI Twin
+          // Use AI Twin cloned voice (Speechify) if available
           const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-          const clonedVoiceUrl = selectedTwin?.voice_cloning_key || null;
+          const twinVoiceId = selectedTwin?.voice_cloning_key || null;
           
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
             body: { 
               text: scene.narration, 
-              voice: clonedVoiceUrl ? undefined : selectedVoice,
-              clonedVoiceUrl 
+              speechifyVoiceId: twinVoiceId || undefined,
+              voice: twinVoiceId ? undefined : (selectedVoice || 'English_Trustworth_Man'),
             }
           });
           
@@ -1987,8 +1979,10 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                   continue;
                 }
                 try {
+                  const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                  const twinVoiceId = selectedTwin?.voice_cloning_key || null;
                   const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-                    body: { text: scene.narration, voice: selectedVoice }
+                    body: { text: scene.narration, speechifyVoiceId: twinVoiceId || undefined, voice: twinVoiceId ? undefined : (selectedVoice || 'English_Trustworth_Man') }
                   });
                   if (!ttsError && ttsData?.audioContent) {
                     const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
@@ -2169,16 +2163,24 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Helper to detect gender from text and return matching voice
-  const detectGenderVoice = (text: string): string | null => {
-    const lower = text.toLowerCase();
-    const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss', 'feminine'];
-    const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr', 'masculine'];
-    const isFemale = femaleKeywords.some(k => lower.includes(k));
-    const isMale = maleKeywords.some(k => lower.includes(k));
-    if (isFemale && !isMale) return 'English_compelling_lady1';
-    if (isMale && !isFemale) return 'English_magnetic_voiced_man';
-    return null;
+  // Resolve the best voice: always prefer AI Twin cloned voice, fallback to gender-based default
+  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string } => {
+    // Priority 1: Selected AI Twin with cloned voice
+    if (selectedTwinId) {
+      const twin = aiTwins.find(t => t.id === selectedTwinId);
+      if (twin?.voice_cloning_key) {
+        return { speechifyVoiceId: twin.voice_cloning_key };
+      }
+    }
+    // Priority 2: Any AI Twin with a cloned voice
+    const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
+    if (anyTwinWithVoice) {
+      return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key! };
+    }
+    // Priority 3: Fallback to WaveSpeed default based on gender
+    const lower = (characterDescription + ' ' + topic).toLowerCase();
+    const isFemale = ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
+    return { voice: isFemale ? 'English_compelling_lady1' : 'English_Trustworth_Man' };
   };
 
   const stopGeneration = () => {
@@ -2227,31 +2229,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setLipSyncModel('infinitetalk');
     }
     
-    // Auto-detect voice if user hasn't selected one — preserve manual voice selection
-    let resolvedVoice = selectedVoice;
-    if (!selectedVoice || selectedVoice === 'ai-auto') {
-      // Try to detect from twin gender
-      if (selectedTwinId && aiTwins.length > 0) {
-        const twin = aiTwins.find(t => t.id === selectedTwinId) || aiTwins[0];
-        const twinGender = (twin as any).gender?.toLowerCase() || '';
-        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
-        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
-        if (detectedVoice) resolvedVoice = detectedVoice;
-      }
-      // Fallback: detect from topic/character description
-      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-        const topicVoice = detectGenderVoice(topic + ' ' + characterDescription);
-        if (topicVoice) resolvedVoice = topicVoice;
-      }
-      // Final fallback
-      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-        const descVoice = detectGenderVoice(characterDescription);
-        resolvedVoice = descVoice || 'English_Trustworth_Man';
-      }
-    }
-    
-    // Write resolved voice back to state so generateVideo uses it
-    setSelectedVoice(resolvedVoice);
+    // Voice is resolved at TTS call time from AI Twin — no need to pre-resolve
 
     if (abortRef.current.signal.aborted) return;
     
@@ -2311,21 +2289,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setLipSyncModel('infinitetalk');
     }
     
-    // Auto-detect voice
-    let resolvedVoice = selectedVoice;
-    if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-      if (aiTwins.length > 0) {
-        const twin = aiTwins[0];
-        const twinGender = (twin as any).gender?.toLowerCase() || '';
-        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
-        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
-        if (detectedVoice) resolvedVoice = detectedVoice;
-      }
-      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-        resolvedVoice = detectGenderVoice(quickTopic + ' ' + characterDescription) || 'English_Trustworth_Man';
-      }
-    }
-    setSelectedVoice(resolvedVoice);
+    // Voice is resolved at TTS call time from AI Twin
     
     if (abortRef.current.signal.aborted) return;
     
@@ -2389,21 +2353,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setLipSyncModel('infinitetalk');
     }
     
-    // Auto-detect voice
-    let resolvedVoice = selectedVoice;
-    if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-      if (aiTwins.length > 0) {
-        const twin = aiTwins[0];
-        const twinGender = (twin as any).gender?.toLowerCase() || '';
-        const twinDesc = (twin.face_description || twin.name || '').toLowerCase();
-        const detectedVoice = detectGenderVoice(`${twinGender} ${twinDesc}`);
-        if (detectedVoice) resolvedVoice = detectedVoice;
-      }
-      if (!resolvedVoice || resolvedVoice === 'ai-auto') {
-        resolvedVoice = detectGenderVoice(quickTopic + ' ' + characterDescription) || 'English_Trustworth_Man';
-      }
-    }
-    setSelectedVoice(resolvedVoice);
+    // Voice is resolved at TTS call time from AI Twin
     
     if (abortRef.current.signal.aborted) return;
     

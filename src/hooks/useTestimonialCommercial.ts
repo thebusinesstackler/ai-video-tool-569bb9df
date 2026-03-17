@@ -357,24 +357,40 @@ export function useTestimonialCommercial() {
         setGenerationProgress((step / totalSteps) * 30); // First 30% is character gen
       }
 
-      // ── Voice Registry: lock one voice per character for the entire project ──
-      const MALE_VOICES = ['English_Trustworth_Man', 'Deep_Voice_Man', 'Casual_Guy', 'English_magnetic_voiced_man'];
-      const FEMALE_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
-      const voiceRegistry: Record<string, string> = {};
+      // ── Voice Registry: prefer AI Twin cloned voice, fallback to gender-based WaveSpeed ──
+      const MALE_VOICES_FALLBACK = ['English_Trustworth_Man', 'Deep_Voice_Man', 'Casual_Guy', 'English_magnetic_voiced_man'];
+      const FEMALE_VOICES_FALLBACK = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+      const voiceRegistry: Record<string, { voice?: string; speechifyVoiceId?: string }> = {};
 
       for (const seg of segments) {
         if (seg.type !== 'speaking' || !seg.character) continue;
         const charKey = seg.character.twinId || seg.character.name || seg.id;
-        if (voiceRegistry[charKey]) continue; // already assigned
+        if (voiceRegistry[charKey]) continue;
+
+        // Check if this character has an AI Twin with a cloned voice
+        if (seg.character.twinId) {
+          // Look up the twin's speechify voice ID from the segment's character data
+          // The twinId maps to ai_twins table which has voice_cloning_key
+          try {
+            const { data: twinData } = await supabase
+              .from('ai_twins')
+              .select('voice_cloning_key')
+              .eq('id', seg.character.twinId)
+              .single();
+            if (twinData?.voice_cloning_key) {
+              voiceRegistry[charKey] = { speechifyVoiceId: twinData.voice_cloning_key };
+              continue;
+            }
+          } catch { /* fall through to default */ }
+        }
 
         const gender = seg.character.gender ||
           (seg.character.description?.toLowerCase().includes('female') ||
            seg.character.description?.toLowerCase().includes('woman') ? 'female' : 'male');
 
-        const pool = gender === 'female' ? FEMALE_VOICES : MALE_VOICES;
-        // Deterministic pick: hash the charKey to pick a stable index
+        const pool = gender === 'female' ? FEMALE_VOICES_FALLBACK : MALE_VOICES_FALLBACK;
         const hash = charKey.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-        voiceRegistry[charKey] = pool[hash % pool.length];
+        voiceRegistry[charKey] = { voice: pool[hash % pool.length] };
       }
 
       console.log('[voice-lock] Registry:', voiceRegistry);
@@ -416,10 +432,10 @@ export function useTestimonialCommercial() {
             step++;
             setGenerationProgress(30 + (step / totalSteps) * 70);
 
-            // Generate TTS audio — use locked voice from registry
+            // Generate TTS audio — use AI Twin cloned voice or fallback
             toast.info(`Scene ${i + 1}: Generating voiceover...`);
             const voiceCharKey = segment.character?.twinId || segment.character?.name || segment.id;
-            const lockedVoice = voiceRegistry[voiceCharKey] || 'English_Trustworth_Man';
+            const lockedVoiceConfig = voiceRegistry[voiceCharKey] || { voice: 'English_Trustworth_Man' };
             const gender = segment.character?.gender || 
               (segment.character?.description?.toLowerCase().includes('female') || 
                segment.character?.description?.toLowerCase().includes('woman') ? 'female' : 'male');
@@ -427,8 +443,9 @@ export function useTestimonialCommercial() {
             const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
               body: {
                 text: sanitizeForTTS(segment.script || ''),
-                voice: lockedVoice,
-                gender,
+                ...(lockedVoiceConfig.speechifyVoiceId 
+                  ? { speechifyVoiceId: lockedVoiceConfig.speechifyVoiceId }
+                  : { voice: lockedVoiceConfig.voice, gender }),
               }
             });
 
@@ -544,9 +561,14 @@ export function useTestimonialCommercial() {
               let voiceoverAudioUrl: string | undefined;
               if (segment.voiceoverText) {
                 // Use the first registered voice for b-roll voiceover continuity
-                const brollVoice = Object.values(voiceRegistry)[0] || 'English_Trustworth_Man';
+                const brollVoiceConfig = Object.values(voiceRegistry)[0] || { voice: 'English_Trustworth_Man' };
                 const { data: ttsData } = await supabase.functions.invoke('text-to-speech', {
-                  body: { text: sanitizeForTTS(segment.voiceoverText), voice: brollVoice, gender: 'male' }
+                  body: { 
+                    text: sanitizeForTTS(segment.voiceoverText),
+                    ...(brollVoiceConfig.speechifyVoiceId 
+                      ? { speechifyVoiceId: brollVoiceConfig.speechifyVoiceId }
+                      : { voice: brollVoiceConfig.voice, gender: 'male' }),
+                  }
                 });
                 voiceoverAudioUrl = ttsData?.audioUrl;
               }

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { CommercialSegment } from '@/types/testimonialCommercial';
 import { User, Film, Play, Pause, ChevronUp, ChevronDown, Volume2, Clock, RefreshCw, Mic, Pencil, Trash2, Copy, FileText, Lock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -21,27 +22,11 @@ interface TimelinePreviewProps {
   onDuplicateSegment?: (id: string) => void;
 }
 
-const WAVESPEED_VOICES = {
-  male: [
-    { id: 'English_magnetic_voiced_man', label: 'Magnetic Man' },
-    { id: 'English_Trustworth_Man', label: 'Trustworthy Man' },
-    { id: 'Casual_Guy', label: 'Casual Guy' },
-    { id: 'Deep_Voice_Man', label: 'Deep Voice Man' },
-    { id: 'Elegant_Man', label: 'Elegant Man' },
-    { id: 'Determined_Man', label: 'Determined Man' },
-    { id: 'Patient_Man', label: 'Patient Man' },
-    { id: 'Decent_Boy', label: 'Decent Boy' },
-  ],
-  female: [
-    { id: 'English_compelling_lady1', label: 'Compelling Lady' },
-    { id: 'English_radiant_girl', label: 'Radiant Girl' },
-    { id: 'Calm_Woman', label: 'Calm Woman' },
-    { id: 'Inspirational_girl', label: 'Inspirational Girl' },
-    { id: 'Lovely_Girl', label: 'Lovely Girl' },
-    { id: 'Lively_Girl', label: 'Lively Girl' },
-    { id: 'Wise_Woman', label: 'Wise Woman' },
-  ],
-};
+interface AITwinVoiceOption {
+  id: string;
+  name: string;
+  voice_cloning_key: string;
+}
 
 const segmentConfig = {
   speaking: { label: 'Speaking', color: 'bg-primary', border: 'border-primary/60', icon: User },
@@ -63,6 +48,19 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [showScriptFlow, setShowScriptFlow] = useState(false);
+  const { user } = useAuth();
+  const [twinVoices, setTwinVoices] = useState<AITwinVoiceOption[]>([]);
+
+  // Load AI Twin voices
+  useEffect(() => {
+    if (!user) return;
+    supabase.rpc('get_twins_summary', { _user_id: user.id }).then(({ data }) => {
+      const withVoice = (data || [])
+        .filter((t: any) => t.voice_cloning_key)
+        .map((t: any) => ({ id: t.id, name: t.name, voice_cloning_key: t.voice_cloning_key }));
+      setTwinVoices(withVoice);
+    });
+  }, [user]);
   const [editingScriptId, setEditingScriptId] = useState<string | null>(null);
   const [editScriptText, setEditScriptText] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -101,8 +99,13 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
       if (!targetSeg.script) continue;
       setRegeneratingId(targetSeg.id);
       try {
+        // Check if voiceId is a Speechify cloned voice (not a WaveSpeed preset ID)
+        const isTwinVoice = twinVoices.some(t => t.voice_cloning_key === voiceId);
         const { data, error } = await supabase.functions.invoke('text-to-speech', {
-          body: { text: targetSeg.script, voice: voiceId }
+          body: { 
+            text: targetSeg.script, 
+            ...(isTwinVoice ? { speechifyVoiceId: voiceId } : { voice: voiceId })
+          }
         });
         if (error) throw error;
         if (data?.audioUrl) {
@@ -120,11 +123,16 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
 
   const handleRegenerateAudio = async (segment: CommercialSegment) => {
     if (!segment.script) return;
-    const voiceId = lockedVoiceId || segment.voiceoverId || 'English_Trustworth_Man';
+    const voiceId = lockedVoiceId || segment.voiceoverId || '';
+    if (!voiceId) { toast.error('No voice selected'); return; }
+    const isTwinVoice = twinVoices.some(t => t.voice_cloning_key === voiceId);
     setRegeneratingId(segment.id);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: segment.script, voice: voiceId }
+        body: { 
+          text: segment.script, 
+          ...(isTwinVoice ? { speechifyVoiceId: voiceId } : { voice: voiceId })
+        }
       });
       if (error) throw error;
       if (data?.audioUrl) {
@@ -435,14 +443,18 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
                     <SelectValue placeholder="Select voice..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <div className="text-[9px] font-medium text-muted-foreground px-2 py-1">Male Voices</div>
-                    {WAVESPEED_VOICES.male.map(v => (
-                      <SelectItem key={v.id} value={v.id} className="text-xs">{v.label}</SelectItem>
-                    ))}
-                    <div className="text-[9px] font-medium text-muted-foreground px-2 py-1 mt-1">Female Voices</div>
-                    {WAVESPEED_VOICES.female.map(v => (
-                      <SelectItem key={v.id} value={v.id} className="text-xs">{v.label}</SelectItem>
-                    ))}
+                    {twinVoices.length > 0 ? (
+                      <>
+                        <div className="text-[9px] font-medium text-muted-foreground px-2 py-1">AI Twin Voices</div>
+                        {twinVoices.map(t => (
+                          <SelectItem key={t.id} value={t.voice_cloning_key} className="text-xs">🎙️ {t.name}'s Voice</SelectItem>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="px-2 py-3 text-[10px] text-muted-foreground text-center">
+                        No cloned voices. Create an AI Twin with a cloned voice first.
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
                 <Button
