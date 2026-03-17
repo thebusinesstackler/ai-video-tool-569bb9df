@@ -14,6 +14,11 @@ export interface WaveSpeedVideoParams {
   characterId?: string;
   duration?: number;
   resolution?: '480p' | '720p' | '1080p';
+  // Task tracking metadata
+  userId?: string;
+  source?: string;
+  sourceId?: string;
+  sceneNumber?: number;
 }
 
 export interface WaveSpeedVideoJob {

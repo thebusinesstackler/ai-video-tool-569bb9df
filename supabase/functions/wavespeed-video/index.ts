@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Create service-role Supabase client for logging tasks
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const dbClient = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
@@ -554,8 +560,29 @@ serve(async (req) => {
         throw new Error(`WaveSpeed AI API error: ${errorMessage}`);
       }
       
+      // Log task to video_tasks table for recovery
+      const taskId = data.data.id;
+      const userId = body.userId; // Optional: passed from client for tracking
+      if (userId) {
+        try {
+          await dbClient.from('video_tasks').insert({
+            user_id: userId,
+            task_id: taskId,
+            model: params.model || 'wan-2.2',
+            status: 'pending',
+            source: body.source || null,
+            source_id: body.sourceId || null,
+            scene_number: body.sceneNumber ?? null,
+            prompt: params.prompt?.substring(0, 500) || null
+          });
+          console.log('[video_tasks] Logged new task:', taskId);
+        } catch (logErr) {
+          console.error('[video_tasks] Failed to log task:', logErr);
+        }
+      }
+
       return new Response(
-        JSON.stringify({ taskId: data.data.id }), 
+        JSON.stringify({ taskId }), 
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -669,6 +696,18 @@ serve(async (req) => {
           console.error('[wavespeed-video] Full taskData:', JSON.stringify(taskData).substring(0, 2000));
         } else {
           console.log('[wavespeed-video] Found video URL via fallback field');
+        }
+      }
+
+      // Update video_tasks table if status is terminal
+      if (status === 'completed' || status === 'failed') {
+        try {
+          const updateData: any = { status, updated_at: new Date().toISOString() };
+          if (videoUrl) updateData.video_url = videoUrl;
+          await dbClient.from('video_tasks').update(updateData).eq('task_id', taskId);
+          console.log('[video_tasks] Updated task status:', taskId, status);
+        } catch (updateErr) {
+          console.error('[video_tasks] Failed to update task:', updateErr);
         }
       }
 

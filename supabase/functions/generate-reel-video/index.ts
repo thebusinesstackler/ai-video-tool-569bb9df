@@ -322,10 +322,28 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Create Supabase client for storage uploads
+    // Create Supabase client for storage uploads and task logging
     const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY 
       ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
       : null;
+
+    // Extract user ID from auth header for task logging
+    let currentUserId: string | null = null;
+    if (supabase) {
+      try {
+        const authHeader = req.headers.get('authorization');
+        if (authHeader) {
+          const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+          const authClient = createClient(SUPABASE_URL!, anonKey!, {
+            global: { headers: { Authorization: authHeader } }
+          });
+          const { data: { user } } = await authClient.auth.getUser();
+          currentUserId = user?.id || null;
+        }
+      } catch (e) {
+        console.warn('Could not extract user ID for task logging:', e);
+      }
+    }
 
     // Generate images for each scene using AI
     const sceneImages: string[] = [];
@@ -947,6 +965,18 @@ People should have closed mouths — not speaking or mouthing words.`,
                 model: apiEndpoint,
                 hasEmbeddedAudio: sceneHasEmbeddedAudio
               });
+              // Log to video_tasks table
+              if (supabase && currentUserId) {
+                supabase.from('video_tasks').insert({
+                  user_id: currentUserId,
+                  task_id: videoData.data.id,
+                  model: apiEndpoint.split('/').pop() || 'unknown',
+                  status: 'pending',
+                  source: 'reel',
+                  scene_number: scene.sceneNumber,
+                  prompt: (scene.visualDescription || '').substring(0, 500)
+                }).then(({ error }) => { if (error) console.error('[video_tasks] log error:', error); });
+              }
             }
           } else {
             const errorText = await videoResponse.text();
@@ -989,6 +1019,18 @@ People should have closed mouths — not speaking or mouthing words.`,
                     model: fallbackEndpoint,
                     hasEmbeddedAudio: false
                   });
+                  // Log fallback task
+                  if (supabase && currentUserId) {
+                    supabase.from('video_tasks').insert({
+                      user_id: currentUserId,
+                      task_id: fallbackData.data.id,
+                      model: fallbackEndpoint.split('/').pop() || 'unknown',
+                      status: 'pending',
+                      source: 'reel',
+                      scene_number: scene.sceneNumber,
+                      prompt: (scene.visualDescription || '').substring(0, 500)
+                    }).then(({ error }) => { if (error) console.error('[video_tasks] fallback log error:', error); });
+                  }
                 }
               }
             } catch (fallbackErr) {
