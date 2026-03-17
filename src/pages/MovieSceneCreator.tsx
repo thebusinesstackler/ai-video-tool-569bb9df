@@ -752,12 +752,46 @@ const MovieSceneCreator = () => {
       try {
         const { projectId } = JSON.parse(saved);
         if (projectId) {
+          // Auto-recover immediately so user never loses their work
           setRecoveryProjectId(projectId);
           setShowRecoveryBanner(true);
         }
       } catch { /* ignore */ }
     }
+
+    // Also check for the most recent draft if no generation was interrupted
+    if (!saved) {
+      loadMostRecentDraft();
+    }
   }, [userId]);
+
+  // Load the most recent in-progress project as a draft
+  const loadMostRecentDraft = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('movie_projects')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (error || !data?.length) return;
+
+      const project = data[0];
+      // Only auto-restore if the project was updated recently (within last 24 hours) and has content
+      const updatedAt = new Date(project.updated_at).getTime();
+      const isRecent = Date.now() - updatedAt < 24 * 60 * 60 * 1000;
+      const hasContent = project.movie_idea && (project.outline || (project.scenes as any[])?.length > 0);
+
+      if (isRecent && hasContent && !currentProjectId) {
+        setRecoveryProjectId(project.id);
+        setShowRecoveryBanner(true);
+      }
+    } catch (err) {
+      console.error('Failed to check for recent drafts:', err);
+    }
+  };
 
   // Helper to save/clear generation tracking
   const trackGenerationStart = (projectId: string) => {
