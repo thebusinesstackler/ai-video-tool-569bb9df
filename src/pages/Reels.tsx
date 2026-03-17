@@ -2943,6 +2943,157 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     }
   };
 
+  // Post-production: generate and append a B-roll clip
+  const appendBrollClip = async () => {
+    if (!appendBrollPrompt.trim()) {
+      toast({ title: "Enter a prompt", description: "Describe the B-roll scene you want to add.", variant: "destructive" });
+      return;
+    }
+
+    setIsAppendingBroll(true);
+    try {
+      // Use a reference image from existing scenes if available
+      const refImage = project.generatedScenes[0]?.imageUrl || null;
+      
+      const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          prompt: appendBrollPrompt,
+          imageUrls: refImage ? [refImage] : undefined,
+          model: appendBrollModel,
+          aspectRatio: selectedVideoSize === '16:9' ? '16:9' : '9:16',
+          duration: appendBrollModel === 'wan-2.6-i2v' ? appendBrollDuration : undefined,
+        }
+      });
+
+      if (error || !data?.taskId) throw new Error(data?.error || 'Failed to start B-roll generation');
+
+      toast({ title: "Generating B-Roll", description: "Your clip is being created..." });
+
+      // Poll for completion
+      const taskId = data.taskId;
+      const maxTime = 300_000;
+      const start = Date.now();
+      while (Date.now() - start < maxTime) {
+        await new Promise(r => setTimeout(r, 3000));
+        const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId }
+        });
+        if (status?.status === 'completed' && status?.videoUrl) {
+          setAppendedClips(prev => [...prev, { videoUrl: status.videoUrl, prompt: appendBrollPrompt, duration: appendBrollDuration }]);
+          setAppendBrollPrompt('');
+          toast({ title: "B-Roll Ready!", description: "Clip added. Re-stitch when ready." });
+          break;
+        }
+        if (status?.status === 'failed') throw new Error(status?.error || 'B-roll generation failed');
+      }
+    } catch (err: any) {
+      console.error('Append B-roll error:', err);
+      toast({ title: "B-Roll Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsAppendingBroll(false);
+    }
+  };
+
+  // Re-stitch: combine original video with appended B-roll clips
+  const restitchWithAppendedClips = async () => {
+    if (appendedClips.length === 0) {
+      toast({ title: "No clips to add", description: "Generate at least one B-roll clip first.", variant: "destructive" });
+      return;
+    }
+
+    setIsRestitching(true);
+    setProgress(5);
+    setProgressStatus('Preparing to re-stitch...');
+
+    try {
+      // Gather all video URLs: original scenes + appended clips
+      const originalClipUrls = project.generatedScenes
+        .sort((a, b) => a.sceneNumber - b.sceneNumber)
+        .map(s => {
+          const clip = project.videoClips.find(v => v.sceneNumber === s.sceneNumber);
+          return clip?.videoUrl || s.videoUrl;
+        })
+        .filter(Boolean) as string[];
+
+      // If we have a single stitched video, use that as the base
+      const baseUrls = originalClipUrls.length > 0 ? originalClipUrls : (project.videoBlobUrl ? [project.videoBlobUrl] : []);
+      const appendedUrls = appendedClips.map(c => c.videoUrl);
+      const allUrls = [...baseUrls, ...appendedUrls];
+
+      if (allUrls.length < 2) {
+        toast({ title: "Not enough clips", description: "Need at least 2 clips to stitch.", variant: "destructive" });
+        return;
+      }
+
+      setProgress(20);
+      setProgressStatus('Stitching clips together...');
+
+      const allPublic = allUrls.every(u => u.startsWith('http'));
+      let stitchedBlob: Blob;
+
+      if (allPublic) {
+        try {
+          const clips = allUrls.map(url => ({ url, duration: 5 }));
+          const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+            body: { clips, transition: transitionStyle || 'crossfade' }
+          });
+          if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error('Cloud stitch failed');
+
+          let cloudUrl: string | null = null;
+          for (let attempt = 0; attempt < 60; attempt++) {
+            await new Promise(r => setTimeout(r, 3000));
+            const { data: status } = await supabase.functions.invoke('creatomate-status', {
+              body: { renderId: stitchData.renderId }
+            });
+            if (status?.status === 'succeeded' && status?.url) { cloudUrl = status.url; break; }
+            if (status?.status === 'failed') throw new Error('Cloud render failed');
+            setProgress(20 + Math.min(70, (attempt / 60) * 70));
+          }
+          if (!cloudUrl) throw new Error('Cloud render timed out');
+          const resp = await fetch(cloudUrl);
+          stitchedBlob = await resp.blob();
+        } catch (cloudErr) {
+          console.warn('Cloud re-stitch failed, using canvas:', cloudErr);
+          const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+          const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
+          stitchedBlob = await canvasStitchVideos({ videoUrls: allUrls, width: sw, height: sh, onProgress: (p) => setProgress(20 + p * 0.7) });
+        }
+      } else {
+        const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+        const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
+        stitchedBlob = await canvasStitchVideos({ videoUrls: allUrls, width: sw, height: sh, onProgress: (p) => setProgress(20 + p * 0.7) });
+      }
+
+      // Upload and save
+      const blobUrl = URL.createObjectURL(stitchedBlob);
+      let savedUrl = blobUrl;
+      if (user) {
+        try {
+          const ext = stitchedBlob.type.includes('webm') ? 'webm' : 'mp4';
+          const fileName = `${user.id}/videos/${Date.now()}-restitched.${ext}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('reels')
+            .upload(fileName, stitchedBlob, { contentType: stitchedBlob.type || 'video/webm' });
+          if (!uploadError && uploadData) {
+            const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+            savedUrl = publicUrl.publicUrl;
+          }
+        } catch (e) { console.error('Upload failed:', e); }
+      }
+
+      setProject(prev => ({ ...prev, videoBlobUrl: savedUrl, videoClips: [], status: 'complete' }));
+      setAppendedClips([]);
+      setShowAppendBroll(false);
+      toast({ title: "Re-stitched!", description: "Your updated reel is ready." });
+      setProgress(100);
+    } catch (err: any) {
+      toast({ title: "Re-stitch Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsRestitching(false);
+    }
+  };
+
   return (
     <Layout>
       <div className={`flex h-full ${isMobile ? '' : '-m-6'}`}>
