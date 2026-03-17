@@ -908,7 +908,8 @@ No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
           console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for outro`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-          const sora2Duration = clipDuration <= 5 ? 4 : clipDuration <= 10 ? 8 : 12;
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 4);
           
           const outroCharDesc = characterDescription 
             ? `The ${characterDescription} is in frame with a warm, inviting closing expression.` 
@@ -925,6 +926,7 @@ No text, no captions, no subtitles, no watermarks.`,
             duration: sora2Duration,
             aspect_ratio: '9:16'
           };
+          sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
           
         } else {
           // ====== KLING 3.0 PRO: B-roll / fallback ======
