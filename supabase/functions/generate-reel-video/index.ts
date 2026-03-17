@@ -677,8 +677,8 @@ Rules:
           // ====== WAN 2.6 I2V: High quality image-to-video, 5/10/15s clips ======
           console.log(`Scene ${scene.sceneNumber}: Using Wan 2.6 I2V for narrator scene`);
           
-          // Clamp to allowed durations: 5, 10, or 15
-          const wan26Duration = clipDuration <= 7 ? 5 : clipDuration <= 12 ? 10 : 15;
+          // Use user-selected duration if provided, otherwise clamp to allowed: 5, 10, or 15
+          const wan26Duration = sceneDuration && [5, 10, 15].includes(sceneDuration) ? sceneDuration : (clipDuration <= 7 ? 5 : clipDuration <= 12 ? 10 : 15);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.6/image-to-video';
           requestBody = {
