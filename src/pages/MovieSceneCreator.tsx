@@ -4477,6 +4477,10 @@ const MovieSceneCreator = () => {
                   onSelectScene={setActiveSceneIndex}
                   autoLinkEnabled={autoLinkScenes}
                   onToggleAutoLink={() => setAutoLinkScenes(!autoLinkScenes)}
+                  onBuildMovie={stitchAllVideos}
+                  isBuildingMovie={isStitching}
+                  buildProgress={stitchProgress}
+                  hasVideos={scenes.some(s => s.generatedVideo)}
                 />
 
                 {/* Scene cards */}
