@@ -6644,6 +6644,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => restoreAsDraft(reel)}
+                            title="Restore as editable draft"
+                          >
+                            <FolderOpen className="w-4 h-4 mr-2" />
+                            Restore
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => setEditingReel(reel)}
                           >
                             <Wand2 className="w-4 h-4 mr-2" />
