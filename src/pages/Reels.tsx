@@ -2208,6 +2208,10 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
             const existingAudioScenes = new Set(sortedAudios.filter(a => a.audioUrl && a.audioUrl.trim() !== '').map(a => a.sceneNumber));
             const missingAudioScenes = scenesNeedingAudio.filter(s => !existingAudioScenes.has(s.sceneNumber));
             
+            console.log('[Audio] Scenes needing audio:', scenesNeedingAudio.map(s => ({ scene: s.sceneNumber, hasNarration: !!s.narration?.trim(), isSilentCTA: !!(s as any).isSilentCTA })));
+            console.log('[Audio] Existing audio for scenes:', [...existingAudioScenes]);
+            console.log('[Audio] Missing audio scenes:', missingAudioScenes.map(s => s.sceneNumber));
+            
             if (missingAudioScenes.length > 0) {
               console.log(`Generating voiceovers for ${missingAudioScenes.length} scenes without audio...`);
               setProgressStatus('Generating voiceovers for remaining scenes...');

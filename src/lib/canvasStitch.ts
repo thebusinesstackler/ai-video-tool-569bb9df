@@ -137,16 +137,21 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
   // Collect all audio sources: explicit audio URLs + extracted from embedded-audio videos
   const allAudioUrls = [...audioUrls];
   
+  console.log(`[CanvasStitch] Audio alignment: ${videoUrls.length} videos, ${audioUrls.length} overlay audio tracks, ${embeddedAudioIndices.length} embedded audio videos`);
+  
   if (embeddedAudioIndices.length > 0) {
     onStatus?.('Extracting audio from lip-sync videos...');
-    console.log(`[CanvasStitch] Extracting audio from ${embeddedAudioIndices.length} embedded-audio videos`);
-    // For embedded audio videos, we use the video URL itself as an audio source
-    // The browser's AudioContext.decodeAudioData can extract audio from video files
+    console.log(`[CanvasStitch] Extracting audio from embedded-audio video indices:`, embeddedAudioIndices);
     for (const idx of embeddedAudioIndices) {
       if (videoUrls[idx]) {
         allAudioUrls.push(videoUrls[idx]);
       }
     }
+  }
+  
+  console.log(`[CanvasStitch] Total audio tracks to mix: ${allAudioUrls.length} (${audioUrls.length} overlay + ${embeddedAudioIndices.length} embedded)`);
+  if (allAudioUrls.length === 0) {
+    console.warn('[CanvasStitch] WARNING: No audio tracks at all — final video will be silent');
   }
 
   if (allAudioUrls.length > 0) {
