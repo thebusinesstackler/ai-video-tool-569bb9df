@@ -1084,8 +1084,8 @@ Return ONLY valid JSON:
                     onClick={() => {
                       const reelScenes = scenePreview.map((scene: any, idx: number) => ({
                         sceneNumber: idx + 1,
-                        narration: scene.description,
-                        visualDescription: scene.description,
+                        narration: scene.narration || scene.description || '',
+                        visualDescription: scene.visualDescription || scene.description || '',
                         duration: parseInt(params.secondsPerScene) || 10,
                       }));
                       onUseInReel(reelScenes);

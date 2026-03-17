@@ -3947,31 +3947,31 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         ))}
                       </div>
 
-                      {/* TTS Voice Preview */}
-                      <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-foreground">🔊 Voice Preview</p>
-                            <p className="text-[10px] text-muted-foreground">Hear how the narration will sound</p>
-                          </div>
-                          <Badge variant="outline" className="text-[10px]">
-                            {selectedVoice ? selectedVoice.replace(/_/g, ' ') : 'Not selected'}
-                          </Badge>
+                      {/* Voice Selection & Preview */}
+                      <div className="space-y-3">
+                        <VoiceSelector
+                          selectedVoice={selectedVoice}
+                          onVoiceSelect={setSelectedVoice}
+                          compact
+                          characterDescription={characterDescription}
+                          characterGender={detectedCharGender}
+                        />
+                        <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
+                          <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={previewVoice}
+                            disabled={isGenerating || isPreviewingVoice}
+                          >
+                            {isPreviewingVoice ? (
+                              <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing...</>
+                            ) : (
+                              <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                            )}
+                          </Button>
                         </div>
-                        <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={previewVoice}
-                          disabled={isGenerating || isPreviewingVoice}
-                        >
-                          {isPreviewingVoice ? (
-                            <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing...</>
-                          ) : (
-                            <><Play className="w-3 h-3 mr-1" />Preview Voice</>
-                          )}
-                        </Button>
                       </div>
 
                       <div className="flex gap-2">

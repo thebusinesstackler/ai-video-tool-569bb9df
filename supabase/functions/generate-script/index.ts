@@ -251,11 +251,26 @@ serve(async (req) => {
       // If parsing fails, use the raw content for both
     }
 
+    // Extract structured scenes array if present
+    let scenes: { narration: string; visualDescription: string }[] = [];
+    try {
+      let jsonContent = generatedScript.trim();
+      const jsonMatch2 = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (jsonMatch2) jsonContent = jsonMatch2[1];
+      const parsed2 = JSON.parse(jsonContent);
+      if (Array.isArray(parsed2.scenes)) {
+        scenes = parsed2.scenes;
+      }
+    } catch (_) {
+      // scenes will remain empty, client will fall back to parsing cleanScript
+    }
+
     return new Response(
       JSON.stringify({ 
         script: detailedScript,
         detailedScript: detailedScript,
-        cleanScript: cleanScript
+        cleanScript: cleanScript,
+        scenes: scenes
       }), 
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
