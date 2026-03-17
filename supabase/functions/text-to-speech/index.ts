@@ -259,7 +259,7 @@ serve(async (req) => {
 
     const validatedSpeed = typeof speed === 'number' ? Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed)) : 1.0;
 
-    console.log(`TTS request - Voice: ${voice}, Text length: ${text.length}`);
+    console.log(`TTS request - Voice: ${voice}, Engine: ${voiceEngine || 'auto'}, Text length: ${text.length}`);
 
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
