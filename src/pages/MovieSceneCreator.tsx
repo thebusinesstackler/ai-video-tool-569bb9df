@@ -2883,6 +2883,9 @@ const MovieSceneCreator = () => {
           speechifyVoiceId?: string;
           voiceCloningKey?: string;
           defaultVoice?: string;
+          gender?: string;
+          voiceEngine?: string;
+          googleVoiceId?: string;
         }> = [];
 
         if (storyBible?.characters) {
