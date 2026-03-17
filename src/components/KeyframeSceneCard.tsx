@@ -153,6 +153,52 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   const [viewingImage, setViewingImage] = useState<{ src: string; title: string } | null>(null);
   const [viewingVideo, setViewingVideo] = useState<{ src: string; title: string } | null>(null);
 
+  // Audio sync refs for transition videos with separate audio
+  const inlineAudioRef = useRef<HTMLAudioElement | null>(null);
+  const inlineVideoRef = useRef<HTMLVideoElement | null>(null);
+  const fullscreenAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const audioDataUrl = scene.transitionAudioContent 
+    ? `data:audio/mp3;base64,${scene.transitionAudioContent}` 
+    : null;
+
+  // Sync audio with video playback
+  const syncAudioToVideo = useCallback((videoEl: HTMLVideoElement, audioEl: HTMLAudioElement | null) => {
+    if (!audioEl) return;
+    
+    const onPlay = () => { audioEl.currentTime = videoEl.currentTime; audioEl.play().catch(() => {}); };
+    const onPause = () => { audioEl.pause(); };
+    const onSeeked = () => { audioEl.currentTime = videoEl.currentTime; };
+    const onEnded = () => { audioEl.pause(); audioEl.currentTime = 0; };
+
+    videoEl.addEventListener('play', onPlay);
+    videoEl.addEventListener('pause', onPause);
+    videoEl.addEventListener('seeked', onSeeked);
+    videoEl.addEventListener('ended', onEnded);
+
+    return () => {
+      videoEl.removeEventListener('play', onPlay);
+      videoEl.removeEventListener('pause', onPause);
+      videoEl.removeEventListener('seeked', onSeeked);
+      videoEl.removeEventListener('ended', onEnded);
+    };
+  }, []);
+
+  // Attach sync to inline video
+  useEffect(() => {
+    if (inlineVideoRef.current && inlineAudioRef.current) {
+      return syncAudioToVideo(inlineVideoRef.current, inlineAudioRef.current);
+    }
+  }, [scene.generatedVideo, scene.transitionAudioContent, syncAudioToVideo]);
+
+  // Clean up audio when video dialog closes
+  useEffect(() => {
+    if (!viewingVideo && fullscreenAudioRef.current) {
+      fullscreenAudioRef.current.pause();
+      fullscreenAudioRef.current.currentTime = 0;
+    }
+  }, [viewingVideo]);
+
   const canLinkToPrevious = sceneIndex > 0 && previousSceneEndFrame?.generatedImage;
   const hasStartFrame = !!scene.startFrame?.generatedImage;
   const hasEndFrame = !!scene.endFrame?.generatedImage;
