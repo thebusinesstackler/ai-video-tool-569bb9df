@@ -48,6 +48,19 @@ export function TimelinePreview({ segments, onReorder, onSelectSegment, onUpdate
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [showScriptFlow, setShowScriptFlow] = useState(false);
+  const { user } = useAuth();
+  const [twinVoices, setTwinVoices] = useState<AITwinVoiceOption[]>([]);
+
+  // Load AI Twin voices
+  useEffect(() => {
+    if (!user) return;
+    supabase.rpc('get_twins_summary', { _user_id: user.id }).then(({ data }) => {
+      const withVoice = (data || [])
+        .filter((t: any) => t.voice_cloning_key)
+        .map((t: any) => ({ id: t.id, name: t.name, voice_cloning_key: t.voice_cloning_key }));
+      setTwinVoices(withVoice);
+    });
+  }, [user]);
   const [editingScriptId, setEditingScriptId] = useState<string | null>(null);
   const [editScriptText, setEditScriptText] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
