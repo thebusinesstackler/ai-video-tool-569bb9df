@@ -1245,7 +1245,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         voiceovers: previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers,
         customAudioMode,
         customAudioUrl,
-        customAudioDuration
+        customAudioDuration,
+        voicePitch
       };
 
       const { error } = await supabase.from('reels').insert([{
