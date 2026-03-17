@@ -357,24 +357,40 @@ export function useTestimonialCommercial() {
         setGenerationProgress((step / totalSteps) * 30); // First 30% is character gen
       }
 
-      // ── Voice Registry: lock one voice per character for the entire project ──
-      const MALE_VOICES = ['English_Trustworth_Man', 'Deep_Voice_Man', 'Casual_Guy', 'English_magnetic_voiced_man'];
-      const FEMALE_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
-      const voiceRegistry: Record<string, string> = {};
+      // ── Voice Registry: prefer AI Twin cloned voice, fallback to gender-based WaveSpeed ──
+      const MALE_VOICES_FALLBACK = ['English_Trustworth_Man', 'Deep_Voice_Man', 'Casual_Guy', 'English_magnetic_voiced_man'];
+      const FEMALE_VOICES_FALLBACK = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl'];
+      const voiceRegistry: Record<string, { voice?: string; speechifyVoiceId?: string }> = {};
 
       for (const seg of segments) {
         if (seg.type !== 'speaking' || !seg.character) continue;
         const charKey = seg.character.twinId || seg.character.name || seg.id;
-        if (voiceRegistry[charKey]) continue; // already assigned
+        if (voiceRegistry[charKey]) continue;
+
+        // Check if this character has an AI Twin with a cloned voice
+        if (seg.character.twinId) {
+          // Look up the twin's speechify voice ID from the segment's character data
+          // The twinId maps to ai_twins table which has voice_cloning_key
+          try {
+            const { data: twinData } = await supabase
+              .from('ai_twins')
+              .select('voice_cloning_key')
+              .eq('id', seg.character.twinId)
+              .single();
+            if (twinData?.voice_cloning_key) {
+              voiceRegistry[charKey] = { speechifyVoiceId: twinData.voice_cloning_key };
+              continue;
+            }
+          } catch { /* fall through to default */ }
+        }
 
         const gender = seg.character.gender ||
           (seg.character.description?.toLowerCase().includes('female') ||
            seg.character.description?.toLowerCase().includes('woman') ? 'female' : 'male');
 
-        const pool = gender === 'female' ? FEMALE_VOICES : MALE_VOICES;
-        // Deterministic pick: hash the charKey to pick a stable index
+        const pool = gender === 'female' ? FEMALE_VOICES_FALLBACK : MALE_VOICES_FALLBACK;
         const hash = charKey.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-        voiceRegistry[charKey] = pool[hash % pool.length];
+        voiceRegistry[charKey] = { voice: pool[hash % pool.length] };
       }
 
       console.log('[voice-lock] Registry:', voiceRegistry);
