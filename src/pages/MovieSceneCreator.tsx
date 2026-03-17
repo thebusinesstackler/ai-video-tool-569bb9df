@@ -2835,25 +2835,96 @@ const MovieSceneCreator = () => {
           : "Creating lip-synced video...",
       });
 
-      // Build cinematic movement prompt from scene data
-      const movementDetails: string[] = [];
-      if (scene.transitionAction) movementDetails.push(scene.transitionAction);
-      if (scene.transitionCameraMovement) movementDetails.push(`Camera: ${scene.transitionCameraMovement}`);
-      if (scene.selectedCameraAngle && scene.selectedCameraAngle !== 'eye-level') {
-        const cam = CAMERA_ANGLES.find(a => a.id === scene.selectedCameraAngle);
-        if (cam) movementDetails.push(cam.description);
-      }
-      const sceneDesc = scene.description || scene.title || '';
-      const movementPrompt = movementDetails.length > 0 ? movementDetails.join('. ') + '.' : '';
+      // Build rich cinematic prompt from all scene data
+      const buildCinematicPrompt = (forMultiChar: boolean) => {
+        const parts: string[] = [];
+        
+        // Scene storyline and description
+        const sceneDesc = scene.description || scene.title || '';
+        if (sceneDesc) parts.push(sceneDesc);
+        
+        // Start/end frame context for visual storytelling
+        if (scene.startFrame?.imagePrompt && scene.endFrame?.imagePrompt) {
+          parts.push(`Scene transitions from: ${scene.startFrame.imagePrompt} to: ${scene.endFrame.imagePrompt}`);
+        } else if (scene.startFrame?.imagePrompt) {
+          parts.push(`Scene setting: ${scene.startFrame.imagePrompt}`);
+        }
+
+        // Character position changes
+        const startPos = scene.startFrame?.position || '';
+        const endPos = scene.endFrame?.position || '';
+        if (startPos && endPos && startPos !== endPos) {
+          parts.push(`Characters move from ${startPos} to ${endPos}`);
+        }
+
+        // Transition action from outline
+        if (scene.transitionAction) parts.push(scene.transitionAction);
+
+        // Camera movement
+        if (scene.transitionCameraMovement && scene.transitionCameraMovement !== 'static') {
+          const camDescs: Record<string, string> = {
+            'tracking': 'Camera tracks smoothly following subject movement',
+            'push-in': 'Camera pushes in toward subjects, building intensity',
+            'pull-out': 'Camera pulls back revealing more of the scene',
+            'pan': 'Camera pans horizontally following the action',
+            'tilt': 'Camera tilts vertically revealing the environment',
+            'crane-up': 'Camera cranes upward for an establishing reveal',
+            'crane-down': 'Camera descends from high angle to eye level',
+            'orbit': 'Camera orbits around subjects in a dramatic arc',
+            'handheld': 'Natural handheld camera movement with slight shake',
+            'steadicam': 'Smooth gliding steadicam movement through the scene',
+            'zoom-in': 'Dramatic zoom toward the subject',
+            'zoom-out': 'Lens zooms out revealing the wider context',
+          };
+          parts.push(camDescs[scene.transitionCameraMovement] || `Camera: ${scene.transitionCameraMovement}`);
+        }
+
+        // Camera angle
+        if (scene.selectedCameraAngle && scene.selectedCameraAngle !== 'eye-level') {
+          const cam = CAMERA_ANGLES.find(a => a.id === scene.selectedCameraAngle);
+          if (cam) parts.push(`Shot: ${cam.name}, ${cam.description}`);
+        }
+
+        // Camera angle transition between keyframes
+        const startAngle = scene.startFrame?.cameraAngle || '';
+        const endAngle = scene.endFrame?.cameraAngle || '';
+        if (startAngle && endAngle && startAngle !== endAngle) {
+          parts.push(`Camera transitions from ${startAngle} to ${endAngle}`);
+        }
+
+        // Mood and lighting
+        if (scene.mood) parts.push(`Mood: ${scene.mood}`);
+        if (scene.selectedLighting && scene.selectedLighting !== 'natural') parts.push(`Lighting: ${scene.selectedLighting}`);
+
+        // Character dynamics
+        if (forMultiChar) {
+          // Extract action cues from dialogue stage directions
+          const dialogueActions: string[] = [];
+          if (Array.isArray(scene.dialogue)) {
+            for (const d of scene.dialogue) {
+              const stageDir = d.line?.match(/\(([^)]+)\)/g);
+              if (stageDir) dialogueActions.push(...stageDir.map(s => s.replace(/[()]/g, '')));
+            }
+          }
+          if (dialogueActions.length > 0) {
+            parts.push(`Character actions: ${dialogueActions.join(', ')}`);
+          }
+          parts.push('Characters actively gesturing while speaking, leaning in and out, shifting weight between feet, turning heads to face each other, using hand gestures to emphasize points, natural breathing and micro-expressions, realistic body sway');
+        } else {
+          parts.push('Character speaking with natural head movement, subtle gestures, expressive face, slight body sway, realistic eye movement and blinking');
+        }
+
+        parts.push('Cinematic film quality, smooth natural motion, professional cinematography, dynamic and alive scene');
+        return parts.join('. ') + '.';
+      };
 
       let videoBody: any;
       if (isMultiCharacter) {
-        // Multi-character: use image-to-video with rich cinematic prompt
         videoBody = {
           action: 'create',
           model: 'wan-2.5-i2v',
           imageUrls: [imageToUse],
-          prompt: `${sceneDesc}. Characters engaged in intense conversation, gesturing naturally, shifting weight, making eye contact, turning heads between speakers. ${movementPrompt} Cinematic quality, natural body language, professional cinematography, dynamic camera movement.`,
+          prompt: buildCinematicPrompt(true),
           duration: Math.min(estimatedDuration, 10),
           aspectRatio: '16:9'
         };
