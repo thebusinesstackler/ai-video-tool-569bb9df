@@ -2287,7 +2287,12 @@ const MovieSceneCreator = () => {
 
       toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame generated!` });
     } catch (error: any) {
-      toast({ title: "Generation failed", description: error.message, variant: "destructive" });
+      console.error(`Failed to generate ${frame} frame for scene ${sceneNumber}:`, error);
+      toast({ 
+        title: `${frame === 'start' ? 'Start' : 'End'} Frame Failed`, 
+        description: error.message || "Image generation failed. Check your connection and try again.", 
+        variant: "destructive" 
+      });
     } finally {
       setGeneratingFrameFor(null);
     }
