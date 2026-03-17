@@ -488,6 +488,33 @@ const Reels = () => {
   const videoBlobRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const draftRestoredRef = useRef(false);
+  
+  // Track active generation for background handoff on unmount
+  const activeGenerationRef = useRef<{
+    videoTasks: { taskId: string; sceneNumber: number; hasEmbeddedAudio?: boolean }[];
+    generatedScenes: GeneratedScene[];
+    voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[];
+    hasEmbeddedAudio: boolean;
+    topic: string;
+  } | null>(null);
+  
+  // On unmount during active generation, hand off to background context
+  useEffect(() => {
+    return () => {
+      const gen = activeGenerationRef.current;
+      if (gen && gen.videoTasks.length > 0 && user) {
+        console.log('Handing off active generation to background context');
+        registerJob({
+          topic: gen.topic,
+          userId: user.id,
+          videoTasks: gen.videoTasks,
+          generatedScenes: gen.generatedScenes,
+          voiceovers: gen.voiceovers,
+          hasEmbeddedAudio: gen.hasEmbeddedAudio,
+        });
+      }
+    };
+  }, [user, registerJob]);
 
   // Auto-save hook
   const { 
