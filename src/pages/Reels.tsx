@@ -2163,16 +2163,24 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Helper to detect gender from text and return matching voice
-  const detectGenderVoice = (text: string): string | null => {
-    const lower = text.toLowerCase();
-    const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss', 'feminine'];
-    const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr', 'masculine'];
-    const isFemale = femaleKeywords.some(k => lower.includes(k));
-    const isMale = maleKeywords.some(k => lower.includes(k));
-    if (isFemale && !isMale) return 'English_compelling_lady1';
-    if (isMale && !isFemale) return 'English_magnetic_voiced_man';
-    return null;
+  // Resolve the best voice: always prefer AI Twin cloned voice, fallback to gender-based default
+  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string } => {
+    // Priority 1: Selected AI Twin with cloned voice
+    if (selectedTwinId) {
+      const twin = aiTwins.find(t => t.id === selectedTwinId);
+      if (twin?.voice_cloning_key) {
+        return { speechifyVoiceId: twin.voice_cloning_key };
+      }
+    }
+    // Priority 2: Any AI Twin with a cloned voice
+    const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
+    if (anyTwinWithVoice) {
+      return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key! };
+    }
+    // Priority 3: Fallback to WaveSpeed default based on gender
+    const lower = (characterDescription + ' ' + topic).toLowerCase();
+    const isFemale = ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
+    return { voice: isFemale ? 'English_compelling_lady1' : 'English_Trustworth_Man' };
   };
 
   const stopGeneration = () => {
