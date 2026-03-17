@@ -279,7 +279,7 @@ serve(async (req) => {
         body: JSON.stringify({
           input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
           voice: { languageCode: 'en-US', name: voiceName, ssmlGender },
-          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: 0, effectsProfileId: ['headphone-class-device'] }
+          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: validatedPitch, effectsProfileId: ['headphone-class-device'] }
         }),
       });
 
