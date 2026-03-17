@@ -336,7 +336,7 @@ serve(async (req) => {
         resolvedVoice = 'English_Trustworth_Man';
       }
       
-      const result = await generateWaveSpeedTTS(text, waveSpeedApiKey, resolvedVoice, validatedSpeed);
+      const result = await generateWaveSpeedTTS(text, waveSpeedApiKey, resolvedVoice, validatedSpeed, 'neutral', validatedPitch);
       if (result) {
         return new Response(JSON.stringify({ ...result, provider: 'wavespeed', voiceUsed: resolvedVoice }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
