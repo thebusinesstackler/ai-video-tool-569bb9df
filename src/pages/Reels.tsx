@@ -3704,9 +3704,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                           </div>
                                         )}
                                         <p className="text-[9px] font-medium text-foreground truncate">{twin.name}</p>
-                                        {twin.voice_cloning_key && (
+                                        {(twin.voice_cloning_key || twin.voice_engine === 'google-cloud' || twin.voice_engine === 'wavespeed') && (
                                           <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">
-                                            🎙️ Voice
+                                            {twin.voice_engine === 'google-cloud' ? '🔊 Google' : twin.voice_engine === 'wavespeed' ? '🌊 Voice' : '🎙️ Voice'}
                                           </Badge>
                                         )}
                                       </div>
