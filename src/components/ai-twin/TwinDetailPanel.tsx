@@ -95,6 +95,14 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   const [editedName, setEditedName] = useState(twin.name);
   const [isSavingName, setIsSavingName] = useState(false);
 
+  // Face description editing state
+  const [isEditingFaceDesc, setIsEditingFaceDesc] = useState(false);
+  const [editedFaceDesc, setEditedFaceDesc] = useState(twin.face_description || '');
+  const [isSavingFaceDesc, setIsSavingFaceDesc] = useState(false);
+
+  // WaveSpeed voice generation state
+  const [isGeneratingWavespeedVoice, setIsGeneratingWavespeedVoice] = useState(false);
+
   // Voice cloning state
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(twin.voice_sample_url);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(twin.voice_cloning_key);
