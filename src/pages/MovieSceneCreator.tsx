@@ -2287,7 +2287,12 @@ const MovieSceneCreator = () => {
 
       toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame generated!` });
     } catch (error: any) {
-      toast({ title: "Generation failed", description: error.message, variant: "destructive" });
+      console.error(`Failed to generate ${frame} frame for scene ${sceneNumber}:`, error);
+      toast({ 
+        title: `${frame === 'start' ? 'Start' : 'End'} Frame Failed`, 
+        description: error.message || "Image generation failed. Check your connection and try again.", 
+        variant: "destructive" 
+      });
     } finally {
       setGeneratingFrameFor(null);
     }
@@ -3377,42 +3382,63 @@ const MovieSceneCreator = () => {
         )
       );
 
-      // Poll for video completion
+      // Poll for video completion with max retries
+      let pollAttempts = 0;
+      const maxPollAttempts = 100; // ~5 minutes at 3s intervals
+      
       const checkStatus = async () => {
-        const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
-          body: {
-            action: 'status',
-            taskId: videoData.taskId
+        pollAttempts++;
+        try {
+          const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+            body: {
+              action: 'status',
+              taskId: videoData.taskId
+            }
+          });
+
+          if (statusError) throw statusError;
+
+          if (statusData.status === 'completed' && statusData.videoUrl) {
+            setScenes(prevScenes => {
+              const updated = prevScenes.map(s => 
+                s.sceneNumber === sceneNumber 
+                  ? { ...s, generatedVideo: statusData.videoUrl, videoTaskId: videoData.taskId }
+                  : s
+              );
+              setTimeout(() => autoSaveProject(updated), 500);
+              return updated;
+            });
+            setGeneratingVideoFor(null);
+            
+            toast({
+              title: "Transition Video Ready!",
+              description: `Scene ${sceneNumber} keyframe transition video is complete.`,
+            });
+          } else if (statusData.status === 'failed') {
+            throw new Error('Video generation failed on WaveSpeed');
+          } else if (pollAttempts >= maxPollAttempts) {
+            // Timed out but task may still complete - save taskId for recovery
+            setGeneratingVideoFor(null);
+            toast({
+              title: "Video Still Processing",
+              description: `Scene ${sceneNumber} is taking longer than expected. Use the "Check Status" button on the scene card to retrieve it when ready.`,
+            });
+          } else {
+            setTimeout(checkStatus, 3000);
           }
-        });
-
-        if (statusError) throw statusError;
-
-        if (statusData.status === 'completed' && statusData.videoUrl) {
-          // Video is ready - store the video URL
-          // Note: Audio merging with video would require additional processing
-          // For now, store both separately and the user can combine them if needed
-          setScenes(prevScenes => {
-            const updated = prevScenes.map(s => 
-              s.sceneNumber === sceneNumber 
-                ? { ...s, generatedVideo: statusData.videoUrl }
-                : s
-            );
-            // Auto-save after video generation
-            setTimeout(() => autoSaveProject(updated), 500);
-            return updated;
-          });
-          setGeneratingVideoFor(null);
-          
-          toast({
-            title: "Transition Video Ready!",
-            description: `Scene ${sceneNumber} keyframe transition video is complete.`,
-          });
-        } else if (statusData.status === 'failed') {
-          throw new Error('Video generation failed');
-        } else {
-          // Continue polling
-          setTimeout(checkStatus, 3000);
+        } catch (pollErr) {
+          console.error('Poll error:', pollErr);
+          if (pollAttempts < 3) {
+            // Retry on transient errors
+            setTimeout(checkStatus, 5000);
+          } else {
+            setGeneratingVideoFor(null);
+            toast({
+              title: "Polling Error",
+              description: `Lost connection to video status. Use "Check Status" on the scene card to retrieve your video.`,
+              variant: "destructive"
+            });
+          }
         }
       };
 
@@ -3428,6 +3454,61 @@ const MovieSceneCreator = () => {
       setGeneratingVideoFor(null);
     }
   };
+
+  // Recovery: Check status of a pending video task by its taskId
+  const checkPendingVideoStatus = async (sceneNumber: number) => {
+    const scene = scenes.find(s => s.sceneNumber === sceneNumber);
+    if (!scene?.videoTaskId) {
+      toast({ title: "No pending video task", description: "This scene has no pending video to check.", variant: "destructive" });
+      return;
+    }
+
+    setGeneratingVideoFor(sceneNumber);
+    try {
+      const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId: scene.videoTaskId }
+      });
+
+      if (statusError) throw statusError;
+
+      if (statusData.status === 'completed' && statusData.videoUrl) {
+        setScenes(prevScenes => {
+          const updated = prevScenes.map(s => 
+            s.sceneNumber === sceneNumber 
+              ? { ...s, generatedVideo: statusData.videoUrl }
+              : s
+          );
+          setTimeout(() => autoSaveProject(updated), 500);
+          return updated;
+        });
+        toast({ title: "Video Retrieved!", description: `Scene ${sceneNumber} video has been recovered successfully.` });
+      } else if (statusData.status === 'failed') {
+        toast({ title: "Video Failed", description: "The video generation failed on the server. Please try again.", variant: "destructive" });
+      } else {
+        toast({ title: "Still Processing", description: `Scene ${sceneNumber} video is still being generated (${statusData.status}). Try again in a minute.` });
+      }
+    } catch (error: any) {
+      toast({ title: "Check Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setGeneratingVideoFor(null);
+    }
+  };
+
+  // On mount/load: auto-recover any scenes that have taskId but no video
+  useEffect(() => {
+    if (scenes.length === 0) return;
+    const pendingScenes = scenes.filter(s => s.videoTaskId && !s.generatedVideo);
+    if (pendingScenes.length === 0) return;
+
+    console.log(`Found ${pendingScenes.length} scenes with pending video tasks, checking status...`);
+    
+    pendingScenes.forEach(scene => {
+      // Delay each check slightly to avoid hammering the API
+      setTimeout(() => {
+        checkPendingVideoStatus(scene.sceneNumber);
+      }, 1000);
+    });
+  }, [scenes.length > 0 && currentProjectId]); // Only run when project loads
 
   const loadSavedProjects = async () => {
     if (!userId) return;
@@ -4585,6 +4666,7 @@ const MovieSceneCreator = () => {
                       onGenerateEndImage={(sceneNum) => generateKeyframeImage(sceneNum, 'end')}
                       onGenerateVideo={generateLipSyncVideo}
                       onGenerateTransitionVideo={generateTransitionVideo}
+                      onCheckVideoStatus={checkPendingVideoStatus}
                       onGenerateDialogue={generateDialogue}
                       onDescribeScene={describeScene}
                       onDescribeAndGenerate={describeAndGenerateScene}

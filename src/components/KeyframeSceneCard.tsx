@@ -116,6 +116,7 @@ interface KeyframeSceneCardProps {
   onGenerateEndImage: (sceneNumber: number) => void;
   onGenerateVideo: (sceneNumber: number) => void;
   onGenerateTransitionVideo?: (sceneNumber: number) => void;
+  onCheckVideoStatus?: (sceneNumber: number) => void;
   onGenerateDialogue: (sceneNumber: number) => void;
   onDescribeScene?: (sceneNumber: number, frame: 'start' | 'end') => void;
   onDescribeAndGenerate?: (sceneNumber: number, frame: 'start' | 'end') => void;
@@ -140,6 +141,7 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
   onGenerateEndImage,
   onGenerateVideo,
   onGenerateTransitionVideo,
+  onCheckVideoStatus,
   onGenerateDialogue,
   onDescribeScene,
   onDescribeAndGenerate,
@@ -290,6 +292,21 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
                     </div>
                   )}
                 </>
+              ) : scene.videoTaskId && onCheckVideoStatus ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                  <Video className="w-6 h-6 text-muted-foreground/50" />
+                  <span className="text-xs text-muted-foreground">Video processing...</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={(e) => { e.stopPropagation(); onCheckVideoStatus(scene.sceneNumber); }}
+                    disabled={isGeneratingVideo}
+                  >
+                    {isGeneratingVideo ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                    Check Status
+                  </Button>
+                </div>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
                   <Video className="w-8 h-8 mb-1" />
