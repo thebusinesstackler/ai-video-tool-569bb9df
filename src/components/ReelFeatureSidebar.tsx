@@ -208,38 +208,43 @@ export function ReelFeatureSidebar({
           
           {FEATURES.map((feature) => {
             const isEnabled = features[feature.id as keyof typeof features];
+            const isComing = feature.comingSoon;
             return (
               <Tooltip key={feature.id}>
                 <TooltipTrigger asChild>
                   <div 
                     className={cn(
-                      "flex items-center gap-3 rounded-md transition-all duration-200 cursor-pointer",
+                      "flex items-center gap-3 rounded-md transition-all duration-200",
+                      isComing ? "cursor-default opacity-50" : "cursor-pointer",
                       isExpanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center",
-                      isEnabled 
+                      !isComing && isEnabled 
                         ? "bg-sidebar-primary/10 text-sidebar-primary" 
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                     )}
-                    onClick={() => !disabled && onFeatureChange(feature.id as keyof typeof features, !isEnabled)}
+                    onClick={() => !disabled && !isComing && onFeatureChange(feature.id as keyof typeof features, !isEnabled)}
                   >
                     <div className="flex-shrink-0 relative">
                       {feature.icon}
-                      {!isExpanded && isEnabled && (
+                      {!isExpanded && isEnabled && !isComing && (
                         <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-sidebar-primary" />
                       )}
                     </div>
                     {isExpanded && (
                       <>
-                        <span className="flex-1 text-sm font-medium">
+                        <span className="flex-1 text-sm font-medium truncate">
                           {feature.label}
+                          {isComing && <span className="ml-1 text-[10px] text-muted-foreground font-normal">Soon</span>}
                         </span>
-                        <Switch
-                          checked={isEnabled}
-                          onCheckedChange={(value) => 
-                            onFeatureChange(feature.id as keyof typeof features, value)
-                          }
-                          disabled={disabled}
-                          className="data-[state=checked]:bg-sidebar-primary"
-                        />
+                        {!isComing && (
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={(value) => 
+                              onFeatureChange(feature.id as keyof typeof features, value)
+                            }
+                            disabled={disabled}
+                            className="data-[state=checked]:bg-sidebar-primary"
+                          />
+                        )}
                       </>
                     )}
                   </div>
@@ -248,14 +253,16 @@ export function ReelFeatureSidebar({
                   <TooltipContent side="right" className="bg-popover text-popover-foreground border-border">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{feature.label}</p>
-                      <Switch
-                        checked={isEnabled}
-                        onCheckedChange={(value) => 
-                          onFeatureChange(feature.id as keyof typeof features, value)
-                        }
-                        disabled={disabled}
-                        className="data-[state=checked]:bg-primary"
-                      />
+                      {!isComing && (
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(value) => 
+                            onFeatureChange(feature.id as keyof typeof features, value)
+                          }
+                          disabled={disabled}
+                          className="data-[state=checked]:bg-primary"
+                        />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">{feature.description}</p>
                   </TooltipContent>

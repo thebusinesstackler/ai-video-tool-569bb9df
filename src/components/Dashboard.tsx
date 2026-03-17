@@ -149,6 +149,8 @@ export const Dashboard = () => {
         ...(projects?.slice(0, 3).map(p => ({ id: p.id, title: p.title, created_at: p.created_at, model_type: p.model_type })) || []),
         ...(reels?.map(r => ({ id: r.id, title: r.topic, created_at: r.created_at, model_type: 'reel' })) || []),
         ...(movieProjects?.map(m => ({ id: m.id, title: m.title, created_at: m.created_at, model_type: 'movie' })) || []),
+        ...(commercials?.map(c => ({ id: c.id, title: c.name, created_at: c.created_at, model_type: 'commercial' })) || []),
+        ...(hooks?.map(h => ({ id: h.id, title: h.video_title || 'Hook', created_at: h.created_at, model_type: 'hook' })) || []),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
 
       setStats({

@@ -157,18 +157,18 @@ const Settings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
                 <SettingsIcon className="w-5 h-5 text-primary" />
-                Coming Soon
+                Platform Info
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4 text-muted-foreground">
-                <p>Additional features coming soon:</p>
+                <p>Current capabilities:</p>
                 <ul className="space-y-2">
-                  <li>• Background Music Generation</li>
-                  <li>• Brand Voice Configuration</li>
-                  <li>• Export Settings</li>
-                  <li>• Usage Analytics</li>
-                  <li>• Team Collaboration</li>
+                  <li>• Background Music Generation (via Reels)</li>
+                  <li>• AI Twin Voice Cloning</li>
+                  <li>• Testimonial Ad Builder</li>
+                  <li>• Movie Scene Creator</li>
+                  <li>• Video Hook Engine</li>
                 </ul>
               </div>
             </CardContent>
