@@ -271,9 +271,13 @@ serve(async (req) => {
           audio: params.audioUrl,
           duration: duration
         };
-      } else if (params.model === 'infinitetalk') {
-        // InfiniteTalk Fast model for audio-driven lip sync (up to 10min)
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
+      } else if (params.model === 'infinitetalk' || params.model === 'infinitetalk-hd') {
+        // InfiniteTalk for audio-driven lip sync (up to 10min)
+        // 'infinitetalk' → fast 480p endpoint (cost-efficient for Reels/Commercials)
+        // 'infinitetalk-hd' → standard 720p HD endpoint (higher quality for Movies)
+        apiEndpoint = params.model === 'infinitetalk-hd'
+          ? 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk'
+          : 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
         
         if (!params.imageUrls || params.imageUrls.length === 0) {
           throw new Error('Portrait image is required for InfiniteTalk model');

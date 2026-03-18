@@ -1401,18 +1401,23 @@ const MovieSceneCreator = () => {
 
     let videoBody: any;
     if (isConversation) {
+      // Non-dialogue/multi-character scenes: use Sora-2 for cinematic quality
+      const soraDuration = [4, 8, 12, 16, 20].reduce((prev, curr) =>
+        Math.abs(curr - estimatedDuration) < Math.abs(prev - estimatedDuration) ? curr : prev
+      );
       videoBody = {
         action: 'create',
-        model: 'wan-2.5-i2v',
+        model: 'sora-2',
         imageUrls: [imageToUse],
         prompt: buildBatchPrompt(),
-        duration: Math.min(estimatedDuration, 10),
+        duration: soraDuration,
         aspectRatio: '16:9'
       };
     } else {
+      // Single character speaking: use InfiniteTalk HD (720p) for movie quality
       videoBody = {
         action: 'create',
-        model: 'infinitetalk',
+        model: 'infinitetalk-hd',
         imageUrls: [imageToUse],
         audioUrl: `data:audio/mp3;base64,${audioContent}`,
       };
@@ -3065,19 +3070,23 @@ const MovieSceneCreator = () => {
 
       let videoBody: any;
       if (isMultiCharacter) {
+        // Multi-character/non-dialogue: use Sora-2 for cinematic quality
+        const soraDuration = [4, 8, 12, 16, 20].reduce((prev, curr) =>
+          Math.abs(curr - estimatedDuration) < Math.abs(prev - estimatedDuration) ? curr : prev
+        );
         videoBody = {
           action: 'create',
-          model: 'wan-2.5-i2v',
+          model: 'sora-2',
           imageUrls: [imageToUse],
           prompt: buildCinematicPrompt(true),
-          duration: Math.min(estimatedDuration, 10),
+          duration: soraDuration,
           aspectRatio: '16:9'
         };
       } else {
-        // Single character: InfiniteTalk lip-sync (auto-syncs to audio length)
+        // Single character: InfiniteTalk HD lip-sync (720p, auto-syncs to audio length)
         videoBody = {
           action: 'create',
-          model: 'infinitetalk',
+          model: 'infinitetalk-hd',
           imageUrls: [imageToUse],
           audioUrl: `data:audio/mp3;base64,${audioContent}`,
         };
