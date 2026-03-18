@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Validation limits
-const MAX_PROMPT_LENGTH = 2000;
+const MAX_PROMPT_LENGTH = 5000;
 const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_URL_LENGTH = 2048;
 const MAX_REFERENCE_IMAGES = 4;
