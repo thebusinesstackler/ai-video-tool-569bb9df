@@ -5117,7 +5117,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                      <div className="grid grid-cols-1 gap-2">
                         {[
                           { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk (Lip Sync)', desc: 'Audio-driven lip sync — up to 10 min, matches audio length' },
-                          { value: 'veo3' as const, label: '🌐 VEO3 (Google)', desc: 'High quality Google video — ~8s clips with optional image input' },
+                          { value: 'veo3' as const, label: '🌐 VEO3 (Google)', desc: 'High quality video with built-in audio — no separate TTS needed' },
                           { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing (no lip sync, ~4s)' },
                           { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 720p, 3-10s clips (no lip sync)' },
                           { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips (no lip sync)' },
