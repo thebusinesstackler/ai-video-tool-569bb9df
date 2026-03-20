@@ -580,39 +580,25 @@ function ensureBackgroundConsistency(description: string, baseBackground: string
   return description;
 }
 
-// TTS sanitizer - removes problematic punctuation that causes TTS artifacts
+// Lightweight TTS cleanup — only fix actual audio-breaking issues
 function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
   let result = narration
-    // Normalize curly apostrophes to straight
+    // Normalize curly apostrophes
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
     // Replace em dashes with commas (prevents 4-second silences)
     .replace(/\u2014/g, ',')
     .replace(/—/g, ',')
     .replace(/--/g, ',')
-    // Replace ellipses with commas (prevents long pauses)
-    .replace(/\u2026/g, ',')
-    .replace(/\.{2,}/g, ',')
-    // Keep periods — they create natural pauses in TTS (DO NOT convert to commas)
-    // Clean up double/triple commas
+    // Reduce excessive ellipses
+    .replace(/\u2026/g, '...')
+    .replace(/\.{3,}/g, '.')
+    // Clean up double commas
     .replace(/,\s*,+/g, ',')
-    // Clean up comma at start of text
     .replace(/^,\s*/, '')
-    // Clean up multiple spaces
     .replace(/  +/g, ' ')
-    // Clean up excessive newlines
-    .replace(/\n{3,}/g, '\n\n')
     .trim();
-  
-  // Remove trailing commas, articles, and prepositions that create incomplete-sounding endings
-  const trailingJunkPattern = /[\s,]+(a|an|the|of|in|to|for|with|on|at|by|and|but|or|is|are|was|were|that|this|it)\s*[,.]?\s*$/i;
-  while (trailingJunkPattern.test(result)) {
-    result = result.replace(trailingJunkPattern, '').trim();
-  }
-  
-  // Replace trailing comma with period
-  result = result.replace(/,\s*$/, '.');
   
   // Ensure narration ends with proper punctuation
   if (result && !/[.!?]$/.test(result)) {
