@@ -2019,6 +2019,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier || '';
         });
 
+      const activePortrait = getActivePortrait();
+
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: {
           scenes: scenesWithAudioDurations,
@@ -2027,8 +2029,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           useWaveSpeed: true,
           enableLipSync: effectiveLipSync,
           lipSyncModel: effectiveLipSync ? effectiveLipSyncModel : undefined,
-          portraitImage: effectiveLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
-          voice: selectedVoice,
+          portraitImage: effectiveLipSync ? activePortrait : undefined,
+          voice: resolveVoiceForGeneration().voice,
           voiceovers: voiceovers.map(v => ({
             sceneNumber: v.sceneNumber,
             audioUrl: v.storageUrl || v.audioUrl,
