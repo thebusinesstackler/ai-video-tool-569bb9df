@@ -922,12 +922,18 @@ People should have closed mouths — not speaking or mouthing words.`,
             }
             
             // Fallback: try Kling I2V if VEO 3 failed, or Wan-2.5 I2V as last resort
-            console.log('Falling back for scene', scene.sceneNumber);
+            // IMPORTANT: If VEO3 was the intended model, preserve speech intent in the fallback prompt
+            console.log(`Falling back for scene ${scene.sceneNumber} (intended model: ${videoModel})`);
             
             const fallbackEndpoint = imageUrl 
               ? 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video'
               : 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
             const klingDuration = clipDuration <= 7 ? 5 : 10;
+            
+            // If VEO3 was intended, keep speech-friendly prompt; otherwise use silent B-roll prompt
+            const fallbackPrompt = videoModel === 'veo3'
+              ? `${scene.visualDescription || scene.narration}. ${charContext} ${topicContext} Cinematic motion, engaging expression, natural body language, direct-to-camera delivery. No text, no captions, no subtitles, no watermarks.`
+              : `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks. People should have closed mouths — not speaking or mouthing words.`;
             
             try {
               const fallbackResponse = await fetch(fallbackEndpoint, {
@@ -938,7 +944,7 @@ People should have closed mouths — not speaking or mouthing words.`,
                 },
                 body: JSON.stringify({
                   image: imageUrl,
-                  prompt: `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks. People should not appear to be speaking.`,
+                  prompt: fallbackPrompt,
                   duration: klingDuration
                 }),
               });
