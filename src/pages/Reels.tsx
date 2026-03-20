@@ -2485,10 +2485,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       }
     }
 
-    // Priority 4: Any available cloned AI Twin voice
-    const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
-    if (anyTwinWithVoice?.voice_cloning_key) {
-      return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key };
+    // Priority 4: Only use another twin's cloned voice if NO twin was explicitly selected
+    if (!selectedTwinId) {
+      const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
+      if (anyTwinWithVoice?.voice_cloning_key) {
+        return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key };
+      }
     }
 
     // Priority 5: Gender-based fallback (never Journey D)
