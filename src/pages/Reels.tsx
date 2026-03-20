@@ -3107,48 +3107,66 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       const sortedVideos = [...project.videoClips].sort((a, b) => a.sceneNumber - b.sceneNumber);
       const sortedAudios = [...project.voiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
 
-      // Merge all audio URLs
-      const audioUrls = sortedAudios.map(a => a.audioUrl);
-      let mergedAudioUrl = audioUrls[0];
-
-      if (audioUrls.length > 1) {
-        setProgressStatus('Merging audio tracks...');
-        setProgress(20);
-        
-        try {
-          const mergeResponse = await supabase.functions.invoke('merge-audio', {
-            body: { audioUrls }
-          });
-          if (mergeResponse.data?.audioUrl) {
-            mergedAudioUrl = mergeResponse.data.audioUrl;
-          }
-        } catch (e) {
-          console.log('Audio merge failed, using first audio');
+      const videoUrls = sortedVideos.map(v => v.videoUrl);
+      
+      // Determine which clips have embedded audio (Sora-2, VEO3)
+      const embeddedAudioIndices: number[] = [];
+      const audioUrlsForStitch: string[] = [];
+      
+      sortedVideos.forEach((v, idx) => {
+        const hasAudio = sortedAudios.find(a => a.sceneNumber === v.sceneNumber && a.audioUrl?.trim());
+        if (!hasAudio) {
+          // No separate TTS → this clip has embedded audio (Sora-2/VEO3)
+          embeddedAudioIndices.push(idx);
         }
-      }
+      });
+      
+      // Only include overlay audio for scenes that DON'T have embedded audio
+      sortedAudios.forEach(a => {
+        if (a.audioUrl?.trim()) {
+          const videoIdx = sortedVideos.findIndex(v => v.sceneNumber === a.sceneNumber);
+          if (!embeddedAudioIndices.includes(videoIdx)) {
+            audioUrlsForStitch.push(a.storageUrl || a.audioUrl);
+          }
+        }
+      });
+
+      console.log(`[ManualStitch] ${videoUrls.length} videos, ${embeddedAudioIndices.length} with embedded audio, ${audioUrlsForStitch.length} overlay audio tracks`);
 
       setProgressStatus('Stitching video clips...');
       setProgress(40);
 
-      const videoUrls = sortedVideos.map(v => v.videoUrl);
-      const audioUrlsForStitch = sortedAudios
-        .filter(a => a.audioUrl && a.audioUrl.trim() !== '')
-        .map(a => a.audioUrl);
-
       let stitchedBlob: Blob;
       const allPublicUrls = videoUrls.every(u => u.startsWith('http'));
+      const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+      const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
 
       // Try cloud stitching first (Creatomate), fall back to canvas
       if (allPublicUrls) {
         try {
           setProgressStatus('Cloud rendering...');
+          
+          let mergedAudioUrl: string | undefined;
+          if (audioUrlsForStitch.length === 1) {
+            mergedAudioUrl = audioUrlsForStitch[0];
+          } else if (audioUrlsForStitch.length > 1) {
+            try {
+              const mergeResponse = await supabase.functions.invoke('merge-audio', {
+                body: { audioUrls: audioUrlsForStitch }
+              });
+              if (mergeResponse.data?.audioUrl) mergedAudioUrl = mergeResponse.data.audioUrl;
+            } catch (e) {
+              console.log('Audio merge failed, using first audio');
+              mergedAudioUrl = audioUrlsForStitch[0];
+            }
+          }
+          
           const clips = videoUrls.map(url => ({ url, duration: 5 }));
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
             body: { clips, audioUrl: mergedAudioUrl, transition: 'crossfade' }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
 
-          // Poll for completion
           let cloudUrl: string | null = null;
           for (let attempt = 0; attempt < 60; attempt++) {
             await new Promise(r => setTimeout(r, 3000));
@@ -3167,11 +3185,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         } catch (cloudErr) {
           console.warn('Cloud stitch failed, falling back to canvas:', cloudErr);
           setProgressStatus('Falling back to local stitching...');
-          const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
-          const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
           stitchedBlob = await canvasStitchVideos({
             videoUrls,
             audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+            embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
             width: sw, height: sh,
             onProgress: (percent) => {
               setProgress(40 + percent * 0.5);
@@ -3181,12 +3198,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           });
         }
       } else {
-        const sizeMap2: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
-        const [sw2, sh2] = sizeMap2[selectedVideoSize] || [1080, 1920];
         stitchedBlob = await canvasStitchVideos({
           videoUrls,
           audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
-          width: sw2, height: sh2,
+          embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+          width: sw, height: sh,
           onProgress: (percent) => {
             setProgress(40 + percent * 0.5);
             setProgressStatus(`Stitching... ${Math.round(percent)}%`);
