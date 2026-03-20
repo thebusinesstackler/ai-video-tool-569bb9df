@@ -4663,9 +4663,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <Label className="text-xs flex items-center gap-1"><Mic className="w-3 h-3 text-primary" /> Voice</Label>
                         <VoiceSelector selectedVoice={selectedVoice} onVoiceSelect={setSelectedVoice} compact characterDescription={characterDescription} characterGender={detectedCharGender} disabled={isGenerating} />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
-                        {selectedVoice && videoModel !== 'veo3' && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
-                        {videoModel === 'veo3' && (
-                          <p className="text-[10px] text-muted-foreground">VEO3 voice is generated during video creation, not from the TTS preview button.</p>
+                        {selectedVoice && videoModel !== 'sora-2' && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
+                        {videoModel === 'sora-2' && (
+                          <p className="text-[10px] text-muted-foreground">Sora-2 voice is generated during video creation, not from the TTS preview button.</p>
                         )}
                       </div>
 
