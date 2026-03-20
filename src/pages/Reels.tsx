@@ -5140,61 +5140,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       Voice & Model
                     </h4>
 
-                   {/* Model Selection */}
-                   <div className="space-y-2">
-                     <Label>Video Model</Label>
-                     <div className="grid grid-cols-1 gap-2">
-                        {[
-                          { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk (Lip Sync)', desc: 'Audio-driven lip sync — up to 10 min, matches audio length' },
-                          { value: 'veo3' as const, label: '🌐 VEO3 (Google)', desc: 'High quality video with built-in audio — no separate TTS needed' },
-                          { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing (no lip sync, ~4s)' },
-                          { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 720p, 3-10s clips (no lip sync)' },
-                          { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips (no lip sync)' },
-                          { value: 'wan-2.6-i2v' as const, label: '🌟 Wan 2.6 I2V', desc: 'High quality — 5s, 10s, or 15s clips (no lip sync)' },
-                        ].map((m) => (
-                         <button
-                           key={m.value}
-                           type="button"
-                           onClick={() => setVideoModel(m.value)}
-                           className={`text-left p-2.5 rounded-md border text-sm transition-colors ${
-                             videoModel === m.value
-                               ? 'border-primary bg-primary/10 text-foreground'
-                               : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
-                           }`}
-                         >
-                           <span className="font-medium">{m.label}</span>
-                           <span className="block text-[11px] mt-0.5 opacity-70">{m.desc}</span>
-                         </button>
-                       ))}
-                     </div>
-                     {videoModel === 'wan-2.6-i2v' && (
-                       <div className="space-y-2">
-                         <Label>Clip Duration</Label>
-                         <div className="flex gap-2">
-                           {([5, 10, 15] as const).map((d) => (
-                             <button key={d} type="button" onClick={() => setWan26Duration(d)} className={`flex-1 py-2 rounded-md border text-sm font-medium transition-colors ${wan26Duration === d ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
-                               {d}s
-                             </button>
-                           ))}
-                         </div>
-                       </div>
-                     )}
-                   </div>
-
-                  {/* Lip Sync Status Indicator */}
-                  <div className={`p-2.5 rounded-md text-xs font-medium ${
-                    enableLipSync && portraitPreview 
-                      ? 'bg-primary/10 text-primary border border-primary/30' 
-                      : 'bg-destructive/10 text-destructive border border-destructive/30'
-                  }`}>
-                    {enableLipSync && portraitPreview 
-                      ? videoModel === 'infinitetalk'
-                        ? '🎭 Lip sync ON — InfiniteTalk will generate talking head videos matching your audio duration'
-                        : '🎭 Lip sync ON — speaking scenes will use ' + videoModel + ' with TTS overlay'
-                      : enableLipSync && !portraitPreview
-                      ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
-                      : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
-                    }
+                   {/* Video model: Sora-2 (auto-selected) */}
+                  <div className="p-2.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/30">
+                    🎬 Sora-2 — cinematic video with built-in audio generation
                   </div>
 
                   {/* Voiceover Source Selection */}
