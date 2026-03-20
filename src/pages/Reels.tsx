@@ -394,6 +394,15 @@ const Reels = () => {
   // Voice preview state
   const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (videoModel !== 'veo3' || !voicePreviewAudio) return;
+
+    voicePreviewAudio.pause();
+    voicePreviewAudio.currentTime = 0;
+    setVoicePreviewAudio(null);
+    setIsPreviewingVoice(false);
+  }, [videoModel, voicePreviewAudio]);
   // Intro/CTA slide state
   const [showIntroSlideForm, setShowIntroSlideForm] = useState(false);
   const [showCtaSlideForm, setShowCtaSlideForm] = useState(false);
@@ -2986,6 +2995,14 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       return;
     }
 
+    if (videoModel === 'veo3') {
+      toast({
+        title: "VEO3 voice is generated with video",
+        description: "VEO3 doesn't use this separate TTS preview — click Generate Preview or Create Final Video to hear the native voice.",
+      });
+      return;
+    }
+
     const sampleText = project.scenes[0]?.narration 
       || "Hello! This is a preview of how your voiceover will sound in the final video.";
     
@@ -3965,19 +3982,25 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         />
                         <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
                           <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={previewVoice}
-                            disabled={isGenerating || isPreviewingVoice}
-                          >
-                            {isPreviewingVoice ? (
-                              <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing...</>
-                            ) : (
-                              <><Play className="w-3 h-3 mr-1" />Preview Voice</>
-                            )}
-                          </Button>
+                          {videoModel === 'veo3' ? (
+                            <p className="text-xs text-muted-foreground">
+                              VEO3 generates the voice inside the video itself, so there is no separate voice preview here.
+                            </p>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={previewVoice}
+                              disabled={isGenerating || isPreviewingVoice}
+                            >
+                              {isPreviewingVoice ? (
+                                <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing...</>
+                              ) : (
+                                <><Play className="w-3 h-3 mr-1" />Preview Voice</>
+                              )}
+                            </Button>
+                          )}
                         </div>
                       </div>
 
@@ -4246,7 +4269,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
                         
-                        {selectedVoice && !selectedVoice.startsWith('clone:') && (
+                        {selectedVoice && !selectedVoice.startsWith('clone:') && videoModel !== 'veo3' && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -4260,6 +4283,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               <><Play className="w-3 h-3 mr-1" />Preview Voice</>
                             )}
                           </Button>
+                        )}
+                        {videoModel === 'veo3' && (
+                          <p className="text-xs text-muted-foreground">
+                            VEO3 voice is only created when the video is generated.
+                          </p>
                         )}
                       </div>
 
@@ -4537,10 +4565,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                   )}
                                 </div>
                               )}
-                              {customAudioMode === 'tts' && (
+                              {customAudioMode === 'tts' && videoModel !== 'veo3' && (
                                 <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="w-full h-7 text-xs">
                                   {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
                                 </Button>
+                              )}
+                              {customAudioMode === 'tts' && videoModel === 'veo3' && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  VEO3 uses native in-video audio instead of this preview sample.
+                                </p>
                               )}
                             </div>
                           </div>
@@ -4637,7 +4670,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <Label className="text-xs flex items-center gap-1"><Mic className="w-3 h-3 text-primary" /> Voice</Label>
                         <VoiceSelector selectedVoice={selectedVoice} onVoiceSelect={setSelectedVoice} compact characterDescription={characterDescription} characterGender={detectedCharGender} disabled={isGenerating} />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
-                        {selectedVoice && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
+                        {selectedVoice && videoModel !== 'veo3' && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
+                        {videoModel === 'veo3' && (
+                          <p className="text-[10px] text-muted-foreground">VEO3 voice is generated during video creation, not from the TTS preview button.</p>
+                        )}
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-border">
@@ -4952,10 +4988,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           disabled={isGenerating}
                         />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
-                        {selectedVoice && (
+                        {selectedVoice && videoModel !== 'veo3' && (
                           <Button variant="outline" size="sm" className="w-full" onClick={previewVoice} disabled={isGenerating}>
                             {isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview Voice</>}
                           </Button>
+                        )}
+                        {videoModel === 'veo3' && (
+                          <p className="text-xs text-muted-foreground">
+                            VEO3 will generate the actual voice when the reel video is created.
+                          </p>
                         )}
                       </div>
 
