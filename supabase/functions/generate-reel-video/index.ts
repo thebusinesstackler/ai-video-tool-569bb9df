@@ -500,29 +500,45 @@ serve(async (req) => {
         const topicContext = `Topic: ${topic}.`;
         
         // ====== SCENE TYPE ROUTING ======
-        // Route based on user-selected videoModel for narrator/speaking scenes
-        // B-roll, intro, outro always use their dedicated models
+        // When VEO3 is selected, ALL scene types use VEO3 — no mixing models.
+        // Otherwise route based on scene type and other settings.
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
-        if (isNarratorScene && videoModel === 'veo3') {
-          // ====== VEO3 FAST: Google video with built-in audio generation ======
-          // MUST be checked BEFORE infinitetalk — user explicitly chose VEO3
-          console.log(`Scene ${scene.sceneNumber}: Using VEO3 Fast for narrator scene (built-in audio)`);
+        if (videoModel === 'veo3') {
+          // ====== VEO3 FAST: ALL SCENES use VEO3 when selected ======
+          // VEO3 generates native audio — no separate TTS needed
+          const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'narrator';
+          console.log(`Scene ${scene.sceneNumber}: Using VEO3 Fast for ${sceneType} scene (built-in audio)`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3-fast';
-          requestBody = {
-            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+          
+          let veo3Prompt: string;
+          if (scene.isIntro) {
+            veo3Prompt = `Premium cinematic intro for a reel about "${topic}". ${charContext}
+Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
+Ultra high quality, film-grade. Sets the mood for powerful content ahead.
+${scene.narration ? `The narrator opens with: "${scene.narration}". Generate matching audio with natural, confident voice delivery.` : 'Atmospheric ambient audio.'}
+No text, no captions, no subtitles, no watermarks.`;
+          } else if (scene.isOutro) {
+            veo3Prompt = `Premium cinematic outro for a reel about "${topic}". ${charContext}
+Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
+The subject has a knowing smile, relaxed and inviting posture. Film-grade quality.
+${scene.narration ? `The narrator closes with: "${scene.narration}". Generate matching audio with warm, inviting voice delivery.` : 'Warm ambient closing audio.'}
+No text, no captions, no subtitles, no watermarks.`;
+          } else {
+            veo3Prompt = `${scene.visualDescription}. ${charContext} ${topicContext}
 The narrator is speaking: "${scene.narration}"
 Generate matching audio with natural voice delivery for this narration.
 Smooth cinematic motion, professional color grading, photorealistic quality.
 Natural confident expression, engaging body language.
-Absolutely no text, no captions, no subtitles, no watermarks.`,
-          };
+Absolutely no text, no captions, no subtitles, no watermarks.`;
+          }
+          
+          requestBody = { prompt: veo3Prompt };
           if (imageUrl) {
             requestBody.image = imageUrl;
           }
-          // VEO3 Fast generates audio natively — no separate TTS needed
           sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
@@ -579,8 +595,6 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
           
         } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
           // ====== WAN 2.5 VIDEO EXTEND: Two-step pipeline ======
-          // Step 1: Generate a short base video from image using wan-2.1-i2v
-          // Step 2: Extend it with video-extend using AI super-prompted narration
           console.log(`Scene ${scene.sceneNumber}: Using Wan 2.5 Video Extend pipeline`);
           
           const genderHint = characterDescription?.toLowerCase().includes('woman') || 
@@ -751,7 +765,6 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
           
         } else if (isNarratorScene && enableLipSync) {
           // ====== WAN 2.1 I2V 480p (default): Fast, cheap image-to-video for testing ======
-          // Audio is NOT embedded — client stitcher overlays TTS audio
           console.log(`Scene ${scene.sceneNumber}: Using Wan 2.1 I2V 480p for narrator scene`);
           
           const genderHint = characterDescription?.toLowerCase().includes('woman') || 
@@ -768,17 +781,13 @@ Professional, engaging delivery with eye contact. Natural lip movements and faci
 Cinematic lighting, shallow depth of field, premium quality.
 No text, no captions, no subtitles, no watermarks.`
           };
-          // Audio NOT embedded — will be overlaid by client
           sceneHasEmbeddedAudio = false;
           
         } else if (isNarratorScene && !enableLipSync) {
           // ====== KLING 3.0 PRO: Narrator scene WITHOUT lip sync ======
-          // Use Kling for cinematic visuals, TTS audio will be overlaid by client
           console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for narrator scene (no lip sync, TTS overlay)`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
-          
-          // Kling only supports 5 or 10 second durations
           const klingDuration = clipDuration <= 7 ? 5 : 10;
           
           requestBody = {
@@ -792,120 +801,8 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
             duration: klingDuration
           };
           
-        } else if (scene.isIntro && enableLipSync && videoModel === 'wan-2.5-video-extend' && portraitImage) {
-          // ====== WAN 2.5 VIDEO EXTEND: Hook/Intro with cinematic AI motion ======
-          console.log(`Scene ${scene.sceneNumber}: Using Video Extend pipeline for intro/hook`);
-          
-          const genderHint = characterDescription?.toLowerCase().includes('woman') || 
-                            characterDescription?.toLowerCase().includes('female') || 
-                            characterDescription?.toLowerCase().includes('girl') ||
-                            characterDescription?.toLowerCase().includes('lady')
-                            ? 'female' : 'male';
-          
-          try {
-            // AI Super Prompt for hook scene
-            const hookSuperPromptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-3-flash-preview',
-                messages: [{
-                  role: 'user',
-                  content: `You are Loop AI, a cinematic video director. Create a concise, vivid video-extend prompt (max 2 sentences) for the OPENING HOOK of a reel.
-
-Scene context: "${scene.narration || 'Cinematic intro'}"
-Character: ${characterDescription || 'Professional speaker'}
-Topic: ${topic}
-
-Rules:
-- This is the HOOK — the most important scene. Make the motion dramatic and attention-grabbing.
-- Describe: dynamic camera push-in, confident character entrance, dramatic lighting shift, captivating eye contact
-- Focus on: bold camera movement, powerful presence, magnetic energy
-- Do NOT mention text, captions, watermarks
-- Keep under 50 words. Write only the prompt.`
-                }]
-              }),
-            });
-
-            let hookSuperPrompt = `Dramatic camera push-in toward ${genderHint} speaker who looks up with magnetic confidence. Bold lighting shift, cinematic depth, commanding presence.`;
-            
-            if (hookSuperPromptResponse.ok) {
-              const spData = await hookSuperPromptResponse.json();
-              const aiPrompt = spData.choices?.[0]?.message?.content?.trim();
-              if (aiPrompt && aiPrompt.length > 10) {
-                hookSuperPrompt = aiPrompt;
-              }
-            }
-
-            // Step 1: Base video from portrait
-            const baseVideoResponse = await fetch('https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1-i2v-480p', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                image: portraitImage,
-                prompt: `A ${genderHint} speaker with magnetic confident expression. ${charContext} Professional lighting, direct eye contact. No text or captions.`
-              }),
-            });
-
-            if (!baseVideoResponse.ok) throw new Error('Base video failed for intro');
-
-            const baseVideoData = await baseVideoResponse.json();
-            const baseTaskId = baseVideoData.data?.id;
-            if (!baseTaskId) throw new Error('No task ID for intro base video');
-
-            let baseVideoUrl: string | null = null;
-            for (let attempt = 0; attempt < 60; attempt++) {
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              const statusResponse = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${baseTaskId}/result`, {
-                headers: { 'Authorization': `Bearer ${WAVESPEED_API_KEY}` },
-              });
-              if (statusResponse.ok) {
-                const statusData = await statusResponse.json();
-                if (statusData.data?.status === 'completed' && statusData.data?.outputs?.length > 0) {
-                  baseVideoUrl = statusData.data.outputs[0];
-                  break;
-                } else if (statusData.data?.status === 'failed') throw new Error('Intro base video failed');
-              }
-            }
-            if (!baseVideoUrl) throw new Error('Intro base video polling timed out');
-
-            // Step 2: Video extend with hook super prompt
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/video-extend';
-            requestBody = {
-              video: baseVideoUrl,
-              prompt: hookSuperPrompt,
-              duration: Math.max(3, Math.min(10, clipDuration)),
-              resolution: '720p',
-              enable_prompt_expansion: false
-            };
-            sceneHasEmbeddedAudio = false;
-            
-          } catch (introExtendError) {
-            console.error(`Scene ${scene.sceneNumber}: Intro video-extend failed, falling back to Sora 2:`, introExtendError);
-            // Fallback to Sora 2
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-            const sora2Durations = [4, 8, 12, 16, 20];
-            const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 4);
-            requestBody = {
-              image: imageUrl,
-              prompt: `Premium cinematic intro for a reel about "${topic}". ${charContext}
-Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
-Ultra high quality, film-grade. Sets the mood for powerful content ahead.
-No text, no captions, no subtitles, no watermarks.`,
-              duration: sora2Duration,
-              aspect_ratio: '9:16'
-            };
-            sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
-          }
-          
         } else if (scene.isIntro) {
-          // ====== SORA 2: Intro scene — cinematic quality (fallback / non-lip-sync) ======
+          // ====== SORA 2: Intro scene (non-VEO3 path) ======
           console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for intro`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
@@ -924,7 +821,7 @@ No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
           sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
           
         } else if (scene.isOutro) {
-          // ====== SORA 2: Outro scene — cinematic quality with character/topic context ======
+          // ====== SORA 2: Outro scene (non-VEO3 path) ======
           console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for outro`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
