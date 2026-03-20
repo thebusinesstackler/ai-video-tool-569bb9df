@@ -532,6 +532,7 @@ const Reels = () => {
 
   // Auto-save hook
   const { 
+    saveDraft,
     saveDraftDebounced, 
     loadDraft, 
     clearDraft, 
