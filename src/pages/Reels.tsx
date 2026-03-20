@@ -4738,6 +4738,29 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           ) : (
                             <div className="p-2 rounded-md text-xs bg-muted/30 border border-border text-muted-foreground">📹 B-roll mode — enable Lip Sync in Character tab for talking head.</div>
                           )}
+                          {/* Prompt Preview */}
+                          {project.scenes.length > 0 && (
+                            <Collapsible>
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground hover:text-foreground h-7">
+                                  <span className="flex items-center gap-1"><Eye className="w-3 h-3" />View Prompts</span>
+                                  <ChevronDown className="w-3 h-3" />
+                                </Button>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="space-y-2 pt-1">
+                                <div className="max-h-48 overflow-y-auto space-y-2">
+                                  {project.scenes.map((scene, idx) => (
+                                    <div key={idx} className="p-2 rounded-md bg-muted/40 border border-border text-[11px] space-y-1">
+                                      <p className="font-medium text-foreground">Scene {scene.sceneNumber}</p>
+                                      <p className="text-muted-foreground"><span className="text-primary font-medium">Visual:</span> {scene.visualDescription}</p>
+                                      <p className="text-muted-foreground"><span className="text-primary font-medium">Narration:</span> {scene.narration || '(silent)'}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground italic">Voice: {(() => { const vc = resolveVoiceForGeneration(); return `${vc.voice} (${vc.voiceEngine})`; })()}</p>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          )}
                           <Button onClick={() => {
                             const referenceToUse = (enableLipSync && portraitImage) ? portraitImage : preSelectedReference;
                             const selectedCharacter = selectedCharacterId ? characters.find(c => c.id === selectedCharacterId) : null;
