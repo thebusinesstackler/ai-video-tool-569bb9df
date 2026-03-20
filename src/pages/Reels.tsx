@@ -2430,11 +2430,10 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Resolve the best voice: prefer character-linked cloned voices and ignore legacy Google draft values.
-  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string; voiceEngine?: string; googleVoiceId?: string } => {
+  // Reels now use MiniMax library voices only — no cloned or Google fallback in this workflow.
+  const resolveVoiceForGeneration = (): { voice: string; voiceEngine: 'wavespeed' } => {
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
     const normalizedSelectedVoice = selectedVoice?.trim();
-    const knownTwinCloneKeys = new Set(aiTwins.map(t => t.voice_cloning_key).filter(Boolean));
     const knownWaveSpeedVoices = new Set([
       'English_compelling_lady1',
       'English_radiant_girl',
@@ -2455,48 +2454,50 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       'Decent_Boy',
     ]);
 
-    // Priority 1: Selected AI Twin custom cloned voice
-    if (selectedTwin?.voice_cloning_key) {
-      return { speechifyVoiceId: selectedTwin.voice_cloning_key };
+    if (normalizedSelectedVoice && knownWaveSpeedVoices.has(normalizedSelectedVoice)) {
+      return { voice: normalizedSelectedVoice, voiceEngine: 'wavespeed' };
     }
 
-    // Priority 2: Selected AI Twin engine-specific fallback
-    if (selectedTwin) {
-      const engine = selectedTwin.voice_engine || 'speechify';
-      if (engine === 'wavespeed') {
-        const isFemale = selectedTwin.gender === 'female';
-        return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
+    const context = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
+    const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => context.includes(k));
+
+    if (isFemale) {
+      if (/(older|mentor|expert|authority|founder|ceo|coach)/.test(context)) {
+        return { voice: 'Wise_Woman', voiceEngine: 'wavespeed' };
       }
-      if (engine === 'google-cloud' && selectedTwin.google_voice_id && !selectedTwin.google_voice_id.includes('Journey-D')) {
-        return { voiceEngine: 'google-cloud', googleVoiceId: selectedTwin.google_voice_id };
+      if (/(energetic|viral|fun|young|playful|bold|hype)/.test(context)) {
+        return { voice: 'Inspirational_girl', voiceEngine: 'wavespeed' };
       }
+      if (/(calm|luxury|gentle|warm|trusted)/.test(context)) {
+        return { voice: 'Calm_Woman', voiceEngine: 'wavespeed' };
+      }
+      return { voice: 'English_radiant_girl', voiceEngine: 'wavespeed' };
     }
 
-    // Priority 3: Explicit saved voice choice from older drafts
-    if (normalizedSelectedVoice) {
-      if (knownTwinCloneKeys.has(normalizedSelectedVoice)) {
-        return { speechifyVoiceId: normalizedSelectedVoice };
-      }
-      if (knownWaveSpeedVoices.has(normalizedSelectedVoice)) {
-        return { voice: normalizedSelectedVoice, voiceEngine: 'wavespeed' };
-      }
-      if (!normalizedSelectedVoice.startsWith('en-')) {
-        return { speechifyVoiceId: normalizedSelectedVoice };
-      }
+    if (/(story|cinematic|documentary|narrator)/.test(context)) {
+      return { voice: 'English_expressive_narrator', voiceEngine: 'wavespeed' };
     }
-
-    // Priority 4: Only use another twin's cloned voice if NO twin was explicitly selected
-    if (!selectedTwinId) {
-      const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
-      if (anyTwinWithVoice?.voice_cloning_key) {
-        return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key };
-      }
+    if (/(calm|trusted|coach|mentor|teacher|explainer|warm)/.test(context)) {
+      return { voice: 'Patient_Man', voiceEngine: 'wavespeed' };
     }
+    if (/(direct|bold|sales|urgent|controversy|strong)/.test(context)) {
+      return { voice: 'Determined_Man', voiceEngine: 'wavespeed' };
+    }
+    return { voice: 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
+  };
 
-    // Priority 5: Gender-based fallback (never Journey D)
-    const lower = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
-    const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
-    return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
+  const getResolvedVoiceLabel = () => resolveVoiceForGeneration().voice.replace(/_/g, ' ');
+
+  const getResolvedVoiceDescription = () => {
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    return selectedTwin
+      ? `Auto-matched MiniMax voice for ${selectedTwin.name}`
+      : 'Auto-matched MiniMax voice from your actor and script';
+  };
+
+  const getActivePortrait = () => {
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    return portraitPreview || portraitImage || preSelectedReference || selectedTwin?.reference_images?.[0] || null;
   };
 
   const stopGeneration = () => {
