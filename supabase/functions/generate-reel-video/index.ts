@@ -229,7 +229,7 @@ What the character is talking about: "${scene.narration}"
 
 REQUIREMENTS:
 - Direct eye contact with camera, head facing forward
-- Natural confident pose, closed mouth or slight smile
+- Natural confident pose
 - Professional lighting, clean composition
 - Photorealistic, high quality, vertical 9:16 format
 - NO text, captions, watermarks, or written words${antiPropRule}`;
