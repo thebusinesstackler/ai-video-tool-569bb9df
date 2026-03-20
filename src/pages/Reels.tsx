@@ -4645,7 +4645,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <div className="grid grid-cols-1 gap-1.5">
                           {[
                             { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk', desc: 'Lip sync' },
-                            { value: 'veo3' as const, label: '🌐 VEO3', desc: 'Google, 8s' },
+                            { value: 'veo3' as const, label: '🌐 VEO3', desc: 'Video + Audio' },
                             { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1', desc: 'Fast' },
                             { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5', desc: '720p' },
                             { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0', desc: 'Cinematic' },
