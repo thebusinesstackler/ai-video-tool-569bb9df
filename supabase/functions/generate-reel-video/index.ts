@@ -874,8 +874,7 @@ No text, no captions, no subtitles, no watermarks.`,
             prompt: `${scene.visualDescription}. ${topicContext}
 Premium cinematic B-roll — smooth camera movement, subtle parallax depth, professional color grading.
 Photorealistic, high-end commercial quality. Emotionally resonant visuals.
-Absolutely no text, no captions, no subtitles, no watermarks.
-People should have closed mouths — not speaking or mouthing words.`,
+Absolutely no text, no captions, no subtitles, no watermarks.`,
             duration: klingDuration
           };
         }
