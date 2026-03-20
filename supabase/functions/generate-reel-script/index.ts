@@ -290,7 +290,6 @@ VISUALS:
 - Format: [Subject and action]. [Setting]. [Mood/lighting]
 - Use one consistent background across all scenes
 - Vary camera angles between scenes for visual interest
-- Show characters with closed mouths (voiceover is separate)
 - Match visuals to what the narration discusses
 - No text, titles, or captions in visuals
 
@@ -649,7 +648,7 @@ function getOutroVisualDescription(templateId: string, baseStyle: string, topic?
 SUBJECT: ${charDesc} in a confident, inviting closing pose ${topicContext}. Natural relaxed expression, slight knowing smile, direct eye contact with camera.
 LIGHTING: Warm golden hour key light, soft fill.
 COMPOSITION: Medium shot, clean blurred background.
-CRITICAL: No text, no captions, no subtitles, no watermarks. CLOSED MOUTH. Vertical 9:16 portrait format.`;
+CRITICAL: No text, no captions, no subtitles, no watermarks. Vertical 9:16 portrait format.`;
 
   switch (templateId) {
     case 'cta-follow':
