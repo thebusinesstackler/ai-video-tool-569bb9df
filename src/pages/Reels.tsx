@@ -1671,15 +1671,6 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
       if (error) throw error;
 
-      if (data?.needsKey) {
-        toast({
-          title: "API Key Required",
-          description: "ElevenLabs API key is needed for music generation. Add it in Settings.",
-          variant: "destructive"
-        });
-        return;
-      }
-
       if (data?.audioUrl) {
         setBackgroundMusicUrl(data.audioUrl);
         toast({ title: "Music Generated!", description: `Background track for "${backgroundMusicMood}" is ready.` });
