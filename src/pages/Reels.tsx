@@ -2467,37 +2467,42 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Resolve the best voice: always prefer AI Twin configured voice, fallback to gender-based default
+  // Resolve the best voice: always prefer AI Twin configured voice, then explicit UI voice, then gender-based fallback
   const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string; voiceEngine?: string; googleVoiceId?: string } => {
     // Priority 1: Selected AI Twin with a configured voice
     if (selectedTwinId) {
       const twin = aiTwins.find(t => t.id === selectedTwinId);
       if (twin) {
         const engine = twin.voice_engine || 'speechify';
-        // Google Cloud TTS voice
         if (engine === 'google-cloud' && twin.google_voice_id) {
           return { voiceEngine: 'google-cloud', googleVoiceId: twin.google_voice_id };
         }
-        // WaveSpeed engine — use gender-based default voice
         if (engine === 'wavespeed') {
           const isFemale = twin.gender === 'female';
-          return { voice: isFemale ? 'English_compelling_lady1' : 'English_Trustworth_Man' };
+          return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
         }
-        // Speechify cloned voice
         if (twin.voice_cloning_key) {
           return { speechifyVoiceId: twin.voice_cloning_key };
         }
       }
     }
-    // Priority 2: Any AI Twin with a cloned voice
+
+    // Priority 2: Explicit UI voice choice
+    if (selectedVoice?.trim()) {
+      return { voice: selectedVoice.trim() };
+    }
+
+    // Priority 3: Any AI Twin with a cloned voice
     const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
     if (anyTwinWithVoice) {
       return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key! };
     }
-    // Priority 3: Fallback to WaveSpeed default based on gender
-    const lower = (characterDescription + ' ' + topic).toLowerCase();
-    const isFemale = ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
-    return { voice: isFemale ? 'English_compelling_lady1' : 'English_Trustworth_Man' };
+
+    // Priority 4: Gender-based fallback
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    const lower = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
+    const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
+    return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
   };
 
   const stopGeneration = () => {
