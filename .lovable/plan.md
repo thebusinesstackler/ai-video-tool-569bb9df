@@ -1,28 +1,37 @@
 
 
+# Fix: Purge All "Closed Mouth / NOT Speaking" Directives
+
 ## Problem
-The `generate-music` edge function calls the ElevenLabs API directly using `ELEVENLABS_API_KEY` (which isn't configured). WaveSpeed provides an `elevenlabs/music` proxy endpoint that works with the already-configured `WAVESPEED_API_KEY`, using the same async task/poll pattern as other WaveSpeed calls.
+You're exactly right. The prompts still tell the video model "NOT speaking, closed mouth" — which overrides the narration intent and produces silent video. There are **10 instances** across 4 files that need to go.
 
-## Plan
+## Changes
 
-### 1. Rewrite `generate-music` edge function to use WaveSpeed
-**File: `supabase/functions/generate-music/index.ts`**
+### 1. `supabase/functions/generate-reel-video/index.ts` — 3 edits
 
-- Replace the direct ElevenLabs API call with WaveSpeed's `elevenlabs/music` endpoint:
-  - Submit: `POST https://api.wavespeed.ai/api/v3/elevenlabs/music` with `{ prompt, music_length_ms, force_instrumental: true, output_format: "mp3_standard" }`
-  - Poll: `GET https://api.wavespeed.ai/api/v3/predictions/{taskId}/result` (same pattern used in voiceover and video functions)
-- Use `WAVESPEED_API_KEY` (already configured) instead of `ELEVENLABS_API_KEY`
-- Convert `duration` (seconds) to `music_length_ms` (milliseconds)
-- Extract audio URL from `data.outputs[0]` on completion
-- Keep the existing storage upload logic and response format
+- **Line 816**: Remove `NOT speaking or mouthing words. Closed mouth.` → `natural expression, confident pose, engaged with the moment.`
+- **Line 878**: Remove `People should have closed mouths — not speaking or mouthing words.` entirely
+- **Line 942**: Remove `People should have closed mouths — not speaking or mouthing words.` from fallback prompt
 
-### 2. Update client-side error handling
-**File: `src/pages/Reels.tsx`** (lines 1674-1681)
+### 2. `supabase/functions/generate-twin-angles/index.ts` — 1 edit
 
-- Remove the `needsKey` / "ElevenLabs API key" error check since we no longer need a separate key
+- **Line 74**: `Closed mouth or slight smile - NOT speaking` → `Natural expression, relaxed and genuine`
 
-### 3. Redeploy edge function
+### 3. `src/pages/AISpokesperson.tsx` — 4 edits
 
-### Result
-Background music generation uses the same WaveSpeed API key as all other features — no additional API key needed.
+- **Line 496**: `closed mouth, natural micro-expression` → `natural micro-expression`
+- **Line 505**: Remove `Person has CLOSED MOUTH — NOT speaking.`
+- **Line 651**: `closed mouth, contemplative micro-expression, natural and candid — NOT posed` → `contemplative micro-expression, natural and candid`
+- **Line 853**: `Character is NOT speaking — mouth closed, natural and candid.` → `Character in a natural, candid moment.`
+
+### 4. `src/pages/CommercialStudio.tsx` — 1 edit
+
+- **Line 329**: `CRITICAL: CLOSED MOUTH or slight smile.` → `EXPRESSION: Natural, relaxed.`
+
+### 5. Redeploy edge functions
+- `generate-reel-video`
+- `generate-twin-angles`
+
+## Result
+Every "closed mouth," "NOT speaking," and "not mouthing words" directive is gone. Video models will no longer suppress audio or freeze expressions. Characters will have natural, living expressions — and narration will actually play.
 
