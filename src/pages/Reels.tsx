@@ -4558,14 +4558,14 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                   )}
                                 </div>
                               )}
-                              {customAudioMode === 'tts' && videoModel !== 'veo3' && (
+                              {customAudioMode === 'tts' && videoModel !== 'sora-2' && (
                                 <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="w-full h-7 text-xs">
                                   {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
                                 </Button>
                               )}
-                              {customAudioMode === 'tts' && videoModel === 'veo3' && (
+                              {customAudioMode === 'tts' && videoModel === 'sora-2' && (
                                 <p className="text-[10px] text-muted-foreground">
-                                  VEO3 uses native in-video audio instead of this preview sample.
+                                  Sora-2 generates native audio with the video — no separate voice preview.
                                 </p>
                               )}
                             </div>
