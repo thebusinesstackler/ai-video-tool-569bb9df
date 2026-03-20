@@ -1903,8 +1903,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
       const selectedTwinGender = selectedTwin?.gender || undefined;
 
-      if (videoModel === 'veo3') {
-        console.log('VEO3 selected — skipping TTS, audio will be generated with video');
+      if (videoModel === 'veo3' || videoModel === 'sora-2') {
+        console.log(`${videoModel} selected — skipping TTS, audio will be generated with video`);
         for (const scene of activeScenes) {
           voiceovers.push({
             sceneNumber: scene.sceneNumber,
