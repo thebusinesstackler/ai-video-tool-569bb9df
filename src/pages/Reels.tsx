@@ -396,7 +396,7 @@ const Reels = () => {
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (videoModel !== 'veo3' || !voicePreviewAudio) return;
+    if (videoModel !== 'sora-2' || !voicePreviewAudio) return;
 
     voicePreviewAudio.pause();
     voicePreviewAudio.currentTime = 0;
