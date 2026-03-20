@@ -711,25 +711,6 @@ Rules:
             sceneHasEmbeddedAudio = false;
           }
           
-        } else if (isNarratorScene && enableLipSync && videoModel === 'veo3') {
-          // ====== VEO3 FAST: Google video with built-in audio generation ======
-          console.log(`Scene ${scene.sceneNumber}: Using VEO3 Fast for narrator scene (built-in audio)`);
-          
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3-fast';
-          requestBody = {
-            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
-The narrator is speaking: "${scene.narration}"
-Generate matching audio with natural voice delivery for this narration.
-Smooth cinematic motion, professional color grading, photorealistic quality.
-Natural confident expression, engaging body language.
-Absolutely no text, no captions, no subtitles, no watermarks.`,
-          };
-          if (imageUrl) {
-            requestBody.image = imageUrl;
-          }
-          // VEO3 Fast generates audio natively — no separate TTS needed
-          sceneHasEmbeddedAudio = true;
-          
         } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.6-i2v') {
           // ====== WAN 2.6 I2V: High quality image-to-video, 5/10/15s clips ======
           console.log(`Scene ${scene.sceneNumber}: Using Wan 2.6 I2V for narrator scene`);
