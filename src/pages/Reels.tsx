@@ -532,6 +532,7 @@ const Reels = () => {
 
   // Auto-save hook
   const { 
+    saveDraft,
     saveDraftDebounced, 
     loadDraft, 
     clearDraft, 
@@ -2665,9 +2666,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
   };
 
   const resetProject = () => {
-    // Auto-save current work before resetting
+    // Auto-save current work before resetting (use immediate save, not debounced)
     if (project.scenes.length > 0 || topic?.trim() || project.previewScenes.length > 0) {
-      saveDraftDebounced({
+      saveDraft({
         topic, selectedSceneCount, selectedSceneDuration, selectedVoice,
         selectedVideoSize, transitionStyle, hookStyle, characterDescription,
         preSelectedReference, selectedTwinId, selectedIntro, selectedOutro,
@@ -2682,6 +2683,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       URL.revokeObjectURL(project.videoBlobUrl);
     }
     videoBlobRef.current = null;
+    
+    // Clear the draft so the old completed reel doesn't get restored
+    clearDraft();
     
     setProject({
       topic: '',
