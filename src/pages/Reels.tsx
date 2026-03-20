@@ -1894,7 +1894,17 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
     try {
       // Generate voiceovers if we don't have them from preview
-      if (!hasPreviewVoiceovers) {
+      // Skip TTS entirely for VEO3 — it generates audio natively in the video
+      if (videoModel === 'veo3') {
+        console.log('VEO3 selected — skipping TTS, audio will be generated with video');
+        for (const scene of activeScenes) {
+          voiceovers.push({
+            sceneNumber: scene.sceneNumber,
+            audioUrl: '',
+            duration: scene.duration || 8 // VEO3 Fast produces ~8s clips
+          });
+        }
+      } else if (!hasPreviewVoiceovers) {
         setProgressStatus('Generating voiceovers...');
       
       // Step 1: Generate voiceovers for each scene using OpenAI TTS and get actual durations
@@ -1975,7 +1985,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
         }
       }
-      } // End of if (!hasPreviewVoiceovers)
+      } // End of TTS generation block
       
       // Set progress based on whether we used cached voiceovers
       if (hasPreviewVoiceovers) {
@@ -4635,7 +4645,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <div className="grid grid-cols-1 gap-1.5">
                           {[
                             { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk', desc: 'Lip sync' },
-                            { value: 'veo3' as const, label: '🌐 VEO3', desc: 'Google, 8s' },
+                            { value: 'veo3' as const, label: '🌐 VEO3', desc: 'Video + Audio' },
                             { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1', desc: 'Fast' },
                             { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5', desc: '720p' },
                             { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0', desc: 'Cinematic' },
@@ -5107,7 +5117,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                      <div className="grid grid-cols-1 gap-2">
                         {[
                           { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk (Lip Sync)', desc: 'Audio-driven lip sync — up to 10 min, matches audio length' },
-                          { value: 'veo3' as const, label: '🌐 VEO3 (Google)', desc: 'High quality Google video — ~8s clips with optional image input' },
+                          { value: 'veo3' as const, label: '🌐 VEO3 (Google)', desc: 'High quality video with built-in audio — no separate TTS needed' },
                           { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing (no lip sync, ~4s)' },
                           { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 720p, 3-10s clips (no lip sync)' },
                           { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips (no lip sync)' },
