@@ -4976,14 +4976,14 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           disabled={isGenerating}
                         />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
-                        {selectedVoice && videoModel !== 'veo3' && (
+                        {selectedVoice && videoModel !== 'sora-2' && (
                           <Button variant="outline" size="sm" className="w-full" onClick={previewVoice} disabled={isGenerating}>
                             {isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview Voice</>}
                           </Button>
                         )}
-                        {videoModel === 'veo3' && (
+                        {videoModel === 'sora-2' && (
                           <p className="text-xs text-muted-foreground">
-                            VEO3 will generate the actual voice when the reel video is created.
+                            Sora-2 will generate the actual voice when the reel video is created.
                           </p>
                         )}
                       </div>
