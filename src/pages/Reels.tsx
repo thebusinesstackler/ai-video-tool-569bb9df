@@ -2973,7 +2973,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
   // Preview the selected voice with a TTS sample
   const previewVoice = async () => {
-    // Stop any currently playing preview
     if (voicePreviewAudio) {
       voicePreviewAudio.pause();
       voicePreviewAudio.currentTime = 0;
@@ -2990,22 +2989,27 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       return;
     }
 
-    const sampleText = project.scenes[0]?.narration 
+    const voiceConfig = resolveVoiceForGeneration();
+    const sampleText = project.scenes[0]?.narration
       || "Hello! This is a preview of how your voiceover will sound in the final video.";
-    
+
     setIsPreviewingVoice(true);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: sampleText.slice(0, 200), voice: selectedVoice, pitch: voicePitch }
+        body: {
+          text: sampleText.slice(0, 200),
+          voice: voiceConfig.voice,
+          voiceEngine: voiceConfig.voiceEngine,
+          pitch: voicePitch,
+        }
       });
       if (error) throw error;
       let audioUrl = data?.audioUrl || data?.url;
-      // Fallback: if only base64 audioContent returned, use as data URL
       if (!audioUrl && data?.audioContent) {
         audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
       }
       if (!audioUrl) throw new Error('No audio returned');
-      
+
       const audio = new Audio(audioUrl);
       audio.onended = () => {
         setIsPreviewingVoice(false);
