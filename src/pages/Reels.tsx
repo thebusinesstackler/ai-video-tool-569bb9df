@@ -1894,7 +1894,17 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
     try {
       // Generate voiceovers if we don't have them from preview
-      if (!hasPreviewVoiceovers) {
+      // Skip TTS entirely for VEO3 — it generates audio natively in the video
+      if (videoModel === 'veo3') {
+        console.log('VEO3 selected — skipping TTS, audio will be generated with video');
+        for (const scene of activeScenes) {
+          voiceovers.push({
+            sceneNumber: scene.sceneNumber,
+            audioUrl: '',
+            duration: scene.duration || 8 // VEO3 Fast produces ~8s clips
+          });
+        }
+      } else if (!hasPreviewVoiceovers) {
         setProgressStatus('Generating voiceovers...');
       
       // Step 1: Generate voiceovers for each scene using OpenAI TTS and get actual durations
