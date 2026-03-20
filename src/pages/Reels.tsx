@@ -1985,7 +1985,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
         }
       }
-      } // End of if (!hasPreviewVoiceovers)
+      } // End of TTS generation block
       
       // Set progress based on whether we used cached voiceovers
       if (hasPreviewVoiceovers) {
