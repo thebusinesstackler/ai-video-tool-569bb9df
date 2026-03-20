@@ -5759,15 +5759,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           project.scenes, 
                           user?.id, 
                           referenceToUse || undefined, 
-                          voiceConfig.voice || selectedVoice,
+                          voiceConfig.voice,
                           characterRefImage || undefined,
                           characterDescription || selectedTwin?.face_description || undefined,
-                          voiceConfig.speechifyVoiceId || selectedTwin?.voice_cloning_key || undefined,
+                          undefined,
                           allTwinReferenceImages,
                           customAudio,
                           customDuration,
                           voiceConfig.voiceEngine,
-                          voiceConfig.googleVoiceId,
+                          undefined,
                           videoModel
                         );
                       }}
