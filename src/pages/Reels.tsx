@@ -340,7 +340,7 @@ const Reels = () => {
   // Lip sync mode
   const [enableLipSync, setEnableLipSync] = useState(false);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
-  const [videoModel, setVideoModel] = useState<'infinitetalk' | 'wan-2.1-i2v-480p' | 'wan-2.5-video-extend' | 'kling-v3.0-pro' | 'wan-2.6-i2v' | 'veo3'>('infinitetalk');
+  const videoModel = 'sora-2' as const;
   const [wan26Duration, setWan26Duration] = useState<5 | 10 | 15>(5);
   const [portraitImage, setPortraitImage] = useState<string | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
@@ -396,7 +396,7 @@ const Reels = () => {
   const [voicePreviewAudio, setVoicePreviewAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (videoModel !== 'veo3' || !voicePreviewAudio) return;
+    if (videoModel !== 'sora-2' || !voicePreviewAudio) return;
 
     voicePreviewAudio.pause();
     voicePreviewAudio.currentTime = 0;
@@ -1903,8 +1903,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
       const selectedTwinGender = selectedTwin?.gender || undefined;
 
-      if (videoModel === 'veo3') {
-        console.log('VEO3 selected — skipping TTS, audio will be generated with video');
+      if (videoModel === 'sora-2') {
+        console.log(`${videoModel} selected — skipping TTS, audio will be generated with video`);
         for (const scene of activeScenes) {
           voiceovers.push({
             sceneNumber: scene.sceneNumber,
@@ -2041,7 +2041,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           characterDescription: characterDescription || selectedTwin?.face_description || '',
           cameraAngles: cameraAngleRotation,
           videoModel: videoModel,
-          sceneDuration: videoModel === 'wan-2.6-i2v' ? wan26Duration : undefined
+          sceneDuration: undefined
         }
       });
 
@@ -2983,10 +2983,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       return;
     }
 
-    if (videoModel === 'veo3') {
+    if (videoModel === 'sora-2') {
       toast({
-        title: "VEO3 voice is generated with video",
-        description: "VEO3 doesn't use this separate TTS preview — click Generate Preview or Create Final Video to hear the native voice.",
+        title: "Sora-2 voice is generated with video",
+        description: "Sora-2 generates native audio — click Generate Preview or Create Final Video to hear the voice.",
       });
       return;
     }
@@ -3975,9 +3975,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         />
                         <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
                           <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
-                          {videoModel === 'veo3' ? (
+                          {videoModel === 'sora-2' ? (
                             <p className="text-xs text-muted-foreground">
-                              VEO3 generates the voice inside the video itself, so there is no separate voice preview here.
+                              Sora-2 generates the voice inside the video itself, so there is no separate voice preview here.
                             </p>
                           ) : (
                             <Button
@@ -4262,7 +4262,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
                         
-                        {selectedVoice && !selectedVoice.startsWith('clone:') && videoModel !== 'veo3' && (
+                        {selectedVoice && !selectedVoice.startsWith('clone:') && videoModel !== 'sora-2' && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -4277,9 +4277,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             )}
                           </Button>
                         )}
-                        {videoModel === 'veo3' && (
+                        {videoModel === 'sora-2' && (
                           <p className="text-xs text-muted-foreground">
-                            VEO3 voice is only created when the video is generated.
+                            Sora-2 voice is only created when the video is generated.
                           </p>
                         )}
                       </div>
@@ -4558,14 +4558,14 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                   )}
                                 </div>
                               )}
-                              {customAudioMode === 'tts' && videoModel !== 'veo3' && (
+                              {customAudioMode === 'tts' && videoModel !== 'sora-2' && (
                                 <Button variant="outline" size="sm" onClick={previewVoice} disabled={isGenerating || isPreviewingVoice} className="w-full h-7 text-xs">
                                   {isPreviewingVoice ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Playing</> : <><Play className="w-3 h-3 mr-1" />Preview</>}
                                 </Button>
                               )}
-                              {customAudioMode === 'tts' && videoModel === 'veo3' && (
+                              {customAudioMode === 'tts' && videoModel === 'sora-2' && (
                                 <p className="text-[10px] text-muted-foreground">
-                                  VEO3 uses native in-video audio instead of this preview sample.
+                                  Sora-2 generates native audio with the video — no separate voice preview.
                                 </p>
                               )}
                             </div>
@@ -4663,41 +4663,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <Label className="text-xs flex items-center gap-1"><Mic className="w-3 h-3 text-primary" /> Voice</Label>
                         <VoiceSelector selectedVoice={selectedVoice} onVoiceSelect={setSelectedVoice} compact characterDescription={characterDescription} characterGender={detectedCharGender} disabled={isGenerating} />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
-                        {selectedVoice && videoModel !== 'veo3' && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
-                        {videoModel === 'veo3' && (
-                          <p className="text-[10px] text-muted-foreground">VEO3 voice is generated during video creation, not from the TTS preview button.</p>
+                        {selectedVoice && videoModel !== 'sora-2' && <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={previewVoice} disabled={isGenerating}>{isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview</>}</Button>}
+                        {videoModel === 'sora-2' && (
+                          <p className="text-[10px] text-muted-foreground">Sora-2 voice is generated during video creation, not from the TTS preview button.</p>
                         )}
                       </div>
 
-                      <div className="space-y-2 pt-2 border-t border-border">
-                        <Label className="text-xs">Video Model</Label>
-                        <div className="grid grid-cols-1 gap-1.5">
-                          {[
-                            { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk', desc: 'Lip sync' },
-                            { value: 'veo3' as const, label: '🌐 VEO3', desc: 'Video + Audio' },
-                            { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1', desc: 'Fast' },
-                            { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5', desc: '720p' },
-                            { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0', desc: 'Cinematic' },
-                            { value: 'wan-2.6-i2v' as const, label: '🌟 Wan 2.6', desc: '5s/10s/15s' },
-                          ].map((m) => (
-                            <button key={m.value} type="button" onClick={() => setVideoModel(m.value)} className={`text-left p-2 rounded-md border text-xs transition-colors ${videoModel === m.value ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
-                              <span className="font-medium">{m.label}</span> <span className="opacity-70">{m.desc}</span>
-                            </button>
-                          ))}
-                        </div>
-                        {videoModel === 'wan-2.6-i2v' && (
-                          <div className="space-y-1">
-                            <Label className="text-xs">Clip Duration</Label>
-                            <div className="flex gap-1.5">
-                              {([5, 10, 15] as const).map((d) => (
-                                <button key={d} type="button" onClick={() => setWan26Duration(d)} className={`flex-1 py-1.5 rounded-md border text-xs font-medium transition-colors ${wan26Duration === d ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
-                                  {d}s
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      {/* Video model is auto-set to Sora-2 */}
 
                       <div className="space-y-2 pt-2 border-t border-border">
                         <Label className="text-xs">Audio Source</Label>
@@ -5004,14 +4976,14 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           disabled={isGenerating}
                         />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} compact />
-                        {selectedVoice && videoModel !== 'veo3' && (
+                        {selectedVoice && videoModel !== 'sora-2' && (
                           <Button variant="outline" size="sm" className="w-full" onClick={previewVoice} disabled={isGenerating}>
                             {isPreviewingVoice ? <><MicOff className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Preview Voice</>}
                           </Button>
                         )}
-                        {videoModel === 'veo3' && (
+                        {videoModel === 'sora-2' && (
                           <p className="text-xs text-muted-foreground">
-                            VEO3 will generate the actual voice when the reel video is created.
+                            Sora-2 will generate the actual voice when the reel video is created.
                           </p>
                         )}
                       </div>
@@ -5168,61 +5140,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       Voice & Model
                     </h4>
 
-                   {/* Model Selection */}
-                   <div className="space-y-2">
-                     <Label>Video Model</Label>
-                     <div className="grid grid-cols-1 gap-2">
-                        {[
-                          { value: 'infinitetalk' as const, label: '🎤 InfiniteTalk (Lip Sync)', desc: 'Audio-driven lip sync — up to 10 min, matches audio length' },
-                          { value: 'veo3' as const, label: '🌐 VEO3 (Google)', desc: 'High quality video with built-in audio — no separate TTS needed' },
-                          { value: 'wan-2.1-i2v-480p' as const, label: '🎬 Wan 2.1 I2V (480p)', desc: 'Fast & cheap — great for testing (no lip sync, ~4s)' },
-                          { value: 'wan-2.5-video-extend' as const, label: '🚀 Wan 2.5 Video Extend', desc: 'Higher quality — 720p, 3-10s clips (no lip sync)' },
-                          { value: 'kling-v3.0-pro' as const, label: '🎥 Kling 3.0 Pro', desc: 'Cinematic quality — 5s or 10s clips (no lip sync)' },
-                          { value: 'wan-2.6-i2v' as const, label: '🌟 Wan 2.6 I2V', desc: 'High quality — 5s, 10s, or 15s clips (no lip sync)' },
-                        ].map((m) => (
-                         <button
-                           key={m.value}
-                           type="button"
-                           onClick={() => setVideoModel(m.value)}
-                           className={`text-left p-2.5 rounded-md border text-sm transition-colors ${
-                             videoModel === m.value
-                               ? 'border-primary bg-primary/10 text-foreground'
-                               : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
-                           }`}
-                         >
-                           <span className="font-medium">{m.label}</span>
-                           <span className="block text-[11px] mt-0.5 opacity-70">{m.desc}</span>
-                         </button>
-                       ))}
-                     </div>
-                     {videoModel === 'wan-2.6-i2v' && (
-                       <div className="space-y-2">
-                         <Label>Clip Duration</Label>
-                         <div className="flex gap-2">
-                           {([5, 10, 15] as const).map((d) => (
-                             <button key={d} type="button" onClick={() => setWan26Duration(d)} className={`flex-1 py-2 rounded-md border text-sm font-medium transition-colors ${wan26Duration === d ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>
-                               {d}s
-                             </button>
-                           ))}
-                         </div>
-                       </div>
-                     )}
-                   </div>
-
-                  {/* Lip Sync Status Indicator */}
-                  <div className={`p-2.5 rounded-md text-xs font-medium ${
-                    enableLipSync && portraitPreview 
-                      ? 'bg-primary/10 text-primary border border-primary/30' 
-                      : 'bg-destructive/10 text-destructive border border-destructive/30'
-                  }`}>
-                    {enableLipSync && portraitPreview 
-                      ? videoModel === 'infinitetalk'
-                        ? '🎭 Lip sync ON — InfiniteTalk will generate talking head videos matching your audio duration'
-                        : '🎭 Lip sync ON — speaking scenes will use ' + videoModel + ' with TTS overlay'
-                      : enableLipSync && !portraitPreview
-                      ? '⚠️ Lip sync enabled but no portrait uploaded — speaking scenes will be B-roll'
-                      : '📹 Lip sync OFF — all scenes will be cinematic B-roll with voiceover overlay'
-                    }
+                   {/* Video model: Sora-2 (auto-selected) */}
+                  <div className="p-2.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/30">
+                    🎬 Sora-2 — cinematic video with built-in audio generation
                   </div>
 
                   {/* Voiceover Source Selection */}

@@ -558,6 +558,51 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           }
           sceneHasEmbeddedAudio = true;
           
+        } else if (videoModel === 'sora-2') {
+          // ====== SORA-2: ALL SCENES use Sora-2 when selected ======
+          // Sora-2 generates native audio — no separate TTS needed
+          const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'narrator';
+          console.log(`Scene ${scene.sceneNumber}: Using Sora-2 for ${sceneType} scene (built-in audio)`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          
+          // Sora-2 supports durations: 4, 8, 12, 16, 20 seconds
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
+          
+          const hasImage = !!imageUrl;
+          const sora2CharContext = hasImage ? '' : charContext;
+          
+          let sora2Prompt: string;
+          if (scene.isIntro) {
+            sora2Prompt = `Premium cinematic intro for a reel about "${topic}". ${sora2CharContext}
+Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
+Ultra high quality, film-grade. Sets the mood for powerful content ahead.
+${scene.narration ? `The narrator says: "${scene.narration}"` : 'Atmospheric ambient audio only.'}
+No text, no captions, no subtitles, no watermarks.`;
+          } else if (scene.isOutro) {
+            sora2Prompt = `Premium cinematic outro for a reel about "${topic}". ${sora2CharContext}
+Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
+Film-grade quality.
+${scene.narration ? `The narrator says: "${scene.narration}"` : 'Warm ambient closing audio only.'}
+No text, no captions, no subtitles, no watermarks.`;
+          } else {
+            sora2Prompt = `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+Context: The narrator is saying "${scene.narration}" over this visual.
+Premium cinematic motion — smooth parallax camera movement, subtle depth shifts, professional color grading.
+The visual should emotionally match the narration content. Photorealistic, high-end commercial quality.
+If showing a person: natural expression, confident pose, engaged with the moment.
+Absolutely no text, no captions, no subtitles, no watermarks.`;
+          }
+          
+          requestBody = {
+            image: imageUrl,
+            prompt: sora2Prompt,
+            duration: sora2Duration,
+            aspect_ratio: '9:16'
+          };
+          sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
+          
         } else if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
           // ====== INFINITETALK: Audio-driven lip sync (up to 10 min) ======
           // Takes portrait image + audio URL, produces video with embedded lip-synced audio
