@@ -1892,67 +1892,314 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     if (abortRef.current?.signal.aborted) return;
     setIsGenerating(true);
     setVideoError(null);
-    // Clear old generated scenes/clips so stale results don't show
     setProject(prev => ({ ...prev, status: 'generating-video', generatedScenes: [], videoClips: [], videoBlobUrl: null, videoUrl: null }));
     setProgress(5);
-    
-    // Use preview voiceovers if they exist, otherwise generate new ones
+
     const hasPreviewVoiceovers = previewVoiceovers.length > 0;
-    const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = 
-      hasPreviewVoiceovers ? [...previewVoiceovers] : [];
+    const voiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = hasPreviewVoiceovers ? [...previewVoiceovers] : [];
 
     try {
-      // Generate voiceovers if we don't have them from preview
-      // Skip TTS entirely for VEO3 — it generates audio natively in the video
+      const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+      const selectedTwinGender = selectedTwin?.gender || undefined;
+
       if (videoModel === 'veo3') {
         console.log('VEO3 selected — skipping TTS, audio will be generated with video');
         for (const scene of activeScenes) {
           voiceovers.push({
             sceneNumber: scene.sceneNumber,
             audioUrl: '',
-            duration: scene.duration || 8 // VEO3 Fast produces ~8s clips
+            duration: scene.duration || 8
           });
         }
       } else if (!hasPreviewVoiceovers) {
         setProgressStatus('Generating voiceovers...');
-      
-      // Step 1: Generate voiceovers for each scene using OpenAI TTS and get actual durations
-      for (const scene of activeScenes) {
-        // Skip silent CTA scenes (no narration needed)
-        if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
-          console.log(`Scene ${scene.sceneNumber} is silent CTA - skipping voiceover`);
-          // Add a placeholder with the scene's duration for timing
-          voiceovers.push({
-            sceneNumber: scene.sceneNumber,
-            audioUrl: '', // No audio
-            duration: scene.duration || 2
-          });
-          continue;
-        }
-        
-        try {
-          // Use resolved voice from AI Twin configuration
-          const voiceConfig = resolveVoiceForGeneration();
-          
-          const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-            body: { 
-              text: scene.narration,
-              speechifyVoiceId: voiceConfig.speechifyVoiceId,
-              voice: voiceConfig.voice,
-              voiceEngine: voiceConfig.voiceEngine,
-              googleVoiceId: voiceConfig.googleVoiceId,
-              gender: selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId)?.gender : undefined,
-              pitch: voicePitch,
+
+        for (const scene of activeScenes) {
+          if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
+            console.log(`Scene ${scene.sceneNumber} is silent CTA - skipping voiceover`);
+            voiceovers.push({
+              sceneNumber: scene.sceneNumber,
+              audioUrl: '',
+              duration: scene.duration || 2
+            });
+            continue;
+          }
+
+          try {
+            const voiceConfig = resolveVoiceForGeneration();
+            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+              body: {
+                text: scene.narration,
+                speechifyVoiceId: voiceConfig.speechifyVoiceId,
+                voice: voiceConfig.voice,
+                voiceEngine: voiceConfig.voiceEngine,
+                googleVoiceId: voiceConfig.googleVoiceId,
+                gender: selectedTwinGender,
+                pitch: voicePitch,
+              }
+            });
+
+            if (ttsError) {
+              console.error('TTS error for scene', scene.sceneNumber, ':', ttsError);
+              continue;
             }
+
+            if (ttsData?.audioContent) {
+              const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+              const actualDuration = await getAudioDuration(audioUrl);
+              console.log(`Scene ${scene.sceneNumber} voiceover actual duration: ${actualDuration}s`);
+
+              let storageUrl: string | undefined;
+              if (user) {
+                try {
+                  const base64Data = ttsData.audioContent;
+                  const binaryString = atob(base64Data);
+                  const bytes = new Uint8Array(binaryString.length);
+                  for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                  }
+
+                  const fileName = `${user.id}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
+                  const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('reels')
+                    .upload(fileName, bytes, { contentType: 'audio/mp3' });
+
+                  if (!uploadError && uploadData) {
+                    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                    storageUrl = publicUrl.publicUrl;
+                    console.log('Uploaded voiceover to storage:', storageUrl);
+                  }
+                } catch (uploadErr) {
+                  console.warn('Voiceover upload failed:', uploadErr);
+                }
+              }
+
+              voiceovers.push({
+                sceneNumber: scene.sceneNumber,
+                audioUrl,
+                storageUrl,
+                duration: actualDuration
+              });
+            }
+          } catch (ttsErr) {
+            console.error('TTS generation failed for scene', scene.sceneNumber, ':', ttsErr);
+          }
+        }
+      }
+
+      if (hasPreviewVoiceovers) {
+        setProgress(15);
+        setProgressStatus('Using cached voiceovers. Creating images...');
+      } else {
+        setProgress(15);
+        setProgressStatus(`Generated ${voiceovers.length}/${activeScenes.length} voiceovers. Creating images...`);
+      }
+
+      const scenesWithAudioDurations = activeScenes.map(scene => {
+        const voiceover = voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
+        return {
+          ...scene,
+          audioDuration: voiceover?.duration
+        };
+      });
+
+      const preGeneratedImages = previewScenes.length > 0
+        ? previewScenes.map(ps => ({ sceneNumber: ps.sceneNumber, imageUrl: ps.imageUrl }))
+        : undefined;
+
+      const twinReferenceImages = selectedTwin?.reference_images || [];
+      const effectiveLipSync = overrides?.forceEnableLipSync ?? enableLipSync;
+      const effectiveLipSyncModel = overrides?.forceLipSyncModel ?? lipSyncModel;
+
+      const diverseAngles = ['eye-level', 'three-quarter', 'low-angle', 'medium-shot', 'closeup', 'profile-shot', 'golden-hour', 'cinematic'];
+      const cameraAngleRotation = scenesWithAudioDurations
+        .filter((scene) => !scene.isIntro && !scene.isOutro)
+        .map((scene, idx) => {
+          const angleId = diverseAngles[idx % diverseAngles.length];
+          const angle = CAMERA_ANGLES.find(a => a.id === angleId);
+          return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier || '';
+        });
+
+      const { data, error } = await supabase.functions.invoke('generate-reel-video', {
+        body: {
+          scenes: scenesWithAudioDurations,
+          topic: project.topic,
+          addCaptions: featureToggles.captions,
+          useWaveSpeed: true,
+          enableLipSync: effectiveLipSync,
+          lipSyncModel: effectiveLipSync ? effectiveLipSyncModel : undefined,
+          portraitImage: effectiveLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
+          voice: selectedVoice,
+          voiceovers: voiceovers.map(v => ({
+            sceneNumber: v.sceneNumber,
+            audioUrl: v.storageUrl || v.audioUrl,
+            duration: v.duration
+          })),
+          preGeneratedImages,
+          referenceImages: twinReferenceImages,
+          characterDescription: characterDescription || selectedTwin?.face_description || '',
+          cameraAngles: cameraAngleRotation,
+          videoModel: videoModel,
+          sceneDuration: videoModel === 'wan-2.6-i2v' ? wan26Duration : undefined
+        }
+      });
+
+      if (error) throw error;
+
+      const generatedScenes = data.scenes || [];
+      const videoTasks = data.videoTasks || [];
+      const hasEmbeddedAudio = data.hasEmbeddedAudio || false;
+      const perSceneEmbeddedAudio: Record<number, boolean> = {};
+      for (const task of videoTasks) {
+        perSceneEmbeddedAudio[task.sceneNumber] = task.hasEmbeddedAudio || false;
+      }
+      console.log('Video generation response:', { videoTasks: videoTasks.length, hasEmbeddedAudio, perSceneEmbeddedAudio });
+
+      const scenesWithImages = generatedScenes.filter((s: GeneratedScene) => s.imageUrl);
+      if (scenesWithImages.length === 0) {
+        throw new Error('No scene images were generated');
+      }
+
+      setProject(prev => ({
+        ...prev,
+        generatedScenes,
+        voiceovers,
+      }));
+      setProgress(30);
+
+      if (videoTasks.length > 0) {
+        activeGenerationRef.current = {
+          videoTasks: videoTasks.map((t: any) => ({ taskId: t.taskId, sceneNumber: t.sceneNumber, hasEmbeddedAudio: t.hasEmbeddedAudio })),
+          generatedScenes,
+          voiceovers,
+          hasEmbeddedAudio,
+          topic: project.topic
+        };
+
+        setProject(prev => ({ ...prev, status: 'rendering-video' }));
+        setProgressStatus(`Generating ${videoTasks.length} video clips with WaveSpeed...`);
+
+        const completedVideos: { sceneNumber: number; videoUrl: string }[] = [];
+        const maxPollingTime = 300000;
+        const pollInterval = 5000;
+        const startTime = Date.now();
+
+        while (completedVideos.length < videoTasks.length) {
+          if (Date.now() - startTime > maxPollingTime) {
+            console.warn(`Video polling timed out after ${maxPollingTime / 1000}s. ${completedVideos.length}/${videoTasks.length} completed.`);
+            toast({
+              title: "Some scenes timed out",
+              description: `${completedVideos.length} of ${videoTasks.length} scenes completed. Continuing with available clips.`,
+              variant: "destructive"
+            });
+            for (const task of videoTasks) {
+              if (!completedVideos.find(v => v.sceneNumber === task.sceneNumber)) {
+                completedVideos.push({ sceneNumber: task.sceneNumber, videoUrl: '' });
+              }
+            }
+            break;
+          }
+
+          for (const task of videoTasks) {
+            if (completedVideos.find(v => v.sceneNumber === task.sceneNumber)) continue;
+
+            try {
+              const { data: statusData, error: statusError } = await supabase.functions.invoke('wavespeed-video', {
+                body: { action: 'status', taskId: task.taskId }
+              });
+
+              if (statusError) {
+                console.error('Status check error:', statusError);
+                continue;
+              }
+
+              console.log(`Task ${task.taskId} status:`, statusData);
+
+              if (statusData?.status === 'completed' && statusData?.videoUrl) {
+                completedVideos.push({
+                  sceneNumber: task.sceneNumber,
+                  videoUrl: statusData.videoUrl
+                });
+              } else if (statusData?.status === 'failed') {
+                completedVideos.push({
+                  sceneNumber: task.sceneNumber,
+                  videoUrl: ''
+                });
+              }
+            } catch (pollError) {
+              console.error('Polling error for task', task.taskId, ':', pollError);
+            }
+          }
+
+          const finishedCount = completedVideos.filter(v => v.videoUrl).length;
+          setProgress(Math.min(70, 30 + Math.round((completedVideos.length / videoTasks.length) * 40)));
+          setProgressStatus(`Rendered ${finishedCount}/${videoTasks.length} clips...`);
+
+          if (completedVideos.length < videoTasks.length) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+        }
+
+        const sortedVideos = completedVideos
+          .filter(v => v.videoUrl)
+          .sort((a, b) => a.sceneNumber - b.sceneNumber);
+        const sortedAudios = [...voiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+        if (sortedVideos.length > 0) {
+          let audioUrlsForStitch: string[] = [];
+          const allScenesHaveEmbeddedAudio = hasEmbeddedAudio && videoTasks.every((t: any) => t.hasEmbeddedAudio);
+          const someScenesNeedAudio = !allScenesHaveEmbeddedAudio;
+
+          console.log('Audio overlay decision:', {
+            hasEmbeddedAudio,
+            allScenesHaveEmbeddedAudio,
+            someScenesNeedAudio,
+            perSceneEmbeddedAudio,
+            reason: allScenesHaveEmbeddedAudio ? 'All videos have embedded audio (VEO 3)' : 'Some scenes need TTS audio overlay'
           });
-...
+
+          if (someScenesNeedAudio) {
+            const scenesNeedingAudio = activeScenes.filter(scene => !perSceneEmbeddedAudio[scene.sceneNumber]);
+            const existingAudioScenes = new Set(sortedAudios.filter(a => a.audioUrl && a.audioUrl.trim() !== '').map(a => a.sceneNumber));
+            const missingAudioScenes = scenesNeedingAudio.filter(s => !existingAudioScenes.has(s.sceneNumber));
+
+            console.log('[Audio] Scenes needing audio:', scenesNeedingAudio.map(s => ({
+              scene: s.sceneNumber,
+              hasNarration: !!s.narration?.trim(),
+              isSilentCTA: !!(s as any).isSilentCTA
+            })));
+            console.log('[Audio] Existing audio for scenes:', Array.from(existingAudioScenes));
+            console.log('[Audio] Missing audio scenes:', missingAudioScenes.map(s => s.sceneNumber));
+
+            if (missingAudioScenes.length > 0) {
+              console.log(`Generating voiceovers for ${missingAudioScenes.length} scenes without audio...`);
+              const newVoiceovers: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[] = [];
+
+              for (const scene of missingAudioScenes) {
+                if ((scene as any).isSilentCTA || !scene.narration?.trim()) {
+                  newVoiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 2 });
+                  continue;
+                }
+
+                try {
+                  const voiceConfig = resolveVoiceForGeneration();
                   const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-                    body: { text: scene.narration, speechifyVoiceId: voiceConfig.speechifyVoiceId, voice: voiceConfig.voice, voiceEngine: voiceConfig.voiceEngine, googleVoiceId: voiceConfig.googleVoiceId, gender: selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId)?.gender : undefined, pitch: voicePitch }
+                    body: {
+                      text: scene.narration,
+                      speechifyVoiceId: voiceConfig.speechifyVoiceId,
+                      voice: voiceConfig.voice,
+                      voiceEngine: voiceConfig.voiceEngine,
+                      googleVoiceId: voiceConfig.googleVoiceId,
+                      gender: selectedTwinGender,
+                      pitch: voicePitch
+                    }
                   });
+
                   if (!ttsError && ttsData?.audioContent) {
                     const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
                     const actualDuration = await getAudioDuration(audioUrl);
                     let storageUrl: string | undefined;
+
                     if (user) {
                       try {
                         const binaryString = atob(ttsData.audioContent);
@@ -1964,19 +2211,22 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                           const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
                           storageUrl = publicUrl.publicUrl;
                         }
-                      } catch (e) { console.warn('Upload failed:', e); }
+                      } catch (e) {
+                        console.warn('Upload failed:', e);
+                      }
                     }
+
                     newVoiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl, storageUrl, duration: actualDuration || scene.duration || 5 });
                   }
-                } catch (e) { console.warn(`TTS failed for scene ${scene.sceneNumber}:`, e); }
+                } catch (e) {
+                  console.warn(`TTS failed for scene ${scene.sceneNumber}:`, e);
+                }
               }
-              // Merge new voiceovers with existing ones (no mutation)
+
               const mergedAudios = [...sortedAudios, ...newVoiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
-              // Replace sortedAudios for downstream use (immutable)
               sortedAudios.splice(0, sortedAudios.length, ...mergedAudios);
             }
-            
-            // Only include audio for scenes that need overlay (non-VEO 3 scenes)
+
             audioUrlsForStitch = sortedAudios
               .filter(a => a.audioUrl && a.audioUrl.trim() !== '' && !perSceneEmbeddedAudio[a.sceneNumber])
               .map(a => a.storageUrl || a.audioUrl);
@@ -1984,21 +2234,18 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
           setProgressStatus('Stitching video clips...');
           setProgress(80);
-          
+
           try {
             const videoUrls = sortedVideos.map(v => v.videoUrl);
-            
-            // Identify which video indices have embedded audio (InfiniteTalk lip-sync)
             const embeddedAudioIndices: number[] = [];
             sortedVideos.forEach((v, idx) => {
               if (perSceneEmbeddedAudio[v.sceneNumber]) {
                 embeddedAudioIndices.push(idx);
               }
             });
-            
+
             console.log('[Stitch] Embedded audio indices:', embeddedAudioIndices, 'Overlay audio count:', audioUrlsForStitch.length);
-            
-            // Map selectedVideoSize to pixel dimensions
+
             const sizeMap: Record<string, [number, number]> = {
               '9:16': [1080, 1920],
               '1:1': [1080, 1080],
@@ -2006,7 +2253,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               '4:5': [1080, 1350],
             };
             const [stitchWidth, stitchHeight] = sizeMap[selectedVideoSize] || [1080, 1920];
-            
+
             const finalBlob = await canvasStitchVideos({
               videoUrls,
               audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
@@ -2019,10 +2266,10 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               },
               onStatus: (s) => setProgressStatus(s)
             });
-            
+
             const blobUrl = URL.createObjectURL(finalBlob);
             videoBlobRef.current = finalBlob;
-            
+
             let persistedVideoUrl = blobUrl;
             if (user) {
               setProgress(92);
@@ -2038,9 +2285,11 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                   const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
                   persistedVideoUrl = publicUrl.publicUrl;
                 }
-              } catch (e) { console.warn('Upload failed:', e); }
+              } catch (e) {
+                console.warn('Upload failed:', e);
+              }
             }
-            
+
             setProject(prev => ({
               ...prev,
               videoUrl: persistedVideoUrl,
@@ -2051,7 +2300,6 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               status: 'complete'
             }));
 
-            // Auto-save to library
             setProgress(95);
             setProgressStatus('Saving to library...');
 
@@ -2074,16 +2322,17 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 }]);
                 handleReelSavedSuccessfully();
                 fetchSavedReels();
-              } catch (saveError) { console.error('Auto-save failed:', saveError); }
+              } catch (saveError) {
+                console.error('Auto-save failed:', saveError);
+              }
             }
 
-            activeGenerationRef.current = null; // Clear background handoff on success
+            activeGenerationRef.current = null;
             setProgress(100);
             setProgressStatus('Complete!');
             toast({ title: "Video Generated!", description: `Created ${sortedVideos.length}-scene video and saved to library!` });
           } catch (stitchErr) {
             console.error('Stitching failed:', stitchErr);
-            // Final fallback: show individual clips
             const fallbackVideoUrl = sortedVideos[0]?.videoUrl;
             setProject(prev => ({
               ...prev,
@@ -2095,7 +2344,6 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               status: 'complete'
             }));
 
-            // Auto-save to library even when stitching fails
             if (user) {
               try {
                 const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
@@ -2115,7 +2363,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 }]);
                 handleReelSavedSuccessfully();
                 fetchSavedReels();
-              } catch (saveError) { console.error('Auto-save failed after stitch error:', saveError); }
+              } catch (saveError) {
+                console.error('Auto-save failed after stitch error:', saveError);
+              }
             }
 
             setProgress(100);
@@ -2124,7 +2374,6 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           }
         }
       } else {
-        // Fallback: No video tasks, just show images
         setProject(prev => ({
           ...prev,
           generatedScenes,
@@ -2132,7 +2381,6 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           status: 'complete'
         }));
 
-        // Auto-save images-only reel to library
         if (user) {
           try {
             const thumbnailUrl = generatedScenes[0]?.imageUrl || null;
@@ -2151,7 +2399,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
             }]);
             handleReelSavedSuccessfully();
             fetchSavedReels();
-          } catch (saveError) { console.error('Auto-save failed (images only):', saveError); }
+          } catch (saveError) {
+            console.error('Auto-save failed (images only):', saveError);
+          }
         }
 
         setProgress(100);
@@ -2175,7 +2425,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setProject(prev => ({ ...prev, status: 'idle' }));
     } finally {
       setIsGenerating(false);
-      activeGenerationRef.current = null; // Clear background handoff
+      activeGenerationRef.current = null;
     }
   };
 
