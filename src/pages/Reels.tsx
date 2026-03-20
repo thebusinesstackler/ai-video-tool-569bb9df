@@ -2983,10 +2983,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       return;
     }
 
-    if (videoModel === 'veo3') {
+    if (videoModel === 'sora-2') {
       toast({
-        title: "VEO3 voice is generated with video",
-        description: "VEO3 doesn't use this separate TTS preview — click Generate Preview or Create Final Video to hear the native voice.",
+        title: "Sora-2 voice is generated with video",
+        description: "Sora-2 generates native audio — click Generate Preview or Create Final Video to hear the voice.",
       });
       return;
     }
