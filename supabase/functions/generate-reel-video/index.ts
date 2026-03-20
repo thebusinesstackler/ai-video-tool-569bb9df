@@ -813,7 +813,7 @@ No text, no captions, no subtitles, no watermarks.`
 Context: The narrator is saying "${scene.narration}" over this visual.
 Premium cinematic motion — smooth parallax camera movement, subtle depth shifts, professional color grading.
 The visual should emotionally match the narration content. Photorealistic, high-end commercial quality.
-If showing a person: natural expression, slight smile, confident pose — NOT speaking or mouthing words. Closed mouth.
+If showing a person: natural expression, confident pose, engaged with the moment.
 Absolutely no text, no captions, no subtitles, no watermarks.`,
             duration: klingDuration
           };
