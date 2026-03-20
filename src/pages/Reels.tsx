@@ -2041,7 +2041,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           characterDescription: characterDescription || selectedTwin?.face_description || '',
           cameraAngles: cameraAngleRotation,
           videoModel: videoModel,
-          sceneDuration: videoModel === 'wan-2.6-i2v' ? wan26Duration : undefined
+          sceneDuration: undefined
         }
       });
 
