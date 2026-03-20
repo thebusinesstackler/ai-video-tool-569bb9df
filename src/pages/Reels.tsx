@@ -2236,7 +2236,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 try {
                   const voiceConfig = resolveVoiceForGeneration();
                   const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-                    body: { text: scene.narration, speechifyVoiceId: voiceConfig.speechifyVoiceId, voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'), voiceEngine: voiceConfig.voiceEngine, googleVoiceId: voiceConfig.googleVoiceId, pitch: voicePitch }
+                    body: { text: scene.narration, speechifyVoiceId: voiceConfig.speechifyVoiceId, voice: voiceConfig.voice, voiceEngine: voiceConfig.voiceEngine, googleVoiceId: voiceConfig.googleVoiceId, gender: selectedTwin?.gender, pitch: voicePitch }
                   });
                   if (!ttsError && ttsData?.audioContent) {
                     const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;

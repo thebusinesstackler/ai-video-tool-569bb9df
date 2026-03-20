@@ -523,20 +523,20 @@ serve(async (req) => {
             veo3Prompt = `Premium cinematic intro for a reel about "${topic}". ${charContext}
 Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
 Ultra high quality, film-grade. Sets the mood for powerful content ahead.
-${scene.narration ? `The narrator opens with: "${scene.narration}". Generate matching audio with natural, confident voice delivery.` : 'Atmospheric ambient audio.'}
+${scene.narration ? `The on-screen actor must clearly say this exact line with visible lip sync and synchronized speech: "${scene.narration}". Generate native spoken audio for that exact sentence, not ambient audio.` : 'Atmospheric ambient audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else if (scene.isOutro) {
             veo3Prompt = `Premium cinematic outro for a reel about "${topic}". ${charContext}
 Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
 The subject has a knowing smile, relaxed and inviting posture. Film-grade quality.
-${scene.narration ? `The narrator closes with: "${scene.narration}". Generate matching audio with warm, inviting voice delivery.` : 'Warm ambient closing audio.'}
+${scene.narration ? `The on-screen actor must clearly say this exact closing line with visible lip sync and synchronized speech: "${scene.narration}". Generate native spoken audio for that exact sentence.` : 'Warm ambient closing audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else {
             veo3Prompt = `${scene.visualDescription}. ${charContext} ${topicContext}
-The narrator is speaking: "${scene.narration}"
-Generate matching audio with natural voice delivery for this narration.
+The actor is on camera and must clearly say this exact line with synchronized mouth movement and audible speech: "${scene.narration}"
+Generate native spoken dialogue for that exact sentence, with lips visibly matching the words.
 Smooth cinematic motion, professional color grading, photorealistic quality.
-Natural confident expression, engaging body language.
+Natural confident expression, engaging body language, direct-to-camera delivery.
 Absolutely no text, no captions, no subtitles, no watermarks.`;
           }
           
