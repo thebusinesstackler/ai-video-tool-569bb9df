@@ -134,7 +134,8 @@ export function useScenePreview(): UseScenePreviewResult {
     customAudioUrl?: string,
     customAudioDuration?: number,
     voiceEngine?: string,
-    googleVoiceId?: string
+    googleVoiceId?: string,
+    videoModel?: string
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     // Use all reference images if provided, otherwise use just the active reference
