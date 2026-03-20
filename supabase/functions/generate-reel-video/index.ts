@@ -194,7 +194,7 @@ Topic being discussed: ${topic}
 
 REQUIREMENTS:
 - Eyes locked on camera, head facing forward
-- Natural confident expression, slight smile, closed mouth
+- Natural confident expression, slight smile
 - Soft studio lighting, clean blurred background
 - Photorealistic, high quality portrait
 - Vertical 9:16 format
