@@ -351,12 +351,10 @@ VISUAL RULES:
 - Camera angle should vary per scene for visual interest:
 ${CAMERA_ANGLES.slice(0, totalSceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
-CRITICAL VALIDATION BEFORE RETURNING:
-- Write complete sentences with proper punctuation (periods, commas, question marks)
-- Do NOT use em dashes (—), double hyphens (--), or ellipses (...)
-- Every narration must end with a period or question mark, NEVER a trailing comma
-- Scene 1 HOOK narration must be a COMPLETE, compelling sentence (15+ words minimum), not a fragment like "I" or "Hook:"
-- The LAST scene's narration MUST contain a clear call-to-action (follow, subscribe, comment, share, try something). NEVER end with just information.
+VALIDATION:
+- Avoid em dashes (—) and ellipses (...) in narration — they break TTS audio
+- Scene 1 must be a complete, engaging sentence (not a fragment)
+- Last scene should include a natural call-to-action
 ${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
 ${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
 
@@ -364,10 +362,10 @@ Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
-    "narration": "Write ${minWordsPerScene}-${maxWordsPerScene} words here. Use periods and commas naturally. NO em dashes, NO ellipses. Must end with a period or question mark.",
-    "visualDescription": "SUBJECT: ${characterDescription ? `${characterDescription}, ` : ''}[action relevant to narration topic, closed mouth, natural expression]. SETTING: [location and key props matching the topic]. MOOD: [lighting and color tone in 2-3 words].${characterDescription ? ` CRITICAL: The SUBJECT must be ${characterDescription} — do NOT use a different person.` : ''}",
+    "narration": "Your creative narration here (${minWordsPerScene}-${maxWordsPerScene} words)",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[action]. [Setting]. [Mood].",
     "duration": ${finalSceneDuration},
-    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true  // Only for scene 1 when intro is enabled' : ''}${hasOutro ? ',\n    "isOutro": true  // Only for the last scene when outro is enabled' : ''}
+    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
   }
 ]`;
 
