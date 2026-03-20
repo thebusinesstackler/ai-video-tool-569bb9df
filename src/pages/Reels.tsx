@@ -2430,39 +2430,68 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Resolve the best voice: always prefer AI Twin configured voice, then explicit UI voice, then gender-based fallback
+  // Resolve the best voice: prefer character-linked cloned voices and ignore legacy Google draft values.
   const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string; voiceEngine?: string; googleVoiceId?: string } => {
-    // Priority 1: Selected AI Twin with a configured voice
-    if (selectedTwinId) {
-      const twin = aiTwins.find(t => t.id === selectedTwinId);
-      if (twin) {
-        const engine = twin.voice_engine || 'speechify';
-        if (engine === 'google-cloud' && twin.google_voice_id) {
-          return { voiceEngine: 'google-cloud', googleVoiceId: twin.google_voice_id };
-        }
-        if (engine === 'wavespeed') {
-          const isFemale = twin.gender === 'female';
-          return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
-        }
-        if (twin.voice_cloning_key) {
-          return { speechifyVoiceId: twin.voice_cloning_key };
-        }
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    const normalizedSelectedVoice = selectedVoice?.trim();
+    const knownTwinCloneKeys = new Set(aiTwins.map(t => t.voice_cloning_key).filter(Boolean));
+    const knownWaveSpeedVoices = new Set([
+      'English_compelling_lady1',
+      'English_radiant_girl',
+      'Calm_Woman',
+      'Inspirational_girl',
+      'English_magnetic_voiced_man',
+      'English_Trustworth_Man',
+      'Casual_Guy',
+      'Deep_Voice_Man',
+      'English_expressive_narrator',
+      'English_Aussie_Bloke',
+      'Elegant_Man',
+      'Lovely_Girl',
+      'Determined_Man',
+      'Patient_Man',
+      'Lively_Girl',
+      'Wise_Woman',
+      'Decent_Boy',
+    ]);
+
+    // Priority 1: Selected AI Twin custom cloned voice
+    if (selectedTwin?.voice_cloning_key) {
+      return { speechifyVoiceId: selectedTwin.voice_cloning_key };
+    }
+
+    // Priority 2: Selected AI Twin engine-specific fallback
+    if (selectedTwin) {
+      const engine = selectedTwin.voice_engine || 'speechify';
+      if (engine === 'wavespeed') {
+        const isFemale = selectedTwin.gender === 'female';
+        return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
+      }
+      if (engine === 'google-cloud' && selectedTwin.google_voice_id && !selectedTwin.google_voice_id.includes('Journey-D')) {
+        return { voiceEngine: 'google-cloud', googleVoiceId: selectedTwin.google_voice_id };
       }
     }
 
-    // Priority 2: Explicit UI voice choice
-    if (selectedVoice?.trim()) {
-      return { voice: selectedVoice.trim() };
+    // Priority 3: Explicit saved voice choice from older drafts
+    if (normalizedSelectedVoice) {
+      if (knownTwinCloneKeys.has(normalizedSelectedVoice)) {
+        return { speechifyVoiceId: normalizedSelectedVoice };
+      }
+      if (knownWaveSpeedVoices.has(normalizedSelectedVoice)) {
+        return { voice: normalizedSelectedVoice, voiceEngine: 'wavespeed' };
+      }
+      if (!normalizedSelectedVoice.startsWith('en-')) {
+        return { speechifyVoiceId: normalizedSelectedVoice };
+      }
     }
 
-    // Priority 3: Any AI Twin with a cloned voice
+    // Priority 4: Any available cloned AI Twin voice
     const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
-    if (anyTwinWithVoice) {
-      return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key! };
+    if (anyTwinWithVoice?.voice_cloning_key) {
+      return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key };
     }
 
-    // Priority 4: Gender-based fallback
-    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    // Priority 5: Gender-based fallback (never Journey D)
     const lower = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
     const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
     return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
