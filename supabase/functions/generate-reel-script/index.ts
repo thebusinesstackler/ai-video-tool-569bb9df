@@ -290,7 +290,6 @@ VISUALS:
 - Format: [Subject and action]. [Setting]. [Mood/lighting]
 - Use one consistent background across all scenes
 - Vary camera angles between scenes for visual interest
-- Show characters with closed mouths (voiceover is separate)
 - Match visuals to what the narration discusses
 - No text, titles, or captions in visuals
 
