@@ -6,37 +6,48 @@
  * Get the duration of an audio file from a base64 data URL
  */
 export async function getAudioDuration(audioDataUrl: string): Promise<number> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const audio = new Audio();
+    let resolved = false;
+    
+    const done = (dur: number) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeout);
+      // Clean up to free memory
+      audio.removeAttribute('src');
+      audio.load();
+      resolve(dur);
+    };
+
+    const checkDuration = () => {
+      if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+        done(audio.duration);
+        return true;
+      }
+      return false;
+    };
     
     audio.addEventListener('loadedmetadata', () => {
-      // Ensure we have a valid duration
-      if (audio.duration && isFinite(audio.duration)) {
-        resolve(audio.duration);
-      } else {
-        // Fallback: wait for canplaythrough event
+      if (!checkDuration()) {
+        // Duration not ready yet — wait for durationchange or canplaythrough
+        audio.addEventListener('durationchange', () => checkDuration(), { once: true });
         audio.addEventListener('canplaythrough', () => {
-          resolve(audio.duration || 5);
+          if (!checkDuration()) done(5);
         }, { once: true });
       }
-    });
-    
-    audio.addEventListener('error', (e) => {
-      console.error('Audio loading error:', e);
-      // Return default duration on error
-      resolve(5);
-    });
-    
-    // Set a timeout in case the audio never loads
-    const timeout = setTimeout(() => {
-      console.warn('Audio duration detection timed out, using default');
-      resolve(5);
-    }, 10000);
-    
-    audio.addEventListener('loadedmetadata', () => {
-      clearTimeout(timeout);
     }, { once: true });
     
+    audio.addEventListener('error', () => done(5));
+    
+    const timeout = setTimeout(() => {
+      console.warn('Audio duration detection timed out, using default');
+      done(5);
+    }, 15000);
+    
+    // Use preload to ensure metadata is fetched
+    audio.preload = 'metadata';
+    audio.crossOrigin = 'anonymous';
     audio.src = audioDataUrl;
     audio.load();
   });
