@@ -575,24 +575,58 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           
           let sora2Prompt: string;
           if (scene.isIntro) {
-            sora2Prompt = `Premium cinematic intro for a reel about "${topic}". ${sora2CharContext}
+            sora2Prompt = `${sora2CharContext} Premium cinematic intro for a reel about "${topic}".
 Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
 Ultra high quality, film-grade. Sets the mood for powerful content ahead.
-${scene.narration ? `The narrator says: "${scene.narration}"` : 'Atmospheric ambient audio only.'}
+Smooth cinematic motion, professional color grading, photorealistic quality.
+${scene.narration ? `
+Audio (MANDATORY — PRIMARY OUTPUT):
+The person speaks directly to camera with clear, natural, confident delivery. Lips must move in perfect sync with the words.
+Voice tone: authoritative, engaging pace.
+They say EXACTLY: "${scene.narration}"
+
+Rules (STRICT):
+- Spoken dialogue audio is REQUIRED and must be clearly audible
+- Lip movement must match the spoken words exactly (lip-synced speech)
+- Do NOT generate a silent clip
+- Do NOT replace speech with music
+- No voiceover — the person on screen is speaking` : 'Atmospheric ambient audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else if (scene.isOutro) {
-            sora2Prompt = `Premium cinematic outro for a reel about "${topic}". ${sora2CharContext}
+            sora2Prompt = `${sora2CharContext} Premium cinematic outro for a reel about "${topic}".
 Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
 Film-grade quality.
-${scene.narration ? `The narrator says: "${scene.narration}"` : 'Warm ambient closing audio only.'}
+${scene.narration ? `
+Audio (MANDATORY — PRIMARY OUTPUT):
+The person speaks directly to camera with warm, inviting delivery. Lips must move in perfect sync with the words.
+Voice tone: confident, closing energy, natural pace.
+They say EXACTLY: "${scene.narration}"
+
+Rules (STRICT):
+- Spoken dialogue audio is REQUIRED and must be clearly audible
+- Lip movement must match the spoken words exactly (lip-synced speech)
+- Do NOT generate a silent clip
+- Do NOT replace speech with music
+- No voiceover — the person on screen is speaking` : 'Warm ambient closing audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else {
             sora2Prompt = `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
-Context: The narrator is saying "${scene.narration}" over this visual.
-Premium cinematic motion — smooth parallax camera movement, subtle depth shifts, professional color grading.
-The visual should emotionally match the narration content. Photorealistic, high-end commercial quality.
-If showing a person: natural expression, confident pose, engaged with the moment.
-Absolutely no text, no captions, no subtitles, no watermarks.`;
+
+Camera: smooth cinematic motion, subtle depth shifts, professional color grading. Photorealistic, high-end commercial quality.
+
+Audio (MANDATORY — PRIMARY OUTPUT):
+The person speaks directly to camera with clear, natural, confident delivery. Lips must move in perfect sync with the words.
+Voice tone: authoritative, slightly provocative, engaging pace.
+They say EXACTLY: "${scene.narration}"
+
+Rules (STRICT):
+- Spoken dialogue audio is REQUIRED and must be clearly audible
+- Lip movement must match the spoken words exactly (lip-synced speech)
+- Do NOT generate a silent clip
+- Do NOT replace speech with music
+- No captions, subtitles, or on-screen text
+- No voiceover — the person on screen is speaking
+- If showing a person: natural expression, confident pose, engaged with the moment`;
           }
           
           requestBody = {
