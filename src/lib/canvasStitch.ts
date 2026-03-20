@@ -1,10 +1,10 @@
 // Canvas-based video stitcher using HTML5 Canvas + MediaRecorder
-// No external dependencies - works in all modern browsers
+// Preserves embedded audio from Sora-2/VEO3 clips by capturing directly from video playback
 
 interface CanvasStitchOptions {
   videoUrls: string[];
   audioUrls?: string[];
-  /** Indices into videoUrls that have embedded audio to extract */
+  /** Indices into videoUrls that have embedded audio — play unmuted & capture */
   embeddedAudioIndices?: number[];
   width?: number;
   height?: number;
@@ -15,24 +15,24 @@ interface CanvasStitchOptions {
 /**
  * Preloads a video element and returns it ready to play
  */
-function loadVideo(url: string): Promise<HTMLVideoElement> {
+function loadVideo(url: string, muted: boolean): Promise<HTMLVideoElement> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
-    video.muted = true; // Must be muted for canvas capture
+    video.muted = muted;
     video.playsInline = true;
     video.preload = 'auto';
-    
-    video.onloadeddata = () => resolve(video);
-    video.onerror = () => reject(new Error(`Failed to load video: ${url.substring(0, 80)}...`));
-    
-    // Timeout after 30s
+
     const timeout = setTimeout(() => reject(new Error('Video load timeout')), 30000);
     video.onloadeddata = () => {
       clearTimeout(timeout);
       resolve(video);
     };
-    
+    video.onerror = () => {
+      clearTimeout(timeout);
+      reject(new Error(`Failed to load video: ${url.substring(0, 80)}...`));
+    };
+
     video.src = url;
     video.load();
   });
@@ -43,7 +43,7 @@ function loadVideo(url: string): Promise<HTMLVideoElement> {
  */
 async function loadAudioBuffer(ctx: AudioContext, url: string): Promise<AudioBuffer> {
   let arrayBuffer: ArrayBuffer;
-  
+
   if (url.startsWith('data:')) {
     const base64 = url.split(',')[1];
     const binary = atob(base64);
@@ -54,7 +54,7 @@ async function loadAudioBuffer(ctx: AudioContext, url: string): Promise<AudioBuf
     const resp = await fetch(url);
     arrayBuffer = await resp.arrayBuffer();
   }
-  
+
   return ctx.decodeAudioData(arrayBuffer);
 }
 
@@ -65,9 +65,9 @@ function concatAudioBuffers(ctx: AudioContext, buffers: AudioBuffer[]): AudioBuf
   const totalLength = buffers.reduce((acc, b) => acc + b.length, 0);
   const sampleRate = buffers[0]?.sampleRate || 44100;
   const channels = Math.max(...buffers.map(b => b.numberOfChannels), 1);
-  
+
   const output = ctx.createBuffer(channels, totalLength, sampleRate);
-  
+
   let offset = 0;
   for (const buffer of buffers) {
     for (let ch = 0; ch < channels; ch++) {
@@ -77,26 +77,26 @@ function concatAudioBuffers(ctx: AudioContext, buffers: AudioBuffer[]): AudioBuf
     }
     offset += buffer.length;
   }
-  
+
   return output;
 }
 
 /**
- * Main stitching function - plays videos sequentially on a canvas,
- * records with MediaRecorder, and returns a Blob
+ * Main stitching function — plays videos sequentially on a canvas,
+ * captures embedded audio directly from video playback (Sora-2/VEO3),
+ * and records with MediaRecorder.
  */
 export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<Blob> {
-  const { 
-    videoUrls, 
-    audioUrls = [], 
+  const {
+    videoUrls,
+    audioUrls = [],
     embeddedAudioIndices = [],
-    width: inputWidth, 
-    height: inputHeight, 
-    onProgress, 
-    onStatus 
+    width: inputWidth,
+    height: inputHeight,
+    onProgress,
+    onStatus
   } = options;
 
-  // Default to 9:16 portrait (1080x1920), but respect caller-specified dimensions
   const width = inputWidth || 1080;
   const height = inputHeight || 1920;
 
@@ -104,18 +104,25 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     throw new Error('No video URLs provided');
   }
 
+  // Determine if ALL clips have embedded audio (common for Sora-2 reels)
+  const allEmbedded = embeddedAudioIndices.length === videoUrls.length && audioUrls.length === 0;
+  const hasAnyEmbedded = embeddedAudioIndices.length > 0;
+
+  console.log(`[CanvasStitch] Mode: ${allEmbedded ? 'ALL_EMBEDDED' : hasAnyEmbedded ? 'MIXED' : 'OVERLAY_ONLY'}`);
+  console.log(`[CanvasStitch] ${videoUrls.length} videos, ${embeddedAudioIndices.length} embedded audio, ${audioUrls.length} overlay audio`);
+
   onStatus?.('Loading video clips...');
   onProgress?.(5);
 
-  // Load all videos in parallel
-  console.log(`[CanvasStitch] Loading ${videoUrls.length} videos...`);
+  // Load all videos — embedded-audio clips load UNMUTED to capture audio directly
   const videos: HTMLVideoElement[] = [];
   for (let i = 0; i < videoUrls.length; i++) {
+    const isEmbedded = embeddedAudioIndices.includes(i);
     onStatus?.(`Loading clip ${i + 1} of ${videoUrls.length}...`);
     try {
-      const vid = await loadVideo(videoUrls[i]);
+      const vid = await loadVideo(videoUrls[i], !isEmbedded); // unmuted if embedded
       videos.push(vid);
-      console.log(`[CanvasStitch] Loaded video ${i + 1}: ${vid.videoWidth}x${vid.videoHeight}, duration: ${vid.duration}s`);
+      console.log(`[CanvasStitch] Loaded video ${i + 1}: ${vid.videoWidth}x${vid.videoHeight}, ${vid.duration}s, muted=${vid.muted}`);
     } catch (err) {
       console.error(`[CanvasStitch] Failed to load video ${i}:`, err);
       throw new Error(`Failed to load video clip ${i + 1}: ${err}`);
@@ -129,68 +136,49 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
   canvas.height = height;
   const ctx2d = canvas.getContext('2d')!;
 
-  // Set up audio context for mixing
+  // Set up audio context for overlay audio (non-embedded scenes only)
   const audioCtx = new AudioContext();
-  let audioSource: AudioBufferSourceNode | null = null;
-  let audioDestination: MediaStreamAudioDestinationNode | null = null;
+  let overlayAudioSource: AudioBufferSourceNode | null = null;
+  let overlayAudioDest: MediaStreamAudioDestinationNode | null = null;
 
-  // Collect all audio sources: explicit audio URLs + extracted from embedded-audio videos
-  const allAudioUrls = [...audioUrls];
-  
-  console.log(`[CanvasStitch] Audio alignment: ${videoUrls.length} videos, ${audioUrls.length} overlay audio tracks, ${embeddedAudioIndices.length} embedded audio videos`);
-  
-  if (embeddedAudioIndices.length > 0) {
-    onStatus?.('Extracting audio from lip-sync videos...');
-    console.log(`[CanvasStitch] Extracting audio from embedded-audio video indices:`, embeddedAudioIndices);
-    for (const idx of embeddedAudioIndices) {
-      if (videoUrls[idx]) {
-        allAudioUrls.push(videoUrls[idx]);
-      }
-    }
-  }
-  
-  console.log(`[CanvasStitch] Total audio tracks to mix: ${allAudioUrls.length} (${audioUrls.length} overlay + ${embeddedAudioIndices.length} embedded)`);
-  if (allAudioUrls.length === 0) {
-    console.warn('[CanvasStitch] WARNING: No audio tracks at all — final video will be silent');
-  }
-
-  if (allAudioUrls.length > 0) {
-    onStatus?.('Loading audio tracks...');
+  if (audioUrls.length > 0 && !allEmbedded) {
+    onStatus?.('Loading overlay audio...');
     onProgress?.(22);
-    
     try {
       const audioBuffers: AudioBuffer[] = [];
-      for (const url of allAudioUrls) {
+      for (const url of audioUrls) {
         const buf = await loadAudioBuffer(audioCtx, url);
         audioBuffers.push(buf);
       }
-      
-      const combinedAudio = audioBuffers.length === 1 
-        ? audioBuffers[0] 
+      const combinedAudio = audioBuffers.length === 1
+        ? audioBuffers[0]
         : concatAudioBuffers(audioCtx, audioBuffers);
-      
-      audioDestination = audioCtx.createMediaStreamDestination();
-      audioSource = audioCtx.createBufferSource();
-      audioSource.buffer = combinedAudio;
-      audioSource.connect(audioDestination);
-      
-      console.log(`[CanvasStitch] Audio loaded: ${combinedAudio.duration}s`);
+
+      overlayAudioDest = audioCtx.createMediaStreamDestination();
+      overlayAudioSource = audioCtx.createBufferSource();
+      overlayAudioSource.buffer = combinedAudio;
+      overlayAudioSource.connect(overlayAudioDest);
+      console.log(`[CanvasStitch] Overlay audio loaded: ${combinedAudio.duration}s`);
     } catch (audioErr) {
-      console.warn('[CanvasStitch] Audio loading failed, proceeding without audio:', audioErr);
+      console.warn('[CanvasStitch] Overlay audio loading failed:', audioErr);
     }
   }
 
-  // Create MediaRecorder from canvas stream + audio
-  const canvasStream = canvas.captureStream(30); // 30fps
+  // Create the output MediaStream from canvas (video track)
+  const canvasStream = canvas.captureStream(30);
+
+  // For ALL_EMBEDDED mode: we'll dynamically swap audio tracks per clip
+  // For OVERLAY_ONLY: add overlay audio track
+  // For MIXED: handle per-clip
   
-  if (audioDestination) {
-    const audioTrack = audioDestination.stream.getAudioTracks()[0];
-    if (audioTrack) {
-      canvasStream.addTrack(audioTrack);
-    }
+  // Create a single audio destination to mix into
+  const mixDest = audioCtx.createMediaStreamDestination();
+  const mixAudioTrack = mixDest.stream.getAudioTracks()[0];
+  if (mixAudioTrack) {
+    canvasStream.addTrack(mixAudioTrack);
   }
 
-  // Pick best available codec
+  // Pick best codec
   const codecs = [
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
@@ -198,7 +186,6 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     'video/webm;codecs=vp8',
     'video/webm',
   ];
-  
   let mimeType = 'video/webm';
   for (const codec of codecs) {
     if (MediaRecorder.isTypeSupported(codec)) {
@@ -206,12 +193,11 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
       break;
     }
   }
-  
   console.log(`[CanvasStitch] Using codec: ${mimeType}`);
 
   const recorder = new MediaRecorder(canvasStream, {
     mimeType,
-    videoBitsPerSecond: 8_000_000, // 8 Mbps for good quality
+    videoBitsPerSecond: 8_000_000,
   });
 
   const chunks: Blob[] = [];
@@ -219,15 +205,15 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     if (e.data.size > 0) chunks.push(e.data);
   };
 
-  // Start recording
   onStatus?.('Stitching clips together...');
   onProgress?.(30);
-  
-  recorder.start(100); // Collect data every 100ms
-  
-  // Start audio playback
-  if (audioSource) {
-    audioSource.start(0);
+
+  recorder.start(100);
+
+  // Start overlay audio if applicable (non-embedded mode)
+  if (overlayAudioSource && !allEmbedded) {
+    overlayAudioSource.connect(mixDest);
+    overlayAudioSource.start(0);
   }
 
   // Play each video sequentially on the canvas
@@ -236,52 +222,81 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
 
   for (let i = 0; i < videos.length; i++) {
     const video = videos[i];
+    const isEmbedded = embeddedAudioIndices.includes(i);
     onStatus?.(`Rendering clip ${i + 1} of ${videos.length}...`);
-    
+
+    // For embedded audio clips: connect the video's audio output to the mix destination
+    let videoAudioSource: MediaStreamAudioSourceNode | null = null;
+    if (isEmbedded && !video.muted) {
+      try {
+        // Capture audio stream from the video element
+        const videoStream = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+        if (videoStream) {
+          const audioTracks = videoStream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            videoAudioSource = audioCtx.createMediaStreamSource(videoStream);
+            videoAudioSource.connect(mixDest);
+            console.log(`[CanvasStitch] Clip ${i + 1}: capturing embedded audio from video playback`);
+          }
+        }
+      } catch (e) {
+        console.warn(`[CanvasStitch] Clip ${i + 1}: could not capture embedded audio, falling back to decode`, e);
+        // Fallback: try decoding the video file as audio
+        try {
+          const buf = await loadAudioBuffer(audioCtx, videoUrls[i]);
+          const fallbackSource = audioCtx.createBufferSource();
+          fallbackSource.buffer = buf;
+          fallbackSource.connect(mixDest);
+          fallbackSource.start(audioCtx.currentTime);
+        } catch (decodeErr) {
+          console.warn(`[CanvasStitch] Clip ${i + 1}: audio decode fallback also failed`, decodeErr);
+        }
+      }
+    }
+
     await new Promise<void>((resolve, reject) => {
       const drawFrame = () => {
         if (video.paused || video.ended) return;
-        
-        // Calculate scaling to cover canvas (like CSS object-fit: cover)
+
         const videoAspect = video.videoWidth / video.videoHeight;
         const canvasAspect = width / height;
-        
+
         let drawW: number, drawH: number, drawX: number, drawY: number;
-        
+
         if (videoAspect > canvasAspect) {
-          // Video is wider - crop sides
           drawH = height;
           drawW = height * videoAspect;
           drawX = (width - drawW) / 2;
           drawY = 0;
         } else {
-          // Video is taller - crop top/bottom
           drawW = width;
           drawH = width / videoAspect;
           drawX = 0;
           drawY = (height - drawH) / 2;
         }
-        
+
         ctx2d.fillStyle = '#000000';
         ctx2d.fillRect(0, 0, width, height);
         ctx2d.drawImage(video, drawX, drawY, drawW, drawH);
-        
-        // Update progress
+
         const currentElapsed = elapsedTime + video.currentTime;
         const percent = 30 + (currentElapsed / totalDuration) * 65;
         onProgress?.(Math.min(95, Math.round(percent)));
-        
+
         requestAnimationFrame(drawFrame);
       };
 
       video.onended = () => {
         elapsedTime += video.duration;
+        // Disconnect embedded audio source when clip ends
+        if (videoAudioSource) {
+          try { videoAudioSource.disconnect(); } catch {}
+        }
         resolve();
       };
-      
+
       video.onerror = () => reject(new Error(`Error playing video clip ${i + 1}`));
-      
-      // Start drawing and playing
+
       video.play().then(() => {
         drawFrame();
       }).catch(reject);
@@ -291,28 +306,26 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
   // Stop recording
   onStatus?.('Finalizing video...');
   onProgress?.(96);
-  
-  if (audioSource) {
-    try { audioSource.stop(); } catch {}
+
+  if (overlayAudioSource) {
+    try { overlayAudioSource.stop(); } catch {}
   }
 
   return new Promise<Blob>((resolve, reject) => {
     recorder.onstop = () => {
       const finalBlob = new Blob(chunks, { type: mimeType });
       console.log(`[CanvasStitch] Final video size: ${(finalBlob.size / 1024 / 1024).toFixed(2)} MB`);
-      
-      // Cleanup
+
       try { audioCtx.close(); } catch {}
       videos.forEach(v => { v.src = ''; v.load(); });
-      
+
       onProgress?.(100);
       onStatus?.('Complete!');
       resolve(finalBlob);
     };
-    
+
     recorder.onerror = (e) => reject(new Error(`Recording failed: ${e}`));
-    
-    // Small delay to capture final frames
+
     setTimeout(() => recorder.stop(), 200);
   });
 }
@@ -321,8 +334,8 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
  * Drop-in replacement for stitchVideosWithAudio
  */
 export async function canvasStitch(
-  videoUrls: string[], 
-  audioUrls?: string[], 
+  videoUrls: string[],
+  audioUrls?: string[],
   onProgress?: (percent: number) => void
 ): Promise<Blob> {
   return canvasStitchVideos({ videoUrls, audioUrls, onProgress });
