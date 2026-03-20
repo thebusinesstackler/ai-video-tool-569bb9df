@@ -69,7 +69,7 @@ import {
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
-import { VoiceSelector, generateVoiceForCharacter } from '@/components/VoiceSelector';
+import { VoiceSelector } from '@/components/VoiceSelector';
 import { VoicePitchSlider } from '@/components/VoicePitchSlider';
 import { ProductSwapPanel } from '@/components/ProductSwapPanel';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
@@ -1931,10 +1931,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
             const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
               body: {
                 text: scene.narration,
-                speechifyVoiceId: voiceConfig.speechifyVoiceId,
                 voice: voiceConfig.voice,
                 voiceEngine: voiceConfig.voiceEngine,
-                googleVoiceId: voiceConfig.googleVoiceId,
                 gender: selectedTwinGender,
                 pitch: voicePitch,
               }
@@ -2021,6 +2019,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           return angle?.promptModifier || CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.promptModifier || '';
         });
 
+      const activePortrait = getActivePortrait();
+
       const { data, error } = await supabase.functions.invoke('generate-reel-video', {
         body: {
           scenes: scenesWithAudioDurations,
@@ -2029,8 +2029,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           useWaveSpeed: true,
           enableLipSync: effectiveLipSync,
           lipSyncModel: effectiveLipSync ? effectiveLipSyncModel : undefined,
-          portraitImage: effectiveLipSync ? (portraitImage || twinReferenceImages[0]) : undefined,
-          voice: selectedVoice,
+          portraitImage: effectiveLipSync ? activePortrait : undefined,
+          voice: resolveVoiceForGeneration().voice,
           voiceovers: voiceovers.map(v => ({
             sceneNumber: v.sceneNumber,
             audioUrl: v.storageUrl || v.audioUrl,
@@ -2187,10 +2187,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                   const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
                     body: {
                       text: scene.narration,
-                      speechifyVoiceId: voiceConfig.speechifyVoiceId,
                       voice: voiceConfig.voice,
                       voiceEngine: voiceConfig.voiceEngine,
-                      googleVoiceId: voiceConfig.googleVoiceId,
                       gender: selectedTwinGender,
                       pitch: voicePitch
                     }
@@ -2430,11 +2428,10 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Resolve the best voice: prefer character-linked cloned voices and ignore legacy Google draft values.
-  const resolveVoiceForGeneration = (): { voice?: string; speechifyVoiceId?: string; voiceEngine?: string; googleVoiceId?: string } => {
+  // Reels now use MiniMax library voices only — no cloned or Google fallback in this workflow.
+  const resolveVoiceForGeneration = (): { voice: string; voiceEngine: 'wavespeed' } => {
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
     const normalizedSelectedVoice = selectedVoice?.trim();
-    const knownTwinCloneKeys = new Set(aiTwins.map(t => t.voice_cloning_key).filter(Boolean));
     const knownWaveSpeedVoices = new Set([
       'English_compelling_lady1',
       'English_radiant_girl',
@@ -2455,48 +2452,50 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       'Decent_Boy',
     ]);
 
-    // Priority 1: Selected AI Twin custom cloned voice
-    if (selectedTwin?.voice_cloning_key) {
-      return { speechifyVoiceId: selectedTwin.voice_cloning_key };
+    if (normalizedSelectedVoice && knownWaveSpeedVoices.has(normalizedSelectedVoice)) {
+      return { voice: normalizedSelectedVoice, voiceEngine: 'wavespeed' };
     }
 
-    // Priority 2: Selected AI Twin engine-specific fallback
-    if (selectedTwin) {
-      const engine = selectedTwin.voice_engine || 'speechify';
-      if (engine === 'wavespeed') {
-        const isFemale = selectedTwin.gender === 'female';
-        return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
+    const context = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
+    const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => context.includes(k));
+
+    if (isFemale) {
+      if (/(older|mentor|expert|authority|founder|ceo|coach)/.test(context)) {
+        return { voice: 'Wise_Woman', voiceEngine: 'wavespeed' };
       }
-      if (engine === 'google-cloud' && selectedTwin.google_voice_id && !selectedTwin.google_voice_id.includes('Journey-D')) {
-        return { voiceEngine: 'google-cloud', googleVoiceId: selectedTwin.google_voice_id };
+      if (/(energetic|viral|fun|young|playful|bold|hype)/.test(context)) {
+        return { voice: 'Inspirational_girl', voiceEngine: 'wavespeed' };
       }
+      if (/(calm|luxury|gentle|warm|trusted)/.test(context)) {
+        return { voice: 'Calm_Woman', voiceEngine: 'wavespeed' };
+      }
+      return { voice: 'English_radiant_girl', voiceEngine: 'wavespeed' };
     }
 
-    // Priority 3: Explicit saved voice choice from older drafts
-    if (normalizedSelectedVoice) {
-      if (knownTwinCloneKeys.has(normalizedSelectedVoice)) {
-        return { speechifyVoiceId: normalizedSelectedVoice };
-      }
-      if (knownWaveSpeedVoices.has(normalizedSelectedVoice)) {
-        return { voice: normalizedSelectedVoice, voiceEngine: 'wavespeed' };
-      }
-      if (!normalizedSelectedVoice.startsWith('en-')) {
-        return { speechifyVoiceId: normalizedSelectedVoice };
-      }
+    if (/(story|cinematic|documentary|narrator)/.test(context)) {
+      return { voice: 'English_expressive_narrator', voiceEngine: 'wavespeed' };
     }
-
-    // Priority 4: Only use another twin's cloned voice if NO twin was explicitly selected
-    if (!selectedTwinId) {
-      const anyTwinWithVoice = aiTwins.find(t => t.voice_cloning_key);
-      if (anyTwinWithVoice?.voice_cloning_key) {
-        return { speechifyVoiceId: anyTwinWithVoice.voice_cloning_key };
-      }
+    if (/(calm|trusted|coach|mentor|teacher|explainer|warm)/.test(context)) {
+      return { voice: 'Patient_Man', voiceEngine: 'wavespeed' };
     }
+    if (/(direct|bold|sales|urgent|controversy|strong)/.test(context)) {
+      return { voice: 'Determined_Man', voiceEngine: 'wavespeed' };
+    }
+    return { voice: 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
+  };
 
-    // Priority 5: Gender-based fallback (never Journey D)
-    const lower = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
-    const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
-    return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
+  const getResolvedVoiceLabel = () => resolveVoiceForGeneration().voice.replace(/_/g, ' ');
+
+  const getResolvedVoiceDescription = () => {
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    return selectedTwin
+      ? `Auto-matched MiniMax voice for ${selectedTwin.name}`
+      : 'Auto-matched MiniMax voice from your actor and script';
+  };
+
+  const getActivePortrait = () => {
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    return portraitPreview || portraitImage || preSelectedReference || selectedTwin?.reference_images?.[0] || null;
   };
 
   const stopGeneration = () => {
@@ -2912,7 +2911,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
                 storedImageUrls.push(publicUrl.publicUrl);
               } else {
-                storedImageUrls.push(img); // fallback to base64
+                storedImageUrls.push(img);
               }
             } catch { storedImageUrls.push(img); }
           } else {
@@ -2920,7 +2919,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }
         }
         
-        // Extract a short name from the description
         const twinName = charPrompt.length > 40 ? charPrompt.substring(0, 40) + '...' : charPrompt;
         
         const { data: twinData, error: twinError } = await supabase
@@ -2937,7 +2935,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           .single();
         
         if (!twinError && twinData) {
-          // Update local state — add to twins list and select it
           setAiTwins(prev => [...prev, {
             id: twinData.id,
             name: twinData.name,
@@ -2948,33 +2945,23 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }]);
           setSelectedTwinId(twinData.id);
           
-          // Update portrait and shots to use stored URLs
           if (storedImageUrls.length > 0) {
             const selectedUrl = storedImageUrls[selectedShotIndex] || storedImageUrls[0];
             setPortraitImage(selectedUrl);
             setPortraitPreview(selectedUrl);
             setPreSelectedReference(selectedUrl);
-            // Update shots with stored URLs
             setGeneratedCharacterShots(storedImageUrls.map((url, idx) => ({
               label: ANGLE_PROMPTS[idx]?.label || `Shot ${idx + 1}`,
               url
             })));
           }
           
-          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created. Generating matching voice...` });
-          
-          // Auto-generate a voice matched to this character
-          const voiceResult = await generateVoiceForCharacter(charPrompt, detectedGender as 'male' | 'female', user.id, twinName);
-          if (voiceResult) {
-            setSelectedVoice(voiceResult.voiceId);
-            toast({ title: "Voice Generated! 🎙️", description: "A matching voice was created and saved for this character." });
-          }
+          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created. MiniMax voice will be matched automatically.` });
         } else {
           console.error('Failed to save AI Twin:', twinError);
           toast({ title: "Character Generated!", description: `${generatedImages.length} shots created. Could not save to library.` });
         }
       } else {
-        // No user — still try to generate voice if possible
         toast({ title: "Character Generated!", description: `${generatedImages.length} shots created.` });
       }
       
@@ -2988,7 +2975,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
   // Preview the selected voice with a TTS sample
   const previewVoice = async () => {
-    // Stop any currently playing preview
     if (voicePreviewAudio) {
       voicePreviewAudio.pause();
       voicePreviewAudio.currentTime = 0;
@@ -3005,22 +2991,27 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       return;
     }
 
-    const sampleText = project.scenes[0]?.narration 
+    const voiceConfig = resolveVoiceForGeneration();
+    const sampleText = project.scenes[0]?.narration
       || "Hello! This is a preview of how your voiceover will sound in the final video.";
-    
+
     setIsPreviewingVoice(true);
     try {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: sampleText.slice(0, 200), voice: selectedVoice, pitch: voicePitch }
+        body: {
+          text: sampleText.slice(0, 200),
+          voice: voiceConfig.voice,
+          voiceEngine: voiceConfig.voiceEngine,
+          pitch: voicePitch,
+        }
       });
       if (error) throw error;
       let audioUrl = data?.audioUrl || data?.url;
-      // Fallback: if only base64 audioContent returned, use as data URL
       if (!audioUrl && data?.audioContent) {
         audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
       }
       if (!audioUrl) throw new Error('No audio returned');
-      
+
       const audio = new Audio(audioUrl);
       audio.onended = () => {
         setIsPreviewingVoice(false);
@@ -5768,15 +5759,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           project.scenes, 
                           user?.id, 
                           referenceToUse || undefined, 
-                          voiceConfig.voice || selectedVoice,
+                          voiceConfig.voice,
                           characterRefImage || undefined,
                           characterDescription || selectedTwin?.face_description || undefined,
-                          voiceConfig.speechifyVoiceId || selectedTwin?.voice_cloning_key || undefined,
+                          undefined,
                           allTwinReferenceImages,
                           customAudio,
                           customDuration,
                           voiceConfig.voiceEngine,
-                          voiceConfig.googleVoiceId,
+                          undefined,
                           videoModel
                         );
                       }}
