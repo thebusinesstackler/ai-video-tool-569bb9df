@@ -225,32 +225,52 @@ serve(async (req) => {
         
         console.log('Using ByteDance Seedance V1 Lite I2V 720p for video generation');
       } else if (params.model === 'veo3') {
-        // VEO3 model
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3';
-        
-        requestBody = {
-          prompt: params.prompt,
-          duration: duration,
-          seed: seed
-        };
-
-        // Add image if provided
+        // VEO3 model — use I2V endpoint when image provided, T2V otherwise
         if (params.imageUrls && params.imageUrls.length > 0) {
-          requestBody.image = params.imageUrls[0];
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/image-to-video';
+          requestBody = {
+            prompt: params.prompt,
+            image: params.imageUrls[0],
+            generate_audio: true,
+            aspect_ratio: params.aspectRatio === '16:9' ? '16:9' : '9:16',
+            duration: Math.min(duration, 8),
+            resolution: params.resolution || '720p',
+            seed: seed
+          };
+        } else {
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3';
+          requestBody = {
+            prompt: params.prompt,
+            generate_audio: true,
+            aspect_ratio: params.aspectRatio === '16:9' ? '16:9' : '9:16',
+            duration: Math.min(duration, 8),
+            resolution: params.resolution || '720p',
+            seed: seed
+          };
         }
       } else if (params.model === 'veo3-fast') {
-        // VEO3 Fast model with built-in audio generation
-        apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3-fast';
-        
-        requestBody = {
-          prompt: params.prompt,
-          duration: duration,
-          seed: seed
-        };
-
-        // Add image if provided
+        // VEO3 Fast — same endpoints, just mapped for backwards compat
         if (params.imageUrls && params.imageUrls.length > 0) {
-          requestBody.image = params.imageUrls[0];
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/image-to-video';
+          requestBody = {
+            prompt: params.prompt,
+            image: params.imageUrls[0],
+            generate_audio: true,
+            aspect_ratio: params.aspectRatio === '16:9' ? '16:9' : '9:16',
+            duration: Math.min(duration, 8),
+            resolution: params.resolution || '720p',
+            seed: seed
+          };
+        } else {
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3';
+          requestBody = {
+            prompt: params.prompt,
+            generate_audio: true,
+            aspect_ratio: params.aspectRatio === '16:9' ? '16:9' : '9:16',
+            duration: Math.min(duration, 8),
+            resolution: params.resolution || '720p',
+            seed: seed
+          };
         }
         
         // VEO3 Fast generates audio natively - no separate audio URL needed
