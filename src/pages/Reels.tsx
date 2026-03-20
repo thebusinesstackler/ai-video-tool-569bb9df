@@ -4743,7 +4743,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             <Collapsible>
                               <CollapsibleTrigger asChild>
                                 <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground hover:text-foreground h-7">
-                                  <span className="flex items-center gap-1"><Eye className="w-3 h-3" />View Prompts</span>
+                                  <span className="flex items-center gap-1"><FileText className="w-3 h-3" />View Prompts</span>
                                   <ChevronDown className="w-3 h-3" />
                                 </Button>
                               </CollapsibleTrigger>
