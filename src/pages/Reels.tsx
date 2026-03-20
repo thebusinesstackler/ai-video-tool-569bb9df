@@ -3975,9 +3975,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         />
                         <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
                           <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
-                          {videoModel === 'veo3' ? (
+                          {videoModel === 'sora-2' ? (
                             <p className="text-xs text-muted-foreground">
-                              VEO3 generates the voice inside the video itself, so there is no separate voice preview here.
+                              Sora-2 generates the voice inside the video itself, so there is no separate voice preview here.
                             </p>
                           ) : (
                             <Button
