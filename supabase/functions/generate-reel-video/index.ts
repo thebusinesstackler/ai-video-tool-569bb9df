@@ -691,6 +691,23 @@ Rules:
             sceneHasEmbeddedAudio = false;
           }
           
+        } else if (isNarratorScene && enableLipSync && videoModel === 'veo3') {
+          // ====== VEO3: Google high-quality video generation, ~8s clips ======
+          console.log(`Scene ${scene.sceneNumber}: Using VEO3 for narrator scene`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3';
+          requestBody = {
+            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Context: The narrator is saying "${scene.narration}" over this visual.
+Smooth cinematic motion, professional color grading, photorealistic quality.
+Natural confident expression, engaging body language.
+Absolutely no text, no captions, no subtitles, no watermarks.`,
+          };
+          if (imageUrl) {
+            requestBody.image = imageUrl;
+          }
+          sceneHasEmbeddedAudio = false;
+          
         } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.6-i2v') {
           // ====== WAN 2.6 I2V: High quality image-to-video, 5/10/15s clips ======
           console.log(`Scene ${scene.sceneNumber}: Using Wan 2.6 I2V for narrator scene`);
