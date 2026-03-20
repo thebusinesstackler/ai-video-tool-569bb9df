@@ -4262,7 +4262,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         />
                         <VoicePitchSlider pitch={voicePitch} onPitchChange={setVoicePitch} disabled={isGenerating} />
                         
-                        {selectedVoice && !selectedVoice.startsWith('clone:') && videoModel !== 'veo3' && (
+                        {selectedVoice && !selectedVoice.startsWith('clone:') && videoModel !== 'sora-2' && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -4277,9 +4277,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             )}
                           </Button>
                         )}
-                        {videoModel === 'veo3' && (
+                        {videoModel === 'sora-2' && (
                           <p className="text-xs text-muted-foreground">
-                            VEO3 voice is only created when the video is generated.
+                            Sora-2 voice is only created when the video is generated.
                           </p>
                         )}
                       </div>
