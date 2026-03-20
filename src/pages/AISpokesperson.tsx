@@ -502,7 +502,7 @@ COLOR SCIENCE: Shot on ARRI LogC, graded with rich skin tones, teal-orange color
 COMPOSITION: Vertical 9:16 format, rule of thirds with dynamic negative space, environmental storytelling in background
 QUALITY: Ultra photorealistic, 8K, Vogue/GQ editorial quality, professional color grading with lifted blacks
 
-CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH — NOT speaking. Must look like a real photograph, NOT AI-generated.`;
+CRITICAL: NO text, NO captions, NO watermarks, NO logos. Must look like a real photograph, NOT AI-generated.`;
 
       // Build multimodal message with reference
       const imageMessages: any[] = [{
