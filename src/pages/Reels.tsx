@@ -1936,11 +1936,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
             body: { 
-              text: scene.narration, 
+              text: scene.narration,
               speechifyVoiceId: voiceConfig.speechifyVoiceId,
-              voice: voiceConfig.voice || (selectedVoice || 'English_Trustworth_Man'),
+              voice: voiceConfig.voice,
               voiceEngine: voiceConfig.voiceEngine,
               googleVoiceId: voiceConfig.googleVoiceId,
+              gender: selectedTwin?.gender,
               pitch: voicePitch,
             }
           });
