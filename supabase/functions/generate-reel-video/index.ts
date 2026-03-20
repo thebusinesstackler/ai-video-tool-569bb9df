@@ -506,12 +506,17 @@ serve(async (req) => {
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
         if (videoModel === 'veo3') {
-          // ====== VEO3 FAST: ALL SCENES use VEO3 when selected ======
+          // ====== VEO3: ALL SCENES use VEO3 when selected ======
           // VEO3 generates native audio — no separate TTS needed
           const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'narrator';
-          console.log(`Scene ${scene.sceneNumber}: Using VEO3 Fast for ${sceneType} scene (built-in audio)`);
+          console.log(`Scene ${scene.sceneNumber}: Using VEO3 for ${sceneType} scene (built-in audio)`);
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo-3-fast';
+          // Use image-to-video endpoint when we have an image, text-to-video otherwise
+          if (imageUrl) {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/image-to-video';
+          } else {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3';
+          }
           
           let veo3Prompt: string;
           if (scene.isIntro) {
@@ -535,7 +540,13 @@ Natural confident expression, engaging body language.
 Absolutely no text, no captions, no subtitles, no watermarks.`;
           }
           
-          requestBody = { prompt: veo3Prompt };
+          requestBody = {
+            prompt: veo3Prompt,
+            generate_audio: true,
+            aspect_ratio: '9:16',
+            duration: 8,
+            resolution: '720p'
+          };
           if (imageUrl) {
             requestBody.image = imageUrl;
           }
