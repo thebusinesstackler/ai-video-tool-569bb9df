@@ -71,7 +71,7 @@ CINEMATOGRAPHY:
 REQUIREMENTS:
 - EXACT same person in every image - identical face, features, skin tone, hair
 - ${gender === 'female' ? 'She' : gender === 'male' ? 'He' : 'They'} should have a natural, confident expression
-- Closed mouth or slight smile - NOT speaking
+- Natural expression, relaxed and genuine
 - Clean, professional background with depth
 - Ultra photorealistic, magazine-quality, 8K detail
 - Vertical 9:16 aspect ratio for social media

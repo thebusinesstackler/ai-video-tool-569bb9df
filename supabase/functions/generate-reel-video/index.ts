@@ -938,7 +938,7 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
             // If VEO3 was intended, keep speech-friendly prompt; otherwise use silent B-roll prompt
             const fallbackPrompt = videoModel === 'veo3'
               ? `${scene.visualDescription || scene.narration}. ${charContext} ${topicContext} Cinematic motion, engaging expression, natural body language, direct-to-camera delivery. No text, no captions, no subtitles, no watermarks.`
-              : `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks. People should have closed mouths — not speaking or mouthing words.`;
+              : `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks.`;
             
             try {
               const fallbackResponse = await fetch(fallbackEndpoint, {
