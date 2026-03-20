@@ -512,29 +512,35 @@ serve(async (req) => {
           console.log(`Scene ${scene.sceneNumber}: Using VEO3 for ${sceneType} scene (built-in audio)`);
           
           // Use image-to-video endpoint when we have an image, text-to-video otherwise
-          if (imageUrl) {
+          const hasImage = !!imageUrl;
+          if (hasImage) {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/image-to-video';
           } else {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3';
           }
           
+          // When we have an image, do NOT re-describe the character's appearance in the prompt
+          // The image already defines what the person looks like — adding text like "Male, 30s, beard"
+          // can conflict with the actual image. Only use charContext for text-to-video (no image).
+          const veo3CharContext = hasImage ? '' : charContext;
+          
           let veo3Prompt: string;
           if (scene.isIntro) {
-            veo3Prompt = `Premium cinematic intro for a reel about "${topic}". ${charContext}
+            veo3Prompt = `Premium cinematic intro for a reel about "${topic}". ${veo3CharContext}
 Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
 Ultra high quality, film-grade. Sets the mood for powerful content ahead.
-${scene.narration ? `The on-screen actor must clearly say this exact line with visible lip sync and synchronized speech: "${scene.narration}". Generate native spoken audio for that exact sentence, not ambient audio.` : 'Atmospheric ambient audio only.'}
+${scene.narration ? `The person in the video must clearly say this exact line out loud with visible lip movement and synchronized speech audio: "${scene.narration}". Generate clear spoken voice audio matching these words.` : 'Atmospheric ambient audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else if (scene.isOutro) {
-            veo3Prompt = `Premium cinematic outro for a reel about "${topic}". ${charContext}
+            veo3Prompt = `Premium cinematic outro for a reel about "${topic}". ${veo3CharContext}
 Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
-The subject has a knowing smile, relaxed and inviting posture. Film-grade quality.
-${scene.narration ? `The on-screen actor must clearly say this exact closing line with visible lip sync and synchronized speech: "${scene.narration}". Generate native spoken audio for that exact sentence.` : 'Warm ambient closing audio only.'}
+Film-grade quality.
+${scene.narration ? `The person in the video must clearly say this exact closing line out loud with visible lip movement and synchronized speech audio: "${scene.narration}". Generate clear spoken voice audio matching these words.` : 'Warm ambient closing audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else {
-            veo3Prompt = `${scene.visualDescription}. ${charContext} ${topicContext}
-The actor is on camera and must clearly say this exact line with synchronized mouth movement and audible speech: "${scene.narration}"
-Generate native spoken dialogue for that exact sentence, with lips visibly matching the words.
+            veo3Prompt = `${scene.visualDescription}. ${veo3CharContext} ${topicContext}
+The person in the video speaks directly to camera and clearly says this exact line out loud: "${scene.narration}"
+Generate clear spoken dialogue audio for that exact sentence, with lips visibly moving in sync with the words.
 Smooth cinematic motion, professional color grading, photorealistic quality.
 Natural confident expression, engaging body language, direct-to-camera delivery.
 Absolutely no text, no captions, no subtitles, no watermarks.`;
@@ -547,7 +553,7 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
             duration: 8,
             resolution: '720p'
           };
-          if (imageUrl) {
+          if (hasImage) {
             requestBody.image = imageUrl;
           }
           sceneHasEmbeddedAudio = true;
@@ -922,12 +928,18 @@ People should have closed mouths — not speaking or mouthing words.`,
             }
             
             // Fallback: try Kling I2V if VEO 3 failed, or Wan-2.5 I2V as last resort
-            console.log('Falling back for scene', scene.sceneNumber);
+            // IMPORTANT: If VEO3 was the intended model, preserve speech intent in the fallback prompt
+            console.log(`Falling back for scene ${scene.sceneNumber} (intended model: ${videoModel})`);
             
             const fallbackEndpoint = imageUrl 
               ? 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video'
               : 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
             const klingDuration = clipDuration <= 7 ? 5 : 10;
+            
+            // If VEO3 was intended, keep speech-friendly prompt; otherwise use silent B-roll prompt
+            const fallbackPrompt = videoModel === 'veo3'
+              ? `${scene.visualDescription || scene.narration}. ${charContext} ${topicContext} Cinematic motion, engaging expression, natural body language, direct-to-camera delivery. No text, no captions, no subtitles, no watermarks.`
+              : `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks. People should have closed mouths — not speaking or mouthing words.`;
             
             try {
               const fallbackResponse = await fetch(fallbackEndpoint, {
@@ -938,7 +950,7 @@ People should have closed mouths — not speaking or mouthing words.`,
                 },
                 body: JSON.stringify({
                   image: imageUrl,
-                  prompt: `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks. People should not appear to be speaking.`,
+                  prompt: fallbackPrompt,
                   duration: klingDuration
                 }),
               });
