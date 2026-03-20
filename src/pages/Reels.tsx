@@ -2912,7 +2912,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
                 storedImageUrls.push(publicUrl.publicUrl);
               } else {
-                storedImageUrls.push(img); // fallback to base64
+                storedImageUrls.push(img);
               }
             } catch { storedImageUrls.push(img); }
           } else {
@@ -2920,7 +2920,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }
         }
         
-        // Extract a short name from the description
         const twinName = charPrompt.length > 40 ? charPrompt.substring(0, 40) + '...' : charPrompt;
         
         const { data: twinData, error: twinError } = await supabase
@@ -2937,7 +2936,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           .single();
         
         if (!twinError && twinData) {
-          // Update local state — add to twins list and select it
           setAiTwins(prev => [...prev, {
             id: twinData.id,
             name: twinData.name,
@@ -2948,33 +2946,23 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }]);
           setSelectedTwinId(twinData.id);
           
-          // Update portrait and shots to use stored URLs
           if (storedImageUrls.length > 0) {
             const selectedUrl = storedImageUrls[selectedShotIndex] || storedImageUrls[0];
             setPortraitImage(selectedUrl);
             setPortraitPreview(selectedUrl);
             setPreSelectedReference(selectedUrl);
-            // Update shots with stored URLs
             setGeneratedCharacterShots(storedImageUrls.map((url, idx) => ({
               label: ANGLE_PROMPTS[idx]?.label || `Shot ${idx + 1}`,
               url
             })));
           }
           
-          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created. Generating matching voice...` });
-          
-          // Auto-generate a voice matched to this character
-          const voiceResult = await generateVoiceForCharacter(charPrompt, detectedGender as 'male' | 'female', user.id, twinName);
-          if (voiceResult) {
-            setSelectedVoice(voiceResult.voiceId);
-            toast({ title: "Voice Generated! 🎙️", description: "A matching voice was created and saved for this character." });
-          }
+          toast({ title: "Character Saved! ✨", description: `${generatedImages.length} shots created. MiniMax voice will be matched automatically.` });
         } else {
           console.error('Failed to save AI Twin:', twinError);
           toast({ title: "Character Generated!", description: `${generatedImages.length} shots created. Could not save to library.` });
         }
       } else {
-        // No user — still try to generate voice if possible
         toast({ title: "Character Generated!", description: `${generatedImages.length} shots created.` });
       }
       
