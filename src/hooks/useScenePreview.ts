@@ -161,8 +161,19 @@ export function useScenePreview(): UseScenePreviewResult {
     const newVoiceovers: typeof voiceovers = [];
 
     try {
-      // Step 1: Generate voiceovers OR use custom audio
-      if (customAudioUrl && customAudioDuration) {
+      // Step 1: Generate voiceovers OR use custom audio OR skip for VEO3
+      if (videoModel === 'veo3') {
+        // VEO3 Fast generates audio natively — skip TTS entirely
+        console.log('VEO3 selected — skipping TTS, audio will be generated with video');
+        for (const scene of scenes) {
+          newVoiceovers.push({
+            sceneNumber: scene.sceneNumber,
+            audioUrl: '',
+            duration: scene.duration || 8
+          });
+        }
+        setProgress(30);
+      } else if (customAudioUrl && customAudioDuration) {
         // Use custom audio - assign same audio to all scenes (single audio for entire reel)
         setProgressStatus('Using custom audio...');
         const durationPerScene = customAudioDuration / scenes.length;
