@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
@@ -134,7 +134,8 @@ export function useScenePreview(): UseScenePreviewResult {
     customAudioUrl?: string,
     customAudioDuration?: number,
     voiceEngine?: string,
-    googleVoiceId?: string
+    googleVoiceId?: string,
+    videoModel?: string
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     // Use all reference images if provided, otherwise use just the active reference
@@ -160,8 +161,19 @@ export function useScenePreview(): UseScenePreviewResult {
     const newVoiceovers: typeof voiceovers = [];
 
     try {
-      // Step 1: Generate voiceovers OR use custom audio
-      if (customAudioUrl && customAudioDuration) {
+      // Step 1: Generate voiceovers OR use custom audio OR skip for VEO3
+      if (videoModel === 'veo3') {
+        // VEO3 Fast generates audio natively — skip TTS entirely
+        console.log('VEO3 selected — skipping TTS, audio will be generated with video');
+        for (const scene of scenes) {
+          newVoiceovers.push({
+            sceneNumber: scene.sceneNumber,
+            audioUrl: '',
+            duration: scene.duration || 8
+          });
+        }
+        setProgress(30);
+      } else if (customAudioUrl && customAudioDuration) {
         // Use custom audio - assign same audio to all scenes (single audio for entire reel)
         setProgressStatus('Using custom audio...');
         const durationPerScene = customAudioDuration / scenes.length;
