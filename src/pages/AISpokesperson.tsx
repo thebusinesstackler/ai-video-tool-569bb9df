@@ -493,7 +493,7 @@ GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4, ultra shallow depth of field with natural bokeh
 CAMERA FEEL: Slight off-center framing for cinematic tension — NOT perfectly centered. Subject placed at golden ratio intersection point
 SETTING: ${setting?.prompt || 'professional studio'}, atmospheric haze, environmental depth layers (foreground blur element, subject, layered background)
-EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, closed mouth, natural micro-expression — as if mid-thought, genuine and human
+EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, natural micro-expression — as if mid-thought, genuine and human
 BODY LANGUAGE: Natural posture, slight lean or gesture that conveys ${mood?.prompt || 'confidence'}, hands visible if waist-up shot
 
 LIGHTING: Hollywood-grade 3-point setup — warm tungsten key light (3200K) at 45° creating gentle shadow modeling, large soft fill from opposite side, crisp rim/hair light separating subject from background. Subtle practical lights in background for depth
@@ -502,7 +502,7 @@ COLOR SCIENCE: Shot on ARRI LogC, graded with rich skin tones, teal-orange color
 COMPOSITION: Vertical 9:16 format, rule of thirds with dynamic negative space, environmental storytelling in background
 QUALITY: Ultra photorealistic, 8K, Vogue/GQ editorial quality, professional color grading with lifted blacks
 
-CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH — NOT speaking. Must look like a real photograph, NOT AI-generated.`;
+CRITICAL: NO text, NO captions, NO watermarks, NO logos. Must look like a real photograph, NOT AI-generated.`;
 
       // Build multimodal message with reference
       const imageMessages: any[] = [{
@@ -648,7 +648,7 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Person has CLOSED MOUTH
 
     const expressionGuide = shotType === 'speaking' 
       ? `${mood?.prompt || 'confident'}, mouth slightly open as if mid-sentence, natural speaking expression, engaged eye contact`
-      : `${mood?.prompt || 'confident'}, closed mouth, contemplative micro-expression, natural and candid — NOT posed`;
+      : `${mood?.prompt || 'confident'}, contemplative micro-expression, natural and candid`;
 
     const motionGuide = shotType === 'broll'
       ? 'Cinematic B-roll feel — character in motion or natural activity, environmental storytelling, atmospheric depth'
@@ -850,7 +850,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       
       const videoPromptText = isSpeakingShot
         ? `Cinematic spokesperson video — ${shot.angleLabel}. ${mood?.prompt || 'confident'}. NATURAL LIP-SYNC: Character speaks directly to camera with fluid mouth movements, subtle eyebrow raises, natural blinks, and gentle head tilts. Breathing pauses between sentences. Micro-expressions of genuine emotion. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Premium broadcast quality — warm cinematic lighting, shallow depth of field. Gentle camera drift. NO jump cuts — one continuous smooth take.`
-        : `Cinematic B-roll — ${shot.angleLabel}. ${mood?.prompt || 'contemplative'}. Character is NOT speaking — mouth closed, natural and candid. Subtle movements: turning head, adjusting posture, walking, or gazing thoughtfully. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Rich atmospheric cinematography — slow camera movement, volumetric lighting, environmental storytelling. Film grain, shallow depth of field, editorial quality.`;
+        : `Cinematic B-roll — ${shot.angleLabel}. ${mood?.prompt || 'contemplative'}. Character in a natural, candid moment. Subtle movements: turning head, adjusting posture, walking, or gazing thoughtfully. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Rich atmospheric cinematography — slow camera movement, volumetric lighting, environmental storytelling. Film grain, shallow depth of field, editorial quality.`;
 
       // Use infinitetalk for speaking shots (lip-sync with audio), kling-v3.0-pro for B-roll (visual quality)
       const shotModel = isSpeakingShot ? 'infinitetalk' : 'kling-v3.0-pro';

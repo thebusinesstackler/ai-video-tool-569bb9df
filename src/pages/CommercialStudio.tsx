@@ -326,7 +326,7 @@ ${segment.parenthetical ? `EXPRESSION/MOOD: ${segment.parenthetical}` : ''}
 CINEMATOGRAPHY: Shot on RED V-RAPTOR, 85mm lens f/1.4, shallow depth of field.
 LIGHTING: Warm cinematic lighting, soft key light, subtle rim light.
 COMPOSITION: Centered portrait, 9:16 vertical format, magazine quality.
-CRITICAL: CLOSED MOUTH or slight smile. NO text, NO watermarks. Ultra photorealistic, 8K.`;
+EXPRESSION: Natural, relaxed. NO text, NO watermarks. Ultra photorealistic, 8K.`;
 
             const messages: any[] = [];
             if (twin?.reference_images?.[0]) {

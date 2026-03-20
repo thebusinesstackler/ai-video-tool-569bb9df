@@ -813,7 +813,7 @@ No text, no captions, no subtitles, no watermarks.`
 Context: The narrator is saying "${scene.narration}" over this visual.
 Premium cinematic motion — smooth parallax camera movement, subtle depth shifts, professional color grading.
 The visual should emotionally match the narration content. Photorealistic, high-end commercial quality.
-If showing a person: natural expression, slight smile, confident pose — NOT speaking or mouthing words. Closed mouth.
+If showing a person: natural expression, confident pose, engaged with the moment.
 Absolutely no text, no captions, no subtitles, no watermarks.`,
             duration: klingDuration
           };
@@ -874,8 +874,7 @@ No text, no captions, no subtitles, no watermarks.`,
             prompt: `${scene.visualDescription}. ${topicContext}
 Premium cinematic B-roll — smooth camera movement, subtle parallax depth, professional color grading.
 Photorealistic, high-end commercial quality. Emotionally resonant visuals.
-Absolutely no text, no captions, no subtitles, no watermarks.
-People should have closed mouths — not speaking or mouthing words.`,
+Absolutely no text, no captions, no subtitles, no watermarks.`,
             duration: klingDuration
           };
         }
@@ -939,7 +938,7 @@ People should have closed mouths — not speaking or mouthing words.`,
             // If VEO3 was intended, keep speech-friendly prompt; otherwise use silent B-roll prompt
             const fallbackPrompt = videoModel === 'veo3'
               ? `${scene.visualDescription || scene.narration}. ${charContext} ${topicContext} Cinematic motion, engaging expression, natural body language, direct-to-camera delivery. No text, no captions, no subtitles, no watermarks.`
-              : `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks. People should have closed mouths — not speaking or mouthing words.`;
+              : `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks.`;
             
             try {
               const fallbackResponse = await fetch(fallbackEndpoint, {
