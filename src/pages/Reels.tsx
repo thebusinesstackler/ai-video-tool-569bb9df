@@ -2496,7 +2496,6 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => lower.includes(k));
     return { voice: isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man', voiceEngine: 'wavespeed' };
   };
-  };
 
   const stopGeneration = () => {
     if (abortRef.current) {
