@@ -648,7 +648,7 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Must look like a real p
 
     const expressionGuide = shotType === 'speaking' 
       ? `${mood?.prompt || 'confident'}, mouth slightly open as if mid-sentence, natural speaking expression, engaged eye contact`
-      : `${mood?.prompt || 'confident'}, closed mouth, contemplative micro-expression, natural and candid — NOT posed`;
+      : `${mood?.prompt || 'confident'}, contemplative micro-expression, natural and candid`;
 
     const motionGuide = shotType === 'broll'
       ? 'Cinematic B-roll feel — character in motion or natural activity, environmental storytelling, atmospheric depth'
