@@ -221,7 +221,31 @@ const AISpokesperson = () => {
   const selectedMoodData = MOODS.find(m => m.id === selectedMood);
   const selectedAngle = CAMERA_ANGLES.find(a => a.id === selectedCameraAngle);
 
-  // Enhance prompt with AI suggestions
+  // Build TTS body matching the twin's configured voice engine
+  const buildTtsBody = (text: string, twin: AITwin) => {
+    const body: Record<string, any> = { text, speakingRate: 0.92 };
+
+    // Priority 1: Cloned voice (Speechify)
+    if (twin.voice_cloning_key) {
+      body.voiceCloningKey = twin.voice_cloning_key;
+      return body;
+    }
+
+    // Priority 2: Explicit Google Cloud voice
+    if (twin.voice_engine === 'google-cloud' && twin.google_voice_id) {
+      body.voiceEngine = 'google-cloud';
+      body.googleVoiceId = twin.google_voice_id;
+      body.voice = twin.google_voice_id;
+      return body;
+    }
+
+    // Priority 3: Gender-matched WaveSpeed fallback
+    const isFemale = twin.gender?.toLowerCase() === 'female';
+    body.voice = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
+    body.gender = twin.gender || 'male';
+    return body;
+  };
+
   const enhancePrompt = async () => {
     if (!message.trim()) return;
     setIsEnhancing(true);
