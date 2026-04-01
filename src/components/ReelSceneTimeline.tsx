@@ -154,8 +154,9 @@ export const ReelSceneTimeline: React.FC<ReelSceneTimelineProps> = ({
     try {
       const { data, error } = await supabase.functions.invoke('edit-scene-image', {
         body: {
-          sceneImageUrl: selectedProductUrl, referenceImageUrl: selectedProductUrl,
-          editPrompt: shotPrompts[productShotType], aspectRatio: '9:16'
+          prompt: shotPrompts[productShotType],
+          referenceImageUrl: selectedProductUrl,
+          referenceImages: [selectedProductUrl],
         }
       });
       if (error || !data?.imageUrl) throw new Error('Failed to generate product shot');
