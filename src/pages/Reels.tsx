@@ -64,7 +64,8 @@ import {
   ArrowUp,
   ArrowDown,
   Film,
-  Plus
+  Plus,
+  Package
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
