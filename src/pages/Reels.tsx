@@ -3861,7 +3861,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         }}
                       />
                     </div>
-                  )
+                  )}
+
+                  {/* Scene Scripts & Voices */}
+                  <Collapsible>
                     <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
                       <span className="text-sm font-medium text-foreground flex items-center gap-2">
                         <FileText className="w-4 h-4" />
