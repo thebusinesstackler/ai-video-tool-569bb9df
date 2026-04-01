@@ -1,37 +1,33 @@
 
+# Video Production Toolkit Enhancement
 
-# Fix: Purge All "Closed Mouth / NOT Speaking" Directives
+## 1. Product Shot Generator 🎬
+- **One-click cinematic B-roll** from a product photo: auto-generate "product on table", "lifestyle shot", "spinning product", "product close-up" scenes
+- Uses the existing `product_images` table + `edit-scene-image` function
+- Generates 3-4 product B-roll variants and lets user pick which to insert between scenes
+- Adds a "Generate Product B-Roll" button in the scene editor
 
-## Problem
-You're exactly right. The prompts still tell the video model "NOT speaking, closed mouth" — which overrides the narration intent and produces silent video. There are **10 instances** across 4 files that need to go.
+## 2. B-Roll Library & Quick Insert 📚
+- Searchable B-roll generator: type a keyword (e.g. "coffee pouring", "city skyline") 
+- AI generates a quick scene image, then converts to video
+- "Insert Before" / "Insert After" buttons on each scene card to drop B-roll between talking scenes
+- Recently generated B-roll is cached for reuse
 
-## Changes
+## 3. One-Click Product Overlay 🏷️
+- Instead of regenerating a scene, overlay the product image as a picture-in-picture (PIP) on any existing video
+- Choose overlay position: bottom-right, bottom-left, center
+- Uses canvas compositing during stitch — no re-generation needed
+- Quick "Add Product PIP" button on each scene card
 
-### 1. `supabase/functions/generate-reel-video/index.ts` — 3 edits
+## 4. Scene Reorder & Visual Timeline 🎞️
+- Drag-and-drop scene reordering with visual thumbnails
+- Trim/extend scene duration controls
+- Insert points between scenes for B-roll drops
+- "Preview Assembly" button that plays all clips in order before final stitch
+- "Re-stitch" button after reordering
 
-- **Line 816**: Remove `NOT speaking or mouthing words. Closed mouth.` → `natural expression, confident pose, engaged with the moment.`
-- **Line 878**: Remove `People should have closed mouths — not speaking or mouthing words.` entirely
-- **Line 942**: Remove `People should have closed mouths — not speaking or mouthing words.` from fallback prompt
-
-### 2. `supabase/functions/generate-twin-angles/index.ts` — 1 edit
-
-- **Line 74**: `Closed mouth or slight smile - NOT speaking` → `Natural expression, relaxed and genuine`
-
-### 3. `src/pages/AISpokesperson.tsx` — 4 edits
-
-- **Line 496**: `closed mouth, natural micro-expression` → `natural micro-expression`
-- **Line 505**: Remove `Person has CLOSED MOUTH — NOT speaking.`
-- **Line 651**: `closed mouth, contemplative micro-expression, natural and candid — NOT posed` → `contemplative micro-expression, natural and candid`
-- **Line 853**: `Character is NOT speaking — mouth closed, natural and candid.` → `Character in a natural, candid moment.`
-
-### 4. `src/pages/CommercialStudio.tsx` — 1 edit
-
-- **Line 329**: `CRITICAL: CLOSED MOUTH or slight smile.` → `EXPRESSION: Natural, relaxed.`
-
-### 5. Redeploy edge functions
-- `generate-reel-video`
-- `generate-twin-angles`
-
-## Result
-Every "closed mouth," "NOT speaking," and "not mouthing words" directive is gone. Video models will no longer suppress audio or freeze expressions. Characters will have natural, living expressions — and narration will actually play.
-
+## Implementation Order
+1. **Scene Reorder & Timeline** (foundation — other features insert into this)
+2. **B-Roll Library & Insert** (uses timeline insert points)
+3. **Product Shot Generator** (specialized B-roll generation)
+4. **Product Overlay** (canvas compositing enhancement)
