@@ -235,27 +235,12 @@ REQUIREMENTS:
 - NO text, captions, watermarks, or written words${antiPropRule}`;
 }
 
-// Build image generation messages with reference images for character consistency
-function buildImageGenMessages(prompt: string, referenceImages?: string[]) {
+// Build image generation prompt text (for OpenAI DALL-E which doesn't accept reference images)
+function buildImageGenPrompt(prompt: string, referenceImages?: string[]) {
   if (referenceImages && referenceImages.length > 0) {
-    // Use multimodal message with reference image for character consistency
-    const content: any[] = [];
-    
-    // Add the first reference image
-    content.push({
-      type: 'image_url',
-      image_url: { url: referenceImages[0] }
-    });
-    
-    content.push({
-      type: 'text',
-      text: `Using this person as the EXACT character reference - match their face, features, skin tone, and appearance precisely in the generated image.\n\n${prompt}`
-    });
-    
-    return [{ role: 'user', content }];
+    return `${prompt}\n\nIMPORTANT: Generate this as a photorealistic image matching the described character exactly. Ultra high quality, cinematic lighting.`;
   }
-  
-  return [{ role: 'user', content: prompt }];
+  return prompt;
 }
 
 serve(async (req) => {
