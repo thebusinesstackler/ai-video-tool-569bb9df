@@ -1417,14 +1417,20 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
 
     // Restore project state with scenes and preview scenes
+    // Reconstruct videoClips from generatedScenes that have videoUrl
+    const restoredScenes = ds.generatedScenes || [];
+    const restoredVideoClips = restoredScenes
+      .filter((s: GeneratedScene) => s.videoUrl)
+      .map((s: GeneratedScene) => ({ sceneNumber: s.sceneNumber, videoUrl: s.videoUrl! }));
+
     setProject({
       topic: draft.topic,
       scenes: ds.scenes || [],
       voiceovers: ds.voiceovers || [],
       videoUrl: null,
       videoBlobUrl: null,
-      generatedScenes: ds.generatedScenes || [],
-      videoClips: [],
+      generatedScenes: restoredScenes,
+      videoClips: restoredVideoClips,
       previewScenes: ds.previewScenes || [],
       status: 'idle'
     });
