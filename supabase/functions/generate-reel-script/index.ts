@@ -131,47 +131,21 @@ Remember:
 - End with a memorable conclusion or call-to-action
 - The entire script will be spoken by one person looking at the camera`;
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+      try {
+        const result = await callClaude({
           messages: [
             { role: 'system', content: podcastSystemPrompt },
             { role: 'user', content: podcastUserPrompt }
           ],
-          max_tokens: 8192, // Larger for long-form content
-        }),
-      });
+          thinkingBudget: 16000,
+          maxTokens: 24000,
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('AI Gateway error:', response.status, errorText);
-        
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        const content = result.text;
+
+        if (!content) {
+          throw new Error('No content in AI response');
         }
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'API credits exhausted. Please add credits to continue.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        throw new Error(`AI Gateway error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('No content in AI response');
-      }
 
       console.log('Raw podcast AI response length:', content.length);
 
