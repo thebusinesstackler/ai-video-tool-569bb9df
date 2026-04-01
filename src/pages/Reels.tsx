@@ -73,6 +73,7 @@ import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { VoicePitchSlider } from '@/components/VoicePitchSlider';
 import { ProductSwapPanel } from '@/components/ProductSwapPanel';
+import { ReelSceneTimeline } from '@/components/ReelSceneTimeline';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
