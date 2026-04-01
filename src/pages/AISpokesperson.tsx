@@ -469,12 +469,7 @@ Return ONLY a JSON object:
     try {
       // Step 1: Generate voiceover
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: {
-          text: generatedScript.narration,
-          voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
-          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
-          speakingRate: 0.92
-        }
+        body: buildTtsBody(generatedScript.narration, selectedTwin)
       });
 
       if (ttsError) throw ttsError;
