@@ -64,7 +64,8 @@ import {
   ArrowUp,
   ArrowDown,
   Film,
-  Plus
+  Plus,
+  Package
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { useScenePreview } from '@/hooks/useScenePreview';
@@ -6505,6 +6506,89 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             >
                               <Video className="w-3 h-3 mr-1" />
                               Regenerate Video
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Swap Product in Scene */}
+                        {scene.imageUrl && (
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-1">
+                              <Package className="w-3 h-3" />
+                              Swap Product
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Upload the correct product image to replace what's in the scene.
+                            </p>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              id={`product-swap-input-${editingSceneNumber}`}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file || !user) return;
+                                
+                                toast({ title: "Swapping Product...", description: "Uploading and replacing product in scene." });
+                                
+                                try {
+                                  // Upload product image to storage
+                                  const fileName = `product-swap-${Date.now()}.${file.name.split('.').pop()}`;
+                                  const { data: uploadData, error: uploadError } = await supabase.storage
+                                    .from('generated-images')
+                                    .upload(`${user.id}/${fileName}`, file, { contentType: file.type });
+                                  
+                                  if (uploadError) throw uploadError;
+                                  
+                                  const { data: urlData } = supabase.storage
+                                    .from('generated-images')
+                                    .getPublicUrl(`${user.id}/${fileName}`);
+                                  
+                                  const productImageUrl = urlData.publicUrl;
+                                  
+                                  // Use edit-scene-image to swap product
+                                  const { data: editData, error: editError } = await supabase.functions.invoke('edit-scene-image', {
+                                    body: {
+                                      sceneImageUrl: scene.imageUrl,
+                                      referenceImageUrl: productImageUrl,
+                                      editPrompt: `Replace the product/object being held or displayed in this scene with the product shown in the reference image. Keep the person, pose, lighting, and background exactly the same. Only swap the product.`,
+                                      aspectRatio: '9:16'
+                                    }
+                                  });
+                                  
+                                  if (editError) throw editError;
+                                  
+                                  if (editData?.imageUrl) {
+                                    // Update scene image
+                                    setProject(prev => ({
+                                      ...prev,
+                                      generatedScenes: prev.generatedScenes.map(s =>
+                                        s.sceneNumber === editingSceneNumber ? { ...s, imageUrl: editData.imageUrl, videoUrl: undefined } : s
+                                      ),
+                                      videoClips: prev.videoClips.filter(c => c.sceneNumber !== editingSceneNumber)
+                                    }));
+                                    
+                                    toast({ title: "Product Swapped!", description: "Scene image updated with the correct product. You can now regenerate the video." });
+                                  }
+                                } catch (err: any) {
+                                  console.error('Product swap failed:', err);
+                                  toast({ title: "Swap Failed", description: err.message || "Could not swap product.", variant: "destructive" });
+                                }
+                                
+                                // Reset input
+                                e.target.value = '';
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => {
+                                document.getElementById(`product-swap-input-${editingSceneNumber}`)?.click();
+                              }}
+                            >
+                              <Package className="w-3 h-3 mr-1" />
+                              Upload & Swap Product
                             </Button>
                           </div>
                         )}
