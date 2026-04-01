@@ -45,6 +45,12 @@ function extractImageUrl(message: any): string | null {
   }
   return null;
 }
+function isImageRequest(body: any): boolean {
+  if (body.modalities && Array.isArray(body.modalities) && body.modalities.includes('image')) return true;
+  const model = (body.model || '').toLowerCase();
+  if (model.includes('image')) return true;
+  return false;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -101,51 +107,83 @@ serve(async (req) => {
       }
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "AI service unavailable" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // IMAGE REQUESTS: Use Lovable AI (Claude can't generate images)
+    if (isImageRequest(body)) {
+      const apiKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!apiKey) {
+        return new Response(JSON.stringify({ error: "AI service unavailable" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const chatMessages = messages || [
+        { role: "system", content: "You are a professional video script writer." },
+        { role: "user", content: message },
+      ];
+
+      const requestBody: any = { model: model || "google/gemini-2.5-flash", messages: chatMessages };
+      if (modalities) requestBody.modalities = modalities;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("AI Gateway error:", response.status, errText);
+        if (response.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (response.status === 402) return new Response(JSON.stringify({ error: "Payment required / quota exceeded" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Failed to get AI response" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const data = await response.json();
+      const aiMessage = data.choices?.[0]?.message;
+      const textContent = extractText(aiMessage);
+      const imageUrl = extractImageUrl(aiMessage);
+
+      if (!textContent && !imageUrl) {
+        return new Response(JSON.stringify({ response: '', imageUrl: null, choices: data.choices, warning: 'empty_ai_output' }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ response: textContent || '', imageUrl: imageUrl || null, choices: data.choices }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // TEXT REQUESTS: Use Claude Opus with extended thinking
     const chatMessages = messages || [
       { role: "system", content: "You are a professional video script writer. Create engaging, clear video scripts optimized for the specified duration, style, audience, and tone." },
       { role: "user", content: message },
     ];
 
-    const requestBody: any = { model: model || "google/gemini-2.5-flash", messages: chatMessages };
-    if (modalities) requestBody.modalities = modalities;
+    try {
+      const result = await callClaude({
+        messages: chatMessages,
+        thinkingBudget: 4000,
+      });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI Gateway error:", response.status, errText);
-      if (response.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (response.status === 402) return new Response(JSON.stringify({ error: "AI service quota exceeded. Please try again later." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      return new Response(JSON.stringify({ error: "Failed to get AI response" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const data = await response.json();
-    const aiMessage = data.choices?.[0]?.message;
-    const textContent = extractText(aiMessage);
-    const imageUrl = extractImageUrl(aiMessage);
-
-    if (!textContent && !imageUrl) {
-      console.warn("Empty AI output.");
-      return new Response(JSON.stringify({ response: '', imageUrl: null, choices: data.choices, warning: 'empty_ai_output' }), {
+      return new Response(JSON.stringify({ response: result.text || '', imageUrl: null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw error;
     }
-
-    return new Response(JSON.stringify({ response: textContent || '', imageUrl: imageUrl || null, choices: data.choices }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  } catch (error) {
+    console.error("Error in AI call:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
+  }
+});
   } catch (error) {
     console.error("Error in AI call:", error);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
