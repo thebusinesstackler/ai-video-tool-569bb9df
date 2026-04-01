@@ -1417,14 +1417,20 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
 
     // Restore project state with scenes and preview scenes
+    // Reconstruct videoClips from generatedScenes that have videoUrl
+    const restoredScenes = ds.generatedScenes || [];
+    const restoredVideoClips = restoredScenes
+      .filter((s: GeneratedScene) => s.videoUrl)
+      .map((s: GeneratedScene) => ({ sceneNumber: s.sceneNumber, videoUrl: s.videoUrl! }));
+
     setProject({
       topic: draft.topic,
       scenes: ds.scenes || [],
       voiceovers: ds.voiceovers || [],
       videoUrl: null,
       videoBlobUrl: null,
-      generatedScenes: ds.generatedScenes || [],
-      videoClips: [],
+      generatedScenes: restoredScenes,
+      videoClips: restoredVideoClips,
       previewScenes: ds.previewScenes || [],
       status: 'idle'
     });
@@ -1646,11 +1652,43 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       if (error) throw error;
 
       fetchSavedReels();
-      setActiveTab('drafts');
+
+      // Also load the reel into the editor immediately so user can edit scenes
+      const restoredVideoClips = scenes
+        .filter(s => s.videoUrl)
+        .map(s => ({ sceneNumber: s.sceneNumber, videoUrl: s.videoUrl! }));
+
+      setProject({
+        topic: reel.topic,
+        scenes: scriptScenes,
+        voiceovers: [],
+        videoUrl: null,
+        videoBlobUrl: null,
+        generatedScenes: scenes,
+        videoClips: restoredVideoClips,
+        previewScenes: scenes.map(s => ({
+          sceneNumber: s.sceneNumber,
+          narration: s.text || '',
+          visualDescription: s.text || '',
+          imageUrl: s.imageUrl || null,
+          audioUrl: null,
+          audioDuration: 0,
+          isGenerating: false
+        })),
+        status: 'idle'
+      });
+
+      setTopic(reel.topic);
+      setSelectedSceneCount(String(scenes.length));
+      setProgress(0);
+      setProgressStatus('');
+      setIsGenerating(false);
+      setVideoError(null);
+      setActiveTab('create');
 
       toast({
         title: "Restored as Draft",
-        description: "Reel saved as a draft with all assets. Continue editing from the Drafts tab."
+        description: "Reel loaded into the editor with all assets. You can now edit scenes and swap products."
       });
     } catch (error: any) {
       console.error('Error restoring as draft:', error);
