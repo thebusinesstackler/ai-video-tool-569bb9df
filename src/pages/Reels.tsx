@@ -6005,6 +6005,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       videoClips={project.videoClips}
                       voiceovers={project.voiceovers}
                       productImages={timelineProductImages}
+                      selectedTwin={selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) || null : null}
+                      portraitImage={portraitImage}
                       onScenesChange={(newScenes, newClips, newVos) => {
                         setProject(prev => ({
                           ...prev,
