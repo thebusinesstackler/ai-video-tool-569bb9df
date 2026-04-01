@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -15,98 +15,48 @@ serve(async (req) => {
     const body = await req.json();
     const { imageUrl } = body;
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
     // If imageUrl is provided, analyze the image
     if (imageUrl) {
       console.log('Analyzing image:', imageUrl);
 
-      const systemPrompt = `You are an expert at describing images for video production. Your job is to analyze an image and provide a concise, vivid description that captures the essence of the scene.
+      const systemPrompt = `You are an expert at describing images for video production. Focus on the main subject/action, setting, mood, and key visual elements. Keep under 2 sentences.`;
 
-Focus on:
-- The main subject and action
-- Setting and environment
-- Mood and atmosphere
-- Key visual elements
-
-Keep the description under 2 sentences. Be specific and visual.`;
-
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+      try {
+        const result = await callClaude({
           messages: [
             { role: 'system', content: systemPrompt },
             { 
               role: 'user', 
               content: [
-                { type: 'text', text: 'Describe this image in a way that would be useful for a B-roll scene in a commercial video:' },
+                { type: 'text', text: 'Describe this image in a way useful for a B-roll scene in a commercial video:' },
                 { type: 'image_url', image_url: { url: imageUrl } }
               ]
             }
           ],
-        }),
-      });
+          thinkingBudget: 4000,
+        });
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-            status: 429,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        const description = result.text;
+        if (!description) throw new Error('No description generated from AI');
+
+        return new Response(JSON.stringify({ description: description.trim() }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        if (error instanceof ClaudeError) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        if (response.status === 402) {
-          return new Response(JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }), {
-            status: 402,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        const errorText = await response.text();
-        console.error('AI gateway error:', response.status, errorText);
-        throw new Error(`AI gateway error: ${response.status}`);
+        throw error;
       }
-
-      const data = await response.json();
-      const description = data.choices?.[0]?.message?.content;
-
-      if (!description) {
-        throw new Error('No description generated from AI');
-      }
-
-      console.log('Generated description:', description);
-
-      return new Response(JSON.stringify({ description: description.trim() }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
-    // Original scene description logic for movie scenes
-    const { 
-      sceneTitle, 
-      location, 
-      timeOfDay, 
-      dialogue, 
-      transitionAction, 
-      characterDescription,
-      cameraAngle,
-      position,
-      frameType,
-      mood,
-      lighting
-    } = body;
-
+    // Original scene description logic
+    const { sceneTitle, location, timeOfDay, dialogue, transitionAction, characterDescription, cameraAngle, position, frameType, mood, lighting } = body;
     console.log('Describing scene:', { sceneTitle, frameType, location, timeOfDay });
 
-    // Build context for the AI
     const contextParts = [];
-    
     if (sceneTitle) contextParts.push(`Scene: "${sceneTitle}"`);
     if (location) contextParts.push(`Location: ${location}`);
     if (timeOfDay) contextParts.push(`Time: ${timeOfDay}`);
@@ -119,89 +69,41 @@ Keep the description under 2 sentences. Be specific and visual.`;
     if (position) contextParts.push(`Character position: ${position}`);
 
     const frameContext = frameType === 'start' 
-      ? 'This is the STARTING frame of the scene - capture the beginning moment.'
-      : 'This is the ENDING frame of the scene - capture the concluding moment after the action has occurred.';
+      ? 'This is the STARTING frame of the scene.'
+      : 'This is the ENDING frame of the scene.';
 
-    const systemPrompt = `You are an expert cinematographer and visual director. Your job is to create detailed, vivid image prompts that will be used to generate movie scene images.
+    const systemPrompt = `You are an expert cinematographer. Create detailed, vivid image prompts for movie scene images. Output ONLY the image prompt, nothing else.`;
 
-Create prompts that are:
-- Highly visual and descriptive
-- Cinematic in style (like a movie still)
-- Focused on composition, lighting, and atmosphere
-- Specific about character positioning and expressions
-- Aware of the camera angle and framing
+    const userPrompt = `${frameContext}\n\nScene Context:\n${contextParts.join('\n')}\n\nGenerate a detailed, cinematic image prompt that captures this exact moment.`;
 
-Output ONLY the image prompt, nothing else. No explanations, no prefixes like "Image prompt:" - just the description itself.`;
-
-    const userPrompt = `${frameContext}
-
-Scene Context:
-${contextParts.join('\n')}
-
-Generate a detailed, cinematic image prompt that captures this exact moment. Include:
-1. The setting and environment with specific visual details
-2. Character appearance, expression, and body language
-3. Lighting and atmosphere that matches the mood
-4. Camera framing and composition
-5. Any relevant props or environmental elements
-
-Make it vivid and specific enough for an AI image generator to create a compelling movie still.`;
-
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+    try {
+      const result = await callClaude({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-      }),
-    });
+        thinkingBudget: 8000,
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      const generatedPrompt = result.text;
+      if (!generatedPrompt) throw new Error('No prompt generated from AI');
+
+      return new Response(JSON.stringify({ imagePrompt: generatedPrompt.trim() }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw error;
     }
-
-    const data = await response.json();
-    const generatedPrompt = data.choices?.[0]?.message?.content;
-
-    if (!generatedPrompt) {
-      throw new Error('No prompt generated from AI');
-    }
-
-    console.log('Generated prompt:', generatedPrompt.substring(0, 100) + '...');
-
-    return new Response(JSON.stringify({ 
-      imagePrompt: generatedPrompt.trim()
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('Error in describe-scene function:', error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
