@@ -3459,11 +3459,56 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           if (!cloudUrl) throw new Error('Cloud render timed out');
           const resp = await fetch(cloudUrl);
           stitchedBlob = await resp.blob();
-        } catch (cloudErr) {
-          console.warn('Cloud re-stitch failed, using canvas:', cloudErr);
-          const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
-          const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
-          stitchedBlob = await canvasStitchVideos({ videoUrls: allUrls, width: sw, height: sh, onProgress: (p) => setProgress(20 + p * 0.7) });
+        } catch (cloudErr: any) {
+          const errMsg = cloudErr?.message || String(cloudErr);
+          const isCreditsError = /credit|402|insufficient/i.test(errMsg);
+          
+          if (isCreditsError) {
+            console.warn('[Restitch] Cloud rendering credits exhausted');
+            toast({ title: "Cloud Rendering Unavailable", description: "Cloud rendering credits are exhausted. Keeping original video — B-roll clips are saved as separate scenes.", variant: "destructive" });
+            // Fallback: keep original video, save appended clips as extra scenes
+            const newScenes = appendedClips.map((clip, idx) => ({
+              sceneNumber: (project.generatedScenes?.length || 0) + idx + 1,
+              prompt: clip.prompt || 'B-roll',
+              imageUrl: '',
+              videoUrl: clip.videoUrl,
+            }));
+            setProject(prev => ({
+              ...prev,
+              generatedScenes: [...(prev.generatedScenes || []), ...newScenes],
+              videoClips: [...(prev.videoClips || []), ...newScenes.map(s => ({ sceneNumber: s.sceneNumber, videoUrl: s.videoUrl }))],
+            }));
+            setAppendedClips([]);
+            setShowAppendBroll(false);
+            setProgress(100);
+            return;
+          }
+
+          // Try canvas fallback for non-credit errors
+          console.warn('Cloud re-stitch failed, trying canvas:', cloudErr);
+          try {
+            const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+            const [sw, sh] = sizeMap[selectedVideoSize] || [1080, 1920];
+            stitchedBlob = await canvasStitchVideos({ videoUrls: allUrls, width: sw, height: sh, onProgress: (p) => setProgress(20 + p * 0.7) });
+          } catch (canvasErr) {
+            console.warn('Canvas stitch also failed:', canvasErr);
+            toast({ title: "Stitching Unavailable", description: "Could not combine clips. Keeping original video — B-roll clips saved as separate scenes.", variant: "destructive" });
+            const newScenes = appendedClips.map((clip, idx) => ({
+              sceneNumber: (project.generatedScenes?.length || 0) + idx + 1,
+              prompt: clip.prompt || 'B-roll',
+              imageUrl: '',
+              videoUrl: clip.videoUrl,
+            }));
+            setProject(prev => ({
+              ...prev,
+              generatedScenes: [...(prev.generatedScenes || []), ...newScenes],
+              videoClips: [...(prev.videoClips || []), ...newScenes.map(s => ({ sceneNumber: s.sceneNumber, videoUrl: s.videoUrl }))],
+            }));
+            setAppendedClips([]);
+            setShowAppendBroll(false);
+            setProgress(100);
+            return;
+          }
         }
       } else {
         const sizeMap: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };

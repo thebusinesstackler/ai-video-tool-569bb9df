@@ -316,6 +316,13 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
       const finalBlob = new Blob(chunks, { type: mimeType });
       console.log(`[CanvasStitch] Final video size: ${(finalBlob.size / 1024 / 1024).toFixed(2)} MB`);
 
+      if (finalBlob.size < 1000) {
+        try { audioCtx.close(); } catch {}
+        videos.forEach(v => { v.src = ''; v.load(); });
+        reject(new Error('Canvas stitching produced an empty video — likely due to cross-origin restrictions on the video sources. Cloud rendering is required for CDN-hosted clips.'));
+        return;
+      }
+
       try { audioCtx.close(); } catch {}
       videos.forEach(v => { v.src = ''; v.load(); });
 
