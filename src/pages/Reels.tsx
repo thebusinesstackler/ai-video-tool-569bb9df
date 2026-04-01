@@ -444,6 +444,9 @@ const Reels = () => {
   const [appendedClips, setAppendedClips] = useState<{ videoUrl: string; prompt: string; duration: number }[]>([]);
   const [isRestitching, setIsRestitching] = useState(false);
   
+  // Product images for timeline insert
+  const [timelineProductImages, setTimelineProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
+  
   // Strategist state for persistence
   const [strategistState, setStrategistState] = useState<StrategistState>({
     niche: '',
