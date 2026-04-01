@@ -2245,47 +2245,59 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
             console.log('[Stitch] Embedded audio indices:', embeddedAudioIndices, 'Overlay audio count:', audioUrlsForStitch.length);
 
-            const sizeMap: Record<string, [number, number]> = {
-              '9:16': [1080, 1920],
-              '1:1': [1080, 1080],
-              '16:9': [1920, 1080],
-              '4:5': [1080, 1350],
-            };
-            const [stitchWidth, stitchHeight] = sizeMap[selectedVideoSize] || [1080, 1920];
+            // SKIP stitching for single-clip videos with embedded audio — canvas taints on cross-origin
+            const allEmbedded = embeddedAudioIndices.length === videoUrls.length && audioUrlsForStitch.length === 0;
+            const skipStitch = videoUrls.length === 1 && allEmbedded;
 
-            const finalBlob = await canvasStitchVideos({
-              videoUrls,
-              audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
-              embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
-              width: stitchWidth,
-              height: stitchHeight,
-              onProgress: (p) => {
-                setProgress(75 + Math.round(p * 0.2));
-                setProgressStatus(`Stitching... ${Math.round(p)}%`);
-              },
-              onStatus: (s) => setProgressStatus(s)
-            });
+            let persistedVideoUrl: string;
 
-            const blobUrl = URL.createObjectURL(finalBlob);
-            videoBlobRef.current = finalBlob;
+            if (skipStitch) {
+              console.log('[Stitch] Single embedded-audio clip — skipping stitch, using original URL');
+              persistedVideoUrl = videoUrls[0];
+              setProgress(95);
+            } else {
+              const sizeMap: Record<string, [number, number]> = {
+                '9:16': [1080, 1920],
+                '1:1': [1080, 1080],
+                '16:9': [1920, 1080],
+                '4:5': [1080, 1350],
+              };
+              const [stitchWidth, stitchHeight] = sizeMap[selectedVideoSize] || [1080, 1920];
 
-            let persistedVideoUrl = blobUrl;
-            if (user) {
-              setProgress(92);
-              setProgressStatus('Uploading final video...');
-              try {
-                const isWebm = finalBlob.type.includes('webm');
-                const ext = isWebm ? 'webm' : 'mp4';
-                const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(fileName, finalBlob, { contentType: finalBlob.type || 'video/webm' });
-                if (!uploadError && uploadData) {
-                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                  persistedVideoUrl = publicUrl.publicUrl;
+              const finalBlob = await canvasStitchVideos({
+                videoUrls,
+                audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+                embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+                width: stitchWidth,
+                height: stitchHeight,
+                onProgress: (p) => {
+                  setProgress(75 + Math.round(p * 0.2));
+                  setProgressStatus(`Stitching... ${Math.round(p)}%`);
+                },
+                onStatus: (s) => setProgressStatus(s)
+              });
+
+              const blobUrl = URL.createObjectURL(finalBlob);
+              videoBlobRef.current = finalBlob;
+
+              persistedVideoUrl = blobUrl;
+              if (user) {
+                setProgress(92);
+                setProgressStatus('Uploading final video...');
+                try {
+                  const isWebm = finalBlob.type.includes('webm');
+                  const ext = isWebm ? 'webm' : 'mp4';
+                  const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
+                  const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('reels')
+                    .upload(fileName, finalBlob, { contentType: finalBlob.type || 'video/webm' });
+                  if (!uploadError && uploadData) {
+                    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                    persistedVideoUrl = publicUrl.publicUrl;
+                  }
+                } catch (e) {
+                  console.warn('Upload failed:', e);
                 }
-              } catch (e) {
-                console.warn('Upload failed:', e);
               }
             }
 
