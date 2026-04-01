@@ -22,29 +22,63 @@ function extractText(message: any): string | null {
   return null;
 }
 
-function extractImageUrl(message: any): string | null {
-  if (!message) return null;
-  if (message.images && Array.isArray(message.images) && message.images.length > 0) {
-    const img = message.images[0];
-    if (typeof img === 'string') return img;
-    if (img?.image_url?.url) return img.image_url.url;
-    if (img?.url) return img.url;
-    if (img?.b64_json) return `data:image/png;base64,${img.b64_json}`;
-    if (img?.base64) return `data:image/png;base64,${img.base64}`;
-    if (img?.data) return `data:image/png;base64,${img.data}`;
+// Generate image using OpenAI gpt-image-1
+async function generateImageWithOpenAI(prompt: string, apiKey: string): Promise<string> {
+  console.log('Generating image with OpenAI gpt-image-1');
+  const response = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-image-1',
+      prompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'high',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI image error:', response.status, errorText);
+    throw new Error(`OpenAI image error: ${response.status}`);
   }
-  if (Array.isArray(message.content)) {
-    for (const part of message.content) {
-      if (part.type === 'image_url' && part.image_url?.url) return part.image_url.url;
-      if (part.type === 'image' && part.url) return part.url;
-      if (part.type === 'output_image' && part.url) return part.url;
-      if (part.type === 'output_image' && part.image_url?.url) return part.image_url.url;
-      if (part.type === 'image' && part.b64_json) return `data:image/png;base64,${part.b64_json}`;
-      if (part.type === 'output_image' && part.b64_json) return `data:image/png;base64,${part.b64_json}`;
-    }
-  }
-  return null;
+
+  const data = await response.json();
+  const b64 = data.data?.[0]?.b64_json;
+  const url = data.data?.[0]?.url;
+  if (b64) return `data:image/png;base64,${b64}`;
+  if (url) return url;
+  throw new Error('No image in OpenAI response');
 }
+
+// Call OpenAI GPT-4o for text completion (fallback when Claude fails)
+async function callOpenAIText(messages: any[], apiKey: string): Promise<string> {
+  console.log('Falling back to OpenAI GPT-4o for text');
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI text error:', response.status, errorText);
+    throw new Error(`OpenAI text error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
 function isImageRequest(body: any): boolean {
   if (body.modalities && Array.isArray(body.modalities) && body.modalities.includes('image')) return true;
   const model = (body.model || '').toLowerCase();
@@ -107,54 +141,40 @@ serve(async (req) => {
       }
     }
 
-    // IMAGE REQUESTS: Use Lovable AI (Claude can't generate images)
+    // IMAGE REQUESTS: Use OpenAI gpt-image-1
     if (isImageRequest(body)) {
-      const apiKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!apiKey) {
-        return new Response(JSON.stringify({ error: "AI service unavailable" }), {
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (!OPENAI_API_KEY) {
+        return new Response(JSON.stringify({ error: "OpenAI API key not configured" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const chatMessages = messages || [
-        { role: "system", content: "You are a professional video script writer." },
-        { role: "user", content: message },
-      ];
-
-      const requestBody: any = { model: model || "google/gemini-2.5-flash", messages: chatMessages };
-      if (modalities) requestBody.modalities = modalities;
-
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("AI Gateway error:", response.status, errText);
-        if (response.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (response.status === 402) return new Response(JSON.stringify({ error: "Payment required / quota exceeded" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        return new Response(JSON.stringify({ error: "Failed to get AI response" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // Extract text prompt from messages
+      const chatMessages = messages || [{ role: "user", content: message }];
+      let textPrompt = message || '';
+      if (!textPrompt && chatMessages.length > 0) {
+        const lastMsg = chatMessages[chatMessages.length - 1];
+        if (typeof lastMsg.content === 'string') textPrompt = lastMsg.content;
+        else if (Array.isArray(lastMsg.content)) {
+          textPrompt = lastMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ');
+        }
       }
 
-      const data = await response.json();
-      const aiMessage = data.choices?.[0]?.message;
-      const textContent = extractText(aiMessage);
-      const imageUrl = extractImageUrl(aiMessage);
-
-      if (!textContent && !imageUrl) {
-        return new Response(JSON.stringify({ response: '', imageUrl: null, choices: data.choices, warning: 'empty_ai_output' }), {
+      try {
+        const imageUrl = await generateImageWithOpenAI(textPrompt, OPENAI_API_KEY);
+        return new Response(JSON.stringify({ response: '', imageUrl, choices: [{ message: { content: '', images: [{ image_url: { url: imageUrl } }] } }] }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      } catch (error) {
+        console.error('OpenAI image generation failed:', error);
+        return new Response(JSON.stringify({ error: 'Failed to generate image' }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-
-      return new Response(JSON.stringify({ response: textContent || '', imageUrl: imageUrl || null, choices: data.choices }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    // TEXT REQUESTS: Use Claude Opus with extended thinking
+    // TEXT REQUESTS: Use Claude Opus with extended thinking, fallback to OpenAI GPT-4o
     const chatMessages = messages || [
       { role: "system", content: "You are a professional video script writer. Create engaging, clear video scripts optimized for the specified duration, style, audience, and tone." },
       { role: "user", content: message },
@@ -170,12 +190,33 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (error) {
-      if (error instanceof ClaudeError) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      console.warn('Claude failed, trying OpenAI GPT-4o fallback:', error instanceof Error ? error.message : error);
+      
+      // Fallback to OpenAI GPT-4o
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (!OPENAI_API_KEY) {
+        if (error instanceof ClaudeError) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw error;
       }
-      throw error;
+
+      try {
+        const text = await callOpenAIText(chatMessages, OPENAI_API_KEY);
+        return new Response(JSON.stringify({ response: text, imageUrl: null }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (openaiError) {
+        console.error('OpenAI fallback also failed:', openaiError);
+        if (error instanceof ClaudeError) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw error;
+      }
     }
   } catch (error) {
     console.error("Error in AI call:", error);

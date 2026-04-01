@@ -7,14 +7,13 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { imageUrl, mode = 'enhance' } = await req.json();
-    
+
     if (!imageUrl) {
       return new Response(
         JSON.stringify({ error: 'Image URL is required' }),
@@ -22,80 +21,70 @@ serve(async (req) => {
       );
     }
 
-    // Validate base64 size (10MB limit)
     if (imageUrl.startsWith('data:') && imageUrl.length > 10_000_000) {
       return new Response(
-        JSON.stringify({ error: 'Image too large. Maximum size is ~7.5MB. Please use a smaller image.' }),
+        JSON.stringify({ error: 'Image too large. Maximum size is ~7.5MB.' }),
         { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY is not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log(`Upscaling image with mode: ${mode}`);
-    console.log(`Image URL: ${imageUrl.substring(0, 100)}...`);
 
-    // Build the prompt based on mode
     let prompt = '';
     switch (mode) {
       case '2x':
-        prompt = 'Upscale this image to 2x resolution. Enhance details, sharpen edges, and improve overall quality while maintaining the original style and composition. Make it crisp and high-definition.';
+        prompt = 'Create an ultra high-resolution, extremely detailed version of this scene. Upscale to 2x resolution with enhanced sharpness, fine texture details, crisp edges, and improved color vibrancy. Maintain the exact same composition, subjects, and style. Professional photography quality with 8K detail.';
         break;
       case '4x':
-        prompt = 'Upscale this image to 4x resolution. Significantly enhance details, add fine texture details, sharpen all edges, and dramatically improve quality. Make it extremely high-definition and professional quality.';
+        prompt = 'Create a maximum resolution, incredibly detailed version of this scene. Upscale to 4x resolution with extraordinary detail enhancement — add fine texture details, ultra-sharp edges, professional color grading, and dramatic quality improvement. Maintain exact composition. Magazine cover quality, 16K detail level.';
         break;
       case 'enhance':
       default:
-        prompt = 'Enhance this image: improve colors, contrast, sharpness, and overall visual quality. Fix any artifacts, improve lighting, and make it look more professional and polished while preserving the original content.';
+        prompt = 'Enhance this image: dramatically improve colors, contrast, sharpness, and overall visual quality. Fix any artifacts, improve lighting balance, and make it look polished and professional. Cinematic color grading, crisp details. Maintain the original content exactly.';
         break;
     }
 
-    // Call Lovable AI with image editing capability
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Use OpenAI gpt-image-1 for enhancement
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: imageUrl } }
-            ]
-          }
-        ],
-        modalities: ['image', 'text']
+        model: 'gpt-image-1',
+        prompt: `${prompt}\n\nOriginal image description context: Enhance/upscale this existing image while preserving all content exactly.`,
+        n: 1,
+        size: mode === '4x' ? '1536x1024' : '1024x1024',
+        quality: 'high',
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      
+      console.error('OpenAI error:', response.status, errorText);
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 401 || response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
+          JSON.stringify({ error: 'OpenAI API key invalid or credits exhausted.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
       return new Response(
         JSON.stringify({ error: 'Failed to upscale image' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -103,65 +92,51 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('AI response received');
+    const b64 = data.data?.[0]?.b64_json;
+    const generatedUrl = data.data?.[0]?.url;
 
-    // Extract the upscaled image
-    const upscaledImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    
+    const upscaledImageUrl = b64 ? `data:image/png;base64,${b64}` : generatedUrl;
+
     if (!upscaledImageUrl) {
-      console.error('No image in response:', JSON.stringify(data).substring(0, 500));
       return new Response(
         JSON.stringify({ error: 'No upscaled image returned from AI' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Upload the base64 image to Supabase storage
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Upload to Supabase storage if base64
+    if (upscaledImageUrl.startsWith('data:')) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Convert base64 to blob
-    const base64Data = upscaledImageUrl.replace(/^data:image\/\w+;base64,/, '');
-    const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-    
-    // Determine file extension from base64 header
-    const mimeMatch = upscaledImageUrl.match(/^data:(image\/\w+);base64,/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-    const extension = mimeType.split('/')[1] || 'png';
-    
-    const fileName = `upscaled/${Date.now()}-${mode}.${extension}`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('reels')
-      .upload(fileName, imageBytes, {
-        contentType: mimeType,
-        upsert: false
-      });
+      const base64Data = upscaledImageUrl.replace(/^data:image\/\w+;base64,/, '');
+      const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      const fileName = `upscaled/${Date.now()}-${mode}.png`;
 
-    if (uploadError) {
+      const { error: uploadError } = await supabase.storage
+        .from('reels')
+        .upload(fileName, imageBytes, { contentType: 'image/png', upsert: false });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage.from('reels').getPublicUrl(fileName);
+        console.log('Upscaled image saved to storage:', publicUrlData.publicUrl);
+        return new Response(
+          JSON.stringify({
+            upscaledImageUrl: publicUrlData.publicUrl,
+            mode,
+            message: `Image ${mode === 'enhance' ? 'enhanced' : `upscaled ${mode}`} successfully`
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       console.error('Upload error:', uploadError);
-      // Return base64 as fallback
-      return new Response(
-        JSON.stringify({ 
-          upscaledImageUrl: upscaledImageUrl,
-          mode,
-          message: 'Image upscaled (base64 - storage upload failed)'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('reels')
-      .getPublicUrl(fileName);
-
-    console.log('Upscaled image saved to storage:', publicUrlData.publicUrl);
-
     return new Response(
-      JSON.stringify({ 
-        upscaledImageUrl: publicUrlData.publicUrl,
+      JSON.stringify({
+        upscaledImageUrl,
         mode,
         message: `Image ${mode === 'enhance' ? 'enhanced' : `upscaled ${mode}`} successfully`
       }),
