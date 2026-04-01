@@ -231,10 +231,10 @@ export const ReelSceneTimeline: React.FC<ReelSceneTimelineProps> = ({
     try {
       const { data, error } = await supabase.functions.invoke('edit-scene-image', {
         body: {
-          sceneImageUrl: refImage,
+          prompt: fullPrompt,
           referenceImageUrl: refImage,
-          editPrompt: fullPrompt,
-          aspectRatio: '9:16'
+          referenceImages: actorReferenceImages,
+          characterDescription: faceDesc,
         }
       });
       if (error || !data?.imageUrl) throw new Error('Failed to generate actor scene');
