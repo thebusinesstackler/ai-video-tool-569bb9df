@@ -1155,7 +1155,7 @@ Return ONLY the JSON object.`
 
   return (
     <Layout>
-      <div className={cn("mx-auto space-y-6", videoUrl ? "max-w-6xl" : "max-w-4xl")}>
+      <div className={cn("mx-auto space-y-6 pb-12", videoUrl ? "max-w-6xl" : "max-w-4xl")}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
