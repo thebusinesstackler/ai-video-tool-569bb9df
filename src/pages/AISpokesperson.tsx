@@ -194,12 +194,13 @@ const AISpokesperson = () => {
       try {
         const { data, error } = await supabase
           .from('ai_twins')
-          .select('id, name, reference_images, voice_cloning_key, face_description, gender')
+          .select('id, name, reference_images, voice_cloning_key, face_description, gender, voice_engine, google_voice_id')
           .eq('user_id', user.id)
           .order('name');
         
         if (error) throw error;
-        const validTwins = (data || []).filter(t => t.reference_images && t.reference_images.length > 0);
+        const validTwins = (data || []).filter(t => t.reference_images && t.reference_images.length > 0)
+          .map(t => ({ ...t, voice_engine: t.voice_engine as AITwin['voice_engine'] }));
         setTwins(validTwins);
         
         // Auto-select first twin
@@ -220,7 +221,31 @@ const AISpokesperson = () => {
   const selectedMoodData = MOODS.find(m => m.id === selectedMood);
   const selectedAngle = CAMERA_ANGLES.find(a => a.id === selectedCameraAngle);
 
-  // Enhance prompt with AI suggestions
+  // Build TTS body matching the twin's configured voice engine
+  const buildTtsBody = (text: string, twin: AITwin) => {
+    const body: Record<string, any> = { text, speakingRate: 0.92 };
+
+    // Priority 1: Cloned voice (Speechify)
+    if (twin.voice_cloning_key) {
+      body.voiceCloningKey = twin.voice_cloning_key;
+      return body;
+    }
+
+    // Priority 2: Explicit Google Cloud voice
+    if (twin.voice_engine === 'google-cloud' && twin.google_voice_id) {
+      body.voiceEngine = 'google-cloud';
+      body.googleVoiceId = twin.google_voice_id;
+      body.voice = twin.google_voice_id;
+      return body;
+    }
+
+    // Priority 3: Gender-matched WaveSpeed fallback
+    const isFemale = twin.gender?.toLowerCase() === 'female';
+    body.voice = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
+    body.gender = twin.gender || 'male';
+    return body;
+  };
+
   const enhancePrompt = async () => {
     if (!message.trim()) return;
     setIsEnhancing(true);
@@ -444,12 +469,7 @@ Return ONLY a JSON object:
     try {
       // Step 1: Generate voiceover
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: {
-          text: generatedScript.narration,
-          voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
-          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
-          speakingRate: 0.92
-        }
+        body: buildTtsBody(generatedScript.narration, selectedTwin)
       });
 
       if (ttsError) throw ttsError;
@@ -807,12 +827,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     try {
       // Step 1: Generate voiceover
       const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: {
-          text: generatedScript.narration,
-          voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
-          clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
-          speakingRate: 0.92
-        }
+        body: buildTtsBody(generatedScript.narration, selectedTwin)
       });
 
       if (ttsError) throw ttsError;
@@ -1074,12 +1089,7 @@ Return ONLY the JSON object.`
         // Generate voiceover for continuation
         setEditStatus(prev => ({ ...prev, stageLabel: '🎤 Generating continuation voiceover...' }));
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-          body: {
-            text: continuationText,
-            voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
-            clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
-            speakingRate: 0.92
-          }
+          body: buildTtsBody(continuationText, selectedTwin)
         });
         if (ttsError) throw ttsError;
 
