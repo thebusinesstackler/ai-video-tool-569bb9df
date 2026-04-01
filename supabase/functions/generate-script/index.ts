@@ -133,64 +133,8 @@ serve(async (req) => {
   }
 
   try {
-    // Get the LOVABLE_API_KEY from environment (automatically provided)
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!apiKey) {
-      console.error('LOVABLE_API_KEY not found in environment');
-      return new Response(
-        JSON.stringify({ error: 'AI service unavailable' }), 
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    const params: ScriptParams = await req.json();
-    console.log('Generating script with params:', params);
-
-    // Fetch character details if characterId is provided
-    let character: Character | undefined;
-    if (params.characterId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-      try {
-        const characterResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/characters?id=eq.${params.characterId}&select=*`,
-          {
-            headers: {
-              'apikey': SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            },
-          }
-        );
-        
-        if (characterResponse.ok) {
-          const characters = await characterResponse.json();
-          if (characters && characters.length > 0) {
-            character = characters[0];
-            console.log('Fetched character for script generation:', character?.name);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching character:', error);
-        // Continue without character if fetch fails
-      }
-    }
-
-    const prompt = createScriptPrompt(params, character);
-
-    // Call the Lovable AI Gateway
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
+    try {
+      const result = await callClaude({
         messages: [
           { 
             role: 'system', 
@@ -198,58 +142,38 @@ serve(async (req) => {
           },
           { role: 'user', content: prompt }
         ],
-      }),
-    });
+        thinkingBudget: 16000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
+      const generatedScript = result.text;
+
+      if (!generatedScript || !generatedScript.trim()) {
+        console.error('No usable script content in AI response');
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'No script content generated' }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      // Try to parse JSON response for two versions
+      let detailedScript = generatedScript.trim();
+      let cleanScript = generatedScript.trim();
       
-      throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('AI Gateway response received successfully');
-    
-    // Extract the generated script
-    const generatedScript = data?.choices?.[0]?.message?.content;
-
-    if (!generatedScript || typeof generatedScript !== 'string' || !generatedScript.trim()) {
-      console.error('No usable script content in AI response:', JSON.stringify(data, null, 2));
-      return new Response(
-        JSON.stringify({ error: 'No script content generated' }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Try to parse JSON response for two versions
-    let detailedScript = generatedScript.trim();
-    let cleanScript = generatedScript.trim();
-    
-    try {
-      // Extract JSON from markdown code blocks if present
-      let jsonContent = generatedScript.trim();
-      const jsonMatch = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-      if (jsonMatch) {
-        jsonContent = jsonMatch[1];
+      try {
+        let jsonContent = generatedScript.trim();
+        const jsonMatch = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+        if (jsonMatch) {
+          jsonContent = jsonMatch[1];
+        }
+        
+        const parsed = JSON.parse(jsonContent);
+        if (parsed.detailedScript && parsed.cleanScript) {
+          detailedScript = parsed.detailedScript;
+          cleanScript = parsed.cleanScript;
+        }
+      } catch (e) {
+        console.log('Could not parse JSON response, using raw content:', e);
       }
-      
-      const parsed = JSON.parse(jsonContent);
-      if (parsed.detailedScript && parsed.cleanScript) {
-        detailedScript = parsed.detailedScript;
-        cleanScript = parsed.cleanScript;
-      }
-    } catch (e) {
-      console.log('Could not parse JSON response, using raw content:', e);
-      // If parsing fails, use the raw content for both
-    }
 
     // Extract structured scenes array if present
     let scenes: { narration: string; visualDescription: string }[] = [];
