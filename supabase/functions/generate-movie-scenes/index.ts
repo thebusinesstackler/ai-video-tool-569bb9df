@@ -1,5 +1,5 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,14 +74,7 @@ serve(async (req) => {
           .join('\n');
     }
 
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!apiKey) {
-      console.error('LOVABLE_API_KEY not found');
-      return new Response(
-        JSON.stringify({ error: 'AI service unavailable' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Claude API key checked by shared helper
 
     // Scene count based on movie length
     const sceneCountMap: Record<string, string> = {
@@ -257,50 +250,22 @@ Break this down into visually stunning scenes with:
 
 Return ONLY the JSON array, no markdown formatting or code blocks.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
+    try {
+      const result = await callClaude({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-      }),
-    });
+        thinkingBudget: 16000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      let generatedContent = result.text;
+
+      if (!generatedContent) {
+        throw new Error('No content generated');
       }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI Gateway error: ${response.status}`);
-    }
 
-    const data = await response.json();
-    let generatedContent = data?.choices?.[0]?.message?.content;
-
-    if (!generatedContent) {
-      throw new Error('No content generated');
-    }
-
-    console.log('Raw AI response length:', generatedContent.length);
+      console.log('Raw AI response length:', generatedContent.length);
 
     // Extract JSON from markdown code blocks if present
     const jsonMatch = generatedContent.match(/```(?:json)?\s*(\[[\s\S]*\])\s*```/);
@@ -387,6 +352,16 @@ Return ONLY the JSON array, no markdown formatting or code blocks.`;
       JSON.stringify({ scenes }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw error;
+    }
 
   } catch (error: any) {
     console.error('Error in generate-movie-scenes:', error);

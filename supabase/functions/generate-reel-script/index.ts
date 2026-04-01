@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -69,10 +70,7 @@ serve(async (req) => {
     // Strip any HTML tags and entities from topic before using it anywhere
     topic = topic.replace(/<[^>]*>/g, '').replace(/&\w+;/g, ' ').replace(/\s+/g, ' ').trim();
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
+    // Claude API key checked by shared helper
 
     console.log('Generating reel script for topic:', topic);
     console.log('Scene count:', sceneCount, 'Scene duration:', sceneDuration || 'auto');
@@ -133,47 +131,21 @@ Remember:
 - End with a memorable conclusion or call-to-action
 - The entire script will be spoken by one person looking at the camera`;
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+      try {
+        const result = await callClaude({
           messages: [
             { role: 'system', content: podcastSystemPrompt },
             { role: 'user', content: podcastUserPrompt }
           ],
-          max_tokens: 8192, // Larger for long-form content
-        }),
-      });
+          thinkingBudget: 16000,
+          maxTokens: 24000,
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('AI Gateway error:', response.status, errorText);
-        
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        const content = result.text;
+
+        if (!content) {
+          throw new Error('No content in AI response');
         }
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'API credits exhausted. Please add credits to continue.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        throw new Error(`AI Gateway error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('No content in AI response');
-      }
 
       console.log('Raw podcast AI response length:', content.length);
 
@@ -218,6 +190,15 @@ Remember:
         JSON.stringify({ scenes }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+      } catch (error) {
+        if (error instanceof ClaudeError) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw error;
+      }
     }
 
     // Determine if intro/outro are enabled
@@ -368,61 +349,34 @@ Return ONLY valid JSON array:
   }
 ]`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
+    try {
+      const result = await callClaude({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 4096,
-      }),
-    });
+        thinkingBudget: 16000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      const content = result.text;
+
+      if (!content) {
+        throw new Error('No content in AI response');
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'API credits exhausted. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+
+      console.log('Raw AI response:', content.substring(0, 500));
+
+      // Extract JSON from the response
+      let jsonContent = content;
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[1].trim();
+      } else {
+        const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (arrayMatch) {
+          jsonContent = arrayMatch[0];
+        }
       }
-      throw new Error(`AI Gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('No content in AI response');
-    }
-
-    console.log('Raw AI response:', content.substring(0, 500));
-
-    // Extract JSON from the response
-    let jsonContent = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonContent = jsonMatch[1].trim();
-    } else {
-      const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (arrayMatch) {
-        jsonContent = arrayMatch[0];
-      }
-    }
     
     // Safe cleanup
     jsonContent = jsonContent
@@ -485,6 +439,16 @@ Return ONLY valid JSON array:
       JSON.stringify({ scenes }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw error;
+    }
 
   } catch (error) {
     console.error('Error generating reel script:', error);
