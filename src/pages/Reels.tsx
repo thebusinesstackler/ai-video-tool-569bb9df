@@ -3800,23 +3800,52 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     </div>
                   )}
 
-                  {/* Individual Video Clips (when no final video yet) */}
-                  {!project.videoBlobUrl && project.videoClips.length > 0 && (
+                  {/* Scene Cards with Edit/Swap (Quick Mode) */}
+                  {!project.videoBlobUrl && project.generatedScenes.length > 0 && (
                     <div className="space-y-3">
-                      <p className="text-sm font-medium text-foreground text-center">Individual Clips</p>
+                      <p className="text-sm font-medium text-foreground text-center">
+                        {project.videoClips.length > 0 ? 'Scene Clips' : 'Generated Scenes'}
+                      </p>
                       <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
-                        {project.videoClips.map((clip, idx) => (
-                          <div key={idx} className="rounded-lg overflow-hidden bg-black shadow border border-border">
-                            <video
-                              src={clip.videoUrl}
-                              controls
-                              className="w-full aspect-[9/16]"
-                            />
-                            <div className="p-2 bg-muted/30">
-                              <Badge variant="outline" className="text-[10px]">Scene {clip.sceneNumber}</Badge>
+                        {project.generatedScenes.map((scene, idx) => {
+                          const clip = project.videoClips.find(c => c.sceneNumber === scene.sceneNumber);
+                          return (
+                            <div key={scene.sceneNumber} className="rounded-lg overflow-hidden shadow border border-border relative group">
+                              <div className="aspect-[9/16] bg-black relative">
+                                {clip ? (
+                                  <video
+                                    src={clip.videoUrl}
+                                    controls
+                                    className="w-full h-full object-contain"
+                                  />
+                                ) : scene.imageUrl ? (
+                                  <img src={scene.imageUrl} alt={`Scene ${scene.sceneNumber}`} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">No media</div>
+                                )}
+                                {/* Hover overlay with Edit button */}
+                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="text-xs"
+                                    onClick={() => {
+                                      setEditingSceneNumber(scene.sceneNumber);
+                                      setEditSceneText(scene.text);
+                                    }}
+                                  >
+                                    <Pencil className="w-3 h-3 mr-1" />
+                                    Edit / Swap Product
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="p-2 bg-muted/30 flex items-center justify-between">
+                                <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
+                                {clip && <Badge className="text-[10px] bg-primary/20 text-primary border-0">Video</Badge>}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
