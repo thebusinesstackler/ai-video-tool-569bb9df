@@ -1143,11 +1143,20 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
   };
 
   // Fetch saved reels, characters, and AI twins on mount
+  const fetchProductImages = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase.from('product_images').select('id, image_url, name').eq('user_id', user.id).order('created_at', { ascending: false });
+      if (data) setTimelineProductImages(data);
+    } catch (e) { console.warn('Failed to load product images:', e); }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       fetchSavedReels();
       loadCharacters();
       loadAiTwins();
+      fetchProductImages();
     }
   }, [user]);
 
