@@ -3470,8 +3470,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             const newScenes = appendedClips.map((clip, idx) => ({
               sceneNumber: (project.generatedScenes?.length || 0) + idx + 1,
               prompt: clip.prompt || 'B-roll',
+              text: clip.prompt || 'B-roll',
               imageUrl: '',
               videoUrl: clip.videoUrl,
+              startTime: 0,
+              endTime: 5,
             }));
             setProject(prev => ({
               ...prev,
