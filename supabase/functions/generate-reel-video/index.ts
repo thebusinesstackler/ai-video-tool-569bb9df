@@ -715,17 +715,7 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           try {
             // -- AI Super Prompt --
             console.log(`Scene ${scene.sceneNumber}: Generating AI super prompt...`);
-            const superPromptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-3-flash-preview',
-                messages: [{
-                  role: 'user',
-                  content: `You are Loop AI, a cinematic video director. Create a concise, vivid video-extend prompt (max 2 sentences) that describes the MOTION and CAMERA MOVEMENT for extending a video clip of a ${genderHint} speaker.
+            const superPromptContent = `You are Loop AI, a cinematic video director. Create a concise, vivid video-extend prompt (max 2 sentences) that describes the MOTION and CAMERA MOVEMENT for extending a video clip of a ${genderHint} speaker.
 
 Scene context: "${scene.narration}"
 Character: ${characterDescription || 'Professional speaker'}
@@ -736,8 +726,19 @@ Rules:
 - Focus on: subtle camera drift, natural gestures, facial micro-expressions, confident delivery
 - Do NOT mention text, captions, watermarks
 - Keep it under 50 words
-- Write only the prompt, no explanation`
-                }]
+- Write only the prompt, no explanation`;
+
+            // Use OpenAI GPT-4o for super prompt generation
+            const superPromptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o',
+                messages: [{ role: 'user', content: superPromptContent }],
+                max_tokens: 200,
               }),
             });
 
