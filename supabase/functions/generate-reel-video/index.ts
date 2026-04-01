@@ -558,15 +558,71 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           }
           sceneHasEmbeddedAudio = true;
           
+        } else if (videoModel === 'sora-2' && isNarratorScene) {
+          // ====== SORA-2 NARRATOR: Route to InfiniteTalk for reliable lip-sync ======
+          // Sora-2 doesn't reliably produce lip-synced speech, so narrator scenes
+          // use InfiniteTalk (portrait + TTS audio) for guaranteed lip-sync.
+          console.log(`Scene ${scene.sceneNumber}: Sora-2 mode — routing narrator to InfiniteTalk for reliable lip-sync`);
+          
+          let sceneAudioUrl = audioUrl;
+          
+          // If audio is base64, upload to storage first
+          if (sceneAudioUrl && sceneAudioUrl.startsWith('data:') && supabase) {
+            try {
+              const base64Match = sceneAudioUrl.match(/^data:([^;]+);base64,(.+)$/);
+              if (base64Match) {
+                const audioBytes = base64ToUint8Array(base64Match[2]);
+                const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}-tts.mp3`;
+                const { error: audioUploadError } = await supabase.storage
+                  .from('reels')
+                  .upload(audioFileName, audioBytes, { contentType: base64Match[1], upsert: true });
+                
+                if (!audioUploadError) {
+                  const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
+                  sceneAudioUrl = audioPublicUrl.publicUrl;
+                  console.log(`Scene ${scene.sceneNumber}: Uploaded base64 audio to storage: ${sceneAudioUrl}`);
+                }
+              }
+            } catch (audioUploadErr) {
+              console.error(`Scene ${scene.sceneNumber}: Failed to upload audio to storage:`, audioUploadErr);
+            }
+          }
+          
+          if (!sceneAudioUrl) {
+            console.warn(`Scene ${scene.sceneNumber}: No audio URL for InfiniteTalk — falling back to Sora-2 native`);
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+            const sora2Durations = [4, 8, 12, 16, 20];
+            const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
+            const hasImage = !!imageUrl;
+            const sora2CharContext = hasImage ? '' : charContext;
+            requestBody = {
+              image: imageUrl,
+              prompt: `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
+Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
+Lip movement must match the spoken words exactly. No silent clips, no music replacement.
+No captions, no subtitles, no watermarks.`,
+              duration: sora2Duration,
+              aspect_ratio: '9:16'
+            };
+            sceneHasEmbeddedAudio = true;
+          } else {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
+            requestBody = {
+              image: imageUrl,
+              audio: sceneAudioUrl,
+            };
+            sceneHasEmbeddedAudio = true;
+            console.log(`Scene ${scene.sceneNumber}: InfiniteTalk request — image + audio, duration will match audio length`);
+          }
+          
         } else if (videoModel === 'sora-2') {
-          // ====== SORA-2: ALL SCENES use Sora-2 when selected ======
-          // Sora-2 generates native audio — no separate TTS needed
-          const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'narrator';
-          console.log(`Scene ${scene.sceneNumber}: Using Sora-2 for ${sceneType} scene (built-in audio)`);
+          // ====== SORA-2: Intro/Outro/B-roll scenes (non-narrator) ======
+          const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'b-roll';
+          console.log(`Scene ${scene.sceneNumber}: Using Sora-2 for ${sceneType} scene (native audio)`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
           
-          // Sora-2 supports durations: 4, 8, 12, 16, 20 seconds
           const sora2Durations = [4, 8, 12, 16, 20];
           const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
           
@@ -579,54 +635,18 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
 Dramatic camera push-in with shallow depth of field, volumetric light rays, commanding presence.
 Ultra high quality, film-grade. Sets the mood for powerful content ahead.
 Smooth cinematic motion, professional color grading, photorealistic quality.
-${scene.narration ? `
-Audio (MANDATORY — PRIMARY OUTPUT):
-The person speaks directly to camera with clear, natural, confident delivery. Lips must move in perfect sync with the words.
-Voice tone: authoritative, engaging pace.
-They say EXACTLY: "${scene.narration}"
-
-Rules (STRICT):
-- Spoken dialogue audio is REQUIRED and must be clearly audible
-- Lip movement must match the spoken words exactly (lip-synced speech)
-- Do NOT generate a silent clip
-- Do NOT replace speech with music
-- No voiceover — the person on screen is speaking` : 'Atmospheric ambient audio only.'}
+Atmospheric ambient audio only.
 No text, no captions, no subtitles, no watermarks.`;
           } else if (scene.isOutro) {
             sora2Prompt = `${sora2CharContext} Premium cinematic outro for a reel about "${topic}".
 Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
 Film-grade quality.
-${scene.narration ? `
-Audio (MANDATORY — PRIMARY OUTPUT):
-The person speaks directly to camera with warm, inviting delivery. Lips must move in perfect sync with the words.
-Voice tone: confident, closing energy, natural pace.
-They say EXACTLY: "${scene.narration}"
-
-Rules (STRICT):
-- Spoken dialogue audio is REQUIRED and must be clearly audible
-- Lip movement must match the spoken words exactly (lip-synced speech)
-- Do NOT generate a silent clip
-- Do NOT replace speech with music
-- No voiceover — the person on screen is speaking` : 'Warm ambient closing audio only.'}
+Warm ambient closing audio only.
 No text, no captions, no subtitles, no watermarks.`;
           } else {
             sora2Prompt = `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
-
 Camera: smooth cinematic motion, subtle depth shifts, professional color grading. Photorealistic, high-end commercial quality.
-
-Audio (MANDATORY — PRIMARY OUTPUT):
-The person speaks directly to camera with clear, natural, confident delivery. Lips must move in perfect sync with the words.
-Voice tone: authoritative, slightly provocative, engaging pace.
-They say EXACTLY: "${scene.narration}"
-
-Rules (STRICT):
-- Spoken dialogue audio is REQUIRED and must be clearly audible
-- Lip movement must match the spoken words exactly (lip-synced speech)
-- Do NOT generate a silent clip
-- Do NOT replace speech with music
-- No captions, subtitles, or on-screen text
-- No voiceover — the person on screen is speaking
-- If showing a person: natural expression, confident pose, engaged with the moment`;
+Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no watermarks.`;
           }
           
           requestBody = {
@@ -635,7 +655,7 @@ Rules (STRICT):
             duration: sora2Duration,
             aspect_ratio: '9:16'
           };
-          sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
+          sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
           // ====== INFINITETALK: Audio-driven lip sync (up to 10 min) ======
