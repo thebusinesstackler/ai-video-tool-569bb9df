@@ -1890,13 +1890,13 @@ Return ONLY the JSON object.`
                 <Button
                   onClick={generateScript}
                   disabled={isGeneratingScript || !message.trim() || !selectedTwinId}
-                  className="flex-1"
+                  className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:bg-primary/50 disabled:text-primary-foreground/80 font-semibold text-base shadow-lg shadow-primary/25"
                   size="lg"
                 >
                   {isGeneratingScript ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating Script...</>
+                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Generating Script...</>
                   ) : (
-                    <><Sparkles className="w-4 h-4 mr-2" />Generate Script</>
+                    <><Sparkles className="w-5 h-5 mr-2" />Generate Script</>
                   )}
                 </Button>
               </div>
