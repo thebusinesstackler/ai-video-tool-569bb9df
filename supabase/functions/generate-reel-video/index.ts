@@ -311,15 +311,13 @@ serve(async (req) => {
     console.log('Voiceovers provided:', voiceovers?.length || 0);
     console.log('Pre-generated images:', preGeneratedImages?.length || 0);
     console.log('Camera angles provided:', cameraAngles?.length || 0);
-    // OPENAI_API_KEY removed — not used in this function
-
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     // Create Supabase client for storage uploads and task logging
