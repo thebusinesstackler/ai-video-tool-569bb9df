@@ -1,49 +1,87 @@
 
 
-# Fix: Blank Videos After Adding B-Roll
+# Switch All AI Edge Functions from Lovable AI to Claude API (Opus with Extended Thinking)
 
-## Problem
+## Overview
 
-Two issues combine to produce blank videos:
+Replace the Lovable AI Gateway with Anthropic's Claude API (claude-opus-4-20250514) across all 23 edge functions that currently call `ai.gateway.lovable.dev`. Claude's extended thinking feature will be enabled for complex reasoning tasks.
 
-1. **Creatomate cloud stitching fails** with a 402 "Insufficient credits" error
-2. **Canvas fallback produces a 0-byte video** because cross-origin CDN videos (from WaveSpeed/cloudfront) taint the canvas, making `captureStream()` and `MediaRecorder` output empty data
+## Step 1: Add Claude API Key as a Secret
 
-The canvas approach fundamentally cannot work with cross-origin video URLs from CDNs due to browser security restrictions (CORS tainting). Even with `crossOrigin = 'anonymous'`, the CDN must send proper CORS headers for `captureStream()` to capture frames, and the current CDN does not reliably do so.
+You'll need to provide your Anthropic API key. We'll store it securely as `ANTHROPIC_API_KEY` in the backend secrets.
 
-## Solution
+## Step 2: Create a Shared Claude Helper
 
-Since Creatomate credits are exhausted, we need a **direct download fallback** instead of trying to re-encode via canvas. The fix:
+**New file: `supabase/functions/_shared/claude.ts`**
 
-### 1. Skip canvas stitching for cross-origin videos — offer individual downloads instead
-**File: `src/pages/Reels.tsx`** (in `restitchWithAppendedClips`)
+A reusable module that:
+- Calls `https://api.anthropic.com/v1/messages` with the Claude Messages API format
+- Converts OpenAI-style `messages` arrays to Claude's format (separating `system` from user/assistant messages)
+- Enables extended thinking with configurable budget (default: 10,000 tokens for complex tasks, 5,000 for simpler ones)
+- Handles 429/402 errors consistently
+- Returns a normalized response matching the current `{ response, imageUrl }` shape so frontend code doesn't need changes
 
-When cloud stitch fails and all URLs are remote CDN links:
-- Instead of attempting canvas stitch (which will always produce 0 bytes), detect the failure and offer the user a **direct URL to the first/primary clip** as the video, plus a message explaining that multi-clip stitching requires cloud rendering credits
-- Alternatively, if there's only one original clip + one B-roll, just use the original clip URL as-is and save the B-roll separately
+## Step 3: Update All 23 Edge Functions
 
-### 2. Add a Creatomate credit error detection
-**File: `src/pages/Reels.tsx`**
+Each function will be updated to:
+1. Import the shared Claude helper
+2. Replace `LOVABLE_API_KEY` with `ANTHROPIC_API_KEY`
+3. Replace `fetch('https://ai.gateway.lovable.dev/...')` with the Claude helper call
+4. Use `claude-opus-4-20250514` as the model
 
-Parse the Creatomate error response to detect the 402/insufficient credits case specifically. Show a clear toast: "Cloud rendering credits exhausted — please top up your Creatomate account to stitch multiple clips together."
+**Functions to update:**
+- `ai/index.ts` (general purpose — used by AI Spokesperson)
+- `generate-script/index.ts`
+- `generate-reel-script/index.ts`
+- `generate-commercial-strategy/index.ts`
+- `generate-scene-dialogue/index.ts`
+- `generate-movie-outline/index.ts`
+- `generate-movie-scenes/index.ts`
+- `generate-story-bible/index.ts`
+- `generate-content-strategy/index.ts`
+- `generate-video-hooks/index.ts`
+- `generate-scene-image/index.ts`
+- `generate-twin-angles/index.ts`
+- `generate-conversation-dialogue/index.ts`
+- `pete-ai-chat/index.ts`
+- `analyze-face-description/index.ts`
+- `analyze-face-similarity/index.ts`
+- `analyze-reference-image/index.ts`
+- `extract-locations/index.ts`
+- `upscale-image/index.ts`
+- `upscale-video/index.ts`
+- `edit-scene-image/index.ts`
+- `describe-scene/index.ts`
+- `generate-reel-voiceover/index.ts` (if it uses AI gateway)
 
-### 3. Prevent 0-byte blob from being saved
-**File: `src/pages/Reels.tsx`** (after canvas stitch returns)
+## Step 4: Handle Image Generation Functions
 
-Add a guard: if `stitchedBlob.size < 1000`, do not save or set as the video. Instead, show an error toast and fall back to keeping the original video URL.
+Claude does not generate images. Functions that use Gemini image models (`gemini-3-pro-image-preview`, `gemini-3.1-flash-image-preview`) for image generation will **keep using Lovable AI** since Claude cannot replace that capability. These include:
+- `generate-scene-image/index.ts` (image generation)
+- `generate-twin-angles/index.ts` (image generation)
+- `upscale-image/index.ts` (image editing)
+- `edit-scene-image/index.ts` (image editing)
 
-### 4. Single-clip shortcut for B-roll
-**File: `src/pages/Reels.tsx`**
+Only the **text reasoning** portions of these functions will switch to Claude where applicable.
 
-When there's exactly 1 original video and the user adds B-roll, but stitching fails, save both clips as separate scenes in the reel record rather than producing a blank combined video.
+## Step 5: Extended Thinking Configuration
 
-## Technical Details
+Extended thinking will be enabled with budget tokens based on task complexity:
+- **High reasoning** (script generation, commercial strategy, movie outlines): `budget_tokens: 16000`
+- **Medium reasoning** (dialogue, content strategy, scene descriptions): `budget_tokens: 8000`
+- **Light reasoning** (chat responses, face analysis, location extraction): `budget_tokens: 4000`
 
-- **Root cause**: `canvasStitchVideos` with cross-origin videos produces 0-byte output due to canvas tainting
-- **Guard in canvas stitch** (`src/lib/canvasStitch.ts`): Add a check after `recorder.stop()` — if `finalBlob.size === 0`, throw an error instead of returning empty blob
-- **Creatomate error surfacing**: The edge function already returns the 402 error, but `restitchWithAppendedClips` catches it generically. Parse `stitchData?.error` for "credits" and show a specific message.
+## Technical Notes
 
-## Files to Change
-1. `src/lib/canvasStitch.ts` — throw on 0-byte output instead of returning empty blob
-2. `src/pages/Reels.tsx` — in `restitchWithAppendedClips`: detect credit errors, guard against 0-byte blobs, fall back to original video URL when stitching fails
+- Claude Messages API uses `anthropic-version: 2023-06-01` header
+- Extended thinking requires `thinking: { type: "enabled", budget_tokens: N }` in the request body
+- System prompts go in the top-level `system` field, not as a message
+- No frontend changes needed — the edge functions maintain the same response contract
+- Image generation functions retain Lovable AI as a fallback for that specific capability
+
+## Files Changed
+
+- 1 new shared helper file
+- ~19 edge function updates (text-only AI calls)
+- ~4 edge functions partially updated (keep Lovable AI for image gen, use Claude for text)
 
