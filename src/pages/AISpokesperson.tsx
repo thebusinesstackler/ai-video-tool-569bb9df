@@ -20,7 +20,7 @@ import { VideoPlayer } from '@/components/VideoPlayer';
 import {
   Sparkles, User, Loader2, Wand2, Camera, Video, Download,
   Mic, Settings2, Film, ChevronDown, RefreshCw, Play, 
-  Lightbulb, MessageCircle, Send, Check, Bot
+  Lightbulb, MessageCircle, Send, Check, Bot, Copy, ArrowRight
 } from 'lucide-react';
 import { VideoEditorPanel } from '@/components/VideoEditorPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -131,7 +131,20 @@ const AISpokesperson = () => {
   // Continuation scenes
   const [continuationVideos, setContinuationVideos] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRefB = useRef<HTMLVideoElement>(null);
   
+  // A/B Comparison
+  interface VersionSettings { mood: string; setting: string; cameraAngle: string; voiceLabel: string; }
+  const [versionA, setVersionA] = useState<{ url: string; settings: VersionSettings } | null>(null);
+  const [versionB, setVersionB] = useState<{ url: string; settings: VersionSettings } | null>(null);
+  const [isGeneratingB, setIsGeneratingB] = useState(false);
+  const [progressB, setProgressB] = useState(0);
+  const [progressStatusB, setProgressStatusB] = useState('');
+  const [showBSettings, setShowBSettings] = useState(false);
+  const [bMood, setBMood] = useState('friendly');
+  const [bSetting, setBSetting] = useState('modern-office');
+  const [bCameraAngle, setBCameraAngle] = useState('medium-close');
+  const [showComparison, setShowComparison] = useState(false);
   // AI Enhancement
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [suggestions, setSuggestions] = useState<{ title: string; enhanced: string }[]>([]);
@@ -968,7 +981,167 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setMessage('');
     setSceneShots([]);
     setShowSceneGallery(false);
+    setVersionA(null);
+    setVersionB(null);
+    setShowComparison(false);
+    setShowBSettings(false);
     clearDraft();
+  };
+
+  // Save version A when first video is generated
+  const saveAsVersionA = useCallback(() => {
+    if (videoUrl && !versionA) {
+      const voiceLabel = selectedTwin?.voice_cloning_key ? 'Cloned Voice'
+        : selectedTwin?.voice_engine === 'google-cloud' ? `Google (${selectedTwin?.google_voice_id || 'default'})`
+        : selectedTwin?.gender === 'female' ? 'WaveSpeed (Female)' : 'WaveSpeed (Male)';
+      setVersionA({
+        url: videoUrl,
+        settings: {
+          mood: MOODS.find(m => m.id === selectedMood)?.name || selectedMood,
+          setting: SETTINGS.find(s => s.id === selectedSetting)?.name || selectedSetting,
+          cameraAngle: CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.name || selectedCameraAngle,
+          voiceLabel,
+        }
+      });
+    }
+  }, [videoUrl, versionA, selectedTwin, selectedMood, selectedSetting, selectedCameraAngle]);
+
+  useEffect(() => { saveAsVersionA(); }, [saveAsVersionA]);
+
+  // Generate Version B with different settings
+  const generateVersionB = async () => {
+    if (!generatedScript || !selectedTwin || !user) return;
+    
+    setIsGeneratingB(true);
+    setProgressB(5);
+    setProgressStatusB('Loop AI: Generating Version B voiceover...');
+    setShowBSettings(false);
+
+    try {
+      // Step 1: Generate voiceover with same twin voice
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: buildTtsBody(generatedScript.narration, selectedTwin)
+      });
+
+      if (ttsError) throw ttsError;
+      if (!ttsData?.audioContent) throw new Error('No audio generated');
+
+      setProgressB(20);
+      setProgressStatusB('Loop AI: Generating Version B character image...');
+
+      // Upload audio
+      let uploadedAudioUrl = '';
+      try {
+        const bytes = Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0));
+        const fileName = `${user.id}/spokesperson/${Date.now()}-vb-voiceover.mp3`;
+        const { data: uploadData } = await supabase.storage.from('reels').upload(fileName, bytes, { contentType: 'audio/mpeg' });
+        if (uploadData) {
+          const { data: urlData } = supabase.storage.from('reels').getPublicUrl(uploadData.path);
+          uploadedAudioUrl = urlData.publicUrl;
+        }
+      } catch {}
+
+      // Step 2: Generate character image with B settings
+      const bMoodData = MOODS.find(m => m.id === bMood);
+      const bSettingData = SETTINGS.find(s => s.id === bSetting);
+      const bAngle = CAMERA_ANGLES.find(a => a.id === bCameraAngle);
+
+      const imagePrompt = `Professional portrait of ${selectedTwin.face_description || 'a professional person'}, ${bAngle?.promptModifier || 'medium close-up'}, ${bMoodData?.prompt || 'friendly demeanor'}, ${bSettingData?.prompt || 'modern office'}, photorealistic, 4K cinematic`;
+
+      const messages = selectedTwin.reference_images?.[0]
+        ? [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: selectedTwin.reference_images[0] } },
+            { type: 'text', text: `Generate an image of this exact person: ${imagePrompt}` }
+          ]}]
+        : [{ role: 'user', content: imagePrompt }];
+
+      setProgressB(35);
+
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
+        body: { messages, model: 'google/gemini-2.5-flash-image', modalities: ['text', 'image'] }
+      });
+
+      if (aiError) throw aiError;
+      const characterImageUrl = aiData?.imageUrl;
+      if (!characterImageUrl) throw new Error('No character image generated for Version B');
+
+      setProgressB(55);
+      setProgressStatusB('Loop AI: Creating Version B video...');
+
+      // Step 3: Generate lip-sync video
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          model: 'infinitetalk',
+          imageUrls: [characterImageUrl],
+          audioUrl: uploadedAudioUrl || `data:audio/mp3;base64,${ttsData.audioContent}`,
+        }
+      });
+
+      if (videoError) throw videoError;
+      const taskId = videoData?.taskId;
+      if (!taskId) throw new Error('No task ID returned');
+
+      setProgressB(65);
+      setProgressStatusB('Loop AI: Rendering Version B lip-sync...');
+
+      // Step 4: Poll for completion
+      let attempts = 0;
+      const maxAttempts = 60;
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 5000));
+        attempts++;
+        setProgressB(65 + Math.min(30, attempts));
+
+        const { data: statusData } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId }
+        });
+
+        if (statusData?.status === 'completed' && statusData?.videoUrl) {
+          const voiceLabel = selectedTwin.voice_cloning_key ? 'Cloned Voice'
+            : selectedTwin.voice_engine === 'google-cloud' ? `Google (${selectedTwin.google_voice_id || 'default'})`
+            : selectedTwin.gender === 'female' ? 'WaveSpeed (Female)' : 'WaveSpeed (Male)';
+
+          setVersionB({
+            url: statusData.videoUrl,
+            settings: {
+              mood: bMoodData?.name || bMood,
+              setting: bSettingData?.name || bSetting,
+              cameraAngle: bAngle?.name || bCameraAngle,
+              voiceLabel,
+            }
+          });
+          setShowComparison(true);
+          setProgressB(100);
+          setProgressStatusB('Version B ready!');
+          toast({ title: 'Version B Ready!', description: 'Compare both versions side by side.' });
+          break;
+        }
+
+        if (statusData?.status === 'failed') {
+          throw new Error('Version B video generation failed');
+        }
+      }
+
+      if (attempts >= maxAttempts) throw new Error('Version B generation timed out');
+
+    } catch (err: any) {
+      console.error('Version B generation error:', err);
+      toast({ title: 'Version B Failed', description: err.message || 'Could not generate Version B.', variant: 'destructive' });
+    } finally {
+      setIsGeneratingB(false);
+    }
+  };
+
+  const pickVersion = (version: 'A' | 'B') => {
+    const picked = version === 'A' ? versionA : versionB;
+    if (picked) {
+      setVideoUrl(picked.url);
+    }
+    setShowComparison(false);
+    setVersionB(null);
+    setShowBSettings(false);
+    toast({ title: `Version ${version} Selected`, description: `Using Version ${version} as your final video.` });
   };
 
   // Toggle shot selection for editor panel
@@ -1287,8 +1460,80 @@ Return ONLY the JSON object.`
           </Card>
         )}
 
+        {/* ===== A/B COMPARISON VIEW ===== */}
+        {showComparison && versionA && versionB && (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Copy className="w-5 h-5 text-primary" />
+                Compare Versions — Pick Your Favorite
+              </CardTitle>
+              <CardDescription>Both versions use the same script but different production settings.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Version A */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-primary text-primary-foreground">Version A</Badge>
+                  </div>
+                  <div className="aspect-[9/16] max-h-[400px] mx-auto rounded-lg overflow-hidden bg-muted">
+                    <video ref={videoRef} src={versionA.url} controls playsInline className="w-full h-full object-contain" />
+                  </div>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Mood:</span> {versionA.settings.mood}</p>
+                    <p><span className="font-medium text-foreground">Setting:</span> {versionA.settings.setting}</p>
+                    <p><span className="font-medium text-foreground">Camera:</span> {versionA.settings.cameraAngle}</p>
+                    <p><span className="font-medium text-foreground">Voice:</span> {versionA.settings.voiceLabel}</p>
+                  </div>
+                  <Button className="w-full" onClick={() => pickVersion('A')}>
+                    <Check className="w-4 h-4 mr-2" />
+                    Pick Version A
+                  </Button>
+                </div>
+
+                {/* Version B */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Version B</Badge>
+                  </div>
+                  <div className="aspect-[9/16] max-h-[400px] mx-auto rounded-lg overflow-hidden bg-muted">
+                    <video ref={videoRefB} src={versionB.url} controls playsInline className="w-full h-full object-contain" />
+                  </div>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Mood:</span> {versionB.settings.mood}</p>
+                    <p><span className="font-medium text-foreground">Setting:</span> {versionB.settings.setting}</p>
+                    <p><span className="font-medium text-foreground">Camera:</span> {versionB.settings.cameraAngle}</p>
+                    <p><span className="font-medium text-foreground">Voice:</span> {versionB.settings.voiceLabel}</p>
+                  </div>
+                  <Button className="w-full" variant="secondary" onClick={() => pickVersion('B')}>
+                    <Check className="w-4 h-4 mr-2" />
+                    Pick Version B
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ===== VERSION B GENERATION PROGRESS ===== */}
+        {isGeneratingB && (
+          <Card className="border-accent/30">
+            <CardContent className="pt-6 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent/10 rounded-full">
+                  <Loader2 className="w-4 h-4 text-accent-foreground animate-spin" />
+                  <span className="text-xs font-semibold text-accent-foreground">Generating Version B</span>
+                </div>
+                <span className="text-sm text-muted-foreground">{progressStatusB}</span>
+              </div>
+              <Progress value={progressB} className="h-2" />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Video Result — Side-by-side with AI Editor */}
-        {videoUrl && (
+        {videoUrl && !showComparison && (
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
             {/* Left: Video Player */}
             <Card className="border-primary/30">
@@ -1299,7 +1544,7 @@ Return ONLY the JSON object.`
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center relative">
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-lg overflow-hidden flex items-center justify-center relative">
                   <video
                     ref={videoRef}
                     src={videoUrl}
@@ -1311,8 +1556,8 @@ Return ONLY the JSON object.`
                   />
                   {captionsEnabled && captionText && (
                     <div className="absolute bottom-12 left-2 right-2 pointer-events-none">
-                      <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
-                        <p className="text-sm font-semibold text-white drop-shadow-lg leading-snug">
+                      <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
+                        <p className="text-sm font-semibold text-foreground drop-shadow-lg leading-snug">
                           {captionText.substring(0, 100)}...
                         </p>
                       </div>
@@ -1327,22 +1572,81 @@ Return ONLY the JSON object.`
                       🎬 Scene Continuations ({continuationVideos.length})
                     </p>
                     {continuationVideos.map((url, idx) => (
-                      <div key={idx} className="aspect-[9/16] max-h-[300px] mx-auto bg-black rounded-lg overflow-hidden">
+                      <div key={idx} className="aspect-[9/16] max-h-[300px] mx-auto bg-muted rounded-lg overflow-hidden">
                         <video src={url} controls playsInline className="w-full h-full object-contain" />
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2 justify-center">
+                <div className="flex gap-2 justify-center flex-wrap">
                   <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
                     <Download className="w-4 h-4 mr-2" />
                     Download
                   </Button>
+                  {!isGeneratingB && !versionB && (
+                    <Button variant="outline" onClick={() => setShowBSettings(true)}>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Generate Version B
+                    </Button>
+                  )}
+                  {versionB && !showComparison && (
+                    <Button variant="outline" onClick={() => setShowComparison(true)}>
+                      <ArrowRight className="w-4 h-4 mr-2" />
+                      Compare Versions
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={resetAll}>
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Create Another
                   </Button>
                 </div>
+
+                {/* Version B Settings Panel */}
+                {showBSettings && !isGeneratingB && (
+                  <div className="border border-border rounded-lg p-4 space-y-4 bg-muted/30">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Settings2 className="w-4 h-4" />
+                      Version B Settings
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Same script, different production style. Tweak these settings and generate.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Mood</Label>
+                        <Select value={bMood} onValueChange={setBMood}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {MOODS.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Setting</Label>
+                        <Select value={bSetting} onValueChange={setBSetting}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {SETTINGS.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Camera Angle</Label>
+                        <Select value={bCameraAngle} onValueChange={setBCameraAngle}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {CAMERA_ANGLES.slice(0, 15).map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={generateVersionB} className="flex-1">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Version B
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowBSettings(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
