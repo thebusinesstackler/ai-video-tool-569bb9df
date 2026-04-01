@@ -5996,148 +5996,26 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     </div>
                   )}
 
-                  {/* Scene Images/Videos Gallery - show only if no stitched video */}
+                  {/* Scene Timeline with drag-reorder, B-roll insert, product shots */}
                   {!project.videoBlobUrl && project.generatedScenes.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {project.generatedScenes.map((scene, idx) => (
-                        <div key={scene.sceneNumber} className="relative group">
-                          <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
-                            {scene.videoUrl ? (
-                              <VideoPlayer
-                                videoUrl={scene.videoUrl}
-                                title={`Scene ${scene.sceneNumber}`}
-                                trigger={
-                                  <div className="relative cursor-pointer w-full h-full">
-                                    {scene.imageUrl ? (
-                                      <img
-                                        src={scene.imageUrl}
-                                        alt={`Scene ${scene.sceneNumber}`}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                        Video
-                                      </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Play className="w-10 h-10 text-white drop-shadow-lg" />
-                                    </div>
-                                  </div>
-                                }
-                              />
-                            ) : scene.imageUrl ? (
-                              <img
-                                src={scene.imageUrl}
-                                alt={`Scene ${scene.sceneNumber}`}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                No image
-                              </div>
-                            )}
-                            {/* Caption overlay */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pointer-events-none">
-                              <p className="text-white text-xs line-clamp-3">{scene.text}</p>
-                            </div>
-                            {/* Scene number badge */}
-                            <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold pointer-events-none">
-                              {scene.sceneNumber}
-                            </div>
-                            {/* Video indicator */}
-                            {scene.videoUrl && (
-                              <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded pointer-events-none">
-                                <Video className="w-3 h-3" />
-                              </div>
-                            )}
-                            {/* Edit overlay - shown on hover */}
-                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="text-xs"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingSceneNumber(scene.sceneNumber);
-                                  setEditSceneText(scene.text);
-                                }}
-                              >
-                                <Pencil className="w-3 h-3 mr-1" />
-                                Edit
-                              </Button>
-                              <div className="flex gap-1">
-                                {idx > 0 && (
-                                  <Button
-                                    size="icon"
-                                    variant="secondary"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Swap with previous scene
-                                      setProject(prev => {
-                                        const scenes = [...prev.generatedScenes];
-                                        const clips = [...prev.videoClips];
-                                        const vos = [...prev.voiceovers];
-                                        // Swap scene numbers
-                                        const prevNum = scenes[idx - 1].sceneNumber;
-                                        const currNum = scenes[idx].sceneNumber;
-                                        scenes[idx - 1] = { ...scenes[idx - 1], sceneNumber: currNum };
-                                        scenes[idx] = { ...scenes[idx], sceneNumber: prevNum };
-                                        [scenes[idx - 1], scenes[idx]] = [scenes[idx], scenes[idx - 1]];
-                                        // Also swap video clips
-                                        const ci = clips.findIndex(c => c.sceneNumber === currNum);
-                                        const pi = clips.findIndex(c => c.sceneNumber === prevNum);
-                                        if (ci >= 0) clips[ci] = { ...clips[ci], sceneNumber: prevNum };
-                                        if (pi >= 0) clips[pi] = { ...clips[pi], sceneNumber: currNum };
-                                        // Swap voiceovers
-                                        const vi = vos.findIndex(v => v.sceneNumber === currNum);
-                                        const pvi = vos.findIndex(v => v.sceneNumber === prevNum);
-                                        if (vi >= 0) vos[vi] = { ...vos[vi], sceneNumber: prevNum };
-                                        if (pvi >= 0) vos[pvi] = { ...vos[pvi], sceneNumber: currNum };
-                                        return { ...prev, generatedScenes: scenes, videoClips: clips, voiceovers: vos };
-                                      });
-                                    }}
-                                  >
-                                    <ArrowUp className="w-3 h-3" />
-                                  </Button>
-                                )}
-                                {idx < project.generatedScenes.length - 1 && (
-                                  <Button
-                                    size="icon"
-                                    variant="secondary"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setProject(prev => {
-                                        const scenes = [...prev.generatedScenes];
-                                        const clips = [...prev.videoClips];
-                                        const vos = [...prev.voiceovers];
-                                        const nextNum = scenes[idx + 1].sceneNumber;
-                                        const currNum = scenes[idx].sceneNumber;
-                                        scenes[idx + 1] = { ...scenes[idx + 1], sceneNumber: currNum };
-                                        scenes[idx] = { ...scenes[idx], sceneNumber: nextNum };
-                                        [scenes[idx], scenes[idx + 1]] = [scenes[idx + 1], scenes[idx]];
-                                        const ci = clips.findIndex(c => c.sceneNumber === currNum);
-                                        const ni = clips.findIndex(c => c.sceneNumber === nextNum);
-                                        if (ci >= 0) clips[ci] = { ...clips[ci], sceneNumber: nextNum };
-                                        if (ni >= 0) clips[ni] = { ...clips[ni], sceneNumber: currNum };
-                                        const vi = vos.findIndex(v => v.sceneNumber === currNum);
-                                        const nvi = vos.findIndex(v => v.sceneNumber === nextNum);
-                                        if (vi >= 0) vos[vi] = { ...vos[vi], sceneNumber: nextNum };
-                                        if (nvi >= 0) vos[nvi] = { ...vos[nvi], sceneNumber: currNum };
-                                        return { ...prev, generatedScenes: scenes, videoClips: clips, voiceovers: vos };
-                                      });
-                                    }}
-                                  >
-                                    <ArrowDown className="w-3 h-3" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <ReelSceneTimeline
+                      scenes={project.generatedScenes}
+                      videoClips={project.videoClips}
+                      voiceovers={project.voiceovers}
+                      productImages={timelineProductImages}
+                      onScenesChange={(newScenes, newClips, newVos) => {
+                        setProject(prev => ({
+                          ...prev,
+                          generatedScenes: newScenes,
+                          videoClips: newClips,
+                          voiceovers: newVos
+                        }));
+                      }}
+                      onEditScene={(sceneNumber, text) => {
+                        setEditingSceneNumber(sceneNumber);
+                        setEditSceneText(text);
+                      }}
+                    />
                   )}
 
                   {/* Intro/CTA Slide Buttons */}
