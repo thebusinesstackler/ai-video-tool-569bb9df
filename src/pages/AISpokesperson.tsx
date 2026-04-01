@@ -199,7 +199,8 @@ const AISpokesperson = () => {
           .order('name');
         
         if (error) throw error;
-        const validTwins = (data || []).filter(t => t.reference_images && t.reference_images.length > 0);
+        const validTwins = (data || []).filter(t => t.reference_images && t.reference_images.length > 0)
+          .map(t => ({ ...t, voice_engine: t.voice_engine as AITwin['voice_engine'] }));
         setTwins(validTwins);
         
         // Auto-select first twin
