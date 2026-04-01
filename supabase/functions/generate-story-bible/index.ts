@@ -157,114 +157,75 @@ ${providedCharacterCount >= 2
 
 Return ONLY the JSON, no markdown.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
+    try {
+      const result = await callClaude({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-      }),
-    });
+        thinkingBudget: 16000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI Gateway error: ${response.status}`);
-    }
+      let generatedContent = result.text;
+      if (!generatedContent) throw new Error('No content generated');
 
-    const data = await response.json();
-    let generatedContent = data?.choices?.[0]?.message?.content;
+      console.log('Raw story bible response length:', generatedContent.length);
 
-    if (!generatedContent) {
-      throw new Error('No content generated');
-    }
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = generatedContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (jsonMatch) generatedContent = jsonMatch[1];
 
-    console.log('Raw story bible response length:', generatedContent.length);
+      const objectMatch = generatedContent.match(/\{[\s\S]*\}/);
+      if (objectMatch) generatedContent = objectMatch[0];
 
-    // Extract JSON from markdown code blocks if present
-    const jsonMatch = generatedContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-    if (jsonMatch) {
-      generatedContent = jsonMatch[1];
-    }
-
-    // Try to find JSON object in the response
-    const objectMatch = generatedContent.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-      generatedContent = objectMatch[0];
-    }
-
-    // Parse the story bible with robust cleanup
-    let storyBible;
-    try {
-      storyBible = JSON.parse(generatedContent);
-    } catch (parseError) {
-      console.log('Initial JSON parse failed, attempting cleanup...');
-      
-      // More aggressive cleanup for malformed JSON
-      let cleaned = generatedContent
-        .replace(/^\uFEFF/, '') // Remove BOM
-        .replace(/[\x00-\x1F\x7F]/g, (char: string) => {
-          // Replace control characters except for common whitespace
-          if (char === '\n' || char === '\r' || char === '\t') {
-            return ' '; // Replace newlines/tabs in strings with space
-          }
-          return '';
-        })
-        .replace(/,\s*([\]}])/g, '$1') // Remove trailing commas
-        .replace(/([^\\])\\([^"\\\/bfnrtu])/g, '$1\\\\$2') // Fix unescaped backslashes
-        .trim();
-      
+      let storyBible;
       try {
-        storyBible = JSON.parse(cleaned);
-      } catch (secondError) {
-        console.log('Second parse attempt failed, trying more aggressive cleanup...');
-        
-        // Even more aggressive: just try to extract and reformat
-        // Remove all line breaks within strings by replacing them globally
-        cleaned = cleaned.replace(/\n/g, ' ').replace(/\r/g, ' ');
-        
+        storyBible = JSON.parse(generatedContent);
+      } catch (parseError) {
+        console.log('Initial JSON parse failed, attempting cleanup...');
+        let cleaned = generatedContent
+          .replace(/^\uFEFF/, '')
+          .replace(/[\x00-\x1F\x7F]/g, (char: string) => {
+            if (char === '\n' || char === '\r' || char === '\t') return ' ';
+            return '';
+          })
+          .replace(/,\s*([\]}])/g, '$1')
+          .replace(/([^\\])\\([^"\\\/bfnrtu])/g, '$1\\\\$2')
+          .trim();
+
         try {
           storyBible = JSON.parse(cleaned);
-        } catch (thirdError) {
-          console.error('All JSON parse attempts failed:', thirdError);
-          console.log('Raw content preview:', generatedContent.substring(0, 500));
-          throw new Error('Failed to parse AI response as JSON. The AI may have generated malformed content.');
+        } catch {
+          cleaned = cleaned.replace(/\n/g, ' ').replace(/\r/g, ' ');
+          try {
+            storyBible = JSON.parse(cleaned);
+          } catch (thirdError) {
+            console.error('All JSON parse attempts failed:', thirdError);
+            throw new Error('Failed to parse AI response as JSON.');
+          }
         }
       }
+
+      if (!storyBible.characters || !Array.isArray(storyBible.characters)) {
+        throw new Error('Invalid story bible - missing characters array');
+      }
+
+      console.log(`Generated story bible with ${storyBible.characters.length} characters`);
+
+      return new Response(
+        JSON.stringify({ storyBible }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw error;
     }
-
-    // Validate structure
-    if (!storyBible.characters || !Array.isArray(storyBible.characters)) {
-      throw new Error('Invalid story bible - missing characters array');
-    }
-
-    console.log(`Generated story bible with ${storyBible.characters.length} characters`);
-
-    return new Response(
-      JSON.stringify({ storyBible }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error: any) {
     console.error('Error in generate-story-bible:', error);

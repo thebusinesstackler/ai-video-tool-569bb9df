@@ -353,6 +353,16 @@ Return ONLY the JSON array, no markdown formatting or code blocks.`;
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw error;
+    }
+
   } catch (error: any) {
     console.error('Error in generate-movie-scenes:', error);
     return new Response(
