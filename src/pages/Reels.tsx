@@ -2127,11 +2127,37 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         while (completedVideos.length < videoTasks.length) {
           if (Date.now() - startTime > maxPollingTime) {
             console.warn(`Video polling timed out after ${maxPollingTime / 1000}s. ${completedVideos.length}/${videoTasks.length} completed.`);
-            toast({
-              title: "Some scenes timed out",
-              description: `${completedVideos.length} of ${videoTasks.length} scenes completed. Continuing with available clips.`,
-              variant: "destructive"
-            });
+            
+            // Hand off incomplete tasks to background job system
+            const pendingTasks = videoTasks.filter((t: any) => !completedVideos.find(v => v.sceneNumber === t.sceneNumber));
+            if (pendingTasks.length > 0 && user) {
+              try {
+                registerJob({
+                  topic: project.topic || topic || 'Untitled Reel',
+                  userId: user.id,
+                  videoTasks: pendingTasks.map((t: any) => ({ taskId: t.taskId, sceneNumber: t.sceneNumber, hasEmbeddedAudio: t.hasEmbeddedAudio })),
+                  generatedScenes,
+                  voiceovers,
+                  hasEmbeddedAudio,
+                });
+                toast({
+                  title: "⏳ Video moved to background",
+                  description: "Your video is still generating. You'll be notified when it's ready — check the indicator in the top bar.",
+                });
+              } catch (bgErr) {
+                console.warn('Failed to register background job:', bgErr);
+              }
+            }
+            
+            // If some completed, continue with those; otherwise exit early
+            if (completedVideos.length === 0) {
+              setProject(prev => ({ ...prev, status: 'idle' }));
+              setProgress(0);
+              setProgressStatus('');
+              activeGenerationRef.current = null;
+              return;
+            }
+            
             for (const task of videoTasks) {
               if (!completedVideos.find(v => v.sceneNumber === task.sceneNumber)) {
                 completedVideos.push({ sceneNumber: task.sceneNumber, videoUrl: '' });
