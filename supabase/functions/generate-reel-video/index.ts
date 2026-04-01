@@ -363,25 +363,30 @@ serve(async (req) => {
           : undefined;
         
         const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync, characterDescription, referenceImages, cameraAngleModifier);
-        const messages = buildImageGenMessages(imagePrompt, (!scene.isIntro && !scene.isOutro) ? referenceImages : undefined);
+        const fullPrompt = buildImageGenPrompt(imagePrompt, (!scene.isIntro && !scene.isOutro) ? referenceImages : undefined);
         
-        const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        // Use OpenAI gpt-image-1
+        const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-3-pro-image-preview',
-            messages,
-            modalities: ['image', 'text'],
-            image_generation_config: { aspect_ratio: '9:16' }
+            model: 'gpt-image-1',
+            prompt: fullPrompt,
+            n: 1,
+            size: '1024x1536',
+            quality: 'high',
           }),
         });
 
         if (imageResponse.ok) {
           const imageData = await imageResponse.json();
-          const imageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          const b64 = imageData.data?.[0]?.b64_json;
+          const imgUrl = imageData.data?.[0]?.url;
+          const imageUrl = b64 ? `data:image/png;base64,${b64}` : imgUrl;
+          
           if (imageUrl) {
             sceneImages.push(imageUrl);
             
@@ -406,16 +411,21 @@ serve(async (req) => {
                   console.log('Saved image to storage:', fileName);
                 } else {
                   console.error('Upload error:', uploadError);
-                  savedImageUrls.push(imageUrl); // Fallback to base64
+                  savedImageUrls.push(imageUrl);
                 }
               } catch (uploadErr) {
                 console.error('Storage upload failed:', uploadErr);
-                savedImageUrls.push(imageUrl); // Fallback to base64
+                savedImageUrls.push(imageUrl);
               }
             } else {
               savedImageUrls.push(imageUrl);
             }
           }
+        } else {
+          const errText = await imageResponse.text();
+          console.error('OpenAI image gen failed for scene', scene.sceneNumber, ':', errText);
+          sceneImages.push('');
+          savedImageUrls.push('');
         }
       } catch (imgError) {
         console.error('Image generation error for scene:', scene.sceneNumber, imgError);
