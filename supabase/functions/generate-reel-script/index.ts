@@ -190,6 +190,15 @@ Remember:
         JSON.stringify({ scenes }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+      } catch (error) {
+        if (error instanceof ClaudeError) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw error;
+      }
     }
 
     // Determine if intro/outro are enabled
