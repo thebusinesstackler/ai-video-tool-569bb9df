@@ -1460,8 +1460,80 @@ Return ONLY the JSON object.`
           </Card>
         )}
 
+        {/* ===== A/B COMPARISON VIEW ===== */}
+        {showComparison && versionA && versionB && (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Copy className="w-5 h-5 text-primary" />
+                Compare Versions — Pick Your Favorite
+              </CardTitle>
+              <CardDescription>Both versions use the same script but different production settings.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Version A */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-primary text-primary-foreground">Version A</Badge>
+                  </div>
+                  <div className="aspect-[9/16] max-h-[400px] mx-auto rounded-lg overflow-hidden bg-muted">
+                    <video ref={videoRef} src={versionA.url} controls playsInline className="w-full h-full object-contain" />
+                  </div>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Mood:</span> {versionA.settings.mood}</p>
+                    <p><span className="font-medium text-foreground">Setting:</span> {versionA.settings.setting}</p>
+                    <p><span className="font-medium text-foreground">Camera:</span> {versionA.settings.cameraAngle}</p>
+                    <p><span className="font-medium text-foreground">Voice:</span> {versionA.settings.voiceLabel}</p>
+                  </div>
+                  <Button className="w-full" onClick={() => pickVersion('A')}>
+                    <Check className="w-4 h-4 mr-2" />
+                    Pick Version A
+                  </Button>
+                </div>
+
+                {/* Version B */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Version B</Badge>
+                  </div>
+                  <div className="aspect-[9/16] max-h-[400px] mx-auto rounded-lg overflow-hidden bg-muted">
+                    <video ref={videoRefB} src={versionB.url} controls playsInline className="w-full h-full object-contain" />
+                  </div>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Mood:</span> {versionB.settings.mood}</p>
+                    <p><span className="font-medium text-foreground">Setting:</span> {versionB.settings.setting}</p>
+                    <p><span className="font-medium text-foreground">Camera:</span> {versionB.settings.cameraAngle}</p>
+                    <p><span className="font-medium text-foreground">Voice:</span> {versionB.settings.voiceLabel}</p>
+                  </div>
+                  <Button className="w-full" variant="secondary" onClick={() => pickVersion('B')}>
+                    <Check className="w-4 h-4 mr-2" />
+                    Pick Version B
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ===== VERSION B GENERATION PROGRESS ===== */}
+        {isGeneratingB && (
+          <Card className="border-accent/30">
+            <CardContent className="pt-6 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent/10 rounded-full">
+                  <Loader2 className="w-4 h-4 text-accent-foreground animate-spin" />
+                  <span className="text-xs font-semibold text-accent-foreground">Generating Version B</span>
+                </div>
+                <span className="text-sm text-muted-foreground">{progressStatusB}</span>
+              </div>
+              <Progress value={progressB} className="h-2" />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Video Result — Side-by-side with AI Editor */}
-        {videoUrl && (
+        {videoUrl && !showComparison && (
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
             {/* Left: Video Player */}
             <Card className="border-primary/30">
@@ -1472,7 +1544,7 @@ Return ONLY the JSON object.`
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center relative">
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-lg overflow-hidden flex items-center justify-center relative">
                   <video
                     ref={videoRef}
                     src={videoUrl}
@@ -1484,8 +1556,8 @@ Return ONLY the JSON object.`
                   />
                   {captionsEnabled && captionText && (
                     <div className="absolute bottom-12 left-2 right-2 pointer-events-none">
-                      <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
-                        <p className="text-sm font-semibold text-white drop-shadow-lg leading-snug">
+                      <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
+                        <p className="text-sm font-semibold text-foreground drop-shadow-lg leading-snug">
                           {captionText.substring(0, 100)}...
                         </p>
                       </div>
@@ -1500,22 +1572,81 @@ Return ONLY the JSON object.`
                       🎬 Scene Continuations ({continuationVideos.length})
                     </p>
                     {continuationVideos.map((url, idx) => (
-                      <div key={idx} className="aspect-[9/16] max-h-[300px] mx-auto bg-black rounded-lg overflow-hidden">
+                      <div key={idx} className="aspect-[9/16] max-h-[300px] mx-auto bg-muted rounded-lg overflow-hidden">
                         <video src={url} controls playsInline className="w-full h-full object-contain" />
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2 justify-center">
+                <div className="flex gap-2 justify-center flex-wrap">
                   <Button variant="outline" onClick={() => window.open(videoUrl, '_blank')}>
                     <Download className="w-4 h-4 mr-2" />
                     Download
                   </Button>
+                  {!isGeneratingB && !versionB && (
+                    <Button variant="outline" onClick={() => setShowBSettings(true)}>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Generate Version B
+                    </Button>
+                  )}
+                  {versionB && !showComparison && (
+                    <Button variant="outline" onClick={() => setShowComparison(true)}>
+                      <ArrowRight className="w-4 h-4 mr-2" />
+                      Compare Versions
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={resetAll}>
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Create Another
                   </Button>
                 </div>
+
+                {/* Version B Settings Panel */}
+                {showBSettings && !isGeneratingB && (
+                  <div className="border border-border rounded-lg p-4 space-y-4 bg-muted/30">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Settings2 className="w-4 h-4" />
+                      Version B Settings
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Same script, different production style. Tweak these settings and generate.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Mood</Label>
+                        <Select value={bMood} onValueChange={setBMood}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {MOODS.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Setting</Label>
+                        <Select value={bSetting} onValueChange={setBSetting}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {SETTINGS.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Camera Angle</Label>
+                        <Select value={bCameraAngle} onValueChange={setBCameraAngle}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {CAMERA_ANGLES.slice(0, 15).map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={generateVersionB} className="flex-1">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Version B
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowBSettings(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
