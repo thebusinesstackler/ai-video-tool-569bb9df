@@ -131,7 +131,20 @@ const AISpokesperson = () => {
   // Continuation scenes
   const [continuationVideos, setContinuationVideos] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRefB = useRef<HTMLVideoElement>(null);
   
+  // A/B Comparison
+  interface VersionSettings { mood: string; setting: string; cameraAngle: string; voiceLabel: string; }
+  const [versionA, setVersionA] = useState<{ url: string; settings: VersionSettings } | null>(null);
+  const [versionB, setVersionB] = useState<{ url: string; settings: VersionSettings } | null>(null);
+  const [isGeneratingB, setIsGeneratingB] = useState(false);
+  const [progressB, setProgressB] = useState(0);
+  const [progressStatusB, setProgressStatusB] = useState('');
+  const [showBSettings, setShowBSettings] = useState(false);
+  const [bMood, setBMood] = useState('friendly');
+  const [bSetting, setBSetting] = useState('modern-office');
+  const [bCameraAngle, setBCameraAngle] = useState('medium-close');
+  const [showComparison, setShowComparison] = useState(false);
   // AI Enhancement
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [suggestions, setSuggestions] = useState<{ title: string; enhanced: string }[]>([]);
