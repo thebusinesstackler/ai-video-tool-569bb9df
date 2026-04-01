@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,21 +21,10 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
     console.log('Analyzing reference image:', imageUrl.substring(0, 100) + '...');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+    try {
+      const result = await callClaude({
         messages: [
           {
             role: 'user',
@@ -60,49 +50,35 @@ ONLY output the description, nothing else.`
               },
               {
                 type: 'image_url',
-                image_url: {
-                  url: imageUrl
-                }
+                image_url: { url: imageUrl }
               }
             ]
           }
         ],
-        max_tokens: 100,
-      }),
-    });
+        thinkingBudget: 4000,
+        maxTokens: 4200,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
+      const description = result.text?.trim();
+      if (!description) {
+        throw new Error('No description generated');
+      }
+
+      console.log('Generated character description:', description);
+
+      return new Response(
+        JSON.stringify({ description }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error instanceof ClaudeError) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'API credits exhausted.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw error;
     }
-
-    const data = await response.json();
-    const description = data.choices?.[0]?.message?.content?.trim();
-
-    if (!description) {
-      throw new Error('No description generated');
-    }
-
-    console.log('Generated character description:', description);
-
-    return new Response(
-      JSON.stringify({ description }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error) {
     console.error('Error analyzing reference image:', error);
