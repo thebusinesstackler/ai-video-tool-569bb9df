@@ -981,7 +981,167 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setMessage('');
     setSceneShots([]);
     setShowSceneGallery(false);
+    setVersionA(null);
+    setVersionB(null);
+    setShowComparison(false);
+    setShowBSettings(false);
     clearDraft();
+  };
+
+  // Save version A when first video is generated
+  const saveAsVersionA = useCallback(() => {
+    if (videoUrl && !versionA) {
+      const voiceLabel = selectedTwin?.voice_cloning_key ? 'Cloned Voice'
+        : selectedTwin?.voice_engine === 'google-cloud' ? `Google (${selectedTwin?.google_voice_id || 'default'})`
+        : selectedTwin?.gender === 'female' ? 'WaveSpeed (Female)' : 'WaveSpeed (Male)';
+      setVersionA({
+        url: videoUrl,
+        settings: {
+          mood: MOODS.find(m => m.id === selectedMood)?.name || selectedMood,
+          setting: SETTINGS.find(s => s.id === selectedSetting)?.name || selectedSetting,
+          cameraAngle: CAMERA_ANGLES.find(a => a.id === selectedCameraAngle)?.name || selectedCameraAngle,
+          voiceLabel,
+        }
+      });
+    }
+  }, [videoUrl, versionA, selectedTwin, selectedMood, selectedSetting, selectedCameraAngle]);
+
+  useEffect(() => { saveAsVersionA(); }, [saveAsVersionA]);
+
+  // Generate Version B with different settings
+  const generateVersionB = async () => {
+    if (!generatedScript || !selectedTwin || !user) return;
+    
+    setIsGeneratingB(true);
+    setProgressB(5);
+    setProgressStatusB('Loop AI: Generating Version B voiceover...');
+    setShowBSettings(false);
+
+    try {
+      // Step 1: Generate voiceover with same twin voice
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: buildTtsBody(generatedScript.narration, selectedTwin)
+      });
+
+      if (ttsError) throw ttsError;
+      if (!ttsData?.audioContent) throw new Error('No audio generated');
+
+      setProgressB(20);
+      setProgressStatusB('Loop AI: Generating Version B character image...');
+
+      // Upload audio
+      let uploadedAudioUrl = '';
+      try {
+        const bytes = Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0));
+        const fileName = `${user.id}/spokesperson/${Date.now()}-vb-voiceover.mp3`;
+        const { data: uploadData } = await supabase.storage.from('reels').upload(fileName, bytes, { contentType: 'audio/mpeg' });
+        if (uploadData) {
+          const { data: urlData } = supabase.storage.from('reels').getPublicUrl(uploadData.path);
+          uploadedAudioUrl = urlData.publicUrl;
+        }
+      } catch {}
+
+      // Step 2: Generate character image with B settings
+      const bMoodData = MOODS.find(m => m.id === bMood);
+      const bSettingData = SETTINGS.find(s => s.id === bSetting);
+      const bAngle = CAMERA_ANGLES.find(a => a.id === bCameraAngle);
+
+      const imagePrompt = `Professional portrait of ${selectedTwin.face_description || 'a professional person'}, ${bAngle?.prompt || 'medium close-up'}, ${bMoodData?.prompt || 'friendly demeanor'}, ${bSettingData?.prompt || 'modern office'}, photorealistic, 4K cinematic`;
+
+      const messages = selectedTwin.reference_images?.[0]
+        ? [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: selectedTwin.reference_images[0] } },
+            { type: 'text', text: `Generate an image of this exact person: ${imagePrompt}` }
+          ]}]
+        : [{ role: 'user', content: imagePrompt }];
+
+      setProgressB(35);
+
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
+        body: { messages, model: 'google/gemini-2.5-flash-image', modalities: ['text', 'image'] }
+      });
+
+      if (aiError) throw aiError;
+      const characterImageUrl = aiData?.imageUrl;
+      if (!characterImageUrl) throw new Error('No character image generated for Version B');
+
+      setProgressB(55);
+      setProgressStatusB('Loop AI: Creating Version B video...');
+
+      // Step 3: Generate lip-sync video
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          model: 'infinitetalk',
+          imageUrls: [characterImageUrl],
+          audioUrl: uploadedAudioUrl || `data:audio/mp3;base64,${ttsData.audioContent}`,
+        }
+      });
+
+      if (videoError) throw videoError;
+      const taskId = videoData?.taskId;
+      if (!taskId) throw new Error('No task ID returned');
+
+      setProgressB(65);
+      setProgressStatusB('Loop AI: Rendering Version B lip-sync...');
+
+      // Step 4: Poll for completion
+      let attempts = 0;
+      const maxAttempts = 60;
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 5000));
+        attempts++;
+        setProgressB(65 + Math.min(30, attempts));
+
+        const { data: statusData } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId }
+        });
+
+        if (statusData?.status === 'completed' && statusData?.videoUrl) {
+          const voiceLabel = selectedTwin.voice_cloning_key ? 'Cloned Voice'
+            : selectedTwin.voice_engine === 'google-cloud' ? `Google (${selectedTwin.google_voice_id || 'default'})`
+            : selectedTwin.gender === 'female' ? 'WaveSpeed (Female)' : 'WaveSpeed (Male)';
+
+          setVersionB({
+            url: statusData.videoUrl,
+            settings: {
+              mood: bMoodData?.name || bMood,
+              setting: bSettingData?.name || bSetting,
+              cameraAngle: bAngle?.name || bCameraAngle,
+              voiceLabel,
+            }
+          });
+          setShowComparison(true);
+          setProgressB(100);
+          setProgressStatusB('Version B ready!');
+          toast({ title: 'Version B Ready!', description: 'Compare both versions side by side.' });
+          break;
+        }
+
+        if (statusData?.status === 'failed') {
+          throw new Error('Version B video generation failed');
+        }
+      }
+
+      if (attempts >= maxAttempts) throw new Error('Version B generation timed out');
+
+    } catch (err: any) {
+      console.error('Version B generation error:', err);
+      toast({ title: 'Version B Failed', description: err.message || 'Could not generate Version B.', variant: 'destructive' });
+    } finally {
+      setIsGeneratingB(false);
+    }
+  };
+
+  const pickVersion = (version: 'A' | 'B') => {
+    const picked = version === 'A' ? versionA : versionB;
+    if (picked) {
+      setVideoUrl(picked.url);
+    }
+    setShowComparison(false);
+    setVersionB(null);
+    setShowBSettings(false);
+    toast({ title: `Version ${version} Selected`, description: `Using Version ${version} as your final video.` });
   };
 
   // Toggle shot selection for editor panel
