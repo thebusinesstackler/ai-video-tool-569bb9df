@@ -250,50 +250,22 @@ Break this down into visually stunning scenes with:
 
 Return ONLY the JSON array, no markdown formatting or code blocks.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
+    try {
+      const result = await callClaude({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-      }),
-    });
+        thinkingBudget: 16000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      let generatedContent = result.text;
+
+      if (!generatedContent) {
+        throw new Error('No content generated');
       }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI Gateway error: ${response.status}`);
-    }
 
-    const data = await response.json();
-    let generatedContent = data?.choices?.[0]?.message?.content;
-
-    if (!generatedContent) {
-      throw new Error('No content generated');
-    }
-
-    console.log('Raw AI response length:', generatedContent.length);
+      console.log('Raw AI response length:', generatedContent.length);
 
     // Extract JSON from markdown code blocks if present
     const jsonMatch = generatedContent.match(/```(?:json)?\s*(\[[\s\S]*\])\s*```/);
