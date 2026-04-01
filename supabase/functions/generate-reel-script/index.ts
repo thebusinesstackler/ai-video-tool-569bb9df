@@ -70,10 +70,7 @@ serve(async (req) => {
     // Strip any HTML tags and entities from topic before using it anywhere
     topic = topic.replace(/<[^>]*>/g, '').replace(/&\w+;/g, ' ').replace(/\s+/g, ' ').trim();
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
+    // Claude API key checked by shared helper
 
     console.log('Generating reel script for topic:', topic);
     console.log('Scene count:', sceneCount, 'Scene duration:', sceneDuration || 'auto');
