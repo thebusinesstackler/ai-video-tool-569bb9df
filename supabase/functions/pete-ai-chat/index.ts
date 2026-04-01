@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authorization header exists (JWT verified by Supabase)
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
@@ -24,7 +24,6 @@ serve(async (req) => {
 
     const { movieIdea } = await req.json();
 
-    // Validate input
     if (!movieIdea) {
       return new Response(
         JSON.stringify({ error: 'Movie idea is required' }),
@@ -46,18 +45,6 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY is not configured');
-      return new Response(
-        JSON.stringify({ 
-          response: "That sounds like an exciting movie concept! I can already envision the scenes. Let's bring this story to life together!" 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const systemPrompt = `You are Pete AI, an enthusiastic and experienced AI movie director assistant. You help filmmakers bring their creative visions to life.
 
 Your personality:
@@ -75,48 +62,36 @@ Your job:
 
 IMPORTANT: Keep your response SHORT (max 2-3 sentences). Be enthusiastic but concise!`;
 
-    console.log('Calling Lovable AI Gateway for Pete response...');
-    
-    // Sanitize input for prompt (remove control characters)
     const sanitizedIdea = movieIdea.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
-    
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+
+    console.log('Calling Claude for Pete response...');
+
+    try {
+      const result = await callClaude({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `The user shared this movie idea with you: "${sanitizedIdea}". Respond as Pete AI with enthusiasm!` }
         ],
-      }),
-    });
+        thinkingBudget: 4000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      
+      console.log('Pete AI response generated successfully');
+
       return new Response(
-        JSON.stringify({ 
-          response: "What a fantastic concept! I love the creative direction you're taking. Let's turn this vision into cinematic reality!" 
-        }),
+        JSON.stringify({ response: result.text }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        if (error.status === 429 || error.status === 529) {
+          return new Response(
+            JSON.stringify({ response: "What a fantastic concept! I love the creative direction you're taking. Let's turn this vision into cinematic reality!" }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    const peteResponse = data.choices?.[0]?.message?.content || 
-      "That's a brilliant movie idea! I can see the potential for some truly memorable scenes. Ready to start creating?";
-
-    console.log('Pete AI response generated successfully');
-
-    return new Response(
-      JSON.stringify({ response: peteResponse }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error) {
     console.error('Error in pete-ai-chat function:', error);

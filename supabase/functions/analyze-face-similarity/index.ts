@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,28 +21,15 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
     console.log(`Analyzing ${imageUrls.length} images for face similarity`);
 
-    // Build image content for the AI
-    const imageContent = imageUrls.map((url: string, idx: number) => ({
+    const imageContent = imageUrls.map((url: string) => ({
       type: "image_url" as const,
       image_url: { url }
     }));
 
-    // Ask AI to analyze and group faces
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+    try {
+      const result = await callClaude({
         messages: [
           {
             role: 'system',
@@ -75,72 +63,55 @@ Be generous in grouping - if faces look similar, group them together.`
             ]
           }
         ],
-        max_tokens: 1000,
-      }),
-    });
+        thinkingBudget: 4000,
+        maxTokens: 5000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
-      
-      if (response.status === 429) {
+      const content = result.text;
+      if (!content) {
+        throw new Error('No response from AI');
+      }
+
+      console.log('AI response:', content);
+
+      let parsedResponse;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedResponse = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in response');
+        }
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError);
+        parsedResponse = {
+          groups: [{
+            description: 'All selected images',
+            imageIndices: imageUrls.map((_: string, i: number) => i)
+          }]
+        };
+      }
+
+      const groups = parsedResponse.groups.map((group: { description: string; imageIndices: number[] }) => ({
+        description: group.description,
+        images: group.imageIndices.map((idx: number) => imageUrls[idx]).filter(Boolean)
+      }));
+
+      console.log(`Found ${groups.length} group(s)`);
+
+      return new Response(
+        JSON.stringify({ groups }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error instanceof ClaudeError) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'API credits exhausted. Please add credits.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI API error: ${response.status}`);
+      throw error;
     }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    
-    if (!content) {
-      throw new Error('No response from AI');
-    }
-
-    console.log('AI response:', content);
-
-    // Parse the JSON response
-    let parsedResponse;
-    try {
-      // Extract JSON from the response (it might be wrapped in markdown code blocks)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedResponse = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
-      }
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      // Return a default single group with all images
-      parsedResponse = {
-        groups: [{
-          description: 'All selected images',
-          imageIndices: imageUrls.map((_: string, i: number) => i)
-        }]
-      };
-    }
-
-    // Convert indices to actual image URLs
-    const groups = parsedResponse.groups.map((group: { description: string; imageIndices: number[] }) => ({
-      description: group.description,
-      images: group.imageIndices.map((idx: number) => imageUrls[idx]).filter(Boolean)
-    }));
-
-    console.log(`Found ${groups.length} group(s)`);
-
-    return new Response(
-      JSON.stringify({ groups }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error: unknown) {
     console.error('Error in analyze-face-similarity:', error);

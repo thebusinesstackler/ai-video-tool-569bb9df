@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,11 +16,6 @@ serve(async (req) => {
 
     if (!sceneDescription) {
       throw new Error('Scene description is required');
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
     }
 
     console.log('Generating dialogue for:', characterName, 'Main character:', isMainCharacter);
@@ -75,14 +71,8 @@ CRITICAL WRITING RULES:
 
 Write ONLY the spoken words. No formatting, no labels, no directions.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+    try {
+      const result = await callClaude({
         messages: [
           {
             role: 'system',
@@ -90,38 +80,25 @@ Write ONLY the spoken words. No formatting, no labels, no directions.`;
           },
           { role: 'user', content: prompt }
         ],
-      }),
-    });
+        thinkingBudget: 8000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      
-      if (response.status === 429) {
+      const dialogue = result.text;
+      console.log('Generated dialogue:', dialogue);
+
+      return new Response(
+        JSON.stringify({ dialogue: dialogue.trim() }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error instanceof ClaudeError) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'API credits exhausted. Please add credits.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw error;
     }
-
-    const data = await response.json();
-    const dialogue = data.choices[0].message.content;
-
-    console.log('Generated dialogue:', dialogue);
-
-    return new Response(
-      JSON.stringify({ dialogue: dialogue.trim() }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
     console.error('Error in generate-scene-dialogue:', error);
     return new Response(

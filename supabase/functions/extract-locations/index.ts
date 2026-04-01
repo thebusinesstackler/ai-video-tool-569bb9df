@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,15 +18,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Outline is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -58,77 +50,57 @@ IMPORTANT:
 - Be specific and visual in descriptions
 - Only return the JSON array, no other text`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+    try {
+      const result = await callClaude({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Extract all unique locations from this movie outline:\n\n${outline}` }
         ],
-      }),
-    });
+        thinkingBudget: 4000,
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+      const content = result.text;
+      if (!content) {
+        throw new Error('No content generated');
+      }
+
+      let locations;
+      try {
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          locations = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON array found in response');
+        }
+      } catch (parseError) {
+        console.error('Failed to parse locations JSON:', parseError);
+        console.error('Raw content:', content);
+        throw new Error('Failed to parse location data');
+      }
+
+      const locationsWithIds = locations.map((loc: any, idx: number) => ({
+        id: `loc_${Date.now()}_${idx}`,
+        ...loc,
+        timeOfDay: loc.timeOfDay || 'day',
+        props: loc.props || [],
+        mood: loc.mood || 'neutral'
+      }));
+
+      console.log(`Extracted ${locationsWithIds.length} locations`);
+
+      return new Response(
+        JSON.stringify({ locations: locationsWithIds }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      if (error instanceof ClaudeError) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw error;
     }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('No content generated');
-    }
-
-    // Parse JSON from response
-    let locations;
-    try {
-      // Try to extract JSON from the response
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        locations = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON array found in response');
-      }
-    } catch (parseError) {
-      console.error('Failed to parse locations JSON:', parseError);
-      console.error('Raw content:', content);
-      throw new Error('Failed to parse location data');
-    }
-
-    // Add IDs to locations
-    const locationsWithIds = locations.map((loc: any, idx: number) => ({
-      id: `loc_${Date.now()}_${idx}`,
-      ...loc,
-      timeOfDay: loc.timeOfDay || 'day',
-      props: loc.props || [],
-      mood: loc.mood || 'neutral'
-    }));
-
-    console.log(`Extracted ${locationsWithIds.length} locations`);
-
-    return new Response(
-      JSON.stringify({ locations: locationsWithIds }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error: any) {
     console.error('Error in extract-locations:', error);
