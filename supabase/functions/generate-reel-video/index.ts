@@ -235,27 +235,12 @@ REQUIREMENTS:
 - NO text, captions, watermarks, or written words${antiPropRule}`;
 }
 
-// Build image generation messages with reference images for character consistency
-function buildImageGenMessages(prompt: string, referenceImages?: string[]) {
+// Build image generation prompt text (for OpenAI DALL-E which doesn't accept reference images)
+function buildImageGenPrompt(prompt: string, referenceImages?: string[]) {
   if (referenceImages && referenceImages.length > 0) {
-    // Use multimodal message with reference image for character consistency
-    const content: any[] = [];
-    
-    // Add the first reference image
-    content.push({
-      type: 'image_url',
-      image_url: { url: referenceImages[0] }
-    });
-    
-    content.push({
-      type: 'text',
-      text: `Using this person as the EXACT character reference - match their face, features, skin tone, and appearance precisely in the generated image.\n\n${prompt}`
-    });
-    
-    return [{ role: 'user', content }];
+    return `${prompt}\n\nIMPORTANT: Generate this as a photorealistic image matching the described character exactly. Ultra high quality, cinematic lighting.`;
   }
-  
-  return [{ role: 'user', content: prompt }];
+  return prompt;
 }
 
 serve(async (req) => {
@@ -311,15 +296,13 @@ serve(async (req) => {
     console.log('Voiceovers provided:', voiceovers?.length || 0);
     console.log('Pre-generated images:', preGeneratedImages?.length || 0);
     console.log('Camera angles provided:', cameraAngles?.length || 0);
-    // OPENAI_API_KEY removed — not used in this function
-
     const WAVESPEED_API_KEY = Deno.env.get('WAVESPEED_API_KEY');
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     // Create Supabase client for storage uploads and task logging
@@ -380,25 +363,30 @@ serve(async (req) => {
           : undefined;
         
         const imagePrompt = getTemplateImagePrompt(scene, topic, enableLipSync, characterDescription, referenceImages, cameraAngleModifier);
-        const messages = buildImageGenMessages(imagePrompt, (!scene.isIntro && !scene.isOutro) ? referenceImages : undefined);
+        const fullPrompt = buildImageGenPrompt(imagePrompt, (!scene.isIntro && !scene.isOutro) ? referenceImages : undefined);
         
-        const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        // Use OpenAI gpt-image-1
+        const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-3-pro-image-preview',
-            messages,
-            modalities: ['image', 'text'],
-            image_generation_config: { aspect_ratio: '9:16' }
+            model: 'gpt-image-1',
+            prompt: fullPrompt,
+            n: 1,
+            size: '1024x1536',
+            quality: 'high',
           }),
         });
 
         if (imageResponse.ok) {
           const imageData = await imageResponse.json();
-          const imageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          const b64 = imageData.data?.[0]?.b64_json;
+          const imgUrl = imageData.data?.[0]?.url;
+          const imageUrl = b64 ? `data:image/png;base64,${b64}` : imgUrl;
+          
           if (imageUrl) {
             sceneImages.push(imageUrl);
             
@@ -423,16 +411,21 @@ serve(async (req) => {
                   console.log('Saved image to storage:', fileName);
                 } else {
                   console.error('Upload error:', uploadError);
-                  savedImageUrls.push(imageUrl); // Fallback to base64
+                  savedImageUrls.push(imageUrl);
                 }
               } catch (uploadErr) {
                 console.error('Storage upload failed:', uploadErr);
-                savedImageUrls.push(imageUrl); // Fallback to base64
+                savedImageUrls.push(imageUrl);
               }
             } else {
               savedImageUrls.push(imageUrl);
             }
           }
+        } else {
+          const errText = await imageResponse.text();
+          console.error('OpenAI image gen failed for scene', scene.sceneNumber, ':', errText);
+          sceneImages.push('');
+          savedImageUrls.push('');
         }
       } catch (imgError) {
         console.error('Image generation error for scene:', scene.sceneNumber, imgError);
@@ -722,17 +715,7 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           try {
             // -- AI Super Prompt --
             console.log(`Scene ${scene.sceneNumber}: Generating AI super prompt...`);
-            const superPromptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-3-flash-preview',
-                messages: [{
-                  role: 'user',
-                  content: `You are Loop AI, a cinematic video director. Create a concise, vivid video-extend prompt (max 2 sentences) that describes the MOTION and CAMERA MOVEMENT for extending a video clip of a ${genderHint} speaker.
+            const superPromptContent = `You are Loop AI, a cinematic video director. Create a concise, vivid video-extend prompt (max 2 sentences) that describes the MOTION and CAMERA MOVEMENT for extending a video clip of a ${genderHint} speaker.
 
 Scene context: "${scene.narration}"
 Character: ${characterDescription || 'Professional speaker'}
@@ -743,8 +726,19 @@ Rules:
 - Focus on: subtle camera drift, natural gestures, facial micro-expressions, confident delivery
 - Do NOT mention text, captions, watermarks
 - Keep it under 50 words
-- Write only the prompt, no explanation`
-                }]
+- Write only the prompt, no explanation`;
+
+            // Use OpenAI GPT-4o for super prompt generation
+            const superPromptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o',
+                messages: [{ role: 'user', content: superPromptContent }],
+                max_tokens: 200,
               }),
             });
 

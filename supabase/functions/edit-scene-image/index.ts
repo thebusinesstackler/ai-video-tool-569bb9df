@@ -6,10 +6,80 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Generate image using OpenAI DALL-E (gpt-image-1) - no reference image support
-async function generateWithOpenAI(prompt: string, openaiKey: string): Promise<string> {
-  console.log('Using OpenAI gpt-image-1 for generation');
-  
+// Enhance prompt using Claude or GPT-4o for better image quality
+async function enhancePromptForDallE(rawPrompt: string): Promise<string> {
+  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Given a scene description, rewrite it into a detailed, photorealistic image prompt optimized for best quality output. Include specifics about lighting, composition, camera lens, color grading, and atmosphere. Keep it under 300 words. Output ONLY the enhanced prompt, nothing else.`;
+
+  // Try Claude first
+  if (ANTHROPIC_API_KEY) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: `${systemMsg}\n\nScene: ${rawPrompt}` }],
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const text = data.content?.[0]?.text?.trim();
+        if (text && text.length > 20) {
+          console.log('Prompt enhanced via Claude');
+          return text;
+        }
+      }
+    } catch (e) {
+      console.warn('Claude prompt enhancement failed:', e);
+    }
+  }
+
+  // Fallback to OpenAI GPT-4o
+  if (OPENAI_API_KEY) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemMsg },
+            { role: 'user', content: rawPrompt },
+          ],
+          max_tokens: 500,
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text && text.length > 20) {
+          console.log('Prompt enhanced via GPT-4o');
+          return text;
+        }
+      }
+    } catch (e) {
+      console.warn('GPT-4o prompt enhancement failed:', e);
+    }
+  }
+
+  return rawPrompt;
+}
+
+// Generate image using OpenAI gpt-image-1
+async function generateWithOpenAI(prompt: string, openaiKey: string, size: string = '1024x1024'): Promise<string> {
+  console.log('Generating image with OpenAI gpt-image-1');
+
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
@@ -20,7 +90,7 @@ async function generateWithOpenAI(prompt: string, openaiKey: string): Promise<st
       model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1024x1024',
+      size,
       quality: 'high',
     }),
   });
@@ -36,45 +106,10 @@ async function generateWithOpenAI(prompt: string, openaiKey: string): Promise<st
   const data = await response.json();
   const b64 = data.data?.[0]?.b64_json;
   const url = data.data?.[0]?.url;
-  
+
   if (b64) return `data:image/png;base64,${b64}`;
   if (url) return url;
   throw new Error('No image in OpenAI response');
-}
-
-// Generate/edit image using Lovable AI (Gemini) - supports reference images
-async function generateWithLovableAI(messages: any[], lovableKey: string): Promise<string> {
-  console.log('Using Lovable AI (Gemini) for generation');
-  
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${lovableKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-image-preview',
-      messages,
-      modalities: ['image', 'text']
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Lovable AI error:', response.status, errorText);
-    if (response.status === 429) throw new Error('RATE_LIMIT');
-    if (response.status === 402) throw new Error('CREDITS_EXHAUSTED');
-    throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
-  }
-
-  const data = await response.json();
-  const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!imageUrl) {
-    const textContent = data.choices?.[0]?.message?.content;
-    if (textContent) console.warn('Model returned text instead of image:', textContent.slice(0, 300));
-    throw new Error('No image generated');
-  }
-  return imageUrl;
 }
 
 function buildPromptText(
@@ -93,58 +128,32 @@ function buildPromptText(
   const characterInstruction = characterDescription ? `Character description: ${characterDescription}. ` : '';
   const cameraInstruction = cameraAngle ? `CAMERA ANGLE: Use a ${cameraAngle} for this shot. ` : '';
   const backgroundInstruction = backgroundDescription
-    ? `BACKGROUND CONSISTENCY (CRITICAL): The background MUST be: ${backgroundDescription}. Keep the EXACT same environment, lighting, and atmosphere as specified. Only change the camera angle and character pose. `
-    : 'BACKGROUND CONSISTENCY: Maintain the same environment and lighting as the reference image. ';
-  const multiRefInstruction = refCount > 1
-    ? `CRITICAL: Study ALL ${refCount} reference images to ensure MAXIMUM character consistency. The character's face, skin tone, hair, and features must match EXACTLY across all generated scenes. `
+    ? `BACKGROUND: The background MUST be: ${backgroundDescription}. `
     : '';
 
   if (characterTransformation) {
-    return `Generate a new scene image based on this prompt: ${prompt}
+    return `Generate a new scene image: ${prompt}
 
-${multiRefInstruction}${transformInstruction}${characterInstruction}${cameraInstruction}
+${transformInstruction}${characterInstruction}${cameraInstruction}${backgroundInstruction}
 
-Use the reference image(s) for:
-- Pose and body position
-- Clothing style and overall aesthetic
-- Lighting and composition
-- Scene atmosphere and framing
-
-${backgroundInstruction}
-
-BUT APPLY THIS TRANSFORMATION: ${characterTransformation}
-
-Keep the scene composition similar but transform the character as specified.`;
+Apply this transformation: ${characterTransformation}
+Keep the scene composition similar but transform the character as specified.
+Photorealistic, cinematic quality, 8K detail.`;
   }
 
-  return `Generate a PHOTOREALISTIC scene image showing the EXACT SAME PERSON from the reference images in this new scene: ${prompt}
+  return `Generate a PHOTOREALISTIC scene image: ${prompt}
 
-CRITICAL IDENTITY RULES:
-- IGNORE any gender references in the prompt text - use the ACTUAL person from reference images
-- The person's face, body, gender, skin tone, hair MUST match the reference images EXACTLY
-- Do NOT change the person's appearance or gender under any circumstances
-
-CRITICAL REALISM RULES:
-- HYPERREALISTIC human appearance — real skin with visible pores, natural texture, subsurface scattering
-- NEVER produce plastic, CGI, airbrushed, or doll-like skin
-- Natural lighting ONLY — soft window light, golden hour, overcast daylight, practical lighting
-- Eyes with realistic catchlights, natural iris detail, slight moisture
+REALISM RULES:
+- HYPERREALISTIC human appearance — real skin with visible pores, natural texture
+- Natural lighting — soft window light, golden hour, overcast daylight
+- Eyes with realistic catchlights, natural iris detail
 - Hair with individual strand detail and natural movement
-- Character should appear READY TO SPEAK — mouth slightly parted, engaged expression, direct eye contact
+- Character should appear natural and engaged
 - Real human proportions and natural body language
 
-${multiRefInstruction}${characterInstruction}${cameraInstruction}${backgroundInstruction}
+${characterInstruction}${cameraInstruction}${backgroundInstruction}
 
-Use the reference image(s) to MAINTAIN EXACT CHARACTER IDENTITY:
-- SAME person, SAME gender, SAME facial features
-- Professional appearance and demeanor
-- Clothing style and aesthetic
-- Natural, realistic lighting
-- Scene atmosphere and framing
-
-${cameraAngle ? `Use this SPECIFIC camera angle: ${cameraAngle}` : ''}
-
-Generate a photorealistic image showing the SAME PERSON from the references in the described scene, with natural lighting and real human skin texture.`;
+Professional cinematic quality, natural lighting, photorealistic.`;
 }
 
 serve(async (req) => {
@@ -153,14 +162,14 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      prompt, 
+    const {
+      prompt,
       referenceImageUrl,
-      referenceImages, 
-      characterDescription, 
+      referenceImages,
+      characterDescription,
       characterTransformation,
       cameraAngle,
-      backgroundDescription 
+      backgroundDescription
     } = await req.json();
 
     if (!prompt) {
@@ -171,14 +180,12 @@ serve(async (req) => {
     }
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-
-    if (!OPENAI_API_KEY && !LOVABLE_API_KEY) {
-      throw new Error('No image generation API key configured');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
-    
-    const allReferenceImages: string[] = referenceImages && referenceImages.length > 0 
-      ? referenceImages 
+
+    const allReferenceImages: string[] = referenceImages && referenceImages.length > 0
+      ? referenceImages
       : (referenceImageUrl ? [referenceImageUrl] : []);
 
     console.log('Image generation request:', {
@@ -187,8 +194,6 @@ serve(async (req) => {
       hasCharacterTransformation: !!characterTransformation,
       cameraAngle: cameraAngle || 'not specified',
       hasBackgroundDescription: !!backgroundDescription,
-      hasOpenAI: !!OPENAI_API_KEY,
-      hasLovable: !!LOVABLE_API_KEY,
     });
 
     const promptOpts = {
@@ -199,10 +204,11 @@ serve(async (req) => {
       refCount: allReferenceImages.length,
     };
 
-    // Strategy:
-    // - If reference images exist → must use Lovable AI (Gemini) since DALL-E can't take reference images
-    // - If no reference images → prefer OpenAI (DALL-E), fall back to Lovable AI
-    const hasRefs = allReferenceImages.length > 0;
+    // Build the raw prompt including all context
+    const rawPrompt = buildPromptText(prompt, promptOpts);
+
+    // Enhance the prompt for better DALL-E output
+    const enhancedPrompt = await enhancePromptForDallE(rawPrompt);
 
     const MAX_RETRIES = 2;
     let lastError: Error | null = null;
@@ -214,42 +220,7 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
 
-        let imageUrl: string;
-
-        if (hasRefs && LOVABLE_API_KEY) {
-          // Reference images → Lovable AI (Gemini multimodal)
-          const instructionText = buildPromptText(prompt, promptOpts);
-          const imageContents = allReferenceImages.slice(0, 4).map(imgUrl => ({
-            type: 'image_url',
-            image_url: { url: imgUrl }
-          }));
-          const messages = [{
-            role: 'user',
-            content: [
-              { type: 'text', text: instructionText },
-              ...imageContents
-            ]
-          }];
-          imageUrl = await generateWithLovableAI(messages, LOVABLE_API_KEY);
-
-        } else if (OPENAI_API_KEY) {
-          // No reference images → OpenAI DALL-E
-          const cameraNote = cameraAngle ? ` Use this specific camera angle: ${cameraAngle}.` : '';
-          const bgNote = backgroundDescription ? ` The background must be: ${backgroundDescription}.` : '';
-          const charNote = characterDescription ? ` Character: ${characterDescription}.` : '';
-          const fullPrompt = prompt + charNote + cameraNote + bgNote;
-          imageUrl = await generateWithOpenAI(fullPrompt, OPENAI_API_KEY);
-
-        } else if (LOVABLE_API_KEY) {
-          // Fallback to Lovable AI text-only
-          const cameraNote = cameraAngle ? ` Use this specific camera angle: ${cameraAngle}.` : '';
-          const bgNote = backgroundDescription ? ` The background must be: ${backgroundDescription}.` : '';
-          const messages = [{ role: 'user', content: prompt + cameraNote + bgNote }];
-          imageUrl = await generateWithLovableAI(messages, LOVABLE_API_KEY);
-
-        } else {
-          throw new Error('No suitable API key available for this request');
-        }
+        const imageUrl = await generateWithOpenAI(enhancedPrompt, OPENAI_API_KEY);
 
         console.log('Image generated successfully, camera angle:', cameraAngle);
 
@@ -262,7 +233,6 @@ serve(async (req) => {
         lastError = error instanceof Error ? error : new Error('Unknown error');
         console.warn(`Attempt ${attempt + 1} failed:`, lastError.message);
 
-        // Don't retry on auth/payment errors
         if (lastError.message === 'RATE_LIMIT') {
           return new Response(
             JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
@@ -271,30 +241,7 @@ serve(async (req) => {
         }
         if (lastError.message === 'AUTH_ERROR') {
           return new Response(
-            JSON.stringify({ error: 'API key invalid or payment issue. Check your OpenAI API key.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        if (lastError.message === 'CREDITS_EXHAUSTED') {
-          // If OpenAI is available, retry with it (no refs case)
-          if (!hasRefs && OPENAI_API_KEY) {
-            console.log('Lovable AI credits exhausted, falling back to OpenAI');
-            try {
-              const cameraNote = cameraAngle ? ` Use this specific camera angle: ${cameraAngle}.` : '';
-              const bgNote = backgroundDescription ? ` The background must be: ${backgroundDescription}.` : '';
-              const charNote = characterDescription ? ` Character: ${characterDescription}.` : '';
-              const fullPrompt = prompt + charNote + cameraNote + bgNote;
-              const imageUrl = await generateWithOpenAI(fullPrompt, OPENAI_API_KEY);
-              return new Response(
-                JSON.stringify({ imageUrl }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-              );
-            } catch (fallbackErr) {
-              console.error('OpenAI fallback also failed:', fallbackErr);
-            }
-          }
-          return new Response(
-            JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
+            JSON.stringify({ error: 'OpenAI API key invalid or payment issue. Check your API key.' }),
             { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
