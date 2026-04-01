@@ -440,6 +440,16 @@ Return ONLY valid JSON array:
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw error;
+    }
+
   } catch (error) {
     console.error('Error generating reel script:', error);
     return new Response(
