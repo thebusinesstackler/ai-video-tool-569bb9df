@@ -1046,7 +1046,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       const bSettingData = SETTINGS.find(s => s.id === bSetting);
       const bAngle = CAMERA_ANGLES.find(a => a.id === bCameraAngle);
 
-      const imagePrompt = `Professional portrait of ${selectedTwin.face_description || 'a professional person'}, ${bAngle?.prompt || 'medium close-up'}, ${bMoodData?.prompt || 'friendly demeanor'}, ${bSettingData?.prompt || 'modern office'}, photorealistic, 4K cinematic`;
+      const imagePrompt = `Professional portrait of ${selectedTwin.face_description || 'a professional person'}, ${bAngle?.promptModifier || 'medium close-up'}, ${bMoodData?.prompt || 'friendly demeanor'}, ${bSettingData?.prompt || 'modern office'}, photorealistic, 4K cinematic`;
 
       const messages = selectedTwin.reference_images?.[0]
         ? [{ role: 'user', content: [
