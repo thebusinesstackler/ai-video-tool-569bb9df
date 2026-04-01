@@ -194,7 +194,7 @@ const AISpokesperson = () => {
       try {
         const { data, error } = await supabase
           .from('ai_twins')
-          .select('id, name, reference_images, voice_cloning_key, face_description, gender')
+          .select('id, name, reference_images, voice_cloning_key, face_description, gender, voice_engine, google_voice_id')
           .eq('user_id', user.id)
           .order('name');
         
