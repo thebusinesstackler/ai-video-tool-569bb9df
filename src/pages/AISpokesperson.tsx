@@ -1089,12 +1089,7 @@ Return ONLY the JSON object.`
         // Generate voiceover for continuation
         setEditStatus(prev => ({ ...prev, stageLabel: '🎤 Generating continuation voiceover...' }));
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-          body: {
-            text: continuationText,
-            voice: selectedTwin.voice_cloning_key ? undefined : 'en-US-Journey-D',
-            clonedVoiceUrl: selectedTwin.voice_cloning_key || undefined,
-            speakingRate: 0.92
-          }
+          body: buildTtsBody(continuationText, selectedTwin)
         });
         if (ttsError) throw ttsError;
 
