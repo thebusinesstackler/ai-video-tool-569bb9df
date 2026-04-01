@@ -74,14 +74,7 @@ serve(async (req) => {
           .join('\n');
     }
 
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!apiKey) {
-      console.error('LOVABLE_API_KEY not found');
-      return new Response(
-        JSON.stringify({ error: 'AI service unavailable' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Claude API key checked by shared helper
 
     // Scene count based on movie length
     const sceneCountMap: Record<string, string> = {

@@ -175,40 +175,45 @@ serve(async (req) => {
         console.log('Could not parse JSON response, using raw content:', e);
       }
 
-    // Extract structured scenes array if present
-    let scenes: { narration: string; visualDescription: string }[] = [];
-    try {
-      let jsonContent = generatedScript.trim();
-      const jsonMatch2 = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-      if (jsonMatch2) jsonContent = jsonMatch2[1];
-      const parsed2 = JSON.parse(jsonContent);
-      if (Array.isArray(parsed2.scenes)) {
-        scenes = parsed2.scenes;
+      // Extract structured scenes array if present
+      let scenes: { narration: string; visualDescription: string }[] = [];
+      try {
+        let jsonContent2 = generatedScript.trim();
+        const jsonMatch2 = jsonContent2.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+        if (jsonMatch2) jsonContent2 = jsonMatch2[1];
+        const parsed2 = JSON.parse(jsonContent2);
+        if (Array.isArray(parsed2.scenes)) {
+          scenes = parsed2.scenes;
+        }
+      } catch (_) {
+        // scenes will remain empty
       }
-    } catch (_) {
-      // scenes will remain empty, client will fall back to parsing cleanScript
-    }
 
-    return new Response(
-      JSON.stringify({ 
-        script: detailedScript,
-        detailedScript: detailedScript,
-        cleanScript: cleanScript,
-        scenes: scenes
-      }), 
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      return new Response(
+        JSON.stringify({ 
+          script: detailedScript,
+          detailedScript: detailedScript,
+          cleanScript: cleanScript,
+          scenes: scenes
+        }), 
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+    } catch (error) {
+      if (error instanceof ClaudeError) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-    );
+      throw error;
+    }
 
   } catch (error) {
     console.error('Error in generate-script function:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error occurred' }), 
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
