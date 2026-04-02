@@ -242,7 +242,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const generateVoiceSample = async (voiceId: string, voiceLabel: string) => {
     if (!voicePreviewScene || !onGenerateVoiceSample) return;
     const sampleId = `${voiceId}-${Date.now()}`;
-    setVoiceSamples(prev => [...prev, { id: sampleId, audioUrl: '', label: voiceLabel, isGenerating: true }]);
+    setVoiceSamples(prev => [...prev, { id: sampleId, audioUrl: '', label: voiceLabel, voiceId, isGenerating: true }]);
     
     try {
       const result = await onGenerateVoiceSample({
