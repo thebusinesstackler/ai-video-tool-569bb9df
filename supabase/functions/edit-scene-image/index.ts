@@ -214,8 +214,8 @@ serve(async (req) => {
     // Build the raw prompt including all context
     const rawPrompt = buildPromptText(prompt, promptOpts);
 
-    // Enhance the prompt for better DALL-E output
-    const enhancedPrompt = await enhancePromptForDallE(rawPrompt);
+    // Enhance the prompt for better DALL-E output, with character constraint
+    const enhancedPrompt = await enhancePromptForDallE(rawPrompt, characterDescription || undefined);
 
     const MAX_RETRIES = 2;
     let lastError: Error | null = null;
