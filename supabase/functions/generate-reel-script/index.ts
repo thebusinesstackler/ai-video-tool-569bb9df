@@ -364,7 +364,7 @@ If a product exists in the topic:
 - Integrate into lifestyle or demonstration scenes naturally
 - NEVER force it awkwardly. Let the story bring it in.
 
-═══ STEP 8: HOOK QUALITY (CRITICAL) ═══
+═══ STEP 8: HOOK QUALITY + SCENE 1 CONTINUITY (CRITICAL) ═══
 
 The hook MUST:
 - Stop the scroll in under 2 seconds
@@ -372,6 +372,13 @@ The hook MUST:
 - Include movement in the FIRST SECOND
 - Feel native to TikTok / Instagram Reels / YouTube Shorts
 - Be specific to THIS topic (not generic)
+
+SCENE 1 SPECIAL RULES:
+- Movement must happen in the first second of the video
+- The scene must be visually strong and scroll-stopping (thumbnail-worthy)
+- If abstract visuals are used, they must transition clearly into the real-world subject
+- The END FRAME of Scene 1 must support the START FRAME of Scene 2
+- The hook should NEVER feel disconnected from the rest of the video
 
 Hook types to rotate (NEVER repeat same type consecutively):
 - Question: "What if X was actually Y?"
