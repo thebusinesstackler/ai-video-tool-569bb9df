@@ -462,6 +462,9 @@ const Reels = () => {
   const [backgroundMusicMood, setBackgroundMusicMood] = useState('');
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   
+  // Caption settings
+  const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
+  
   // Sync feature toggles with existing state
   const handleFeatureChange = (feature: keyof typeof featureToggles, value: boolean) => {
     setFeatureToggles(prev => ({ ...prev, [feature]: value }));
