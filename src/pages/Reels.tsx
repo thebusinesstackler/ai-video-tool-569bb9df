@@ -385,6 +385,14 @@ const Reels = () => {
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
   const [characterDescription, setCharacterDescription] = useState('');
+  const [characterProfile, setCharacterProfile] = useState<{
+    gender?: string | null;
+    ageRange?: string | null;
+    appearance?: string | null;
+    clothing?: string | null;
+    environment?: string | null;
+    product?: { detected?: boolean; type?: string; shape?: string; color?: string; label?: string; howHeld?: string } | null;
+  } | null>(null);
   // Hook selection state
   const [generatedHooks, setGeneratedHooks] = useState<any[]>([]);
   const [selectedHook, setSelectedHook] = useState<any>(null);
@@ -812,19 +820,26 @@ const Reels = () => {
       if (data?.description) {
         setCharacterDescription(data.description);
         
-        // Gender detection for display only — voice comes from AI Twin
-        const descLower = data.description.toLowerCase();
-        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'sister'];
-        const isFemale = femaleKeywords.some(k => descLower.includes(k));
+        // Store full character profile for script generation
+        setCharacterProfile({
+          gender: data.gender,
+          ageRange: data.ageRange,
+          appearance: data.appearance,
+          clothing: data.clothing,
+          environment: data.environment,
+          product: data.product,
+        });
+        
+        const genderLabel = data.gender ? ` (${data.gender} detected)` : '';
+        const productLabel = data.product?.detected ? ` — product: ${data.product.type}` : '';
         
         toast({
-          title: "Character Detected",
-          description: `Auto-filled: ${data.description}${isFemale ? ' (female detected)' : ''}`,
+          title: "Character Analyzed",
+          description: `${data.description}${genderLabel}${productLabel}`,
         });
       }
     } catch (error: any) {
       console.error('Failed to analyze reference image:', error);
-      // Don't show error toast - just silently fail and let user fill manually
     } finally {
       setIsAnalyzingReference(false);
     }
@@ -1953,6 +1968,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       ? characters.find(c => c.id === selectedCharacterId)
       : null;
 
+    // Get active character image URL for visual context
+    const activePortrait = getActivePortrait();
+
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
         body: { 
@@ -1963,6 +1981,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           hookStyle,
           enableCutScenes: isPodcastMode ? false : enableCutScenes,
           characterDescription: effectiveCharDesc.trim() || undefined,
+          characterImageUrl: activePortrait || undefined,
+          characterProfile: characterProfile || undefined,
           isPodcastMode,
           characterId: selectedCharacterId,
           characterName: selectedCharacter?.name,

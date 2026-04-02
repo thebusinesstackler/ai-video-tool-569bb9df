@@ -31,22 +31,35 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `Analyze this image and describe the person in it for use in AI image generation prompts.
+                text: `Analyze this image and extract a detailed CHARACTER PROFILE and PRODUCT PROFILE for AI video production.
 
-Provide a BRIEF description (max 15 words) that includes:
-- Gender (male/female)
-- Approximate age range (20s, 30s, 40s, etc.)
-- Key distinguishing features (hair color/style, facial hair if any)
-- General appearance/attire style if visible
+Return a JSON object with these fields:
 
-Format: "[Gender], [age range], [key features], [attire/style]"
+{
+  "description": "Full character description for image generation (30-50 words)",
+  "gender": "male" or "female",
+  "ageRange": "20s" or "30s" etc,
+  "appearance": "hair color/style, skin tone, facial features",
+  "clothing": "what they're wearing",
+  "environment": "visible background/setting or 'not visible'",
+  "product": {
+    "detected": true/false,
+    "type": "bottle/dropper/jar/tube/can/box/packet/none",
+    "shape": "description of shape",
+    "color": "color of product/packaging",
+    "label": "any visible text or branding",
+    "howHeld": "how the person is interacting with it"
+  }
+}
 
-Examples:
-- "Male, 30s, short dark hair, professional attire"
-- "Female, 20s, blonde wavy hair, casual style"
-- "Male, 40s, bald with beard, business suit"
+RULES:
+- Be PRECISE about gender — look at facial structure, body, clothing
+- Description must be detailed enough to recreate the person consistently across multiple AI images
+- If a product is visible (in hand, on table, nearby), describe it precisely
+- If NO product is visible, set product.detected = false
+- Focus on physical appearance, not interpretation or mood
 
-ONLY output the description, nothing else.`
+Return ONLY the JSON object, no markdown, no explanation.`
               },
               {
                 type: 'image_url',
@@ -56,18 +69,44 @@ ONLY output the description, nothing else.`
           }
         ],
         thinkingBudget: 4000,
-        maxTokens: 4200,
+        maxTokens: 5000,
       });
 
-      const description = result.text?.trim();
-      if (!description) {
+      const rawText = result.text?.trim();
+      if (!rawText) {
         throw new Error('No description generated');
       }
 
-      console.log('Generated character description:', description);
+      // Parse JSON response
+      let profile;
+      try {
+        let jsonStr = rawText;
+        const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) jsonStr = jsonMatch[1].trim();
+        else {
+          const objMatch = rawText.match(/\{[\s\S]*\}/);
+          if (objMatch) jsonStr = objMatch[0];
+        }
+        profile = JSON.parse(jsonStr);
+      } catch {
+        // Fallback: treat as plain text description
+        console.log('Could not parse JSON, using raw text');
+        profile = { description: rawText };
+      }
+
+      const description = profile.description || rawText;
+      console.log('Generated character profile:', JSON.stringify(profile).substring(0, 300));
 
       return new Response(
-        JSON.stringify({ description }),
+        JSON.stringify({ 
+          description,
+          gender: profile.gender || null,
+          ageRange: profile.ageRange || null,
+          appearance: profile.appearance || null,
+          clothing: profile.clothing || null,
+          environment: profile.environment || null,
+          product: profile.product || null,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (error) {
