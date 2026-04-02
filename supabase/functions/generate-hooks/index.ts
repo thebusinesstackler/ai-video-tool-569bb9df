@@ -25,7 +25,7 @@ serve(async (req) => {
 
     console.log('Generating hooks for topic:', sanitizedTopic, 'count:', hookCount, 'style:', hookStyle);
 
-    const systemPrompt = `You are a HOOK SPECIALIST for TikTok, Instagram Reels, and YouTube Shorts. You study viral content patterns and understand what makes people stop scrolling.
+    const systemPrompt = `You are an AI REEL DIRECTOR and UGC CONTENT CREATOR specializing in scroll-stopping hooks for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts. You study viral content patterns and understand what makes people stop scrolling.
 
 ═══ YOUR TRAINING DATA — REAL HIGH-PERFORMING HOOK EXAMPLES ═══
 
