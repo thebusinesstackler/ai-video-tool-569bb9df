@@ -13,7 +13,17 @@ interface KaraokeCaptionProps {
   style?: CaptionStyle;
   background?: CaptionBackground;
   position?: CaptionPosition;
+  fontFamily?: string;
+  fontSize?: string;
+  fontColor?: string;
 }
+
+const FONT_SIZE_MAP: Record<string, string> = {
+  small: '0.75rem',
+  medium: '1rem',
+  large: '1.25rem',
+  xl: '1.5rem',
+};
 
 export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   text,
@@ -23,7 +33,10 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   isOutro,
   style = 'karaoke',
   background = 'glass',
-  position = 'bottom'
+  position = 'bottom',
+  fontFamily,
+  fontSize,
+  fontColor,
 }) => {
   const words = useMemo(() => (text || '').split(/\s+/).filter(w => w.length > 0), [text]);
   
@@ -185,11 +198,16 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   // Special styling for intro/outro
   const isSpecialScene = isIntro || isOutro;
 
+  const inlineStyle: React.CSSProperties = {};
+  if (fontFamily) inlineStyle.fontFamily = fontFamily;
+  if (fontSize) inlineStyle.fontSize = FONT_SIZE_MAP[fontSize] || fontSize;
+  if (fontColor) inlineStyle.color = fontColor;
+
   return (
     <div className={`text-center ${getBackgroundClasses()}`}>
       <p className={`font-bold leading-relaxed ${
         isSpecialScene ? 'text-lg' : 'text-base'
-      }`}>
+      }`} style={inlineStyle}>
         {words.map((word, index) => renderWord(word, index))}
       </p>
     </div>

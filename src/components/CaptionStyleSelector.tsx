@@ -256,6 +256,9 @@ const CaptionPreview: React.FC<{ settings: CaptionSettings }> = ({ settings }) =
       duration={3}
       style={settings.style}
       background={settings.background}
+      fontFamily={settings.fontFamily}
+      fontSize={settings.fontSize}
+      fontColor={settings.fontColor}
     />
   );
 };
