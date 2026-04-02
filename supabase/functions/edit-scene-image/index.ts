@@ -124,6 +124,8 @@ function buildPromptText(
     cameraAngle?: string;
     backgroundDescription?: string;
     refCount: number;
+    productImageUrl?: string;
+    productName?: string;
   }
 ): string {
   const { characterDescription, characterTransformation, cameraAngle, backgroundDescription, refCount } = opts;
