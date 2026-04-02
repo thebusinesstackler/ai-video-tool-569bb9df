@@ -6110,9 +6110,77 @@ STYLE REQUIREMENTS:
               </Card>
             )}
 
-            {/* Scene Preview (Advanced only) */}
+            {/* Scene Preview / Timeline Toggle (Advanced only) */}
             {isAdvanced && previewScenes.length > 0 && !project.videoBlobUrl && (
               <div className="space-y-4">
+                {/* View Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={!timelineViewActive ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTimelineViewActive(false)}
+                      className="h-8 text-xs"
+                    >
+                      <Layers className="w-3.5 h-3.5 mr-1.5" /> Scene Preview
+                    </Button>
+                    <Button
+                      variant={timelineViewActive ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTimelineViewActive(true)}
+                      className="h-8 text-xs"
+                    >
+                      <Film className="w-3.5 h-3.5 mr-1.5" /> Timeline View
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Timeline Editor */}
+                {timelineViewActive ? (
+                  <div className="border rounded-lg overflow-hidden" style={{ height: 700 }}>
+                    <TimelineEditor
+                      scenes={previewScenes.map((ps, i) => ({
+                        sceneNumber: ps.sceneNumber,
+                        narration: ps.narration,
+                        visualDescription: ps.visualDescription,
+                        imageUrl: ps.imageUrl,
+                        videoUrl: project.generatedScenes.find(gs => gs.sceneNumber === ps.sceneNumber)?.videoUrl || null,
+                        audioUrl: ps.audioUrl,
+                        audioDuration: ps.audioDuration,
+                        duration: ps.audioDuration > 0 ? ps.audioDuration : parseInt(selectedSceneDuration) || 10,
+                        startTime: 0,
+                        endTime: 0,
+                      }))}
+                      voiceovers={previewVoiceovers}
+                      backgroundMusicUrl={backgroundMusicUrl}
+                      totalDuration={previewScenes.reduce((sum, s) => sum + (s.audioDuration > 0 ? s.audioDuration : parseInt(selectedSceneDuration) || 10), 0)}
+                      onScenesUpdate={(updatedScenes) => {
+                        // Sync scene order and timing back to the project
+                        const reorderedProjectScenes = updatedScenes.map(ts => {
+                          const original = project.scenes.find(s => s.sceneNumber === ts.sceneNumber);
+                          return original ? { ...original, sceneNumber: ts.sceneNumber, duration: ts.duration } : project.scenes[0];
+                        });
+                        setProject(prev => ({ ...prev, scenes: reorderedProjectScenes }));
+                      }}
+                      onClose={() => setTimelineViewActive(false)}
+                      onRegenerateVoice={(sceneNumber) => {
+                        const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+                        if (!scene?.narration?.trim()) return;
+                        const voiceConfig = resolveVoiceForGeneration();
+                        const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                        regenerateSceneVoice(
+                          sceneNumber,
+                          scene.narration,
+                          voiceConfig.voice,
+                          selectedTwin?.voice_cloning_key || undefined,
+                          voiceConfig.voiceEngine,
+                          undefined,
+                          user?.id
+                        );
+                      }}
+                    />
+                  </div>
+                ) : (
                 <ScenePreview
                   scenes={previewScenes}
                   onRegenerateImage={(sceneNumber, customPrompt, localRefUrl) => {
