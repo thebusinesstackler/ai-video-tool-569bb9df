@@ -75,7 +75,10 @@ const DEFAULT_CAPTION_SETTINGS: CaptionSettings = {
   enabled: true,
   style: 'karaoke',
   background: 'glass',
-  position: 'bottom'
+  position: 'bottom',
+  fontFamily: 'Montserrat',
+  fontSize: 'medium',
+  fontColor: '#ffffff',
 };
 
 export const ReelEditor: React.FC<ReelEditorProps> = ({
