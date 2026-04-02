@@ -140,6 +140,10 @@ function buildPromptText(
     ? `\n\n*** MANDATORY CHARACTER IDENTITY (DO NOT DEVIATE) ***\nThe main person MUST be: ${characterDescription}.\nThis is NON-NEGOTIABLE. The person's gender, ethnicity, age, and physical appearance MUST match this description exactly. Do NOT substitute, swap, or reinterpret any aspect of their identity. If ANY part of the scene description conflicts with this character identity, the character identity ALWAYS wins.\n`
     : '';
 
+  const productBlock = productName
+    ? `\n\n*** PRODUCT PLACEMENT ***\nThis scene features the product "${productName}". Show the product clearly and naturally — the person should be holding, using, or interacting with it in a realistic way. The product label/branding should be visible. Do NOT show multiple copies of the product. Keep it natural and integrated into the scene.\n`
+    : '';
+
   if (characterTransformation) {
     return `Generate a new scene image: ${prompt}
 
