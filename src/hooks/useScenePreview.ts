@@ -623,6 +623,8 @@ export function useScenePreview(): UseScenePreviewResult {
     setPreviewScenes(scenes);
     setVoiceovers(vos);
   };
+
+  const resetPreview = () => {
     setPreviewScenes([]);
     setVoiceovers([]);
     setProgress(0);
