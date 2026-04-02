@@ -474,14 +474,18 @@ Visual direction: ${selectedHook.visualDirection ? JSON.stringify(selectedHook.v
 
 Before returning the final output, run this quality check:
 ✅ Is the hook strong enough to stop a scroll? If no → rewrite with different hook type
-✅ Does EVERY scene include real physical movement? If no → add specific actions
+✅ Does EVERY scene include real physical movement? If no → add specific step-by-step actions
 ✅ Are ALL visuals bright and premium? If no → rewrite with brighter lighting
-✅ Do scenes flow as ONE cohesive video? If no → fix transitions and connections
-✅ Is the script too repetitive or testimonial-sounding? If no → switch storytelling style
+✅ Do scenes flow as ONE cohesive video? If no → fix transitions and scene connections
+✅ Is the script too repetitive or testimonial-sounding? If yes → switch storytelling style
 ✅ Does the video feel like a real reel, not an AI slideshow? If no → add dynamism
-✅ Are visual descriptions rich enough (60-100 words each)? If no → expand with detail
+✅ Are visual descriptions rich enough (80-150 words each with all 10 elements)? If no → expand
 ✅ Does each scene have a clear PURPOSE? If no → cut or rewrite it
 ✅ Is the narration natural and human-sounding? If no → rewrite conversationally
+✅ Is the SAME CHARACTER maintained across all scenes (appearance, outfit, hair)? If no → fix consistency
+✅ Does Scene 1's end frame connect to Scene 2's start frame? If no → add continuity
+✅ Does every scene have transition logic connecting it to adjacent scenes? If no → add connection points
+✅ Would start/end frames improve any scene? If yes → add them
 
 If ANY check fails → automatically improve before returning to the user.
 
