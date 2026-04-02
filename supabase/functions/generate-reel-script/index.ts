@@ -784,13 +784,40 @@ function generateHookGuidance(hookStyle: string | undefined, topic: string): str
 
 function getHookGuidance(hookType: string): string {
   const category = HOOK_CATEGORIES.find(c => c.type === hookType) || HOOK_CATEGORIES[0];
+  
+  const hookBehaviors: Record<string, string> = {
+    'bold_claim': 'Make a surprising, confident statement that challenges expectations. The viewer must think "wait, really?"',
+    'question': 'Ask a specific, intriguing question that creates an information gap the viewer NEEDS answered.',
+    'controversy': 'Challenge a common belief or popular opinion. Create tension. The viewer must feel compelled to hear your argument. Examples: "Coffee isnt the best energy source", "Youve been doing X wrong this whole time"',
+    'story': 'Start mid-story with an emotional or surprising moment. Drop the viewer into the action.',
+    'secret': 'Tease exclusive or hidden knowledge. Make the viewer feel like theyre about to learn something nobody else knows.',
+    'countdown': 'Promise a specific number of valuable items. Create anticipation for a quick, structured payoff.',
+    'challenge': 'Dare the viewer to try something or prove you wrong. Create interactive tension.',
+    'fomo': 'Create urgency by highlighting what the viewer is missing or doing wrong RIGHT NOW.',
+    'social_proof': 'Reference a trend, viral moment, or what successful people do. Leverage social validation.',
+    'curiosity': 'Open a curiosity loop that can ONLY be closed by watching. Tease the real reason behind something.',
+    'urgency': 'Create time pressure. Something is about to change or be revealed.',
+    'personal': 'Share a genuine personal insight or result. Make it specific and time-bound.',
+  };
+  
+  const behavior = hookBehaviors[hookType] || hookBehaviors['bold_claim'];
+  
   return `
-HOOK STYLE: ${hookType.toUpperCase().replace('_', ' ')}
-Use this opening style for Scene 1:
-- Examples: "${category.examples.join('", "')}"
-- DO NOT use "Stop scrolling" - be more creative and specific to the topic
-- Make it intriguing, surprising, or emotionally compelling
-- The hook should directly relate to the topic content`;
+═══ HOOK STYLE: ${hookType.toUpperCase().replace('_', ' ')} (USER-SELECTED — MUST FOLLOW) ═══
+The user specifically chose "${hookType}" as their hook style. Scene 1 MUST use this style.
+
+HOOK BEHAVIOR: ${behavior}
+
+Example hooks for reference: "${category.examples.join('", "')}"
+
+RULES:
+- Scene 1 narration MUST match this hook style in tone, structure, and intent
+- DO NOT ignore the hook style and write a generic opening
+- DO NOT use "Stop scrolling" — be creative and topic-specific
+- The hook must directly relate to the topic content
+- If the generated hook does NOT match "${hookType}" style → REWRITE IT
+
+VALIDATION: Before returning, re-read Scene 1. Does it clearly use the "${hookType}" style? If not, regenerate.`;
 }
 
 function generateCameraInstructions(sceneCount: number): string {
