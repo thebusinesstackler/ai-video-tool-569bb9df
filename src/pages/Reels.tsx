@@ -758,10 +758,10 @@ const Reels = () => {
       project: {
         topic: project.topic,
         scenes: project.scenes,
-        voiceovers: project.voiceovers,
+        voiceovers: previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers,
         generatedScenes: project.generatedScenes,
         videoClips: project.videoClips,
-        previewScenes: project.previewScenes,
+        previewScenes: previewScenes.length > 0 ? previewScenes : project.previewScenes,
         status: project.status
       },
       featureToggles,
