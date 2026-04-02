@@ -6351,14 +6351,28 @@ STYLE REQUIREMENTS:
                       </div>
                     )}
                     {project.videoBlobUrl && project.videoClips.length === 0 && (
-                      <Button 
-                        onClick={handleDownloadVideo}
-                        className="bg-gradient-primary hover:opacity-90"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download for TikTok
-                      </Button>
-                    )}
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button 
+                          onClick={handleDownloadVideo}
+                          className="bg-gradient-primary hover:opacity-90"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download for TikTok
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={generateThumbnail}
+                          disabled={isGeneratingThumbnail}
+                          className="border-primary/50 text-primary hover:bg-primary/10"
+                        >
+                          {isGeneratingThumbnail ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                          )}
+                          Generate Thumbnail
+                        </Button>
+                      </div>
                     {/* Re-generate with Lip Sync */}
                     {project.videoBlobUrl && project.videoClips.length === 0 && !enableLipSync && project.generatedScenes.length > 0 && (
                       <Button
