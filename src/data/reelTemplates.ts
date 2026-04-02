@@ -213,46 +213,46 @@ export const OUTRO_TEMPLATES: OutroTemplate[] = [
   {
     id: 'teaser-next',
     name: 'Coming Next',
-    description: 'Teaser preview of next video',
+    description: 'Build anticipation for your next drop',
     duration: 4,
-    visualPrompt: 'Teaser preview card, blurred background with play button, coming soon typography, mysterious anticipation',
-    textPlaceholder: 'Part 2 drops tomorrow...',
+    visualPrompt: 'Cinematic teaser card, blurred preview frame with large centered play button, "PART 2" in bold stacked typography with glowing edges, "COMING TOMORROW" subtitle, dark moody background with light leaks, suspense-building aesthetic, countdown timer visual, 9:16 vertical format',
+    textPlaceholder: 'Part 2 drops tomorrow — Turn on notifications 🔔',
     category: 'engagement'
   },
   {
     id: 'question-poll',
     name: 'Poll Question',
-    description: 'Ask viewers to vote',
+    description: 'Interactive poll that drives comments and saves',
     duration: 4,
-    visualPrompt: 'Interactive poll design with two options, voting buttons, engagement-focused, bright contrasting colors',
-    textPlaceholder: 'Which do you prefer? A or B?',
+    visualPrompt: 'Interactive poll card with two large option buttons (Option A vs Option B), percentage bars partially filled, vibrant contrasting colors (blue vs orange), dark background, bold question text at top, "VOTE IN COMMENTS" at bottom, clean modern UI design, 9:16 vertical format',
+    textPlaceholder: 'Which do you prefer? Comment A or B 👇',
     category: 'engagement'
   },
   {
     id: 'quote-end',
     name: 'Ending Quote',
-    description: 'Inspirational quote closeout',
+    description: 'Memorable quote that gets saved and shared',
     duration: 4,
-    visualPrompt: 'Elegant quote card, quotation marks, inspiring typography, subtle animated background, thoughtful atmosphere',
-    textPlaceholder: '"Your inspirational quote here"',
+    visualPrompt: 'Premium quote card, large elegant quotation marks, serif typography for the quote text, creator name and handle below in sans-serif, dark textured background with subtle gold or warm accent lighting, bookmark/save icon hint in corner, sophisticated editorial design, 9:16 vertical format',
+    textPlaceholder: '"Your powerful closing quote here"',
     category: 'engagement'
   },
   {
     id: 'recap-highlights',
     name: 'Quick Recap',
-    description: 'Summary of key points',
+    description: 'Key takeaways card that viewers screenshot',
     duration: 4,
-    visualPrompt: 'Bullet point recap design, numbered list style, clean minimal layout, key takeaways highlighted',
-    textPlaceholder: 'Key Takeaways:',
+    visualPrompt: 'Clean takeaways card, numbered list (1-3) with bold key points, each with a small icon, dark background with accent-colored highlight boxes, "SAVE THIS" watermark in corner, professional infographic style, modern typography, 9:16 vertical format',
+    textPlaceholder: '📌 Save this — Key Takeaways:',
     category: 'engagement'
   },
   {
     id: 'challenge-cta',
     name: 'Challenge',
-    description: 'Challenge viewers to try something',
+    description: 'Dare viewers to take action and tag you',
     duration: 3,
-    visualPrompt: 'Bold challenge text, energetic flames or sparks, dare atmosphere, action-oriented design',
-    textPlaceholder: 'I challenge you to try this!',
+    visualPrompt: 'Bold challenge card, "CHALLENGE" text with fire/spark effects, energetic gradient background (red to orange), bold dare text centered, "TAG ME IN YOUR RESULTS" at bottom with @ handle, high-energy action-oriented design, 9:16 vertical format',
+    textPlaceholder: 'Try this for 7 days and tag me 🔥',
     category: 'engagement'
   },
   
