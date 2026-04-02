@@ -226,12 +226,25 @@ Remember:
     // Cut scene instructions
     const cutSceneInstructions = enableCutScenes ? `
 CUT SCENE RULES (IMPORTANT):
-- After every 2 main content scenes, insert a 1-2 second "cut scene" 
-- Cut scenes have NO narration (empty string), only visual description
-- Cut scene types: B-roll relevant to topic, quick zoom transition, text emphasis overlay, reaction shot
+- After every 2 main content scenes, insert a 1-2 second "cut scene"
+- Cut scenes have NO narration (empty string), only a rich visual description
 - Mark cut scenes with "isCutScene": true
 - Cut scenes should be visually dynamic and add energy
+
+CUT SCENE VISUAL DESCRIPTIONS MUST include:
+- A specific camera angle: wide establishing shot, extreme close-up, Dutch angle, bird's-eye view, tracking shot, dolly zoom, low-angle hero shot, over-the-shoulder, crane shot, or steadicam follow
+- Camera movement: slow push-in, pull-back reveal, orbit/arc around subject, tilt up/down, whip pan, rack focus shift
+- Cinematic details: depth of field, lighting mood (golden hour, silhouette, rim light, dramatic shadows), lens flare, motion blur
+- Subject action: hands in motion, walking away, object detail, environment reveal, contemplative profile
+
+CUT SCENE TYPES (vary these):
+- B-roll detail shot: extreme close-up of hands, product, or key object with shallow depth of field
+- Atmospheric establishing shot: wide cinematic view of the setting with environmental storytelling
+- Dynamic transition: character in motion — walking, turning, or gesturing with tracking camera
+- Reaction/emphasis: dramatic angle (low angle hero shot or Dutch tilt) capturing emotion
+- Environmental pan: slow panoramic sweep revealing context or location
 ` : '';
+
 
     // Character consistency instructions
     const characterInstructions = characterDescription ? `
@@ -322,7 +335,9 @@ ${enableCutScenes ? `
 CUT SCENES:
 - Insert 1-2 cut scenes between main content (marked with isCutScene: true)
 - Cut scenes have empty narration ("") and are 1-2 seconds
-- Use them for B-roll, transitions, or emphasis moments
+- Each cut scene MUST specify a cinematic camera angle (e.g., "Extreme close-up, shallow DOF, slow push-in", "Wide establishing shot, golden hour, drone descent", "Low-angle hero shot, dramatic rim lighting, slight orbit")
+- Use them for B-roll, atmospheric transitions, or emphasis moments
+- Include camera movement direction and lighting mood in the visual description
 ` : ''}
 
 VISUAL RULES:

@@ -81,6 +81,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScriptGenerator } from '@/components/ScriptGenerator';
 import { ReelEditor } from '@/components/ReelEditor';
+import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
+import { CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCaption';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TopicStrategist, ContentStrategy } from '@/components/TopicStrategist';
 import { VideoQueue } from '@/components/VideoQueue';
@@ -460,6 +462,9 @@ const Reels = () => {
   const [backgroundMusicMood, setBackgroundMusicMood] = useState('');
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   
+  // Caption settings
+  const [captionSettings, setCaptionSettings] = useState<CaptionSettings>(defaultCaptionSettings);
+  
   // Sync feature toggles with existing state
   const handleFeatureChange = (feature: keyof typeof featureToggles, value: boolean) => {
     setFeatureToggles(prev => ({ ...prev, [feature]: value }));
@@ -481,7 +486,7 @@ const Reels = () => {
     } else if (feature === 'upscaler') {
       setShowUpscaler(value);
     } else if (feature === 'captions') {
-      // Captions are enabled by default - could add caption settings expansion
+      setCaptionSettings(prev => ({ ...prev, enabled: value }));
     } else if (feature === 'backgroundMusic') {
       if (!value) {
         setBackgroundMusicUrl(null);
@@ -5535,7 +5540,27 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               </Collapsible>
             )}
 
-            {/* Generated Scenes (Advanced only - beginner skips straight to video) */}
+            {/* Captions Settings - Only visible when enabled from sidebar (Advanced only) */}
+            {isAdvanced && featureToggles.captions && (
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Captions className="w-5 h-5 text-primary" />
+                    Caption Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Choose animation style and appearance for burned-in captions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CaptionStyleSelector
+                    settings={captionSettings}
+                    onChange={setCaptionSettings}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
             {isAdvanced && project.scenes.length > 0 && (
               <Card className="bg-card border-border">
                 <CardHeader>
