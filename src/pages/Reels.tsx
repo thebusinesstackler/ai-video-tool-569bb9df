@@ -3446,6 +3446,8 @@ STYLE REQUIREMENTS:
           videoUrls,
           audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
           embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+          backgroundMusicUrl: backgroundMusicUrl || undefined,
+          backgroundMusicVolume: 20,
           width: sw, height: sh,
           onProgress: (percent) => {
             setProgress(40 + percent * 0.5);
