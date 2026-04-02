@@ -7,11 +7,15 @@ const corsHeaders = {
 };
 
 // Enhance prompt using Claude or GPT-4o for better image quality
-async function enhancePromptForDallE(rawPrompt: string): Promise<string> {
+async function enhancePromptForDallE(rawPrompt: string, characterConstraint?: string): Promise<string> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Given a scene description, rewrite it into a detailed, photorealistic image prompt optimized for best quality output. Include specifics about lighting, composition, camera lens, color grading, and atmosphere. Keep it under 300 words. Output ONLY the enhanced prompt, nothing else.`;
+  const constraintBlock = characterConstraint
+    ? `\n\nCRITICAL CHARACTER CONSTRAINT (NEVER VIOLATE): ${characterConstraint}\nYou MUST preserve exactly this gender, ethnicity, age range, and appearance in the enhanced prompt. Do NOT change, swap, or reinterpret any of these attributes.`
+    : '';
+
+  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Given a scene description, rewrite it into a detailed, photorealistic image prompt optimized for best quality output. Include specifics about lighting, composition, camera lens, color grading, and atmosphere.${constraintBlock}\nKeep it under 300 words. Output ONLY the enhanced prompt, nothing else.`;
 
   // Try Claude first
   if (ANTHROPIC_API_KEY) {
@@ -124,17 +128,21 @@ function buildPromptText(
 ): string {
   const { characterDescription, characterTransformation, cameraAngle, backgroundDescription, refCount } = opts;
 
-  const transformInstruction = characterTransformation ? `IMPORTANT CHARACTER TRANSFORMATION: ${characterTransformation}. ` : '';
-  const characterInstruction = characterDescription ? `Character description: ${characterDescription}. ` : '';
   const cameraInstruction = cameraAngle ? `CAMERA ANGLE: Use a ${cameraAngle} for this shot. ` : '';
   const backgroundInstruction = backgroundDescription
     ? `BACKGROUND: The background MUST be: ${backgroundDescription}. `
     : '';
 
+  // Strong character identity enforcement
+  const characterBlock = characterDescription
+    ? `\n\n*** MANDATORY CHARACTER IDENTITY (DO NOT DEVIATE) ***\nThe main person MUST be: ${characterDescription}.\nThis is NON-NEGOTIABLE. The person's gender, ethnicity, age, and physical appearance MUST match this description exactly. Do NOT substitute, swap, or reinterpret any aspect of their identity. If ANY part of the scene description conflicts with this character identity, the character identity ALWAYS wins.\n`
+    : '';
+
   if (characterTransformation) {
     return `Generate a new scene image: ${prompt}
 
-${transformInstruction}${characterInstruction}${cameraInstruction}${backgroundInstruction}
+IMPORTANT CHARACTER TRANSFORMATION: ${characterTransformation}.
+${characterBlock}${cameraInstruction}${backgroundInstruction}
 
 Apply this transformation: ${characterTransformation}
 Keep the scene composition similar but transform the character as specified.
@@ -150,8 +158,7 @@ REALISM RULES:
 - Hair with individual strand detail and natural movement
 - Character should appear natural and engaged
 - Real human proportions and natural body language
-
-${characterInstruction}${cameraInstruction}${backgroundInstruction}
+${characterBlock}${cameraInstruction}${backgroundInstruction}
 
 Professional cinematic quality, natural lighting, photorealistic.`;
 }
@@ -207,8 +214,8 @@ serve(async (req) => {
     // Build the raw prompt including all context
     const rawPrompt = buildPromptText(prompt, promptOpts);
 
-    // Enhance the prompt for better DALL-E output
-    const enhancedPrompt = await enhancePromptForDallE(rawPrompt);
+    // Enhance the prompt for better DALL-E output, with character constraint
+    const enhancedPrompt = await enhancePromptForDallE(rawPrompt, characterDescription || undefined);
 
     const MAX_RETRIES = 2;
     let lastError: Error | null = null;
