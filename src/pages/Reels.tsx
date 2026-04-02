@@ -6870,7 +6870,6 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </div>
                     </DialogContent>
                   </Dialog>
-                  </Dialog>
 
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
