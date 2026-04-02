@@ -96,6 +96,8 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onCharacterTransformationChange,
   onInsertScene,
   onDeleteScene,
+  currentScenes,
+  onApplyProductScript,
 }) => {
   const { user } = useAuth();
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
