@@ -479,25 +479,27 @@ OUTRO SCENE (Final Scene — MANDATORY):
     const userPrompt = `Write ${totalSceneCount} scenes for a reel about: "${topic}"
 Each CONTENT scene should be approximately ${finalSceneDuration} seconds when narrated.
 
+CREATIVE DIRECTION: Analyze this topic and choose the BEST storytelling style from the Style Engine. Do NOT default to testimonial format. Consider: Is this a curiosity topic? A how-to? A product story? A contrarian take? Choose the style that creates the most engaging, scroll-stopping video.
+
 ${introInstructions ? `SCENE STRUCTURE:
 ${introInstructions}
 - Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
-${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
-- Scene 1 (HOOK + THUMBNAIL): This is THE most important scene. Write a scroll-stopping hook that creates a curiosity gap or makes an irresistible promise. The visual MUST be thumbnail-worthy: dramatic expression, striking composition, high contrast. This image becomes the video thumbnail.
-- Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${totalSceneCount} (CLOSING CTA - MANDATORY): End with a STRONG call-to-action. Tell the viewer exactly what to do next: follow, subscribe, comment, share, try something, visit a link, or engage. This MUST feel like a natural conclusion that motivates action. Examples: "Follow me for more tips like this", "Drop a comment if this changed your perspective", "Share this with someone who needs to hear it", "Try this today and watch what happens"`}
+${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next — one continuous video):
+- Scene 1 (HOOK + THUMBNAIL): THE most important scene. Write a unique, creative hook that matches your chosen storytelling style. The visual MUST be thumbnail-worthy: dramatic expression, striking composition, vivid lighting, clear motion. This image becomes the video thumbnail.
+- Scene 2-${totalSceneCount-1} (BODY): Build the story with each scene adding something NEW. Each scene must answer "what changed?" If nothing changed from the previous scene, rewrite it.
+- Scene ${totalSceneCount} (CLOSING CTA - MANDATORY): End with a STRONG, natural call-to-action. Tell the viewer what to do next. Must feel like a genuine conclusion, not a tacked-on ask.`}
 
-MANDATORY: The LAST scene MUST always contain a clear call-to-action or goal for the viewer. NEVER end on just information — always tell them what to DO next.
+MANDATORY: The LAST scene MUST always contain a clear call-to-action or goal for the viewer. NEVER end on just information.
 
 NARRATION REQUIREMENTS:
 - Content scenes: Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
 ${hasIntro ? '- Intro scene: Write 5-8 words only (3 seconds)' : ''}
 ${hasOutro ? '- Outro scene: Write 8-15 words only (2 seconds)' : ''}
-- Write conversational sentences that flow naturally when spoken
+- Write like a real person talking — conversational, natural, varied rhythm
+- AVOID testimonial patterns ("I've been...", "I started using...", "What I noticed...")
 - Each scene should transition smoothly to the next
-- Use complete thoughts and natural pauses
-- IMPORTANT: Scene 1 must use a creative, psychologically compelling hook — NOT "Stop scrolling" or any generic opener
-- Scene 1's visualDescription must be a high-impact, thumbnail-optimized hero shot with dramatic expression and bold composition
+- Scene 1 must use a creative, psychologically compelling hook
+- Scene 1's visualDescription must be a high-impact, thumbnail-optimized hero shot
 
 ${enableCutScenes ? `
 CUT SCENES:
@@ -518,6 +520,8 @@ VALIDATION:
 - Avoid em dashes (—) and ellipses (...) in narration — they break TTS audio
 - Scene 1 must be a complete, engaging sentence (not a fragment)
 - Last scene should include a natural call-to-action
+- EVERY scene must include physical movement and camera motion
+- Narration must sound natural and human, not templated
 ${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
 ${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
 
@@ -526,7 +530,7 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Your creative narration here (${minWordsPerScene}-${maxWordsPerScene} words)",
-    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[action]. [Setting]. [Mood].",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[detailed action with emotion progression]. [Camera movement and framing]. [Rich environment with atmosphere]. [Lighting direction and mood]. [Pacing cue].",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
   }
