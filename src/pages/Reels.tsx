@@ -1925,6 +1925,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           characterId: selectedCharacterId,
           characterName: selectedCharacter?.name,
           transitionStyle: transitionStyle !== 'none' ? transitionStyle : undefined,
+          selectedHook: selectedHook || undefined,
           introConfig: selectedIntro !== 'none' ? {
             introTemplate: selectedIntro,
             introText: introText
