@@ -105,11 +105,13 @@ interface UseScenePreviewResult {
   setCharacterTransformation: (transformation: string) => void;
   generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
+  regenerateSceneVoice: (sceneNumber: number, narration: string, voice?: string, speechifyVoiceId?: string, voiceEngine?: string, googleVoiceId?: string, userId?: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
   setExternalReference: (imageUrl: string) => void;
   clearReference: () => void;
   resetPreview: () => void;
+  restorePreviewScenes: (scenes: PreviewScene[], vos: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[]) => void;
   insertScene: (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => Promise<void>;
   deleteScene: (sceneNumber: number) => void;
 }
@@ -531,6 +533,97 @@ export function useScenePreview(): UseScenePreviewResult {
     });
   };
 
+  const regenerateSceneVoice = async (
+    sceneNumber: number,
+    narration: string,
+    voice?: string,
+    speechifyVoiceId?: string,
+    voiceEngine?: string,
+    googleVoiceId?: string,
+    userId?: string
+  ) => {
+    if (!narration?.trim()) {
+      toast({ title: 'No narration', description: 'This scene has no narration to generate voice for.', variant: 'destructive' });
+      return;
+    }
+
+    // Mark scene as regenerating voice
+    setPreviewScenes(prev => prev.map(ps =>
+      ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true } : ps
+    ));
+
+    try {
+      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: narration,
+          voice: speechifyVoiceId ? undefined : voice,
+          speechifyVoiceId: speechifyVoiceId || undefined,
+          voiceEngine: voiceEngine || undefined,
+          googleVoiceId: googleVoiceId || undefined
+        }
+      });
+
+      if (ttsError) throw ttsError;
+
+      if (ttsData?.audioContent || ttsData?.audioUrl) {
+        let audioUrl = ttsData.audioUrl || `data:audio/mp3;base64,${ttsData.audioContent}`;
+        let storageUrl: string | undefined;
+
+        if (userId && ttsData.audioContent) {
+          try {
+            const base64Data = ttsData.audioContent;
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let j = 0; j < binaryString.length; j++) {
+              bytes[j] = binaryString.charCodeAt(j);
+            }
+            const fileName = `${userId}/voiceovers/${Date.now()}-scene-${sceneNumber}-regen.mp3`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('reels')
+              .upload(fileName, bytes, { contentType: 'audio/mp3' });
+            if (!uploadError && uploadData) {
+              const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+              storageUrl = publicUrl.publicUrl;
+              audioUrl = storageUrl;
+            }
+          } catch (uploadErr) {
+            console.warn('Voiceover upload failed:', uploadErr);
+          }
+        }
+
+        const actualDuration = await getAudioDuration(audioUrl);
+
+        // Update voiceovers
+        setVoiceovers(prev => {
+          const filtered = prev.filter(v => v.sceneNumber !== sceneNumber);
+          return [...filtered, { sceneNumber, audioUrl, storageUrl, duration: actualDuration }];
+        });
+
+        // Update preview scene
+        setPreviewScenes(prev => prev.map(ps =>
+          ps.sceneNumber === sceneNumber
+            ? { ...ps, audioUrl, audioDuration: actualDuration, isRegenerating: false }
+            : ps
+        ));
+
+        toast({ title: 'Voice Regenerated', description: `Scene ${sceneNumber} voice has been updated.` });
+      } else {
+        throw new Error('No audio returned from TTS');
+      }
+    } catch (error: any) {
+      console.error('Voice regeneration error:', error);
+      setPreviewScenes(prev => prev.map(ps =>
+        ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: false } : ps
+      ));
+      toast({ title: 'Voice Regeneration Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const restorePreviewScenes = (scenes: PreviewScene[], vos: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[]) => {
+    setPreviewScenes(scenes);
+    setVoiceovers(vos);
+  };
+
   const resetPreview = () => {
     setPreviewScenes([]);
     setVoiceovers([]);
@@ -626,6 +719,8 @@ export function useScenePreview(): UseScenePreviewResult {
     setExternalReference,
     clearReference,
     resetPreview,
+    restorePreviewScenes,
+    regenerateSceneVoice,
     insertScene,
     deleteScene,
   };

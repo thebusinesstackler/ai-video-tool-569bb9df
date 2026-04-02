@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package, Camera } from 'lucide-react';
+import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package, Camera, Mic } from 'lucide-react';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { CAMERA_ANGLES, CAMERA_CATEGORIES, CameraAngle } from '@/data/cameraAngles';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,7 @@ interface PreviewScene {
 interface ScenePreviewProps {
   scenes: PreviewScene[];
   onRegenerateImage: (sceneNumber: number, customPrompt?: string, referenceUrl?: string) => void;
+  onRegenerateVoice?: (sceneNumber: number) => void;
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
   disabled?: boolean;
@@ -69,6 +70,7 @@ const SETTING_PRESETS = [
 export const ScenePreview: React.FC<ScenePreviewProps> = ({
   scenes,
   onRegenerateImage,
+  onRegenerateVoice,
   onCreateVideo,
   isCreatingVideo,
   disabled = false,
@@ -416,6 +418,24 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                               )}
                             </Button>
                           )}
+
+                          {/* Regenerate voice button */}
+                          {onRegenerateVoice && scene.narration?.trim() && (
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="w-10 h-10 rounded-full bg-primary/80 hover:bg-primary"
+                              onClick={() => onRegenerateVoice(scene.sceneNumber)}
+                              disabled={scene.isRegenerating || disabled}
+                              title="Regenerate voice for this scene"
+                            >
+                              {scene.isRegenerating ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                              ) : (
+                                <Mic className="w-5 h-5" />
+                              )}
+                            </Button>
+                          )}
                           
                           {onSetReference && !scene.isReference && (
                             <Button
@@ -447,6 +467,25 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                         <p className="text-white text-xs line-clamp-2">{scene.narration}</p>
                       </div>
                     </div>
+
+                    {/* Audio player below card */}
+                    {scene.audioUrl && (
+                      <div className="mt-1.5 flex items-center gap-1">
+                        <audio controls src={scene.audioUrl} className="w-full h-7" />
+                        {onRegenerateVoice && scene.narration?.trim() && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary"
+                            onClick={() => onRegenerateVoice(scene.sceneNumber)}
+                            disabled={scene.isRegenerating || disabled}
+                            title="Regenerate voice"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {/* Insert point after every 4th scene (end of row) or last scene */}
                   {((idx + 1) % 4 === 0 || idx === scenes.length - 1) && (

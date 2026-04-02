@@ -334,11 +334,13 @@ const Reels = () => {
     setCharacterTransformation,
     generatePreview,
     regenerateSceneImage,
+    regenerateSceneVoice,
     regenerateWithReference,
     setSceneAsReference,
     setExternalReference,
     clearReference,
     resetPreview,
+    restorePreviewScenes,
     insertScene: insertPreviewScene,
     deleteScene: deletePreviewScene,
   } = useScenePreview();
@@ -615,6 +617,10 @@ const Reels = () => {
             previewScenes: draft.project.previewScenes || [],
             status: 'idle'
           });
+          // Restore preview scenes into hook
+          if ((draft.project.previewScenes || []).length > 0) {
+            restorePreviewScenes(draft.project.previewScenes, draft.project.voiceovers || []);
+          }
         }
 
         if (draft.strategist) {
@@ -686,6 +692,10 @@ const Reels = () => {
         previewScenes: draft.project.previewScenes || [],
         status: 'idle'
       });
+      // Restore preview scenes into hook
+      if ((draft.project?.previewScenes || []).length > 0) {
+        restorePreviewScenes(draft.project.previewScenes, draft.project.voiceovers || []);
+      }
     }
     
     // Reset completion state
@@ -1459,6 +1469,11 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       previewScenes: ds.previewScenes || [],
       status: 'idle'
     });
+
+    // Restore preview scenes into the hook so they render in ScenePreview
+    if ((ds.previewScenes || []).length > 0) {
+      restorePreviewScenes(ds.previewScenes, ds.voiceovers || []);
+    }
 
     // Reset completion state so editor view shows, not "reel ready"
     setProgress(0);
@@ -6109,6 +6124,21 @@ STYLE REQUIREMENTS:
                     } else {
                       regenerateSceneImage(sceneNumber, promptToUse);
                     }
+                  }}
+                  onRegenerateVoice={(sceneNumber) => {
+                    const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+                    if (!scene?.narration?.trim()) return;
+                    const voiceConfig = resolveVoiceForGeneration();
+                    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                    regenerateSceneVoice(
+                      sceneNumber,
+                      scene.narration,
+                      voiceConfig.voice,
+                      selectedTwin?.voice_cloning_key || undefined,
+                      voiceConfig.voiceEngine,
+                      undefined,
+                      user?.id
+                    );
                   }}
                   onCreateVideo={generateVideo}
                   isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
