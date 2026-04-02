@@ -209,11 +209,13 @@ serve(async (req) => {
       ).join('\n');
     }
 
-    // Build comprehensive text prompt (since DALL-E doesn't accept reference images)
+    // Build comprehensive text prompt with strong character enforcement
     let rawPrompt = `Generate a hyper-realistic cinematic scene. All people must have natural skin with visible pores, subtle imperfections, and realistic textures — never airbrushed, plastic, or CGI-looking. Use professional 3-point cinematic lighting (key, fill, rim). ${sanitizedPrompt}`;
 
+    let characterConstraint: string | undefined;
     if (sanitizedDescription) {
-      rawPrompt += `\nThe main character: ${sanitizedDescription}`;
+      characterConstraint = sanitizedDescription;
+      rawPrompt += `\n\n*** MANDATORY CHARACTER IDENTITY (DO NOT DEVIATE) ***\nThe main person in this image MUST be: ${sanitizedDescription}.\nThis is NON-NEGOTIABLE. The person's gender, ethnicity, age, and physical appearance MUST match this description exactly. Do NOT substitute, swap, or reinterpret any aspect of their identity.`;
     }
 
     if (locationReference) {
@@ -226,8 +228,8 @@ serve(async (req) => {
 
     rawPrompt += `\n\nVertical 9:16 portrait format. Hyper-realistic with natural skin texture (pores, micro-wrinkles, subsurface scattering). Professional cinematic lighting with accurate color temperature. Shot on ARRI Alexa with anamorphic lens. Film-grade color grading, natural skin tones.`;
 
-    // Enhance prompt for better DALL-E output
-    const enhancedPrompt = await enhancePrompt(rawPrompt);
+    // Enhance prompt for better DALL-E output, passing character constraint
+    const enhancedPrompt = await enhancePrompt(rawPrompt, characterConstraint);
 
     const imageUrl = await generateImage(enhancedPrompt, OPENAI_API_KEY);
 
