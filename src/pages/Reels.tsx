@@ -6310,7 +6310,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           customDuration,
                           voiceConfig.voiceEngine,
                           undefined,
-                          videoModel
+                          videoModel,
+                          selectedProductImageUrl || undefined,
+                          selectedProductName || undefined
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
