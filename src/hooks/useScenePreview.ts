@@ -717,6 +717,8 @@ export function useScenePreview(): UseScenePreviewResult {
     setExternalReference,
     clearReference,
     resetPreview,
+    restorePreviewScenes,
+    regenerateSceneVoice,
     insertScene,
     deleteScene,
   };
