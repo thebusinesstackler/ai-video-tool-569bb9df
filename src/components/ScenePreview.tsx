@@ -104,8 +104,18 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   // Product library state
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
   const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
+  const [selectedProductName, setSelectedProductName] = useState<string | null>(null);
+  const [productPlacementInstructions, setProductPlacementInstructions] = useState('');
   const [insertProductUrl, setInsertProductUrl] = useState<string | null>(null);
   const productFileRef = useRef<HTMLInputElement>(null);
+
+  // Multi-voice preview state
+  const [voicePreviewDialogOpen, setVoicePreviewDialogOpen] = useState(false);
+  const [voicePreviewScene, setVoicePreviewScene] = useState<PreviewScene | null>(null);
+  const [voiceSamples, setVoiceSamples] = useState<{ id: string; audioUrl: string; label: string; isGenerating?: boolean }[]>([]);
+  const [isGeneratingVoices, setIsGeneratingVoices] = useState(false);
+  const [playingVoiceSample, setPlayingVoiceSample] = useState<string | null>(null);
+  const voiceSampleRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   useEffect(() => {
     if (user) {
