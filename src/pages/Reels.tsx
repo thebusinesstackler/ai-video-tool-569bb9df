@@ -6430,7 +6430,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         if (!scene) return;
                         const prompt = scene.visualDescription || scene.narration;
                         if (referenceImageUrl) {
-                          regenerateWithReference(sceneNumber, prompt, referenceImageUrl, characterTransformation);
+                          regenerateWithReference(sceneNumber, prompt, referenceImageUrl, characterTransformation, characterDescription || undefined, selectedProductImageUrl || undefined, selectedProductName || undefined);
                         } else {
                           regenerateSceneImage(sceneNumber, prompt);
                         }
