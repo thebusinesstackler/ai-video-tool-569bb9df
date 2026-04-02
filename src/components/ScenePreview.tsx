@@ -101,6 +101,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onApplyProductScript,
 }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
   const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
   
