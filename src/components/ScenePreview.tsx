@@ -72,7 +72,9 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onSetReference,
   onClearReference,
   characterTransformation = '',
-  onCharacterTransformationChange
+  onCharacterTransformationChange,
+  onInsertScene,
+  onDeleteScene,
 }) => {
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
   const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
