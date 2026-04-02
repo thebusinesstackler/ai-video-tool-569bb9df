@@ -110,6 +110,8 @@ interface UseScenePreviewResult {
   setExternalReference: (imageUrl: string) => void;
   clearReference: () => void;
   resetPreview: () => void;
+  insertScene: (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => Promise<void>;
+  deleteScene: (sceneNumber: number) => void;
 }
 
 export function useScenePreview(): UseScenePreviewResult {
