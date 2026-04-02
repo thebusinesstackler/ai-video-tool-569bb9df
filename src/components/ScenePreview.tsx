@@ -261,8 +261,19 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                      No image
+                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                      <ImageIcon className="w-6 h-6" />
+                      <span className="text-xs">No image</span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="mt-1"
+                        onClick={() => onRegenerateImage(scene.sceneNumber, scene.visualDescription)}
+                        disabled={disabled}
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Generate
+                      </Button>
                     </div>
                   )}
 
