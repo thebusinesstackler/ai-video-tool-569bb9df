@@ -22,6 +22,12 @@ interface ProductSwapPanelProps {
   /** Index of the currently selected shot */
   currentShotIndex?: number;
   disabled?: boolean;
+  /** Controlled product URL from parent (persists across re-renders) */
+  controlledProductUrl?: string | null;
+  /** Controlled prompt from parent */
+  controlledPrompt?: string;
+  /** Callback to sync product selection to parent */
+  onProductChange?: (url: string | null, prompt: string) => void;
 }
 
 interface ProductImage {
