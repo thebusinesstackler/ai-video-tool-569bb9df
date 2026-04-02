@@ -78,6 +78,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onInsertScene,
   onDeleteScene,
 }) => {
+  const { user } = useAuth();
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
   const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
   
@@ -94,6 +95,19 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [insertType, setInsertType] = useState<'broll' | 'intro' | 'outro'>('broll');
   const [insertPrompt, setInsertPrompt] = useState('');
   const [isInserting, setIsInserting] = useState(false);
+
+  // Product library state
+  const [productImages, setProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
+  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
+  const [insertProductUrl, setInsertProductUrl] = useState<string | null>(null);
+  const productFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from('product_images').select('id, image_url, name').eq('user_id', user.id).order('created_at', { ascending: false })
+        .then(({ data }) => { if (data) setProductImages(data); });
+    }
+  }, [user]);
 
   const allScenesReady = scenes.every(s => s.imageUrl && !s.isGenerating);
   const totalDuration = scenes.reduce((acc, s) => acc + s.audioDuration, 0);
