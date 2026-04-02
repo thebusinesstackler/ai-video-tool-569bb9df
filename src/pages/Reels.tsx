@@ -4368,7 +4368,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         variant="outline"
                         className="border-primary/50 text-primary hover:bg-primary/10"
                         onClick={() => {
-                          setMode('advanced');
+                          setCreatorMode('advanced');
                           setTimelineViewActive(true);
                           setSidebarsHiddenForTimeline(true);
                           setSidebarCollapsed(true);
