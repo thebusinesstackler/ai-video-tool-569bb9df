@@ -5309,6 +5309,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             </Collapsible>
                           )}
                           <Button onClick={() => {
+                            // Clear old reel before generating new preview
+                            setProject(prev => ({ ...prev, generatedScenes: [], videoClips: [], videoBlobUrl: null, videoUrl: null }));
                             const referenceToUse = (enableLipSync && portraitImage) ? portraitImage : preSelectedReference;
                             const selectedCharacter = selectedCharacterId ? characters.find(c => c.id === selectedCharacterId) : null;
                             const characterRefImage = selectedCharacter?.reference_images?.[0];
