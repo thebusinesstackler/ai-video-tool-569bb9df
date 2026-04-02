@@ -27,7 +27,14 @@ async function enhancePrompt(rawPrompt: string): Promise<string> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Rewrite the given scene description into a detailed, photorealistic cinematic image prompt. Include lighting, composition, camera details, color grading. Keep under 300 words. Output ONLY the enhanced prompt.`;
+  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Rewrite the given scene description into a hyper-realistic cinematic image prompt. MANDATORY quality directives to include:
+- HYPER-REALISTIC skin with visible pores, natural imperfections, micro-wrinkles, and subsurface scattering
+- Professional cinematic lighting: specify exact lighting setup (e.g. key light at 45°, fill light, rim/hair light, practical lights in scene)
+- Natural color grading with accurate skin tones, no oversaturation
+- Shallow depth of field with bokeh when appropriate
+- Camera lens specification (e.g. 85mm f/1.4, 35mm wide angle)
+- Atmospheric details: dust particles in light, lens flare, volumetric haze if appropriate
+Keep under 300 words. Output ONLY the enhanced prompt.`;
 
   if (ANTHROPIC_API_KEY) {
     try {
