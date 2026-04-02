@@ -32,6 +32,9 @@ interface StitchRequest {
   // Logo overlay
   logoUrl?: string;
   logoAnimation?: 'fade' | 'zoom' | 'bounce' | 'glitch' | 'rotate' | 'scale-fade';
+  // Intro thumbnail image — prepended as a 3-second still at the beginning
+  introImageUrl?: string;
+  introImageDuration?: number;
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {
@@ -128,16 +131,36 @@ serve(async (req) => {
       captionBackground = 'glass',
       logoUrl,
       logoAnimation = 'fade',
+      introImageUrl,
+      introImageDuration = 3,
     } = await req.json() as StitchRequest;
 
     if (!clips || clips.length === 0) {
       throw new Error('No video clips provided');
     }
 
-    console.log(`Starting Creatomate stitch: ${clips.length} clips, ${width}x${height}, audio: ${!!audioUrl}, font: ${captionFont}/${captionFontSize}/${captionFontColor}, bg: ${captionBackground}`);
+    console.log(`Starting Creatomate stitch: ${clips.length} clips, ${width}x${height}, audio: ${!!audioUrl}, intro: ${!!introImageUrl}, font: ${captionFont}/${captionFontSize}/${captionFontColor}, bg: ${captionBackground}`);
 
     const elements: any[] = [];
     let currentTime = 0;
+
+    // Prepend thumbnail as intro slide if provided
+    if (introImageUrl) {
+      const introDur = Math.max(1, Math.min(introImageDuration, 10));
+      elements.push({
+        type: 'image',
+        source: introImageUrl,
+        time: 0,
+        duration: introDur,
+        fit: 'cover',
+        animations: [
+          { type: 'scale', start_scale: '105%', end_scale: '100%', duration: introDur, easing: 'ease-out' },
+          { type: 'fade', fade: 'out', start: introDur - 0.4, duration: 0.4 },
+        ],
+      });
+      currentTime = introDur;
+      console.log(`Intro thumbnail added: ${introDur}s`);
+    }
 
     clips.forEach((clip, index) => {
       const videoDuration = clip.audioDuration || clip.duration || 5;

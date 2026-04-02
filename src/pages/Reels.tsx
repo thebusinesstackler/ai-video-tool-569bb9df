@@ -442,6 +442,7 @@ const Reels = () => {
   const [selectedThumbnailIdx, setSelectedThumbnailIdx] = useState(0);
   const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
   const [thumbnailStyle, setThumbnailStyle] = useState('dramatic');
+  const [selectedThumbnailUrl, setSelectedThumbnailUrl] = useState<string | null>(null);
   
   // Outro style state
   const [outroStyle, setOutroStyle] = useState('logo-fade');
@@ -2562,7 +2563,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               videoBlobUrl: persistedVideoUrl,
               generatedScenes,
               voiceovers: sortedAudios,
-              videoClips: [],
+              videoClips: sortedVideos.map(v => ({ sceneNumber: v.sceneNumber, videoUrl: v.videoUrl })),
               status: 'complete'
             }));
 
@@ -3009,6 +3010,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setCurrentReelSaved(false);
     setBeginnerStep(1);
     setGeneratedThumbnails([]);
+    setSelectedThumbnailUrl(null);
     setShowThumbnailDialog(false);
   };
 
@@ -3529,6 +3531,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               captionAnimation: captionSettings.style || 'karaoke',
               logoUrl: selectedLogoUrl || undefined,
               logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined,
+              introImageUrl: selectedThumbnailUrl || undefined,
+              introImageDuration: 3,
             }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
@@ -3609,7 +3613,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         } catch (e) { console.error('Failed to save:', e); }
       }
 
-      setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
+      setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, status: 'complete' }));
       toast({ title: "Videos Stitched & Saved!", description: "Merged and saved to My Reels." });
 
       setProgress(100);
@@ -3824,7 +3828,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         } catch (e) { console.error('Upload failed:', e); }
       }
 
-      setProject(prev => ({ ...prev, videoBlobUrl: savedUrl, videoClips: [], status: 'complete' }));
+      setProject(prev => ({ ...prev, videoBlobUrl: savedUrl, status: 'complete' }));
       setAppendedClips([]);
       setShowAppendBroll(false);
       toast({ title: "Re-stitched!", description: "Your updated reel is ready." });
@@ -6970,21 +6974,49 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             onClick={() => {
                               const selected = generatedThumbnails[selectedThumbnailIdx];
                               if (selected) {
+                                setSelectedThumbnailUrl(selected);
+                                toast({ title: "Thumbnail Selected", description: "It will be prepended as a 3-second intro when you stitch your video." });
+                              }
+                              setShowThumbnailDialog(false);
+                            }}
+                          >
+                            <Film className="w-3 h-3 mr-1" />
+                            Use as Intro
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const selected = generatedThumbnails[selectedThumbnailIdx];
+                              if (selected) {
                                 const link = document.createElement('a');
                                 link.href = selected;
                                 link.download = `thumbnail-${project.topic || 'reel'}.png`;
                                 link.click();
                               }
-                              setShowThumbnailDialog(false);
                             }}
                           >
                             <Download className="w-3 h-3 mr-1" />
-                            Save
+                            Download
                           </Button>
                         </div>
                       </div>
                     </DialogContent>
                   </Dialog>
+
+                  {/* Intro thumbnail indicator */}
+                  {selectedThumbnailUrl && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5">
+                      <img src={selectedThumbnailUrl} alt="Intro thumbnail" className="w-16 h-10 object-cover rounded" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-primary">Intro Thumbnail Set</p>
+                        <p className="text-xs text-muted-foreground">Will be prepended as a 3s intro clip</p>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setSelectedThumbnailUrl(null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
