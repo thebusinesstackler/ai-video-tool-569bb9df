@@ -159,12 +159,56 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   };
 
   const applySettingPreset = (setting: string) => {
-    // If there's existing text, append the setting, otherwise use it as base
     if (customPrompt) {
       setCustomPrompt(`${customPrompt} ${setting}`);
     } else {
       setCustomPrompt(setting);
     }
+  };
+
+  const handleInsertScene = async () => {
+    if (!insertPrompt.trim() || !onInsertScene) return;
+    setIsInserting(true);
+    try {
+      await onInsertScene(insertIndex, insertType, insertPrompt);
+      setInsertDialogOpen(false);
+      setInsertPrompt('');
+    } finally {
+      setIsInserting(false);
+    }
+  };
+
+  const openInsertDialog = (index: number, type: 'broll' | 'intro' | 'outro') => {
+    setInsertIndex(index);
+    setInsertType(type);
+    setInsertPrompt('');
+    setInsertDialogOpen(true);
+  };
+
+  const InsertButton = ({ index }: { index: number }) => {
+    if (!onInsertScene) return null;
+    return (
+      <div className="flex items-center justify-center col-span-full md:col-span-full py-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <Plus className="w-3 h-3" /> Insert Scene
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => openInsertDialog(index, 'broll')}>
+              <Film className="w-4 h-4 mr-2" /> B-Roll Shot
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openInsertDialog(index, 'intro')}>
+              <Type className="w-4 h-4 mr-2" /> Intro / Title Card
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openInsertDialog(index, 'outro')}>
+              <Type className="w-4 h-4 mr-2" /> Outro / CTA Slide
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
   };
 
   return (
