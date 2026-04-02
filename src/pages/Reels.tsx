@@ -6231,7 +6231,7 @@ STYLE REQUIREMENTS:
 
                   {/* Intro/CTA Slide Buttons */}
                   {project.generatedScenes.length > 0 && !project.videoBlobUrl && (
-                    <div className="flex justify-center gap-2 mb-3">
+                    <div className="flex flex-wrap justify-center gap-2 mb-3">
                       <Button
                         size="sm"
                         variant="outline"
@@ -6246,7 +6246,16 @@ STYLE REQUIREMENTS:
                         onClick={() => setShowCtaSlideForm(true)}
                       >
                         <Sparkles className="w-3 h-3 mr-1" />
-                        Add CTA Slide
+                        Add Outro/CTA Slide
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={generateThumbnail}
+                        disabled={isGeneratingThumbnail}
+                      >
+                        {isGeneratingThumbnail ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />}
+                        Generate Thumbnail
                       </Button>
                     </div>
                   )}
