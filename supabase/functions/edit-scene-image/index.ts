@@ -7,11 +7,15 @@ const corsHeaders = {
 };
 
 // Enhance prompt using Claude or GPT-4o for better image quality
-async function enhancePromptForDallE(rawPrompt: string): Promise<string> {
+async function enhancePromptForDallE(rawPrompt: string, characterConstraint?: string): Promise<string> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Given a scene description, rewrite it into a detailed, photorealistic image prompt optimized for best quality output. Include specifics about lighting, composition, camera lens, color grading, and atmosphere. Keep it under 300 words. Output ONLY the enhanced prompt, nothing else.`;
+  const constraintBlock = characterConstraint
+    ? `\n\nCRITICAL CHARACTER CONSTRAINT (NEVER VIOLATE): ${characterConstraint}\nYou MUST preserve exactly this gender, ethnicity, age range, and appearance in the enhanced prompt. Do NOT change, swap, or reinterpret any of these attributes.`
+    : '';
+
+  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Given a scene description, rewrite it into a detailed, photorealistic image prompt optimized for best quality output. Include specifics about lighting, composition, camera lens, color grading, and atmosphere.${constraintBlock}\nKeep it under 300 words. Output ONLY the enhanced prompt, nothing else.`;
 
   // Try Claude first
   if (ANTHROPIC_API_KEY) {
