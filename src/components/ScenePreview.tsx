@@ -25,10 +25,20 @@ interface PreviewScene {
   isReference?: boolean;
 }
 
+interface VoiceSampleRequest {
+  sceneNumber: number;
+  narration: string;
+  voiceId: string;
+  voiceLabel: string;
+}
+
 interface ScenePreviewProps {
   scenes: PreviewScene[];
   onRegenerateImage: (sceneNumber: number, customPrompt?: string, referenceUrl?: string) => void;
   onRegenerateVoice?: (sceneNumber: number) => void;
+  onGenerateVoiceSample?: (req: VoiceSampleRequest) => Promise<{ audioUrl: string } | null>;
+  onApplyVoiceSample?: (sceneNumber: number, audioUrl: string) => void;
+  availableVoices?: { id: string; label: string; gender?: string }[];
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
   disabled?: boolean;
@@ -71,6 +81,9 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   scenes,
   onRegenerateImage,
   onRegenerateVoice,
+  onGenerateVoiceSample,
+  onApplyVoiceSample,
+  availableVoices = [],
   onCreateVideo,
   isCreatingVideo,
   disabled = false,
@@ -104,8 +117,18 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   // Product library state
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
   const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
+  const [selectedProductName, setSelectedProductName] = useState<string | null>(null);
+  const [productPlacementInstructions, setProductPlacementInstructions] = useState('');
   const [insertProductUrl, setInsertProductUrl] = useState<string | null>(null);
   const productFileRef = useRef<HTMLInputElement>(null);
+
+  // Multi-voice preview state
+  const [voicePreviewDialogOpen, setVoicePreviewDialogOpen] = useState(false);
+  const [voicePreviewScene, setVoicePreviewScene] = useState<PreviewScene | null>(null);
+  const [voiceSamples, setVoiceSamples] = useState<{ id: string; audioUrl: string; label: string; isGenerating?: boolean }[]>([]);
+  const [isGeneratingVoices, setIsGeneratingVoices] = useState(false);
+  const [playingVoiceSample, setPlayingVoiceSample] = useState<string | null>(null);
+  const voiceSampleRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   useEffect(() => {
     if (user) {
@@ -157,6 +180,8 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setCustomPrompt(scene.visualDescription);
     setLocalReferenceUrl(referenceImageUrl || null);
     setSelectedProductUrl(null);
+    setSelectedProductName(null);
+    setProductPlacementInstructions('');
     setRegenerateDialogOpen(true);
   };
 
@@ -173,11 +198,10 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
 
   const handleRegenerate = () => {
     if (!selectedScene) return;
-    // If a product is selected, append product context to the prompt
     let finalPrompt = customPrompt;
     if (selectedProductUrl) {
-      finalPrompt = `${customPrompt}. Feature this product prominently in the scene, extreme close-up product shot with dramatic lighting.`;
-      // Use the product image as the reference for image-to-image generation
+      const placement = productPlacementInstructions.trim() || `Feature ${selectedProductName || 'this product'} prominently in the scene`;
+      finalPrompt = `${customPrompt}. ${placement}. The product must be clearly visible, photorealistic, with accurate colors and branding. Hyper-realistic cinematic lighting.`;
       onRegenerateImage(selectedScene.sceneNumber, finalPrompt, selectedProductUrl);
     } else {
       onRegenerateImage(selectedScene.sceneNumber, customPrompt, localReferenceUrl || undefined);
@@ -187,6 +211,61 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setCustomPrompt('');
     setLocalReferenceUrl(null);
     setSelectedProductUrl(null);
+    setSelectedProductName(null);
+    setProductPlacementInstructions('');
+  };
+
+  // Voice preview functions
+  const openVoicePreview = (scene: PreviewScene) => {
+    setVoicePreviewScene(scene);
+    setVoiceSamples([]);
+    setPlayingVoiceSample(null);
+    setVoicePreviewDialogOpen(true);
+  };
+
+  const generateVoiceSample = async (voiceId: string, voiceLabel: string) => {
+    if (!voicePreviewScene || !onGenerateVoiceSample) return;
+    const sampleId = `${voiceId}-${Date.now()}`;
+    setVoiceSamples(prev => [...prev, { id: sampleId, audioUrl: '', label: voiceLabel, isGenerating: true }]);
+    
+    try {
+      const result = await onGenerateVoiceSample({
+        sceneNumber: voicePreviewScene.sceneNumber,
+        narration: voicePreviewScene.narration || '',
+        voiceId,
+        voiceLabel,
+      });
+      if (result?.audioUrl) {
+        setVoiceSamples(prev => prev.map(s => s.id === sampleId ? { ...s, audioUrl: result.audioUrl, isGenerating: false } : s));
+      } else {
+        setVoiceSamples(prev => prev.filter(s => s.id !== sampleId));
+      }
+    } catch {
+      setVoiceSamples(prev => prev.filter(s => s.id !== sampleId));
+    }
+  };
+
+  const playVoiceSample = (sampleId: string, audioUrl: string) => {
+    voiceSampleRefs.current.forEach((a, id) => { if (id !== sampleId) { a.pause(); a.currentTime = 0; } });
+    let audio = voiceSampleRefs.current.get(sampleId);
+    if (!audio || audio.src !== audioUrl) {
+      audio = new Audio(audioUrl);
+      audio.onended = () => setPlayingVoiceSample(null);
+      voiceSampleRefs.current.set(sampleId, audio);
+    }
+    if (playingVoiceSample === sampleId) {
+      audio.pause(); audio.currentTime = 0; setPlayingVoiceSample(null);
+    } else {
+      audio.play().catch(() => setPlayingVoiceSample(null));
+      setPlayingVoiceSample(sampleId);
+    }
+  };
+
+  const applyVoiceSampleToScene = (audioUrl: string) => {
+    if (!voicePreviewScene || !onApplyVoiceSample) return;
+    onApplyVoiceSample(voicePreviewScene.sceneNumber, audioUrl);
+    setVoicePreviewDialogOpen(false);
+    voiceSampleRefs.current.forEach(a => { a.pause(); a.currentTime = 0; });
   };
 
   const applySettingPreset = (setting: string) => {
@@ -470,21 +549,45 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
 
                     {/* Audio player below card */}
                     {scene.audioUrl && (
-                      <div className="mt-1.5 flex items-center gap-1">
-                        <audio controls src={scene.audioUrl} className="w-full h-7" />
-                        {onRegenerateVoice && scene.narration?.trim() && (
+                      <div className="mt-1.5 space-y-1">
+                        <div className="flex items-center gap-1">
+                          <audio controls src={scene.audioUrl} className="w-full h-7" />
+                          {onRegenerateVoice && scene.narration?.trim() && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary"
+                              onClick={() => onRegenerateVoice(scene.sceneNumber)}
+                              disabled={scene.isRegenerating || disabled}
+                              title="Regenerate voice"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                        {onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
                           <Button
-                            size="icon"
                             variant="ghost"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary"
-                            onClick={() => onRegenerateVoice(scene.sceneNumber)}
-                            disabled={scene.isRegenerating || disabled}
-                            title="Regenerate voice"
+                            size="sm"
+                            className="h-6 text-[10px] w-full text-muted-foreground hover:text-primary"
+                            onClick={() => openVoicePreview(scene)}
                           >
-                            <RefreshCw className="w-3 h-3" />
+                            <Mic className="w-3 h-3 mr-1" />
+                            Preview Different Voices
                           </Button>
                         )}
                       </div>
+                    )}
+                    {!scene.audioUrl && onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1.5 h-6 text-[10px] w-full text-muted-foreground hover:text-primary"
+                        onClick={() => openVoicePreview(scene)}
+                      >
+                        <Mic className="w-3 h-3 mr-1" />
+                        Preview Voices
+                      </Button>
                     )}
                   </div>
                   {/* Insert point after every 4th scene (end of row) or last scene */}
@@ -700,13 +803,18 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                   Place a Product in This Scene
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  Select a product from your library to feature it in this scene
+                  Select a product and describe exactly where and how it should appear
                 </p>
                 <div className="grid grid-cols-5 gap-2">
                   {productImages.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => setSelectedProductUrl(selectedProductUrl === p.image_url ? null : p.image_url)}
+                      onClick={() => {
+                        const isDeselecting = selectedProductUrl === p.image_url;
+                        setSelectedProductUrl(isDeselecting ? null : p.image_url);
+                        setSelectedProductName(isDeselecting ? null : (p.name || 'product'));
+                        if (isDeselecting) setProductPlacementInstructions('');
+                      }}
                       className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                         selectedProductUrl === p.image_url ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50'
                       }`}
@@ -715,8 +823,41 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                     </button>
                   ))}
                 </div>
+
+                {/* Placement Instructions - shown when product is selected */}
                 {selectedProductUrl && (
-                  <p className="text-xs text-primary">✓ Product selected — it will be placed in this scene</p>
+                  <div className="space-y-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                    <label className="text-sm font-medium text-primary flex items-center gap-1.5">
+                      <Package className="w-3.5 h-3.5" />
+                      Product Placement Instructions
+                    </label>
+                    <Textarea
+                      value={productPlacementInstructions}
+                      onChange={(e) => setProductPlacementInstructions(e.target.value)}
+                      placeholder="e.g., Person holding this product in their right hand, product placed on the table in front of them, close-up of product next to the speaker..."
+                      className="min-h-[70px] text-sm"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: '🤲 Holding in hand', value: `Person holding ${selectedProductName || 'this product'} in their hand, clearly visible, natural grip` },
+                        { label: '🪑 On table', value: `${selectedProductName || 'Product'} placed on the table in front of the person, well-lit, in focus` },
+                        { label: '👀 Close-up hero', value: `Extreme close-up of ${selectedProductName || 'this product'}, dramatic cinematic lighting, shallow depth of field, premium product shot` },
+                        { label: '🎁 Presenting', value: `Person presenting ${selectedProductName || 'this product'} to camera, showing it off with both hands, proud expression` },
+                        { label: '📦 Unboxing', value: `Person unboxing ${selectedProductName || 'this product'}, excited expression, product emerging from packaging` },
+                      ].map(preset => (
+                        <Button
+                          key={preset.label}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setProductPlacementInstructions(preset.value)}
+                        >
+                          {preset.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-primary/70">✓ Product selected — placement instructions will guide the AI on how to render it</p>
+                  </div>
                 )}
               </div>
             )}
@@ -847,6 +988,97 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
               <Button onClick={handleInsertScene} disabled={!insertPrompt.trim() || isInserting}>
                 {isInserting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
                 {isInserting ? 'Generating...' : 'Insert Scene'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Voice Preview Dialog */}
+      <Dialog open={voicePreviewDialogOpen} onOpenChange={setVoicePreviewDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mic className="w-5 h-5" />
+              Preview Voices — Scene {voicePreviewScene?.sceneNumber}
+            </DialogTitle>
+            <DialogDescription>
+              Generate samples with different voices, listen, and apply the one that fits best
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Narration text preview */}
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">Scene narration:</p>
+              <p className="text-sm italic">"{voicePreviewScene?.narration}"</p>
+            </div>
+
+            {/* Voice options to generate */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Generate a Sample</label>
+              <div className="grid grid-cols-2 gap-2">
+                {availableVoices.map((voice) => (
+                  <Button
+                    key={voice.id}
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-xs justify-start"
+                    onClick={() => generateVoiceSample(voice.id, voice.label)}
+                    disabled={isGeneratingVoices || disabled}
+                  >
+                    <Mic className="w-3 h-3 mr-1.5 shrink-0" />
+                    <span className="truncate">{voice.label}</span>
+                    {voice.gender && <Badge variant="secondary" className="ml-auto text-[9px] h-4">{voice.gender}</Badge>}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Generated samples */}
+            {voiceSamples.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Generated Samples</label>
+                <div className="space-y-2">
+                  {voiceSamples.map((sample) => (
+                    <div key={sample.id} className="flex items-center gap-2 p-2 border rounded-lg bg-card">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{sample.label}</p>
+                      </div>
+                      {sample.isGenerating ? (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Generating...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => playVoiceSample(sample.id, sample.audioUrl)}
+                          >
+                            {playingVoiceSample === sample.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-8 text-xs"
+                            onClick={() => applyVoiceSampleToScene(sample.audioUrl)}
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setVoicePreviewDialogOpen(false)}>
+                Close
               </Button>
             </div>
           </div>

@@ -6140,6 +6140,52 @@ STYLE REQUIREMENTS:
                       user?.id
                     );
                   }}
+                  onGenerateVoiceSample={async (req) => {
+                    try {
+                      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+                        body: {
+                          text: req.narration,
+                          voice: req.voiceId,
+                          voiceEngine: 'wavespeed',
+                        }
+                      });
+                      if (error) throw error;
+                      if (data?.audioUrl) return { audioUrl: data.audioUrl };
+                      if (data?.audioContent) return { audioUrl: `data:audio/mp3;base64,${data.audioContent}` };
+                      return null;
+                    } catch (e) {
+                      console.error('Voice sample generation failed:', e);
+                      return null;
+                    }
+                  }}
+                  onApplyVoiceSample={(sceneNumber, audioUrl) => {
+                    const updatedScenes = previewScenes.map(ps =>
+                      ps.sceneNumber === sceneNumber ? { ...ps, audioUrl, audioDuration: ps.audioDuration } : ps
+                    );
+                    const updatedVoiceovers = previewVoiceovers.map(v =>
+                      v.sceneNumber === sceneNumber ? { ...v, audioUrl } : v
+                    );
+                    restorePreviewScenes(updatedScenes, updatedVoiceovers);
+                  }}
+                  availableVoices={[
+                    { id: 'English_radiant_girl', label: 'Radiant Girl', gender: 'Female' },
+                    { id: 'Calm_Woman', label: 'Calm Woman', gender: 'Female' },
+                    { id: 'Inspirational_girl', label: 'Inspirational Girl', gender: 'Female' },
+                    { id: 'Wise_Woman', label: 'Wise Woman', gender: 'Female' },
+                    { id: 'Lovely_Girl', label: 'Lovely Girl', gender: 'Female' },
+                    { id: 'Lively_Girl', label: 'Lively Girl', gender: 'Female' },
+                    { id: 'English_compelling_lady1', label: 'Compelling Lady', gender: 'Female' },
+                    { id: 'English_magnetic_voiced_man', label: 'Magnetic Man', gender: 'Male' },
+                    { id: 'English_Trustworth_Man', label: 'Trustworthy Man', gender: 'Male' },
+                    { id: 'Casual_Guy', label: 'Casual Guy', gender: 'Male' },
+                    { id: 'Deep_Voice_Man', label: 'Deep Voice Man', gender: 'Male' },
+                    { id: 'English_expressive_narrator', label: 'Expressive Narrator', gender: 'Male' },
+                    { id: 'English_Aussie_Bloke', label: 'Aussie Bloke', gender: 'Male' },
+                    { id: 'Elegant_Man', label: 'Elegant Man', gender: 'Male' },
+                    { id: 'Determined_Man', label: 'Determined Man', gender: 'Male' },
+                    { id: 'Patient_Man', label: 'Patient Man', gender: 'Male' },
+                    { id: 'Decent_Boy', label: 'Decent Boy', gender: 'Male' },
+                  ]}
                   onCreateVideo={generateVideo}
                   isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
                   disabled={isGenerating}
