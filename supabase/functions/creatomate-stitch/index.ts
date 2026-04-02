@@ -27,6 +27,9 @@ interface StitchRequest {
   captionFontColor?: string;
   captionBackground?: 'glass' | 'solid' | 'gradient' | 'outline' | 'neon';
   captionAnimation?: string;
+  // Logo overlay
+  logoUrl?: string;
+  logoAnimation?: 'fade' | 'zoom' | 'bounce' | 'glitch' | 'rotate' | 'scale-fade';
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {
@@ -49,6 +52,50 @@ function getCaptionBackgroundProps(bg: string): Record<string, string> {
     case 'glass':
     default:
       return { background_color: 'rgba(0,0,0,0.5)' };
+  }
+}
+
+function getLogoAnimations(animation: string, totalDuration: number): any[] {
+  const logoDuration = Math.min(3, totalDuration);
+  const logoStart = Math.max(0, totalDuration - logoDuration);
+  
+  switch (animation) {
+    case 'fade':
+      return [
+        { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-in-out' },
+      ];
+    case 'zoom':
+      return [
+        { type: 'scale', start_scale: '0%', end_scale: '100%', duration: 0.6, easing: 'ease-out' },
+        { type: 'fade', fade: 'in', duration: 0.3 },
+      ];
+    case 'bounce':
+      return [
+        { type: 'scale', start_scale: '0%', end_scale: '110%', duration: 0.4, easing: 'ease-out' },
+        { type: 'scale', start_scale: '110%', end_scale: '100%', start: 0.4, duration: 0.2, easing: 'ease-in-out' },
+        { type: 'fade', fade: 'in', duration: 0.2 },
+      ];
+    case 'glitch':
+      return [
+        { type: 'fade', fade: 'in', duration: 0.1 },
+        { type: 'fade', fade: 'out', start: 0.1, duration: 0.05 },
+        { type: 'fade', fade: 'in', start: 0.15, duration: 0.05 },
+        { type: 'fade', fade: 'out', start: 0.2, duration: 0.05 },
+        { type: 'fade', fade: 'in', start: 0.25, duration: 0.1 },
+        { type: 'scale', start_scale: '102%', end_scale: '100%', duration: 0.3, easing: 'linear' },
+      ];
+    case 'rotate':
+      return [
+        { type: 'spin', revolutions: 0.5, duration: 0.6, easing: 'ease-out' },
+        { type: 'fade', fade: 'in', duration: 0.3 },
+      ];
+    case 'scale-fade':
+      return [
+        { type: 'scale', start_scale: '60%', end_scale: '100%', duration: 0.8, easing: 'ease-out' },
+        { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-in-out' },
+      ];
+    default:
+      return [{ type: 'fade', fade: 'in', duration: 0.5 }];
   }
 }
 
@@ -75,6 +122,8 @@ serve(async (req) => {
       captionFontSize = 'medium',
       captionFontColor = '#ffffff',
       captionBackground = 'glass',
+      logoUrl,
+      logoAnimation = 'fade',
     } = await req.json() as StitchRequest;
 
     if (!clips || clips.length === 0) {
@@ -185,6 +234,33 @@ serve(async (req) => {
         volume: '100%',
         audio_fade_out: 0.5,
       });
+    }
+
+    // Add logo overlay if provided
+    if (logoUrl) {
+      const logoDuration = Math.min(3, currentTime);
+      const logoStart = Math.max(0, currentTime - logoDuration);
+      const logoAnims = getLogoAnimations(logoAnimation, currentTime);
+
+      elements.push({
+        type: 'image',
+        source: logoUrl,
+        time: logoStart,
+        duration: logoDuration,
+        width: '25%',
+        height: '15%',
+        x: '50%',
+        y: '50%',
+        x_alignment: '50%',
+        y_alignment: '50%',
+        fit: 'contain',
+        animations: [
+          ...logoAnims,
+          { type: 'fade', fade: 'out', start: logoDuration - 0.3, duration: 0.3 },
+        ],
+      });
+
+      console.log(`Logo overlay added: ${logoAnimation} animation, ${logoDuration}s at end`);
     }
 
     const source = {
