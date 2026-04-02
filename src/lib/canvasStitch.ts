@@ -335,6 +335,9 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
   if (overlayAudioSource) {
     try { overlayAudioSource.stop(); } catch {}
   }
+  if (bgMusicSource) {
+    try { bgMusicSource.stop(); } catch {}
+  }
 
   return new Promise<Blob>((resolve, reject) => {
     recorder.onstop = () => {
