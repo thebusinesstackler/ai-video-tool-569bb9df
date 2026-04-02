@@ -3530,6 +3530,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               captionAnimation: captionSettings.style || 'karaoke',
               logoUrl: selectedLogoUrl || undefined,
               logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined,
+              introImageUrl: selectedThumbnailUrl || undefined,
+              introImageDuration: 3,
             }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
