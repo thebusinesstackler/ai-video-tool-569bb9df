@@ -1174,6 +1174,109 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Product Analysis Dialog */}
+      <Dialog open={productAnalysisOpen} onOpenChange={setProductAnalysisOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Add Product to Your Reel
+            </DialogTitle>
+            <DialogDescription>
+              Upload a product image — AI will identify it and rewrite your script to feature it naturally
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Upload */}
+            <input ref={productUploadRef} type="file" accept="image/*" onChange={handleProductUpload} className="hidden" />
+            {productUploadUrl ? (
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-primary">
+                  <img src={productUploadUrl} alt="Product" className="w-full h-full object-cover" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  {analyzedProduct ? (
+                    <div>
+                      <p className="text-sm font-medium">{analyzedProduct.productName}</p>
+                      <p className="text-xs text-muted-foreground">{analyzedProduct.category}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{analyzedProduct.description}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Product uploaded — click Analyze to identify it</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setProductUploadUrl(null); setAnalyzedProduct(null); setRewrittenScenes(null); }}>
+                      <X className="w-3 h-3 mr-1" /> Remove
+                    </Button>
+                    {!analyzedProduct && (
+                      <Button size="sm" onClick={analyzeProduct} disabled={isAnalyzingProduct}>
+                        {isAnalyzingProduct ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Package className="w-3 h-3 mr-1" />}
+                        {isAnalyzingProduct ? 'Analyzing...' : 'Analyze Product'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Button variant="outline" className="w-full h-20" onClick={() => productUploadRef.current?.click()}>
+                  <Upload className="w-5 h-5 mr-2" />
+                  Upload Product Image
+                </Button>
+                {productImages.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Or select from your product library:</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {productImages.map((p) => (
+                        <button key={p.id} onClick={() => { setProductUploadUrl(p.image_url); setAnalyzedProduct(null); setRewrittenScenes(null); }}
+                          className="aspect-square rounded-lg overflow-hidden border-2 border-border hover:border-primary/50 transition-all">
+                          <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Analysis Results */}
+            {analyzedProduct?.sellingPoints && (
+              <div className="p-3 bg-muted rounded-lg space-y-2">
+                <p className="text-xs font-medium">Key Selling Points:</p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  {analyzedProduct.sellingPoints.map((p: string, i: number) => (
+                    <li key={i}>• {p}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Rewritten Script Preview */}
+            {rewrittenScenes && rewrittenScenes.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">AI-Rewritten Script Preview</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {rewrittenScenes.map((s: any) => (
+                    <div key={s.sceneNumber} className="p-2 bg-card border rounded-lg">
+                      <p className="text-xs font-medium text-primary">Scene {s.sceneNumber}</p>
+                      <p className="text-xs mt-1">"{s.narration}"</p>
+                    </div>
+                  ))}
+                </div>
+                <Button className="w-full" onClick={applyProductScript}>
+                  Apply Product Script
+                </Button>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setProductAnalysisOpen(false)}>Close</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
