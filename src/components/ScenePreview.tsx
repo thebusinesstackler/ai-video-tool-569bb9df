@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package, Camera } from 'lucide-react';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
+import { CAMERA_ANGLES, CAMERA_CATEGORIES, CameraAngle } from '@/data/cameraAngles';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 
