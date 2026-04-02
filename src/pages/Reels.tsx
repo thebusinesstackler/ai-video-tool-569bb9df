@@ -6029,8 +6029,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   onClearReference={clearReference}
                   characterTransformation={characterTransformation}
                   onCharacterTransformationChange={setCharacterTransformation}
+                  onInsertScene={insertPreviewScene}
+                  onDeleteScene={deletePreviewScene}
                 />
-                
                 {/* Background Music Panel */}
                 {featureToggles.backgroundMusic && (
                   <Card className="border-primary/20 bg-primary/5">
