@@ -184,7 +184,9 @@ serve(async (req) => {
       characterDescription,
       characterTransformation,
       cameraAngle,
-      backgroundDescription
+      backgroundDescription,
+      productImageUrl,
+      productName
     } = await req.json();
 
     if (!prompt) {
