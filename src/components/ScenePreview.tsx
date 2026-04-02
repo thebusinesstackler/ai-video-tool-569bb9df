@@ -185,11 +185,10 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
 
   const handleRegenerate = () => {
     if (!selectedScene) return;
-    // If a product is selected, append product context to the prompt
     let finalPrompt = customPrompt;
     if (selectedProductUrl) {
-      finalPrompt = `${customPrompt}. Feature this product prominently in the scene, extreme close-up product shot with dramatic lighting.`;
-      // Use the product image as the reference for image-to-image generation
+      const placement = productPlacementInstructions.trim() || `Feature ${selectedProductName || 'this product'} prominently in the scene`;
+      finalPrompt = `${customPrompt}. ${placement}. The product must be clearly visible, photorealistic, with accurate colors and branding. Hyper-realistic cinematic lighting.`;
       onRegenerateImage(selectedScene.sceneNumber, finalPrompt, selectedProductUrl);
     } else {
       onRegenerateImage(selectedScene.sceneNumber, customPrompt, localReferenceUrl || undefined);
@@ -199,6 +198,8 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setCustomPrompt('');
     setLocalReferenceUrl(null);
     setSelectedProductUrl(null);
+    setSelectedProductName(null);
+    setProductPlacementInstructions('');
   };
 
   const applySettingPreset = (setting: string) => {
