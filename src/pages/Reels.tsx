@@ -3263,7 +3263,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     try {
       const sceneDescriptions = project.generatedScenes
         .slice(0, 3)
-        .map(s => s.text || s.visualDescription || '')
+        .map(s => s.text || '')
         .filter(Boolean)
         .join('. ');
       
