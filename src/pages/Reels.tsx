@@ -6295,7 +6295,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     <Button
                       variant={!timelineViewActive ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setTimelineViewActive(false)}
+                      onClick={() => {
+                        setTimelineViewActive(false);
+                        setSidebarsHiddenForTimeline(false);
+                      }}
                       className="h-8 text-xs"
                     >
                       <Layers className="w-3.5 h-3.5 mr-1.5" /> Scene Preview
