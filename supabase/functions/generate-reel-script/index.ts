@@ -355,7 +355,7 @@ Use this analysis to choose the optimal structure, pacing, and storytelling styl
 ═══ STEP 2: AUTO-STRUCTURE THE VIDEO ═══
 
 Based on your analysis, organize the video into this adaptive framework:
-- HOOK (0-2s): Stop the scroll. Movement + emotion + curiosity.
+- HOOK (0-3s): Stop the scroll. Movement + emotion + curiosity. MINIMUM 6 SECONDS to land the hook properly.
 - BUILD / CONTEXT (2-6s): Create relatability or deepen the hook's tension.
 - CORE MESSAGE / PRODUCT INTRO (5-10s): Deliver the key idea or introduce the product naturally.
 - DEMONSTRATION / VALUE (8-18s): Show usage, insight, or the "aha" moment.
