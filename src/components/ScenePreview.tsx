@@ -268,6 +268,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     voiceSampleRefs.current.forEach(a => { a.pause(); a.currentTime = 0; });
   };
 
+  const applySettingPreset = (setting: string) => {
     if (customPrompt) {
       setCustomPrompt(`${customPrompt} ${setting}`);
     } else {
