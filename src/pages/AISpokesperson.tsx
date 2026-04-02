@@ -1081,6 +1081,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setVersionB(null);
     setShowComparison(false);
     setShowBSettings(false);
+    setPreviewImageUrl(null);
     clearDraft();
   };
 
