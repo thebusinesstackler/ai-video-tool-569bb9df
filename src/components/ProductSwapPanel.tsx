@@ -121,7 +121,7 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
       } as any);
       if (dbError) console.error('DB save error:', dbError);
 
-      setSelectedProductUrl(publicUrl);
+      updateProductUrl(publicUrl);
       await loadProductLibrary();
       toast({ title: 'Product uploaded', description: 'Saved to your product library' });
     } catch (err: any) {
