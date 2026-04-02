@@ -384,6 +384,11 @@ const Reels = () => {
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
   const [characterDescription, setCharacterDescription] = useState('');
+  // Hook selection state
+  const [generatedHooks, setGeneratedHooks] = useState<any[]>([]);
+  const [selectedHook, setSelectedHook] = useState<any>(null);
+  const [isGeneratingHooks, setIsGeneratingHooks] = useState(false);
+  const [showHookSelector, setShowHookSelector] = useState(false);
   const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   
