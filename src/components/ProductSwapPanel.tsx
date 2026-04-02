@@ -297,7 +297,7 @@ CRITICAL RULES — DO NOT VIOLATE:
               <Input
                 placeholder="Optional: describe the product (e.g. 'blue water bottle')"
                 value={productPrompt}
-                onChange={(e) => setProductPrompt(e.target.value)}
+                onChange={(e) => updateProductPrompt(e.target.value)}
                 className="h-7 text-xs"
                 disabled={isSwapping || isBatchSwapping || disabled}
               />
