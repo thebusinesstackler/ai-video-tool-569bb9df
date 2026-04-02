@@ -385,6 +385,14 @@ const Reels = () => {
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
   const [characterDescription, setCharacterDescription] = useState('');
+  const [characterProfile, setCharacterProfile] = useState<{
+    gender?: string | null;
+    ageRange?: string | null;
+    appearance?: string | null;
+    clothing?: string | null;
+    environment?: string | null;
+    product?: { detected?: boolean; type?: string; shape?: string; color?: string; label?: string; howHeld?: string } | null;
+  } | null>(null);
   // Hook selection state
   const [generatedHooks, setGeneratedHooks] = useState<any[]>([]);
   const [selectedHook, setSelectedHook] = useState<any>(null);
