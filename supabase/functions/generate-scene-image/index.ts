@@ -23,9 +23,13 @@ function validateUrl(url: string | undefined): boolean {
 }
 
 // Enhance prompt using Claude or GPT-4o for better DALL-E output
-async function enhancePrompt(rawPrompt: string): Promise<string> {
+async function enhancePrompt(rawPrompt: string, characterConstraint?: string): Promise<string> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+  const constraintBlock = characterConstraint
+    ? `\n\nCRITICAL CHARACTER CONSTRAINT (NEVER VIOLATE): ${characterConstraint}\nYou MUST preserve exactly this gender, ethnicity, age range, and appearance. Do NOT change, swap, or reinterpret any of these attributes. If the scene description conflicts with this constraint, the constraint ALWAYS wins.`
+    : '';
 
   const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Rewrite the given scene description into a hyper-realistic cinematic image prompt. MANDATORY quality directives to include:
 - HYPER-REALISTIC skin with visible pores, natural imperfections, micro-wrinkles, and subsurface scattering
@@ -34,6 +38,7 @@ async function enhancePrompt(rawPrompt: string): Promise<string> {
 - Shallow depth of field with bokeh when appropriate
 - Camera lens specification (e.g. 85mm f/1.4, 35mm wide angle)
 - Atmospheric details: dust particles in light, lens flare, volumetric haze if appropriate
+${constraintBlock}
 Keep under 300 words. Output ONLY the enhanced prompt.`;
 
   if (ANTHROPIC_API_KEY) {
