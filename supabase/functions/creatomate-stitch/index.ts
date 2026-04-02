@@ -15,6 +15,8 @@ interface VideoClip {
 interface StitchRequest {
   clips: VideoClip[];
   audioUrl?: string;
+  backgroundMusicUrl?: string;
+  backgroundMusicVolume?: number;
   transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'wipe' | 'blur' | 'dissolve' | 'spin' | 'flip' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
   transitionDuration?: number;
@@ -113,6 +115,8 @@ serve(async (req) => {
     const {
       clips,
       audioUrl,
+      backgroundMusicUrl,
+      backgroundMusicVolume = 25,
       transition = 'crossfade',
       captionStyle = 'bottom',
       transitionDuration = 0.8,
@@ -224,7 +228,7 @@ serve(async (req) => {
       currentTime += videoDuration;
     });
 
-    // Add background audio if provided
+    // Add background audio (voiceover) if provided
     if (audioUrl) {
       elements.push({
         type: 'audio',
@@ -234,6 +238,21 @@ serve(async (req) => {
         volume: '100%',
         audio_fade_out: 0.5,
       });
+    }
+
+    // Add background music track if provided (lower volume so it doesn't overpower narration)
+    if (backgroundMusicUrl) {
+      const musicVolume = Math.min(100, Math.max(5, backgroundMusicVolume));
+      elements.push({
+        type: 'audio',
+        source: backgroundMusicUrl,
+        time: 0,
+        duration: currentTime,
+        volume: `${musicVolume}%`,
+        audio_fade_in: 1.5,
+        audio_fade_out: 2.0,
+      });
+      console.log(`Background music added at ${musicVolume}% volume: ${backgroundMusicUrl}`);
     }
 
     // Add logo overlay if provided

@@ -2426,6 +2426,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 videoUrls,
                 audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
                 embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+                backgroundMusicUrl: backgroundMusicUrl || undefined,
+                backgroundMusicVolume: 20,
                 width: stitchWidth,
                 height: stitchHeight,
                 onProgress: (p) => {
@@ -3392,6 +3394,8 @@ STYLE REQUIREMENTS:
             body: {
               clips,
               audioUrl: mergedAudioUrl,
+              backgroundMusicUrl: backgroundMusicUrl || undefined,
+              backgroundMusicVolume: 25,
               transition: transitionStyle,
               captionStyle: captionSettings.position || 'bottom',
               width: cw,
@@ -3429,6 +3433,8 @@ STYLE REQUIREMENTS:
             videoUrls,
             audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
             embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+            backgroundMusicUrl: backgroundMusicUrl || undefined,
+            backgroundMusicVolume: 20,
             width: sw, height: sh,
             onProgress: (percent) => {
               setProgress(40 + percent * 0.5);
@@ -3442,6 +3448,8 @@ STYLE REQUIREMENTS:
           videoUrls,
           audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
           embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+          backgroundMusicUrl: backgroundMusicUrl || undefined,
+          backgroundMusicVolume: 20,
           width: sw, height: sh,
           onProgress: (percent) => {
             setProgress(40 + percent * 0.5);
@@ -3597,7 +3605,7 @@ STYLE REQUIREMENTS:
           const sizeMap3: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
           const [rw, rh] = sizeMap3[selectedVideoSize] || [1080, 1920];
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
-            body: { clips, transition: transitionStyle || 'crossfade', width: rw, height: rh, logoUrl: selectedLogoUrl || undefined, logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined }
+            body: { clips, transition: transitionStyle || 'crossfade', width: rw, height: rh, logoUrl: selectedLogoUrl || undefined, logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined, backgroundMusicUrl: backgroundMusicUrl || undefined, backgroundMusicVolume: 25 }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error('Cloud stitch failed');
 

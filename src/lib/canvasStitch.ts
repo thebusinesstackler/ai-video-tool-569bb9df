@@ -6,6 +6,10 @@ interface CanvasStitchOptions {
   audioUrls?: string[];
   /** Indices into videoUrls that have embedded audio — play unmuted & capture */
   embeddedAudioIndices?: number[];
+  /** Background music URL — mixed at lower volume under narration/video audio */
+  backgroundMusicUrl?: string;
+  /** Background music volume 0-100, default 20 */
+  backgroundMusicVolume?: number;
   width?: number;
   height?: number;
   onProgress?: (percent: number) => void;
@@ -91,6 +95,8 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     videoUrls,
     audioUrls = [],
     embeddedAudioIndices = [],
+    backgroundMusicUrl,
+    backgroundMusicVolume = 20,
     width: inputWidth,
     height: inputHeight,
     onProgress,
@@ -216,6 +222,25 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     overlayAudioSource.start(0);
   }
 
+  // Start background music if provided (at lower volume)
+  let bgMusicSource: AudioBufferSourceNode | null = null;
+  if (backgroundMusicUrl) {
+    try {
+      onStatus?.('Loading background music...');
+      const musicBuffer = await loadAudioBuffer(audioCtx, backgroundMusicUrl);
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.value = Math.min(1, Math.max(0, backgroundMusicVolume / 100));
+      bgMusicSource = audioCtx.createBufferSource();
+      bgMusicSource.buffer = musicBuffer;
+      bgMusicSource.connect(gainNode);
+      gainNode.connect(mixDest);
+      bgMusicSource.start(0);
+      console.log(`[CanvasStitch] Background music started at ${backgroundMusicVolume}% volume`);
+    } catch (musicErr) {
+      console.warn('[CanvasStitch] Background music loading failed:', musicErr);
+    }
+  }
+
   // Play each video sequentially on the canvas
   const totalDuration = videos.reduce((acc, v) => acc + (v.duration || 5), 0);
   let elapsedTime = 0;
@@ -309,6 +334,9 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
 
   if (overlayAudioSource) {
     try { overlayAudioSource.stop(); } catch {}
+  }
+  if (bgMusicSource) {
+    try { bgMusicSource.stop(); } catch {}
   }
 
   return new Promise<Blob>((resolve, reject) => {
