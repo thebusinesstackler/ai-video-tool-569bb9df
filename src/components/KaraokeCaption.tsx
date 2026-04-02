@@ -198,11 +198,16 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   // Special styling for intro/outro
   const isSpecialScene = isIntro || isOutro;
 
+  const inlineStyle: React.CSSProperties = {};
+  if (fontFamily) inlineStyle.fontFamily = fontFamily;
+  if (fontSize) inlineStyle.fontSize = FONT_SIZE_MAP[fontSize] || fontSize;
+  if (fontColor) inlineStyle.color = fontColor;
+
   return (
     <div className={`text-center ${getBackgroundClasses()}`}>
       <p className={`font-bold leading-relaxed ${
         isSpecialScene ? 'text-lg' : 'text-base'
-      }`}>
+      }`} style={inlineStyle}>
         {words.map((word, index) => renderWord(word, index))}
       </p>
     </div>
