@@ -945,6 +945,93 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     }
   };
 
+  // Generate a preview image for the script (without starting video generation)
+  const generatePreviewImage = async () => {
+    if (!selectedTwin || !generatedScript) return;
+    setIsGeneratingPreview(true);
+    
+    try {
+      const portraitImage = selectedTwin.reference_images[0];
+      const angle = CAMERA_ANGLES.find(a => a.id === (generatedScript.cameraAngle || selectedCameraAngle));
+      const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
+      const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
+
+      const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video.
+
+CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
+GENDER: ${selectedTwin.gender || 'unspecified'}
+CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4
+SETTING: ${setting?.prompt || 'professional studio'}
+EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, natural micro-expression
+LIGHTING: Hollywood-grade 3-point setup, warm tungsten key light at 45°, soft fill, crisp rim light
+QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
+
+      const imageMessages: any[] = [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: portraitImage } },
+          { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${imagePrompt}` }
+        ]
+      }];
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+      const imageResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: imageMessages,
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        })
+      });
+
+      if (imageResponse.ok) {
+        const imageData = await imageResponse.json();
+        const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (imgUrl) {
+          // Upload base64 to storage
+          if (imgUrl.startsWith('data:') && user) {
+            try {
+              const matches = imgUrl.match(/^data:([^;]+);base64,(.+)$/);
+              if (matches) {
+                const imgBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+                const imgFileName = `${user.id}/spokesperson/${Date.now()}-preview.png`;
+                const { data: imgUpload, error: imgUploadErr } = await supabase.storage
+                  .from('reels')
+                  .upload(imgFileName, imgBytes, { contentType: matches[1], upsert: true });
+                if (!imgUploadErr && imgUpload) {
+                  const { data: imgPublicUrl } = supabase.storage.from('reels').getPublicUrl(imgFileName);
+                  setPreviewImageUrl(imgPublicUrl.publicUrl);
+                } else {
+                  setPreviewImageUrl(imgUrl);
+                }
+              }
+            } catch { setPreviewImageUrl(imgUrl); }
+          } else {
+            setPreviewImageUrl(imgUrl);
+          }
+        } else {
+          // Use reference image as fallback
+          setPreviewImageUrl(portraitImage);
+        }
+      } else {
+        setPreviewImageUrl(portraitImage);
+      }
+    } catch (err) {
+      console.warn('Preview image generation failed:', err);
+      if (selectedTwin.reference_images?.[0]) {
+        setPreviewImageUrl(selectedTwin.reference_images[0]);
+      }
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
   const handleBeginnerGenerate = async () => {
     if (!message.trim()) {
       toast({ title: 'Message Required', description: 'Enter the message you want delivered.', variant: 'destructive' });
@@ -955,25 +1042,30 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       return;
     }
     
-    // Generate script then video
+    // Generate script only — preview will be shown after
     await generateScript();
   };
 
-  // Auto-start video after script generation in beginner mode (NOT for kling-pro)
-  // Skip if script was restored from draft (don't auto-regenerate)
+  // After script generation, generate a preview image (NOT auto-start video)
   useEffect(() => {
     if (scriptFromDraft.current) {
       scriptFromDraft.current = false;
       return;
     }
-    if (isBeginner && generatedScript && !isGenerating && !videoUrl) {
-      if (selectedQuality === 'kling-pro') {
-        generateMultipleShots();
-      } else {
-        generateVideo();
-      }
+    if (generatedScript && !isGenerating && !videoUrl && !previewImageUrl && !isGeneratingPreview) {
+      generatePreviewImage();
     }
-  }, [generatedScript, isBeginner]);
+  }, [generatedScript]);
+
+  const handleApproveAndGenerate = () => {
+    if (selectedQuality === 'kling-pro') {
+      generateMultipleShots();
+    } else {
+      generateVideo();
+    }
+    // Clear preview so it doesn't show again
+    setPreviewImageUrl(null);
+  };
 
   const resetAll = () => {
     setGeneratedScript(null);
