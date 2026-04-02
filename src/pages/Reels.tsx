@@ -3523,7 +3523,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
       if (allPublic) {
         try {
-          const clips = allUrls.map(url => ({ url, duration: 5 }));
+          const clips = allUrls.map((url, idx) => {
+            const scene = project.scenes?.[idx];
+            return { url, duration: scene?.duration || 5, audioDuration: scene?.duration || 5 };
+          });
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
             body: { clips, transition: transitionStyle || 'crossfade' }
           });
