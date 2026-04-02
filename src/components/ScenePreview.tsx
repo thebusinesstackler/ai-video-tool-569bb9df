@@ -296,116 +296,135 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
             </div>
           )}
 
-          {/* Scene Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {scenes.map((scene) => (
-              <div key={scene.sceneNumber} className="relative group">
-                <div className={`aspect-[9/16] bg-muted rounded-lg overflow-hidden relative ${
-                  scene.isReference ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-background' : ''
-                }`}>
-                  {scene.isGenerating || scene.isRegenerating ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <span className="text-xs text-muted-foreground">
-                        {scene.isRegenerating ? 'Regenerating...' : 'Generating...'}
-                      </span>
-                    </div>
-                  ) : scene.imageUrl ? (
-                    <img
-                      src={scene.imageUrl}
-                      alt={`Scene ${scene.sceneNumber}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-                      <ImageIcon className="w-6 h-6" />
-                      <span className="text-xs">No image</span>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="mt-1"
-                        onClick={() => onRegenerateImage(scene.sceneNumber, scene.visualDescription)}
-                        disabled={disabled}
-                      >
-                        <RefreshCw className="w-3 h-3 mr-1" />
-                        Generate
-                      </Button>
-                    </div>
-                  )}
+          {/* Scene Grid with Insert Points */}
+          <div className="space-y-2">
+            <InsertButton index={0} />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {scenes.map((scene, idx) => (
+                <React.Fragment key={scene.sceneNumber}>
+                  <div className="relative group">
+                    <div className={`aspect-[9/16] bg-muted rounded-lg overflow-hidden relative ${
+                      scene.isReference ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-background' : ''
+                    }`}>
+                      {scene.isGenerating || scene.isRegenerating ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                          <span className="text-xs text-muted-foreground">
+                            {scene.isRegenerating ? 'Regenerating...' : 'Generating...'}
+                          </span>
+                        </div>
+                      ) : scene.imageUrl ? (
+                        <img
+                          src={scene.imageUrl}
+                          alt={`Scene ${scene.sceneNumber}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                          <ImageIcon className="w-6 h-6" />
+                          <span className="text-xs">No image</span>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="mt-1"
+                            onClick={() => onRegenerateImage(scene.sceneNumber, scene.visualDescription)}
+                            disabled={disabled}
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            Generate
+                          </Button>
+                        </div>
+                      )}
 
-                  {/* Scene number badge */}
-                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                    {scene.sceneNumber}
-                  </div>
+                      {/* Scene number badge */}
+                      <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                        {scene.sceneNumber}
+                      </div>
 
-                  {/* Reference badge */}
-                  {scene.isReference && (
-                    <div className="absolute top-2 right-8 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
-                      <Star className="w-3 h-3 fill-current" />
-                      Ref
-                    </div>
-                  )}
-
-                  {/* Duration badge */}
-                  {scene.audioDuration > 0 && (
-                    <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm text-foreground text-xs px-1.5 py-0.5 rounded">
-                      {scene.audioDuration.toFixed(1)}s
-                    </div>
-                  )}
-
-                  {/* Action buttons overlay */}
-                  {!scene.isGenerating && scene.imageUrl && (
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      {/* Play audio button */}
-                      {scene.audioUrl && (
+                      {/* Delete button */}
+                      {onDeleteScene && (
                         <Button
                           size="icon"
-                          variant="secondary"
-                          className="w-10 h-10 rounded-full"
-                          onClick={() => handlePlayAudio(scene.sceneNumber, scene.audioUrl!)}
+                          variant="destructive"
+                          className="absolute top-2 right-10 w-5 h-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => onDeleteScene(scene.sceneNumber)}
+                          title="Remove scene"
                         >
-                          {playingAudio === scene.sceneNumber ? (
-                            <Pause className="w-5 h-5" />
-                          ) : (
-                            <Volume2 className="w-5 h-5" />
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
+
+                      {/* Reference badge */}
+                      {scene.isReference && (
+                        <div className="absolute top-2 right-8 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-current" />
+                          Ref
+                        </div>
+                      )}
+
+                      {/* Duration badge */}
+                      {scene.audioDuration > 0 && (
+                        <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm text-foreground text-xs px-1.5 py-0.5 rounded">
+                          {scene.audioDuration.toFixed(1)}s
+                        </div>
+                      )}
+
+                      {/* Action buttons overlay */}
+                      {!scene.isGenerating && scene.imageUrl && (
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          {scene.audioUrl && (
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="w-10 h-10 rounded-full"
+                              onClick={() => handlePlayAudio(scene.sceneNumber, scene.audioUrl!)}
+                            >
+                              {playingAudio === scene.sceneNumber ? (
+                                <Pause className="w-5 h-5" />
+                              ) : (
+                                <Volume2 className="w-5 h-5" />
+                              )}
+                            </Button>
                           )}
-                        </Button>
+                          
+                          {onSetReference && !scene.isReference && (
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="w-10 h-10 rounded-full bg-amber-500/80 hover:bg-amber-500"
+                              onClick={() => onSetReference(scene.sceneNumber)}
+                              title="Use as reference for character consistency"
+                            >
+                              <Star className="w-5 h-5" />
+                            </Button>
+                          )}
+                          
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="w-10 h-10 rounded-full"
+                            onClick={() => openRegenerateDialog(scene)}
+                            disabled={scene.isRegenerating || disabled}
+                            title="Edit & Regenerate"
+                          >
+                            <Pencil className="w-5 h-5" />
+                          </Button>
+                        </div>
                       )}
-                      
-                      {/* Set as reference button */}
-                      {onSetReference && !scene.isReference && (
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="w-10 h-10 rounded-full bg-amber-500/80 hover:bg-amber-500"
-                          onClick={() => onSetReference(scene.sceneNumber)}
-                          title="Use as reference for character consistency"
-                        >
-                          <Star className="w-5 h-5" />
-                        </Button>
-                      )}
-                      
-                      {/* Regenerate button - opens dialog */}
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="w-10 h-10 rounded-full"
-                        onClick={() => openRegenerateDialog(scene)}
-                        disabled={scene.isRegenerating || disabled}
-                        title="Edit & Regenerate"
-                      >
-                        <Pencil className={`w-5 h-5`} />
-                      </Button>
-                    </div>
-                  )}
 
-                  {/* Caption overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                    <p className="text-white text-xs line-clamp-2">{scene.narration}</p>
+                      {/* Caption overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                        <p className="text-white text-xs line-clamp-2">{scene.narration}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                  {/* Insert point after every 4th scene (end of row) or last scene */}
+                  {((idx + 1) % 4 === 0 || idx === scenes.length - 1) && (
+                    <InsertButton index={idx + 1} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
 
           {/* Create Video Button */}
