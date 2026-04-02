@@ -2723,8 +2723,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       return { voice: normalizedSelectedVoice, voiceEngine: 'wavespeed' };
     }
 
-    const context = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
-    const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => context.includes(k));
+    const context = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${characterProfile?.gender || ''} ${topic}`.toLowerCase();
+    const isFemale = characterProfile?.gender === 'female' || selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => context.includes(k));
 
     if (isFemale) {
       if (/(older|mentor|expert|authority|founder|ceo|coach)/.test(context)) {
