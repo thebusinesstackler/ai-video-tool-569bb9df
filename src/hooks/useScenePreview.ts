@@ -110,6 +110,8 @@ interface UseScenePreviewResult {
   setExternalReference: (imageUrl: string) => void;
   clearReference: () => void;
   resetPreview: () => void;
+  insertScene: (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => Promise<void>;
+  deleteScene: (sceneNumber: number) => void;
 }
 
 export function useScenePreview(): UseScenePreviewResult {
@@ -538,6 +540,76 @@ export function useScenePreview(): UseScenePreviewResult {
     setCharacterTransformation('');
   };
 
+  const insertScene = async (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => {
+    const newScene: PreviewScene = {
+      sceneNumber: 0,
+      narration: type === 'broll' ? '' : prompt,
+      visualDescription: prompt,
+      imageUrl: null,
+      audioUrl: null,
+      audioDuration: type === 'intro' || type === 'outro' ? 3 : 2,
+      isGenerating: true,
+    };
+
+    // Insert and renumber
+    const updated = [...previewScenes];
+    updated.splice(insertIndex, 0, newScene);
+    updated.forEach((s, i) => { s.sceneNumber = i + 1; });
+    setPreviewScenes(updated);
+
+    // Also update voiceovers numbering
+    setVoiceovers(prev => {
+      const newVos = prev.map(v => ({ ...v }));
+      // Shift voiceover scene numbers for scenes at or after insert index
+      newVos.forEach(v => {
+        if (v.sceneNumber > insertIndex) v.sceneNumber += 1;
+      });
+      return newVos;
+    });
+
+    // Generate the image
+    try {
+      const fullPrompt = type === 'broll'
+        ? `Cinematic B-roll shot: ${prompt}. Professional videography, 9:16 vertical format, no text, no people unless specified, ultra high resolution.`
+        : type === 'intro'
+        ? `Bold cinematic title card: "${prompt}". Modern motion graphics style, 9:16 vertical, dramatic lighting, premium look.`
+        : `Call-to-action slide: "${prompt}". Clean modern design, 9:16 vertical, professional branding, eye-catching.`;
+
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt: fullPrompt, aspectRatio: '9:16' }
+      });
+
+      if (error || !data?.imageUrl) throw new Error('Image generation failed');
+
+      setPreviewScenes(prev => prev.map(ps =>
+        ps.sceneNumber === insertIndex + 1
+          ? { ...ps, imageUrl: data.imageUrl, isGenerating: false }
+          : ps
+      ));
+
+      toast({ title: `✨ ${type === 'broll' ? 'B-Roll' : type === 'intro' ? 'Intro' : 'Outro'} Added` });
+    } catch (err: any) {
+      setPreviewScenes(prev => prev.map(ps =>
+        ps.sceneNumber === insertIndex + 1 ? { ...ps, isGenerating: false } : ps
+      ));
+      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const deleteScene = (sceneNumber: number) => {
+    setPreviewScenes(prev => {
+      const filtered = prev.filter(ps => ps.sceneNumber !== sceneNumber);
+      filtered.forEach((s, i) => { s.sceneNumber = i + 1; });
+      return filtered;
+    });
+    setVoiceovers(prev => {
+      const filtered = prev.filter(v => v.sceneNumber !== sceneNumber);
+      filtered.forEach((v, i) => { v.sceneNumber = i + 1; });
+      return filtered;
+    });
+    toast({ title: 'Scene Removed' });
+  };
+
   return {
     previewScenes,
     voiceovers,
@@ -553,6 +625,8 @@ export function useScenePreview(): UseScenePreviewResult {
     setSceneAsReference,
     setExternalReference,
     clearReference,
-    resetPreview
+    resetPreview,
+    insertScene,
+    deleteScene,
   };
 }
