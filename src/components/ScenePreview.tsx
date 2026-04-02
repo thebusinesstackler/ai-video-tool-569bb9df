@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,6 +101,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onApplyProductScript,
 }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
   const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
   
@@ -346,6 +348,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     toast({ title: 'Script Updated', description: 'Scenes rewritten around your product. Regenerate preview to see changes.' });
   };
 
+  const addPlacementPreset = (setting: string) => {
     if (customPrompt) {
       setCustomPrompt(`${customPrompt} ${setting}`);
     } else {
@@ -768,7 +771,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() => applySettingPreset(preset.value)}
+                      onClick={() => addPlacementPreset(preset.value)}
                     >
                       {preset.label}
                     </Button>
