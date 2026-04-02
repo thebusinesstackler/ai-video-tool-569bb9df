@@ -15,6 +15,8 @@ interface VideoClip {
 interface StitchRequest {
   clips: VideoClip[];
   audioUrl?: string;
+  backgroundMusicUrl?: string;
+  backgroundMusicVolume?: number;
   transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'wipe' | 'blur' | 'dissolve' | 'spin' | 'flip' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
   transitionDuration?: number;
