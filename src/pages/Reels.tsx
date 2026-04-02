@@ -820,19 +820,26 @@ const Reels = () => {
       if (data?.description) {
         setCharacterDescription(data.description);
         
-        // Gender detection for display only — voice comes from AI Twin
-        const descLower = data.description.toLowerCase();
-        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'sister'];
-        const isFemale = femaleKeywords.some(k => descLower.includes(k));
+        // Store full character profile for script generation
+        setCharacterProfile({
+          gender: data.gender,
+          ageRange: data.ageRange,
+          appearance: data.appearance,
+          clothing: data.clothing,
+          environment: data.environment,
+          product: data.product,
+        });
+        
+        const genderLabel = data.gender ? ` (${data.gender} detected)` : '';
+        const productLabel = data.product?.detected ? ` — product: ${data.product.type}` : '';
         
         toast({
-          title: "Character Detected",
-          description: `Auto-filled: ${data.description}${isFemale ? ' (female detected)' : ''}`,
+          title: "Character Analyzed",
+          description: `${data.description}${genderLabel}${productLabel}`,
         });
       }
     } catch (error: any) {
       console.error('Failed to analyze reference image:', error);
-      // Don't show error toast - just silently fail and let user fill manually
     } finally {
       setIsAnalyzingReference(false);
     }
