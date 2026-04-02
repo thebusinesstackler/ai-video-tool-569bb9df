@@ -779,19 +779,19 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
             </div>
 
             {/* ─── Transport Controls ──────────────────────── */}
-            <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-b bg-card">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={skipBackward}><SkipBack className="w-3.5 h-3.5" /></Button>
-              <Button variant={isPlaying ? 'secondary' : 'default'} size="icon" className="h-8 w-8 rounded-full" onClick={togglePlayback}>
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            <div className="flex items-center justify-center gap-3 px-4 py-2 border-b bg-card/60 backdrop-blur-sm">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={skipBackward}><SkipBack className="w-4 h-4" /></Button>
+              <Button variant={isPlaying ? 'secondary' : 'default'} size="icon" className="h-10 w-10 rounded-full shadow-md" onClick={togglePlayback}>
+                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={skipForward}><SkipForward className="w-3.5 h-3.5" /></Button>
-              <Separator orientation="vertical" className="h-5" />
-              <span className="text-[10px] font-mono text-muted-foreground w-20">{formatTime(currentTime)} / {formatTime(totalDuration)}</span>
-              <Separator orientation="vertical" className="h-5" />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMuted(!isMuted)}>
-                {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={skipForward}><SkipForward className="w-4 h-4" /></Button>
+              <Separator orientation="vertical" className="h-6" />
+              <span className="text-xs font-mono text-muted-foreground w-24 text-center">{formatTime(currentTime)} / {formatTime(totalDuration)}</span>
+              <Separator orientation="vertical" className="h-6" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsMuted(!isMuted)}>
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </Button>
-              <div className="w-16"><Slider value={[isMuted ? 0 : playbackVolume * 100]} onValueChange={([v]) => { setPlaybackVolume(v / 100); if (v > 0) setIsMuted(false); }} max={100} step={1} /></div>
+              <div className="w-20"><Slider value={[isMuted ? 0 : playbackVolume * 100]} onValueChange={([v]) => { setPlaybackVolume(v / 100); if (v > 0) setIsMuted(false); }} max={100} step={1} /></div>
             </div>
 
             {/* ─── Timeline Panel ────────────────────────────── */}
