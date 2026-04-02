@@ -540,9 +540,22 @@ If ANY check fails → automatically improve before returning to the user.
 ${characterInstructions}
 
 ${transitionStyle && transitionStyle !== 'none' ? `
-TRANSITION STYLE: "${transitionStyle}"
-- Include transition cues in visualDescription between scenes
-- For "${transitionStyle}": describe how the visual transitions (e.g., fade → "dissolving into view", zoom → "pulling focus forward", slide → "lateral pan entrance")
+═══ TRANSITION STYLE: "${transitionStyle}" (MANDATORY — APPLY TO EVERY SCENE) ═══
+The user selected "${transitionStyle}" as their transition. You MUST apply this between ALL scenes.
+For EACH scene, include a "transitionTo" field describing:
+- Transition type: "${transitionStyle}"
+- Direction: specify left/right/up/down when applicable
+- Timing: when the transition starts relative to the scene ending
+
+Transition mapping:
+- "wipe" → "Scene ends with a lateral wipe [left/right] revealing the next scene"
+- "fade" → "Scene dissolves smoothly into the next"
+- "zoom" → "Camera pushes in rapidly, cutting to next scene on the zoom peak"
+- "slide" → "Scene slides off-screen [direction] as next scene enters"
+- "cut" → "Hard cut with visual contrast between scenes"
+- "swipe" → "Quick swipe transition matching the direction of on-screen movement"
+
+Include transition cues in BOTH the visualDescription AND the transitionTo field.
 ` : ''}
 
 ${cutSceneInstructions}`;
