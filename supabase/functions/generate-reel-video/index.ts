@@ -577,14 +577,24 @@ Dramatic camera push-in with shallow depth of field, volumetric light rays, comm
 Ultra high quality, film-grade. Sets the mood for powerful content ahead.
 ${scene.narration ? `The person in the video must clearly say this exact line out loud with visible lip movement and synchronized speech audio: "${scene.narration}". Generate clear spoken voice audio matching these words.` : 'Atmospheric ambient audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
-          } else if (scene.isOutro) {
-            veo3Prompt = `Premium cinematic outro for a reel about "${topic}". ${veo3CharContext}
-Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
-Film-grade quality.
-${scene.narration ? `The person in the video must clearly say this exact closing line out loud with visible lip movement and synchronized speech audio: "${scene.narration}". Generate clear spoken voice audio matching these words.` : 'Warm ambient closing audio only.'}
+          } else if (scene.isOutro || isCTAScene) {
+            veo3Prompt = `CLOSE-UP SHOT of person looking directly at camera. ${veo3CharContext}
+Tight framing — face fills most of the frame, eyes locked on viewer, warm confident smile. 
+Slow subtle push-in creating intimacy. Warm golden lighting, shallow depth of field.
+${productImageUrl && productName ? `The product "${productName}" is visible on a surface nearby or held casually in one hand.` : ''}
+Film-grade quality. This is the CTA — the viewer should feel personally spoken to.
+${scene.narration ? `The person clearly says this exact closing line with visible lip movement and synchronized speech: "${scene.narration}". Generate clear spoken voice audio.` : 'Warm ambient closing audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else {
+            // Add close-up instruction for scenes marked as close-up
+            const isCloseUp = scene.cameraAngle?.toLowerCase().includes('extreme close-up') || scene.cameraAngle?.toLowerCase().includes('intimate');
+            const closeUpNote = isCloseUp ? `CAMERA: Tight close-up on face — eyes + mouth fill the frame. Intimate, emphatic framing like a cinematic zoom-in moment.` : '';
+            const frameContext = sceneStartFrame ? `START FRAME: ${sceneStartFrame}. ` : '';
+            const endContext = sceneEndFrame ? `END FRAME: ${sceneEndFrame}. ` : '';
+            
             veo3Prompt = `${scene.visualDescription}. ${veo3CharContext} ${topicContext}
+${closeUpNote}
+${frameContext}${endContext}
 The person in the video speaks directly to camera and clearly says this exact line out loud: "${scene.narration}"
 Generate clear spoken dialogue audio for that exact sentence, with lips visibly moving in sync with the words.
 Smooth cinematic motion, professional color grading, photorealistic quality.
