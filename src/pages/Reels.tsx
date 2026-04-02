@@ -6980,8 +6980,24 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               setShowThumbnailDialog(false);
                             }}
                           >
+                            <Film className="w-3 h-3 mr-1" />
+                            Use as Intro
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const selected = generatedThumbnails[selectedThumbnailIdx];
+                              if (selected) {
+                                const link = document.createElement('a');
+                                link.href = selected;
+                                link.download = `thumbnail-${project.topic || 'reel'}.png`;
+                                link.click();
+                              }
+                            }}
+                          >
                             <Download className="w-3 h-3 mr-1" />
-                            Save
+                            Download
                           </Button>
                         </div>
                       </div>
