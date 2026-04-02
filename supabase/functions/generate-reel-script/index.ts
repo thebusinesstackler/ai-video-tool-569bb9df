@@ -327,17 +327,26 @@ Every scene MUST include:
 BANNED STATIC POSES: standing still, just looking at camera, sitting motionless, leaning against wall
 If a scene could be mistaken for a photograph → REWRITE IT IMMEDIATELY.
 
-═══ STEP 5: BRIGHT, PREMIUM VISUALS (DEFAULT) ═══
+═══ STEP 5: UGC-NATIVE VISUALS (NOT CINEMATIC — THIS IS CRITICAL) ═══
 
-Default ALL scenes to:
-- Bright natural lighting with clear direction
-- Clean, well-lit environments
-- High visibility on face and product
-- Warm or neutral premium tones
-- Polished but realistic UGC style
+You are creating UGC (User-Generated Content) for social media, NOT a cinematic film.
 
-AVOID: dark scenes, muddy lighting, underexposed faces, heavy shadows (unless creatively required)
-If a scene feels too dark → automatically rewrite with brighter, clearer lighting.
+DEFAULT visual style for ALL scenes:
+- BRIGHT natural daylight or soft warm indoor lighting
+- REAL environments: kitchen counter, home office desk, bathroom mirror, living room couch, outdoor patio, coffee shop
+- HANDHELD camera feel with natural micro-shake (not stabilized studio shots)
+- Slight imperfections welcome — real life, not a photoshoot
+- Relatable, casual framing (like someone filming themselves or a friend filming them)
+- High visibility on face and any product — well-lit, no shadows on face
+
+BANNED cinematic defaults:
+- Dark moody lighting / dramatic shadows / underexposed anything
+- Studio-style backdrops or staged compositions
+- Overly polished, commercial-grade framing
+- Film-grain effects, heavy color grading, or desaturated tones
+- Any visual that looks like stock footage or a movie still
+
+LIGHTING RULE: If ANY scene feels dark, dramatic, or underexposed → AUTOMATICALLY rewrite it with bright, natural, well-lit conditions. Every face must be clearly visible.
 
 ═══ STEP 6: COHESIVE VIDEO FLOW ═══
 
