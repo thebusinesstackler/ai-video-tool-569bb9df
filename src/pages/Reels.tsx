@@ -617,6 +617,10 @@ const Reels = () => {
             previewScenes: draft.project.previewScenes || [],
             status: 'idle'
           });
+          // Restore preview scenes into hook
+          if ((draft.project.previewScenes || []).length > 0) {
+            restorePreviewScenes(draft.project.previewScenes, draft.project.voiceovers || []);
+          }
         }
 
         if (draft.strategist) {
