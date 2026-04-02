@@ -15,7 +15,7 @@ interface VideoClip {
 interface StitchRequest {
   clips: VideoClip[];
   audioUrl?: string; // Combined voiceover audio URL
-  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'none';
+  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'wipe' | 'blur' | 'dissolve' | 'spin' | 'flip' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
   transitionDuration?: number; // Duration in seconds (0.3 - 1.5)
 }
