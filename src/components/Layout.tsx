@@ -55,7 +55,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       )}
       <Navigation />
-      <main className={`${isMobile ? "pt-16 p-4" : `${isCollapsed ? 'ml-16' : 'ml-64'} p-6`} ${authServiceDown ? 'pt-20' : ''} transition-all duration-300`}>
+      <main className={`${isMobile ? "pt-16 px-4 pb-24" : `${isCollapsed ? 'ml-16' : 'ml-64'} p-6 pb-24`} ${authServiceDown ? 'pt-20' : ''} transition-all duration-300`}>
         <div className="max-w-7xl mx-auto">
           {children}
         </div>
