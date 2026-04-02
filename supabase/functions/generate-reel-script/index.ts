@@ -850,8 +850,7 @@ function getOutroVisualDescription(templateId: string, baseStyle: string, topic?
   const baseOutro = `Style: ${commonStyle}.
 SUBJECT: ${charDesc} in a confident, inviting closing pose ${topicContext}. Direct eye contact with camera.
 LIGHTING: Warm golden hour key light, soft fill, subtle rim light separating subject from background.
-COMPOSITION: Medium shot, shallow depth of field, clean blurred background.
-CRITICAL: No text, no captions, no subtitles, no watermarks. Vertical 9:16 portrait format.`;
+COMPOSITION: Medium shot, shallow depth of field, clean blurred background. Vertical 9:16 portrait format.`;
 
   switch (templateId) {
     case 'cta-follow':
