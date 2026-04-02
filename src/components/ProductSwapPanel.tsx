@@ -230,7 +230,7 @@ CRITICAL RULES — DO NOT VIOLATE:
     if (!error) {
       setProductImages(prev => prev.filter(p => p.id !== id));
       if (productImages.find(p => p.id === id)?.image_url === selectedProductUrl) {
-        setSelectedProductUrl(null);
+        updateProductUrl(null);
       }
     }
   };
