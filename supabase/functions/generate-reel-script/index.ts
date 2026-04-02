@@ -291,6 +291,21 @@ VISUALS:
 - Vary camera angles between scenes for visual interest
 - Match visuals to what the narration discusses
 - No text, titles, or captions in visuals
+${transitionStyle && transitionStyle !== 'none' ? `
+TRANSITION STYLE: "${transitionStyle}"
+- Include transition direction cues in visualDescription between scenes
+- For "${transitionStyle}": describe how the visual should transition. For example:
+  * "fade" → "Scene fades from dark" or "dissolving into view"
+  * "slide" → "Frame slides in from the right" or "lateral pan entrance"
+  * "zoom" → "Camera zooms in from wide" or "pulling focus forward"
+  * "crossfade" → "Cross-dissolving from previous scene"
+  * "wipe" → "Wiping across the frame"
+  * "spin" → "Rotating entrance into frame"
+  * "flip" → "Flipping perspective"
+  * "blur" → "Emerging from soft blur into sharp focus"
+- The FIRST scene should open with a strong entrance matching this style
+- Each subsequent scene should reference the transition feel in its opening movement
+` : ''}
 
 ${cutSceneInstructions}`;
 
