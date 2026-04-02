@@ -72,15 +72,41 @@ Return ONLY the JSON object, no markdown, no explanation.`
         maxTokens: 5000,
       });
 
-      const description = result.text?.trim();
-      if (!description) {
+      const rawText = result.text?.trim();
+      if (!rawText) {
         throw new Error('No description generated');
       }
 
-      console.log('Generated character description:', description);
+      // Parse JSON response
+      let profile;
+      try {
+        let jsonStr = rawText;
+        const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) jsonStr = jsonMatch[1].trim();
+        else {
+          const objMatch = rawText.match(/\{[\s\S]*\}/);
+          if (objMatch) jsonStr = objMatch[0];
+        }
+        profile = JSON.parse(jsonStr);
+      } catch {
+        // Fallback: treat as plain text description
+        console.log('Could not parse JSON, using raw text');
+        profile = { description: rawText };
+      }
+
+      const description = profile.description || rawText;
+      console.log('Generated character profile:', JSON.stringify(profile).substring(0, 300));
 
       return new Response(
-        JSON.stringify({ description }),
+        JSON.stringify({ 
+          description,
+          gender: profile.gender || null,
+          ageRange: profile.ageRange || null,
+          appearance: profile.appearance || null,
+          clothing: profile.clothing || null,
+          environment: profile.environment || null,
+          product: profile.product || null,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (error) {
