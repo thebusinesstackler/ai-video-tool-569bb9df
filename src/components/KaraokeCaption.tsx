@@ -18,6 +18,13 @@ interface KaraokeCaptionProps {
   fontColor?: string;
 }
 
+const FONT_SIZE_MAP: Record<string, string> = {
+  small: '0.75rem',
+  medium: '1rem',
+  large: '1.25rem',
+  xl: '1.5rem',
+};
+
 export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   text,
   currentTime,
@@ -26,7 +33,10 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   isOutro,
   style = 'karaoke',
   background = 'glass',
-  position = 'bottom'
+  position = 'bottom',
+  fontFamily,
+  fontSize,
+  fontColor,
 }) => {
   const words = useMemo(() => (text || '').split(/\s+/).filter(w => w.length > 0), [text]);
   
