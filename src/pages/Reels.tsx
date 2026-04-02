@@ -5309,6 +5309,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             </Collapsible>
                           )}
                           <Button onClick={() => {
+                            // Clear old reel before generating new preview
+                            setProject(prev => ({ ...prev, generatedScenes: [], videoClips: [], videoBlobUrl: null, videoUrl: null }));
                             const referenceToUse = (enableLipSync && portraitImage) ? portraitImage : preSelectedReference;
                             const selectedCharacter = selectedCharacterId ? characters.find(c => c.id === selectedCharacterId) : null;
                             const characterRefImage = selectedCharacter?.reference_images?.[0];
@@ -6293,6 +6295,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         const customAudio = customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined;
                         const customDuration = customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined;
                         
+                        // Clear old reel before generating new preview
+                        setProject(prev => ({ ...prev, generatedScenes: [], videoClips: [], videoBlobUrl: null, videoUrl: null }));
                         generatePreview(
                           project.scenes, 
                           user?.id, 
@@ -6583,7 +6587,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             )}
 
             {/* Final Video / Generated Scenes */}
-            {(project.videoBlobUrl || (project.generatedScenes.length > 0 && previewScenes.length === 0)) && (
+            {!isGeneratingPreview && (project.videoBlobUrl || (project.generatedScenes.length > 0 && previewScenes.length === 0)) && (
               <>
               <Card className="bg-card border-border">
                 <CardHeader>
