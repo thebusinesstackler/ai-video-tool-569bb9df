@@ -134,6 +134,7 @@ serve(async (req) => {
             }];
           default:
             return [];
+        }
       };
       
       // For crossfade, use minimal overlap (15%) to prevent early scene transitions
