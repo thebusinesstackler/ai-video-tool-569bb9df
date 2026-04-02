@@ -549,21 +549,45 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
 
                     {/* Audio player below card */}
                     {scene.audioUrl && (
-                      <div className="mt-1.5 flex items-center gap-1">
-                        <audio controls src={scene.audioUrl} className="w-full h-7" />
-                        {onRegenerateVoice && scene.narration?.trim() && (
+                      <div className="mt-1.5 space-y-1">
+                        <div className="flex items-center gap-1">
+                          <audio controls src={scene.audioUrl} className="w-full h-7" />
+                          {onRegenerateVoice && scene.narration?.trim() && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary"
+                              onClick={() => onRegenerateVoice(scene.sceneNumber)}
+                              disabled={scene.isRegenerating || disabled}
+                              title="Regenerate voice"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                        {onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
                           <Button
-                            size="icon"
                             variant="ghost"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary"
-                            onClick={() => onRegenerateVoice(scene.sceneNumber)}
-                            disabled={scene.isRegenerating || disabled}
-                            title="Regenerate voice"
+                            size="sm"
+                            className="h-6 text-[10px] w-full text-muted-foreground hover:text-primary"
+                            onClick={() => openVoicePreview(scene)}
                           >
-                            <RefreshCw className="w-3 h-3" />
+                            <Mic className="w-3 h-3 mr-1" />
+                            Preview Different Voices
                           </Button>
                         )}
                       </div>
+                    )}
+                    {!scene.audioUrl && onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1.5 h-6 text-[10px] w-full text-muted-foreground hover:text-primary"
+                        onClick={() => openVoicePreview(scene)}
+                      >
+                        <Mic className="w-3 h-3 mr-1" />
+                        Preview Voices
+                      </Button>
                     )}
                   </div>
                   {/* Insert point after every 4th scene (end of row) or last scene */}
