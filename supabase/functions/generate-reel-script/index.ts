@@ -521,19 +521,20 @@ Visual direction: ${selectedHook.visualDirection ? JSON.stringify(selectedHook.v
 ═══ STEP 11: SELF-REVIEW (MANDATORY BEFORE OUTPUT) ═══
 
 Before returning the final output, run this quality check:
-✅ Is the hook strong enough to stop a scroll? If no → rewrite with different hook type
+✅ Does the hook MATCH the user-selected hook style? If no → rewrite Scene 1 to match
+✅ Are transitions applied between every scene matching user selection? If no → add them
 ✅ Does EVERY scene include real physical movement? If no → add specific step-by-step actions
-✅ Are ALL visuals bright and premium? If no → rewrite with brighter lighting
+✅ Are ALL visuals BRIGHT, NATURAL, and UGC-style? If any scene is dark/cinematic/staged → rewrite
 ✅ Do scenes flow as ONE cohesive video? If no → fix transitions and scene connections
+✅ Does the topic feel like a REAL STORY with relatable scenarios? If it feels generic → rewrite with real-life situations
 ✅ Is the script too repetitive or testimonial-sounding? If yes → switch storytelling style
-✅ Does the video feel like a real reel, not an AI slideshow? If no → add dynamism
+✅ Does the video feel like real TikTok/Reels content, not a movie or stock footage? If no → add UGC feel
 ✅ Are visual descriptions rich enough (80-150 words each with all 10 elements)? If no → expand
-✅ Does each scene have a clear PURPOSE? If no → cut or rewrite it
+✅ Does each scene have a clear PURPOSE (hook/context/product/payoff)? If no → cut or rewrite
 ✅ Is the narration natural and human-sounding? If no → rewrite conversationally
-✅ Is the SAME CHARACTER maintained across all scenes (appearance, outfit, hair)? If no → fix consistency
-✅ Does Scene 1's end frame connect to Scene 2's start frame? If no → add continuity
-✅ Does every scene have transition logic connecting it to adjacent scenes? If no → add connection points
-✅ Would start/end frames improve any scene? If yes → add them
+✅ Is the SAME CHARACTER maintained across all scenes? If no → fix consistency
+✅ Are environments REAL places (kitchen, desk, bathroom, etc.) not studios? If no → fix
+✅ Is product usage realistic (one product, natural interaction)? If not → fix
 
 If ANY check fails → automatically improve before returning to the user.
 
