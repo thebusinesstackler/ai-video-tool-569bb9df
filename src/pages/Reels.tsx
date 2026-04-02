@@ -487,6 +487,14 @@ const Reels = () => {
   // Selected product image for video generation
   const [selectedProductImageUrl, setSelectedProductImageUrl] = useState<string | null>(null);
   const [selectedProductName, setSelectedProductName] = useState<string | null>(null);
+
+  // Lifted product swap state (persists across isMobile re-renders)
+  const [swapPanelProductUrl, setSwapPanelProductUrl] = useState<string | null>(null);
+  const [swapPanelPrompt, setSwapPanelPrompt] = useState('');
+  const handleSwapProductChange = (url: string | null, prompt: string) => {
+    setSwapPanelProductUrl(url);
+    setSwapPanelPrompt(prompt);
+  };
   
   // Strategist state for persistence
   const [strategistState, setStrategistState] = useState<StrategistState>({
