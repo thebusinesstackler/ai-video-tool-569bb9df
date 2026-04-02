@@ -106,7 +106,7 @@ interface UseScenePreviewResult {
   generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string, productImageUrl?: string, productName?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateSceneVoice: (sceneNumber: number, narration: string, voice?: string, speechifyVoiceId?: string, voiceEngine?: string, googleVoiceId?: string, userId?: string) => Promise<void>;
-  regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
+  regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string, characterDescription?: string, productImageUrl?: string, productName?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
   setExternalReference: (imageUrl: string) => void;
   clearReference: () => void;
@@ -452,17 +452,27 @@ export function useScenePreview(): UseScenePreviewResult {
     }
   };
 
-  const regenerateWithReference = async (sceneNumber: number, visualDescription: string, refImageUrl: string, transformation?: string) => {
+  const regenerateWithReference = async (sceneNumber: number, visualDescription: string, refImageUrl: string, transformation?: string, characterDescription?: string, productImageUrl?: string, productName?: string) => {
     setPreviewScenes(prev => prev.map(ps =>
       ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true } : ps
     ));
 
+    // Check if this scene mentions product usage
+    const sceneText = visualDescription.toLowerCase();
+    const isProductScene = productImageUrl && /(drop|pour|hold|apply|sip|drink|use|bottle|serum|extract|supplement|product|dispens|spray|rub|massage|mix|stir|scoop|capsule|tablet|pill)/.test(sceneText);
+    const productContext = isProductScene 
+      ? ` The person is using this specific product: ${productName || 'the featured product'}. Show the actual product clearly in the scene.`
+      : '';
+
     try {
       const { data: imageData, error: imageError } = await supabase.functions.invoke('edit-scene-image', {
         body: { 
-          prompt: `${visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
+          prompt: `${visualDescription}${productContext}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
           referenceImageUrl: refImageUrl,
-          characterTransformation: transformation || undefined
+          characterTransformation: transformation || undefined,
+          characterDescription: characterDescription || undefined,
+          productImageUrl: isProductScene ? productImageUrl : undefined,
+          productName: isProductScene ? productName : undefined
         }
       });
 

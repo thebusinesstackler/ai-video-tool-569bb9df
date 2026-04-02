@@ -6430,7 +6430,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         if (!scene) return;
                         const prompt = scene.visualDescription || scene.narration;
                         if (referenceImageUrl) {
-                          regenerateWithReference(sceneNumber, prompt, referenceImageUrl, characterTransformation);
+                          regenerateWithReference(sceneNumber, prompt, referenceImageUrl, characterTransformation, characterDescription || undefined, selectedProductImageUrl || undefined, selectedProductName || undefined);
                         } else {
                           regenerateSceneImage(sceneNumber, prompt);
                         }
@@ -6446,9 +6446,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     
                     // Use local reference if provided, else fall back to global reference
                     if (localRefUrl) {
-                      regenerateWithReference(sceneNumber, promptToUse, localRefUrl, characterTransformation);
+                      regenerateWithReference(sceneNumber, promptToUse, localRefUrl, characterTransformation, characterDescription || undefined, selectedProductImageUrl || undefined, selectedProductName || undefined);
                     } else if (referenceImageUrl) {
-                      regenerateWithReference(sceneNumber, promptToUse, referenceImageUrl, characterTransformation);
+                      regenerateWithReference(sceneNumber, promptToUse, referenceImageUrl, characterTransformation, characterDescription || undefined, selectedProductImageUrl || undefined, selectedProductName || undefined);
                     } else {
                       regenerateSceneImage(sceneNumber, promptToUse);
                     }
