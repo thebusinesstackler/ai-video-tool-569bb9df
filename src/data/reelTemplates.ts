@@ -260,46 +260,46 @@ export const OUTRO_TEMPLATES: OutroTemplate[] = [
   {
     id: 'thank-you',
     name: 'Thank You',
-    description: 'Elegant thank you message',
+    description: 'Warm professional sign-off with branding',
     duration: 3,
-    visualPrompt: 'Elegant thank you typography, warm gradient background, appreciation vibes, heartfelt professional',
-    textPlaceholder: 'Thank you for watching!',
+    visualPrompt: 'Elegant thank you card, "THANK YOU" in large warm gold typography, creator name and handle below, dark premium background with subtle warm gradient, small social icons row at bottom, heartfelt yet professional, 9:16 vertical format',
+    textPlaceholder: 'Thank you for watching! 🙏',
     category: 'professional'
   },
   {
     id: 'contact-info',
     name: 'Contact Card',
-    description: 'Business contact details',
+    description: 'Professional business card with contact details',
     duration: 4,
-    visualPrompt: 'Business card style design, email and website icons, professional layout, corporate clean aesthetic',
-    textPlaceholder: 'contact@email.com',
+    visualPrompt: 'Premium digital business card, dark matte background, name in bold large text, email icon with address, globe icon with website URL, phone icon with number, clean vertical layout with thin gold separator lines, professional corporate design, 9:16 vertical format',
+    textPlaceholder: 'hello@yourbrand.com | yourwebsite.com',
     category: 'professional'
   },
   {
     id: 'website-cta',
     name: 'Visit Website',
-    description: 'Website URL call to action',
+    description: 'Drive traffic with a clear URL call-to-action',
     duration: 3,
-    visualPrompt: 'Website URL display with browser mockup, cursor clicking animation style, modern web design preview',
-    textPlaceholder: 'www.yourwebsite.com',
+    visualPrompt: 'Website CTA card, large bold URL text centered, browser mockup preview showing the site, glowing "VISIT NOW" button below with cursor icon, dark cinematic background with subtle blue accent light, professional marketing design, 9:16 vertical format',
+    textPlaceholder: '🌐 yourwebsite.com — Link in bio',
     category: 'professional'
   },
   {
     id: 'credits-roll',
     name: 'Credits',
-    description: 'Simple credits scroll',
+    description: 'Cinematic credits with branding',
     duration: 5,
-    visualPrompt: 'Movie credits style rolling text, dark background, elegant serif typography, cinematic closing',
-    textPlaceholder: 'Created by: Your Name',
+    visualPrompt: 'Movie-style credits card, creator name in elegant serif font, role titles in smaller sans-serif below, dark background with subtle film grain texture, "Follow for more" with social icons at bottom, cinematic professional closing, 9:16 vertical format',
+    textPlaceholder: 'Created by: Your Name\n@yourhandle',
     category: 'professional'
   },
   {
     id: 'book-call',
     name: 'Book a Call',
-    description: 'Schedule appointment CTA',
+    description: 'Convert viewers into leads with a booking CTA',
     duration: 4,
-    visualPrompt: 'Calendar booking interface style, schedule button, availability slots visual, professional service',
-    textPlaceholder: 'Book your free call today!',
+    visualPrompt: 'Premium booking CTA card, large "BOOK YOUR FREE CALL" text, calendar icon with available date slots visual, glowing CTA button below, dark elegant background with professional blue accent, trust badges or testimonial snippet, conversion-focused layout, 9:16 vertical format',
+    textPlaceholder: '📅 Book your free strategy call — Link in bio',
     category: 'professional'
   }
 ];
