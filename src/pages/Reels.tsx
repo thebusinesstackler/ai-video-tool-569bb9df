@@ -6553,14 +6553,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   <div className="border rounded-lg overflow-hidden bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: 600 }}>
                     <TimelineEditor
                       scenes={(() => {
-                        const sceneSrc = previewScenes.length > 0 ? previewScenes : project.generatedScenes.map(gs => ({
-                          sceneNumber: gs.sceneNumber,
-                          narration: gs.narration || gs.text || '',
-                          visualDescription: gs.visualDescription || gs.text || '',
-                          imageUrl: gs.imageUrl,
-                          audioUrl: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.audioUrl || null,
-                          audioDuration: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.duration || 0,
-                        }));
+                        const sceneSrc = previewScenes.length > 0 ? previewScenes : project.generatedScenes.map(gs => {
+                          const matchingScene = project.scenes.find(s => s.sceneNumber === gs.sceneNumber);
+                          return {
+                            sceneNumber: gs.sceneNumber,
+                            narration: matchingScene?.narration || gs.text || '',
+                            visualDescription: matchingScene?.visualDescription || gs.text || '',
+                            imageUrl: gs.imageUrl,
+                            audioUrl: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.audioUrl || null,
+                            audioDuration: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.duration || 0,
+                          };
+                        });
                         return sceneSrc.map((ps, i) => ({
                           sceneNumber: ps.sceneNumber,
                           narration: ps.narration,
