@@ -346,6 +346,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     toast({ title: 'Script Updated', description: 'Scenes rewritten around your product. Regenerate preview to see changes.' });
   };
 
+  const addPlacementPreset = (setting: string) => {
     if (customPrompt) {
       setCustomPrompt(`${customPrompt} ${setting}`);
     } else {
