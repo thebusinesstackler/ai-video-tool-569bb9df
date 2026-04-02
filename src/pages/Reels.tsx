@@ -3010,6 +3010,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setCurrentReelSaved(false);
     setBeginnerStep(1);
     setGeneratedThumbnails([]);
+    setSelectedThumbnailUrl(null);
     setShowThumbnailDialog(false);
   };
 
