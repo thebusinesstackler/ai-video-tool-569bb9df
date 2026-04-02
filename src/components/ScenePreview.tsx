@@ -418,6 +418,24 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                               )}
                             </Button>
                           )}
+
+                          {/* Regenerate voice button */}
+                          {onRegenerateVoice && scene.narration?.trim() && (
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              className="w-10 h-10 rounded-full bg-primary/80 hover:bg-primary"
+                              onClick={() => onRegenerateVoice(scene.sceneNumber)}
+                              disabled={scene.isRegenerating || disabled}
+                              title="Regenerate voice for this scene"
+                            >
+                              {scene.isRegenerating ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                              ) : (
+                                <Mic className="w-5 h-5" />
+                              )}
+                            </Button>
+                          )}
                           
                           {onSetReference && !scene.isReference && (
                             <Button
@@ -449,6 +467,25 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                         <p className="text-white text-xs line-clamp-2">{scene.narration}</p>
                       </div>
                     </div>
+
+                    {/* Audio player below card */}
+                    {scene.audioUrl && (
+                      <div className="mt-1.5 flex items-center gap-1">
+                        <audio controls src={scene.audioUrl} className="w-full h-7" />
+                        {onRegenerateVoice && scene.narration?.trim() && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary"
+                            onClick={() => onRegenerateVoice(scene.sceneNumber)}
+                            disabled={scene.isRegenerating || disabled}
+                            title="Regenerate voice"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {/* Insert point after every 4th scene (end of row) or last scene */}
                   {((idx + 1) % 4 === 0 || idx === scenes.length - 1) && (
