@@ -6,6 +6,10 @@ interface CanvasStitchOptions {
   audioUrls?: string[];
   /** Indices into videoUrls that have embedded audio — play unmuted & capture */
   embeddedAudioIndices?: number[];
+  /** Background music URL — mixed at lower volume under narration/video audio */
+  backgroundMusicUrl?: string;
+  /** Background music volume 0-100, default 20 */
+  backgroundMusicVolume?: number;
   width?: number;
   height?: number;
   onProgress?: (percent: number) => void;
