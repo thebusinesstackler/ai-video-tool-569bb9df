@@ -25,10 +25,20 @@ interface PreviewScene {
   isReference?: boolean;
 }
 
+interface VoiceSampleRequest {
+  sceneNumber: number;
+  narration: string;
+  voiceId: string;
+  voiceLabel: string;
+}
+
 interface ScenePreviewProps {
   scenes: PreviewScene[];
   onRegenerateImage: (sceneNumber: number, customPrompt?: string, referenceUrl?: string) => void;
   onRegenerateVoice?: (sceneNumber: number) => void;
+  onGenerateVoiceSample?: (req: VoiceSampleRequest) => Promise<{ audioUrl: string } | null>;
+  onApplyVoiceSample?: (sceneNumber: number, audioUrl: string) => void;
+  availableVoices?: { id: string; label: string; gender?: string }[];
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
   disabled?: boolean;
