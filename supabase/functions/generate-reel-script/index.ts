@@ -828,18 +828,17 @@ function stripHtml(text: string): string {
 function getIntroVisualDescription(templateId: string, topic: string, baseStyle: string): string {
   const commonStyle = baseStyle || 'Cinematic 4K, vibrant saturated colors, professional studio lighting';
   
-  // ALL intros must be pure visual imagery — NO text, typography, or written words
   switch (templateId) {
     case 'hook-text':
-      return `Style: ${commonStyle}. Abstract cinematic opening. Dramatic light rays cutting through darkness, deep rich colors, electric purple and cyan gradients. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY. Pure abstract visual only.`;
+      return `Style: ${commonStyle}. Abstract cinematic opening. Dramatic light rays cutting through darkness, deep rich colors, electric purple and cyan gradients. Vertical 9:16 portrait format. Pure visual imagery preferred.`;
     case 'topic-title':
-      return `Style: ${commonStyle}. Elegant cinematic establishing shot related to "${topic}". Soft professional lighting, clean sophisticated composition. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Elegant cinematic establishing shot related to "${topic}". Soft professional lighting, clean sophisticated composition. Vertical 9:16 portrait format.`;
     case 'question-hook':
-      return `Style: ${commonStyle}. Mysterious atmospheric scene, moody lighting with highlights, deep blues and purples with golden accents. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Mysterious atmospheric scene, moody lighting with highlights, deep blues and purples with golden accents. Vertical 9:16 portrait format.`;
     case 'countdown':
-      return `Style: ${commonStyle}. Energetic dynamic abstract scene, vibrant neon colors, high energy lighting. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO NUMBERS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Energetic dynamic abstract scene, vibrant neon colors, high energy lighting. Vertical 9:16 portrait format.`;
     default:
-      return `Style: ${commonStyle}. Professional cinematic opening, modern clean composition, vibrant colors. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Professional cinematic opening, modern clean composition, vibrant colors. Vertical 9:16 portrait format.`;
   }
 }
 
