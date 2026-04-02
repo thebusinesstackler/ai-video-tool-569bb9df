@@ -242,7 +242,7 @@ REQUIREMENTS:
 // Build image generation prompt text (for OpenAI DALL-E which doesn't accept reference images)
 function buildImageGenPrompt(prompt: string, referenceImages?: string[]) {
   if (referenceImages && referenceImages.length > 0) {
-    return `${prompt}\n\nIMPORTANT: Generate this as a photorealistic image matching the described character exactly. Ultra high quality, cinematic lighting.`;
+    return `${prompt}\n\nIMPORTANT: Generate this as a hyper-realistic image matching the described character exactly. Natural skin with visible pores and imperfections. Professional cinematic lighting with 3-point setup, warm natural color grading. Shot on ARRI Alexa.`;
   }
   return prompt;
 }
