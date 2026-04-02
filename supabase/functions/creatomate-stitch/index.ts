@@ -32,6 +32,9 @@ interface StitchRequest {
   // Logo overlay
   logoUrl?: string;
   logoAnimation?: 'fade' | 'zoom' | 'bounce' | 'glitch' | 'rotate' | 'scale-fade';
+  // Intro thumbnail image — prepended as a 3-second still at the beginning
+  introImageUrl?: string;
+  introImageDuration?: number;
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {
