@@ -251,18 +251,55 @@ CUT SCENE TYPES (vary these):
 
 
     // Character consistency instructions
-    const characterInstructions = characterDescription ? `
-CHARACTER CONSISTENCY (CRITICAL - ABSOLUTE HIGHEST PRIORITY):
-The user has specified this EXACT character: "${characterDescription}"
-- EVERY single visualDescription MUST start with this character's description
-- NEVER change the gender, age, ethnicity, hair, skin tone, or ANY physical traits
-- NEVER substitute a different person — if the user specified "female", ALL scenes show a FEMALE
-- If the user specified "male", ALL scenes show a MALE — no exceptions
-- Copy the character description VERBATIM into every visualDescription, then add scene-specific actions
-- Example: If description says "Young Black woman with braids, wearing a white blazer" — EVERY scene begins with "Young Black woman with braids, wearing a white blazer..."
-- VALIDATION: Before returning, verify that EVERY visualDescription contains the character's gender and key traits
-- If ANY scene shows a different person than described, the ENTIRE output is REJECTED
-` : '';
+    // Build CHARACTER LOCK from profile + description
+    const hasProfile = characterProfile && (characterProfile.gender || characterProfile.appearance);
+    const productFromImage = characterProfile?.product?.detected ? characterProfile.product : null;
+
+    const characterInstructions = (characterDescription || hasProfile) ? `
+═══ CHARACTER LOCK (MANDATORY — HIGHEST PRIORITY) ═══
+${characterDescription ? `Character description: "${characterDescription}"` : ''}
+${hasProfile ? `
+VERIFIED CHARACTER PROFILE (from image analysis):
+- Gender: ${characterProfile.gender || 'not specified'}
+- Age range: ${characterProfile.ageRange || 'not specified'}
+- Appearance: ${characterProfile.appearance || 'not specified'}
+- Clothing: ${characterProfile.clothing || 'not specified'}
+- Environment: ${characterProfile.environment || 'not specified'}
+` : ''}
+RULES:
+- EVERY visualDescription MUST start with this EXACT character's description
+- Gender is ${characterProfile?.gender?.toUpperCase() || (characterDescription || '').toLowerCase().includes('male') ? 'as specified' : 'as described'} — NEVER change it
+- NEVER substitute a different person, gender, or appearance
+- Copy the character's physical traits VERBATIM into every scene
+- Same outfit in every scene unless the script intentionally changes it
+- VALIDATION: Before returning, verify EVERY scene matches this character exactly
+- If ANY scene shows a different person → the ENTIRE output is REJECTED
+${productFromImage ? `
+═══ PRODUCT LOCK (FROM CHARACTER IMAGE) ═══
+A product was detected in the character's reference image:
+- Product type: ${productFromImage.type}
+- Shape: ${productFromImage.shape || 'standard'}
+- Color: ${productFromImage.color || 'not specified'}
+- Label/branding: ${productFromImage.label || 'not visible'}
+- How held: ${productFromImage.howHeld || 'in hand'}
+
+PRODUCT RULES:
+- Use THIS EXACT product in relevant scenes (same type, shape, color)
+- Do NOT generate different/generic/placeholder products
+- Do NOT show multiple copies of this product
+- Show it in realistic, natural usage (one at a time)
+- Integrate it into the story naturally based on the topic
+- If the topic doesn't call for product use, the product can appear subtly in background
+` : `
+NO PRODUCT DETECTED in character image.
+- Do NOT invent or generate random product visuals
+- Only include product visuals if the TOPIC explicitly mentions a specific product
+`}
+` : `
+NO CHARACTER IMAGE PROVIDED.
+- Use a generic but consistent character across all scenes
+- Do NOT invent product visuals unless the topic explicitly mentions one
+`;
 
     const systemPrompt = `You are an AI REEL DIRECTOR, VIDEO EDITOR, and UGC CONTENT CREATOR.
 
