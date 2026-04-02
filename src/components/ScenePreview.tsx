@@ -771,7 +771,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() => applySettingPreset(preset.value)}
+                      onClick={() => addPlacementPreset(preset.value)}
                     >
                       {preset.label}
                     </Button>
