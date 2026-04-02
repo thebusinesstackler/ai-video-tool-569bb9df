@@ -2426,6 +2426,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 videoUrls,
                 audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
                 embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+                backgroundMusicUrl: backgroundMusicUrl || undefined,
+                backgroundMusicVolume: 20,
                 width: stitchWidth,
                 height: stitchHeight,
                 onProgress: (p) => {
