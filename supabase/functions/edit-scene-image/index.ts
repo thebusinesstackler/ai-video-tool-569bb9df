@@ -124,17 +124,21 @@ function buildPromptText(
 ): string {
   const { characterDescription, characterTransformation, cameraAngle, backgroundDescription, refCount } = opts;
 
-  const transformInstruction = characterTransformation ? `IMPORTANT CHARACTER TRANSFORMATION: ${characterTransformation}. ` : '';
-  const characterInstruction = characterDescription ? `Character description: ${characterDescription}. ` : '';
   const cameraInstruction = cameraAngle ? `CAMERA ANGLE: Use a ${cameraAngle} for this shot. ` : '';
   const backgroundInstruction = backgroundDescription
     ? `BACKGROUND: The background MUST be: ${backgroundDescription}. `
     : '';
 
+  // Strong character identity enforcement
+  const characterBlock = characterDescription
+    ? `\n\n*** MANDATORY CHARACTER IDENTITY (DO NOT DEVIATE) ***\nThe main person MUST be: ${characterDescription}.\nThis is NON-NEGOTIABLE. The person's gender, ethnicity, age, and physical appearance MUST match this description exactly. Do NOT substitute, swap, or reinterpret any aspect of their identity. If ANY part of the scene description conflicts with this character identity, the character identity ALWAYS wins.\n`
+    : '';
+
   if (characterTransformation) {
     return `Generate a new scene image: ${prompt}
 
-${transformInstruction}${characterInstruction}${cameraInstruction}${backgroundInstruction}
+IMPORTANT CHARACTER TRANSFORMATION: ${characterTransformation}.
+${characterBlock}${cameraInstruction}${backgroundInstruction}
 
 Apply this transformation: ${characterTransformation}
 Keep the scene composition similar but transform the character as specified.
@@ -150,8 +154,7 @@ REALISM RULES:
 - Hair with individual strand detail and natural movement
 - Character should appear natural and engaged
 - Real human proportions and natural body language
-
-${characterInstruction}${cameraInstruction}${backgroundInstruction}
+${characterBlock}${cameraInstruction}${backgroundInstruction}
 
 Professional cinematic quality, natural lighting, photorealistic.`;
 }
