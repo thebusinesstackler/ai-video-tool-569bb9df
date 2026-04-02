@@ -6295,6 +6295,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         const customAudio = customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined;
                         const customDuration = customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined;
                         
+                        // Clear old reel before generating new preview
+                        setProject(prev => ({ ...prev, generatedScenes: [], videoClips: [], videoBlobUrl: null, videoUrl: null }));
                         generatePreview(
                           project.scenes, 
                           user?.id, 
