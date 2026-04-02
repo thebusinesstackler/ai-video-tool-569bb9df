@@ -1161,8 +1161,21 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                             className="h-8 text-xs"
                             onClick={() => applyVoiceSampleToScene(sample.audioUrl)}
                           >
-                            Apply
+                            Apply to Scene
                           </Button>
+                          {onApplyVoiceToAll && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs border-primary/50 text-primary hover:bg-primary/10"
+                              onClick={() => {
+                                onApplyVoiceToAll(sample.voiceId);
+                                applyVoiceSampleToScene(sample.audioUrl);
+                              }}
+                            >
+                              Apply to All
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
