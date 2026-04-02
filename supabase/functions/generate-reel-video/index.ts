@@ -195,8 +195,10 @@ Topic being discussed: ${topic}
 REQUIREMENTS:
 - Eyes locked on camera, head facing forward
 - Natural confident expression, slight smile
-- Soft studio lighting, clean blurred background
-- Photorealistic, high quality portrait
+- Hyper-realistic skin with visible pores, natural imperfections, subsurface scattering — NOT airbrushed or plastic
+- Professional 3-point cinematic lighting (key light at 45°, soft fill, rim/hair light), warm natural color temperature
+- Shallow depth of field, clean blurred background with bokeh
+- Shot on 85mm f/1.4 lens, film-grade color grading
 - Vertical 9:16 format
 - NO text, captions, watermarks, or written words${antiPropRule}`;
   }
