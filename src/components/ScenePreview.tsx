@@ -713,13 +713,18 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                   Place a Product in This Scene
                 </label>
                 <p className="text-xs text-muted-foreground">
-                  Select a product from your library to feature it in this scene
+                  Select a product and describe exactly where and how it should appear
                 </p>
                 <div className="grid grid-cols-5 gap-2">
                   {productImages.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => setSelectedProductUrl(selectedProductUrl === p.image_url ? null : p.image_url)}
+                      onClick={() => {
+                        const isDeselecting = selectedProductUrl === p.image_url;
+                        setSelectedProductUrl(isDeselecting ? null : p.image_url);
+                        setSelectedProductName(isDeselecting ? null : (p.name || 'product'));
+                        if (isDeselecting) setProductPlacementInstructions('');
+                      }}
                       className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                         selectedProductUrl === p.image_url ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50'
                       }`}
@@ -728,8 +733,41 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                     </button>
                   ))}
                 </div>
+
+                {/* Placement Instructions - shown when product is selected */}
                 {selectedProductUrl && (
-                  <p className="text-xs text-primary">✓ Product selected — it will be placed in this scene</p>
+                  <div className="space-y-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                    <label className="text-sm font-medium text-primary flex items-center gap-1.5">
+                      <Package className="w-3.5 h-3.5" />
+                      Product Placement Instructions
+                    </label>
+                    <Textarea
+                      value={productPlacementInstructions}
+                      onChange={(e) => setProductPlacementInstructions(e.target.value)}
+                      placeholder="e.g., Person holding this product in their right hand, product placed on the table in front of them, close-up of product next to the speaker..."
+                      className="min-h-[70px] text-sm"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: '🤲 Holding in hand', value: `Person holding ${selectedProductName || 'this product'} in their hand, clearly visible, natural grip` },
+                        { label: '🪑 On table', value: `${selectedProductName || 'Product'} placed on the table in front of the person, well-lit, in focus` },
+                        { label: '👀 Close-up hero', value: `Extreme close-up of ${selectedProductName || 'this product'}, dramatic cinematic lighting, shallow depth of field, premium product shot` },
+                        { label: '🎁 Presenting', value: `Person presenting ${selectedProductName || 'this product'} to camera, showing it off with both hands, proud expression` },
+                        { label: '📦 Unboxing', value: `Person unboxing ${selectedProductName || 'this product'}, excited expression, product emerging from packaging` },
+                      ].map(preset => (
+                        <Button
+                          key={preset.label}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setProductPlacementInstructions(preset.value)}
+                        >
+                          {preset.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-primary/70">✓ Product selected — placement instructions will guide the AI on how to render it</p>
+                  </div>
                 )}
               </div>
             )}
