@@ -208,6 +208,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setInsertIndex(index);
     setInsertType(type);
     setInsertPrompt('');
+    setInsertProductUrl(null);
     setInsertDialogOpen(true);
   };
 
