@@ -607,6 +607,56 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Insert Scene Dialog */}
+      <Dialog open={insertDialogOpen} onOpenChange={setInsertDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {insertType === 'broll' ? <Film className="w-5 h-5" /> : <Type className="w-5 h-5" />}
+              Insert {insertType === 'broll' ? 'B-Roll' : insertType === 'intro' ? 'Intro Slide' : 'Outro / CTA'}
+            </DialogTitle>
+            <DialogDescription>
+              {insertType === 'broll'
+                ? 'Describe the cinematic B-roll shot you want to generate'
+                : insertType === 'intro'
+                ? 'Enter your intro title or hook text'
+                : 'Enter your call-to-action or closing text'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Textarea
+              value={insertPrompt}
+              onChange={(e) => setInsertPrompt(e.target.value)}
+              placeholder={
+                insertType === 'broll'
+                  ? 'e.g. Steaming cup of coffee on a wooden table, golden hour light...'
+                  : insertType === 'intro'
+                  ? 'e.g. The Secret Nobody Tells You'
+                  : 'e.g. Follow for more tips!'
+              }
+              className="min-h-[80px]"
+            />
+            {insertType === 'broll' && (
+              <div className="flex flex-wrap gap-1.5">
+                {['Product close-up', 'Nature scenery', 'City timelapse', 'Hands working', 'Food preparation', 'Tech gadget'].map(preset => (
+                  <Button key={preset} variant="outline" size="sm" className="h-7 text-xs"
+                    onClick={() => setInsertPrompt(preset)}>
+                    {preset}
+                  </Button>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setInsertDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleInsertScene} disabled={!insertPrompt.trim() || isInserting}>
+                {isInserting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                {isInserting ? 'Generating...' : 'Insert Scene'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
