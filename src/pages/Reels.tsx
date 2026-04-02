@@ -6517,7 +6517,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             )}
 
             {/* Scene Preview / Timeline Toggle (Advanced only) */}
-            {isAdvanced && previewScenes.length > 0 && !project.videoBlobUrl && (
+            {isAdvanced && (previewScenes.length > 0 || (timelineViewActive && project.generatedScenes.length > 0)) && (
               <div className="space-y-4">
                 {/* View Mode Toggle */}
                 <div className="flex items-center justify-between">
