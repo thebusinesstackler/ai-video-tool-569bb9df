@@ -95,6 +95,8 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     videoUrls,
     audioUrls = [],
     embeddedAudioIndices = [],
+    backgroundMusicUrl,
+    backgroundMusicVolume = 20,
     width: inputWidth,
     height: inputHeight,
     onProgress,
