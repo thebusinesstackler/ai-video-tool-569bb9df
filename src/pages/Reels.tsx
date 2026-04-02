@@ -734,7 +734,7 @@ const Reels = () => {
   useEffect(() => {
     // Always save when video clips arrive (even during generation)
     const hasVideoClips = project.videoClips.length > 0;
-    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim() || hasVideoClips;
+    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim() || hasVideoClips;
     if (!hasContent) return;
 
     saveDraftDebounced({
