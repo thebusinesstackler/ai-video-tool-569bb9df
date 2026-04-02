@@ -442,6 +442,7 @@ const Reels = () => {
   const [selectedThumbnailIdx, setSelectedThumbnailIdx] = useState(0);
   const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
   const [thumbnailStyle, setThumbnailStyle] = useState('dramatic');
+  const [selectedThumbnailUrl, setSelectedThumbnailUrl] = useState<string | null>(null);
   
   // Outro style state
   const [outroStyle, setOutroStyle] = useState('logo-fade');
