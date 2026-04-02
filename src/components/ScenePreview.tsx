@@ -280,7 +280,72 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     voiceSampleRefs.current.forEach(a => { a.pause(); a.currentTime = 0; });
   };
 
-  const applySettingPreset = (setting: string) => {
+  // Product analysis functions
+  const handleProductUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setProductUploadUrl(event.target?.result as string);
+      setAnalyzedProduct(null);
+      setRewrittenScenes(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const analyzeProduct = async () => {
+    if (!productUploadUrl) return;
+    setIsAnalyzingProduct(true);
+    setAnalyzedProduct(null);
+    setRewrittenScenes(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-product', {
+        body: {
+          imageUrl: productUploadUrl,
+          currentScript: currentScenes || scenes.map(s => ({
+            sceneNumber: s.sceneNumber,
+            narration: s.narration,
+            visualDescription: s.visualDescription,
+          })),
+        }
+      });
+      
+      if (error) throw error;
+      
+      setAnalyzedProduct(data.productInfo);
+      if (data.rewrittenScenes) {
+        setRewrittenScenes(data.rewrittenScenes);
+      }
+
+      // Save product to library
+      if (user) {
+        await supabase.from('product_images').insert({
+          user_id: user.id,
+          image_url: productUploadUrl,
+          name: data.productInfo?.productName || 'Product',
+        });
+        // Refresh product list
+        const { data: refreshed } = await supabase.from('product_images').select('id, image_url, name').eq('user_id', user.id).order('created_at', { ascending: false });
+        if (refreshed) setProductImages(refreshed);
+      }
+
+      toast({ title: 'Product Analyzed!', description: `Identified: ${data.productInfo?.productName || 'Product'}` });
+    } catch (err: any) {
+      console.error('Product analysis failed:', err);
+      toast({ title: 'Analysis Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsAnalyzingProduct(false);
+    }
+  };
+
+  const applyProductScript = () => {
+    if (!rewrittenScenes || !onApplyProductScript) return;
+    onApplyProductScript(rewrittenScenes);
+    setProductAnalysisOpen(false);
+    toast({ title: 'Script Updated', description: 'Scenes rewritten around your product. Regenerate preview to see changes.' });
+  };
+
     if (customPrompt) {
       setCustomPrompt(`${customPrompt} ${setting}`);
     } else {
