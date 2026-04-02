@@ -681,9 +681,25 @@ ${introInstructions}
 ${outroInstructions}` : `VIDEO STRUCTURE (one continuous UGC-style video):
 - Scene 1 (HOOK): Scroll-stopping hook matching the selected hook style. Bright, natural, movement in first second. UGC feel, not cinematic.
 - Scene 2-${totalSceneCount-1} (BODY): Build the REAL STORY. Each scene shows a real moment. Real environment. Real action. Each scene adds something NEW.
-- Scene ${totalSceneCount} (CLOSING CTA): Strong, natural call-to-action. Must feel genuine, not staged.`}
+${productImageUrl ? `- Include ONE dedicated product B-roll scene (mark "isProductBroll": true): product alone on a clean surface, slow orbit/rotation, cinematic lighting. No person in frame. 3-4 seconds.` : ''}
+- Scene ${totalSceneCount} (CLOSING CTA — CRITICAL): Person looking DIRECTLY into camera in a CLOSE-UP shot. Confident, warm expression. Direct eye contact. This is the money shot — make them feel connected. The narration is a clear, actionable CTA tied to the topic. NOT generic "follow for more" — specific to the content.`}
 
-MANDATORY: Last scene MUST contain a clear call-to-action. NEVER end on just information.
+MANDATORY: Last scene MUST contain a clear call-to-action with the person in a CLOSE-UP looking at camera. NEVER end on just information.
+
+═══ CLOSE-UP CUTAWAY RULE (ENGAGEMENT BOOSTER) ═══
+At least ONE scene in the body (Scenes 2-${totalSceneCount-1}) MUST use a TIGHT CLOSE-UP framing:
+- Camera cuts to a close-up of the person's face (eyes + mouth visible, top of frame at hairline)
+- This creates intimacy and variety — like a real video editor cutting between wide and close
+- Mark this scene with "cameraAngle": "extreme close-up, eye-level, intimate framing"
+- The close-up should happen during an emotionally impactful or emphatic moment
+- Think: the "zoom in" energy but cinematic — a moment of emphasis
+
+═══ SCENE CONNECTION WITH START/END FRAMES ═══
+For polished video generation, describe START FRAME and END FRAME for EVERY scene:
+- START FRAME: What the very first frame looks like (composition, character position, camera angle)
+- END FRAME: What the very last frame looks like (must visually lead into the next scene's start frame)
+- This enables smooth, intentional transitions between clips
+- Example: Scene 2 END FRAME shows person reaching for product → Scene 3 START FRAME shows close-up of hand on product
 
 NARRATION REQUIREMENTS:
 - Content scenes: ${minWordsPerScene}-${maxWordsPerScene} words per scene (fills ${finalSceneDuration}s when spoken)
