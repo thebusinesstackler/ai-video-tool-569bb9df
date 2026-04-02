@@ -6112,6 +6112,21 @@ STYLE REQUIREMENTS:
                       regenerateSceneImage(sceneNumber, promptToUse);
                     }
                   }}
+                  onRegenerateVoice={(sceneNumber) => {
+                    const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+                    if (!scene?.narration?.trim()) return;
+                    const voiceConfig = resolveVoiceForGeneration();
+                    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                    regenerateSceneVoice(
+                      sceneNumber,
+                      scene.narration,
+                      voiceConfig.voice,
+                      selectedTwin?.voice_cloning_key || undefined,
+                      voiceConfig.voiceEngine,
+                      undefined,
+                      user?.id
+                    );
+                  }}
                   onCreateVideo={generateVideo}
                   isCreatingVideo={isGenerating && (project.status === 'generating-video' || project.status === 'rendering-video')}
                   disabled={isGenerating}
