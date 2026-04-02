@@ -128,7 +128,7 @@ function buildPromptText(
     productName?: string;
   }
 ): string {
-  const { characterDescription, characterTransformation, cameraAngle, backgroundDescription, refCount } = opts;
+  const { characterDescription, characterTransformation, cameraAngle, backgroundDescription, refCount, productName } = opts;
 
   const cameraInstruction = cameraAngle ? `CAMERA ANGLE: Use a ${cameraAngle} for this shot. ` : '';
   const backgroundInstruction = backgroundDescription
