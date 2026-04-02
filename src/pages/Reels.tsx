@@ -3970,7 +3970,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         )}
         
         {/* Main Content */}
-        <div className={`flex-1 overflow-auto ${isMobile ? 'p-0 pb-24' : 'p-6 pb-24'}`}>
+        <div className={`flex-1 overflow-auto transition-[padding] duration-200 ${isMobile ? 'p-0 pb-24' : 'p-6 pb-24'}`}>
           <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
