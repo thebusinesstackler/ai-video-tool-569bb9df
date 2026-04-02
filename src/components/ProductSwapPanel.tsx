@@ -288,7 +288,7 @@ CRITICAL RULES — DO NOT VIOLATE:
               <img src={selectedProductUrl} alt="Product" className="w-full h-full object-cover" />
               <button
                 className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
-                onClick={() => setSelectedProductUrl(null)}
+                onClick={() => updateProductUrl(null)}
               >
                 <X className="h-2 w-2 text-white" />
               </button>
