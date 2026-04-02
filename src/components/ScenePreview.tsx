@@ -739,6 +739,41 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                     </Button>
                   ))}
                 </div>
+
+                {/* Camera Angle Quick-Picks for Insert */}
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Camera className="w-3 h-3" />
+                    Camera Angle
+                  </label>
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {CAMERA_CATEGORIES.filter(c => ['static', 'framing', 'movement'].includes(c.id)).map((cat) => (
+                      <Button
+                        key={cat.id}
+                        variant={insertAngleCategory === cat.id ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => setInsertAngleCategory(cat.id)}
+                      >
+                        {cat.name}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CAMERA_ANGLES.filter(a => a.category === insertAngleCategory).slice(0, 6).map((angle) => (
+                      <Button
+                        key={angle.id}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setInsertPrompt(prev => prev ? `${prev}. ${angle.promptModifier}` : angle.promptModifier)}
+                        title={angle.description}
+                      >
+                        {angle.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
                 {productImages.length > 0 && (
                   <div className="space-y-2">
                     <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
