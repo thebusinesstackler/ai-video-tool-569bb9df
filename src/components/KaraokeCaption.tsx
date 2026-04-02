@@ -197,16 +197,25 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
 };
 
 // Caption settings component for the UI
+export type CaptionFontFamily = 'Montserrat' | 'Inter' | 'Poppins' | 'Oswald' | 'Bebas Neue';
+export type CaptionFontSize = 'small' | 'medium' | 'large' | 'xl';
+
 export interface CaptionSettings {
   style: CaptionStyle;
   background: CaptionBackground;
   position: CaptionPosition;
   enabled: boolean;
+  fontFamily: CaptionFontFamily;
+  fontSize: CaptionFontSize;
+  fontColor: string; // hex color
 }
 
 export const defaultCaptionSettings: CaptionSettings = {
   style: 'karaoke',
   background: 'glass',
   position: 'bottom',
-  enabled: true
+  enabled: true,
+  fontFamily: 'Montserrat',
+  fontSize: 'medium',
+  fontColor: '#ffffff',
 };

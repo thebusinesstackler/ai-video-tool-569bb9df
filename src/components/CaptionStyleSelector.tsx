@@ -7,7 +7,9 @@ import {
   CaptionStyle, 
   CaptionBackground, 
   CaptionPosition,
-  CaptionSettings 
+  CaptionSettings,
+  CaptionFontFamily,
+  CaptionFontSize,
 } from './KaraokeCaption';
 import { Type, Sparkles, Zap, Sun, Waves, Square, Palette, Circle, Lightbulb } from 'lucide-react';
 
@@ -31,6 +33,30 @@ const CAPTION_BACKGROUNDS: { value: CaptionBackground; label: string; icon: Reac
   { value: 'gradient', label: 'Gradient', icon: <Palette className="w-4 h-4" /> },
   { value: 'outline', label: 'Outline', icon: <Circle className="w-4 h-4" /> },
   { value: 'neon', label: 'Neon', icon: <Lightbulb className="w-4 h-4" /> },
+];
+
+const FONT_FAMILIES: { value: CaptionFontFamily; label: string }[] = [
+  { value: 'Montserrat', label: 'Montserrat' },
+  { value: 'Inter', label: 'Inter' },
+  { value: 'Poppins', label: 'Poppins' },
+  { value: 'Oswald', label: 'Oswald' },
+  { value: 'Bebas Neue', label: 'Bebas Neue' },
+];
+
+const FONT_SIZES: { value: CaptionFontSize; label: string }[] = [
+  { value: 'small', label: 'S' },
+  { value: 'medium', label: 'M' },
+  { value: 'large', label: 'L' },
+  { value: 'xl', label: 'XL' },
+];
+
+const FONT_COLORS: { value: string; label: string }[] = [
+  { value: '#ffffff', label: 'White' },
+  { value: '#facc15', label: 'Yellow' },
+  { value: '#22d3ee', label: 'Cyan' },
+  { value: '#f472b6', label: 'Pink' },
+  { value: '#4ade80', label: 'Green' },
+  { value: '#f97316', label: 'Orange' },
 ];
 
 export const CaptionStyleSelector: React.FC<CaptionStyleSelectorProps> = ({
@@ -140,6 +166,61 @@ export const CaptionStyleSelector: React.FC<CaptionStyleSelectorProps> = ({
                   {bg.icon}
                   <span className="text-[10px]">{bg.label}</span>
                 </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font Family */}
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">Font Family</Label>
+            <div className="flex gap-2 flex-wrap">
+              {FONT_FAMILIES.map((font) => (
+                <Button
+                  key={font.value}
+                  variant={settings.fontFamily === font.value ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                  style={{ fontFamily: font.value }}
+                  onClick={() => updateSetting('fontFamily', font.value)}
+                >
+                  {font.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font Size */}
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">Font Size</Label>
+            <div className="flex gap-2">
+              {FONT_SIZES.map((size) => (
+                <Button
+                  key={size.value}
+                  variant={settings.fontSize === size.value ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 w-10 text-xs"
+                  onClick={() => updateSetting('fontSize', size.value)}
+                >
+                  {size.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Font Color */}
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">Text Color</Label>
+            <div className="flex gap-2 flex-wrap">
+              {FONT_COLORS.map((color) => (
+                <button
+                  key={color.value}
+                  className={`w-8 h-8 rounded-full border-2 transition-all ${
+                    settings.fontColor === color.value ? 'border-primary scale-110 ring-2 ring-primary/30' : 'border-muted-foreground/30'
+                  }`}
+                  style={{ backgroundColor: color.value }}
+                  onClick={() => updateSetting('fontColor', color.value)}
+                  title={color.label}
+                />
               ))}
             </div>
           </div>
