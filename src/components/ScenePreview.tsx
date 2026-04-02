@@ -134,7 +134,14 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [playingVoiceSample, setPlayingVoiceSample] = useState<string | null>(null);
   const voiceSampleRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
-  useEffect(() => {
+  // Product analysis state
+  const [productAnalysisOpen, setProductAnalysisOpen] = useState(false);
+  const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
+  const [analyzedProduct, setAnalyzedProduct] = useState<any>(null);
+  const [rewrittenScenes, setRewrittenScenes] = useState<any[] | null>(null);
+  const [productUploadUrl, setProductUploadUrl] = useState<string | null>(null);
+  const productUploadRef = useRef<HTMLInputElement>(null);
+
     if (user) {
       supabase.from('product_images').select('id, image_url, name').eq('user_id', user.id).order('created_at', { ascending: false })
         .then(({ data }) => { if (data) setProductImages(data); });
