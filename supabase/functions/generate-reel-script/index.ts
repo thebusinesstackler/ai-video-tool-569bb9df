@@ -816,16 +816,44 @@ Return ONLY valid JSON array:
     console.log('Base visual style extracted:', baseVisualStyle);
     console.log('Base background extracted:', baseBackground);
 
-    // Ensure background consistency and format narration for TTS across all scenes
+    // Ensure background consistency, format narration for TTS, and enforce hook duration
     scenes = scenes.map((scene: any, index: number) => {
       const cameraAngle = CAMERA_ANGLES[index] || CAMERA_ANGLES[CAMERA_ANGLES.length - 1];
+      const cleanedNarration = formatScriptForTTS(scene.narration || '');
+      
+      // Scene 1 (hook) must be at least 6 seconds for proper impact
+      let duration = scene.duration;
+      if (index === 0 && !scene.isIntro && duration < 6) {
+        console.log(`Scene 1 hook duration was ${duration}s, enforcing minimum 6s`);
+        duration = Math.max(6, duration);
+      }
+      
       return {
         ...scene,
-        narration: formatScriptForTTS(scene.narration || ''),
+        narration: cleanedNarration,
+        duration,
         visualDescription: ensureBackgroundConsistency(scene.visualDescription, baseBackground, cameraAngle.angle),
         cameraAngle: scene.cameraAngle || cameraAngle.angle
       };
     });
+
+    // AI Director validation pass — log quality issues
+    const directorIssues: string[] = [];
+    for (const scene of scenes) {
+      if (scene.narration && /^(POV|NARRATOR|HOOK|SCENE)\s*:/i.test(scene.narration)) {
+        directorIssues.push(`Scene ${scene.sceneNumber}: narration still has label prefix`);
+        scene.narration = scene.narration.replace(/^(POV|NARRATOR|HOOK|SCENE\s*\d*)\s*[:\-]\s*/i, '');
+      }
+      if (scene.sceneNumber === 1 && scene.narration && scene.narration.split(/\s+/).length < 8 && !scene.isIntro) {
+        directorIssues.push(`Scene 1 hook may be too short (${scene.narration.split(/\s+/).length} words)`);
+      }
+      if (scene.visualDescription && /dark|moody|dramatic shadow|dimly lit|nighttime/i.test(scene.visualDescription) && !/explicitly/i.test(scene.visualDescription)) {
+        directorIssues.push(`Scene ${scene.sceneNumber}: visual may be too dark — should be bright UGC-style`);
+      }
+    }
+    if (directorIssues.length > 0) {
+      console.log('AI Director validation issues:', directorIssues);
+    }
 
     // Ensure intro/outro flags are properly set (AI may not always include them)
     if (hasIntro && scenes.length > 0) {
