@@ -3827,7 +3827,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         } catch (e) { console.error('Upload failed:', e); }
       }
 
-      setProject(prev => ({ ...prev, videoBlobUrl: savedUrl, videoClips: [], status: 'complete' }));
+      setProject(prev => ({ ...prev, videoBlobUrl: savedUrl, status: 'complete' }));
       setAppendedClips([]);
       setShowAppendBroll(false);
       toast({ title: "Re-stitched!", description: "Your updated reel is ready." });
