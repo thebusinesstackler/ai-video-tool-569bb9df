@@ -222,6 +222,25 @@ export async function canvasStitchVideos(options: CanvasStitchOptions): Promise<
     overlayAudioSource.start(0);
   }
 
+  // Start background music if provided (at lower volume)
+  let bgMusicSource: AudioBufferSourceNode | null = null;
+  if (backgroundMusicUrl) {
+    try {
+      onStatus?.('Loading background music...');
+      const musicBuffer = await loadAudioBuffer(audioCtx, backgroundMusicUrl);
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.value = Math.min(1, Math.max(0, backgroundMusicVolume / 100));
+      bgMusicSource = audioCtx.createBufferSource();
+      bgMusicSource.buffer = musicBuffer;
+      bgMusicSource.connect(gainNode);
+      gainNode.connect(mixDest);
+      bgMusicSource.start(0);
+      console.log(`[CanvasStitch] Background music started at ${backgroundMusicVolume}% volume`);
+    } catch (musicErr) {
+      console.warn('[CanvasStitch] Background music loading failed:', musicErr);
+    }
+  }
+
   // Play each video sequentially on the canvas
   const totalDuration = videos.reduce((acc, v) => acc + (v.duration || 5), 0);
   let elapsedTime = 0;
