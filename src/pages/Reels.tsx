@@ -5454,6 +5454,28 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               </CollapsibleContent>
                             </Collapsible>
                           )}
+                          {/* Product picker in Video tab */}
+                          {timelineProductImages.length > 0 && (
+                            <div className="space-y-2">
+                              <Label className="text-xs flex items-center gap-1"><Package className="w-3 h-3 text-primary" /> Featured Product</Label>
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {selectedProductImageUrl && (
+                                  <div onClick={() => { setSelectedProductImageUrl(null); setSelectedProductName(null); }} className="cursor-pointer rounded-md border-2 border-dashed border-border hover:border-destructive/50 p-1 flex items-center justify-center text-[9px] text-muted-foreground aspect-square">
+                                    <X className="w-3 h-3" />
+                                  </div>
+                                )}
+                                {timelineProductImages.map(p => (
+                                  <div key={p.id} onClick={() => { setSelectedProductImageUrl(p.image_url); setSelectedProductName(p.name); }}
+                                    className={`cursor-pointer rounded-md border-2 overflow-hidden transition-all aspect-square ${selectedProductImageUrl === p.image_url ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
+                                    <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                              {selectedProductImageUrl && (
+                                <p className="text-[10px] text-primary flex items-center gap-1"><Package className="w-3 h-3" /> {selectedProductName || 'Product'} selected</p>
+                              )}
+                            </div>
+                          )}
                           <Button onClick={() => {
                             // Clear old reel before generating new preview
                             setProject(prev => ({ ...prev, generatedScenes: [], videoClips: [], videoBlobUrl: null, videoUrl: null }));
