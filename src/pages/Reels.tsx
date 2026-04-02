@@ -734,7 +734,7 @@ const Reels = () => {
   useEffect(() => {
     // Always save when video clips arrive (even during generation)
     const hasVideoClips = project.videoClips.length > 0;
-    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim() || hasVideoClips;
+    const hasContent = topic.trim() || project.scenes.length > 0 || project.previewScenes.length > 0 || previewScenes.length > 0 || strategistState.strategy || strategistState.niche.trim() || hasVideoClips;
     if (!hasContent) return;
 
     saveDraftDebounced({
@@ -758,10 +758,10 @@ const Reels = () => {
       project: {
         topic: project.topic,
         scenes: project.scenes,
-        voiceovers: project.voiceovers,
+        voiceovers: previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers,
         generatedScenes: project.generatedScenes,
         videoClips: project.videoClips,
-        previewScenes: project.previewScenes,
+        previewScenes: previewScenes.length > 0 ? previewScenes : project.previewScenes,
         status: project.status
       },
       featureToggles,
@@ -770,6 +770,7 @@ const Reels = () => {
   }, [
     topic, project.topic, project.scenes, project.voiceovers, 
     project.generatedScenes, project.videoClips, project.previewScenes,
+    previewScenes, previewVoiceovers,
     selectedSceneCount, selectedSceneDuration, selectedVoice, selectedVideoSize,
     transitionStyle, hookStyle, characterDescription, preSelectedReference, selectedTwinId,
     selectedIntro, selectedOutro, introText, outroText, enableCutScenes, enableLipSync,

@@ -620,7 +620,13 @@ export function useScenePreview(): UseScenePreviewResult {
   };
 
   const restorePreviewScenes = (scenes: PreviewScene[], vos: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[]) => {
-    setPreviewScenes(scenes);
+    // Reset generation flags so restored scenes don't show spinners
+    const cleanedScenes = scenes.map(s => ({
+      ...s,
+      isGenerating: false,
+      isRegenerating: false,
+    }));
+    setPreviewScenes(cleanedScenes);
     setVoiceovers(vos);
   };
 
