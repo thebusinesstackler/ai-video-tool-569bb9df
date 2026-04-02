@@ -364,7 +364,7 @@ If a product exists in the topic:
 - Integrate into lifestyle or demonstration scenes naturally
 - NEVER force it awkwardly. Let the story bring it in.
 
-═══ STEP 8: HOOK QUALITY (CRITICAL) ═══
+═══ STEP 8: HOOK QUALITY + SCENE 1 CONTINUITY (CRITICAL) ═══
 
 The hook MUST:
 - Stop the scroll in under 2 seconds
@@ -372,6 +372,13 @@ The hook MUST:
 - Include movement in the FIRST SECOND
 - Feel native to TikTok / Instagram Reels / YouTube Shorts
 - Be specific to THIS topic (not generic)
+
+SCENE 1 SPECIAL RULES:
+- Movement must happen in the first second of the video
+- The scene must be visually strong and scroll-stopping (thumbnail-worthy)
+- If abstract visuals are used, they must transition clearly into the real-world subject
+- The END FRAME of Scene 1 must support the START FRAME of Scene 2
+- The hook should NEVER feel disconnected from the rest of the video
 
 Hook types to rotate (NEVER repeat same type consecutively):
 - Question: "What if X was actually Y?"
@@ -392,18 +399,41 @@ If the hook is weak, flat, or generic → REWRITE IT AUTOMATICALLY before return
 - Each scene must have a clear PURPOSE — if it doesn't advance the story, cut it
 - Visual change minimum every 2 seconds throughout
 
-═══ STEP 10: EXPANDED VISUAL DESCRIPTIONS (3X DETAIL) ═══
+═══ STEP 10: CINEMATIC VISUAL DESCRIPTIONS (DIRECTOR'S BRIEF FORMAT) ═══
 
-Every visualDescription must read like a CREATIVE DIRECTION BRIEF for a real video shoot (60-100 words):
+Every visualDescription must read like a DIRECTOR'S SHOT BRIEF — a scene-by-scene production guide (80-150 words):
 
-1. ENVIRONMENT: Rich, specific. "Sun-drenched kitchen with marble counters, steam rising from a ceramic mug, morning light streaming through sheer curtains"
-2. SUBJECT STYLING: What they wear, how they look, grooming details
-3. MOVEMENT STEP-BY-STEP: "Reaches for the bottle with right hand, pauses mid-grab, looks up at camera with eyebrows raised, then lifts it toward frame"
-4. EXPRESSION PROGRESSION: "Confused squint softening into surprised recognition, slight half-smile forming"
-5. CAMERA FRAMING & MOTION: "Handheld medium close-up pushing in slowly with slight natural shake, transitioning to tight close-up on product"
-6. LIGHTING DIRECTION: "Warm golden side-light from large bay window, soft fill from overhead pendant, subtle rim light on hair"
-7. PRODUCT INTERACTION: "Fingers wrapping around the label, tilting bottle toward camera to catch the light on the glass"
-8. PACING / ENERGY: "Quick cut energy" / "hold for dramatic emphasis" / "slow-motion pour"
+1. ENVIRONMENT: Rich, immersive, specific. "Sun-drenched kitchen with white marble counters and brass fixtures, steam curling from a ceramic mug, golden morning light streaming through sheer linen curtains casting soft window-shaped shadows across the counter"
+2. CHARACTER: Exact physical description carried VERBATIM across every scene. Include age range, hair, skin, build. "Female, mid-20s, warm brown skin, dark curly hair past shoulders, defined cheekbones"
+3. EXACT OUTFIT/APPEARANCE: Described consistently scene-to-scene. "Wearing an oversized cream knit sweater with sleeves pushed to elbows, thin gold chain necklace, minimal makeup with dewy skin"
+4. LIGHTING: Directional and intentional. "Warm golden side-light from large bay window camera-left, soft ambient fill from overhead pendant, subtle rim light catching hair edges"
+5. ACTION/MOVEMENT (STEP-BY-STEP): Describe what happens FIRST, MIDDLE, and END of the scene. "Opens by reaching for the bottle with right hand — pauses mid-grab, fingers hovering — looks up at camera with eyebrows raised in discovery — then lifts bottle toward frame with a slow, deliberate tilt"
+6. FACIAL EXPRESSION (PROGRESSION): "Starts with a focused, slightly furrowed brow, then eyes widen with recognition, corners of mouth lift into a knowing half-smile"
+7. CAMERA DIRECTION: Include framing AND motion. "Handheld medium close-up starting at waist level, slowly pushing in with natural micro-shake, transitioning to tight close-up on product as hand lifts it"
+8. PRODUCT INTERACTION: If applicable. "Fingers wrap around the frosted glass bottle, thumb resting on the embossed label, tilting it 30 degrees toward camera to catch warm light on the surface"
+9. PACING/ENERGY: "Quick-cut energy for first beat, then holds on product reveal for dramatic emphasis"
+10. TRANSITION LOGIC: How this scene connects to the previous and leads into the next. "Match-cut from previous scene's hand motion — ends with camera pulling back to set up the wide lifestyle shot in the next scene"
+
+WHEN USEFUL — include START FRAME and END FRAME:
+- START FRAME: Describe exactly how the shot opens. "Extreme close-up of steam rising from coffee in warm morning light, shallow depth of field blurs background"
+- END FRAME: Describe exactly how the shot closes. "Camera pulls back to reveal same woman lifting the cup, glancing toward camera with a slight smile — holds for beat before cut"
+Use start/end frames especially for: hook scenes, transition-heavy scenes, abstract-to-real scenes, product reveals, and scenes that must connect tightly to the next.
+
+═══ SCENE CONNECTION LOGIC (MANDATORY) ═══
+
+Every scene must explicitly connect to the previous and next scene:
+- How does this scene transition FROM the previous one?
+- How does the ending frame LEAD INTO the next scene?
+- What type of connection: match cut, dissolve, push-in, pull-back, motion continuity, or product continuity?
+
+Scenes must feel like ONE cohesive video. If a scene feels isolated or disconnected, rewrite it with clear connection points.
+
+═══ VISUAL TIMELINE STRUCTURE ═══
+
+Each scene must describe visual timing:
+- OPENING BEAT: What the viewer sees first (0.5-1s)
+- MAIN ACTION: The core movement and narrative moment (2-4s)
+- FINAL BEAT: How the scene ends and transitions (0.5-1s)
 
 ═══ NARRATION RULES ═══
 
@@ -444,14 +474,18 @@ Visual direction: ${selectedHook.visualDirection ? JSON.stringify(selectedHook.v
 
 Before returning the final output, run this quality check:
 ✅ Is the hook strong enough to stop a scroll? If no → rewrite with different hook type
-✅ Does EVERY scene include real physical movement? If no → add specific actions
+✅ Does EVERY scene include real physical movement? If no → add specific step-by-step actions
 ✅ Are ALL visuals bright and premium? If no → rewrite with brighter lighting
-✅ Do scenes flow as ONE cohesive video? If no → fix transitions and connections
-✅ Is the script too repetitive or testimonial-sounding? If no → switch storytelling style
+✅ Do scenes flow as ONE cohesive video? If no → fix transitions and scene connections
+✅ Is the script too repetitive or testimonial-sounding? If yes → switch storytelling style
 ✅ Does the video feel like a real reel, not an AI slideshow? If no → add dynamism
-✅ Are visual descriptions rich enough (60-100 words each)? If no → expand with detail
+✅ Are visual descriptions rich enough (80-150 words each with all 10 elements)? If no → expand
 ✅ Does each scene have a clear PURPOSE? If no → cut or rewrite it
 ✅ Is the narration natural and human-sounding? If no → rewrite conversationally
+✅ Is the SAME CHARACTER maintained across all scenes (appearance, outfit, hair)? If no → fix consistency
+✅ Does Scene 1's end frame connect to Scene 2's start frame? If no → add continuity
+✅ Does every scene have transition logic connecting it to adjacent scenes? If no → add connection points
+✅ Would start/end frames improve any scene? If yes → add them
 
 If ANY check fails → automatically improve before returning to the user.
 
@@ -532,8 +566,10 @@ VALIDATION:
 - No em dashes (—) or ellipses (...) in narration
 - Scene 1 must be complete and engaging (not a fragment)
 - EVERY scene must include physical movement + camera motion
-- Visual descriptions must be 60-100 words each (rich and cinematic)
+- Visual descriptions must be 80-150 words each (rich cinematic director briefs)
 - Narration must sound natural and human
+- Same character (appearance + outfit) in every scene
+- Every scene must have transition logic connecting to adjacent scenes
 ${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
 ${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
 
@@ -542,13 +578,14 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Conversational narration (${minWordsPerScene}-${maxWordsPerScene} words)",
-    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[detailed step-by-step action with emotion progression]. [Camera movement, framing, feel]. [Rich environment with atmosphere, texture, depth]. [Lighting direction, quality, mood]. [Pacing cue].",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[ENVIRONMENT: rich setting]. [CHARACTER: exact appearance + outfit]. [ACTION step-by-step: first, middle, end]. [EXPRESSION progression]. [CAMERA: framing + motion]. [LIGHTING: direction + quality]. [PRODUCT interaction if applicable]. [PACING cue]. [TRANSITION: how this connects to next scene]. [START FRAME / END FRAME when useful].",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level",
     "scenePurpose": "hook | build | core | demo | result | cta",
-    "movement": "specific physical action described",
+    "movement": "specific step-by-step physical action",
     "expression": "emotion progression described",
-    "lighting": "bright natural / warm golden / etc"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
+    "lighting": "bright natural / warm golden / etc",
+    "transitionTo": "how this scene connects to the next"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
   }
 ]`;
 
@@ -791,18 +828,17 @@ function stripHtml(text: string): string {
 function getIntroVisualDescription(templateId: string, topic: string, baseStyle: string): string {
   const commonStyle = baseStyle || 'Cinematic 4K, vibrant saturated colors, professional studio lighting';
   
-  // ALL intros must be pure visual imagery — NO text, typography, or written words
   switch (templateId) {
     case 'hook-text':
-      return `Style: ${commonStyle}. Abstract cinematic opening. Dramatic light rays cutting through darkness, deep rich colors, electric purple and cyan gradients. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY. Pure abstract visual only.`;
+      return `Style: ${commonStyle}. Abstract cinematic opening. Dramatic light rays cutting through darkness, deep rich colors, electric purple and cyan gradients. Vertical 9:16 portrait format. Pure visual imagery preferred.`;
     case 'topic-title':
-      return `Style: ${commonStyle}. Elegant cinematic establishing shot related to "${topic}". Soft professional lighting, clean sophisticated composition. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Elegant cinematic establishing shot related to "${topic}". Soft professional lighting, clean sophisticated composition. Vertical 9:16 portrait format.`;
     case 'question-hook':
-      return `Style: ${commonStyle}. Mysterious atmospheric scene, moody lighting with highlights, deep blues and purples with golden accents. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Mysterious atmospheric scene, moody lighting with highlights, deep blues and purples with golden accents. Vertical 9:16 portrait format.`;
     case 'countdown':
-      return `Style: ${commonStyle}. Energetic dynamic abstract scene, vibrant neon colors, high energy lighting. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO NUMBERS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Energetic dynamic abstract scene, vibrant neon colors, high energy lighting. Vertical 9:16 portrait format.`;
     default:
-      return `Style: ${commonStyle}. Professional cinematic opening, modern clean composition, vibrant colors. Vertical 9:16 portrait format. ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO TYPOGRAPHY.`;
+      return `Style: ${commonStyle}. Professional cinematic opening, modern clean composition, vibrant colors. Vertical 9:16 portrait format.`;
   }
 }
 
@@ -814,8 +850,7 @@ function getOutroVisualDescription(templateId: string, baseStyle: string, topic?
   const baseOutro = `Style: ${commonStyle}.
 SUBJECT: ${charDesc} in a confident, inviting closing pose ${topicContext}. Direct eye contact with camera.
 LIGHTING: Warm golden hour key light, soft fill, subtle rim light separating subject from background.
-COMPOSITION: Medium shot, shallow depth of field, clean blurred background.
-CRITICAL: No text, no captions, no subtitles, no watermarks. Vertical 9:16 portrait format.`;
+COMPOSITION: Medium shot, shallow depth of field, clean blurred background. Vertical 9:16 portrait format.`;
 
   switch (templateId) {
     case 'cta-follow':
