@@ -1462,6 +1462,11 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       status: 'idle'
     });
 
+    // Restore preview scenes into the hook so they render in ScenePreview
+    if ((ds.previewScenes || []).length > 0) {
+      restorePreviewScenes(ds.previewScenes, ds.voiceovers || []);
+    }
+
     // Reset completion state so editor view shows, not "reel ready"
     setProgress(0);
     setProgressStatus('');
