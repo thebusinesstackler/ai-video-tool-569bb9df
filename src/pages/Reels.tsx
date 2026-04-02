@@ -6373,6 +6373,7 @@ STYLE REQUIREMENTS:
                           Generate Thumbnail
                         </Button>
                       </div>
+                    )}
                     {/* Re-generate with Lip Sync */}
                     {project.videoBlobUrl && project.videoClips.length === 0 && !enableLipSync && project.generatedScenes.length > 0 && (
                       <Button
