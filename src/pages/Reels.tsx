@@ -6596,13 +6596,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         <Sparkles className="w-3 h-3 mr-1" />
                         Add Outro/CTA Slide
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={generateThumbnail}
-                        disabled={isGeneratingThumbnail}
-                      >
-                        {isGeneratingThumbnail ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => generateThumbnail()}
+                          disabled={isGeneratingThumbnail}
+                        >
+                          {isGeneratingThumbnail ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />}
                         Generate Thumbnail
                       </Button>
                     </div>
