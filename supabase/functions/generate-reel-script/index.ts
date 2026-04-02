@@ -584,11 +584,23 @@ OUTRO SCENE (Final Scene — MANDATORY):
     const userPrompt = `Write ${totalSceneCount} scenes for a reel about: "${topic}"
 Each CONTENT scene should be approximately ${finalSceneDuration} seconds when narrated.
 
+═══ TOPIC → REAL STORY CONVERSION (CRITICAL) ═══
+Do NOT treat the topic as a product brief. Convert it into a REAL-LIFE STORY.
+
+Example: Topic = "Benefits of Lion's Mane, Reishi, and Cordyceps extracts"
+BAD output: person holding bottles, static product shots, listing benefits
+GOOD output: Person tired at desk → struggling to focus → makes coffee → adds extract to cup → notices energy shift → feels clear and productive
+
+EVERY topic must become a relatable, real-life scenario with:
+- A real environment (kitchen, desk, bathroom, gym, etc.)
+- Real human actions (not posing with products)
+- A before → during → after arc
+- UGC-style visuals (handheld feel, natural lighting, real spaces)
+
 DIRECTOR'S FIRST STEP: Analyze this topic before writing anything.
-- What is the primary goal? (hook, educate, sell, tell a story, inspire action)
-- What emotional tone fits best? (curiosity, urgency, trust, excitement, surprise)
-- Is there a product to integrate?
-- What content format works? (direct-to-camera, voiceover, lifestyle, demo, story)
+- What real-life situation does this topic relate to?
+- What daily routine or moment would naturally feature this?
+- What emotional journey fits? (frustration → discovery → relief)
 - Which storytelling style from the Style Engine creates the most engaging video?
 
 DO NOT default to testimonial. Choose the style that makes the most scroll-stopping, platform-native video.
@@ -596,10 +608,10 @@ DO NOT default to testimonial. Choose the style that makes the most scroll-stopp
 ${introInstructions ? `SCENE STRUCTURE:
 ${introInstructions}
 - Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
-${outroInstructions}` : `VIDEO STRUCTURE (one continuous video):
-- Scene 1 (HOOK + THUMBNAIL): THE most important scene. Scroll-stopping hook with thumbnail-worthy visual. Dramatic expression, striking composition, vivid lighting, clear motion.
-- Scene 2-${totalSceneCount-1} (BODY): Build the story. Each scene adds something NEW and answers "what changed?" If nothing changed → rewrite it.
-- Scene ${totalSceneCount} (CLOSING CTA): Strong, natural call-to-action. Tell the viewer what to do. Must feel genuine, not tacked on.`}
+${outroInstructions}` : `VIDEO STRUCTURE (one continuous UGC-style video):
+- Scene 1 (HOOK): Scroll-stopping hook matching the selected hook style. Bright, natural, movement in first second. UGC feel, not cinematic.
+- Scene 2-${totalSceneCount-1} (BODY): Build the REAL STORY. Each scene shows a real moment. Real environment. Real action. Each scene adds something NEW.
+- Scene ${totalSceneCount} (CLOSING CTA): Strong, natural call-to-action. Must feel genuine, not staged.`}
 
 MANDATORY: Last scene MUST contain a clear call-to-action. NEVER end on just information.
 
