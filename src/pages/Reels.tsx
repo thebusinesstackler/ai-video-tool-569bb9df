@@ -3282,15 +3282,14 @@ STYLE REQUIREMENTS:
 - CRITICAL: Do NOT include any text, letters, words, or typography — pure visual only
 - Should make someone WANT to click and watch`;
 
-      const { data, error } = await supabase.functions.invoke('ai', {
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
         body: {
-          messages: [{ role: 'user', content: thumbnailPrompt }],
-          model: 'google/gemini-3.1-flash-image-preview',
-          modalities: ['image', 'text']
+          prompt: thumbnailPrompt,
+          size: '1024x1792',
         }
       });
       if (error) throw error;
-      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      const imageUrl = data?.imageUrl;
       if (!imageUrl) throw new Error('No thumbnail generated');
       
       setGeneratedThumbnail(imageUrl);
