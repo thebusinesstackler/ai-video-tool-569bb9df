@@ -6363,6 +6363,7 @@ STYLE REQUIREMENTS:
                     </DialogContent>
                   </Dialog>
 
+                  <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
                     {project.videoClips.length > 1 && (
                       <div className="w-full space-y-3">
