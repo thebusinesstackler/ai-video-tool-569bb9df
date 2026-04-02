@@ -57,7 +57,8 @@ serve(async (req) => {
       characterDescription,
       isPodcastMode = false,
       characterId,
-      characterName
+      characterName,
+      transitionStyle
     } = await req.json();
 
     if (!topic) {
