@@ -69,6 +69,17 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
       setProductPrompt(controlledPrompt);
     }
   }, [controlledPrompt]);
+
+  // Wrapper to sync product selection changes to parent
+  const updateProductUrl = (url: string | null) => {
+    setSelectedProductUrl(url);
+    onProductChange?.(url, productPrompt);
+  };
+  const updateProductPrompt = (prompt: string) => {
+    setProductPrompt(prompt);
+    onProductChange?.(selectedProductUrl, prompt);
+  };
+
   const [isUploading, setIsUploading] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [isBatchSwapping, setIsBatchSwapping] = useState(false);
