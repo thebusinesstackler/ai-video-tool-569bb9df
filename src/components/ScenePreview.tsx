@@ -86,6 +86,13 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [localReferenceUrl, setLocalReferenceUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Insert scene dialog state
+  const [insertDialogOpen, setInsertDialogOpen] = useState(false);
+  const [insertIndex, setInsertIndex] = useState(0);
+  const [insertType, setInsertType] = useState<'broll' | 'intro' | 'outro'>('broll');
+  const [insertPrompt, setInsertPrompt] = useState('');
+  const [isInserting, setIsInserting] = useState(false);
+
   const allScenesReady = scenes.every(s => s.imageUrl && !s.isGenerating);
   const totalDuration = scenes.reduce((acc, s) => acc + s.audioDuration, 0);
 
