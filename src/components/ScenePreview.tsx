@@ -142,6 +142,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [productUploadUrl, setProductUploadUrl] = useState<string | null>(null);
   const productUploadRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
     if (user) {
       supabase.from('product_images').select('id, image_url, name').eq('user_id', user.id).order('created_at', { ascending: false })
         .then(({ data }) => { if (data) setProductImages(data); });
