@@ -639,60 +639,66 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
   // ─── Render ─────────────────────────────────────────────────────────
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full bg-background">
-        {/* ─── Top Bar ───────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-3 py-1.5 border-b bg-card">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-7">
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+      <div className="flex flex-col h-full bg-[hsl(var(--background))] text-foreground">
+        {/* ─── Top Bar (CapCut-style dark toolbar) ───────────────── */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-card/80 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="w-4 h-4" /> Exit Timeline
             </Button>
             <Separator orientation="vertical" className="h-5" />
-            <Badge variant="secondary" className="text-[10px]">
-              {scenes.length} scenes · {formatTime(totalDuration)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Film className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">{scenes.length} Scenes</span>
+              <Badge variant="secondary" className="text-[10px] font-mono bg-muted">
+                {formatTime(totalDuration)}
+              </Badge>
+            </div>
             {hasUnsavedChanges && (
-              <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-600/30">
-                Unsaved
+              <Badge variant="outline" className="text-[10px] border-yellow-500/40 text-yellow-500 animate-pulse">
+                ● Unsaved
               </Badge>
             )}
             {lastSavedAt && !hasUnsavedChanges && (
               <span className="text-[10px] text-muted-foreground">
-                Saved {lastSavedAt.toLocaleTimeString()}
+                ✓ Saved {lastSavedAt.toLocaleTimeString()}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={undo} disabled={undoStack.length === 0}>
-                <Undo2 className="w-3.5 h-3.5" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={undo} disabled={undoStack.length === 0}>
+                <Undo2 className="w-4 h-4" />
               </Button>
             </TooltipTrigger><TooltipContent>Undo (Ctrl+Z)</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={redo} disabled={redoStack.length === 0}>
-                <Redo2 className="w-3.5 h-3.5" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={redo} disabled={redoStack.length === 0}>
+                <Redo2 className="w-4 h-4" />
               </Button>
             </TooltipTrigger><TooltipContent>Redo (Ctrl+Shift+Z)</TooltipContent></Tooltip>
-            <Separator orientation="vertical" className="h-5" />
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={manualSave}>
-              <Save className="w-3 h-3 mr-1" /> Save
+            <Separator orientation="vertical" className="h-5 mx-1" />
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={manualSave}>
+              <Save className="w-3.5 h-3.5" /> Save
             </Button>
-            <Separator orientation="vertical" className="h-5" />
+            <Separator orientation="vertical" className="h-5 mx-1" />
             <Tooltip><TooltipTrigger asChild>
-              <Button variant={showSafeZones ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => setShowSafeZones(!showSafeZones)}>
-                <Target className="w-3.5 h-3.5" />
+              <Button variant={showSafeZones ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setShowSafeZones(!showSafeZones)}>
+                <Target className="w-4 h-4" />
               </Button>
-            </TooltipTrigger><TooltipContent>Toggle Safe Zones</TooltipContent></Tooltip>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAssetPanel(!showAssetPanel)}>
-              <Layers className="w-3 h-3 mr-1" /> Panel
+            </TooltipTrigger><TooltipContent>Safe Zones</TooltipContent></Tooltip>
+            <Button variant={showAssetPanel ? 'secondary' : 'ghost'} size="sm" className="h-8 text-xs gap-1.5" onClick={() => setShowAssetPanel(!showAssetPanel)}>
+              <Layers className="w-3.5 h-3.5" /> Properties
             </Button>
-            <Separator orientation="vertical" className="h-5" />
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}>
-              <ZoomOut className="w-3.5 h-3.5" />
-            </Button>
-            <span className="text-[10px] text-muted-foreground w-8 text-center">{Math.round(zoom * 100)}%</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(4, z + 0.25))}>
-              <ZoomIn className="w-3.5 h-3.5" />
-            </Button>
+            <Separator orientation="vertical" className="h-5 mx-1" />
+            <div className="flex items-center gap-0.5 bg-muted/50 rounded-md px-1 py-0.5">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}>
+                <ZoomOut className="w-3.5 h-3.5" />
+              </Button>
+              <span className="text-[10px] text-muted-foreground w-9 text-center font-mono">{Math.round(zoom * 100)}%</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(4, z + 0.25))}>
+                <ZoomIn className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -701,12 +707,12 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
           <div className="flex flex-col flex-1 min-w-0">
 
             {/* ─── Video Preview ─────────────────────────────── */}
-            <div className="flex items-center justify-center bg-black/90 p-3" style={{ minHeight: 260 }}>
+            <div className="flex items-center justify-center bg-muted/80 p-4" style={{ minHeight: 280 }}>
               <div className={cn(
-                "relative bg-muted rounded-lg overflow-hidden",
-                aspectRatio === '9:16' ? 'aspect-[9/16] max-h-[230px]' :
-                aspectRatio === '1:1' ? 'aspect-square max-h-[230px]' :
-                'aspect-video max-h-[230px]'
+                "relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-border/50",
+                aspectRatio === '9:16' ? 'aspect-[9/16] max-h-[250px]' :
+                aspectRatio === '1:1' ? 'aspect-square max-h-[250px]' :
+                'aspect-video max-h-[250px]'
               )} style={{ width: aspectRatio === '9:16' ? 130 : aspectRatio === '1:1' ? 230 : 400 }}>
                 {currentScene?.videoUrl ? (
                   <video ref={videoRef} src={currentScene.videoUrl} className="w-full h-full object-cover" muted={isMuted} />
@@ -773,19 +779,19 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
             </div>
 
             {/* ─── Transport Controls ──────────────────────── */}
-            <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-b bg-card">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={skipBackward}><SkipBack className="w-3.5 h-3.5" /></Button>
-              <Button variant={isPlaying ? 'secondary' : 'default'} size="icon" className="h-8 w-8 rounded-full" onClick={togglePlayback}>
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            <div className="flex items-center justify-center gap-3 px-4 py-2 border-b bg-card/60 backdrop-blur-sm">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={skipBackward}><SkipBack className="w-4 h-4" /></Button>
+              <Button variant={isPlaying ? 'secondary' : 'default'} size="icon" className="h-10 w-10 rounded-full shadow-md" onClick={togglePlayback}>
+                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={skipForward}><SkipForward className="w-3.5 h-3.5" /></Button>
-              <Separator orientation="vertical" className="h-5" />
-              <span className="text-[10px] font-mono text-muted-foreground w-20">{formatTime(currentTime)} / {formatTime(totalDuration)}</span>
-              <Separator orientation="vertical" className="h-5" />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMuted(!isMuted)}>
-                {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={skipForward}><SkipForward className="w-4 h-4" /></Button>
+              <Separator orientation="vertical" className="h-6" />
+              <span className="text-xs font-mono text-muted-foreground w-24 text-center">{formatTime(currentTime)} / {formatTime(totalDuration)}</span>
+              <Separator orientation="vertical" className="h-6" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsMuted(!isMuted)}>
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </Button>
-              <div className="w-16"><Slider value={[isMuted ? 0 : playbackVolume * 100]} onValueChange={([v]) => { setPlaybackVolume(v / 100); if (v > 0) setIsMuted(false); }} max={100} step={1} /></div>
+              <div className="w-20"><Slider value={[isMuted ? 0 : playbackVolume * 100]} onValueChange={([v]) => { setPlaybackVolume(v / 100); if (v > 0) setIsMuted(false); }} max={100} step={1} /></div>
             </div>
 
             {/* ─── Timeline Panel ────────────────────────────── */}

@@ -311,6 +311,7 @@ const Reels = () => {
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
   const [draftReels, setDraftReels] = useState<SavedReel[]>([]);
   const [timelineViewActive, setTimelineViewActive] = useState(false);
+  const [sidebarsHiddenForTimeline, setSidebarsHiddenForTimeline] = useState(false);
   
   
   // Template state
@@ -481,6 +482,10 @@ const Reels = () => {
   
   // Product images for timeline insert
   const [timelineProductImages, setTimelineProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
+  
+  // Selected product image for video generation
+  const [selectedProductImageUrl, setSelectedProductImageUrl] = useState<string | null>(null);
+  const [selectedProductName, setSelectedProductName] = useState<string | null>(null);
   
   // Strategist state for persistence
   const [strategistState, setStrategistState] = useState<StrategistState>({
@@ -1988,6 +1993,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           characterName: selectedCharacter?.name,
           transitionStyle: transitionStyle !== 'none' ? transitionStyle : undefined,
           selectedHook: selectedHook || undefined,
+          productImageUrl: selectedProductImageUrl || undefined,
+          productName: selectedProductName || undefined,
           introConfig: selectedIntro !== 'none' ? {
             introTemplate: selectedIntro,
             introText: introText
@@ -3831,7 +3838,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     <Layout>
       <div className={`flex h-full ${isMobile ? '' : '-m-6'}`}>
         {/* Feature Sidebar - Hidden on Mobile and Beginner mode */}
-        {!isMobile && isAdvanced && (
+        {!isMobile && isAdvanced && !sidebarsHiddenForTimeline && (
           <ReelFeatureSidebar
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
@@ -4064,6 +4071,26 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           <p className="text-[10px] text-muted-foreground">🎭 Lip sync + voice auto-selected</p>
                         </div>
                         <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30 shrink-0">Auto</Badge>
+                      </div>
+                    )}
+
+                    {/* Product Image (Quick Mode) */}
+                    {timelineProductImages.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs flex items-center gap-1"><Package className="w-3 h-3 text-primary" /> Feature a Product (Optional)</Label>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {selectedProductImageUrl && (
+                            <div onClick={() => { setSelectedProductImageUrl(null); setSelectedProductName(null); }} className="cursor-pointer rounded-md border-2 border-dashed border-border hover:border-destructive/50 w-14 h-14 flex-shrink-0 flex items-center justify-center text-[9px] text-muted-foreground">
+                              <X className="w-3 h-3" />
+                            </div>
+                          )}
+                          {timelineProductImages.map(p => (
+                            <div key={p.id} onClick={() => { setSelectedProductImageUrl(p.image_url); setSelectedProductName(p.name); }}
+                              className={`cursor-pointer rounded-md border-2 overflow-hidden w-14 h-14 flex-shrink-0 transition-all ${selectedProductImageUrl === p.image_url ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
+                              <img src={p.image_url} alt={p.name || ''} className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -4995,6 +5022,38 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           <Switch checked={featureToggles.introOutro} onCheckedChange={(c) => handleFeatureChange('introOutro', c)} disabled={isGenerating} />
                         </div>
                       </div>
+
+                      {/* Product Image Selection */}
+                      {timelineProductImages.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1"><Package className="w-3 h-3 text-primary" /> Product Image (Optional)</Label>
+                          <div className="grid grid-cols-4 gap-1.5 max-h-28 overflow-y-auto">
+                            {selectedProductImageUrl && (
+                              <div
+                                onClick={() => { setSelectedProductImageUrl(null); setSelectedProductName(null); }}
+                                className="cursor-pointer rounded-md border-2 border-dashed border-border hover:border-destructive/50 p-1.5 flex items-center justify-center text-[9px] text-muted-foreground"
+                              >
+                                <X className="w-3 h-3 mr-0.5" /> None
+                              </div>
+                            )}
+                            {timelineProductImages.map(p => (
+                              <div
+                                key={p.id}
+                                onClick={() => { setSelectedProductImageUrl(p.image_url); setSelectedProductName(p.name); }}
+                                className={`cursor-pointer rounded-md border-2 overflow-hidden transition-all ${selectedProductImageUrl === p.image_url ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}
+                              >
+                                <img src={p.image_url} alt={p.name || 'Product'} className="w-full aspect-square object-cover" />
+                                {p.name && <p className="text-[8px] text-center truncate px-0.5 py-0.5 text-muted-foreground">{p.name}</p>}
+                              </div>
+                            ))}
+                          </div>
+                          {selectedProductImageUrl && (
+                            <p className="text-[10px] text-primary flex items-center gap-1">
+                              <Package className="w-3 h-3" /> {selectedProductName || 'Product'} will appear naturally in scenes
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {featureToggles.introOutro && (
                         <div className="p-3 rounded-lg border border-border bg-muted/30">
@@ -6290,7 +6349,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     <Button
                       variant={!timelineViewActive ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setTimelineViewActive(false)}
+                      onClick={() => {
+                        setTimelineViewActive(false);
+                        setSidebarsHiddenForTimeline(false);
+                      }}
                       className="h-8 text-xs"
                     >
                       <Layers className="w-3.5 h-3.5 mr-1.5" /> Scene Preview
@@ -6298,7 +6360,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     <Button
                       variant={timelineViewActive ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setTimelineViewActive(true)}
+                      onClick={() => {
+                        setTimelineViewActive(true);
+                        setSidebarsHiddenForTimeline(true);
+                        setSidebarCollapsed(true);
+                      }}
                       className="h-8 text-xs"
                     >
                       <Film className="w-3.5 h-3.5 mr-1.5" /> Timeline View
@@ -6308,7 +6374,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
                 {/* Timeline Editor */}
                 {timelineViewActive ? (
-                  <div className="border rounded-lg overflow-hidden" style={{ height: 700 }}>
+                  <div className="border rounded-lg overflow-hidden bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: 600 }}>
                     <TimelineEditor
                       scenes={previewScenes.map((ps, i) => ({
                         sceneNumber: ps.sceneNumber,
@@ -6335,7 +6401,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         });
                         setProject(prev => ({ ...prev, scenes: reorderedProjectScenes }));
                       }}
-                      onClose={() => setTimelineViewActive(false)}
+                      onClose={() => { setTimelineViewActive(false); setSidebarsHiddenForTimeline(false); }}
                       onRegenerateVoice={(sceneNumber) => {
                         const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                         if (!scene?.narration?.trim()) return;
