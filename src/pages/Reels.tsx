@@ -5001,6 +5001,38 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         </div>
                       </div>
 
+                      {/* Product Image Selection */}
+                      {timelineProductImages.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs flex items-center gap-1"><Package className="w-3 h-3 text-primary" /> Product Image (Optional)</Label>
+                          <div className="grid grid-cols-4 gap-1.5 max-h-28 overflow-y-auto">
+                            {selectedProductImageUrl && (
+                              <div
+                                onClick={() => { setSelectedProductImageUrl(null); setSelectedProductName(null); }}
+                                className="cursor-pointer rounded-md border-2 border-dashed border-border hover:border-destructive/50 p-1.5 flex items-center justify-center text-[9px] text-muted-foreground"
+                              >
+                                <X className="w-3 h-3 mr-0.5" /> None
+                              </div>
+                            )}
+                            {timelineProductImages.map(p => (
+                              <div
+                                key={p.id}
+                                onClick={() => { setSelectedProductImageUrl(p.image_url); setSelectedProductName(p.name); }}
+                                className={`cursor-pointer rounded-md border-2 overflow-hidden transition-all ${selectedProductImageUrl === p.image_url ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}
+                              >
+                                <img src={p.image_url} alt={p.name || 'Product'} className="w-full aspect-square object-cover" />
+                                {p.name && <p className="text-[8px] text-center truncate px-0.5 py-0.5 text-muted-foreground">{p.name}</p>}
+                              </div>
+                            ))}
+                          </div>
+                          {selectedProductImageUrl && (
+                            <p className="text-[10px] text-primary flex items-center gap-1">
+                              <Package className="w-3 h-3" /> {selectedProductName || 'Product'} will appear naturally in scenes
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {featureToggles.introOutro && (
                         <div className="p-3 rounded-lg border border-border bg-muted/30">
                           <TemplateSelector selectedIntro={selectedIntro} selectedOutro={selectedOutro} introText={introText} outroText={outroText} onIntroChange={setSelectedIntro} onOutroChange={setSelectedOutro} onIntroTextChange={setIntroText} onOutroTextChange={setOutroText} selectedLogoUrl={selectedLogoUrl} selectedLogoAnimation={selectedLogoAnimation} onLogoChange={setSelectedLogoUrl} onLogoAnimationChange={setSelectedLogoAnimation} disabled={isGenerating} />
