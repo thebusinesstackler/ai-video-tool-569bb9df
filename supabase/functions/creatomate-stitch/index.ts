@@ -122,6 +122,8 @@ serve(async (req) => {
       captionFontSize = 'medium',
       captionFontColor = '#ffffff',
       captionBackground = 'glass',
+      logoUrl,
+      logoAnimation = 'fade',
     } = await req.json() as StitchRequest;
 
     if (!clips || clips.length === 0) {
