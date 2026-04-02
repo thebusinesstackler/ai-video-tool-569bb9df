@@ -3328,8 +3328,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     }
   };
 
-  // Generate AI thumbnail for the reel
-  const generateThumbnail = async () => {
+  // Generate premium AI thumbnail for the reel
+  const generateThumbnail = async (appendVariation = false) => {
     setIsGeneratingThumbnail(true);
     try {
       const sceneDescriptions = project.generatedScenes
@@ -3337,37 +3337,64 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         .map(s => s.text || '')
         .filter(Boolean)
         .join('. ');
-      
-      const thumbnailPrompt = `Create an eye-catching, click-worthy YouTube/TikTok thumbnail image.
-Topic: "${project.topic || topic}"
-Content context: ${sceneDescriptions}
-${characterDescription ? `Character: ${characterDescription}` : ''}
 
-STYLE REQUIREMENTS:
-- Bold, high-contrast, vibrant colors that pop
-- Dynamic composition with visual depth
-- Cinematic quality, professional lighting
-- 9:16 vertical format
-- CRITICAL: Do NOT include any text, letters, words, or typography — pure visual only
-- Should make someone WANT to click and watch`;
-
-      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+      const { data, error } = await supabase.functions.invoke('generate-premium-visual', {
         body: {
-          prompt: thumbnailPrompt,
-          size: '1024x1792',
+          type: 'thumbnail',
+          topic: project.topic || topic,
+          style: thumbnailStyle,
+          characterDescription: characterDescription || undefined,
+          sceneDescriptions: sceneDescriptions || undefined,
+          size: '1024x1536',
         }
       });
       if (error) throw error;
       const imageUrl = data?.imageUrl;
       if (!imageUrl) throw new Error('No thumbnail generated');
       
-      setGeneratedThumbnail(imageUrl);
+      if (appendVariation) {
+        setGeneratedThumbnails(prev => [...prev, imageUrl]);
+        setSelectedThumbnailIdx(prev => prev + 1);
+      } else {
+        setGeneratedThumbnails([imageUrl]);
+        setSelectedThumbnailIdx(0);
+      }
       setShowThumbnailDialog(true);
-      toast({ title: "Thumbnail Generated!", description: "Preview your thumbnail below." });
+      toast({ title: "Premium Thumbnail Generated!", description: "Preview your thumbnail below." });
     } catch (err: any) {
       toast({ title: "Thumbnail Failed", description: err.message, variant: "destructive" });
     } finally {
       setIsGeneratingThumbnail(false);
+    }
+  };
+
+  // Generate premium outro slide
+  const generatePremiumOutro = async (headline: string, subtitle: string) => {
+    setIsGeneratingOutro(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-premium-visual', {
+        body: {
+          type: 'outro',
+          topic: project.topic || topic,
+          style: outroStyle,
+          ctaText: headline,
+          subtitle: subtitle || undefined,
+          logoUrl: selectedLogoUrl || undefined,
+          size: '1024x1536',
+        }
+      });
+      if (error) throw error;
+      const imageUrl = data?.imageUrl;
+      if (!imageUrl) throw new Error('No outro generated');
+
+      setOutroVariations(prev => [...prev, imageUrl]);
+      setSelectedOutroIdx(outroVariations.length);
+      return imageUrl;
+    } catch (err: any) {
+      toast({ title: "Outro Generation Failed", description: err.message, variant: "destructive" });
+      return null;
+    } finally {
+      setIsGeneratingOutro(false);
     }
   };
 
