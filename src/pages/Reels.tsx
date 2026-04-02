@@ -7178,6 +7178,18 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         </Button>
                         <Button
                           variant="outline"
+                          className="border-primary/50 text-primary hover:bg-primary/10"
+                          onClick={() => {
+                            setTimelineViewActive(true);
+                            setSidebarsHiddenForTimeline(true);
+                            setSidebarCollapsed(true);
+                          }}
+                        >
+                          <Film className="w-4 h-4 mr-2" />
+                          Edit in Timeline
+                        </Button>
+                        <Button
+                          variant="outline"
                           onClick={() => generateThumbnail()}
                           disabled={isGeneratingThumbnail}
                           className="border-primary/50 text-primary hover:bg-primary/10"
