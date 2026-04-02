@@ -70,6 +70,7 @@ const SETTING_PRESETS = [
 export const ScenePreview: React.FC<ScenePreviewProps> = ({
   scenes,
   onRegenerateImage,
+  onRegenerateVoice,
   onCreateVideo,
   isCreatingVideo,
   disabled = false,
