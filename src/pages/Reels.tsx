@@ -2563,7 +2563,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               videoBlobUrl: persistedVideoUrl,
               generatedScenes,
               voiceovers: sortedAudios,
-              videoClips: [],
+              videoClips: sortedVideos.map(v => ({ sceneNumber: v.sceneNumber, videoUrl: v.videoUrl })),
               status: 'complete'
             }));
 
