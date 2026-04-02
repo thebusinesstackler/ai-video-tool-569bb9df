@@ -693,14 +693,17 @@ Ultra high quality, film-grade. Sets the mood for powerful content ahead.
 Smooth cinematic motion, professional color grading, photorealistic quality.
 Atmospheric ambient audio only.
 No text, no captions, no subtitles, no watermarks.`;
-          } else if (scene.isOutro) {
-            sora2Prompt = `${sora2CharContext} Premium cinematic outro for a reel about "${topic}".
-Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
-Film-grade quality.
-Warm ambient closing audio only.
-No text, no captions, no subtitles, no watermarks.`;
+          } else if (scene.isOutro || isCTAScene) {
+            sora2Prompt = `${sora2CharContext} CLOSE-UP of person looking directly at camera for CTA. Reel about "${topic}".
+Tight framing on face, eyes locked on viewer, warm confident smile. Slow subtle push-in.
+${productImageUrl && productName ? `Product "${productName}" visible nearby.` : ''}
+Warm golden lighting, shallow depth of field, confident closing energy.
+Film-grade quality. No text, no captions, no watermarks.`;
           } else {
+            const isCloseUp = scene.cameraAngle?.toLowerCase().includes('extreme close-up') || scene.cameraAngle?.toLowerCase().includes('intimate');
+            const closeUpNote = isCloseUp ? 'CAMERA: Tight close-up on face — eyes + mouth fill the frame, intimate emphatic framing.' : '';
             sora2Prompt = `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+${closeUpNote}
 Camera: smooth cinematic motion, subtle depth shifts, professional color grading. Photorealistic, high-end commercial quality.
 Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no watermarks.`;
           }
