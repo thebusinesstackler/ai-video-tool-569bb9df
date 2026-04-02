@@ -3386,8 +3386,22 @@ STYLE REQUIREMENTS:
               caption: captionSettings.enabled && scene?.narration ? scene.narration : undefined
             };
           });
+          const sizeMap2: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+          const [cw, ch] = sizeMap2[selectedVideoSize] || [1080, 1920];
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
-            body: { clips, audioUrl: mergedAudioUrl, transition: transitionStyle, captionStyle: captionSettings.position || 'bottom' }
+            body: {
+              clips,
+              audioUrl: mergedAudioUrl,
+              transition: transitionStyle,
+              captionStyle: captionSettings.position || 'bottom',
+              width: cw,
+              height: ch,
+              captionFont: captionSettings.fontFamily || 'Montserrat',
+              captionFontSize: captionSettings.fontSize || 'medium',
+              captionFontColor: captionSettings.fontColor || '#ffffff',
+              captionBackground: captionSettings.background || 'glass',
+              captionAnimation: captionSettings.style || 'karaoke',
+            }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
 
