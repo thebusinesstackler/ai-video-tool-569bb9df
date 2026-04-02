@@ -280,8 +280,12 @@ NARRATION:
 ${characterInstructions}
 
 VISUALS:
-- Keep visualDescription concise (under 50 words)
-- Format: [Subject and action]. [Setting]. [Mood/lighting]
+- Keep visualDescription concise but rich (30-60 words)
+- Format: [Subject with specific facial expression and body language]. [Specific camera angle and movement]. [Setting with atmosphere]. [Lighting mood]
+- REQUIRED in every visualDescription:
+  * FACIAL EXPRESSION: e.g. "eyebrows raised in surprise", "slight smirk", "wide-eyed excitement", "thoughtful squint"
+  * BODY LANGUAGE/MOVEMENT: e.g. "leaning forward", "gesturing with hands", "turning toward camera", "walking confidently"
+  * CAMERA DIRECTION: e.g. "slow push-in close-up", "medium shot tracking left", "low-angle looking up", "over-shoulder perspective"
 - Use one consistent background across all scenes
 - Vary camera angles between scenes for visual interest
 - Match visuals to what the narration discusses

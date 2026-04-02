@@ -77,6 +77,7 @@ const outroIcons: Record<string, React.ReactNode> = {
   'cta-all-socials': <Users className="w-4 h-4" />,
   'cta-comment': <MessageSquare className="w-4 h-4" />,
   'cta-share': <Share2 className="w-4 h-4" />,
+  'cta-duet-stitch': <Film className="w-4 h-4" />,
   // Engagement
   'teaser-next': <Film className="w-4 h-4" />,
   'question-poll': <HelpCircle className="w-4 h-4" />,
