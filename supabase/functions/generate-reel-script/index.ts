@@ -55,6 +55,8 @@ serve(async (req) => {
       hookStyle,
       enableCutScenes = false,
       characterDescription,
+      characterImageUrl,
+      characterProfile,
       isPodcastMode = false,
       characterId,
       characterName,
