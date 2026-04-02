@@ -3257,6 +3257,50 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     }
   };
 
+  // Generate AI thumbnail for the reel
+  const generateThumbnail = async () => {
+    setIsGeneratingThumbnail(true);
+    try {
+      const sceneDescriptions = project.generatedScenes
+        .slice(0, 3)
+        .map(s => s.text || s.visualDescription || '')
+        .filter(Boolean)
+        .join('. ');
+      
+      const thumbnailPrompt = `Create an eye-catching, click-worthy YouTube/TikTok thumbnail image.
+Topic: "${project.topic || topic}"
+Content context: ${sceneDescriptions}
+${characterDescription ? `Character: ${characterDescription}` : ''}
+
+STYLE REQUIREMENTS:
+- Bold, high-contrast, vibrant colors that pop
+- Dynamic composition with visual depth
+- Cinematic quality, professional lighting
+- 9:16 vertical format
+- CRITICAL: Do NOT include any text, letters, words, or typography — pure visual only
+- Should make someone WANT to click and watch`;
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{ role: 'user', content: thumbnailPrompt }],
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        }
+      });
+      if (error) throw error;
+      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!imageUrl) throw new Error('No thumbnail generated');
+      
+      setGeneratedThumbnail(imageUrl);
+      setShowThumbnailDialog(true);
+      toast({ title: "Thumbnail Generated!", description: "Preview your thumbnail below." });
+    } catch (err: any) {
+      toast({ title: "Thumbnail Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsGeneratingThumbnail(false);
+    }
+  };
+
   // Manual stitch videos together
   const stitchVideos = async () => {
     if (project.videoClips.length < 2) {
