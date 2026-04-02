@@ -6347,7 +6347,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         });
                         setProject(prev => ({ ...prev, scenes: reorderedProjectScenes }));
                       }}
-                      onClose={() => setTimelineViewActive(false)}
+                      onClose={() => { setTimelineViewActive(false); setSidebarsHiddenForTimeline(false); }}
                       onRegenerateVoice={(sceneNumber) => {
                         const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                         if (!scene?.narration?.trim()) return;
