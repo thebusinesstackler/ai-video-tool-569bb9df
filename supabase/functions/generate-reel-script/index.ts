@@ -628,21 +628,31 @@ function getOutroVisualDescription(templateId: string, baseStyle: string, topic?
   const topicContext = topic ? `related to "${topic}"` : '';
   
   const baseOutro = `Style: ${commonStyle}.
-SUBJECT: ${charDesc} in a confident, inviting closing pose ${topicContext}. Natural relaxed expression, slight knowing smile, direct eye contact with camera.
-LIGHTING: Warm golden hour key light, soft fill.
-COMPOSITION: Medium shot, clean blurred background.
+SUBJECT: ${charDesc} in a confident, inviting closing pose ${topicContext}. Direct eye contact with camera.
+LIGHTING: Warm golden hour key light, soft fill, subtle rim light separating subject from background.
+COMPOSITION: Medium shot, shallow depth of field, clean blurred background.
 CRITICAL: No text, no captions, no subtitles, no watermarks. Vertical 9:16 portrait format.`;
 
   switch (templateId) {
     case 'cta-follow':
-      return `${baseOutro} The subject gestures invitingly toward the camera, welcoming energy, as if saying "come along for the journey."`;
+      return `${baseOutro} EXPRESSION: warm genuine smile, eyebrows slightly raised invitingly. MOVEMENT: gesturing toward camera with open hand, slight forward lean, welcoming energy.`;
+    case 'cta-follow-animated':
+      return `${baseOutro} EXPRESSION: excited grin, eyes sparkling with enthusiasm. MOVEMENT: pointing at camera then giving a thumbs-up, energetic upbeat body language.`;
     case 'cta-subscribe':
-      return `${baseOutro} The subject leans slightly forward with engaged energy, as if sharing one last exciting secret.`;
+      return `${baseOutro} EXPRESSION: conspiratorial half-smile, one eyebrow raised as if sharing a secret. MOVEMENT: leaning slightly forward, hand cupped near mouth as if whispering something exciting.`;
+    case 'cta-like-subscribe':
+      return `${baseOutro} EXPRESSION: big friendly smile, nodding affirmatively. MOVEMENT: thumbs-up gesture transitioning to pointing at camera, enthusiastic energy.`;
+    case 'cta-all-socials':
+      return `${baseOutro} EXPRESSION: confident professional smile, relaxed and approachable. MOVEMENT: arms open wide in welcoming gesture, steady composed posture.`;
     case 'cta-comment':
-      return `${baseOutro} The subject has an open, curious expression, tilting head slightly, inviting conversation and dialogue.`;
+      return `${baseOutro} EXPRESSION: curious open expression, head tilted slightly, eyebrows raised questioningly. MOVEMENT: hands open palms-up in "what do you think?" gesture, inviting conversation.`;
     case 'cta-share':
-      return `${baseOutro} The subject gestures outward with open hands, generous sharing energy, confident and warm.`;
+      return `${baseOutro} EXPRESSION: excited knowing smile, eyes wide with enthusiasm. MOVEMENT: hands gesturing outward in sharing motion, generous open body language.`;
+    case 'cta-duet-stitch':
+      return `${baseOutro} EXPRESSION: playful challenging grin, eyebrows raised in a dare. MOVEMENT: pointing directly at camera, slight head tilt, "your turn" energy.`;
+    case 'book-call':
+      return `${baseOutro} EXPRESSION: warm professional smile, trustworthy and confident. MOVEMENT: hand extended toward camera as if offering a handshake, business-ready posture.`;
     default:
-      return `${baseOutro} The subject has a satisfied, knowing expression, as if the viewer just learned something valuable worth remembering.`;
+      return `${baseOutro} EXPRESSION: satisfied knowing smile, slight nod of approval. MOVEMENT: relaxed confident stance, subtle forward lean suggesting shared understanding.`;
   }
 }
