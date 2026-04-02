@@ -15,6 +15,10 @@ interface Scene {
   isIntro?: boolean;
   isOutro?: boolean;
   isSilentCTA?: boolean;
+  isProductBroll?: boolean;
+  scenePurpose?: string;
+  startFrame?: string;
+  endFrame?: string;
   templateId?: string;
 }
 
@@ -268,7 +272,9 @@ serve(async (req) => {
       characterDescription = '',
       cameraAngles = [],
       videoModel = 'wan-2.1-i2v-480p',
-      sceneDuration = undefined
+      sceneDuration = undefined,
+      productImageUrl = null,
+      productName = null
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -492,17 +498,60 @@ serve(async (req) => {
         
         console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s, model=${videoModel}`);
         
-        // Build rich character context for prompts
+        // Build rich character context for prompts — includes full project context
         const charContext = characterDescription ? `Character: ${characterDescription}.` : '';
-        const topicContext = `Topic: ${topic}.`;
+        const topicContext = `Topic: ${topic}.${productName ? ` Featured product: ${productName}.` : ''}`;
+        const isProductBrollScene = !!(scene as any).isProductBroll;
+        const isCTAScene = (scene as any).scenePurpose === 'cta' || (scene.isOutro && !scene.isIntro);
+        const sceneStartFrame = (scene as any).startFrame || '';
+        const sceneEndFrame = (scene as any).endFrame || '';
         
         // ====== SCENE TYPE ROUTING ======
+        // Product B-roll scenes get special treatment — use product image directly
+        // CTA scenes get close-up framing instructions
         // When VEO3 is selected, ALL scene types use VEO3 — no mixing models.
         // Otherwise route based on scene type and other settings.
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
-        if (videoModel === 'veo3') {
+        // ====== PRODUCT B-ROLL: Dedicated product-only scene ======
+        if (isProductBrollScene && productImageUrl) {
+          console.log(`Scene ${scene.sceneNumber}: Product B-roll scene — using product image for cinematic rotation`);
+          
+          // Use Sora-2 or Kling for cinematic product rotation from product image
+          const productModel = videoModel === 'veo3' ? 'veo3' : 'sora-2';
+          
+          if (productModel === 'veo3') {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/image-to-video';
+            requestBody = {
+              image: productImageUrl,
+              prompt: `Cinematic product showcase. ${productName ? `The product "${productName}" ` : 'A premium product '}sits on a clean, elegant surface — marble countertop with soft warm side lighting. 
+Slow 180-degree orbit around the product with shallow depth of field. Rack focus from background to product label. 
+Warm directional key light catching the packaging details, soft ambient fill. Premium commercial quality.
+Atmospheric ambient sound only. No speech, no text, no captions, no watermarks.
+${topicContext}`,
+              generate_audio: true,
+              aspect_ratio: '9:16',
+              duration: 4,
+              resolution: '720p'
+            };
+            sceneHasEmbeddedAudio = true;
+          } else {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+            requestBody = {
+              image: productImageUrl,
+              prompt: `Cinematic product showcase. ${productName ? `"${productName}" ` : 'Premium product '}on a clean surface — marble or wood with warm lighting.
+Slow orbit rotation around the product, shallow depth of field, rack focus catching the label.
+Warm directional key light, premium commercial B-roll quality. Elegant and aspirational.
+No text, no captions, no watermarks. Pure visual product hero shot.
+${topicContext}`,
+              duration: 4,
+              aspect_ratio: '9:16'
+            };
+            sceneHasEmbeddedAudio = true;
+          }
+          
+        } else if (videoModel === 'veo3') {
           // ====== VEO3: ALL SCENES use VEO3 when selected ======
           // VEO3 generates native audio — no separate TTS needed
           const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'narrator';
@@ -528,14 +577,24 @@ Dramatic camera push-in with shallow depth of field, volumetric light rays, comm
 Ultra high quality, film-grade. Sets the mood for powerful content ahead.
 ${scene.narration ? `The person in the video must clearly say this exact line out loud with visible lip movement and synchronized speech audio: "${scene.narration}". Generate clear spoken voice audio matching these words.` : 'Atmospheric ambient audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
-          } else if (scene.isOutro) {
-            veo3Prompt = `Premium cinematic outro for a reel about "${topic}". ${veo3CharContext}
-Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
-Film-grade quality.
-${scene.narration ? `The person in the video must clearly say this exact closing line out loud with visible lip movement and synchronized speech audio: "${scene.narration}". Generate clear spoken voice audio matching these words.` : 'Warm ambient closing audio only.'}
+          } else if (scene.isOutro || isCTAScene) {
+            veo3Prompt = `CLOSE-UP SHOT of person looking directly at camera. ${veo3CharContext}
+Tight framing — face fills most of the frame, eyes locked on viewer, warm confident smile. 
+Slow subtle push-in creating intimacy. Warm golden lighting, shallow depth of field.
+${productImageUrl && productName ? `The product "${productName}" is visible on a surface nearby or held casually in one hand.` : ''}
+Film-grade quality. This is the CTA — the viewer should feel personally spoken to.
+${scene.narration ? `The person clearly says this exact closing line with visible lip movement and synchronized speech: "${scene.narration}". Generate clear spoken voice audio.` : 'Warm ambient closing audio only.'}
 No text, no captions, no subtitles, no watermarks.`;
           } else {
+            // Add close-up instruction for scenes marked as close-up
+            const isCloseUp = scene.cameraAngle?.toLowerCase().includes('extreme close-up') || scene.cameraAngle?.toLowerCase().includes('intimate');
+            const closeUpNote = isCloseUp ? `CAMERA: Tight close-up on face — eyes + mouth fill the frame. Intimate, emphatic framing like a cinematic zoom-in moment.` : '';
+            const frameContext = sceneStartFrame ? `START FRAME: ${sceneStartFrame}. ` : '';
+            const endContext = sceneEndFrame ? `END FRAME: ${sceneEndFrame}. ` : '';
+            
             veo3Prompt = `${scene.visualDescription}. ${veo3CharContext} ${topicContext}
+${closeUpNote}
+${frameContext}${endContext}
 The person in the video speaks directly to camera and clearly says this exact line out loud: "${scene.narration}"
 Generate clear spoken dialogue audio for that exact sentence, with lips visibly moving in sync with the words.
 Smooth cinematic motion, professional color grading, photorealistic quality.
@@ -634,14 +693,17 @@ Ultra high quality, film-grade. Sets the mood for powerful content ahead.
 Smooth cinematic motion, professional color grading, photorealistic quality.
 Atmospheric ambient audio only.
 No text, no captions, no subtitles, no watermarks.`;
-          } else if (scene.isOutro) {
-            sora2Prompt = `${sora2CharContext} Premium cinematic outro for a reel about "${topic}".
-Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
-Film-grade quality.
-Warm ambient closing audio only.
-No text, no captions, no subtitles, no watermarks.`;
+          } else if (scene.isOutro || isCTAScene) {
+            sora2Prompt = `${sora2CharContext} CLOSE-UP of person looking directly at camera for CTA. Reel about "${topic}".
+Tight framing on face, eyes locked on viewer, warm confident smile. Slow subtle push-in.
+${productImageUrl && productName ? `Product "${productName}" visible nearby.` : ''}
+Warm golden lighting, shallow depth of field, confident closing energy.
+Film-grade quality. No text, no captions, no watermarks.`;
           } else {
+            const isCloseUp = scene.cameraAngle?.toLowerCase().includes('extreme close-up') || scene.cameraAngle?.toLowerCase().includes('intimate');
+            const closeUpNote = isCloseUp ? 'CAMERA: Tight close-up on face — eyes + mouth fill the frame, intimate emphatic framing.' : '';
             sora2Prompt = `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+${closeUpNote}
 Camera: smooth cinematic motion, subtle depth shifts, professional color grading. Photorealistic, high-end commercial quality.
 Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no watermarks.`;
           }
@@ -850,6 +912,7 @@ Rules:
           requestBody = {
             image: imageUrl,
             prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+${isCTAScene ? 'CLOSE-UP: Tight framing on face, eyes locked on viewer, confident warm expression.' : ''}
 Context: The narrator is saying "${scene.narration}" over this visual.
 Smooth cinematic motion, professional color grading, photorealistic quality.
 Natural confident expression, engaging body language.
@@ -934,30 +997,31 @@ No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
           };
           sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
           
-        } else if (scene.isOutro) {
-          // ====== SORA 2: Outro scene (non-VEO3 path) ======
-          console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for outro`);
+        } else if (scene.isOutro || isCTAScene) {
+          // ====== SORA 2: CTA/Outro scene — CLOSE-UP ======
+          console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for CTA/outro (close-up)`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
           const sora2Durations = [4, 8, 12, 16, 20];
           const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 4);
           
           const outroCharDesc = characterDescription 
-            ? `The ${characterDescription} is in frame with a warm, inviting closing expression.` 
-            : 'Warm, inviting atmosphere.';
-          const outroNarration = scene.narration ? `The scene conveys: "${scene.narration}"` : '';
+            ? `CLOSE-UP of ${characterDescription} looking directly at camera.` 
+            : 'CLOSE-UP of person looking directly at camera.';
+          const outroNarration = scene.narration ? `Scene conveys: "${scene.narration}"` : '';
           
           requestBody = {
             image: imageUrl,
-            prompt: `Premium cinematic outro for a reel about "${topic}". ${outroCharDesc}
+            prompt: `${outroCharDesc} CTA for reel about "${topic}".
 ${outroNarration}
-Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
-The subject has a knowing smile, relaxed and inviting posture. Film-grade quality.
+Tight framing on face — eyes locked on viewer, warm confident knowing smile. Slow subtle push-in creating intimacy.
+${productImageUrl && productName ? `Product "${productName}" visible on surface nearby.` : ''}
+Warm golden lighting, shallow depth of field. Film-grade quality.
 No text, no captions, no subtitles, no watermarks.`,
             duration: sora2Duration,
             aspect_ratio: '9:16'
           };
-          sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
+          sceneHasEmbeddedAudio = true;
           
         } else {
           // ====== KLING 3.0 PRO: B-roll / fallback ======

@@ -312,12 +312,21 @@ ${productName ? `- Product name: "${productName}"` : '- Product name: not specif
 
 PRODUCT INTEGRATION RULES:
 - Feature this product NATURALLY in the story — not forced or staged
-- Show it in 1-2 scenes maximum (product intro + usage/result)
+- Show it in 2-3 scenes with VARIED interactions:
+  1. CHARACTER + PRODUCT: Person holding/using the product naturally (mid-story)
+  2. PRODUCT B-ROLL (MANDATORY): Dedicated product-only shot — the product sits on a clean surface (marble tabletop, wooden desk, bathroom counter) with a slow cinematic rotation or orbit camera movement. Shallow depth of field, warm directional lighting catching the label. Mark this scene with "isProductBroll": true
+  3. RESULT/CTA: Product visible in final scene alongside the character
 - ONE product at a time — never show multiples
-- Realistic interactions: holding, using, applying, placing on table
-- The product complements the story, it doesn't dominate every scene
 - Scene 1 (hook) should NOT show the product — focus on problem/curiosity
-- Product appears mid-story when it makes narrative sense
+- Product B-roll scene should have NO narration or very brief narration ("This is it." or similar)
+- The product B-roll gives the viewer a clean, premium look at the product
+
+PRODUCT B-ROLL VISUAL DIRECTION:
+- Camera: slow 180° orbit or gentle push-in with rack focus
+- Surface: clean, lifestyle-appropriate (marble, wood, linen, bathroom shelf)
+- Lighting: warm side light + soft fill, highlights catching the label/packaging
+- Duration: 3-4 seconds maximum
+- Style: product photography meets cinematic B-roll
 ` : '';
 
 
@@ -672,9 +681,25 @@ ${introInstructions}
 ${outroInstructions}` : `VIDEO STRUCTURE (one continuous UGC-style video):
 - Scene 1 (HOOK): Scroll-stopping hook matching the selected hook style. Bright, natural, movement in first second. UGC feel, not cinematic.
 - Scene 2-${totalSceneCount-1} (BODY): Build the REAL STORY. Each scene shows a real moment. Real environment. Real action. Each scene adds something NEW.
-- Scene ${totalSceneCount} (CLOSING CTA): Strong, natural call-to-action. Must feel genuine, not staged.`}
+${productImageUrl ? `- Include ONE dedicated product B-roll scene (mark "isProductBroll": true): product alone on a clean surface, slow orbit/rotation, cinematic lighting. No person in frame. 3-4 seconds.` : ''}
+- Scene ${totalSceneCount} (CLOSING CTA — CRITICAL): Person looking DIRECTLY into camera in a CLOSE-UP shot. Confident, warm expression. Direct eye contact. This is the money shot — make them feel connected. The narration is a clear, actionable CTA tied to the topic. NOT generic "follow for more" — specific to the content.`}
 
-MANDATORY: Last scene MUST contain a clear call-to-action. NEVER end on just information.
+MANDATORY: Last scene MUST contain a clear call-to-action with the person in a CLOSE-UP looking at camera. NEVER end on just information.
+
+═══ CLOSE-UP CUTAWAY RULE (ENGAGEMENT BOOSTER) ═══
+At least ONE scene in the body (Scenes 2-${totalSceneCount-1}) MUST use a TIGHT CLOSE-UP framing:
+- Camera cuts to a close-up of the person's face (eyes + mouth visible, top of frame at hairline)
+- This creates intimacy and variety — like a real video editor cutting between wide and close
+- Mark this scene with "cameraAngle": "extreme close-up, eye-level, intimate framing"
+- The close-up should happen during an emotionally impactful or emphatic moment
+- Think: the "zoom in" energy but cinematic — a moment of emphasis
+
+═══ SCENE CONNECTION WITH START/END FRAMES ═══
+For polished video generation, describe START FRAME and END FRAME for EVERY scene:
+- START FRAME: What the very first frame looks like (composition, character position, camera angle)
+- END FRAME: What the very last frame looks like (must visually lead into the next scene's start frame)
+- This enables smooth, intentional transitions between clips
+- Example: Scene 2 END FRAME shows person reaching for product → Scene 3 START FRAME shows close-up of hand on product
 
 NARRATION REQUIREMENTS:
 - Content scenes: ${minWordsPerScene}-${maxWordsPerScene} words per scene (fills ${finalSceneDuration}s when spoken)
@@ -713,14 +738,16 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Conversational narration (${minWordsPerScene}-${maxWordsPerScene} words)",
-    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[ENVIRONMENT: rich setting]. [CHARACTER: exact appearance + outfit]. [ACTION step-by-step: first, middle, end]. [EXPRESSION progression]. [CAMERA: framing + motion]. [LIGHTING: direction + quality]. [PRODUCT interaction if applicable]. [PACING cue]. [TRANSITION: how this connects to next scene]. [START FRAME / END FRAME when useful].",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[ENVIRONMENT: rich setting]. [CHARACTER: exact appearance + outfit]. [ACTION step-by-step: first, middle, end]. [EXPRESSION progression]. [CAMERA: framing + motion]. [LIGHTING: direction + quality]. [PRODUCT interaction if applicable]. [PACING cue]. [TRANSITION: how this connects to next scene]. [START FRAME: exact first frame composition]. [END FRAME: exact last frame composition].",
+    "startFrame": "Exact description of the first frame of this scene — composition, camera position, character pose",
+    "endFrame": "Exact description of the last frame — must visually connect to the next scene's startFrame",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level",
-    "scenePurpose": "hook | build | core | demo | result | cta",
+    "scenePurpose": "hook | build | core | demo | result | cta | product-broll",
     "movement": "specific step-by-step physical action",
     "expression": "emotion progression described",
     "lighting": "bright natural / warm golden / etc",
-    "transitionTo": "how this scene connects to the next"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
+    "transitionTo": "how this scene connects to the next"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}${productImageUrl ? ',\n    "isProductBroll": false' : ''}
   }
 ]`;
 
