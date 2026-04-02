@@ -5540,7 +5540,27 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
               </Collapsible>
             )}
 
-            {/* Generated Scenes (Advanced only - beginner skips straight to video) */}
+            {/* Captions Settings - Only visible when enabled from sidebar (Advanced only) */}
+            {isAdvanced && featureToggles.captions && (
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Captions className="w-5 h-5 text-primary" />
+                    Caption Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Choose animation style and appearance for burned-in captions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CaptionStyleSelector
+                    settings={captionSettings}
+                    onChange={setCaptionSettings}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
             {isAdvanced && project.scenes.length > 0 && (
               <Card className="bg-card border-border">
                 <CardHeader>
