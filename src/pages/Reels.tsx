@@ -487,6 +487,14 @@ const Reels = () => {
   // Selected product image for video generation
   const [selectedProductImageUrl, setSelectedProductImageUrl] = useState<string | null>(null);
   const [selectedProductName, setSelectedProductName] = useState<string | null>(null);
+
+  // Lifted product swap state (persists across isMobile re-renders)
+  const [swapPanelProductUrl, setSwapPanelProductUrl] = useState<string | null>(null);
+  const [swapPanelPrompt, setSwapPanelPrompt] = useState('');
+  const handleSwapProductChange = (url: string | null, prompt: string) => {
+    setSwapPanelProductUrl(url);
+    setSwapPanelPrompt(prompt);
+  };
   
   // Strategist state for persistence
   const [strategistState, setStrategistState] = useState<StrategistState>({
@@ -3962,7 +3970,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         )}
         
         {/* Main Content */}
-        <div className={`flex-1 overflow-auto ${isMobile ? 'p-0 pb-24' : 'p-6 pb-24'}`}>
+        <div className={`flex-1 overflow-auto transition-[padding] duration-200 ${isMobile ? 'p-0 pb-24' : 'p-6 pb-24'}`}>
           <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -4775,6 +4783,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                   }
                                 }}
                                 disabled={isGenerating}
+                                controlledProductUrl={swapPanelProductUrl}
+                                controlledPrompt={swapPanelPrompt}
+                                onProductChange={handleSwapProductChange}
                               />
                             )}
 
@@ -5351,7 +5362,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               ))}
                             </div>
                           )}
-                          {portraitPreview && <ProductSwapPanel shotImageUrl={portraitPreview} characterDescription={characterDescription} onShotSwapped={(newUrl) => { setPortraitImage(newUrl); setPortraitPreview(newUrl); setPreSelectedReference(newUrl); setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s)); }} allShots={generatedCharacterShots} currentShotIndex={selectedShotIndex} onBatchSwapped={(updatedShots) => { setGeneratedCharacterShots(updatedShots); const cur = updatedShots[selectedShotIndex]; if (cur) { setPortraitImage(cur.url); setPortraitPreview(cur.url); setPreSelectedReference(cur.url); } }} disabled={isGenerating} />}
+                          {portraitPreview && <ProductSwapPanel shotImageUrl={portraitPreview} characterDescription={characterDescription} onShotSwapped={(newUrl) => { setPortraitImage(newUrl); setPortraitPreview(newUrl); setPreSelectedReference(newUrl); setGeneratedCharacterShots(prev => prev.map((s, i) => i === selectedShotIndex ? { ...s, url: newUrl } : s)); }} allShots={generatedCharacterShots} currentShotIndex={selectedShotIndex} onBatchSwapped={(updatedShots) => { setGeneratedCharacterShots(updatedShots); const cur = updatedShots[selectedShotIndex]; if (cur) { setPortraitImage(cur.url); setPortraitPreview(cur.url); setPreSelectedReference(cur.url); } }} disabled={isGenerating} controlledProductUrl={swapPanelProductUrl} controlledPrompt={swapPanelPrompt} onProductChange={handleSwapProductChange} />}
                           <Button variant="outline" size="sm" className="w-full" onClick={() => { setPortraitImage(null); setPortraitPreview(null); setPreSelectedReference(null); setSelectedTwinId(null); setGeneratedCharacterShots([]); generateCharacter(); }} disabled={isGenerating || isGeneratingCharacter}>
                             {isGeneratingCharacter ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerating...</> : <><RefreshCw className="w-4 h-4 mr-2" />Regenerate</>}
                           </Button>
@@ -5704,6 +5715,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             }
                           }}
                           disabled={isGenerating}
+                          controlledProductUrl={swapPanelProductUrl}
+                          controlledPrompt={swapPanelPrompt}
+                          onProductChange={handleSwapProductChange}
                         />
                       )}
 

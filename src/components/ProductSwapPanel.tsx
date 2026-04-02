@@ -22,6 +22,12 @@ interface ProductSwapPanelProps {
   /** Index of the currently selected shot */
   currentShotIndex?: number;
   disabled?: boolean;
+  /** Controlled product URL from parent (persists across re-renders) */
+  controlledProductUrl?: string | null;
+  /** Controlled prompt from parent */
+  controlledPrompt?: string;
+  /** Callback to sync product selection to parent */
+  onProductChange?: (url: string | null, prompt: string) => void;
 }
 
 interface ProductImage {
@@ -39,14 +45,41 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
   onBatchSwapped,
   currentShotIndex = 0,
   disabled = false,
+  controlledProductUrl,
+  controlledPrompt,
+  onProductChange,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
-  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
-  const [productPrompt, setProductPrompt] = useState('');
+  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(controlledProductUrl ?? null);
+  const [productPrompt, setProductPrompt] = useState(controlledPrompt ?? '');
+
+  // Sync from parent when controlled props change (e.g. after resize remount)
+  useEffect(() => {
+    if (controlledProductUrl !== undefined && controlledProductUrl !== selectedProductUrl) {
+      setSelectedProductUrl(controlledProductUrl);
+    }
+  }, [controlledProductUrl]);
+
+  useEffect(() => {
+    if (controlledPrompt !== undefined && controlledPrompt !== productPrompt) {
+      setProductPrompt(controlledPrompt);
+    }
+  }, [controlledPrompt]);
+
+  // Wrapper to sync product selection changes to parent
+  const updateProductUrl = (url: string | null) => {
+    setSelectedProductUrl(url);
+    onProductChange?.(url, productPrompt);
+  };
+  const updateProductPrompt = (prompt: string) => {
+    setProductPrompt(prompt);
+    onProductChange?.(selectedProductUrl, prompt);
+  };
+
   const [isUploading, setIsUploading] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [isBatchSwapping, setIsBatchSwapping] = useState(false);
@@ -88,7 +121,7 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
       } as any);
       if (dbError) console.error('DB save error:', dbError);
 
-      setSelectedProductUrl(publicUrl);
+      updateProductUrl(publicUrl);
       await loadProductLibrary();
       toast({ title: 'Product uploaded', description: 'Saved to your product library' });
     } catch (err: any) {
@@ -197,7 +230,7 @@ CRITICAL RULES — DO NOT VIOLATE:
     if (!error) {
       setProductImages(prev => prev.filter(p => p.id !== id));
       if (productImages.find(p => p.id === id)?.image_url === selectedProductUrl) {
-        setSelectedProductUrl(null);
+        updateProductUrl(null);
       }
     }
   };
@@ -233,7 +266,7 @@ CRITICAL RULES — DO NOT VIOLATE:
                   ? 'border-primary ring-2 ring-primary/40'
                   : 'border-border hover:border-primary/50'
               }`}
-              onClick={() => setSelectedProductUrl(p.image_url)}
+              onClick={() => updateProductUrl(p.image_url)}
             >
               <img src={p.image_url} alt={p.name || 'Product'} className="w-full aspect-square object-cover" />
               <button
@@ -255,7 +288,7 @@ CRITICAL RULES — DO NOT VIOLATE:
               <img src={selectedProductUrl} alt="Product" className="w-full h-full object-cover" />
               <button
                 className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
-                onClick={() => setSelectedProductUrl(null)}
+                onClick={() => updateProductUrl(null)}
               >
                 <X className="h-2 w-2 text-white" />
               </button>
@@ -264,7 +297,7 @@ CRITICAL RULES — DO NOT VIOLATE:
               <Input
                 placeholder="Optional: describe the product (e.g. 'blue water bottle')"
                 value={productPrompt}
-                onChange={(e) => setProductPrompt(e.target.value)}
+                onChange={(e) => updateProductPrompt(e.target.value)}
                 className="h-7 text-xs"
                 disabled={isSwapping || isBatchSwapping || disabled}
               />
