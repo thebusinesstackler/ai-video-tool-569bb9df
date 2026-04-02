@@ -614,7 +614,34 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
               )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Product Library */}
+            {productImages.length > 0 && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Place a Product in This Scene
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Select a product from your library to feature it in this scene
+                </p>
+                <div className="grid grid-cols-5 gap-2">
+                  {productImages.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProductUrl(selectedProductUrl === p.image_url ? null : p.image_url)}
+                      className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        selectedProductUrl === p.image_url ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+                {selectedProductUrl && (
+                  <p className="text-xs text-primary">✓ Product selected — it will be placed in this scene</p>
+                )}
+              </div>
+            )}
             <div className="flex justify-end gap-3 pt-4">
               <Button 
                 variant="outline" 
