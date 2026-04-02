@@ -417,6 +417,11 @@ const Reels = () => {
   const [ctaSlideHeadline, setCtaSlideHeadline] = useState('');
   const [ctaSlideSubtitle, setCtaSlideSubtitle] = useState('');
   
+  // Thumbnail generation state
+  const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
+  const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null);
+  const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
+  
   // Video size state
   const [selectedVideoSize, setSelectedVideoSize] = useState('9:16');
   
