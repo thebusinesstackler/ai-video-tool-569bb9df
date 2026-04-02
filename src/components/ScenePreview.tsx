@@ -133,7 +133,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   // Multi-voice preview state
   const [voicePreviewDialogOpen, setVoicePreviewDialogOpen] = useState(false);
   const [voicePreviewScene, setVoicePreviewScene] = useState<PreviewScene | null>(null);
-  const [voiceSamples, setVoiceSamples] = useState<{ id: string; audioUrl: string; label: string; isGenerating?: boolean }[]>([]);
+  const [voiceSamples, setVoiceSamples] = useState<{ id: string; audioUrl: string; label: string; voiceId: string; isGenerating?: boolean }[]>([]);
   const [isGeneratingVoices, setIsGeneratingVoices] = useState(false);
   const [playingVoiceSample, setPlayingVoiceSample] = useState<string | null>(null);
   const voiceSampleRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
