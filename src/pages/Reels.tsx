@@ -2538,41 +2538,126 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               };
               const [stitchWidth, stitchHeight] = sizeMap[selectedVideoSize] || [1080, 1920];
 
-              const finalBlob = await canvasStitchVideos({
-                videoUrls,
-                audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
-                embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
-                backgroundMusicUrl: backgroundMusicUrl || undefined,
-                backgroundMusicVolume: 20,
-                width: stitchWidth,
-                height: stitchHeight,
-                onProgress: (p) => {
-                  setProgress(75 + Math.round(p * 0.2));
-                  setProgressStatus(`Stitching... ${Math.round(p)}%`);
-                },
-                onStatus: (s) => setProgressStatus(s)
-              });
+              const allPublicUrls = videoUrls.every(u => u.startsWith('http'));
+              const useCaptionStitch = captionSettings.enabled && allPublicUrls;
+              let finalBlob: Blob | null = null;
 
-              const blobUrl = URL.createObjectURL(finalBlob);
-              videoBlobRef.current = finalBlob;
-
-              persistedVideoUrl = blobUrl;
-              if (user) {
-                setProgress(92);
-                setProgressStatus('Uploading final video...');
+              // Try Creatomate cloud stitching when captions are enabled
+              if (useCaptionStitch) {
                 try {
-                  const isWebm = finalBlob.type.includes('webm');
-                  const ext = isWebm ? 'webm' : 'mp4';
-                  const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
-                  const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('reels')
-                    .upload(fileName, finalBlob, { contentType: finalBlob.type || 'video/webm' });
-                  if (!uploadError && uploadData) {
-                    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                    persistedVideoUrl = publicUrl.publicUrl;
+                  setProgressStatus('Cloud rendering with captions...');
+
+                  let mergedAudioUrl: string | undefined;
+                  if (audioUrlsForStitch.length === 1) {
+                    mergedAudioUrl = audioUrlsForStitch[0];
+                  } else if (audioUrlsForStitch.length > 1) {
+                    try {
+                      const mergeResponse = await supabase.functions.invoke('merge-audio', {
+                        body: { audioUrls: audioUrlsForStitch }
+                      });
+                      if (mergeResponse.data?.audioUrl) mergedAudioUrl = mergeResponse.data.audioUrl;
+                    } catch (e) {
+                      console.log('Audio merge failed, using first audio');
+                      mergedAudioUrl = audioUrlsForStitch[0];
+                    }
                   }
-                } catch (e) {
-                  console.warn('Upload failed:', e);
+
+                  const clips = sortedVideos.map((v) => {
+                    const scene = generatedScenes.find(s => s.sceneNumber === v.sceneNumber);
+                    const audio = sortedAudios.find(a => a.sceneNumber === v.sceneNumber);
+                    return {
+                      url: v.videoUrl,
+                      duration: scene?.duration || 5,
+                      audioDuration: audio?.duration || scene?.duration || 5,
+                      caption: captionSettings.enabled && scene?.narration ? scene.narration : undefined
+                    };
+                  });
+
+                  const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+                    body: {
+                      clips,
+                      audioUrl: mergedAudioUrl,
+                      backgroundMusicUrl: backgroundMusicUrl || undefined,
+                      backgroundMusicVolume: 25,
+                      transition: transitionStyle,
+                      captionStyle: captionSettings.position || 'bottom',
+                      width: stitchWidth,
+                      height: stitchHeight,
+                      captionFont: captionSettings.fontFamily || 'Montserrat',
+                      captionFontSize: captionSettings.fontSize || 'medium',
+                      captionFontColor: captionSettings.fontColor || '#ffffff',
+                      captionBackground: captionSettings.background || 'glass',
+                      captionAnimation: captionSettings.style || 'karaoke',
+                      logoUrl: selectedLogoUrl || undefined,
+                      logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined,
+                      introImageUrl: selectedThumbnailUrl || undefined,
+                      introImageDuration: 3,
+                    }
+                  });
+
+                  if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
+
+                  let cloudUrl: string | null = null;
+                  for (let attempt = 0; attempt < 60; attempt++) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    const { data: status } = await supabase.functions.invoke('creatomate-status', {
+                      body: { renderId: stitchData.renderId }
+                    });
+                    if (status?.status === 'succeeded' && status?.url) { cloudUrl = status.url; break; }
+                    if (status?.status === 'failed') throw new Error('Cloud render failed');
+                    setProgress(80 + Math.min(12, (attempt / 60) * 12));
+                    setProgressStatus(`Rendering... ${status?.progress ? Math.round(status.progress) + '%' : ''}`);
+                  }
+                  if (!cloudUrl) throw new Error('Cloud render timed out');
+
+                  persistedVideoUrl = cloudUrl;
+                  console.log('[AutoStitch] Cloud render complete:', cloudUrl);
+                } catch (cloudErr) {
+                  console.warn('[AutoStitch] Cloud stitch failed, falling back to canvas:', cloudErr);
+                  setProgressStatus('Falling back to local stitching...');
+                  // Fall through to canvas stitch below
+                }
+              }
+
+              // Canvas fallback (or primary path when captions not enabled)
+              if (!persistedVideoUrl || persistedVideoUrl === '') {
+                const canvasBlob = await canvasStitchVideos({
+                  videoUrls,
+                  audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+                  embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+                  backgroundMusicUrl: backgroundMusicUrl || undefined,
+                  backgroundMusicVolume: 20,
+                  width: stitchWidth,
+                  height: stitchHeight,
+                  onProgress: (p) => {
+                    setProgress(75 + Math.round(p * 0.2));
+                    setProgressStatus(`Stitching... ${Math.round(p)}%`);
+                  },
+                  onStatus: (s) => setProgressStatus(s)
+                });
+
+                finalBlob = canvasBlob;
+                const blobUrl = URL.createObjectURL(canvasBlob);
+                videoBlobRef.current = canvasBlob;
+                persistedVideoUrl = blobUrl;
+
+                if (user) {
+                  setProgress(92);
+                  setProgressStatus('Uploading final video...');
+                  try {
+                    const isWebm = canvasBlob.type.includes('webm');
+                    const ext = isWebm ? 'webm' : 'mp4';
+                    const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                      .from('reels')
+                      .upload(fileName, canvasBlob, { contentType: canvasBlob.type || 'video/webm' });
+                    if (!uploadError && uploadData) {
+                      const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                      persistedVideoUrl = publicUrl.publicUrl;
+                    }
+                  } catch (e) {
+                    console.warn('Upload failed:', e);
+                  }
                 }
               }
             }
@@ -4278,6 +4363,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         Download
                       </Button>
                     )}
+                    {project.videoBlobUrl && project.generatedScenes.length > 0 && (
+                      <Button
+                        variant="outline"
+                        className="border-primary/50 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setCreatorMode('advanced');
+                          setTimelineViewActive(true);
+                          setSidebarsHiddenForTimeline(true);
+                          setSidebarCollapsed(true);
+                        }}
+                      >
+                        <Film className="w-4 h-4 mr-2" />
+                        Edit in Timeline
+                      </Button>
+                    )}
                     {!project.videoBlobUrl && project.videoClips.length > 1 && (
                       <Button onClick={stitchVideos} disabled={isManualStitching} className="bg-gradient-primary hover:opacity-90">
                         {isManualStitching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Layers className="w-4 h-4 mr-2" />}
@@ -5169,6 +5269,28 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               )}
                             </div>
                           </div>
+                          {/* Product indicator in Script tab */}
+                          {timelineProductImages.length > 0 && (
+                            <div className="space-y-2">
+                              <Label className="text-xs flex items-center gap-1"><Package className="w-3 h-3 text-primary" /> Featured Product</Label>
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {selectedProductImageUrl && (
+                                  <div onClick={() => { setSelectedProductImageUrl(null); setSelectedProductName(null); }} className="cursor-pointer rounded-md border-2 border-dashed border-border hover:border-destructive/50 p-1 flex items-center justify-center text-[9px] text-muted-foreground aspect-square">
+                                    <X className="w-3 h-3" />
+                                  </div>
+                                )}
+                                {timelineProductImages.map(p => (
+                                  <div key={p.id} onClick={() => { setSelectedProductImageUrl(p.image_url); setSelectedProductName(p.name); }}
+                                    className={`cursor-pointer rounded-md border-2 overflow-hidden transition-all aspect-square ${selectedProductImageUrl === p.image_url ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
+                                    <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                              {selectedProductImageUrl && (
+                                <p className="text-[10px] text-primary flex items-center gap-1"><Package className="w-3 h-3" /> {selectedProductName || 'Product'} selected</p>
+                              )}
+                            </div>
+                          )}
                           <Button variant="outline" onClick={() => generateScripts()} disabled={isGenerating} className="w-full h-8 text-xs">
                             <RefreshCw className="w-3 h-3 mr-1" /> Regenerate Script
                           </Button>
@@ -5331,6 +5453,28 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 <p className="text-[10px] text-muted-foreground italic">Voice: {(() => { const vc = resolveVoiceForGeneration(); return `${vc.voice} (${vc.voiceEngine})`; })()}</p>
                               </CollapsibleContent>
                             </Collapsible>
+                          )}
+                          {/* Product picker in Video tab */}
+                          {timelineProductImages.length > 0 && (
+                            <div className="space-y-2">
+                              <Label className="text-xs flex items-center gap-1"><Package className="w-3 h-3 text-primary" /> Featured Product</Label>
+                              <div className="grid grid-cols-5 gap-1.5">
+                                {selectedProductImageUrl && (
+                                  <div onClick={() => { setSelectedProductImageUrl(null); setSelectedProductName(null); }} className="cursor-pointer rounded-md border-2 border-dashed border-border hover:border-destructive/50 p-1 flex items-center justify-center text-[9px] text-muted-foreground aspect-square">
+                                    <X className="w-3 h-3" />
+                                  </div>
+                                )}
+                                {timelineProductImages.map(p => (
+                                  <div key={p.id} onClick={() => { setSelectedProductImageUrl(p.image_url); setSelectedProductName(p.name); }}
+                                    className={`cursor-pointer rounded-md border-2 overflow-hidden transition-all aspect-square ${selectedProductImageUrl === p.image_url ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
+                                    <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                              {selectedProductImageUrl && (
+                                <p className="text-[10px] text-primary flex items-center gap-1"><Package className="w-3 h-3" /> {selectedProductName || 'Product'} selected</p>
+                              )}
+                            </div>
                           )}
                           <Button onClick={() => {
                             // Clear old reel before generating new preview
@@ -6373,7 +6517,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             )}
 
             {/* Scene Preview / Timeline Toggle (Advanced only) */}
-            {isAdvanced && previewScenes.length > 0 && !project.videoBlobUrl && (
+            {isAdvanced && (previewScenes.length > 0 || (timelineViewActive && project.generatedScenes.length > 0)) && (
               <div className="space-y-4">
                 {/* View Mode Toggle */}
                 <div className="flex items-center justify-between">
@@ -6408,23 +6552,36 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 {timelineViewActive ? (
                   <div className="border rounded-lg overflow-hidden bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: 600 }}>
                     <TimelineEditor
-                      scenes={previewScenes.map((ps, i) => ({
-                        sceneNumber: ps.sceneNumber,
-                        narration: ps.narration,
-                        visualDescription: ps.visualDescription,
-                        imageUrl: ps.imageUrl,
-                        videoUrl: project.generatedScenes.find(gs => gs.sceneNumber === ps.sceneNumber)?.videoUrl || null,
-                        audioUrl: ps.audioUrl,
-                        audioDuration: ps.audioDuration,
-                        duration: ps.audioDuration > 0 ? ps.audioDuration : parseInt(selectedSceneDuration) || 10,
-                        startTime: 0,
-                        endTime: 0,
-                        isIntro: i === 0,
-                        isOutro: i === previewScenes.length - 1,
-                      }))}
-                      voiceovers={previewVoiceovers}
+                      scenes={(() => {
+                        const sceneSrc = previewScenes.length > 0 ? previewScenes : project.generatedScenes.map(gs => {
+                          const matchingScene = project.scenes.find(s => s.sceneNumber === gs.sceneNumber);
+                          return {
+                            sceneNumber: gs.sceneNumber,
+                            narration: matchingScene?.narration || gs.text || '',
+                            visualDescription: matchingScene?.visualDescription || gs.text || '',
+                            imageUrl: gs.imageUrl,
+                            audioUrl: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.audioUrl || null,
+                            audioDuration: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.duration || 0,
+                          };
+                        });
+                        return sceneSrc.map((ps, i) => ({
+                          sceneNumber: ps.sceneNumber,
+                          narration: ps.narration,
+                          visualDescription: ps.visualDescription,
+                          imageUrl: ps.imageUrl,
+                          videoUrl: project.generatedScenes.find(gs => gs.sceneNumber === ps.sceneNumber)?.videoUrl || null,
+                          audioUrl: ps.audioUrl,
+                          audioDuration: ps.audioDuration,
+                          duration: ps.audioDuration > 0 ? ps.audioDuration : parseInt(selectedSceneDuration) || 10,
+                          startTime: 0,
+                          endTime: 0,
+                          isIntro: i === 0,
+                          isOutro: i === sceneSrc.length - 1,
+                        }));
+                      })()}
+                      voiceovers={previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers}
                       backgroundMusicUrl={backgroundMusicUrl}
-                      totalDuration={previewScenes.reduce((sum, s) => sum + (s.audioDuration > 0 ? s.audioDuration : parseInt(selectedSceneDuration) || 10), 0)}
+                      totalDuration={(() => { const src = previewScenes.length > 0 ? previewScenes : project.generatedScenes; return src.reduce((sum, s: any) => sum + ((s.audioDuration || 0) > 0 ? s.audioDuration : parseInt(selectedSceneDuration) || 10), 0); })()}
                       aspectRatio={selectedVideoSize}
                       onScenesUpdate={(updatedScenes) => {
                         const reorderedProjectScenes = updatedScenes.map(ts => {
@@ -7075,6 +7232,18 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         >
                           <Download className="w-4 h-4 mr-2" />
                           Download for TikTok
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-primary/50 text-primary hover:bg-primary/10"
+                          onClick={() => {
+                            setTimelineViewActive(true);
+                            setSidebarsHiddenForTimeline(true);
+                            setSidebarCollapsed(true);
+                          }}
+                        >
+                          <Film className="w-4 h-4 mr-2" />
+                          Edit in Timeline
                         </Button>
                         <Button
                           variant="outline"
