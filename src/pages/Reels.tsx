@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
@@ -384,6 +385,11 @@ const Reels = () => {
   const [hookStyle, setHookStyle] = useState<string>('auto');
   const [enableCutScenes, setEnableCutScenes] = useState(false);
   const [characterDescription, setCharacterDescription] = useState('');
+  // Hook selection state
+  const [generatedHooks, setGeneratedHooks] = useState<any[]>([]);
+  const [selectedHook, setSelectedHook] = useState<any>(null);
+  const [isGeneratingHooks, setIsGeneratingHooks] = useState(false);
+  const [showHookSelector, setShowHookSelector] = useState(false);
   const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   
@@ -1879,6 +1885,39 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
+  // Generate hook options independently
+  const generateHookOptions = async () => {
+    if (!topic.trim()) {
+      toast({ title: "Missing Topic", description: "Enter a topic first.", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingHooks(true);
+    setShowHookSelector(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-hooks', {
+        body: {
+          topic: topic.trim(),
+          hookStyle,
+          characterDescription: characterDescription.trim() || undefined,
+          hookCount: 5,
+        }
+      });
+      if (error) throw error;
+      setGeneratedHooks(data.hooks || []);
+      toast({ title: "Hooks Generated", description: `${data.hooks?.length || 0} hook options ready for review.` });
+    } catch (error: any) {
+      console.error('Hook generation error:', error);
+      toast({ title: "Hook Generation Failed", description: error.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsGeneratingHooks(false);
+    }
+  };
+
+  const regenerateHooks = async () => {
+    setSelectedHook(null);
+    await generateHookOptions();
+  };
+
   const generateScripts = async (overrides?: { characterDescriptionOverride?: string; topicOverride?: string }): Promise<Scene[] | null> => {
     const effectiveTopic = overrides?.topicOverride || topic;
     const effectiveCharDesc = overrides?.characterDescriptionOverride ?? characterDescription;
@@ -1920,6 +1959,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           characterId: selectedCharacterId,
           characterName: selectedCharacter?.name,
           transitionStyle: transitionStyle !== 'none' ? transitionStyle : undefined,
+          selectedHook: selectedHook || undefined,
           introConfig: selectedIntro !== 'none' ? {
             introTemplate: selectedIntro,
             introText: introText
@@ -4212,24 +4252,100 @@ STYLE REQUIREMENTS:
 
                       <div className="space-y-2">
                         <Label className="text-sm text-muted-foreground">Hook Style (First Scene)</Label>
-                        <Select value={hookStyle} onValueChange={setHookStyle} disabled={isGenerating}>
-                          <SelectTrigger className="bg-background">
-                            <SelectValue placeholder="Choose a hook style" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="auto">🤖 Auto (AI picks best)</SelectItem>
-                            <SelectItem value="question">❓ Question Hook</SelectItem>
-                            <SelectItem value="bold_claim">💥 Bold Claim</SelectItem>
-                            <SelectItem value="story">📖 Story / Personal</SelectItem>
-                            <SelectItem value="statistic">📊 Shocking Statistic</SelectItem>
-                            <SelectItem value="myth_buster">🔥 Myth Buster</SelectItem>
-                            <SelectItem value="challenge">🎯 Challenge / Dare</SelectItem>
-                            <SelectItem value="fomo">⏰ FOMO / Urgency</SelectItem>
-                            <SelectItem value="curiosity_gap">🧠 Curiosity Gap</SelectItem>
-                            <SelectItem value="contrarian">🔄 Contrarian Take</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                          <Select value={hookStyle} onValueChange={(v) => { setHookStyle(v); setSelectedHook(null); }} disabled={isGenerating}>
+                            <SelectTrigger className="bg-background flex-1">
+                              <SelectValue placeholder="Choose a hook style" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="auto">🤖 Auto (AI picks best)</SelectItem>
+                              <SelectItem value="question">❓ Question Hook</SelectItem>
+                              <SelectItem value="bold_claim">💥 Bold Claim</SelectItem>
+                              <SelectItem value="story">📖 Story / Personal</SelectItem>
+                              <SelectItem value="statistic">📊 Shocking Statistic</SelectItem>
+                              <SelectItem value="myth_buster">🔥 Myth Buster</SelectItem>
+                              <SelectItem value="challenge">🎯 Challenge / Dare</SelectItem>
+                              <SelectItem value="fomo">⏰ FOMO / Urgency</SelectItem>
+                              <SelectItem value="curiosity_gap">🧠 Curiosity Gap</SelectItem>
+                              <SelectItem value="contrarian">🔄 Contrarian Take</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={generateHookOptions}
+                            disabled={isGeneratingHooks || !topic.trim()}
+                            className="h-10 px-3 whitespace-nowrap"
+                          >
+                            {isGeneratingHooks ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            <span className="ml-1.5 text-xs">Generate Hooks</span>
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Hook Selector Panel */}
+                      {showHookSelector && (
+                        <div className="space-y-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium text-foreground">🎯 Choose Your Hook</Label>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={regenerateHooks} disabled={isGeneratingHooks}>
+                                <RefreshCw className={cn("w-3 h-3 mr-1", isGeneratingHooks && "animate-spin")} /> Regenerate
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => { setShowHookSelector(false); setSelectedHook(null); }}>
+                                ✕
+                              </Button>
+                            </div>
+                          </div>
+                          {isGeneratingHooks ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="w-5 h-5 animate-spin text-primary mr-2" />
+                              <span className="text-sm text-muted-foreground">Generating hook options...</span>
+                            </div>
+                          ) : generatedHooks.length > 0 ? (
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                              {generatedHooks.map((hook: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className={cn(
+                                    "p-2.5 rounded-lg border cursor-pointer transition-all",
+                                    selectedHook?.hookText === hook.hookText
+                                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                      : "border-border hover:border-primary/40 hover:bg-accent/30"
+                                  )}
+                                  onClick={() => setSelectedHook(hook)}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-foreground leading-snug">"{hook.hookText}"</p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <Badge variant="secondary" className="text-[9px] h-4">{hook.hookType}</Badge>
+                                        <span className="text-[10px] text-muted-foreground">Score: {hook.strengthScore}/10</span>
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{hook.whyItWorks}</p>
+                                      {hook.visualDirection && (
+                                        <p className="text-[10px] text-muted-foreground/70 mt-0.5 italic line-clamp-1">
+                                          📹 {hook.visualDirection.action}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {selectedHook?.hookText === hook.hookText && (
+                                      <Badge className="bg-primary text-primary-foreground text-[9px] h-4 shrink-0">Selected</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground text-center py-3">Click "Generate Hooks" to see options</p>
+                          )}
+                          {selectedHook && (
+                            <p className="text-[10px] text-primary text-center mt-1">
+                              ✓ Hook selected — script will be built around this hook
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {/* Cut Scenes Toggle */}
                       <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
