@@ -166,7 +166,7 @@ REALISM RULES:
 - Real human proportions and natural body language
 - BRIGHT, warm, inviting atmosphere — think UGC content shot in daylight
 - Color palette: warm, natural, vibrant — NOT desaturated, NOT dark, NOT dramatic
-${characterBlock}${cameraInstruction}${backgroundInstruction}
+${characterBlock}${productBlock}${cameraInstruction}${backgroundInstruction}
 
 Professional quality, BRIGHT natural lighting, photorealistic, daytime feel.`;
 }
