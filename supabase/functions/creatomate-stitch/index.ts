@@ -55,6 +55,50 @@ function getCaptionBackgroundProps(bg: string): Record<string, string> {
   }
 }
 
+function getLogoAnimations(animation: string, totalDuration: number): any[] {
+  const logoDuration = Math.min(3, totalDuration);
+  const logoStart = Math.max(0, totalDuration - logoDuration);
+  
+  switch (animation) {
+    case 'fade':
+      return [
+        { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-in-out' },
+      ];
+    case 'zoom':
+      return [
+        { type: 'scale', start_scale: '0%', end_scale: '100%', duration: 0.6, easing: 'ease-out' },
+        { type: 'fade', fade: 'in', duration: 0.3 },
+      ];
+    case 'bounce':
+      return [
+        { type: 'scale', start_scale: '0%', end_scale: '110%', duration: 0.4, easing: 'ease-out' },
+        { type: 'scale', start_scale: '110%', end_scale: '100%', start: 0.4, duration: 0.2, easing: 'ease-in-out' },
+        { type: 'fade', fade: 'in', duration: 0.2 },
+      ];
+    case 'glitch':
+      return [
+        { type: 'fade', fade: 'in', duration: 0.1 },
+        { type: 'fade', fade: 'out', start: 0.1, duration: 0.05 },
+        { type: 'fade', fade: 'in', start: 0.15, duration: 0.05 },
+        { type: 'fade', fade: 'out', start: 0.2, duration: 0.05 },
+        { type: 'fade', fade: 'in', start: 0.25, duration: 0.1 },
+        { type: 'scale', start_scale: '102%', end_scale: '100%', duration: 0.3, easing: 'linear' },
+      ];
+    case 'rotate':
+      return [
+        { type: 'spin', revolutions: 0.5, duration: 0.6, easing: 'ease-out' },
+        { type: 'fade', fade: 'in', duration: 0.3 },
+      ];
+    case 'scale-fade':
+      return [
+        { type: 'scale', start_scale: '60%', end_scale: '100%', duration: 0.8, easing: 'ease-out' },
+        { type: 'fade', fade: 'in', duration: 0.8, easing: 'ease-in-out' },
+      ];
+    default:
+      return [{ type: 'fade', fade: 'in', duration: 0.5 }];
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
