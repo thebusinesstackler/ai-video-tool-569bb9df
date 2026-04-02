@@ -334,11 +334,13 @@ const Reels = () => {
     setCharacterTransformation,
     generatePreview,
     regenerateSceneImage,
+    regenerateSceneVoice,
     regenerateWithReference,
     setSceneAsReference,
     setExternalReference,
     clearReference,
     resetPreview,
+    restorePreviewScenes,
     insertScene: insertPreviewScene,
     deleteScene: deletePreviewScene,
   } = useScenePreview();
