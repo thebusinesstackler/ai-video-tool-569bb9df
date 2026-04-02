@@ -312,12 +312,21 @@ ${productName ? `- Product name: "${productName}"` : '- Product name: not specif
 
 PRODUCT INTEGRATION RULES:
 - Feature this product NATURALLY in the story — not forced or staged
-- Show it in 1-2 scenes maximum (product intro + usage/result)
+- Show it in 2-3 scenes with VARIED interactions:
+  1. CHARACTER + PRODUCT: Person holding/using the product naturally (mid-story)
+  2. PRODUCT B-ROLL (MANDATORY): Dedicated product-only shot — the product sits on a clean surface (marble tabletop, wooden desk, bathroom counter) with a slow cinematic rotation or orbit camera movement. Shallow depth of field, warm directional lighting catching the label. Mark this scene with "isProductBroll": true
+  3. RESULT/CTA: Product visible in final scene alongside the character
 - ONE product at a time — never show multiples
-- Realistic interactions: holding, using, applying, placing on table
-- The product complements the story, it doesn't dominate every scene
 - Scene 1 (hook) should NOT show the product — focus on problem/curiosity
-- Product appears mid-story when it makes narrative sense
+- Product B-roll scene should have NO narration or very brief narration ("This is it." or similar)
+- The product B-roll gives the viewer a clean, premium look at the product
+
+PRODUCT B-ROLL VISUAL DIRECTION:
+- Camera: slow 180° orbit or gentle push-in with rack focus
+- Surface: clean, lifestyle-appropriate (marble, wood, linen, bathroom shelf)
+- Lighting: warm side light + soft fill, highlights catching the label/packaging
+- Duration: 3-4 seconds maximum
+- Style: product photography meets cinematic B-roll
 ` : '';
 
 
