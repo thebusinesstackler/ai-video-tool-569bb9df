@@ -215,7 +215,59 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setProductPlacementInstructions('');
   };
 
-  const applySettingPreset = (setting: string) => {
+  // Voice preview functions
+  const openVoicePreview = (scene: PreviewScene) => {
+    setVoicePreviewScene(scene);
+    setVoiceSamples([]);
+    setPlayingVoiceSample(null);
+    setVoicePreviewDialogOpen(true);
+  };
+
+  const generateVoiceSample = async (voiceId: string, voiceLabel: string) => {
+    if (!voicePreviewScene || !onGenerateVoiceSample) return;
+    const sampleId = `${voiceId}-${Date.now()}`;
+    setVoiceSamples(prev => [...prev, { id: sampleId, audioUrl: '', label: voiceLabel, isGenerating: true }]);
+    
+    try {
+      const result = await onGenerateVoiceSample({
+        sceneNumber: voicePreviewScene.sceneNumber,
+        narration: voicePreviewScene.narration || '',
+        voiceId,
+        voiceLabel,
+      });
+      if (result?.audioUrl) {
+        setVoiceSamples(prev => prev.map(s => s.id === sampleId ? { ...s, audioUrl: result.audioUrl, isGenerating: false } : s));
+      } else {
+        setVoiceSamples(prev => prev.filter(s => s.id !== sampleId));
+      }
+    } catch {
+      setVoiceSamples(prev => prev.filter(s => s.id !== sampleId));
+    }
+  };
+
+  const playVoiceSample = (sampleId: string, audioUrl: string) => {
+    voiceSampleRefs.current.forEach((a, id) => { if (id !== sampleId) { a.pause(); a.currentTime = 0; } });
+    let audio = voiceSampleRefs.current.get(sampleId);
+    if (!audio || audio.src !== audioUrl) {
+      audio = new Audio(audioUrl);
+      audio.onended = () => setPlayingVoiceSample(null);
+      voiceSampleRefs.current.set(sampleId, audio);
+    }
+    if (playingVoiceSample === sampleId) {
+      audio.pause(); audio.currentTime = 0; setPlayingVoiceSample(null);
+    } else {
+      audio.play().catch(() => setPlayingVoiceSample(null));
+      setPlayingVoiceSample(sampleId);
+    }
+  };
+
+  const applyVoiceSampleToScene = (audioUrl: string) => {
+    if (!voicePreviewScene || !onApplyVoiceSample) return;
+    onApplyVoiceSample(voicePreviewScene.sceneNumber, audioUrl);
+    setVoicePreviewDialogOpen(false);
+    voiceSampleRefs.current.forEach(a => { a.pause(); a.currentTime = 0; });
+  };
+
     if (customPrompt) {
       setCustomPrompt(`${customPrompt} ${setting}`);
     } else {
