@@ -486,7 +486,7 @@ const Reels = () => {
     } else if (feature === 'upscaler') {
       setShowUpscaler(value);
     } else if (feature === 'captions') {
-      // Captions are enabled by default - could add caption settings expansion
+      setCaptionSettings(prev => ({ ...prev, enabled: value }));
     } else if (feature === 'backgroundMusic') {
       if (!value) {
         setBackgroundMusicUrl(null);
