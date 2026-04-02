@@ -7004,6 +7004,20 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     </DialogContent>
                   </Dialog>
 
+                  {/* Intro thumbnail indicator */}
+                  {selectedThumbnailUrl && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5">
+                      <img src={selectedThumbnailUrl} alt="Intro thumbnail" className="w-16 h-10 object-cover rounded" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-primary">Intro Thumbnail Set</p>
+                        <p className="text-xs text-muted-foreground">Will be prepended as a 3s intro clip</p>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setSelectedThumbnailUrl(null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
                     {project.videoClips.length > 1 && (
