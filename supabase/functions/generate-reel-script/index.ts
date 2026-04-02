@@ -327,17 +327,26 @@ Every scene MUST include:
 BANNED STATIC POSES: standing still, just looking at camera, sitting motionless, leaning against wall
 If a scene could be mistaken for a photograph → REWRITE IT IMMEDIATELY.
 
-═══ STEP 5: BRIGHT, PREMIUM VISUALS (DEFAULT) ═══
+═══ STEP 5: UGC-NATIVE VISUALS (NOT CINEMATIC — THIS IS CRITICAL) ═══
 
-Default ALL scenes to:
-- Bright natural lighting with clear direction
-- Clean, well-lit environments
-- High visibility on face and product
-- Warm or neutral premium tones
-- Polished but realistic UGC style
+You are creating UGC (User-Generated Content) for social media, NOT a cinematic film.
 
-AVOID: dark scenes, muddy lighting, underexposed faces, heavy shadows (unless creatively required)
-If a scene feels too dark → automatically rewrite with brighter, clearer lighting.
+DEFAULT visual style for ALL scenes:
+- BRIGHT natural daylight or soft warm indoor lighting
+- REAL environments: kitchen counter, home office desk, bathroom mirror, living room couch, outdoor patio, coffee shop
+- HANDHELD camera feel with natural micro-shake (not stabilized studio shots)
+- Slight imperfections welcome — real life, not a photoshoot
+- Relatable, casual framing (like someone filming themselves or a friend filming them)
+- High visibility on face and any product — well-lit, no shadows on face
+
+BANNED cinematic defaults:
+- Dark moody lighting / dramatic shadows / underexposed anything
+- Studio-style backdrops or staged compositions
+- Overly polished, commercial-grade framing
+- Film-grain effects, heavy color grading, or desaturated tones
+- Any visual that looks like stock footage or a movie still
+
+LIGHTING RULE: If ANY scene feels dark, dramatic, or underexposed → AUTOMATICALLY rewrite it with bright, natural, well-lit conditions. Every face must be clearly visible.
 
 ═══ STEP 6: COHESIVE VIDEO FLOW ═══
 
@@ -512,28 +521,42 @@ Visual direction: ${selectedHook.visualDirection ? JSON.stringify(selectedHook.v
 ═══ STEP 11: SELF-REVIEW (MANDATORY BEFORE OUTPUT) ═══
 
 Before returning the final output, run this quality check:
-✅ Is the hook strong enough to stop a scroll? If no → rewrite with different hook type
+✅ Does the hook MATCH the user-selected hook style? If no → rewrite Scene 1 to match
+✅ Are transitions applied between every scene matching user selection? If no → add them
 ✅ Does EVERY scene include real physical movement? If no → add specific step-by-step actions
-✅ Are ALL visuals bright and premium? If no → rewrite with brighter lighting
+✅ Are ALL visuals BRIGHT, NATURAL, and UGC-style? If any scene is dark/cinematic/staged → rewrite
 ✅ Do scenes flow as ONE cohesive video? If no → fix transitions and scene connections
+✅ Does the topic feel like a REAL STORY with relatable scenarios? If it feels generic → rewrite with real-life situations
 ✅ Is the script too repetitive or testimonial-sounding? If yes → switch storytelling style
-✅ Does the video feel like a real reel, not an AI slideshow? If no → add dynamism
+✅ Does the video feel like real TikTok/Reels content, not a movie or stock footage? If no → add UGC feel
 ✅ Are visual descriptions rich enough (80-150 words each with all 10 elements)? If no → expand
-✅ Does each scene have a clear PURPOSE? If no → cut or rewrite it
+✅ Does each scene have a clear PURPOSE (hook/context/product/payoff)? If no → cut or rewrite
 ✅ Is the narration natural and human-sounding? If no → rewrite conversationally
-✅ Is the SAME CHARACTER maintained across all scenes (appearance, outfit, hair)? If no → fix consistency
-✅ Does Scene 1's end frame connect to Scene 2's start frame? If no → add continuity
-✅ Does every scene have transition logic connecting it to adjacent scenes? If no → add connection points
-✅ Would start/end frames improve any scene? If yes → add them
+✅ Is the SAME CHARACTER maintained across all scenes? If no → fix consistency
+✅ Are environments REAL places (kitchen, desk, bathroom, etc.) not studios? If no → fix
+✅ Is product usage realistic (one product, natural interaction)? If not → fix
 
 If ANY check fails → automatically improve before returning to the user.
 
 ${characterInstructions}
 
 ${transitionStyle && transitionStyle !== 'none' ? `
-TRANSITION STYLE: "${transitionStyle}"
-- Include transition cues in visualDescription between scenes
-- For "${transitionStyle}": describe how the visual transitions (e.g., fade → "dissolving into view", zoom → "pulling focus forward", slide → "lateral pan entrance")
+═══ TRANSITION STYLE: "${transitionStyle}" (MANDATORY — APPLY TO EVERY SCENE) ═══
+The user selected "${transitionStyle}" as their transition. You MUST apply this between ALL scenes.
+For EACH scene, include a "transitionTo" field describing:
+- Transition type: "${transitionStyle}"
+- Direction: specify left/right/up/down when applicable
+- Timing: when the transition starts relative to the scene ending
+
+Transition mapping:
+- "wipe" → "Scene ends with a lateral wipe [left/right] revealing the next scene"
+- "fade" → "Scene dissolves smoothly into the next"
+- "zoom" → "Camera pushes in rapidly, cutting to next scene on the zoom peak"
+- "slide" → "Scene slides off-screen [direction] as next scene enters"
+- "cut" → "Hard cut with visual contrast between scenes"
+- "swipe" → "Quick swipe transition matching the direction of on-screen movement"
+
+Include transition cues in BOTH the visualDescription AND the transitionTo field.
 ` : ''}
 
 ${cutSceneInstructions}`;
@@ -561,11 +584,23 @@ OUTRO SCENE (Final Scene — MANDATORY):
     const userPrompt = `Write ${totalSceneCount} scenes for a reel about: "${topic}"
 Each CONTENT scene should be approximately ${finalSceneDuration} seconds when narrated.
 
+═══ TOPIC → REAL STORY CONVERSION (CRITICAL) ═══
+Do NOT treat the topic as a product brief. Convert it into a REAL-LIFE STORY.
+
+Example: Topic = "Benefits of Lion's Mane, Reishi, and Cordyceps extracts"
+BAD output: person holding bottles, static product shots, listing benefits
+GOOD output: Person tired at desk → struggling to focus → makes coffee → adds extract to cup → notices energy shift → feels clear and productive
+
+EVERY topic must become a relatable, real-life scenario with:
+- A real environment (kitchen, desk, bathroom, gym, etc.)
+- Real human actions (not posing with products)
+- A before → during → after arc
+- UGC-style visuals (handheld feel, natural lighting, real spaces)
+
 DIRECTOR'S FIRST STEP: Analyze this topic before writing anything.
-- What is the primary goal? (hook, educate, sell, tell a story, inspire action)
-- What emotional tone fits best? (curiosity, urgency, trust, excitement, surprise)
-- Is there a product to integrate?
-- What content format works? (direct-to-camera, voiceover, lifestyle, demo, story)
+- What real-life situation does this topic relate to?
+- What daily routine or moment would naturally feature this?
+- What emotional journey fits? (frustration → discovery → relief)
 - Which storytelling style from the Style Engine creates the most engaging video?
 
 DO NOT default to testimonial. Choose the style that makes the most scroll-stopping, platform-native video.
@@ -573,10 +608,10 @@ DO NOT default to testimonial. Choose the style that makes the most scroll-stopp
 ${introInstructions ? `SCENE STRUCTURE:
 ${introInstructions}
 - Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
-${outroInstructions}` : `VIDEO STRUCTURE (one continuous video):
-- Scene 1 (HOOK + THUMBNAIL): THE most important scene. Scroll-stopping hook with thumbnail-worthy visual. Dramatic expression, striking composition, vivid lighting, clear motion.
-- Scene 2-${totalSceneCount-1} (BODY): Build the story. Each scene adds something NEW and answers "what changed?" If nothing changed → rewrite it.
-- Scene ${totalSceneCount} (CLOSING CTA): Strong, natural call-to-action. Tell the viewer what to do. Must feel genuine, not tacked on.`}
+${outroInstructions}` : `VIDEO STRUCTURE (one continuous UGC-style video):
+- Scene 1 (HOOK): Scroll-stopping hook matching the selected hook style. Bright, natural, movement in first second. UGC feel, not cinematic.
+- Scene 2-${totalSceneCount-1} (BODY): Build the REAL STORY. Each scene shows a real moment. Real environment. Real action. Each scene adds something NEW.
+- Scene ${totalSceneCount} (CLOSING CTA): Strong, natural call-to-action. Must feel genuine, not staged.`}
 
 MANDATORY: Last scene MUST contain a clear call-to-action. NEVER end on just information.
 
@@ -762,13 +797,40 @@ function generateHookGuidance(hookStyle: string | undefined, topic: string): str
 
 function getHookGuidance(hookType: string): string {
   const category = HOOK_CATEGORIES.find(c => c.type === hookType) || HOOK_CATEGORIES[0];
+  
+  const hookBehaviors: Record<string, string> = {
+    'bold_claim': 'Make a surprising, confident statement that challenges expectations. The viewer must think "wait, really?"',
+    'question': 'Ask a specific, intriguing question that creates an information gap the viewer NEEDS answered.',
+    'controversy': 'Challenge a common belief or popular opinion. Create tension. The viewer must feel compelled to hear your argument. Examples: "Coffee isnt the best energy source", "Youve been doing X wrong this whole time"',
+    'story': 'Start mid-story with an emotional or surprising moment. Drop the viewer into the action.',
+    'secret': 'Tease exclusive or hidden knowledge. Make the viewer feel like theyre about to learn something nobody else knows.',
+    'countdown': 'Promise a specific number of valuable items. Create anticipation for a quick, structured payoff.',
+    'challenge': 'Dare the viewer to try something or prove you wrong. Create interactive tension.',
+    'fomo': 'Create urgency by highlighting what the viewer is missing or doing wrong RIGHT NOW.',
+    'social_proof': 'Reference a trend, viral moment, or what successful people do. Leverage social validation.',
+    'curiosity': 'Open a curiosity loop that can ONLY be closed by watching. Tease the real reason behind something.',
+    'urgency': 'Create time pressure. Something is about to change or be revealed.',
+    'personal': 'Share a genuine personal insight or result. Make it specific and time-bound.',
+  };
+  
+  const behavior = hookBehaviors[hookType] || hookBehaviors['bold_claim'];
+  
   return `
-HOOK STYLE: ${hookType.toUpperCase().replace('_', ' ')}
-Use this opening style for Scene 1:
-- Examples: "${category.examples.join('", "')}"
-- DO NOT use "Stop scrolling" - be more creative and specific to the topic
-- Make it intriguing, surprising, or emotionally compelling
-- The hook should directly relate to the topic content`;
+═══ HOOK STYLE: ${hookType.toUpperCase().replace('_', ' ')} (USER-SELECTED — MUST FOLLOW) ═══
+The user specifically chose "${hookType}" as their hook style. Scene 1 MUST use this style.
+
+HOOK BEHAVIOR: ${behavior}
+
+Example hooks for reference: "${category.examples.join('", "')}"
+
+RULES:
+- Scene 1 narration MUST match this hook style in tone, structure, and intent
+- DO NOT ignore the hook style and write a generic opening
+- DO NOT use "Stop scrolling" — be creative and topic-specific
+- The hook must directly relate to the topic content
+- If the generated hook does NOT match "${hookType}" style → REWRITE IT
+
+VALIDATION: Before returning, re-read Scene 1. Does it clearly use the "${hookType}" style? If not, regenerate.`;
 }
 
 function generateCameraInstructions(sceneCount: number): string {
