@@ -61,7 +61,9 @@ serve(async (req) => {
       characterId,
       characterName,
       transitionStyle,
-      selectedHook
+      selectedHook,
+      productImageUrl,
+      productName
     } = await req.json();
 
     if (!topic) {
