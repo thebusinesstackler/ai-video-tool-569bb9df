@@ -354,15 +354,54 @@ If nothing changed → REJECT the scene. Rewrite or remove it.
 
 Emotional arc: curiosity → discovery → understanding → confidence/action
 
-═══ STEP 7: PRODUCT INTELLIGENCE ═══
+═══ STEP 7: PRODUCT INTELLIGENCE (CRITICAL — READ CAREFULLY) ═══
 
-If a product exists in the topic:
-- Introduce within first 5-7 seconds when appropriate
-- Show in hand (fingers wrapping around it naturally)
-- Show in use (actual demonstration, not just holding)
-- Show close-up detail (label, texture, packaging)
-- Integrate into lifestyle or demonstration scenes naturally
-- NEVER force it awkwardly. Let the story bring it in.
+RULE 1 — NO PRODUCT = NO PRODUCT VISUALS:
+If the topic does NOT mention a specific, named product (brand name, product name, or explicit "my product"):
+- Do NOT invent, imagine, or generate ANY product visuals
+- Do NOT add generic bottles, containers, supplements, or placeholder products
+- Generate pure lifestyle/storytelling scenes WITHOUT product interaction
+- If the topic is about a CATEGORY (e.g., "coffee for focus"), show the ACTIVITY, not a random product
+
+RULE 2 — REALISTIC PRODUCT USAGE (MANDATORY):
+When a product IS specified, follow real human behavior:
+
+ALLOWED interactions:
+- Holding ONE product naturally in one hand
+- Placing product on a table, counter, or shelf
+- Using a dropper, pouring, adding to a drink
+- Close-up of a single bottle/package
+- Product sitting naturally in the environment (desk, bathroom shelf, kitchen counter)
+- Product partially visible in background while person speaks
+- Opening the product, reading the label casually
+
+BANNED interactions (NEVER generate these):
+- Holding multiple bottles/products at once
+- Unrealistic stacking or grouping of products
+- Floating or staged product layouts
+- Generic placeholder bottles that don't match the described product
+- Product centered in every single shot (vary placement)
+- Product appearing before it's been introduced in the story
+- Person awkwardly presenting product like an infomercial
+
+RULE 3 — PRODUCT CONSISTENCY:
+- Use the EXACT SAME product description across all scenes (size, shape, label, color)
+- Do not generate variations unless the script explicitly changes products
+- If the product is a "dark glass bottle with gold label" in Scene 2, it must be identical in Scene 4
+
+RULE 4 — UGC-STYLE INTEGRATION:
+- Product should feel like part of a real routine (morning coffee, skincare, workout, desk setup)
+- NOT forced into frame — sometimes visible, sometimes secondary, sometimes the focus
+- Vary the product's role: hero shot in one scene, background prop in another, in-use in another
+- The viewer should feel like they're watching someone's real life, not a commercial
+
+RULE 5 — DIRECTOR VALIDATION (BEFORE OUTPUT):
+Before returning scenes, check EVERY product interaction:
+- Is the person holding only ONE product? If not → fix
+- Does the product usage look like real human behavior? If not → rewrite
+- Is the product consistent across scenes? If not → standardize
+- Does any scene look like a staged infomercial? If yes → make it more natural
+- Are there generic/placeholder products when none was specified? If yes → REMOVE them
 
 ═══ STEP 8: HOOK QUALITY + SCENE 1 CONTINUITY (CRITICAL) ═══
 
