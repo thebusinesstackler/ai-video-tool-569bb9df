@@ -554,7 +554,9 @@ Each scene must describe visual timing:
 ═══ NARRATION RULES ═══
 
 - Write in first person, conversational UGC tone
-- The "narration" field is ONLY spoken words — no stage directions, no labels
+- The "narration" field is ONLY spoken words — no stage directions, no labels, no prefixes
+- NEVER start narration with "POV:", "NARRATOR:", "SCENE:", "HOOK:", or any label/prefix
+- The narration is what the person SAYS OUT LOUD — nothing else
 - Sound like a real person talking to a friend, not reading a script
 - Use contractions naturally ("I'm", "don't", "it's", "here's")
 - Vary sentence length: mix short punchy lines with flowing ones
