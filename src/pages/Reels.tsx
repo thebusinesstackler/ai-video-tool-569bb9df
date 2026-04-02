@@ -429,8 +429,16 @@ const Reels = () => {
   
   // Thumbnail generation state
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
-  const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null);
+  const [generatedThumbnails, setGeneratedThumbnails] = useState<string[]>([]);
+  const [selectedThumbnailIdx, setSelectedThumbnailIdx] = useState(0);
   const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
+  const [thumbnailStyle, setThumbnailStyle] = useState('dramatic');
+  
+  // Outro style state
+  const [outroStyle, setOutroStyle] = useState('logo-fade');
+  const [isGeneratingOutro, setIsGeneratingOutro] = useState(false);
+  const [outroVariations, setOutroVariations] = useState<string[]>([]);
+  const [selectedOutroIdx, setSelectedOutroIdx] = useState(0);
   
   // Video size state
   const [selectedVideoSize, setSelectedVideoSize] = useState('9:16');
