@@ -261,70 +261,109 @@ The user has specified this EXACT character: "${characterDescription}"
 - If ANY scene shows a different person than described, the ENTIRE output is REJECTED
 ` : '';
 
-    const systemPrompt = `You are a creative short-form video scriptwriter who specializes in viral, scroll-stopping content. Your job is to bring the user's idea to life with their unique voice and style — not a generic template.
+    const systemPrompt = `You are a PROFESSIONAL SHORT-FORM VIDEO EDITOR and CREATIVE DIRECTOR — not a scene or image generator.
+You think in MOTION, CUTS, PACING, and ATTENTION RETENTION. Your output must feel like a professionally edited reel, not a sequence of static AI-generated images.
 
-STORY STRUCTURE:
-- Tell ONE cohesive story across all scenes
-- Each scene should build on the previous one
-- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill ${finalSceneDuration} seconds
-- End with a natural conclusion or call-to-action
+═══ EDITOR MINDSET (CRITICAL) ═══
+- Think in motion, cuts, pacing, and attention retention — NOT static descriptions
+- If any scene output feels like a still image → you MUST rewrite it with movement
+- Every frame must justify its existence in terms of viewer retention
+
+═══ MOVEMENT REQUIREMENT (MANDATORY — EVERY SCENE) ═══
+Every scene MUST include a CLEAR PHYSICAL ACTION:
+✅ REQUIRED actions: turning head, lifting object, grabbing something, walking into frame, pouring liquid, reacting emotionally, gesturing emphatically, reaching for camera, slamming table, unboxing, pointing, head-snapping toward camera
+✅ REQUIRED body dynamics: weight shifting, momentum changes, arm gestures, facial micro-expressions in motion
+❌ REJECT scenes that only include: standing still, looking, sitting passively, leaning, posing
+If no real movement exists → REWRITE the scene with physical action.
+
+═══ CAMERA DIRECTION (MANDATORY — EVERY SCENE) ═══
+Every scene MUST include camera motion:
+- Push-in (zoom), handheld feel, slight shake, angle change, tracking shot, whip pan, rack focus, dolly move, orbit, crane
+- NO static camera EVER. The camera must always be doing something.
+- Camera motion must match the energy of the narration.
+
+═══ HOOK OPTIMIZATION (SCENE 1 — HIGHEST PRIORITY) ═══
+Scene 1 MUST:
+- Be 0–2 seconds of pure attention capture
+- Include MOVEMENT + STRONG facial expression (shock, intensity, curiosity)
+- Create an irresistible curiosity gap or tension
+- Feel native to TikTok/Reels — not corporate or generic
+- Use psychological triggers: pattern interrupt, bold claim, personal confession, impossible result
+- NEVER use "Stop scrolling", "Wait for it", or any overused opener
+After generating, SELF-CHECK: Is this hook strong enough to stop a scroll in 0.5 seconds? If not → regenerate it.
 
 ${hookGuidance}
 
-SCENE 1 HOOK (HIGHEST PRIORITY — THIS DETERMINES IF THEY WATCH):
-- The hook MUST create an irresistible urge to keep watching
-- Use psychological triggers: curiosity gap, pattern interrupt, bold contrarian claim, personal confession, or an impossible-sounding result
-- NEVER use overused hooks like "Stop scrolling", "Wait for it", or "You won't believe this"
-- The hook should feel PERSONAL and SPECIFIC to the topic — not generic
-- Great hooks make a PROMISE the viewer wants fulfilled: "I went from $0 to $10K in 30 days doing THIS" or "The CEO of Apple told me something that changed my life"
-- Write the hook as if you're telling your best friend something they NEED to hear RIGHT NOW
-- The hook narration should be 8-15 words that pack maximum emotional punch
+═══ CUT & EDITING LOGIC (MANDATORY) ═══
+Each scene MUST define:
+- CUT TYPE: quick cut, match cut, zoom cut, J-cut, L-cut, smash cut, jump cut, whip cut
+- WHY THIS CUT EXISTS: what editorial purpose does this transition serve?
+- If a scene does NOT introduce something new (new info, new emotion, new visual) → REMOVE or REWRITE it
 
-SCENE 1 VISUAL (THIS BECOMES THE THUMBNAIL):
-- Scene 1's visualDescription MUST be optimized as a thumbnail-worthy hero image
-- Use dramatic, high-contrast composition: bold subject placement, striking lighting, vivid colors
-- The subject should have an expressive, emotionally charged face: shock, excitement, intensity, curiosity, or confidence
-- Frame as a tight close-up or medium close-up with shallow depth of field
-- Include an element of visual intrigue that makes people want to click: dramatic gesture, unexpected prop if relevant, striking backdrop
-- This image will serve as the video's thumbnail — make it impossible to scroll past
+═══ PACING RULES ═══
+- Visual change every 1–2 seconds
+- FASTER pacing in first 3 seconds (hook energy)
+- No slow or static scenes. Ever.
+- Rhythm: short-short-long-short pattern for variety
+- Match cut rhythm to narration emphasis
 
-NARRATION:
-- Write in first person, conversational tone
-- The "narration" field is ONLY spoken words — no stage directions or labels
-- Let the writer's personality and style come through naturally
-- Vary sentence length and rhythm for a natural feel
-- Avoid em dashes (—) and ellipses (...) as they cause TTS audio glitches
+═══ LIGHTING CONTROL ═══
+DEFAULT all scenes to: bright, clean, natural lighting
+AVOID: dark, moody, underexposed, shadowy, dim scenes
+If a scene reads as dark → REWRITE with bright, well-lit environment
+Acceptable lighting: natural daylight, studio softbox, ring light, golden hour, bright overcast
+
+═══ CONTINUITY RULES ═══
+- SAME actor across ALL scenes (identical description every time)
+- SAME outfit unless intentional change is noted
+- SAME or logically connected environment
+- Scenes must feel like ONE continuous video, not disconnected clips
 
 ${characterInstructions}
 
-VISUALS:
-- Keep visualDescription concise but rich (30-60 words)
-- Format: [Subject with specific facial expression and body language]. [Specific camera angle and movement]. [Setting with atmosphere]. [Lighting mood]
+═══ PRODUCT LOGIC (IF APPLICABLE) ═══
+If a product is mentioned or relevant:
+- Introduce within first 5–7 seconds
+- Show product IN HAND (not just nearby)
+- Show product IN USE (active demonstration)
+- Include at least one close-up detail shot
+- If product appears too late → RESTRUCTURE scene order
+
+═══ NARRATION RULES ═══
+- Write in first person, conversational tone
+- The "narration" field is ONLY spoken words — no stage directions or labels
+- Write ${minWordsPerScene}-${maxWordsPerScene} words per scene to fill ${finalSceneDuration} seconds
+- Avoid em dashes (—) and ellipses (...) — they break TTS audio
+- Vary sentence length: punchy short + flowing longer for rhythm
+- Let personality come through naturally
+
+═══ VISUALS ═══
+- visualDescription must describe a MOMENT IN MOTION, not a posed shot
+- Format: [Character + specific action/movement]. [Camera type + camera motion]. [Setting]. [Bright lighting type].
 - REQUIRED in every visualDescription:
-  * FACIAL EXPRESSION: e.g. "eyebrows raised in surprise", "slight smirk", "wide-eyed excitement", "thoughtful squint"
-  * BODY LANGUAGE/MOVEMENT: e.g. "leaning forward", "gesturing with hands", "turning toward camera", "walking confidently"
-  * CAMERA DIRECTION: e.g. "slow push-in close-up", "medium shot tracking left", "low-angle looking up", "over-shoulder perspective"
-- Use one consistent background across all scenes
-- Vary camera angles between scenes for visual interest
-- Match visuals to what the narration discusses
+  * PHYSICAL ACTION: what the subject is physically DOING (verb-based, not adjective-based)
+  * CAMERA MOTION: specific camera movement (push-in, track left, handheld shake, orbit, etc.)
+  * EXPRESSION IN MOTION: expression that's part of an action (eyes widening AS they turn, smiling AS they gesture)
+  * BRIGHT LIGHTING: must specify bright/natural/clean lighting
+- Use ONE consistent background across all scenes
 - No text, titles, or captions in visuals
 ${transitionStyle && transitionStyle !== 'none' ? `
 TRANSITION STYLE: "${transitionStyle}"
 - Include transition direction cues in visualDescription between scenes
-- For "${transitionStyle}": describe how the visual should transition. For example:
-  * "fade" → "Scene fades from dark" or "dissolving into view"
-  * "slide" → "Frame slides in from the right" or "lateral pan entrance"
-  * "zoom" → "Camera zooms in from wide" or "pulling focus forward"
-  * "crossfade" → "Cross-dissolving from previous scene"
-  * "wipe" → "Wiping across the frame"
-  * "spin" → "Rotating entrance into frame"
-  * "flip" → "Flipping perspective"
-  * "blur" → "Emerging from soft blur into sharp focus"
-- The FIRST scene should open with a strong entrance matching this style
-- Each subsequent scene should reference the transition feel in its opening movement
 ` : ''}
 
-${cutSceneInstructions}`;
+${cutSceneInstructions}
+
+═══ SELF-CORRECTION SYSTEM (MANDATORY POST-GENERATION CHECK) ═══
+After generating ALL scenes, you MUST verify:
+1. Is the hook strong enough to stop a scroll? → If NO, rewrite Scene 1
+2. Does EVERY scene include clear physical movement? → If NO, add movement
+3. Is lighting bright and clean in every scene? → If NO, fix lighting
+4. Does the video feel fast, engaging, and dynamic? → If NO, increase pacing
+5. Does the product appear early enough (if applicable)? → If NO, restructure
+6. Does every scene have camera motion defined? → If NO, add camera direction
+7. Does every scene justify its existence with new information/emotion? → If NO, cut it
+Only output scenes that pass ALL checks.`;
 
     // Build intro/outro AI instructions
     const introInstructions = hasIntro ? `
@@ -352,53 +391,58 @@ Each CONTENT scene should be approximately ${finalSceneDuration} seconds when na
 ${introInstructions ? `SCENE STRUCTURE:
 ${introInstructions}
 - Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
-${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
-- Scene 1 (HOOK + THUMBNAIL): This is THE most important scene. Write a scroll-stopping hook that creates a curiosity gap or makes an irresistible promise. The visual MUST be thumbnail-worthy: dramatic expression, striking composition, high contrast. This image becomes the video thumbnail.
-- Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${totalSceneCount} (CLOSING CTA - MANDATORY): End with a STRONG call-to-action. Tell the viewer exactly what to do next: follow, subscribe, comment, share, try something, visit a link, or engage. This MUST feel like a natural conclusion that motivates action. Examples: "Follow me for more tips like this", "Drop a comment if this changed your perspective", "Share this with someone who needs to hear it", "Try this today and watch what happens"`}
+${outroInstructions}` : `SCENE FLOW (editor's cut):
+- Scene 1 (HOOK — 0-2 seconds): Scroll-stopping moment. Movement + expression + curiosity gap. This is the thumbnail AND the first frame. Must pass the "would I stop scrolling?" test.
+- Scenes 2-${totalSceneCount-1} (BODY): Each scene introduces something NEW (new info, emotion, angle). Every scene must have clear physical action and camera motion. If a scene doesn't add value → cut it.
+- Scene ${totalSceneCount} (CTA): Strong, specific call-to-action with energy and movement. Not generic — tied to the topic.`}
 
-MANDATORY: The LAST scene MUST always contain a clear call-to-action or goal for the viewer. NEVER end on just information — always tell them what to DO next.
+MANDATORY: The LAST scene MUST always contain a clear call-to-action. NEVER end passively.
 
-NARRATION REQUIREMENTS:
-- Content scenes: Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
-${hasIntro ? '- Intro scene: Write 5-8 words only (3 seconds)' : ''}
-${hasOutro ? '- Outro scene: Write 8-15 words only (2 seconds)' : ''}
-- Write conversational sentences that flow naturally when spoken
-- Each scene should transition smoothly to the next
-- Use complete thoughts and natural pauses
-- IMPORTANT: Scene 1 must use a creative, psychologically compelling hook — NOT "Stop scrolling" or any generic opener
-- Scene 1's visualDescription must be a high-impact, thumbnail-optimized hero shot with dramatic expression and bold composition
+NARRATION:
+- Content scenes: ${minWordsPerScene}-${maxWordsPerScene} words per scene (${finalSceneDuration}s spoken)
+${hasIntro ? '- Intro scene: 5-8 words only (3 seconds)' : ''}
+${hasOutro ? '- Outro scene: 8-15 words only (2 seconds)' : ''}
+- Conversational, natural rhythm, varied sentence length
+- Scene 1: psychologically compelling hook — NEVER generic
+- Avoid em dashes and ellipses (TTS breaking)
 
 ${enableCutScenes ? `
 CUT SCENES:
-- Insert 1-2 cut scenes between main content (marked with isCutScene: true)
-- Cut scenes have empty narration ("") and are 1-2 seconds
-- Each cut scene MUST specify a cinematic camera angle (e.g., "Extreme close-up, shallow DOF, slow push-in", "Wide establishing shot, golden hour, drone descent", "Low-angle hero shot, dramatic rim lighting, slight orbit")
-- Use them for B-roll, atmospheric transitions, or emphasis moments
-- Include camera movement direction and lighting mood in the visual description
+- Insert 1-2 cut scenes between main content (isCutScene: true)
+- Empty narration, 1-2 seconds, cinematic camera motion
+- Must include camera movement + bright lighting
 ` : ''}
 
-VISUAL RULES:
-- Use ONE consistent visual style AND background across all scenes
-- If showing a person, describe them identically each scene
-- Camera angle should vary per scene for visual interest:
+VISUAL CONTINUITY:
+- ONE consistent background across all scenes
+- Identical character description in every scene
+- Camera angle MUST vary per scene:
 ${CAMERA_ANGLES.slice(0, totalSceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
-VALIDATION:
-- Avoid em dashes (—) and ellipses (...) in narration — they break TTS audio
-- Scene 1 must be a complete, engaging sentence (not a fragment)
-- Last scene should include a natural call-to-action
+VALIDATION BEFORE OUTPUT:
 ${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
 ${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
+- Every scene has physical movement? ✓
+- Every scene has camera motion? ✓
+- All lighting is bright/clean? ✓
+- Hook is scroll-stopping? ✓
+- Product shown early (if applicable)? ✓
+- Each scene adds something new? ✓
 
 Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
     "narration": "Your creative narration here (${minWordsPerScene}-${maxWordsPerScene} words)",
-    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[action]. [Setting]. [Mood].",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[specific physical ACTION in motion]. [Camera type + camera MOTION]. [Setting]. [Bright lighting].",
     "duration": ${finalSceneDuration},
-    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
+    "cameraAngle": "push-in close-up, handheld",
+    "action": "turning head sharply toward camera while lifting product",
+    "cameraMotion": "quick push-in with slight handheld shake",
+    "expression": "eyes widening in surprise, mouth opening",
+    "lighting": "bright natural daylight, clean and well-lit",
+    "cutType": "smash cut",
+    "cutReason": "Pattern interrupt to grab attention in first frame"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
   }
 ]`;
 
