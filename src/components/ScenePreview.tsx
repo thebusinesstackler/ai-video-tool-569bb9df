@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package, Camera } from 'lucide-react';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
+import { CAMERA_ANGLES, CAMERA_CATEGORIES, CameraAngle } from '@/data/cameraAngles';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -95,7 +97,8 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [insertType, setInsertType] = useState<'broll' | 'intro' | 'outro'>('broll');
   const [insertPrompt, setInsertPrompt] = useState('');
   const [isInserting, setIsInserting] = useState(false);
-
+  const [selectedAngleCategory, setSelectedAngleCategory] = useState<string>('framing');
+  const [insertAngleCategory, setInsertAngleCategory] = useState<string>('framing');
   // Product library state
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
   const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
@@ -540,6 +543,41 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* Camera Angle Selector */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Camera className="w-3 h-3" />
+                  Camera Angle (click to add to description)
+                </label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {CAMERA_CATEGORIES.filter(c => ['static', 'framing', 'movement', 'character'].includes(c.id)).map((cat) => (
+                    <Button
+                      key={cat.id}
+                      variant={selectedAngleCategory === cat.id ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-6 text-[10px] px-2"
+                      onClick={() => setSelectedAngleCategory(cat.id)}
+                    >
+                      {cat.name}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {CAMERA_ANGLES.filter(a => a.category === selectedAngleCategory).slice(0, 8).map((angle) => (
+                    <Button
+                      key={angle.id}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setCustomPrompt(prev => `${prev}. ${angle.promptModifier}`)}
+                      title={angle.description}
+                    >
+                      {angle.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Reference Image Selection */}
@@ -700,6 +738,41 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                       {preset}
                     </Button>
                   ))}
+                </div>
+
+                {/* Camera Angle Quick-Picks for Insert */}
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Camera className="w-3 h-3" />
+                    Camera Angle
+                  </label>
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {CAMERA_CATEGORIES.filter(c => ['static', 'framing', 'movement'].includes(c.id)).map((cat) => (
+                      <Button
+                        key={cat.id}
+                        variant={insertAngleCategory === cat.id ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => setInsertAngleCategory(cat.id)}
+                      >
+                        {cat.name}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CAMERA_ANGLES.filter(a => a.category === insertAngleCategory).slice(0, 6).map((angle) => (
+                      <Button
+                        key={angle.id}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setInsertPrompt(prev => prev ? `${prev}. ${angle.promptModifier}` : angle.promptModifier)}
+                        title={angle.description}
+                      >
+                        {angle.name}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
                 {productImages.length > 0 && (
                   <div className="space-y-2">
