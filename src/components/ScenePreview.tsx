@@ -543,7 +543,41 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                   ))}
                 </div>
               </div>
-            </div>
+
+              {/* Camera Angle Selector */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Camera className="w-3 h-3" />
+                  Camera Angle (click to add to description)
+                </label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {CAMERA_CATEGORIES.filter(c => ['static', 'framing', 'movement', 'character'].includes(c.id)).map((cat) => (
+                    <Button
+                      key={cat.id}
+                      variant={selectedAngleCategory === cat.id ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-6 text-[10px] px-2"
+                      onClick={() => setSelectedAngleCategory(cat.id)}
+                    >
+                      {cat.name}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {CAMERA_ANGLES.filter(a => a.category === selectedAngleCategory).slice(0, 8).map((angle) => (
+                    <Button
+                      key={angle.id}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setCustomPrompt(prev => `${prev}. ${angle.promptModifier}`)}
+                      title={angle.description}
+                    >
+                      {angle.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
             {/* Reference Image Selection */}
             <div className="space-y-3">
