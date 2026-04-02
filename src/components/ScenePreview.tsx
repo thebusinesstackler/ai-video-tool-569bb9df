@@ -49,6 +49,8 @@ interface ScenePreviewProps {
   onCharacterTransformationChange?: (value: string) => void;
   onInsertScene?: (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => Promise<void>;
   onDeleteScene?: (sceneNumber: number) => void;
+  currentScenes?: { sceneNumber: number; narration: string; visualDescription: string; duration: number }[];
+  onApplyProductScript?: (scenes: { sceneNumber: number; narration: string; visualDescription: string }[]) => void;
 }
 
 const QUICK_TRANSFORMATIONS = [
