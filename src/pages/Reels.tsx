@@ -3612,7 +3612,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         } catch (e) { console.error('Failed to save:', e); }
       }
 
-      setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, videoClips: [], status: 'complete' }));
+      setProject(prev => ({ ...prev, videoBlobUrl: savedVideoUrl, status: 'complete' }));
       toast({ title: "Videos Stitched & Saved!", description: "Merged and saved to My Reels." });
 
       setProgress(100);
