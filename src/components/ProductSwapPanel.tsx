@@ -45,14 +45,30 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
   onBatchSwapped,
   currentShotIndex = 0,
   disabled = false,
+  controlledProductUrl,
+  controlledPrompt,
+  onProductChange,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
-  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
-  const [productPrompt, setProductPrompt] = useState('');
+  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(controlledProductUrl ?? null);
+  const [productPrompt, setProductPrompt] = useState(controlledPrompt ?? '');
+
+  // Sync from parent when controlled props change (e.g. after resize remount)
+  useEffect(() => {
+    if (controlledProductUrl !== undefined && controlledProductUrl !== selectedProductUrl) {
+      setSelectedProductUrl(controlledProductUrl);
+    }
+  }, [controlledProductUrl]);
+
+  useEffect(() => {
+    if (controlledPrompt !== undefined && controlledPrompt !== productPrompt) {
+      setProductPrompt(controlledPrompt);
+    }
+  }, [controlledPrompt]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [isBatchSwapping, setIsBatchSwapping] = useState(false);
