@@ -6643,15 +6643,15 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     </DialogContent>
                   </Dialog>
 
-                  {/* CTA Slide Form Dialog */}
+                  {/* CTA Slide Form Dialog — Premium */}
                   <Dialog open={showCtaSlideForm} onOpenChange={setShowCtaSlideForm}>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="sm:max-w-lg">
                       <DialogHeader>
-                        <DialogTitle>Add Call-to-Action Slide</DialogTitle>
+                        <DialogTitle>Premium Outro / CTA Slide</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label>Headline</Label>
+                          <Label>CTA Headline</Label>
                           <Input
                             value={ctaSlideHeadline}
                             onChange={(e) => setCtaSlideHeadline(e.target.value)}
@@ -6666,58 +6666,210 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             placeholder="e.g. Link in bio 👇"
                           />
                         </div>
-                        <Button
-                          className="w-full"
-                          onClick={() => insertSlide('cta', ctaSlideHeadline, ctaSlideSubtitle)}
-                          disabled={!ctaSlideHeadline.trim()}
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Generate & Insert CTA
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                        <div className="space-y-2">
+                          <Label className="text-sm">Outro Style</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { id: 'logo-fade', label: '✨ Logo Fade', desc: 'Elegant, minimal' },
+                              { id: 'animated-logo', label: '⚡ Dynamic', desc: 'Energy, motion' },
+                              { id: 'glitch-logo', label: '🔲 Glitch', desc: 'Modern, clean' },
+                              { id: 'neon-logo', label: '💜 Neon', desc: 'Glowing, premium' },
+                            ].map(s => (
+                              <div
+                                key={s.id}
+                                className={cn(
+                                  "p-2 rounded-lg border cursor-pointer text-center transition-all",
+                                  outroStyle === s.id ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border hover:border-primary/40"
+                                )}
+                                onClick={() => setOutroStyle(s.id)}
+                              >
+                                <p className="text-xs font-medium">{s.label}</p>
+                                <p className="text-[10px] text-muted-foreground">{s.desc}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-                  {/* Thumbnail Preview Dialog */}
-                  <Dialog open={showThumbnailDialog} onOpenChange={setShowThumbnailDialog}>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Video Thumbnail</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        {generatedThumbnail && (
-                          <div className="relative rounded-lg overflow-hidden border border-border">
-                            <img src={generatedThumbnail} alt="Generated thumbnail" className="w-full object-cover" />
+                        {/* Outro Variations Gallery */}
+                        {outroVariations.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Generated Variations</Label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {outroVariations.map((url, idx) => (
+                                <div
+                                  key={idx}
+                                  className={cn(
+                                    "relative rounded-lg overflow-hidden border-2 cursor-pointer transition-all aspect-[9/16]",
+                                    selectedOutroIdx === idx ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/40"
+                                  )}
+                                  onClick={() => setSelectedOutroIdx(idx)}
+                                >
+                                  <img src={url} alt={`Outro ${idx + 1}`} className="w-full h-full object-cover" />
+                                  {selectedOutroIdx === idx && (
+                                    <div className="absolute top-1 right-1">
+                                      <Badge className="bg-primary text-primary-foreground text-[8px] h-4">✓</Badge>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
+
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
                             className="flex-1"
-                            onClick={generateThumbnail}
+                            onClick={async () => {
+                              await generatePremiumOutro(ctaSlideHeadline, ctaSlideSubtitle);
+                            }}
+                            disabled={!ctaSlideHeadline.trim() || isGeneratingOutro}
+                          >
+                            {isGeneratingOutro ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                            {outroVariations.length > 0 ? 'Add Variation' : 'Preview Outro'}
+                          </Button>
+                          {outroVariations.length > 0 && (
+                            <Button
+                              className="flex-1"
+                              onClick={() => {
+                                const selectedUrl = outroVariations[selectedOutroIdx];
+                                if (selectedUrl) {
+                                  const newScene: GeneratedScene = {
+                                    sceneNumber: 999,
+                                    text: ctaSlideSubtitle ? `${ctaSlideHeadline}\n${ctaSlideSubtitle}` : ctaSlideHeadline,
+                                    imageUrl: selectedUrl,
+                                    startTime: 0,
+                                    endTime: 3,
+                                    isIntro: false,
+                                    isOutro: true,
+                                  };
+                                  setProject(prev => {
+                                    const scenes = [...prev.generatedScenes];
+                                    const maxNum = Math.max(...scenes.map(s => s.sceneNumber), 0);
+                                    scenes.push({ ...newScene, sceneNumber: maxNum + 1 });
+                                    return { ...prev, generatedScenes: scenes };
+                                  });
+                                  setShowCtaSlideForm(false);
+                                  setCtaSlideHeadline('');
+                                  setCtaSlideSubtitle('');
+                                  setOutroVariations([]);
+                                  toast({ title: "Premium Outro Added!" });
+                                }
+                              }}
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Use Selected
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Premium Thumbnail Dialog */}
+                  <Dialog open={showThumbnailDialog} onOpenChange={setShowThumbnailDialog}>
+                    <DialogContent className="sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Premium Thumbnail</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {/* Style Selector */}
+                        <div className="space-y-2">
+                          <Label className="text-sm">Thumbnail Style</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { id: 'dramatic', label: '🔥 Dramatic' },
+                              { id: 'clean', label: '✨ Clean' },
+                              { id: 'bold', label: '💥 Bold' },
+                              { id: 'cinematic', label: '🎬 Cinematic' },
+                              { id: 'energetic', label: '⚡ Energetic' },
+                              { id: 'minimal', label: '🤍 Minimal' },
+                            ].map(s => (
+                              <div
+                                key={s.id}
+                                className={cn(
+                                  "p-1.5 rounded-md border cursor-pointer text-center text-xs transition-all",
+                                  thumbnailStyle === s.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                                )}
+                                onClick={() => setThumbnailStyle(s.id)}
+                              >
+                                {s.label}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Thumbnails Gallery */}
+                        {generatedThumbnails.length > 0 && (
+                          <div className="space-y-2">
+                            {generatedThumbnails.length > 1 && (
+                              <div className="grid grid-cols-3 gap-2">
+                                {generatedThumbnails.map((url, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={cn(
+                                      "relative rounded-lg overflow-hidden border-2 cursor-pointer transition-all aspect-[9/16]",
+                                      selectedThumbnailIdx === idx ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/40"
+                                    )}
+                                    onClick={() => setSelectedThumbnailIdx(idx)}
+                                  >
+                                    <img src={url} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                                    {selectedThumbnailIdx === idx && (
+                                      <div className="absolute top-1 right-1">
+                                        <Badge className="bg-primary text-primary-foreground text-[8px] h-4">✓</Badge>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Selected thumbnail large preview */}
+                            <div className="relative rounded-lg overflow-hidden border border-border">
+                              <img src={generatedThumbnails[selectedThumbnailIdx]} alt="Selected thumbnail" className="w-full object-cover" />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateThumbnail(true)}
                             disabled={isGeneratingThumbnail}
                           >
-                            {isGeneratingThumbnail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                            Regenerate
+                            {isGeneratingThumbnail ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+                            Add Variation
                           </Button>
                           <Button
-                            className="flex-1"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateThumbnail(false)}
+                            disabled={isGeneratingThumbnail}
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            New Style
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="ml-auto"
                             onClick={() => {
-                              if (generatedThumbnail) {
+                              const selected = generatedThumbnails[selectedThumbnailIdx];
+                              if (selected) {
                                 const link = document.createElement('a');
-                                link.href = generatedThumbnail;
+                                link.href = selected;
                                 link.download = `thumbnail-${project.topic || 'reel'}.png`;
                                 link.click();
                               }
                               setShowThumbnailDialog(false);
                             }}
                           >
-                            <Download className="w-4 h-4 mr-2" />
-                            Save Thumbnail
+                            <Download className="w-3 h-3 mr-1" />
+                            Save
                           </Button>
                         </div>
                       </div>
                     </DialogContent>
+                  </Dialog>
                   </Dialog>
 
                   <div className="flex flex-wrap justify-center gap-3">
