@@ -391,53 +391,58 @@ Each CONTENT scene should be approximately ${finalSceneDuration} seconds when na
 ${introInstructions ? `SCENE STRUCTURE:
 ${introInstructions}
 - Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
-${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
-- Scene 1 (HOOK + THUMBNAIL): This is THE most important scene. Write a scroll-stopping hook that creates a curiosity gap or makes an irresistible promise. The visual MUST be thumbnail-worthy: dramatic expression, striking composition, high contrast. This image becomes the video thumbnail.
-- Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
-- Scene ${totalSceneCount} (CLOSING CTA - MANDATORY): End with a STRONG call-to-action. Tell the viewer exactly what to do next: follow, subscribe, comment, share, try something, visit a link, or engage. This MUST feel like a natural conclusion that motivates action. Examples: "Follow me for more tips like this", "Drop a comment if this changed your perspective", "Share this with someone who needs to hear it", "Try this today and watch what happens"`}
+${outroInstructions}` : `SCENE FLOW (editor's cut):
+- Scene 1 (HOOK — 0-2 seconds): Scroll-stopping moment. Movement + expression + curiosity gap. This is the thumbnail AND the first frame. Must pass the "would I stop scrolling?" test.
+- Scenes 2-${totalSceneCount-1} (BODY): Each scene introduces something NEW (new info, emotion, angle). Every scene must have clear physical action and camera motion. If a scene doesn't add value → cut it.
+- Scene ${totalSceneCount} (CTA): Strong, specific call-to-action with energy and movement. Not generic — tied to the topic.`}
 
-MANDATORY: The LAST scene MUST always contain a clear call-to-action or goal for the viewer. NEVER end on just information — always tell them what to DO next.
+MANDATORY: The LAST scene MUST always contain a clear call-to-action. NEVER end passively.
 
-NARRATION REQUIREMENTS:
-- Content scenes: Write ${minWordsPerScene}-${maxWordsPerScene} words per scene (this fills ${finalSceneDuration} seconds when spoken)
-${hasIntro ? '- Intro scene: Write 5-8 words only (3 seconds)' : ''}
-${hasOutro ? '- Outro scene: Write 8-15 words only (2 seconds)' : ''}
-- Write conversational sentences that flow naturally when spoken
-- Each scene should transition smoothly to the next
-- Use complete thoughts and natural pauses
-- IMPORTANT: Scene 1 must use a creative, psychologically compelling hook — NOT "Stop scrolling" or any generic opener
-- Scene 1's visualDescription must be a high-impact, thumbnail-optimized hero shot with dramatic expression and bold composition
+NARRATION:
+- Content scenes: ${minWordsPerScene}-${maxWordsPerScene} words per scene (${finalSceneDuration}s spoken)
+${hasIntro ? '- Intro scene: 5-8 words only (3 seconds)' : ''}
+${hasOutro ? '- Outro scene: 8-15 words only (2 seconds)' : ''}
+- Conversational, natural rhythm, varied sentence length
+- Scene 1: psychologically compelling hook — NEVER generic
+- Avoid em dashes and ellipses (TTS breaking)
 
 ${enableCutScenes ? `
 CUT SCENES:
-- Insert 1-2 cut scenes between main content (marked with isCutScene: true)
-- Cut scenes have empty narration ("") and are 1-2 seconds
-- Each cut scene MUST specify a cinematic camera angle (e.g., "Extreme close-up, shallow DOF, slow push-in", "Wide establishing shot, golden hour, drone descent", "Low-angle hero shot, dramatic rim lighting, slight orbit")
-- Use them for B-roll, atmospheric transitions, or emphasis moments
-- Include camera movement direction and lighting mood in the visual description
+- Insert 1-2 cut scenes between main content (isCutScene: true)
+- Empty narration, 1-2 seconds, cinematic camera motion
+- Must include camera movement + bright lighting
 ` : ''}
 
-VISUAL RULES:
-- Use ONE consistent visual style AND background across all scenes
-- If showing a person, describe them identically each scene
-- Camera angle should vary per scene for visual interest:
+VISUAL CONTINUITY:
+- ONE consistent background across all scenes
+- Identical character description in every scene
+- Camera angle MUST vary per scene:
 ${CAMERA_ANGLES.slice(0, totalSceneCount).map(c => `  Scene ${c.scene}: ${c.angle}`).join('\n')}
 
-VALIDATION:
-- Avoid em dashes (—) and ellipses (...) in narration — they break TTS audio
-- Scene 1 must be a complete, engaging sentence (not a fragment)
-- Last scene should include a natural call-to-action
+VALIDATION BEFORE OUTPUT:
 ${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
 ${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
+- Every scene has physical movement? ✓
+- Every scene has camera motion? ✓
+- All lighting is bright/clean? ✓
+- Hook is scroll-stopping? ✓
+- Product shown early (if applicable)? ✓
+- Each scene adds something new? ✓
 
 Return ONLY valid JSON array:
 [
   {
     "sceneNumber": 1,
     "narration": "Your creative narration here (${minWordsPerScene}-${maxWordsPerScene} words)",
-    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[action]. [Setting]. [Mood].",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[specific physical ACTION in motion]. [Camera type + camera MOTION]. [Setting]. [Bright lighting].",
     "duration": ${finalSceneDuration},
-    "cameraAngle": "close-up, eye-level"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
+    "cameraAngle": "push-in close-up, handheld",
+    "action": "turning head sharply toward camera while lifting product",
+    "cameraMotion": "quick push-in with slight handheld shake",
+    "expression": "eyes widening in surprise, mouth opening",
+    "lighting": "bright natural daylight, clean and well-lit",
+    "cutType": "smash cut",
+    "cutReason": "Pattern interrupt to grab attention in first frame"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
   }
 ]`;
 
