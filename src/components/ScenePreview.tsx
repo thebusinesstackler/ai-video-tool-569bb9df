@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2 } from 'lucide-react';
+import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package } from 'lucide-react';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 
 interface PreviewScene {
   sceneNumber: number;
@@ -76,6 +78,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onInsertScene,
   onDeleteScene,
 }) => {
+  const { user } = useAuth();
   const [playingAudio, setPlayingAudio] = useState<number | null>(null);
   const audioRefs = useRef<Map<number, HTMLAudioElement>>(new Map());
   
@@ -92,6 +95,19 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [insertType, setInsertType] = useState<'broll' | 'intro' | 'outro'>('broll');
   const [insertPrompt, setInsertPrompt] = useState('');
   const [isInserting, setIsInserting] = useState(false);
+
+  // Product library state
+  const [productImages, setProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
+  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
+  const [insertProductUrl, setInsertProductUrl] = useState<string | null>(null);
+  const productFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from('product_images').select('id, image_url, name').eq('user_id', user.id).order('created_at', { ascending: false })
+        .then(({ data }) => { if (data) setProductImages(data); });
+    }
+  }, [user]);
 
   const allScenesReady = scenes.every(s => s.imageUrl && !s.isGenerating);
   const totalDuration = scenes.reduce((acc, s) => acc + s.audioDuration, 0);
@@ -135,6 +151,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setSelectedScene(scene);
     setCustomPrompt(scene.visualDescription);
     setLocalReferenceUrl(referenceImageUrl || null);
+    setSelectedProductUrl(null);
     setRegenerateDialogOpen(true);
   };
 
@@ -151,11 +168,20 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
 
   const handleRegenerate = () => {
     if (!selectedScene) return;
-    onRegenerateImage(selectedScene.sceneNumber, customPrompt, localReferenceUrl || undefined);
+    // If a product is selected, append product context to the prompt
+    let finalPrompt = customPrompt;
+    if (selectedProductUrl) {
+      finalPrompt = `${customPrompt}. Feature this product prominently in the scene, extreme close-up product shot with dramatic lighting.`;
+      // Use the product image as the reference for image-to-image generation
+      onRegenerateImage(selectedScene.sceneNumber, finalPrompt, selectedProductUrl);
+    } else {
+      onRegenerateImage(selectedScene.sceneNumber, customPrompt, localReferenceUrl || undefined);
+    }
     setRegenerateDialogOpen(false);
     setSelectedScene(null);
     setCustomPrompt('');
     setLocalReferenceUrl(null);
+    setSelectedProductUrl(null);
   };
 
   const applySettingPreset = (setting: string) => {
@@ -182,6 +208,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setInsertIndex(index);
     setInsertType(type);
     setInsertPrompt('');
+    setInsertProductUrl(null);
     setInsertDialogOpen(true);
   };
 
@@ -588,7 +615,34 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
               )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Product Library */}
+            {productImages.length > 0 && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Place a Product in This Scene
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Select a product from your library to feature it in this scene
+                </p>
+                <div className="grid grid-cols-5 gap-2">
+                  {productImages.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProductUrl(selectedProductUrl === p.image_url ? null : p.image_url)}
+                      className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        selectedProductUrl === p.image_url ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+                {selectedProductUrl && (
+                  <p className="text-xs text-primary">✓ Product selected — it will be placed in this scene</p>
+                )}
+              </div>
+            )}
             <div className="flex justify-end gap-3 pt-4">
               <Button 
                 variant="outline" 
@@ -638,14 +692,43 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
               className="min-h-[80px]"
             />
             {insertType === 'broll' && (
-              <div className="flex flex-wrap gap-1.5">
-                {['Product close-up', 'Nature scenery', 'City timelapse', 'Hands working', 'Food preparation', 'Tech gadget'].map(preset => (
-                  <Button key={preset} variant="outline" size="sm" className="h-7 text-xs"
-                    onClick={() => setInsertPrompt(preset)}>
-                    {preset}
-                  </Button>
-                ))}
-              </div>
+              <>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Product close-up', 'Nature scenery', 'City timelapse', 'Hands working', 'Food preparation', 'Tech gadget'].map(preset => (
+                    <Button key={preset} variant="outline" size="sm" className="h-7 text-xs"
+                      onClick={() => setInsertPrompt(preset)}>
+                      {preset}
+                    </Button>
+                  ))}
+                </div>
+                {productImages.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                      <Package className="w-3 h-3" />
+                      Use a Product Image
+                    </label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {productImages.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            const url = insertProductUrl === p.image_url ? null : p.image_url;
+                            setInsertProductUrl(url);
+                            if (url && !insertPrompt) {
+                              setInsertPrompt(`Extreme close-up of ${p.name || 'this product'} with cinematic lighting, shallow depth of field, premium product photography`);
+                            }
+                          }}
+                          className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                            insertProductUrl === p.image_url ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setInsertDialogOpen(false)}>Cancel</Button>
