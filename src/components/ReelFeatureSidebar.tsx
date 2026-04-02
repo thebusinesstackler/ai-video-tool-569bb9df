@@ -98,23 +98,20 @@ const FEATURES: Array<{
   {
     id: 'introOutro',
     label: 'Intro & Outro',
-    description: 'Branded intro/outro — coming soon',
-    icon: <Film className="w-4 h-4" />,
-    comingSoon: true
+    description: 'Branded intro/outro slides',
+    icon: <Film className="w-4 h-4" />
   },
   {
     id: 'captions',
     label: 'Captions',
-    description: 'Burned-in captions — coming soon',
-    icon: <Captions className="w-4 h-4" />,
-    comingSoon: true
+    description: 'Burned-in captions on video',
+    icon: <Captions className="w-4 h-4" />
   },
   {
     id: 'cutScenes',
     label: 'Cut Scenes',
-    description: 'B-roll interleaving — coming soon',
-    icon: <Sparkles className="w-4 h-4" />,
-    comingSoon: true
+    description: 'AI B-roll with camera angles',
+    icon: <Sparkles className="w-4 h-4" />
   },
 ];
 
