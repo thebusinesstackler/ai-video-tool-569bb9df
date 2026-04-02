@@ -2723,8 +2723,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       return { voice: normalizedSelectedVoice, voiceEngine: 'wavespeed' };
     }
 
-    const context = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${topic}`.toLowerCase();
-    const isFemale = selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => context.includes(k));
+    const context = `${selectedTwin?.gender || ''} ${selectedTwin?.face_description || ''} ${characterDescription} ${characterProfile?.gender || ''} ${topic}`.toLowerCase();
+    const isFemale = characterProfile?.gender === 'female' || selectedTwin?.gender === 'female' || ['woman', 'female', 'girl', 'lady', 'she', 'her'].some(k => context.includes(k));
 
     if (isFemale) {
       if (/(older|mentor|expert|authority|founder|ceo|coach)/.test(context)) {
@@ -5317,7 +5317,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             if (referenceToUse) { setExternalReference(referenceToUse); if (preReferenceTransformation) setCharacterTransformation(preReferenceTransformation); }
                             const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
                             const voiceConfig = resolveVoiceForGeneration();
-                            generatePreview(project.scenes, user?.id, referenceToUse || undefined, voiceConfig.voice || selectedVoice, characterRefImage || undefined, characterDescription || selectedTwin?.face_description || undefined, selectedTwin?.voice_cloning_key || undefined, selectedTwin?.reference_images || [], customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined, customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined, voiceConfig.voiceEngine, undefined, videoModel);
+                            generatePreview(project.scenes, user?.id, referenceToUse || undefined, voiceConfig.voice || selectedVoice, characterRefImage || undefined, characterDescription || selectedTwin?.face_description || undefined, selectedTwin?.voice_cloning_key || undefined, selectedTwin?.reference_images || [], customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined, customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined, voiceConfig.voiceEngine, undefined, videoModel, selectedProductImageUrl || undefined, selectedProductName || undefined);
                           }} disabled={isGenerating || isGeneratingPreview} className="w-full bg-gradient-primary hover:opacity-90">
                             {isGeneratingPreview ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-2" />}
                             Generate Preview
@@ -6310,7 +6310,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           customDuration,
                           voiceConfig.voiceEngine,
                           undefined,
-                          videoModel
+                          videoModel,
+                          selectedProductImageUrl || undefined,
+                          selectedProductName || undefined
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}

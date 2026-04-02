@@ -103,7 +103,7 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string, productImageUrl?: string, productName?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
   regenerateSceneVoice: (sceneNumber: number, narration: string, voice?: string, speechifyVoiceId?: string, voiceEngine?: string, googleVoiceId?: string, userId?: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
@@ -139,7 +139,9 @@ export function useScenePreview(): UseScenePreviewResult {
     customAudioDuration?: number,
     voiceEngine?: string,
     googleVoiceId?: string,
-    videoModel?: string
+    videoModel?: string,
+    productImageUrl?: string,
+    productName?: string
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     // Use all reference images if provided, otherwise use just the active reference
@@ -309,16 +311,28 @@ export function useScenePreview(): UseScenePreviewResult {
         const scene = scenes[i];
         
         try {
+          // Check if this scene mentions product usage (drops, apply, pour, hold, use, sip, drink etc.)
+          const sceneText = `${scene.visualDescription} ${scene.narration}`.toLowerCase();
+          const isProductScene = productImageUrl && /(drop|pour|hold|apply|sip|drink|use|bottle|serum|extract|supplement|product|dispens|spray|rub|massage|mix|stir|scoop|capsule|tablet|pill)/.test(sceneText);
+          
           // Use edit-scene-image if we have references, otherwise use generate-scene-image
           const hasReferences = referenceImagesArray.length > 0;
           const functionName = hasReferences ? 'edit-scene-image' : 'generate-scene-image';
+          
+          // Build product context for the prompt
+          const productContext = isProductScene 
+            ? ` The person is using this specific product: ${productName || 'the featured product'}. Show the actual product clearly in the scene.`
+            : '';
+          
           const { data: imageData, error: imageError } = await supabase.functions.invoke(functionName, {
             body: { 
-              prompt: `${scene.visualDescription}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
+              prompt: `${scene.visualDescription}${productContext}. Ultra high resolution, cinematic, vertical 9:16 aspect ratio, photorealistic, detailed lighting.`,
               // Pass all reference images for better character consistency
               referenceImageUrl: referenceImagesArray[0] || undefined,
               referenceImages: referenceImagesArray.length > 1 ? referenceImagesArray : undefined,
-              characterDescription: characterDescription || undefined
+              characterDescription: characterDescription || undefined,
+              productImageUrl: isProductScene ? productImageUrl : undefined,
+              productName: isProductScene ? productName : undefined
             }
           });
 

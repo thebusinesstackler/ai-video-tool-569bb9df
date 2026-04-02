@@ -124,9 +124,11 @@ function buildPromptText(
     cameraAngle?: string;
     backgroundDescription?: string;
     refCount: number;
+    productImageUrl?: string;
+    productName?: string;
   }
 ): string {
-  const { characterDescription, characterTransformation, cameraAngle, backgroundDescription, refCount } = opts;
+  const { characterDescription, characterTransformation, cameraAngle, backgroundDescription, refCount, productName } = opts;
 
   const cameraInstruction = cameraAngle ? `CAMERA ANGLE: Use a ${cameraAngle} for this shot. ` : '';
   const backgroundInstruction = backgroundDescription
@@ -136,6 +138,10 @@ function buildPromptText(
   // Strong character identity enforcement
   const characterBlock = characterDescription
     ? `\n\n*** MANDATORY CHARACTER IDENTITY (DO NOT DEVIATE) ***\nThe main person MUST be: ${characterDescription}.\nThis is NON-NEGOTIABLE. The person's gender, ethnicity, age, and physical appearance MUST match this description exactly. Do NOT substitute, swap, or reinterpret any aspect of their identity. If ANY part of the scene description conflicts with this character identity, the character identity ALWAYS wins.\n`
+    : '';
+
+  const productBlock = productName
+    ? `\n\n*** PRODUCT PLACEMENT ***\nThis scene features the product "${productName}". Show the product clearly and naturally — the person should be holding, using, or interacting with it in a realistic way. The product label/branding should be visible. Do NOT show multiple copies of the product. Keep it natural and integrated into the scene.\n`
     : '';
 
   if (characterTransformation) {
@@ -160,7 +166,7 @@ REALISM RULES:
 - Real human proportions and natural body language
 - BRIGHT, warm, inviting atmosphere — think UGC content shot in daylight
 - Color palette: warm, natural, vibrant — NOT desaturated, NOT dark, NOT dramatic
-${characterBlock}${cameraInstruction}${backgroundInstruction}
+${characterBlock}${productBlock}${cameraInstruction}${backgroundInstruction}
 
 Professional quality, BRIGHT natural lighting, photorealistic, daytime feel.`;
 }
@@ -178,7 +184,9 @@ serve(async (req) => {
       characterDescription,
       characterTransformation,
       cameraAngle,
-      backgroundDescription
+      backgroundDescription,
+      productImageUrl,
+      productName
     } = await req.json();
 
     if (!prompt) {
@@ -211,6 +219,8 @@ serve(async (req) => {
       cameraAngle,
       backgroundDescription,
       refCount: allReferenceImages.length,
+      productImageUrl,
+      productName,
     };
 
     // Build the raw prompt including all context
