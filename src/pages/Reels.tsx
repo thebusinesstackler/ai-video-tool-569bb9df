@@ -6971,10 +6971,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             onClick={() => {
                               const selected = generatedThumbnails[selectedThumbnailIdx];
                               if (selected) {
-                                const link = document.createElement('a');
-                                link.href = selected;
-                                link.download = `thumbnail-${project.topic || 'reel'}.png`;
-                                link.click();
+                                setSelectedThumbnailUrl(selected);
+                                toast({ title: "Thumbnail Selected", description: "It will be prepended as a 3-second intro when you stitch your video." });
                               }
                               setShowThumbnailDialog(false);
                             }}
