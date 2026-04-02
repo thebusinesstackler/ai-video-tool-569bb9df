@@ -236,7 +236,33 @@ serve(async (req) => {
       });
     }
 
-    const source = {
+    // Add logo overlay if provided
+    if (logoUrl) {
+      const logoDuration = Math.min(3, currentTime);
+      const logoStart = Math.max(0, currentTime - logoDuration);
+      const logoAnims = getLogoAnimations(logoAnimation, currentTime);
+
+      elements.push({
+        type: 'image',
+        source: logoUrl,
+        time: logoStart,
+        duration: logoDuration,
+        width: '25%',
+        height: '15%',
+        x: '50%',
+        y: '50%',
+        x_alignment: '50%',
+        y_alignment: '50%',
+        fit: 'contain',
+        animations: [
+          ...logoAnims,
+          { type: 'fade', fade: 'out', start: logoDuration - 0.3, duration: 0.3 },
+        ],
+      });
+
+      console.log(`Logo overlay added: ${logoAnimation} animation, ${logoDuration}s at end`);
+    }
+
       output_format: 'mp4',
       width,
       height,
