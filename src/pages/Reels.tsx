@@ -338,7 +338,9 @@ const Reels = () => {
     setSceneAsReference,
     setExternalReference,
     clearReference,
-    resetPreview
+    resetPreview,
+    insertScene: insertPreviewScene,
+    deleteScene: deletePreviewScene,
   } = useScenePreview();
   
   // Lip sync mode
