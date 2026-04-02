@@ -261,7 +261,7 @@ The user has specified this EXACT character: "${characterDescription}"
 - If ANY scene shows a different person than described, the ENTIRE output is REJECTED
 ` : '';
 
-    const systemPrompt = `You are a creative short-form video scriptwriter. Your job is to bring the user's idea to life with their unique voice and style — not a generic template.
+    const systemPrompt = `You are a creative short-form video scriptwriter who specializes in viral, scroll-stopping content. Your job is to bring the user's idea to life with their unique voice and style — not a generic template.
 
 STORY STRUCTURE:
 - Tell ONE cohesive story across all scenes
@@ -270,6 +270,23 @@ STORY STRUCTURE:
 - End with a natural conclusion or call-to-action
 
 ${hookGuidance}
+
+SCENE 1 HOOK (HIGHEST PRIORITY — THIS DETERMINES IF THEY WATCH):
+- The hook MUST create an irresistible urge to keep watching
+- Use psychological triggers: curiosity gap, pattern interrupt, bold contrarian claim, personal confession, or an impossible-sounding result
+- NEVER use overused hooks like "Stop scrolling", "Wait for it", or "You won't believe this"
+- The hook should feel PERSONAL and SPECIFIC to the topic — not generic
+- Great hooks make a PROMISE the viewer wants fulfilled: "I went from $0 to $10K in 30 days doing THIS" or "The CEO of Apple told me something that changed my life"
+- Write the hook as if you're telling your best friend something they NEED to hear RIGHT NOW
+- The hook narration should be 8-15 words that pack maximum emotional punch
+
+SCENE 1 VISUAL (THIS BECOMES THE THUMBNAIL):
+- Scene 1's visualDescription MUST be optimized as a thumbnail-worthy hero image
+- Use dramatic, high-contrast composition: bold subject placement, striking lighting, vivid colors
+- The subject should have an expressive, emotionally charged face: shock, excitement, intensity, curiosity, or confidence
+- Frame as a tight close-up or medium close-up with shallow depth of field
+- Include an element of visual intrigue that makes people want to click: dramatic gesture, unexpected prop if relevant, striking backdrop
+- This image will serve as the video's thumbnail — make it impossible to scroll past
 
 NARRATION:
 - Write in first person, conversational tone
@@ -336,7 +353,7 @@ ${introInstructions ? `SCENE STRUCTURE:
 ${introInstructions}
 - Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
 ${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
-- Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
+- Scene 1 (HOOK + THUMBNAIL): This is THE most important scene. Write a scroll-stopping hook that creates a curiosity gap or makes an irresistible promise. The visual MUST be thumbnail-worthy: dramatic expression, striking composition, high contrast. This image becomes the video thumbnail.
 - Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
 - Scene ${totalSceneCount} (CLOSING CTA - MANDATORY): End with a STRONG call-to-action. Tell the viewer exactly what to do next: follow, subscribe, comment, share, try something, visit a link, or engage. This MUST feel like a natural conclusion that motivates action. Examples: "Follow me for more tips like this", "Drop a comment if this changed your perspective", "Share this with someone who needs to hear it", "Try this today and watch what happens"`}
 
@@ -349,7 +366,8 @@ ${hasOutro ? '- Outro scene: Write 8-15 words only (2 seconds)' : ''}
 - Write conversational sentences that flow naturally when spoken
 - Each scene should transition smoothly to the next
 - Use complete thoughts and natural pauses
-- IMPORTANT: Scene 1 must use a creative, engaging hook - NOT just "Stop scrolling"
+- IMPORTANT: Scene 1 must use a creative, psychologically compelling hook — NOT "Stop scrolling" or any generic opener
+- Scene 1's visualDescription must be a high-impact, thumbnail-optimized hero shot with dramatic expression and bold composition
 
 ${enableCutScenes ? `
 CUT SCENES:
