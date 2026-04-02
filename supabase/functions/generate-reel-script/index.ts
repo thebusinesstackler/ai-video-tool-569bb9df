@@ -335,7 +335,9 @@ ${enableCutScenes ? `
 CUT SCENES:
 - Insert 1-2 cut scenes between main content (marked with isCutScene: true)
 - Cut scenes have empty narration ("") and are 1-2 seconds
-- Use them for B-roll, transitions, or emphasis moments
+- Each cut scene MUST specify a cinematic camera angle (e.g., "Extreme close-up, shallow DOF, slow push-in", "Wide establishing shot, golden hour, drone descent", "Low-angle hero shot, dramatic rim lighting, slight orbit")
+- Use them for B-roll, atmospheric transitions, or emphasis moments
+- Include camera movement direction and lighting mood in the visual description
 ` : ''}
 
 VISUAL RULES:
