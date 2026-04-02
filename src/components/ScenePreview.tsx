@@ -87,6 +87,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onRegenerateVoice,
   onGenerateVoiceSample,
   onApplyVoiceSample,
+  onApplyVoiceToAll,
   availableVoices = [],
   onCreateVideo,
   isCreatingVideo,
