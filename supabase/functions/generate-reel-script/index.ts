@@ -392,18 +392,41 @@ If the hook is weak, flat, or generic → REWRITE IT AUTOMATICALLY before return
 - Each scene must have a clear PURPOSE — if it doesn't advance the story, cut it
 - Visual change minimum every 2 seconds throughout
 
-═══ STEP 10: EXPANDED VISUAL DESCRIPTIONS (3X DETAIL) ═══
+═══ STEP 10: CINEMATIC VISUAL DESCRIPTIONS (DIRECTOR'S BRIEF FORMAT) ═══
 
-Every visualDescription must read like a CREATIVE DIRECTION BRIEF for a real video shoot (60-100 words):
+Every visualDescription must read like a DIRECTOR'S SHOT BRIEF — a scene-by-scene production guide (80-150 words):
 
-1. ENVIRONMENT: Rich, specific. "Sun-drenched kitchen with marble counters, steam rising from a ceramic mug, morning light streaming through sheer curtains"
-2. SUBJECT STYLING: What they wear, how they look, grooming details
-3. MOVEMENT STEP-BY-STEP: "Reaches for the bottle with right hand, pauses mid-grab, looks up at camera with eyebrows raised, then lifts it toward frame"
-4. EXPRESSION PROGRESSION: "Confused squint softening into surprised recognition, slight half-smile forming"
-5. CAMERA FRAMING & MOTION: "Handheld medium close-up pushing in slowly with slight natural shake, transitioning to tight close-up on product"
-6. LIGHTING DIRECTION: "Warm golden side-light from large bay window, soft fill from overhead pendant, subtle rim light on hair"
-7. PRODUCT INTERACTION: "Fingers wrapping around the label, tilting bottle toward camera to catch the light on the glass"
-8. PACING / ENERGY: "Quick cut energy" / "hold for dramatic emphasis" / "slow-motion pour"
+1. ENVIRONMENT: Rich, immersive, specific. "Sun-drenched kitchen with white marble counters and brass fixtures, steam curling from a ceramic mug, golden morning light streaming through sheer linen curtains casting soft window-shaped shadows across the counter"
+2. CHARACTER: Exact physical description carried VERBATIM across every scene. Include age range, hair, skin, build. "Female, mid-20s, warm brown skin, dark curly hair past shoulders, defined cheekbones"
+3. EXACT OUTFIT/APPEARANCE: Described consistently scene-to-scene. "Wearing an oversized cream knit sweater with sleeves pushed to elbows, thin gold chain necklace, minimal makeup with dewy skin"
+4. LIGHTING: Directional and intentional. "Warm golden side-light from large bay window camera-left, soft ambient fill from overhead pendant, subtle rim light catching hair edges"
+5. ACTION/MOVEMENT (STEP-BY-STEP): Describe what happens FIRST, MIDDLE, and END of the scene. "Opens by reaching for the bottle with right hand — pauses mid-grab, fingers hovering — looks up at camera with eyebrows raised in discovery — then lifts bottle toward frame with a slow, deliberate tilt"
+6. FACIAL EXPRESSION (PROGRESSION): "Starts with a focused, slightly furrowed brow, then eyes widen with recognition, corners of mouth lift into a knowing half-smile"
+7. CAMERA DIRECTION: Include framing AND motion. "Handheld medium close-up starting at waist level, slowly pushing in with natural micro-shake, transitioning to tight close-up on product as hand lifts it"
+8. PRODUCT INTERACTION: If applicable. "Fingers wrap around the frosted glass bottle, thumb resting on the embossed label, tilting it 30 degrees toward camera to catch warm light on the surface"
+9. PACING/ENERGY: "Quick-cut energy for first beat, then holds on product reveal for dramatic emphasis"
+10. TRANSITION LOGIC: How this scene connects to the previous and leads into the next. "Match-cut from previous scene's hand motion — ends with camera pulling back to set up the wide lifestyle shot in the next scene"
+
+WHEN USEFUL — include START FRAME and END FRAME:
+- START FRAME: Describe exactly how the shot opens. "Extreme close-up of steam rising from coffee in warm morning light, shallow depth of field blurs background"
+- END FRAME: Describe exactly how the shot closes. "Camera pulls back to reveal same woman lifting the cup, glancing toward camera with a slight smile — holds for beat before cut"
+Use start/end frames especially for: hook scenes, transition-heavy scenes, abstract-to-real scenes, product reveals, and scenes that must connect tightly to the next.
+
+═══ SCENE CONNECTION LOGIC (MANDATORY) ═══
+
+Every scene must explicitly connect to the previous and next scene:
+- How does this scene transition FROM the previous one?
+- How does the ending frame LEAD INTO the next scene?
+- What type of connection: match cut, dissolve, push-in, pull-back, motion continuity, or product continuity?
+
+Scenes must feel like ONE cohesive video. If a scene feels isolated or disconnected, rewrite it with clear connection points.
+
+═══ VISUAL TIMELINE STRUCTURE ═══
+
+Each scene must describe visual timing:
+- OPENING BEAT: What the viewer sees first (0.5-1s)
+- MAIN ACTION: The core movement and narrative moment (2-4s)
+- FINAL BEAT: How the scene ends and transitions (0.5-1s)
 
 ═══ NARRATION RULES ═══
 
