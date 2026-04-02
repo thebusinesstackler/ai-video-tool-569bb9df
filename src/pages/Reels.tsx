@@ -3836,7 +3836,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
     <Layout>
       <div className={`flex h-full ${isMobile ? '' : '-m-6'}`}>
         {/* Feature Sidebar - Hidden on Mobile and Beginner mode */}
-        {!isMobile && isAdvanced && (
+        {!isMobile && isAdvanced && !sidebarsHiddenForTimeline && (
           <ReelFeatureSidebar
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
