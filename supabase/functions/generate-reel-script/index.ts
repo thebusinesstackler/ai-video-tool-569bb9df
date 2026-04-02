@@ -355,7 +355,7 @@ Use this analysis to choose the optimal structure, pacing, and storytelling styl
 ═══ STEP 2: AUTO-STRUCTURE THE VIDEO ═══
 
 Based on your analysis, organize the video into this adaptive framework:
-- HOOK (0-2s): Stop the scroll. Movement + emotion + curiosity.
+- HOOK (0-3s): Stop the scroll. Movement + emotion + curiosity. MINIMUM 6 SECONDS to land the hook properly.
 - BUILD / CONTEXT (2-6s): Create relatability or deepen the hook's tension.
 - CORE MESSAGE / PRODUCT INTRO (5-10s): Deliver the key idea or introduce the product naturally.
 - DEMONSTRATION / VALUE (8-18s): Show usage, insight, or the "aha" moment.
@@ -554,7 +554,9 @@ Each scene must describe visual timing:
 ═══ NARRATION RULES ═══
 
 - Write in first person, conversational UGC tone
-- The "narration" field is ONLY spoken words — no stage directions, no labels
+- The "narration" field is ONLY spoken words — no stage directions, no labels, no prefixes
+- NEVER start narration with "POV:", "NARRATOR:", "SCENE:", "HOOK:", or any label/prefix
+- The narration is what the person SAYS OUT LOUD — nothing else
 - Sound like a real person talking to a friend, not reading a script
 - Use contractions naturally ("I'm", "don't", "it's", "here's")
 - Vary sentence length: mix short punchy lines with flowing ones
@@ -581,9 +583,11 @@ Visual direction: ${selectedHook.visualDirection ? JSON.stringify(selectedHook.v
 ═══ SCENE 1 HOOK (HIGHEST PRIORITY) ═══
 - Create an irresistible urge to keep watching
 - Use psychological triggers: curiosity gap, pattern interrupt, bold claim, observation
-- 8-15 words that pack maximum emotional punch
+- 15-25 words that pack maximum emotional punch — enough for a FULL 6-8 second hook
 - Include MOVEMENT + STRONG facial expression
 - The visual MUST be thumbnail-worthy
+- MINIMUM DURATION: 6 seconds. Short hooks under 5 seconds feel rushed and get skipped.
+- The hook must be a COMPLETE thought — not a fragment or teaser
 `}
 
 ═══ STEP 11: SELF-REVIEW (MANDATORY BEFORE OUTPUT) ═══
@@ -814,16 +818,44 @@ Return ONLY valid JSON array:
     console.log('Base visual style extracted:', baseVisualStyle);
     console.log('Base background extracted:', baseBackground);
 
-    // Ensure background consistency and format narration for TTS across all scenes
+    // Ensure background consistency, format narration for TTS, and enforce hook duration
     scenes = scenes.map((scene: any, index: number) => {
       const cameraAngle = CAMERA_ANGLES[index] || CAMERA_ANGLES[CAMERA_ANGLES.length - 1];
+      const cleanedNarration = formatScriptForTTS(scene.narration || '');
+      
+      // Scene 1 (hook) must be at least 6 seconds for proper impact
+      let duration = scene.duration;
+      if (index === 0 && !scene.isIntro && duration < 6) {
+        console.log(`Scene 1 hook duration was ${duration}s, enforcing minimum 6s`);
+        duration = Math.max(6, duration);
+      }
+      
       return {
         ...scene,
-        narration: formatScriptForTTS(scene.narration || ''),
+        narration: cleanedNarration,
+        duration,
         visualDescription: ensureBackgroundConsistency(scene.visualDescription, baseBackground, cameraAngle.angle),
         cameraAngle: scene.cameraAngle || cameraAngle.angle
       };
     });
+
+    // AI Director validation pass — log quality issues
+    const directorIssues: string[] = [];
+    for (const scene of scenes) {
+      if (scene.narration && /^(POV|NARRATOR|HOOK|SCENE)\s*:/i.test(scene.narration)) {
+        directorIssues.push(`Scene ${scene.sceneNumber}: narration still has label prefix`);
+        scene.narration = scene.narration.replace(/^(POV|NARRATOR|HOOK|SCENE\s*\d*)\s*[:\-]\s*/i, '');
+      }
+      if (scene.sceneNumber === 1 && scene.narration && scene.narration.split(/\s+/).length < 8 && !scene.isIntro) {
+        directorIssues.push(`Scene 1 hook may be too short (${scene.narration.split(/\s+/).length} words)`);
+      }
+      if (scene.visualDescription && /dark|moody|dramatic shadow|dimly lit|nighttime/i.test(scene.visualDescription) && !/explicitly/i.test(scene.visualDescription)) {
+        directorIssues.push(`Scene ${scene.sceneNumber}: visual may be too dark — should be bright UGC-style`);
+      }
+    }
+    if (directorIssues.length > 0) {
+      console.log('AI Director validation issues:', directorIssues);
+    }
 
     // Ensure intro/outro flags are properly set (AI may not always include them)
     if (hasIntro && scenes.length > 0) {
@@ -975,6 +1007,8 @@ function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
   let result = narration
+    // Strip common AI prefixes like "POV:", "NARRATOR:", "HOOK:", "Scene 1:", etc.
+    .replace(/^(POV|NARRATOR|HOOK|SCENE\s*\d*|CTA|INTRO|OUTRO|OPENING|CLOSING)\s*[:\-]\s*/i, '')
     // Normalize curly apostrophes
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
     // Replace em dashes with commas (prevents 4-second silences)

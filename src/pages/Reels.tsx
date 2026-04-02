@@ -6495,6 +6495,27 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     );
                     restorePreviewScenes(updatedScenes, updatedVoiceovers);
                   }}
+                  onApplyVoiceToAll={(voiceId) => {
+                    // When user likes a voice, set it as the selected voice for all future generations
+                    setSelectedVoice(voiceId);
+                    // Regenerate voice for all scenes with this voice
+                    const voiceConfig = { voice: voiceId, voiceEngine: 'wavespeed' as const };
+                    previewScenes.forEach(async (scene) => {
+                      if (scene.narration?.trim()) {
+                        const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                        regenerateSceneVoice(
+                          scene.sceneNumber,
+                          scene.narration,
+                          voiceConfig.voice,
+                          selectedTwin?.voice_cloning_key || undefined,
+                          voiceConfig.voiceEngine,
+                          undefined,
+                          user?.id
+                        );
+                      }
+                    });
+                    toast({ title: "Voice Applied to All Scenes", description: `${voiceId.replace(/_/g, ' ')} will be used for all scenes.` });
+                  }}
                   availableVoices={[
                     { id: 'English_radiant_girl', label: 'Radiant Girl', gender: 'Female' },
                     { id: 'Calm_Woman', label: 'Calm Woman', gender: 'Female' },

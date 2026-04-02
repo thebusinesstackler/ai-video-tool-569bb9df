@@ -39,6 +39,7 @@ interface ScenePreviewProps {
   onRegenerateVoice?: (sceneNumber: number) => void;
   onGenerateVoiceSample?: (req: VoiceSampleRequest) => Promise<{ audioUrl: string } | null>;
   onApplyVoiceSample?: (sceneNumber: number, audioUrl: string) => void;
+  onApplyVoiceToAll?: (voiceId: string) => void;
   availableVoices?: { id: string; label: string; gender?: string }[];
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
@@ -86,6 +87,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onRegenerateVoice,
   onGenerateVoiceSample,
   onApplyVoiceSample,
+  onApplyVoiceToAll,
   availableVoices = [],
   onCreateVideo,
   isCreatingVideo,
@@ -131,7 +133,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   // Multi-voice preview state
   const [voicePreviewDialogOpen, setVoicePreviewDialogOpen] = useState(false);
   const [voicePreviewScene, setVoicePreviewScene] = useState<PreviewScene | null>(null);
-  const [voiceSamples, setVoiceSamples] = useState<{ id: string; audioUrl: string; label: string; isGenerating?: boolean }[]>([]);
+  const [voiceSamples, setVoiceSamples] = useState<{ id: string; audioUrl: string; label: string; voiceId: string; isGenerating?: boolean }[]>([]);
   const [isGeneratingVoices, setIsGeneratingVoices] = useState(false);
   const [playingVoiceSample, setPlayingVoiceSample] = useState<string | null>(null);
   const voiceSampleRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -240,7 +242,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const generateVoiceSample = async (voiceId: string, voiceLabel: string) => {
     if (!voicePreviewScene || !onGenerateVoiceSample) return;
     const sampleId = `${voiceId}-${Date.now()}`;
-    setVoiceSamples(prev => [...prev, { id: sampleId, audioUrl: '', label: voiceLabel, isGenerating: true }]);
+    setVoiceSamples(prev => [...prev, { id: sampleId, audioUrl: '', label: voiceLabel, voiceId, isGenerating: true }]);
     
     try {
       const result = await onGenerateVoiceSample({
@@ -1159,8 +1161,21 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                             className="h-8 text-xs"
                             onClick={() => applyVoiceSampleToScene(sample.audioUrl)}
                           >
-                            Apply
+                            Apply to Scene
                           </Button>
+                          {onApplyVoiceToAll && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs border-primary/50 text-primary hover:bg-primary/10"
+                              onClick={() => {
+                                onApplyVoiceToAll(sample.voiceId);
+                                applyVoiceSampleToScene(sample.audioUrl);
+                              }}
+                            >
+                              Apply to All
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
