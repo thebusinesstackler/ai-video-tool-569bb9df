@@ -97,7 +97,8 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [insertType, setInsertType] = useState<'broll' | 'intro' | 'outro'>('broll');
   const [insertPrompt, setInsertPrompt] = useState('');
   const [isInserting, setIsInserting] = useState(false);
-
+  const [selectedAngleCategory, setSelectedAngleCategory] = useState<string>('framing');
+  const [insertAngleCategory, setInsertAngleCategory] = useState<string>('framing');
   // Product library state
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
   const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
