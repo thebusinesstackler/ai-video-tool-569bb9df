@@ -6197,6 +6197,15 @@ STYLE REQUIREMENTS:
                   onCharacterTransformationChange={setCharacterTransformation}
                   onInsertScene={insertPreviewScene}
                   onDeleteScene={deletePreviewScene}
+                  currentScenes={project.scenes}
+                  onApplyProductScript={(newScenes) => {
+                    const updated = project.scenes.map(s => {
+                      const rewritten = newScenes.find((r: any) => r.sceneNumber === s.sceneNumber);
+                      return rewritten ? { ...s, narration: rewritten.narration, visualDescription: rewritten.visualDescription } : s;
+                    });
+                    setProject(prev => ({ ...prev, scenes: updated }));
+                    resetPreview();
+                  }}
                 />
                 {/* Background Music Panel */}
                 {featureToggles.backgroundMusic && (
