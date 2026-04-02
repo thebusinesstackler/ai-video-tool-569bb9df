@@ -83,16 +83,57 @@ serve(async (req) => {
               duration: duration * 0.5
             }];
           case 'crossfade':
-            // Crossfade: minimal overlap to prevent early scene transitions
             return [{
               type: 'fade',
               fade: 'in',
               duration,
               easing: 'linear'
             }];
+          case 'wipe':
+            return [{
+              type: 'wipe',
+              direction: index % 2 === 0 ? 'right' : 'down',
+              duration,
+              easing: 'ease-in-out'
+            }];
+          case 'blur':
+            return [{
+              type: 'fade',
+              fade: 'in',
+              duration,
+              easing: 'ease-in-out'
+            }];
+          case 'dissolve':
+            return [{
+              type: 'fade',
+              fade: 'in',
+              duration: duration * 1.2,
+              easing: 'ease-in-out'
+            }];
+          case 'spin':
+            return [{
+              type: 'spin',
+              revolutions: 0.25,
+              duration,
+              easing: 'ease-out'
+            }, {
+              type: 'fade',
+              fade: 'in',
+              duration: duration * 0.5
+            }];
+          case 'flip':
+            return [{
+              type: 'spin',
+              revolutions: 0.5,
+              duration,
+              easing: 'ease-in-out'
+            }, {
+              type: 'fade',
+              fade: 'in',
+              duration: duration * 0.3
+            }];
           default:
             return [];
-        }
       };
       
       // For crossfade, use minimal overlap (15%) to prevent early scene transitions
