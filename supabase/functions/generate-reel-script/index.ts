@@ -583,9 +583,11 @@ Visual direction: ${selectedHook.visualDirection ? JSON.stringify(selectedHook.v
 ═══ SCENE 1 HOOK (HIGHEST PRIORITY) ═══
 - Create an irresistible urge to keep watching
 - Use psychological triggers: curiosity gap, pattern interrupt, bold claim, observation
-- 8-15 words that pack maximum emotional punch
+- 15-25 words that pack maximum emotional punch — enough for a FULL 6-8 second hook
 - Include MOVEMENT + STRONG facial expression
 - The visual MUST be thumbnail-worthy
+- MINIMUM DURATION: 6 seconds. Short hooks under 5 seconds feel rushed and get skipped.
+- The hook must be a COMPLETE thought — not a fragment or teaser
 `}
 
 ═══ STEP 11: SELF-REVIEW (MANDATORY BEFORE OUTPUT) ═══
