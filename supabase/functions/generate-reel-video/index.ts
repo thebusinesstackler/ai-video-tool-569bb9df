@@ -507,12 +507,51 @@ serve(async (req) => {
         const sceneEndFrame = (scene as any).endFrame || '';
         
         // ====== SCENE TYPE ROUTING ======
+        // Product B-roll scenes get special treatment — use product image directly
+        // CTA scenes get close-up framing instructions
         // When VEO3 is selected, ALL scene types use VEO3 — no mixing models.
         // Otherwise route based on scene type and other settings.
         
         const isNarratorScene = !scene.isIntro && !scene.isOutro && !scene.isSilentCTA && scene.narration?.trim();
         
-        if (videoModel === 'veo3') {
+        // ====== PRODUCT B-ROLL: Dedicated product-only scene ======
+        if (isProductBrollScene && productImageUrl) {
+          console.log(`Scene ${scene.sceneNumber}: Product B-roll scene — using product image for cinematic rotation`);
+          
+          // Use Sora-2 or Kling for cinematic product rotation from product image
+          const productModel = videoModel === 'veo3' ? 'veo3' : 'sora-2';
+          
+          if (productModel === 'veo3') {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/google/veo3/image-to-video';
+            requestBody = {
+              image: productImageUrl,
+              prompt: `Cinematic product showcase. ${productName ? `The product "${productName}" ` : 'A premium product '}sits on a clean, elegant surface — marble countertop with soft warm side lighting. 
+Slow 180-degree orbit around the product with shallow depth of field. Rack focus from background to product label. 
+Warm directional key light catching the packaging details, soft ambient fill. Premium commercial quality.
+Atmospheric ambient sound only. No speech, no text, no captions, no watermarks.
+${topicContext}`,
+              generate_audio: true,
+              aspect_ratio: '9:16',
+              duration: 4,
+              resolution: '720p'
+            };
+            sceneHasEmbeddedAudio = true;
+          } else {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+            requestBody = {
+              image: productImageUrl,
+              prompt: `Cinematic product showcase. ${productName ? `"${productName}" ` : 'Premium product '}on a clean surface — marble or wood with warm lighting.
+Slow orbit rotation around the product, shallow depth of field, rack focus catching the label.
+Warm directional key light, premium commercial B-roll quality. Elegant and aspirational.
+No text, no captions, no watermarks. Pure visual product hero shot.
+${topicContext}`,
+              duration: 4,
+              aspect_ratio: '9:16'
+            };
+            sceneHasEmbeddedAudio = true;
+          }
+          
+        } else if (videoModel === 'veo3') {
           // ====== VEO3: ALL SCENES use VEO3 when selected ======
           // VEO3 generates native audio — no separate TTS needed
           const sceneType = scene.isIntro ? 'intro' : scene.isOutro ? 'outro' : 'narrator';
