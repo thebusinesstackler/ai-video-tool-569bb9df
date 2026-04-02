@@ -27,15 +27,16 @@ async function designPromptWithClaude(
 
 YOUR DESIGN PRINCIPLES:
 1. COMPOSITION: Rule of thirds. Subject fills 60%+ of frame. Strong leading lines. No clutter.
-2. CONTRAST: High contrast between subject and background. Dark bg + bright subject OR vice versa.
-3. COLOR: 2-3 dominant colors max. Complementary color pairs (blue/orange, purple/gold, red/teal).
+2. CONTRAST: High contrast between subject and background. Bright, vibrant colors preferred.
+3. COLOR: 2-3 dominant colors max. BRIGHT, SATURATED colors — yellows, reds, blues, greens. Complementary color pairs (blue/orange, purple/gold, red/teal).
 4. EXPRESSION: Big, exaggerated facial expressions — surprise, shock, excitement, intensity. Eyes wide, mouth open or tight-lipped determination. The face IS the hook.
-5. LIGHTING: Dramatic 3-point lighting. Strong key light creating depth. Rim/hair light for separation. Never flat.
+5. LIGHTING: BRIGHT, well-lit scenes. Natural daylight, golden hour warmth, or bright studio lighting. NEVER dark, moody, or cinematic darkness. Think: bright, clean, eye-catching.
 6. DEPTH: Bokeh background, foreground elements, depth layers. Subject pops from background.
 7. FOCUS: Crystal sharp on face/product. Everything else supports the focal point.
-8. QUALITY: Shot on RED Komodo, 8K, cinematic color grade. Premium post-production feel.
+8. QUALITY: Shot on RED Komodo, 8K, premium post-production feel. HYPER-REALISTIC humans — real skin with pores, natural texture, NO airbrushed or CGI look.
+9. TEXT OVERLAY: Include 2-5 words of BOLD, large, eye-catching text that summarizes the topic. Text should be thick, high-contrast, with a slight shadow/outline for legibility. Think MrBeast/Ali Abdaal thumbnail text style — BIG, BOLD, impossible to miss. Position text strategically so it doesn't cover the face.
 
-BANNED: Generic stock photo feel. Flat lighting. Busy backgrounds. Small subjects. Low contrast. Cluttered composition. Multiple competing focal points.
+BANNED: Dark/moody lighting. Nighttime scenes. Dramatic shadows. Generic stock photo feel. Flat lighting. Busy backgrounds. Small subjects. Low contrast. Cluttered composition. Airbrushed or plastic-looking skin.
 
 OUTPUT: Write ONLY the image generation prompt. No explanation. Under 400 words. Include specific technical photography directions.`;
 
@@ -43,13 +44,13 @@ OUTPUT: Write ONLY the image generation prompt. No explanation. Under 400 words.
 
 YOUR DESIGN PRINCIPLES:
 1. LAYOUT: Clean visual hierarchy. Logo prominent but not overwhelming. CTA text area clear.
-2. BACKGROUND: Rich, premium backgrounds — gradient meshes, subtle particle effects, geometric patterns, cinematic bokeh.
+2. BACKGROUND: Rich, premium backgrounds — gradient meshes, subtle particle effects, geometric patterns, cinematic bokeh. Can use bright or dark backgrounds depending on brand.
 3. STYLE VARIATIONS:
    - "logo-fade": Elegant fade with soft light bloom, premium gradient, clean minimalism
    - "animated-logo": Dynamic energy lines, motion blur trails, kinetic typography feel
    - "glitch-logo": Modern digital glitch — clean RGB split, scan lines, but SHARP and premium, not messy
    - "neon-logo": Glowing neon outlines, dark background, cyberpunk-clean aesthetic, light reflections
-4. COLOR: Dark backgrounds (deep navy, charcoal, true black) with bright accent elements.
+4. COLOR: Vibrant, bold accent colors. Premium finish.
 5. DEPTH: Layered elements creating dimension. Subtle shadows and light effects.
 6. POLISH: Every pixel intentional. Professional color grading. Premium finish.
 
@@ -60,17 +61,19 @@ OUTPUT: Write ONLY the image generation prompt. No explanation. Under 400 words.
   const userMessage = type === 'thumbnail'
     ? `Design a PREMIUM YouTube/TikTok thumbnail for:
 TOPIC: "${context.topic}"
-STYLE: ${context.style || 'dramatic'}
-${context.characterDescription ? `CHARACTER: ${context.characterDescription}` : 'Show a compelling subject that matches the topic'}
+STYLE: ${context.style || 'bright-bold'}
+${context.characterDescription ? `CHARACTER: ${context.characterDescription} — HYPER-REALISTIC, natural skin texture with pores, real human appearance` : 'Show a compelling, HYPER-REALISTIC person that matches the topic'}
 ${context.sceneDescriptions ? `CONTENT CONTEXT: ${context.sceneDescriptions}` : ''}
 
 REQUIREMENTS:
 - Vertical 9:16 format (mobile-first)
-- The subject/person must be the HERO — large, sharp, commanding
+- The subject/person must be the HERO — large, sharp, commanding, HYPER-REALISTIC
 - Expression must be INTENSE and scroll-stopping
-- Background must complement but not compete
-- Color grading must be premium and intentional
-- NO text, NO words, NO typography — pure visual only
+- BRIGHT, well-lit scene — daylight, golden hour, or bright studio. NEVER dark or moody
+- Background must complement but not compete — bright, colorful, clean
+- Color grading must be BRIGHT, vibrant, and eye-catching
+- MUST include BOLD TEXT OVERLAY: 2-5 words summarizing the topic in large, thick, high-contrast font with drop shadow — positioned so it doesn't cover the face. Think MrBeast thumbnail text style.
+- The text should be the SECONDARY focal point after the person
 - Must make someone STOP scrolling and click`
     : `Design a PREMIUM branded outro/end screen:
 STYLE: ${context.style || 'logo-fade'}
