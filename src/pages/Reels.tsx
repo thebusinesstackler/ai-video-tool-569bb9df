@@ -6159,11 +6159,6 @@ STYLE REQUIREMENTS:
                     }
                   }}
                   onApplyVoiceSample={(sceneNumber, audioUrl) => {
-                    // Update voiceovers in the hook
-                    regenerateSceneVoice.__applySample?.(sceneNumber, audioUrl);
-                    // Fallback: directly update via the hook's exposed method
-                    // The regenerateSceneVoice doesn't expose __applySample, so we use a workaround
-                    // by calling the hook's restorePreviewScenes with updated data
                     const updatedScenes = previewScenes.map(ps =>
                       ps.sceneNumber === sceneNumber ? { ...ps, audioUrl, audioDuration: ps.audioDuration } : ps
                     );
