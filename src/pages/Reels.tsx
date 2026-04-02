@@ -2538,41 +2538,126 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
               };
               const [stitchWidth, stitchHeight] = sizeMap[selectedVideoSize] || [1080, 1920];
 
-              const finalBlob = await canvasStitchVideos({
-                videoUrls,
-                audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
-                embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
-                backgroundMusicUrl: backgroundMusicUrl || undefined,
-                backgroundMusicVolume: 20,
-                width: stitchWidth,
-                height: stitchHeight,
-                onProgress: (p) => {
-                  setProgress(75 + Math.round(p * 0.2));
-                  setProgressStatus(`Stitching... ${Math.round(p)}%`);
-                },
-                onStatus: (s) => setProgressStatus(s)
-              });
+              const allPublicUrls = videoUrls.every(u => u.startsWith('http'));
+              const useCaptionStitch = captionSettings.enabled && allPublicUrls;
+              let finalBlob: Blob | null = null;
 
-              const blobUrl = URL.createObjectURL(finalBlob);
-              videoBlobRef.current = finalBlob;
-
-              persistedVideoUrl = blobUrl;
-              if (user) {
-                setProgress(92);
-                setProgressStatus('Uploading final video...');
+              // Try Creatomate cloud stitching when captions are enabled
+              if (useCaptionStitch) {
                 try {
-                  const isWebm = finalBlob.type.includes('webm');
-                  const ext = isWebm ? 'webm' : 'mp4';
-                  const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
-                  const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('reels')
-                    .upload(fileName, finalBlob, { contentType: finalBlob.type || 'video/webm' });
-                  if (!uploadError && uploadData) {
-                    const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                    persistedVideoUrl = publicUrl.publicUrl;
+                  setProgressStatus('Cloud rendering with captions...');
+
+                  let mergedAudioUrl: string | undefined;
+                  if (audioUrlsForStitch.length === 1) {
+                    mergedAudioUrl = audioUrlsForStitch[0];
+                  } else if (audioUrlsForStitch.length > 1) {
+                    try {
+                      const mergeResponse = await supabase.functions.invoke('merge-audio', {
+                        body: { audioUrls: audioUrlsForStitch }
+                      });
+                      if (mergeResponse.data?.audioUrl) mergedAudioUrl = mergeResponse.data.audioUrl;
+                    } catch (e) {
+                      console.log('Audio merge failed, using first audio');
+                      mergedAudioUrl = audioUrlsForStitch[0];
+                    }
                   }
-                } catch (e) {
-                  console.warn('Upload failed:', e);
+
+                  const clips = sortedVideos.map((v) => {
+                    const scene = generatedScenes.find(s => s.sceneNumber === v.sceneNumber);
+                    const audio = sortedAudios.find(a => a.sceneNumber === v.sceneNumber);
+                    return {
+                      url: v.videoUrl,
+                      duration: scene?.duration || 5,
+                      audioDuration: audio?.duration || scene?.duration || 5,
+                      caption: captionSettings.enabled && scene?.narration ? scene.narration : undefined
+                    };
+                  });
+
+                  const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+                    body: {
+                      clips,
+                      audioUrl: mergedAudioUrl,
+                      backgroundMusicUrl: backgroundMusicUrl || undefined,
+                      backgroundMusicVolume: 25,
+                      transition: transitionStyle,
+                      captionStyle: captionSettings.position || 'bottom',
+                      width: stitchWidth,
+                      height: stitchHeight,
+                      captionFont: captionSettings.fontFamily || 'Montserrat',
+                      captionFontSize: captionSettings.fontSize || 'medium',
+                      captionFontColor: captionSettings.fontColor || '#ffffff',
+                      captionBackground: captionSettings.background || 'glass',
+                      captionAnimation: captionSettings.style || 'karaoke',
+                      logoUrl: selectedLogoUrl || undefined,
+                      logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined,
+                      introImageUrl: selectedThumbnailUrl || undefined,
+                      introImageDuration: 3,
+                    }
+                  });
+
+                  if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
+
+                  let cloudUrl: string | null = null;
+                  for (let attempt = 0; attempt < 60; attempt++) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    const { data: status } = await supabase.functions.invoke('creatomate-status', {
+                      body: { renderId: stitchData.renderId }
+                    });
+                    if (status?.status === 'succeeded' && status?.url) { cloudUrl = status.url; break; }
+                    if (status?.status === 'failed') throw new Error('Cloud render failed');
+                    setProgress(80 + Math.min(12, (attempt / 60) * 12));
+                    setProgressStatus(`Rendering... ${status?.progress ? Math.round(status.progress) + '%' : ''}`);
+                  }
+                  if (!cloudUrl) throw new Error('Cloud render timed out');
+
+                  persistedVideoUrl = cloudUrl;
+                  console.log('[AutoStitch] Cloud render complete:', cloudUrl);
+                } catch (cloudErr) {
+                  console.warn('[AutoStitch] Cloud stitch failed, falling back to canvas:', cloudErr);
+                  setProgressStatus('Falling back to local stitching...');
+                  // Fall through to canvas stitch below
+                }
+              }
+
+              // Canvas fallback (or primary path when captions not enabled)
+              if (!persistedVideoUrl || persistedVideoUrl === '') {
+                const canvasBlob = await canvasStitchVideos({
+                  videoUrls,
+                  audioUrls: audioUrlsForStitch.length > 0 ? audioUrlsForStitch : undefined,
+                  embeddedAudioIndices: embeddedAudioIndices.length > 0 ? embeddedAudioIndices : undefined,
+                  backgroundMusicUrl: backgroundMusicUrl || undefined,
+                  backgroundMusicVolume: 20,
+                  width: stitchWidth,
+                  height: stitchHeight,
+                  onProgress: (p) => {
+                    setProgress(75 + Math.round(p * 0.2));
+                    setProgressStatus(`Stitching... ${Math.round(p)}%`);
+                  },
+                  onStatus: (s) => setProgressStatus(s)
+                });
+
+                finalBlob = canvasBlob;
+                const blobUrl = URL.createObjectURL(canvasBlob);
+                videoBlobRef.current = canvasBlob;
+                persistedVideoUrl = blobUrl;
+
+                if (user) {
+                  setProgress(92);
+                  setProgressStatus('Uploading final video...');
+                  try {
+                    const isWebm = canvasBlob.type.includes('webm');
+                    const ext = isWebm ? 'webm' : 'mp4';
+                    const fileName = `${user.id}/videos/${Date.now()}-stitched.${ext}`;
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                      .from('reels')
+                      .upload(fileName, canvasBlob, { contentType: canvasBlob.type || 'video/webm' });
+                    if (!uploadError && uploadData) {
+                      const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+                      persistedVideoUrl = publicUrl.publicUrl;
+                    }
+                  } catch (e) {
+                    console.warn('Upload failed:', e);
+                  }
                 }
               }
             }
