@@ -578,6 +578,7 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                   ))}
                 </div>
               </div>
+            </div>
 
             {/* Reference Image Selection */}
             <div className="space-y-3">
