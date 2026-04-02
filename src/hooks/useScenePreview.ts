@@ -105,11 +105,13 @@ interface UseScenePreviewResult {
   setCharacterTransformation: (transformation: string) => void;
   generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
+  regenerateSceneVoice: (sceneNumber: number, narration: string, voice?: string, speechifyVoiceId?: string, voiceEngine?: string, googleVoiceId?: string, userId?: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
   setExternalReference: (imageUrl: string) => void;
   clearReference: () => void;
   resetPreview: () => void;
+  restorePreviewScenes: (scenes: PreviewScene[], vos: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[]) => void;
   insertScene: (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => Promise<void>;
   deleteScene: (sceneNumber: number) => void;
 }
