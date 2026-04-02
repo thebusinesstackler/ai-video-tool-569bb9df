@@ -3597,7 +3597,7 @@ STYLE REQUIREMENTS:
           const sizeMap3: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
           const [rw, rh] = sizeMap3[selectedVideoSize] || [1080, 1920];
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
-            body: { clips, transition: transitionStyle || 'crossfade', width: rw, height: rh }
+            body: { clips, transition: transitionStyle || 'crossfade', width: rw, height: rh, logoUrl: selectedLogoUrl || undefined, logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error('Cloud stitch failed');
 
