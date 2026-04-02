@@ -232,8 +232,10 @@ What the character is talking about: "${scene.narration}"
 REQUIREMENTS:
 - Direct eye contact with camera, head facing forward
 - Natural confident pose
-- Professional lighting, clean composition
-- Photorealistic, high quality, vertical 9:16 format
+- Hyper-realistic skin texture (pores, micro-wrinkles, natural imperfections) — never plastic or CGI
+- Professional cinematic lighting: key light with soft fill, rim light separation, warm natural tones
+- Shallow depth of field, clean composition, shot on 85mm lens
+- Vertical 9:16 format
 - NO text, captions, watermarks, or written words${antiPropRule}`;
 }
 
