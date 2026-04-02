@@ -13,6 +13,9 @@ interface KaraokeCaptionProps {
   style?: CaptionStyle;
   background?: CaptionBackground;
   position?: CaptionPosition;
+  fontFamily?: string;
+  fontSize?: string;
+  fontColor?: string;
 }
 
 export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
