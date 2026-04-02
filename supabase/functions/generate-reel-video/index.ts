@@ -195,8 +195,10 @@ Topic being discussed: ${topic}
 REQUIREMENTS:
 - Eyes locked on camera, head facing forward
 - Natural confident expression, slight smile
-- Soft studio lighting, clean blurred background
-- Photorealistic, high quality portrait
+- Hyper-realistic skin with visible pores, natural imperfections, subsurface scattering — NOT airbrushed or plastic
+- Professional 3-point cinematic lighting (key light at 45°, soft fill, rim/hair light), warm natural color temperature
+- Shallow depth of field, clean blurred background with bokeh
+- Shot on 85mm f/1.4 lens, film-grade color grading
 - Vertical 9:16 format
 - NO text, captions, watermarks, or written words${antiPropRule}`;
   }
@@ -230,15 +232,17 @@ What the character is talking about: "${scene.narration}"
 REQUIREMENTS:
 - Direct eye contact with camera, head facing forward
 - Natural confident pose
-- Professional lighting, clean composition
-- Photorealistic, high quality, vertical 9:16 format
+- Hyper-realistic skin texture (pores, micro-wrinkles, natural imperfections) — never plastic or CGI
+- Professional cinematic lighting: key light with soft fill, rim light separation, warm natural tones
+- Shallow depth of field, clean composition, shot on 85mm lens
+- Vertical 9:16 format
 - NO text, captions, watermarks, or written words${antiPropRule}`;
 }
 
 // Build image generation prompt text (for OpenAI DALL-E which doesn't accept reference images)
 function buildImageGenPrompt(prompt: string, referenceImages?: string[]) {
   if (referenceImages && referenceImages.length > 0) {
-    return `${prompt}\n\nIMPORTANT: Generate this as a photorealistic image matching the described character exactly. Ultra high quality, cinematic lighting.`;
+    return `${prompt}\n\nIMPORTANT: Generate this as a hyper-realistic image matching the described character exactly. Natural skin with visible pores and imperfections. Professional cinematic lighting with 3-point setup, warm natural color grading. Shot on ARRI Alexa.`;
   }
   return prompt;
 }

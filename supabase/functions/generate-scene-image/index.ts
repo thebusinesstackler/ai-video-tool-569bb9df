@@ -27,7 +27,14 @@ async function enhancePrompt(rawPrompt: string): Promise<string> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Rewrite the given scene description into a detailed, photorealistic cinematic image prompt. Include lighting, composition, camera details, color grading. Keep under 300 words. Output ONLY the enhanced prompt.`;
+  const systemMsg = `You are an expert image prompt engineer for DALL-E / gpt-image-1. Rewrite the given scene description into a hyper-realistic cinematic image prompt. MANDATORY quality directives to include:
+- HYPER-REALISTIC skin with visible pores, natural imperfections, micro-wrinkles, and subsurface scattering
+- Professional cinematic lighting: specify exact lighting setup (e.g. key light at 45°, fill light, rim/hair light, practical lights in scene)
+- Natural color grading with accurate skin tones, no oversaturation
+- Shallow depth of field with bokeh when appropriate
+- Camera lens specification (e.g. 85mm f/1.4, 35mm wide angle)
+- Atmospheric details: dust particles in light, lens flare, volumetric haze if appropriate
+Keep under 300 words. Output ONLY the enhanced prompt.`;
 
   if (ANTHROPIC_API_KEY) {
     try {
@@ -198,7 +205,7 @@ serve(async (req) => {
     }
 
     // Build comprehensive text prompt (since DALL-E doesn't accept reference images)
-    let rawPrompt = `Generate a cinematic, photorealistic movie scene image. ${sanitizedPrompt}`;
+    let rawPrompt = `Generate a hyper-realistic cinematic scene. All people must have natural skin with visible pores, subtle imperfections, and realistic textures — never airbrushed, plastic, or CGI-looking. Use professional 3-point cinematic lighting (key, fill, rim). ${sanitizedPrompt}`;
 
     if (sanitizedDescription) {
       rawPrompt += `\nThe main character: ${sanitizedDescription}`;
@@ -212,7 +219,7 @@ serve(async (req) => {
       rawPrompt += blockingInstructions;
     }
 
-    rawPrompt += `\n\nVertical 9:16 portrait format. Ultra photorealistic, cinematic lighting, film-grade quality.`;
+    rawPrompt += `\n\nVertical 9:16 portrait format. Hyper-realistic with natural skin texture (pores, micro-wrinkles, subsurface scattering). Professional cinematic lighting with accurate color temperature. Shot on ARRI Alexa with anamorphic lens. Film-grade color grading, natural skin tones.`;
 
     // Enhance prompt for better DALL-E output
     const enhancedPrompt = await enhancePrompt(rawPrompt);
