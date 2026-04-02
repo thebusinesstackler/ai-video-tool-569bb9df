@@ -167,6 +167,8 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     setCustomPrompt(scene.visualDescription);
     setLocalReferenceUrl(referenceImageUrl || null);
     setSelectedProductUrl(null);
+    setSelectedProductName(null);
+    setProductPlacementInstructions('');
     setRegenerateDialogOpen(true);
   };
 
