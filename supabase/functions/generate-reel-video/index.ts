@@ -498,9 +498,13 @@ serve(async (req) => {
         
         console.log(`Scene ${scene.sceneNumber}: target duration ${targetDuration}s, clip duration ${clipDuration}s, model=${videoModel}`);
         
-        // Build rich character context for prompts
+        // Build rich character context for prompts — includes full project context
         const charContext = characterDescription ? `Character: ${characterDescription}.` : '';
-        const topicContext = `Topic: ${topic}.`;
+        const topicContext = `Topic: ${topic}.${productName ? ` Featured product: ${productName}.` : ''}`;
+        const isProductBrollScene = !!(scene as any).isProductBroll;
+        const isCTAScene = (scene as any).scenePurpose === 'cta' || (scene.isOutro && !scene.isIntro);
+        const sceneStartFrame = (scene as any).startFrame || '';
+        const sceneEndFrame = (scene as any).endFrame || '';
         
         // ====== SCENE TYPE ROUTING ======
         // When VEO3 is selected, ALL scene types use VEO3 — no mixing models.
