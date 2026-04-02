@@ -68,6 +68,7 @@ import {
   Package
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
+import { TimelineEditor } from '@/components/TimelineEditor';
 import { useScenePreview } from '@/hooks/useScenePreview';
 import { FrameCapture } from '@/components/FrameCapture';
 import { VoiceSelector } from '@/components/VoiceSelector';
