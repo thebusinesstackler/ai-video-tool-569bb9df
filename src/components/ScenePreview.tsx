@@ -993,6 +993,97 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Voice Preview Dialog */}
+      <Dialog open={voicePreviewDialogOpen} onOpenChange={setVoicePreviewDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mic className="w-5 h-5" />
+              Preview Voices — Scene {voicePreviewScene?.sceneNumber}
+            </DialogTitle>
+            <DialogDescription>
+              Generate samples with different voices, listen, and apply the one that fits best
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Narration text preview */}
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">Scene narration:</p>
+              <p className="text-sm italic">"{voicePreviewScene?.narration}"</p>
+            </div>
+
+            {/* Voice options to generate */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Generate a Sample</label>
+              <div className="grid grid-cols-2 gap-2">
+                {availableVoices.map((voice) => (
+                  <Button
+                    key={voice.id}
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-xs justify-start"
+                    onClick={() => generateVoiceSample(voice.id, voice.label)}
+                    disabled={isGeneratingVoices || disabled}
+                  >
+                    <Mic className="w-3 h-3 mr-1.5 shrink-0" />
+                    <span className="truncate">{voice.label}</span>
+                    {voice.gender && <Badge variant="secondary" className="ml-auto text-[9px] h-4">{voice.gender}</Badge>}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Generated samples */}
+            {voiceSamples.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Generated Samples</label>
+                <div className="space-y-2">
+                  {voiceSamples.map((sample) => (
+                    <div key={sample.id} className="flex items-center gap-2 p-2 border rounded-lg bg-card">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{sample.label}</p>
+                      </div>
+                      {sample.isGenerating ? (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Generating...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => playVoiceSample(sample.id, sample.audioUrl)}
+                          >
+                            {playingVoiceSample === sample.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-8 text-xs"
+                            onClick={() => applyVoiceSampleToScene(sample.audioUrl)}
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setVoicePreviewDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
