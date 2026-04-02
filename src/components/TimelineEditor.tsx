@@ -639,60 +639,66 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
   // ─── Render ─────────────────────────────────────────────────────────
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full bg-background">
-        {/* ─── Top Bar ───────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-3 py-1.5 border-b bg-card">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-7">
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+      <div className="flex flex-col h-full bg-[hsl(var(--background))] text-foreground">
+        {/* ─── Top Bar (CapCut-style dark toolbar) ───────────────── */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-card/80 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 gap-1.5 text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="w-4 h-4" /> Exit Timeline
             </Button>
             <Separator orientation="vertical" className="h-5" />
-            <Badge variant="secondary" className="text-[10px]">
-              {scenes.length} scenes · {formatTime(totalDuration)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Film className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">{scenes.length} Scenes</span>
+              <Badge variant="secondary" className="text-[10px] font-mono bg-muted">
+                {formatTime(totalDuration)}
+              </Badge>
+            </div>
             {hasUnsavedChanges && (
-              <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-600/30">
-                Unsaved
+              <Badge variant="outline" className="text-[10px] border-yellow-500/40 text-yellow-500 animate-pulse">
+                ● Unsaved
               </Badge>
             )}
             {lastSavedAt && !hasUnsavedChanges && (
               <span className="text-[10px] text-muted-foreground">
-                Saved {lastSavedAt.toLocaleTimeString()}
+                ✓ Saved {lastSavedAt.toLocaleTimeString()}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={undo} disabled={undoStack.length === 0}>
-                <Undo2 className="w-3.5 h-3.5" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={undo} disabled={undoStack.length === 0}>
+                <Undo2 className="w-4 h-4" />
               </Button>
             </TooltipTrigger><TooltipContent>Undo (Ctrl+Z)</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={redo} disabled={redoStack.length === 0}>
-                <Redo2 className="w-3.5 h-3.5" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={redo} disabled={redoStack.length === 0}>
+                <Redo2 className="w-4 h-4" />
               </Button>
             </TooltipTrigger><TooltipContent>Redo (Ctrl+Shift+Z)</TooltipContent></Tooltip>
-            <Separator orientation="vertical" className="h-5" />
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={manualSave}>
-              <Save className="w-3 h-3 mr-1" /> Save
+            <Separator orientation="vertical" className="h-5 mx-1" />
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={manualSave}>
+              <Save className="w-3.5 h-3.5" /> Save
             </Button>
-            <Separator orientation="vertical" className="h-5" />
+            <Separator orientation="vertical" className="h-5 mx-1" />
             <Tooltip><TooltipTrigger asChild>
-              <Button variant={showSafeZones ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => setShowSafeZones(!showSafeZones)}>
-                <Target className="w-3.5 h-3.5" />
+              <Button variant={showSafeZones ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setShowSafeZones(!showSafeZones)}>
+                <Target className="w-4 h-4" />
               </Button>
-            </TooltipTrigger><TooltipContent>Toggle Safe Zones</TooltipContent></Tooltip>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowAssetPanel(!showAssetPanel)}>
-              <Layers className="w-3 h-3 mr-1" /> Panel
+            </TooltipTrigger><TooltipContent>Safe Zones</TooltipContent></Tooltip>
+            <Button variant={showAssetPanel ? 'secondary' : 'ghost'} size="sm" className="h-8 text-xs gap-1.5" onClick={() => setShowAssetPanel(!showAssetPanel)}>
+              <Layers className="w-3.5 h-3.5" /> Properties
             </Button>
-            <Separator orientation="vertical" className="h-5" />
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}>
-              <ZoomOut className="w-3.5 h-3.5" />
-            </Button>
-            <span className="text-[10px] text-muted-foreground w-8 text-center">{Math.round(zoom * 100)}%</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(4, z + 0.25))}>
-              <ZoomIn className="w-3.5 h-3.5" />
-            </Button>
+            <Separator orientation="vertical" className="h-5 mx-1" />
+            <div className="flex items-center gap-0.5 bg-muted/50 rounded-md px-1 py-0.5">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}>
+                <ZoomOut className="w-3.5 h-3.5" />
+              </Button>
+              <span className="text-[10px] text-muted-foreground w-9 text-center font-mono">{Math.round(zoom * 100)}%</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(4, z + 0.25))}>
+                <ZoomIn className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
 
