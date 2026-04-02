@@ -403,9 +403,22 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
     <>
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ImageIcon className="w-5 h-5 text-primary" />
-            Scene Preview
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-primary" />
+              Scene Preview
+            </div>
+            {onApplyProductScript && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => setProductAnalysisOpen(true)}
+              >
+                <Package className="w-3.5 h-3.5" />
+                Add Product
+              </Button>
+            )}
           </CardTitle>
           <CardDescription className="flex items-center justify-between">
             <span>Review and adjust scene images before creating the final video</span>
