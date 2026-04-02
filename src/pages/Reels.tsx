@@ -2979,7 +2979,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setCharacterTransformation('');
     setCurrentReelSaved(false);
     setBeginnerStep(1);
-    setGeneratedThumbnail(null);
+    setGeneratedThumbnails([]);
     setShowThumbnailDialog(false);
   };
 
