@@ -205,7 +205,7 @@ serve(async (req) => {
     }
 
     // Build comprehensive text prompt (since DALL-E doesn't accept reference images)
-    let rawPrompt = `Generate a cinematic, photorealistic movie scene image. ${sanitizedPrompt}`;
+    let rawPrompt = `Generate a hyper-realistic cinematic scene. All people must have natural skin with visible pores, subtle imperfections, and realistic textures — never airbrushed, plastic, or CGI-looking. Use professional 3-point cinematic lighting (key, fill, rim). ${sanitizedPrompt}`;
 
     if (sanitizedDescription) {
       rawPrompt += `\nThe main character: ${sanitizedDescription}`;
