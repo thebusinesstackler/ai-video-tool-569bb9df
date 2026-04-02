@@ -115,6 +115,8 @@ serve(async (req) => {
     const {
       clips,
       audioUrl,
+      backgroundMusicUrl,
+      backgroundMusicVolume = 25,
       transition = 'crossfade',
       captionStyle = 'bottom',
       transitionDuration = 0.8,
