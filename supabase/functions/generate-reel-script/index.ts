@@ -738,14 +738,16 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Conversational narration (${minWordsPerScene}-${maxWordsPerScene} words)",
-    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[ENVIRONMENT: rich setting]. [CHARACTER: exact appearance + outfit]. [ACTION step-by-step: first, middle, end]. [EXPRESSION progression]. [CAMERA: framing + motion]. [LIGHTING: direction + quality]. [PRODUCT interaction if applicable]. [PACING cue]. [TRANSITION: how this connects to next scene]. [START FRAME / END FRAME when useful].",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[ENVIRONMENT: rich setting]. [CHARACTER: exact appearance + outfit]. [ACTION step-by-step: first, middle, end]. [EXPRESSION progression]. [CAMERA: framing + motion]. [LIGHTING: direction + quality]. [PRODUCT interaction if applicable]. [PACING cue]. [TRANSITION: how this connects to next scene]. [START FRAME: exact first frame composition]. [END FRAME: exact last frame composition].",
+    "startFrame": "Exact description of the first frame of this scene — composition, camera position, character pose",
+    "endFrame": "Exact description of the last frame — must visually connect to the next scene's startFrame",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level",
-    "scenePurpose": "hook | build | core | demo | result | cta",
+    "scenePurpose": "hook | build | core | demo | result | cta | product-broll",
     "movement": "specific step-by-step physical action",
     "expression": "emotion progression described",
     "lighting": "bright natural / warm golden / etc",
-    "transitionTo": "how this scene connects to the next"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
+    "transitionTo": "how this scene connects to the next"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}${productImageUrl ? ',\n    "isProductBroll": false' : ''}
   }
 ]`;
 
