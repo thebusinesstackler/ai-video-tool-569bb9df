@@ -417,6 +417,11 @@ const Reels = () => {
   const [ctaSlideHeadline, setCtaSlideHeadline] = useState('');
   const [ctaSlideSubtitle, setCtaSlideSubtitle] = useState('');
   
+  // Thumbnail generation state
+  const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
+  const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null);
+  const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
+  
   // Video size state
   const [selectedVideoSize, setSelectedVideoSize] = useState('9:16');
   
@@ -2905,6 +2910,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setCharacterTransformation('');
     setCurrentReelSaved(false);
     setBeginnerStep(1);
+    setGeneratedThumbnail(null);
+    setShowThumbnailDialog(false);
   };
 
   const handleDownloadVideo = async () => {
@@ -3249,6 +3256,50 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
       toast({ title: `${position === 'intro' ? 'Intro' : 'CTA'} Slide Added!` });
     } catch (err: any) {
       toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  // Generate AI thumbnail for the reel
+  const generateThumbnail = async () => {
+    setIsGeneratingThumbnail(true);
+    try {
+      const sceneDescriptions = project.generatedScenes
+        .slice(0, 3)
+        .map(s => s.text || '')
+        .filter(Boolean)
+        .join('. ');
+      
+      const thumbnailPrompt = `Create an eye-catching, click-worthy YouTube/TikTok thumbnail image.
+Topic: "${project.topic || topic}"
+Content context: ${sceneDescriptions}
+${characterDescription ? `Character: ${characterDescription}` : ''}
+
+STYLE REQUIREMENTS:
+- Bold, high-contrast, vibrant colors that pop
+- Dynamic composition with visual depth
+- Cinematic quality, professional lighting
+- 9:16 vertical format
+- CRITICAL: Do NOT include any text, letters, words, or typography — pure visual only
+- Should make someone WANT to click and watch`;
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [{ role: 'user', content: thumbnailPrompt }],
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        }
+      });
+      if (error) throw error;
+      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!imageUrl) throw new Error('No thumbnail generated');
+      
+      setGeneratedThumbnail(imageUrl);
+      setShowThumbnailDialog(true);
+      toast({ title: "Thumbnail Generated!", description: "Preview your thumbnail below." });
+    } catch (err: any) {
+      toast({ title: "Thumbnail Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsGeneratingThumbnail(false);
     }
   };
 
@@ -6182,7 +6233,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
                   {/* Intro/CTA Slide Buttons */}
                   {project.generatedScenes.length > 0 && !project.videoBlobUrl && (
-                    <div className="flex justify-center gap-2 mb-3">
+                    <div className="flex flex-wrap justify-center gap-2 mb-3">
                       <Button
                         size="sm"
                         variant="outline"
@@ -6197,7 +6248,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         onClick={() => setShowCtaSlideForm(true)}
                       >
                         <Sparkles className="w-3 h-3 mr-1" />
-                        Add CTA Slide
+                        Add Outro/CTA Slide
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={generateThumbnail}
+                        disabled={isGeneratingThumbnail}
+                      >
+                        {isGeneratingThumbnail ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />}
+                        Generate Thumbnail
                       </Button>
                     </div>
                   )}
@@ -6272,6 +6332,48 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     </DialogContent>
                   </Dialog>
 
+                  {/* Thumbnail Preview Dialog */}
+                  <Dialog open={showThumbnailDialog} onOpenChange={setShowThumbnailDialog}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Video Thumbnail</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {generatedThumbnail && (
+                          <div className="relative rounded-lg overflow-hidden border border-border">
+                            <img src={generatedThumbnail} alt="Generated thumbnail" className="w-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={generateThumbnail}
+                            disabled={isGeneratingThumbnail}
+                          >
+                            {isGeneratingThumbnail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                            Regenerate
+                          </Button>
+                          <Button
+                            className="flex-1"
+                            onClick={() => {
+                              if (generatedThumbnail) {
+                                const link = document.createElement('a');
+                                link.href = generatedThumbnail;
+                                link.download = `thumbnail-${project.topic || 'reel'}.png`;
+                                link.click();
+                              }
+                              setShowThumbnailDialog(false);
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Save Thumbnail
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
                   <div className="flex flex-wrap justify-center gap-3">
                     {/* Stitch button - show when we have multiple clips */}
                     {project.videoClips.length > 1 && (
@@ -6302,13 +6404,28 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </div>
                     )}
                     {project.videoBlobUrl && project.videoClips.length === 0 && (
-                      <Button 
-                        onClick={handleDownloadVideo}
-                        className="bg-gradient-primary hover:opacity-90"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download for TikTok
-                      </Button>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button 
+                          onClick={handleDownloadVideo}
+                          className="bg-gradient-primary hover:opacity-90"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download for TikTok
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={generateThumbnail}
+                          disabled={isGeneratingThumbnail}
+                          className="border-primary/50 text-primary hover:bg-primary/10"
+                        >
+                          {isGeneratingThumbnail ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                          )}
+                          Generate Thumbnail
+                        </Button>
+                      </div>
                     )}
                     {/* Re-generate with Lip Sync */}
                     {project.videoBlobUrl && project.videoClips.length === 0 && !enableLipSync && project.generatedScenes.length > 0 && (
