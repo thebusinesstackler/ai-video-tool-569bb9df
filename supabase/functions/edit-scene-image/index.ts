@@ -219,6 +219,8 @@ serve(async (req) => {
       cameraAngle,
       backgroundDescription,
       refCount: allReferenceImages.length,
+      productImageUrl,
+      productName,
     };
 
     // Build the raw prompt including all context
