@@ -6579,9 +6579,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           isOutro: i === sceneSrc.length - 1,
                         }));
                       })()}
-                      voiceovers={previewVoiceovers}
+                      voiceovers={previewVoiceovers.length > 0 ? previewVoiceovers : project.voiceovers}
                       backgroundMusicUrl={backgroundMusicUrl}
-                      totalDuration={previewScenes.reduce((sum, s) => sum + (s.audioDuration > 0 ? s.audioDuration : parseInt(selectedSceneDuration) || 10), 0)}
+                      totalDuration={(() => { const src = previewScenes.length > 0 ? previewScenes : project.generatedScenes; return src.reduce((sum, s: any) => sum + ((s.audioDuration || 0) > 0 ? s.audioDuration : parseInt(selectedSceneDuration) || 10), 0); })()}
                       aspectRatio={selectedVideoSize}
                       onScenesUpdate={(updatedScenes) => {
                         const reorderedProjectScenes = updatedScenes.map(ts => {
