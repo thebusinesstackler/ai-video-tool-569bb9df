@@ -366,7 +366,8 @@ ${hasOutro ? '- Outro scene: Write 8-15 words only (2 seconds)' : ''}
 - Write conversational sentences that flow naturally when spoken
 - Each scene should transition smoothly to the next
 - Use complete thoughts and natural pauses
-- IMPORTANT: Scene 1 must use a creative, engaging hook - NOT just "Stop scrolling"
+- IMPORTANT: Scene 1 must use a creative, psychologically compelling hook — NOT "Stop scrolling" or any generic opener
+- Scene 1's visualDescription must be a high-impact, thumbnail-optimized hero shot with dramatic expression and bold composition
 
 ${enableCutScenes ? `
 CUT SCENES:
