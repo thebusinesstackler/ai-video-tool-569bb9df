@@ -124,6 +124,10 @@ const AISpokesperson = () => {
   const [showSceneGallery, setShowSceneGallery] = useState(false);
   const [isAddingShot, setIsAddingShot] = useState(false);
   
+  // Preview step
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  
   // Caption overlay
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [captionText, setCaptionText] = useState('');
@@ -941,6 +945,93 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     }
   };
 
+  // Generate a preview image for the script (without starting video generation)
+  const generatePreviewImage = async () => {
+    if (!selectedTwin || !generatedScript) return;
+    setIsGeneratingPreview(true);
+    
+    try {
+      const portraitImage = selectedTwin.reference_images[0];
+      const angle = CAMERA_ANGLES.find(a => a.id === (generatedScript.cameraAngle || selectedCameraAngle));
+      const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
+      const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
+
+      const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video.
+
+CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
+GENDER: ${selectedTwin.gender || 'unspecified'}
+CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4
+SETTING: ${setting?.prompt || 'professional studio'}
+EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, natural micro-expression
+LIGHTING: Hollywood-grade 3-point setup, warm tungsten key light at 45°, soft fill, crisp rim light
+QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
+
+      const imageMessages: any[] = [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: portraitImage } },
+          { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${imagePrompt}` }
+        ]
+      }];
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+      const imageResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: imageMessages,
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text']
+        })
+      });
+
+      if (imageResponse.ok) {
+        const imageData = await imageResponse.json();
+        const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (imgUrl) {
+          // Upload base64 to storage
+          if (imgUrl.startsWith('data:') && user) {
+            try {
+              const matches = imgUrl.match(/^data:([^;]+);base64,(.+)$/);
+              if (matches) {
+                const imgBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+                const imgFileName = `${user.id}/spokesperson/${Date.now()}-preview.png`;
+                const { data: imgUpload, error: imgUploadErr } = await supabase.storage
+                  .from('reels')
+                  .upload(imgFileName, imgBytes, { contentType: matches[1], upsert: true });
+                if (!imgUploadErr && imgUpload) {
+                  const { data: imgPublicUrl } = supabase.storage.from('reels').getPublicUrl(imgFileName);
+                  setPreviewImageUrl(imgPublicUrl.publicUrl);
+                } else {
+                  setPreviewImageUrl(imgUrl);
+                }
+              }
+            } catch { setPreviewImageUrl(imgUrl); }
+          } else {
+            setPreviewImageUrl(imgUrl);
+          }
+        } else {
+          // Use reference image as fallback
+          setPreviewImageUrl(portraitImage);
+        }
+      } else {
+        setPreviewImageUrl(portraitImage);
+      }
+    } catch (err) {
+      console.warn('Preview image generation failed:', err);
+      if (selectedTwin.reference_images?.[0]) {
+        setPreviewImageUrl(selectedTwin.reference_images[0]);
+      }
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
   const handleBeginnerGenerate = async () => {
     if (!message.trim()) {
       toast({ title: 'Message Required', description: 'Enter the message you want delivered.', variant: 'destructive' });
@@ -951,25 +1042,30 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       return;
     }
     
-    // Generate script then video
+    // Generate script only — preview will be shown after
     await generateScript();
   };
 
-  // Auto-start video after script generation in beginner mode (NOT for kling-pro)
-  // Skip if script was restored from draft (don't auto-regenerate)
+  // After script generation, generate a preview image (NOT auto-start video)
   useEffect(() => {
     if (scriptFromDraft.current) {
       scriptFromDraft.current = false;
       return;
     }
-    if (isBeginner && generatedScript && !isGenerating && !videoUrl) {
-      if (selectedQuality === 'kling-pro') {
-        generateMultipleShots();
-      } else {
-        generateVideo();
-      }
+    if (generatedScript && !isGenerating && !videoUrl && !previewImageUrl && !isGeneratingPreview) {
+      generatePreviewImage();
     }
-  }, [generatedScript, isBeginner]);
+  }, [generatedScript]);
+
+  const handleApproveAndGenerate = () => {
+    if (selectedQuality === 'kling-pro') {
+      generateMultipleShots();
+    } else {
+      generateVideo();
+    }
+    // Clear preview so it doesn't show again
+    setPreviewImageUrl(null);
+  };
 
   const resetAll = () => {
     setGeneratedScript(null);
@@ -985,6 +1081,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     setVersionB(null);
     setShowComparison(false);
     setShowBSettings(false);
+    setPreviewImageUrl(null);
     clearDraft();
   };
 
@@ -1795,7 +1892,118 @@ Return ONLY the JSON object.`
           </Card>
         )}
 
-        {/* Draft Recovery / Retry Banner */}
+        {/* ===== PREVIEW STEP — Script + Image before video generation ===== */}
+        {generatedScript && !videoUrl && !isGenerating && !showSceneGallery && (previewImageUrl || isGeneratingPreview) && (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-primary" />
+                Preview — Review Before Generating Video
+              </CardTitle>
+              <CardDescription>
+                Here's your script and character preview. Approve to start video generation, or go back to edit.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Preview Image */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Character Preview</Label>
+                  <div className="aspect-[9/16] max-h-[400px] mx-auto rounded-lg overflow-hidden bg-muted border border-border relative">
+                    {isGeneratingPreview ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                        <div className="relative">
+                          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">Generating preview...</p>
+                      </div>
+                    ) : previewImageUrl ? (
+                      <img src={previewImageUrl} alt="Character preview" className="w-full h-full object-cover" />
+                    ) : null}
+                  </div>
+                  {!isGeneratingPreview && previewImageUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs text-muted-foreground"
+                      onClick={generatePreviewImage}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Regenerate Preview
+                    </Button>
+                  )}
+                </div>
+
+                {/* Script Preview */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-primary" />
+                      Script
+                    </Label>
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-sm text-foreground leading-relaxed italic">
+                        "{generatedScript.narration}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Scene breakdown */}
+                  {generatedScript.scenes && generatedScript.scenes.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Film className="w-4 h-4 text-primary" />
+                        Scene Breakdown
+                      </Label>
+                      <div className="space-y-1.5">
+                        {generatedScript.scenes.map((scene: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 rounded bg-background/60 border border-border text-xs">
+                            <span>{scene.type === 'speaking' ? '🎤' : '🎬'}</span>
+                            <span className="font-medium capitalize">{scene.type}</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{scene.duration || 5}s</Badge>
+                            <span className="text-muted-foreground truncate flex-1">{scene.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Production settings summary */}
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-1 text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Setting:</span> {SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting))?.name}</p>
+                    <p><span className="font-medium text-foreground">Mood:</span> {MOODS.find(m => m.id === (generatedScript.mood || selectedMood))?.name}</p>
+                    <p><span className="font-medium text-foreground">Camera:</span> {CAMERA_ANGLES.find(a => a.id === (generatedScript.cameraAngle || selectedCameraAngle))?.name}</p>
+                    <p><span className="font-medium text-foreground">Duration:</span> ~{selectedDuration}s</p>
+                    {generatedScript.musicSuggestion && (
+                      <p><span className="font-medium text-foreground">Music:</span> {generatedScript.musicSuggestion}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => { setGeneratedScript(null); setPreviewImageUrl(null); }}
+                >
+                  ← Edit Message
+                </Button>
+                <Button
+                  onClick={handleApproveAndGenerate}
+                  disabled={isGeneratingPreview || !selectedTwin}
+                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 px-8"
+                  size="lg"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Approve & Generate Video ✨
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+
         {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && generatedScript && (
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="pt-4 pb-4">
@@ -1836,7 +2044,7 @@ Return ONLY the JSON object.`
         )}
 
         {/* ===== BEGINNER MODE ===== */}
-        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && (
+        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && !previewImageUrl && !isGeneratingPreview && (
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <CardContent className="pt-8 pb-8 space-y-6">
               <div className="text-center space-y-2">
