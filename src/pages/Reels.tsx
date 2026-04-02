@@ -309,6 +309,7 @@ const Reels = () => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
   const [draftReels, setDraftReels] = useState<SavedReel[]>([]);
+  const [timelineViewActive, setTimelineViewActive] = useState(false);
   
   
   // Template state
