@@ -6911,7 +6911,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={generateThumbnail}
+                          onClick={() => generateThumbnail()}
                           disabled={isGeneratingThumbnail}
                           className="border-primary/50 text-primary hover:bg-primary/10"
                         >
