@@ -4074,6 +4074,26 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       </div>
                     )}
 
+                    {/* Product Image (Quick Mode) */}
+                    {timelineProductImages.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs flex items-center gap-1"><Package className="w-3 h-3 text-primary" /> Feature a Product (Optional)</Label>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {selectedProductImageUrl && (
+                            <div onClick={() => { setSelectedProductImageUrl(null); setSelectedProductName(null); }} className="cursor-pointer rounded-md border-2 border-dashed border-border hover:border-destructive/50 w-14 h-14 flex-shrink-0 flex items-center justify-center text-[9px] text-muted-foreground">
+                              <X className="w-3 h-3" />
+                            </div>
+                          )}
+                          {timelineProductImages.map(p => (
+                            <div key={p.id} onClick={() => { setSelectedProductImageUrl(p.image_url); setSelectedProductName(p.name); }}
+                              className={`cursor-pointer rounded-md border-2 overflow-hidden w-14 h-14 flex-shrink-0 transition-all ${selectedProductImageUrl === p.image_url ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
+                              <img src={p.image_url} alt={p.name || ''} className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <Button
                         onClick={() => generateQuickModeTest(topic)}
