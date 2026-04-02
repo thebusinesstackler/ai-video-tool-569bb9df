@@ -566,8 +566,10 @@ VALIDATION:
 - No em dashes (—) or ellipses (...) in narration
 - Scene 1 must be complete and engaging (not a fragment)
 - EVERY scene must include physical movement + camera motion
-- Visual descriptions must be 60-100 words each (rich and cinematic)
+- Visual descriptions must be 80-150 words each (rich cinematic director briefs)
 - Narration must sound natural and human
+- Same character (appearance + outfit) in every scene
+- Every scene must have transition logic connecting to adjacent scenes
 ${hasIntro ? '- Scene 1 MUST have "isIntro": true' : ''}
 ${hasOutro ? '- Last scene MUST have "isOutro": true' : ''}
 
@@ -576,13 +578,14 @@ Return ONLY valid JSON array:
   {
     "sceneNumber": 1,
     "narration": "Conversational narration (${minWordsPerScene}-${maxWordsPerScene} words)",
-    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[detailed step-by-step action with emotion progression]. [Camera movement, framing, feel]. [Rich environment with atmosphere, texture, depth]. [Lighting direction, quality, mood]. [Pacing cue].",
+    "visualDescription": "${characterDescription ? `${characterDescription}, ` : ''}[ENVIRONMENT: rich setting]. [CHARACTER: exact appearance + outfit]. [ACTION step-by-step: first, middle, end]. [EXPRESSION progression]. [CAMERA: framing + motion]. [LIGHTING: direction + quality]. [PRODUCT interaction if applicable]. [PACING cue]. [TRANSITION: how this connects to next scene]. [START FRAME / END FRAME when useful].",
     "duration": ${finalSceneDuration},
     "cameraAngle": "close-up, eye-level",
     "scenePurpose": "hook | build | core | demo | result | cta",
-    "movement": "specific physical action described",
+    "movement": "specific step-by-step physical action",
     "expression": "emotion progression described",
-    "lighting": "bright natural / warm golden / etc"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
+    "lighting": "bright natural / warm golden / etc",
+    "transitionTo": "how this scene connects to the next"${enableCutScenes ? ',\n    "isCutScene": false' : ''}${hasIntro ? ',\n    "isIntro": true' : ''}${hasOutro ? ',\n    "isOutro": true' : ''}
   }
 ]`;
 
