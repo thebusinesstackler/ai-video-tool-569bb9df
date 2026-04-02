@@ -15,7 +15,7 @@ interface VideoClip {
 interface StitchRequest {
   clips: VideoClip[];
   audioUrl?: string; // Combined voiceover audio URL
-  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'none';
+  transition?: 'fade' | 'slide' | 'zoom' | 'crossfade' | 'wipe' | 'blur' | 'dissolve' | 'spin' | 'flip' | 'none';
   captionStyle?: 'bottom' | 'center' | 'top';
   transitionDuration?: number; // Duration in seconds (0.3 - 1.5)
 }
@@ -83,12 +83,54 @@ serve(async (req) => {
               duration: duration * 0.5
             }];
           case 'crossfade':
-            // Crossfade: minimal overlap to prevent early scene transitions
             return [{
               type: 'fade',
               fade: 'in',
               duration,
               easing: 'linear'
+            }];
+          case 'wipe':
+            return [{
+              type: 'wipe',
+              direction: index % 2 === 0 ? 'right' : 'down',
+              duration,
+              easing: 'ease-in-out'
+            }];
+          case 'blur':
+            return [{
+              type: 'fade',
+              fade: 'in',
+              duration,
+              easing: 'ease-in-out'
+            }];
+          case 'dissolve':
+            return [{
+              type: 'fade',
+              fade: 'in',
+              duration: duration * 1.2,
+              easing: 'ease-in-out'
+            }];
+          case 'spin':
+            return [{
+              type: 'spin',
+              revolutions: 0.25,
+              duration,
+              easing: 'ease-out'
+            }, {
+              type: 'fade',
+              fade: 'in',
+              duration: duration * 0.5
+            }];
+          case 'flip':
+            return [{
+              type: 'spin',
+              revolutions: 0.5,
+              duration,
+              easing: 'ease-in-out'
+            }, {
+              type: 'fade',
+              fade: 'in',
+              duration: duration * 0.3
             }];
           default:
             return [];

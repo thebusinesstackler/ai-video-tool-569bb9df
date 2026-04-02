@@ -3325,9 +3325,18 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             }
           }
           
-          const clips = videoUrls.map(url => ({ url, duration: 5 }));
+          const clips = sortedVideos.map((v, idx) => {
+            const scene = project.scenes?.find(s => s.sceneNumber === v.sceneNumber);
+            const audio = sortedAudios.find(a => a.sceneNumber === v.sceneNumber);
+            return {
+              url: v.videoUrl,
+              duration: scene?.duration || 5,
+              audioDuration: audio?.duration || scene?.duration || 5,
+              caption: captionSettings.enabled && scene?.narration ? scene.narration : undefined
+            };
+          });
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
-            body: { clips, audioUrl: mergedAudioUrl, transition: 'crossfade' }
+            body: { clips, audioUrl: mergedAudioUrl, transition: transitionStyle, captionStyle: captionSettings.position || 'bottom' }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
 
@@ -3514,7 +3523,10 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
       if (allPublic) {
         try {
-          const clips = allUrls.map(url => ({ url, duration: 5 }));
+          const clips = allUrls.map((url, idx) => {
+            const scene = project.scenes?.[idx];
+            return { url, duration: scene?.duration || 5, audioDuration: scene?.duration || 5 };
+          });
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
             body: { clips, transition: transitionStyle || 'crossfade' }
           });
