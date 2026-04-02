@@ -219,7 +219,7 @@ serve(async (req) => {
       rawPrompt += blockingInstructions;
     }
 
-    rawPrompt += `\n\nVertical 9:16 portrait format. Ultra photorealistic, cinematic lighting, film-grade quality.`;
+    rawPrompt += `\n\nVertical 9:16 portrait format. Hyper-realistic with natural skin texture (pores, micro-wrinkles, subsurface scattering). Professional cinematic lighting with accurate color temperature. Shot on ARRI Alexa with anamorphic lens. Film-grade color grading, natural skin tones.`;
 
     // Enhance prompt for better DALL-E output
     const enhancedPrompt = await enhancePrompt(rawPrompt);
