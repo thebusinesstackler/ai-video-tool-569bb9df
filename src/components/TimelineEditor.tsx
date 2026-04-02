@@ -707,12 +707,12 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
           <div className="flex flex-col flex-1 min-w-0">
 
             {/* ─── Video Preview ─────────────────────────────── */}
-            <div className="flex items-center justify-center bg-black/90 p-3" style={{ minHeight: 260 }}>
+            <div className="flex items-center justify-center bg-muted/80 p-4" style={{ minHeight: 280 }}>
               <div className={cn(
-                "relative bg-muted rounded-lg overflow-hidden",
-                aspectRatio === '9:16' ? 'aspect-[9/16] max-h-[230px]' :
-                aspectRatio === '1:1' ? 'aspect-square max-h-[230px]' :
-                'aspect-video max-h-[230px]'
+                "relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-border/50",
+                aspectRatio === '9:16' ? 'aspect-[9/16] max-h-[250px]' :
+                aspectRatio === '1:1' ? 'aspect-square max-h-[250px]' :
+                'aspect-video max-h-[250px]'
               )} style={{ width: aspectRatio === '9:16' ? 130 : aspectRatio === '1:1' ? 230 : 400 }}>
                 {currentScene?.videoUrl ? (
                   <video ref={videoRef} src={currentScene.videoUrl} className="w-full h-full object-cover" muted={isMuted} />
