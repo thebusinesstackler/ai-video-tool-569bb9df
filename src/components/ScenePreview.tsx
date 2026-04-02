@@ -691,14 +691,43 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
               className="min-h-[80px]"
             />
             {insertType === 'broll' && (
-              <div className="flex flex-wrap gap-1.5">
-                {['Product close-up', 'Nature scenery', 'City timelapse', 'Hands working', 'Food preparation', 'Tech gadget'].map(preset => (
-                  <Button key={preset} variant="outline" size="sm" className="h-7 text-xs"
-                    onClick={() => setInsertPrompt(preset)}>
-                    {preset}
-                  </Button>
-                ))}
-              </div>
+              <>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Product close-up', 'Nature scenery', 'City timelapse', 'Hands working', 'Food preparation', 'Tech gadget'].map(preset => (
+                    <Button key={preset} variant="outline" size="sm" className="h-7 text-xs"
+                      onClick={() => setInsertPrompt(preset)}>
+                      {preset}
+                    </Button>
+                  ))}
+                </div>
+                {productImages.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                      <Package className="w-3 h-3" />
+                      Use a Product Image
+                    </label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {productImages.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            const url = insertProductUrl === p.image_url ? null : p.image_url;
+                            setInsertProductUrl(url);
+                            if (url && !insertPrompt) {
+                              setInsertPrompt(`Extreme close-up of ${p.name || 'this product'} with cinematic lighting, shallow depth of field, premium product photography`);
+                            }
+                          }}
+                          className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                            insertProductUrl === p.image_url ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/50'
+                          }`}
+                        >
+                          <img src={p.image_url} alt={p.name || 'Product'} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setInsertDialogOpen(false)}>Cancel</Button>
