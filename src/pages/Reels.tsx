@@ -4363,6 +4363,21 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         Download
                       </Button>
                     )}
+                    {project.videoBlobUrl && project.generatedScenes.length > 0 && (
+                      <Button
+                        variant="outline"
+                        className="border-primary/50 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setMode('advanced');
+                          setTimelineViewActive(true);
+                          setSidebarsHiddenForTimeline(true);
+                          setSidebarCollapsed(true);
+                        }}
+                      >
+                        <Film className="w-4 h-4 mr-2" />
+                        Edit in Timeline
+                      </Button>
+                    )}
                     {!project.videoBlobUrl && project.videoClips.length > 1 && (
                       <Button onClick={stitchVideos} disabled={isManualStitching} className="bg-gradient-primary hover:opacity-90">
                         {isManualStitching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Layers className="w-4 h-4 mr-2" />}
