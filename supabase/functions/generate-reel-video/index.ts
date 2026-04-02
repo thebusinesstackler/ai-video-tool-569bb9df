@@ -912,6 +912,7 @@ Rules:
           requestBody = {
             image: imageUrl,
             prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+${isCTAScene ? 'CLOSE-UP: Tight framing on face, eyes locked on viewer, confident warm expression.' : ''}
 Context: The narrator is saying "${scene.narration}" over this visual.
 Smooth cinematic motion, professional color grading, photorealistic quality.
 Natural confident expression, engaging body language.
