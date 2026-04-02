@@ -996,30 +996,31 @@ No text, no captions, no subtitles, no watermarks. Pure cinematic visuals.`,
           };
           sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
           
-        } else if (scene.isOutro) {
-          // ====== SORA 2: Outro scene (non-VEO3 path) ======
-          console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for outro`);
+        } else if (scene.isOutro || isCTAScene) {
+          // ====== SORA 2: CTA/Outro scene — CLOSE-UP ======
+          console.log(`Scene ${scene.sceneNumber}: Using Sora 2 for CTA/outro (close-up)`);
           
           apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
           const sora2Durations = [4, 8, 12, 16, 20];
           const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 4);
           
           const outroCharDesc = characterDescription 
-            ? `The ${characterDescription} is in frame with a warm, inviting closing expression.` 
-            : 'Warm, inviting atmosphere.';
-          const outroNarration = scene.narration ? `The scene conveys: "${scene.narration}"` : '';
+            ? `CLOSE-UP of ${characterDescription} looking directly at camera.` 
+            : 'CLOSE-UP of person looking directly at camera.';
+          const outroNarration = scene.narration ? `Scene conveys: "${scene.narration}"` : '';
           
           requestBody = {
             image: imageUrl,
-            prompt: `Premium cinematic outro for a reel about "${topic}". ${outroCharDesc}
+            prompt: `${outroCharDesc} CTA for reel about "${topic}".
 ${outroNarration}
-Elegant slow zoom out with warm golden lighting, confident closing energy, smooth professional motion.
-The subject has a knowing smile, relaxed and inviting posture. Film-grade quality.
+Tight framing on face — eyes locked on viewer, warm confident knowing smile. Slow subtle push-in creating intimacy.
+${productImageUrl && productName ? `Product "${productName}" visible on surface nearby.` : ''}
+Warm golden lighting, shallow depth of field. Film-grade quality.
 No text, no captions, no subtitles, no watermarks.`,
             duration: sora2Duration,
             aspect_ratio: '9:16'
           };
-          sceneHasEmbeddedAudio = true; // Sora-2 generates audio natively
+          sceneHasEmbeddedAudio = true;
           
         } else {
           // ====== KLING 3.0 PRO: B-roll / fallback ======
