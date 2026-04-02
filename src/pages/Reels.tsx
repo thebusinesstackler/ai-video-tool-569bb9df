@@ -3401,6 +3401,8 @@ STYLE REQUIREMENTS:
               captionFontColor: captionSettings.fontColor || '#ffffff',
               captionBackground: captionSettings.background || 'glass',
               captionAnimation: captionSettings.style || 'karaoke',
+              logoUrl: selectedLogoUrl || undefined,
+              logoAnimation: selectedLogoUrl ? selectedLogoAnimation : undefined,
             }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
