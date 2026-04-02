@@ -27,6 +27,9 @@ interface StitchRequest {
   captionFontColor?: string;
   captionBackground?: 'glass' | 'solid' | 'gradient' | 'outline' | 'neon';
   captionAnimation?: string;
+  // Logo overlay
+  logoUrl?: string;
+  logoAnimation?: 'fade' | 'zoom' | 'bounce' | 'glitch' | 'rotate' | 'scale-fade';
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {
