@@ -6321,7 +6321,48 @@ STYLE REQUIREMENTS:
                     </DialogContent>
                   </Dialog>
 
-                  <div className="flex flex-wrap justify-center gap-3">
+                  {/* Thumbnail Preview Dialog */}
+                  <Dialog open={showThumbnailDialog} onOpenChange={setShowThumbnailDialog}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Video Thumbnail</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {generatedThumbnail && (
+                          <div className="relative rounded-lg overflow-hidden border border-border">
+                            <img src={generatedThumbnail} alt="Generated thumbnail" className="w-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={generateThumbnail}
+                            disabled={isGeneratingThumbnail}
+                          >
+                            {isGeneratingThumbnail ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                            Regenerate
+                          </Button>
+                          <Button
+                            className="flex-1"
+                            onClick={() => {
+                              if (generatedThumbnail) {
+                                const link = document.createElement('a');
+                                link.href = generatedThumbnail;
+                                link.download = `thumbnail-${project.topic || 'reel'}.png`;
+                                link.click();
+                              }
+                              setShowThumbnailDialog(false);
+                            }}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Save Thumbnail
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
                     {/* Stitch button - show when we have multiple clips */}
                     {project.videoClips.length > 1 && (
                       <div className="w-full space-y-3">
