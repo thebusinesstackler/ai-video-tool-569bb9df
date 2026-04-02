@@ -152,15 +152,17 @@ Photorealistic, cinematic quality, 8K detail.`;
   return `Generate a PHOTOREALISTIC scene image: ${prompt}
 
 REALISM RULES:
-- HYPERREALISTIC human appearance — real skin with visible pores, natural texture
-- Natural lighting — soft window light, golden hour, overcast daylight
+- HYPERREALISTIC human appearance — real skin with visible pores, natural texture, imperfections
+- BRIGHT NATURAL LIGHTING — soft daylight through windows, golden hour warmth, bright overcast sky, or well-lit indoor environments. NEVER dark, moody, or nighttime unless explicitly requested
 - Eyes with realistic catchlights, natural iris detail
 - Hair with individual strand detail and natural movement
 - Character should appear natural and engaged
 - Real human proportions and natural body language
+- BRIGHT, warm, inviting atmosphere — think UGC content shot in daylight
+- Color palette: warm, natural, vibrant — NOT desaturated, NOT dark, NOT dramatic
 ${characterBlock}${cameraInstruction}${backgroundInstruction}
 
-Professional cinematic quality, natural lighting, photorealistic.`;
+Professional quality, BRIGHT natural lighting, photorealistic, daytime feel.`;
 }
 
 serve(async (req) => {
