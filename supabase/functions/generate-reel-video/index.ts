@@ -15,6 +15,10 @@ interface Scene {
   isIntro?: boolean;
   isOutro?: boolean;
   isSilentCTA?: boolean;
+  isProductBroll?: boolean;
+  scenePurpose?: string;
+  startFrame?: string;
+  endFrame?: string;
   templateId?: string;
 }
 
