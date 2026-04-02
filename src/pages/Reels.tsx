@@ -6277,6 +6277,7 @@ STYLE REQUIREMENTS:
                     resetPreview();
                   }}
                 />
+                )}
                 {/* Background Music Panel */}
                 {featureToggles.backgroundMusic && (
                   <Card className="border-primary/20 bg-primary/5">
