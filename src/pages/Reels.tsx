@@ -770,6 +770,7 @@ const Reels = () => {
   }, [
     topic, project.topic, project.scenes, project.voiceovers, 
     project.generatedScenes, project.videoClips, project.previewScenes,
+    previewScenes, previewVoiceovers,
     selectedSceneCount, selectedSceneDuration, selectedVoice, selectedVideoSize,
     transitionStyle, hookStyle, characterDescription, preSelectedReference, selectedTwinId,
     selectedIntro, selectedOutro, introText, outroText, enableCutScenes, enableLipSync,
