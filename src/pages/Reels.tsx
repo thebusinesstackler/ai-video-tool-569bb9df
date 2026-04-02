@@ -836,6 +836,26 @@ const Reels = () => {
           product: data.product,
         });
         
+        // Auto-match voice to detected character gender
+        if (data.gender && !selectedTwinId) {
+          const isFemale = data.gender === 'female';
+          const context = `${data.description} ${data.ageRange || ''}`.toLowerCase();
+          let matchedVoice: string;
+          if (isFemale) {
+            matchedVoice = /(older|mentor|expert|authority|founder|ceo|coach)/.test(context) ? 'Wise_Woman'
+              : /(energetic|viral|fun|young|playful|bold|hype)/.test(context) ? 'Inspirational_girl'
+              : /(calm|luxury|gentle|warm|trusted)/.test(context) ? 'Calm_Woman'
+              : 'English_radiant_girl';
+          } else {
+            matchedVoice = /(calm|trusted|coach|mentor|teacher|explainer|warm)/.test(context) ? 'Patient_Man'
+              : /(direct|bold|sales|urgent|controversy|strong)/.test(context) ? 'Determined_Man'
+              : /(story|cinematic|documentary|narrator)/.test(context) ? 'English_expressive_narrator'
+              : 'English_magnetic_voiced_man';
+          }
+          setSelectedVoice(matchedVoice);
+          console.log(`[Voice] Auto-matched voice to ${data.gender}: ${matchedVoice}`);
+        }
+
         const genderLabel = data.gender ? ` (${data.gender} detected)` : '';
         const productLabel = data.product?.detected ? ` — product: ${data.product.type}` : '';
         
