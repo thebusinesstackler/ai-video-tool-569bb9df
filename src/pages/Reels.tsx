@@ -6303,7 +6303,11 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     <Button
                       variant={timelineViewActive ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setTimelineViewActive(true)}
+                      onClick={() => {
+                        setTimelineViewActive(true);
+                        setSidebarsHiddenForTimeline(true);
+                        setSidebarCollapsed(true);
+                      }}
                       className="h-8 text-xs"
                     >
                       <Film className="w-3.5 h-3.5 mr-1.5" /> Timeline View
