@@ -977,6 +977,8 @@ function formatScriptForTTS(narration: string): string {
   if (!narration) return narration;
   
   let result = narration
+    // Strip common AI prefixes like "POV:", "NARRATOR:", "HOOK:", "Scene 1:", etc.
+    .replace(/^(POV|NARRATOR|HOOK|SCENE\s*\d*|CTA|INTRO|OUTRO|OPENING|CLOSING)\s*[:\-]\s*/i, '')
     // Normalize curly apostrophes
     .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
     // Replace em dashes with commas (prevents 4-second silences)
