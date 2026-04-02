@@ -28,6 +28,7 @@ interface PreviewScene {
 interface ScenePreviewProps {
   scenes: PreviewScene[];
   onRegenerateImage: (sceneNumber: number, customPrompt?: string, referenceUrl?: string) => void;
+  onRegenerateVoice?: (sceneNumber: number) => void;
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
   disabled?: boolean;
