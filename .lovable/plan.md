@@ -1,46 +1,46 @@
 
 
-## Issues Identified
+## Problem
 
-1. **Captions not showing in video**: The auto-stitch after video generation (line ~2541) uses `canvasStitchVideos` which does NOT support captions. Only the manual `stitchVideos` function (line ~3537) calls `creatomate-stitch` with caption settings. The auto-stitch needs to use Creatomate cloud stitching when captions are enabled.
+When the user resizes the screen while using the product swap feature in Quick/Easy mode, the product swap state is lost and the UI resets. This happens because:
 
-2. **No post-generation editing**: After the video is generated, the UI shows "Your Reel is Ready" with Download/Save buttons but doesn't expose the Timeline Editor or scene-level editing controls. The user needs to be able to make changes (re-order, trim, swap scenes, adjust captions) after generation.
+1. **`ProductSwapPanel` stores all state locally** — `selectedProductUrl`, `productPrompt`, `isSwapping`, `showLibrary` are local state inside the component. When the parent re-renders due to `isMobile` changing at the 768px breakpoint, the component can unmount/remount and lose this state.
 
-3. **Product placement only in Character tab**: The product picker is only in Quick Mode and the Character tab in Advanced Mode. It should also be accessible from the Settings tab, Script tab, and Video tab so the product selection is visible and usable regardless of which tab the user is working in.
+2. **Layout shift on resize** — The main content area switches between `p-0 pb-24` (mobile) and `p-6 pb-24` (desktop), and the sidebar conditionally renders/hides, causing the content to reflow and potentially confuse users.
+
+3. **No state persistence** — The product swap workflow has no mechanism to preserve mid-operation state across re-renders.
 
 ## Plan
 
-### 1. Fix auto-stitch to use Creatomate with captions
-**File**: `src/pages/Reels.tsx` (~lines 2522-2578)
-
-- When captions are enabled (`captionSettings.enabled`) and all video URLs are public (`allPublicUrls`), use `creatomate-stitch` instead of `canvasStitchVideos`
-- Pass the full caption settings (`captionFont`, `captionFontSize`, `captionFontColor`, `captionBackground`, `captionAnimation`, `captionStyle`) just like the manual stitch does at line 3537
-- Also pass `introImageUrl` (thumbnail), `logoUrl`, `backgroundMusicUrl`, and `transition` settings
-- Fall back to `canvasStitchVideos` if Creatomate fails
-- This ensures the auto-generated video includes burned-in captions matching the user's style settings
-
-### 2. Enable post-generation editing
+### 1. Lift product swap state to Reels.tsx parent
 **File**: `src/pages/Reels.tsx`
 
-- After video generation completes (status = 'complete'), show an "Edit in Timeline" button alongside Download/Save
-- When clicked, switch to Timeline View (`showTimeline = true`) with the generated scenes populated as timeline clips
-- Add a "Re-stitch with Changes" button in the timeline that calls the manual `stitchVideos` with current settings, allowing users to apply edits (reorder, trim, caption changes) and produce a new final video
-- Ensure the "Your Reel is Ready" section includes scene cards below the video player so users can regenerate individual scenes or swap products without having to start over
+- Add parent-level state for active product swap: `activeSwapProductUrl`, `activeSwapPrompt`
+- Pass these as props to `ProductSwapPanel` so they persist across re-renders
+- When the user selects a product in the swap panel, update parent state
 
-### 3. Make product picker available across all tabs
+### 2. Make ProductSwapPanel controlled
+**File**: `src/components/ProductSwapPanel.tsx`
+
+- Accept optional `initialProductUrl` and `initialPrompt` props
+- Initialize local state from props so state survives parent re-renders
+- Add `onProductSelected` callback to sync selection back to parent
+
+### 3. Stabilize layout on resize
 **File**: `src/pages/Reels.tsx`
 
-- Extract the product picker UI into a reusable inline component/section
-- Add the product picker to:
-  - **Settings tab**: Below the topic/template area so users set the product before generating scripts
-  - **Script tab**: Below the voice settings so users can see which product is selected while reviewing scenes
-  - **Video tab**: Near the video model selector so it's visible during preview generation
-- All locations share the same `selectedProductImageUrl`/`selectedProductName` state
-- Show a small "Selected Product" badge/indicator in the tab header when a product is active, so the user always knows a product is selected regardless of which tab they're viewing
+- Use CSS `transition-all` on the main content wrapper so layout changes are smooth rather than abrupt
+- Ensure the Quick mode card and its children don't unmount when `isMobile` toggles — currently the Quick mode sections don't depend on `isMobile`, but verify no intermediate wrapper causes remounting
+
+### 4. Prevent useIsMobile flash
+**File**: `src/hooks/use-mobile.tsx`
+
+- Initialize `isMobile` state with a synchronous check (`window.innerWidth < 768`) instead of `undefined` to prevent the initial `false → true` flash that causes an extra re-render on mobile devices
+- This eliminates one unnecessary unmount/remount cycle on page load
 
 ### Technical Details
 
-- **Creatomate auto-stitch**: Replace the `canvasStitchVideos` call at line ~2541 with a Creatomate-first approach (mirroring the pattern at line ~3506-3591), including caption params from `captionSettings`, with canvas as fallback
-- **Timeline entry point**: Add `onClick={() => { setShowTimeline(true); setActiveTab('timeline'); }}` button in the completion card
-- **Product picker component**: Create a small `ProductPicker` inline section that renders the product grid with select/deselect, reused across 4 locations via a shared render function or extracted component
+- **`use-mobile.tsx`**: Change `useState<boolean | undefined>(undefined)` to `useState(() => window.innerWidth < MOBILE_BREAKPOINT)` — this removes the initial undefined state and the double-render
+- **`ProductSwapPanel.tsx`**: Add `selectedProductUrlProp?: string | null` and `onProductChange?: (url: string | null) => void` props. Use `useEffect` to sync prop → local state only on mount, keeping local state as source of truth during interaction
+- **`Reels.tsx`**: Add `swapPanelProductUrl` state. Pass to all `ProductSwapPanel` instances. This state persists across `isMobile` toggles since it lives at the page component level
 
