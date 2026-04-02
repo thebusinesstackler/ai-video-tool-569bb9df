@@ -353,7 +353,7 @@ ${introInstructions ? `SCENE STRUCTURE:
 ${introInstructions}
 - Scenes 2-${totalSceneCount - (hasOutro ? 1 : 0)} (CONTENT): Main content scenes
 ${outroInstructions}` : `STORY FLOW (each scene MUST connect to the next):
-- Scene 1 (HOOK): ${hookGuidance.includes('question') ? 'Ask a provocative question' : 'Grab attention with a bold statement'} that makes them stop scrolling
+- Scene 1 (HOOK + THUMBNAIL): This is THE most important scene. Write a scroll-stopping hook that creates a curiosity gap or makes an irresistible promise. The visual MUST be thumbnail-worthy: dramatic expression, striking composition, high contrast. This image becomes the video thumbnail.
 - Scene 2-${totalSceneCount-1} (BODY): Build the story, each adding NEW information that expands on the hook
 - Scene ${totalSceneCount} (CLOSING CTA - MANDATORY): End with a STRONG call-to-action. Tell the viewer exactly what to do next: follow, subscribe, comment, share, try something, visit a link, or engage. This MUST feel like a natural conclusion that motivates action. Examples: "Follow me for more tips like this", "Drop a comment if this changed your perspective", "Share this with someone who needs to hear it", "Try this today and watch what happens"`}
 
