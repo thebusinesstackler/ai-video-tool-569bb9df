@@ -303,6 +303,24 @@ NO CHARACTER IMAGE PROVIDED.
 - Do NOT invent product visuals unless the topic explicitly mentions one
 `;
 
+    // User-selected product image context
+    const productInstructions = productImageUrl ? `
+═══ SELECTED PRODUCT (USER-CHOSEN — MUST USE) ═══
+The user has explicitly selected a product to feature in this video:
+${productName ? `- Product name: "${productName}"` : '- Product name: not specified'}
+- Product image URL provided — this EXACT product must appear in relevant scenes
+
+PRODUCT INTEGRATION RULES:
+- Feature this product NATURALLY in the story — not forced or staged
+- Show it in 1-2 scenes maximum (product intro + usage/result)
+- ONE product at a time — never show multiples
+- Realistic interactions: holding, using, applying, placing on table
+- The product complements the story, it doesn't dominate every scene
+- Scene 1 (hook) should NOT show the product — focus on problem/curiosity
+- Product appears mid-story when it makes narrative sense
+` : '';
+
+
     const systemPrompt = `You are an AI REEL DIRECTOR, VIDEO EDITOR, and UGC CONTENT CREATOR.
 
 Your job is to turn ANY script or idea into a high-performing short-form video for Instagram Reels, TikTok, Facebook Reels, and YouTube Shorts using proven hook strategy, storytelling, pacing, visual direction, and UGC-style content principles.
