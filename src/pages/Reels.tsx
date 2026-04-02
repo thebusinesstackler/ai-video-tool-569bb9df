@@ -6552,20 +6552,30 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 {timelineViewActive ? (
                   <div className="border rounded-lg overflow-hidden bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: 600 }}>
                     <TimelineEditor
-                      scenes={previewScenes.map((ps, i) => ({
-                        sceneNumber: ps.sceneNumber,
-                        narration: ps.narration,
-                        visualDescription: ps.visualDescription,
-                        imageUrl: ps.imageUrl,
-                        videoUrl: project.generatedScenes.find(gs => gs.sceneNumber === ps.sceneNumber)?.videoUrl || null,
-                        audioUrl: ps.audioUrl,
-                        audioDuration: ps.audioDuration,
-                        duration: ps.audioDuration > 0 ? ps.audioDuration : parseInt(selectedSceneDuration) || 10,
-                        startTime: 0,
-                        endTime: 0,
-                        isIntro: i === 0,
-                        isOutro: i === previewScenes.length - 1,
-                      }))}
+                      scenes={(() => {
+                        const sceneSrc = previewScenes.length > 0 ? previewScenes : project.generatedScenes.map(gs => ({
+                          sceneNumber: gs.sceneNumber,
+                          narration: gs.narration || gs.text || '',
+                          visualDescription: gs.visualDescription || gs.text || '',
+                          imageUrl: gs.imageUrl,
+                          audioUrl: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.audioUrl || null,
+                          audioDuration: project.voiceovers.find(v => v.sceneNumber === gs.sceneNumber)?.duration || 0,
+                        }));
+                        return sceneSrc.map((ps, i) => ({
+                          sceneNumber: ps.sceneNumber,
+                          narration: ps.narration,
+                          visualDescription: ps.visualDescription,
+                          imageUrl: ps.imageUrl,
+                          videoUrl: project.generatedScenes.find(gs => gs.sceneNumber === ps.sceneNumber)?.videoUrl || null,
+                          audioUrl: ps.audioUrl,
+                          audioDuration: ps.audioDuration,
+                          duration: ps.audioDuration > 0 ? ps.audioDuration : parseInt(selectedSceneDuration) || 10,
+                          startTime: 0,
+                          endTime: 0,
+                          isIntro: i === 0,
+                          isOutro: i === sceneSrc.length - 1,
+                        }));
+                      })()}
                       voiceovers={previewVoiceovers}
                       backgroundMusicUrl={backgroundMusicUrl}
                       totalDuration={previewScenes.reduce((sum, s) => sum + (s.audioDuration > 0 ? s.audioDuration : parseInt(selectedSceneDuration) || 10), 0)}
