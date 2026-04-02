@@ -1968,6 +1968,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       ? characters.find(c => c.id === selectedCharacterId)
       : null;
 
+    // Get active character image URL for visual context
+    const activePortrait = getActivePortrait();
+
     try {
       const { data, error } = await supabase.functions.invoke('generate-reel-script', {
         body: { 
@@ -1978,6 +1981,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           hookStyle,
           enableCutScenes: isPodcastMode ? false : enableCutScenes,
           characterDescription: effectiveCharDesc.trim() || undefined,
+          characterImageUrl: activePortrait || undefined,
+          characterProfile: characterProfile || undefined,
           isPodcastMode,
           characterId: selectedCharacterId,
           characterName: selectedCharacter?.name,
