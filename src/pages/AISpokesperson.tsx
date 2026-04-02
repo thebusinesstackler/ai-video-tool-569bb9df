@@ -2044,7 +2044,7 @@ Return ONLY the JSON object.`
         )}
 
         {/* ===== BEGINNER MODE ===== */}
-        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && (
+        {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && !previewImageUrl && !isGeneratingPreview && (
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
             <CardContent className="pt-8 pb-8 space-y-6">
               <div className="text-center space-y-2">
