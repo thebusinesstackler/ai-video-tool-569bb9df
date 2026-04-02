@@ -3282,15 +3282,14 @@ STYLE REQUIREMENTS:
 - CRITICAL: Do NOT include any text, letters, words, or typography — pure visual only
 - Should make someone WANT to click and watch`;
 
-      const { data, error } = await supabase.functions.invoke('ai', {
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
         body: {
-          messages: [{ role: 'user', content: thumbnailPrompt }],
-          model: 'google/gemini-3.1-flash-image-preview',
-          modalities: ['image', 'text']
+          prompt: thumbnailPrompt,
+          size: '1024x1792',
         }
       });
       if (error) throw error;
-      const imageUrl = data?.imageUrl || data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      const imageUrl = data?.imageUrl;
       if (!imageUrl) throw new Error('No thumbnail generated');
       
       setGeneratedThumbnail(imageUrl);
@@ -3386,8 +3385,22 @@ STYLE REQUIREMENTS:
               caption: captionSettings.enabled && scene?.narration ? scene.narration : undefined
             };
           });
+          const sizeMap2: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+          const [cw, ch] = sizeMap2[selectedVideoSize] || [1080, 1920];
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
-            body: { clips, audioUrl: mergedAudioUrl, transition: transitionStyle, captionStyle: captionSettings.position || 'bottom' }
+            body: {
+              clips,
+              audioUrl: mergedAudioUrl,
+              transition: transitionStyle,
+              captionStyle: captionSettings.position || 'bottom',
+              width: cw,
+              height: ch,
+              captionFont: captionSettings.fontFamily || 'Montserrat',
+              captionFontSize: captionSettings.fontSize || 'medium',
+              captionFontColor: captionSettings.fontColor || '#ffffff',
+              captionBackground: captionSettings.background || 'glass',
+              captionAnimation: captionSettings.style || 'karaoke',
+            }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error(stitchData?.error || 'Cloud stitch failed');
 
@@ -3578,8 +3591,10 @@ STYLE REQUIREMENTS:
             const scene = project.scenes?.[idx];
             return { url, duration: scene?.duration || 5, audioDuration: scene?.duration || 5 };
           });
+          const sizeMap3: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080], '4:5': [1080, 1350] };
+          const [rw, rh] = sizeMap3[selectedVideoSize] || [1080, 1920];
           const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
-            body: { clips, transition: transitionStyle || 'crossfade' }
+            body: { clips, transition: transitionStyle || 'crossfade', width: rw, height: rh }
           });
           if (stitchError || !stitchData?.success || !stitchData?.renderId) throw new Error('Cloud stitch failed');
 
