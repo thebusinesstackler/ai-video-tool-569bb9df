@@ -599,6 +599,8 @@ If ANY check fails → automatically improve before returning to the user.
 
 ${characterInstructions}
 
+${productInstructions}
+
 ${transitionStyle && transitionStyle !== 'none' ? `
 ═══ TRANSITION STYLE: "${transitionStyle}" (MANDATORY — APPLY TO EVERY SCENE) ═══
 The user selected "${transitionStyle}" as their transition. You MUST apply this between ALL scenes.

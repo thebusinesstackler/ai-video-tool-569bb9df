@@ -6374,7 +6374,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
 
                 {/* Timeline Editor */}
                 {timelineViewActive ? (
-                  <div className="border rounded-lg overflow-hidden" style={{ height: 700 }}>
+                  <div className="border rounded-lg overflow-hidden bg-background" style={{ height: 'calc(100vh - 200px)', minHeight: 600 }}>
                     <TimelineEditor
                       scenes={previewScenes.map((ps, i) => ({
                         sceneNumber: ps.sceneNumber,
