@@ -2266,7 +2266,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           characterDescription: characterDescription || selectedTwin?.face_description || '',
           cameraAngles: cameraAngleRotation,
           videoModel: videoModel,
-          sceneDuration: undefined
+          sceneDuration: undefined,
+          productImageUrl: selectedProductImageUrl || undefined,
+          productName: selectedProductName || undefined
         }
       });
 
