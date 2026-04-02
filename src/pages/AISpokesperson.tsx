@@ -124,6 +124,10 @@ const AISpokesperson = () => {
   const [showSceneGallery, setShowSceneGallery] = useState(false);
   const [isAddingShot, setIsAddingShot] = useState(false);
   
+  // Preview step
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  
   // Caption overlay
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [captionText, setCaptionText] = useState('');
