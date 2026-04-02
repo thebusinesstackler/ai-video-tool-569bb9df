@@ -3392,6 +3392,8 @@ STYLE REQUIREMENTS:
             body: {
               clips,
               audioUrl: mergedAudioUrl,
+              backgroundMusicUrl: backgroundMusicUrl || undefined,
+              backgroundMusicVolume: 25,
               transition: transitionStyle,
               captionStyle: captionSettings.position || 'bottom',
               width: cw,
