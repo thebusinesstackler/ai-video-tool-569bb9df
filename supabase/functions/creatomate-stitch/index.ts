@@ -263,6 +263,7 @@ serve(async (req) => {
       console.log(`Logo overlay added: ${logoAnimation} animation, ${logoDuration}s at end`);
     }
 
+    const source = {
       output_format: 'mp4',
       width,
       height,
