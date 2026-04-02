@@ -311,6 +311,7 @@ const Reels = () => {
   const [selectedClipIndex, setSelectedClipIndex] = useState<number>(0);
   const [draftReels, setDraftReels] = useState<SavedReel[]>([]);
   const [timelineViewActive, setTimelineViewActive] = useState(false);
+  const [sidebarsHiddenForTimeline, setSidebarsHiddenForTimeline] = useState(false);
   
   
   // Template state
