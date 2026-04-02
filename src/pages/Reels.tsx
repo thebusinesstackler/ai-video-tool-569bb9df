@@ -482,6 +482,10 @@ const Reels = () => {
   // Product images for timeline insert
   const [timelineProductImages, setTimelineProductImages] = useState<{ id: string; image_url: string; name: string | null }[]>([]);
   
+  // Selected product image for video generation
+  const [selectedProductImageUrl, setSelectedProductImageUrl] = useState<string | null>(null);
+  const [selectedProductName, setSelectedProductName] = useState<string | null>(null);
+  
   // Strategist state for persistence
   const [strategistState, setStrategistState] = useState<StrategistState>({
     niche: '',
