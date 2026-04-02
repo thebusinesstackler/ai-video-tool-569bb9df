@@ -6150,12 +6150,14 @@ STYLE REQUIREMENTS:
                         duration: ps.audioDuration > 0 ? ps.audioDuration : parseInt(selectedSceneDuration) || 10,
                         startTime: 0,
                         endTime: 0,
+                        isIntro: i === 0,
+                        isOutro: i === previewScenes.length - 1,
                       }))}
                       voiceovers={previewVoiceovers}
                       backgroundMusicUrl={backgroundMusicUrl}
                       totalDuration={previewScenes.reduce((sum, s) => sum + (s.audioDuration > 0 ? s.audioDuration : parseInt(selectedSceneDuration) || 10), 0)}
+                      aspectRatio={selectedVideoSize}
                       onScenesUpdate={(updatedScenes) => {
-                        // Sync scene order and timing back to the project
                         const reorderedProjectScenes = updatedScenes.map(ts => {
                           const original = project.scenes.find(s => s.sceneNumber === ts.sceneNumber);
                           return original ? { ...original, sceneNumber: ts.sceneNumber, duration: ts.duration } : project.scenes[0];
@@ -6177,6 +6179,16 @@ STYLE REQUIREMENTS:
                           undefined,
                           user?.id
                         );
+                      }}
+                      onRegenerateScene={(sceneNumber) => {
+                        const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+                        if (!scene) return;
+                        const prompt = scene.visualDescription || scene.narration;
+                        if (referenceImageUrl) {
+                          regenerateWithReference(sceneNumber, prompt, referenceImageUrl, characterTransformation);
+                        } else {
+                          regenerateSceneImage(sceneNumber, prompt);
+                        }
                       }}
                     />
                   </div>
