@@ -1884,6 +1884,39 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
+  // Generate hook options independently
+  const generateHookOptions = async () => {
+    if (!topic.trim()) {
+      toast({ title: "Missing Topic", description: "Enter a topic first.", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingHooks(true);
+    setShowHookSelector(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-hooks', {
+        body: {
+          topic: topic.trim(),
+          hookStyle,
+          characterDescription: characterDescription.trim() || undefined,
+          hookCount: 5,
+        }
+      });
+      if (error) throw error;
+      setGeneratedHooks(data.hooks || []);
+      toast({ title: "Hooks Generated", description: `${data.hooks?.length || 0} hook options ready for review.` });
+    } catch (error: any) {
+      console.error('Hook generation error:', error);
+      toast({ title: "Hook Generation Failed", description: error.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsGeneratingHooks(false);
+    }
+  };
+
+  const regenerateHooks = async () => {
+    setSelectedHook(null);
+    await generateHookOptions();
+  };
+
   const generateScripts = async (overrides?: { characterDescriptionOverride?: string; topicOverride?: string }): Promise<Scene[] | null> => {
     const effectiveTopic = overrides?.topicOverride || topic;
     const effectiveCharDesc = overrides?.characterDescriptionOverride ?? characterDescription;
