@@ -168,11 +168,20 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
 
   const handleRegenerate = () => {
     if (!selectedScene) return;
-    onRegenerateImage(selectedScene.sceneNumber, customPrompt, localReferenceUrl || undefined);
+    // If a product is selected, append product context to the prompt
+    let finalPrompt = customPrompt;
+    if (selectedProductUrl) {
+      finalPrompt = `${customPrompt}. Feature this product prominently in the scene, extreme close-up product shot with dramatic lighting.`;
+      // Use the product image as the reference for image-to-image generation
+      onRegenerateImage(selectedScene.sceneNumber, finalPrompt, selectedProductUrl);
+    } else {
+      onRegenerateImage(selectedScene.sceneNumber, customPrompt, localReferenceUrl || undefined);
+    }
     setRegenerateDialogOpen(false);
     setSelectedScene(null);
     setCustomPrompt('');
     setLocalReferenceUrl(null);
+    setSelectedProductUrl(null);
   };
 
   const applySettingPreset = (setting: string) => {
