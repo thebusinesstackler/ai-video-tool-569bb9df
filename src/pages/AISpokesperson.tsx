@@ -1892,7 +1892,118 @@ Return ONLY the JSON object.`
           </Card>
         )}
 
-        {/* Draft Recovery / Retry Banner */}
+        {/* ===== PREVIEW STEP — Script + Image before video generation ===== */}
+        {generatedScript && !videoUrl && !isGenerating && !showSceneGallery && (previewImageUrl || isGeneratingPreview) && (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-primary" />
+                Preview — Review Before Generating Video
+              </CardTitle>
+              <CardDescription>
+                Here's your script and character preview. Approve to start video generation, or go back to edit.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Preview Image */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Character Preview</Label>
+                  <div className="aspect-[9/16] max-h-[400px] mx-auto rounded-lg overflow-hidden bg-muted border border-border relative">
+                    {isGeneratingPreview ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                        <div className="relative">
+                          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">Generating preview...</p>
+                      </div>
+                    ) : previewImageUrl ? (
+                      <img src={previewImageUrl} alt="Character preview" className="w-full h-full object-cover" />
+                    ) : null}
+                  </div>
+                  {!isGeneratingPreview && previewImageUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs text-muted-foreground"
+                      onClick={generatePreviewImage}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Regenerate Preview
+                    </Button>
+                  )}
+                </div>
+
+                {/* Script Preview */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-primary" />
+                      Script
+                    </Label>
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-sm text-foreground leading-relaxed italic">
+                        "{generatedScript.narration}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Scene breakdown */}
+                  {generatedScript.scenes && generatedScript.scenes.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Film className="w-4 h-4 text-primary" />
+                        Scene Breakdown
+                      </Label>
+                      <div className="space-y-1.5">
+                        {generatedScript.scenes.map((scene: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 rounded bg-background/60 border border-border text-xs">
+                            <span>{scene.type === 'speaking' ? '🎤' : '🎬'}</span>
+                            <span className="font-medium capitalize">{scene.type}</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{scene.duration || 5}s</Badge>
+                            <span className="text-muted-foreground truncate flex-1">{scene.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Production settings summary */}
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-1 text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Setting:</span> {SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting))?.name}</p>
+                    <p><span className="font-medium text-foreground">Mood:</span> {MOODS.find(m => m.id === (generatedScript.mood || selectedMood))?.name}</p>
+                    <p><span className="font-medium text-foreground">Camera:</span> {CAMERA_ANGLES.find(a => a.id === (generatedScript.cameraAngle || selectedCameraAngle))?.name}</p>
+                    <p><span className="font-medium text-foreground">Duration:</span> ~{selectedDuration}s</p>
+                    {generatedScript.musicSuggestion && (
+                      <p><span className="font-medium text-foreground">Music:</span> {generatedScript.musicSuggestion}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => { setGeneratedScript(null); setPreviewImageUrl(null); }}
+                >
+                  ← Edit Message
+                </Button>
+                <Button
+                  onClick={handleApproveAndGenerate}
+                  disabled={isGeneratingPreview || !selectedTwin}
+                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 px-8"
+                  size="lg"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Approve & Generate Video ✨
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+
         {isBeginner && !videoUrl && !isGenerating && !isGeneratingScript && !showSceneGallery && generatedScript && (
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="pt-4 pb-4">
