@@ -81,6 +81,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScriptGenerator } from '@/components/ScriptGenerator';
 import { ReelEditor } from '@/components/ReelEditor';
+import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
+import { CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCaption';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TopicStrategist, ContentStrategy } from '@/components/TopicStrategist';
 import { VideoQueue } from '@/components/VideoQueue';
