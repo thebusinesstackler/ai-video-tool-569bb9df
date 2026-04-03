@@ -542,10 +542,23 @@ Then provide TWO video prompt blocks — one per segment:
             await supabase.from('video_repo_projects').update({ status: 'stitching' as any }).eq('id', projectId);
           }
 
+          // Download videos as blobs to avoid CORS canvas tainting
+          setGenerationProgress('Downloading clips for stitching...');
+          const blobUrls: string[] = [];
+          for (const segUrl of [segment1Url, segment2Url]) {
+            const resp = await fetch(segUrl);
+            if (!resp.ok) throw new Error(`Failed to download segment: ${resp.status}`);
+            const blob = await resp.blob();
+            blobUrls.push(URL.createObjectURL(blob));
+          }
+
           const stitchedBlob = await stitchVideosWithAudio({
-            videoUrls: [segment1Url, segment2Url],
+            videoUrls: blobUrls,
             onProgress: (pct) => setGenerationProgress(`Stitching... ${pct}%`),
           });
+
+          // Clean up blob URLs
+          blobUrls.forEach(u => URL.revokeObjectURL(u));
 
           // Upload the final stitched video
           const finalVideoUrl = await uploadBlobToStorage(stitchedBlob, 'stitched');
