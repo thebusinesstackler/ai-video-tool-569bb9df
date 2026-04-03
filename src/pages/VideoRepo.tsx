@@ -42,17 +42,14 @@ const VideoRepo = () => {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const [videoFrames, setVideoFrames] = useState<string[]>([]);
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const uploadFile = async (file: File, type: 'image' | 'video'): Promise<string | null> => {
-    if (!user) return null;
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/${Date.now()}.${ext}`;
-    const bucket = type === 'video' ? 'videos' : 'product-images';
-
-    // For now, convert to base64 data URL for analysis
+  const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
@@ -60,19 +57,69 @@ const VideoRepo = () => {
     });
   };
 
+  const extractVideoFrames = async (file: File, count = 6): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        const frames: string[] = [];
+        const timestamps = Array.from({ length: count }, (_, i) => 
+          Math.min(duration * (i / (count - 1)), duration - 0.1)
+        );
+        let idx = 0;
+
+        const captureFrame = () => {
+          canvas.width = Math.min(video.videoWidth, 640);
+          canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL('image/jpeg', 0.7));
+          idx++;
+          if (idx < timestamps.length) {
+            video.currentTime = timestamps[idx];
+          } else {
+            URL.revokeObjectURL(url);
+            resolve(frames);
+          }
+        };
+
+        video.onseeked = captureFrame;
+        video.currentTime = timestamps[0];
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load video'));
+      };
+    });
+  };
+
   const handleReferenceVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setReferenceVideoName(file.name);
-    const url = await uploadFile(file, 'video');
-    if (url) setReferenceVideoUrl(url);
+    setIsExtractingFrames(true);
+    try {
+      const frames = await extractVideoFrames(file, 6);
+      setVideoFrames(frames);
+      setReferenceVideoUrl(URL.createObjectURL(file));
+    } catch {
+      toast({ title: 'Could not extract frames from video', variant: 'destructive' });
+    }
+    setIsExtractingFrames(false);
   };
 
   const handleProductImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setProductImageName(file.name);
-    const url = await uploadFile(file, 'image');
+    const url = await fileToDataUrl(file);
     if (url) setProductImageUrl(url);
   };
 
@@ -94,36 +141,51 @@ const VideoRepo = () => {
     scrollToBottom();
 
     try {
-      // Step 1: Analyze the reference content with AI
-      let analysisPrompt = `You are a UGC ad video strategist. The user wants to create an AI UGC-style video ad.
+      // Build multimodal messages with video frames
+      const contentParts: any[] = [];
 
-User request: "${userMsg.content}"
-
-`;
-      if (referenceVideoUrl) {
-        analysisPrompt += `They've uploaded a reference video for style/hook analysis. `;
-      }
-      if (productImageUrl) {
-        analysisPrompt += `They've uploaded a product image to feature in the ad. `;
+      // Add video frames as images for visual analysis
+      if (videoFrames.length > 0) {
+        contentParts.push({ type: 'text', text: `I've extracted ${videoFrames.length} key frames from the reference video "${referenceVideoName}". Analyze these frames to understand the visual style, hook strategy, pacing, transitions, camera angles, and talent actions:` });
+        for (const frame of videoFrames) {
+          contentParts.push({ type: 'image_url', image_url: { url: frame } });
+        }
       }
 
-      analysisPrompt += `
+      // Add product image
+      if (productImageUrl && !productImageUrl.startsWith('blob:')) {
+        contentParts.push({ type: 'text', text: 'Here is the product image to feature in the ad:' });
+        contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
+      }
+
+      const systemPrompt = `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
+
+      const analysisInstruction = `User request: "${userMsg.content}"
+
+${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
+${productImageUrl ? `Product image provided above — incorporate this product naturally.` : ''}
+
 Provide:
-1. **Hook Analysis**: What makes this type of content scroll-stopping (first 3 seconds strategy)
-2. **Script Breakdown**: A 15-30 second UGC-style script with scene-by-scene directions
-3. **Visual Direction**: Camera angles, lighting, talent actions for each scene
-4. **CTA Strategy**: How to close the ad for maximum conversion
+1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
+2. **Hook Strategy**: How the first 3 seconds will stop the scroll (based on what works in the reference)
+3. **Scene-by-Scene Script**: A 15-30 second UGC-style script with specific visual directions inspired by the reference
+4. **Product Integration**: How and when the product appears naturally
+5. **CTA Strategy**: Closing technique for maximum conversion
 
-Then provide a final **VIDEO PROMPT** block that I can use directly for Sora-2 generation. Format it as:
+Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[Your detailed video generation prompt here - 80-150 words covering environment, character, action, camera, lighting, product placement, pacing]
+[Your detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. Incorporate the visual style from the reference.]
 \`\`\``;
+
+      contentParts.push({ type: 'text', text: analysisInstruction });
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: { 
-          message: analysisPrompt,
-          ...(productImageUrl && !productImageUrl.startsWith('data:video') ? { imageUrl: productImageUrl } : {})
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: contentParts.length > 1 ? contentParts : analysisInstruction },
+          ]
         }
       });
 
@@ -289,7 +351,7 @@ Then provide a final **VIDEO PROMPT** block that I can use directly for Sora-2 g
                     )}
                   </div>
                 ))}
-                {(isAnalyzing || isGenerating) && (
+                {(isAnalyzing || isGenerating || isExtractingFrames) && (
                   <div className="flex gap-3 justify-start">
                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                       <Bot className="w-4 h-4 text-primary" />
@@ -297,7 +359,7 @@ Then provide a final **VIDEO PROMPT** block that I can use directly for Sora-2 g
                     <div className="bg-muted rounded-2xl px-4 py-3 flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-sm text-muted-foreground">
-                        {isGenerating ? 'Generating video...' : 'Analyzing reference...'}
+                        {isExtractingFrames ? 'Extracting video frames...' : isGenerating ? 'Generating video...' : 'Analyzing reference & crafting strategy...'}
                       </span>
                     </div>
                   </div>
@@ -357,8 +419,8 @@ Then provide a final **VIDEO PROMPT** block that I can use directly for Sora-2 g
                 )}
                 {referenceVideoUrl && (
                   <Badge variant="outline" className="text-xs gap-1">
-                    <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'}
-                    <button onClick={() => { setReferenceVideoUrl(null); setReferenceVideoName(''); }} className="ml-1 hover:text-destructive">×</button>
+                    <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} ({videoFrames.length} frames)
+                    <button onClick={() => { setReferenceVideoUrl(null); setReferenceVideoName(''); setVideoFrames([]); }} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 )}
               </div>
