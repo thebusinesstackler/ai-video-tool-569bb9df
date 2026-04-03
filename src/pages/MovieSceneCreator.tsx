@@ -1352,11 +1352,6 @@ const MovieSceneCreator = () => {
             speechifyVoiceId: isSpeechify ? speakerTwin.voice_cloning_key : undefined,
             voiceCloningKey: !isSpeechify ? speakerTwin.voice_cloning_key : undefined
           };
-        } else if (speakerTwin.voice_engine === 'google-cloud' && speakerTwin.google_voice_id) {
-          voiceParams = {
-            voiceEngine: 'google-cloud',
-            googleVoiceId: speakerTwin.google_voice_id
-          };
         } else {
           // Use gender-appropriate WaveSpeed voice
           voiceParams = {
