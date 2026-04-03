@@ -3201,7 +3201,7 @@ const MovieSceneCreator = () => {
               voiceAssignments.push({
                 characterName: char.name,
                 gender: inferCharacterGender(char),
-                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
+                defaultVoice: inferCharacterGender(char) === 'female' ? 'English_compelling_lady1' : 'English_Trustworth_Man'
               });
             }
           }
