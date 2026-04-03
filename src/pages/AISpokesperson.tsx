@@ -248,15 +248,7 @@ const AISpokesperson = () => {
       return body;
     }
 
-    // Priority 2: Explicit Google Cloud voice
-    if (twin.voice_engine === 'google-cloud' && twin.google_voice_id) {
-      body.voiceEngine = 'google-cloud';
-      body.googleVoiceId = twin.google_voice_id;
-      body.voice = twin.google_voice_id;
-      return body;
-    }
-
-    // Priority 3: Gender-matched WaveSpeed fallback
+    // Priority 2: Gender-matched WaveSpeed fallback
     const isFemale = twin.gender?.toLowerCase() === 'female';
     body.voice = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
     body.gender = twin.gender || 'male';
