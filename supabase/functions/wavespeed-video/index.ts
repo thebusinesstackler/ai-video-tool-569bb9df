@@ -297,7 +297,7 @@ serve(async (req) => {
         // 'infinitetalk-hd' → standard 720p HD endpoint (higher quality for Movies)
         apiEndpoint = params.model === 'infinitetalk-hd'
           ? 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk'
-          : 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
+          : 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
         
         if (!params.imageUrls || params.imageUrls.length === 0) {
           throw new Error('Portrait image is required for InfiniteTalk model');
