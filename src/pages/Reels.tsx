@@ -1495,7 +1495,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setIntroText(ds.introText || '');
     setOutroText(ds.outroText || '');
     setEnableCutScenes(ds.enableCutScenes || false);
-    setEnableLipSync(ds.enableLipSync || false);
+    setEnableLipSync(isBeginner || isQuick ? true : (ds.enableLipSync || false));
     setPortraitImage(ds.portraitImage);
     setFeatureToggles(ds.featureToggles || {
       introOutro: false,
