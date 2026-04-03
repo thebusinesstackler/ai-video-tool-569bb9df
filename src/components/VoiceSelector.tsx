@@ -70,7 +70,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
       const { data, error } = await supabase.rpc('get_twins_summary', { _user_id: user.id });
       if (error) throw error;
       const withVoice = (data || [])
-        .filter((t: any) => t.voice_cloning_key || t.voice_engine === 'wavespeed')
+        .filter((t: any) => t.voice_cloning_key && t.voice_engine === 'speechify')
         .map((t: any) => ({
           id: t.id,
           name: t.name,
@@ -161,8 +161,8 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           Voice
         </CardTitle>
         {!compact && (
-          <CardDescription>
-            A voice is auto-selected based on your character. Optionally pick a cloned voice below.
+         <CardDescription>
+           Sora-2 generates a unique voice automatically. Optionally pick a cloned voice below.
           </CardDescription>
         )}
       </CardHeader>
@@ -225,7 +225,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                         {twin.name}'s Voice
                       </span>
                       <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">
-                        {twin.voice_engine === 'wavespeed' ? '🌊 WaveSpeed' : '🎙️ Cloned'}
+                        🎙️ Cloned
                       </Badge>
                     </div>
                   </button>

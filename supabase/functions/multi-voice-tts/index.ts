@@ -30,9 +30,9 @@ interface MultiVoiceTTSRequest {
 const MALE_GEMINI_VOICES = ['Charon', 'Fenrir', 'Puck', 'Orus', 'Enceladus', 'Iapetus', 'Umbriel', 'Algenib', 'Rasalgethi', 'Alnilam', 'Schedar'];
 const FEMALE_GEMINI_VOICES = ['Kore', 'Aoede', 'Zephyr', 'Leda', 'Despina', 'Callirrhoe', 'Autonoe', 'Erinome', 'Algieba', 'Laomedeia', 'Achernar'];
 
-// WaveSpeed MiniMax voices by gender (fallback)
-const MALE_WAVESPEED_VOICES = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man', 'Determined_Man', 'Elegant_Man'];
-const FEMALE_WAVESPEED_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl', 'Lively_Girl', 'Lovely_Girl'];
+// WaveSpeed MiniMax voices removed — kept as empty arrays for compatibility
+const MALE_WAVESPEED_VOICES: string[] = [];
+const FEMALE_WAVESPEED_VOICES: string[] = [];
 
 // ── Polling helper ─────────────────────────────────────────────────
 async function pollWaveSpeedResult(taskId: string, apiKey: string): Promise<string | null> {
@@ -158,29 +158,7 @@ async function generateGeminiMultiSpeakerTTS(
   }
 }
 
-// ── WaveSpeed MiniMax TTS (per-line fallback) ──────────────────────
-async function generateWaveSpeedTTS(
-  text: string, apiKey: string, voiceId: string,
-): Promise<Uint8Array | null> {
-  try {
-    const res = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: text.length > 10000 ? text.substring(0, 10000) : text,
-        voice_id: voiceId, speed: 1, volume: 1, pitch: 0, emotion: 'neutral', english_normalization: true,
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.code !== 200 || !data.data?.id) return null;
-    const audioUrl = await pollWaveSpeedResult(data.data.id, apiKey);
-    if (!audioUrl) return null;
-    const audioRes = await fetch(audioUrl);
-    if (!audioRes.ok) return null;
-    return new Uint8Array(await audioRes.arrayBuffer());
-  } catch { return null; }
-}
+// WaveSpeed MiniMax TTS removed — Gemini multi-speaker + Speechify cloned voices only
 
 // ── Google Cloud TTS (cloned voice only) ───────────────────────────
 async function generateClonedVoiceTTS(
@@ -297,15 +275,6 @@ async function generatePerLineFallback(
         audioData = await generateSpeechifyTTS(text, speechifyApiKey, assignment.speechifyVoiceId);
       if (!audioData && assignment.voiceCloningKey && googleApiKey)
         audioData = await generateClonedVoiceTTS(text, googleApiKey, assignment.voiceCloningKey);
-      if (!audioData && waveSpeedApiKey) {
-        const wsVoice = pickWaveSpeedVoice(charLower, assignment.gender || 'male');
-        audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
-      }
-    }
-
-    if (!audioData && waveSpeedApiKey) {
-      const wsVoice = pickWaveSpeedVoice(charLower, 'male');
-      audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
     }
 
     if (audioData) {

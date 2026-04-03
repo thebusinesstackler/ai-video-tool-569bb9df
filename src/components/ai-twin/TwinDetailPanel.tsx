@@ -940,11 +940,10 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </Select>
           </div>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Badge variant={(voiceCloningKey || voiceEngine === 'wavespeed') ? "default" : "secondary"}>
+            <Badge variant={voiceCloningKey ? "default" : "secondary"}>
               <Volume2 className="w-3 h-3 mr-1" />
-              {voiceEngine === 'wavespeed' ? '🌊 WaveSpeed Voice'
-                : voiceCloningKey ? '🎙️ Voice Cloned' 
-                : 'No Voice'}
+              {voiceCloningKey ? '🎙️ Voice Cloned' 
+                : '🎬 Sora-2 Native'}
             </Badge>
             <Badge variant="outline">
               <ImageIcon className="w-3 h-3 mr-1" />
@@ -1112,17 +1111,18 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             <Volume2 className="w-4 h-4" />
             Voice Engine
             <Badge variant="outline" className="ml-auto text-xs">
-              {voiceEngine === 'speechify' ? '🎙️ Cloned' : '🌊 WaveSpeed'}
+              {voiceEngine === 'speechify' ? '🎙️ Cloned' : '🎬 Sora-2 Native'}
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Select
-            value={voiceEngine}
+            value={voiceEngine === 'wavespeed' ? 'native' : voiceEngine}
             onValueChange={async (newEngine) => {
-              setVoiceEngine(newEngine);
+              const engineToSave = newEngine === 'native' ? 'native' : newEngine;
+              setVoiceEngine(engineToSave);
               try {
-               const updateData: any = { voice_engine: newEngine };
+               const updateData: any = { voice_engine: engineToSave };
                 const { error } = await supabase
                   .from('ai_twins')
                   .update(updateData)
@@ -1140,7 +1140,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="speechify">🎙️ Cloned Voice (Speechify)</SelectItem>
-              <SelectItem value="wavespeed">🌊 WaveSpeed MiniMax</SelectItem>
+              <SelectItem value="native">🎬 Sora-2 Native Audio</SelectItem>
             </SelectContent>
           </Select>
 
@@ -1161,46 +1161,15 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </>
           )}
 
-          {voiceEngine === 'wavespeed' && (
-            <div className="space-y-3">
+          {(voiceEngine === 'native' || voiceEngine === 'wavespeed') && (
+            <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                WaveSpeed MiniMax HD voice — generate a sample to preview.
+                Sora-2 generates a unique, natural voice for each video. No configuration needed.
               </p>
-              <Button
-                onClick={generateWavespeedVoice}
-                disabled={isGeneratingWavespeedVoice}
-                variant="outline"
-                className="w-full"
-              >
-                {isGeneratingWavespeedVoice ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Voice...
-                  </>
-                ) : voiceCloningKey && voiceEngine === 'wavespeed' ? (
-                  <>
-                    <Volume2 className="w-4 h-4 mr-2" />
-                    Regenerate WaveSpeed Voice
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate WaveSpeed Voice
-                  </>
-                )}
-              </Button>
-              {voiceCloningKey && voiceEngine === 'wavespeed' && (
-                <div className="space-y-1">
-                  <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
-                    <Check className="w-3 h-3 mr-1" />
-                    WaveSpeed Voice Ready
-                  </Badge>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Check className="w-3 h-3 text-green-500" />
-                    Voice changes are auto-saved
-                  </p>
-                </div>
-              )}
+              <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
+                <Check className="w-3 h-3 mr-1" />
+                Ready — Sora-2 handles voice automatically
+              </Badge>
             </div>
           )}
         </CardContent>

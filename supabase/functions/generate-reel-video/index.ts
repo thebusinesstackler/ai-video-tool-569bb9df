@@ -45,125 +45,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-// Calculate TTS speed to match target duration
-// With longer narrations (25-30 words), we need slower speech (0.5-0.8x) to fill 8 seconds
-// Normal speech is ~150 words/minute = 2.5 words/second
-// WaveSpeed speed range: 0.5 (slowest) to 2.0 (fastest)
-function calculateTTSSpeed(text: string, targetDurationSeconds: number): number {
-  const words = text.split(/\s+/).filter(w => w.length > 0).length;
-  const normalWordsPerSecond = 2.5;
-  const normalDuration = words / normalWordsPerSecond;
-  
-  // Calculate what speed would stretch/compress to target
-  // speed < 1 = slower (takes more time), speed > 1 = faster
-  const requiredSpeed = normalDuration / targetDurationSeconds;
-  
-  // Allow up to 2.0 so narration can be sped up when too long for the scene
-  const clampedSpeed = Math.max(0.5, Math.min(2.0, requiredSpeed));
-  
-  console.log(`TTS speed calc: ${words} words, normal=${normalDuration.toFixed(1)}s, target=${targetDurationSeconds}s, speed=${clampedSpeed.toFixed(2)}`);
-  
-  return clampedSpeed;
-}
-
-// Generate voiceover using WaveSpeed MiniMax Speech-02-HD
-async function generateWaveSpeedTTS(
-  text: string, 
-  apiKey: string,
-  emotion: string = 'neutral',
-  targetDuration: number = 8,
-  selectedVoice: string = 'English_Trustworth_Man'
-): Promise<{ audioUrl: string; taskId: string } | null> {
-  try {
-    console.log('Generating TTS with WaveSpeed MiniMax Speech-02-HD...');
-    
-    // Use the selected voice, default to English_Trustworth_Man
-    const voiceId = selectedVoice || 'English_Trustworth_Man';
-    
-    // Calculate speed to match target duration
-    const speed = calculateTTSSpeed(text, targetDuration);
-    
-    // Use WaveSpeed MiniMax Speech-02-HD endpoint
-    const response = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text: text,
-        voice_id: voiceId,
-        speed: speed,
-        volume: 1,
-        pitch: 0,
-        emotion: emotion,
-        english_normalization: true
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('WaveSpeed TTS error:', response.status, errorText);
-      return null;
-    }
-
-    const data = await response.json();
-    console.log('WaveSpeed TTS response:', data);
-    
-    if (data.code === 200 && data.data?.id) {
-      return { audioUrl: '', taskId: data.data.id };
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('WaveSpeed TTS error:', error);
-    return null;
-  }
-}
-
-// Poll for WaveSpeed TTS result
-async function pollWaveSpeedTTSResult(taskId: string, apiKey: string, maxAttempts: number = 30): Promise<string | null> {
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const response = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-      });
-
-      if (!response.ok) {
-        console.error('TTS poll error:', response.status);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        continue;
-      }
-
-      const data = await response.json();
-      console.log('TTS poll result:', data.data?.status);
-      
-      if (data.code === 200 && data.data) {
-        if (data.data.status === 'completed' || data.data.status === 'succeeded') {
-          // Audio URL is in outputs array
-          const audioUrl = data.data.outputs?.[0];
-          if (audioUrl) {
-            console.log('TTS completed, audio URL:', audioUrl);
-            return audioUrl;
-          }
-        } else if (data.data.status === 'failed') {
-          console.error('TTS task failed');
-          return null;
-        }
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error) {
-      console.error('TTS poll error:', error);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-  
-  console.error('TTS polling timed out');
-  return null;
-}
+// (WaveSpeed MiniMax TTS removed — Sora-2 native audio is used for all non-cloned voices)
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
 // Sanitize character description to remove prop/product references
@@ -615,70 +497,30 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           sceneHasEmbeddedAudio = true;
           
         } else if (videoModel === 'sora-2' && isNarratorScene) {
-          // ====== SORA-2 NARRATOR: Route to InfiniteTalk for reliable lip-sync ======
-          // Sora-2 doesn't reliably produce lip-synced speech, so narrator scenes
-          // use InfiniteTalk (portrait + TTS audio) for guaranteed lip-sync.
-          console.log(`Scene ${scene.sceneNumber}: Sora-2 mode — routing narrator to InfiniteTalk for reliable lip-sync`);
+          // ====== SORA-2 NARRATOR: Native audio — narration embedded in prompt ======
+          console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator with native audio`);
           
-          let sceneAudioUrl = audioUrl;
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
+          const hasImage = !!imageUrl;
+          const sora2CharContext = hasImage ? '' : charContext;
           
-          // If audio is base64, upload to storage first
-          if (sceneAudioUrl && sceneAudioUrl.startsWith('data:') && supabase) {
-            try {
-              const base64Match = sceneAudioUrl.match(/^data:([^;]+);base64,(.+)$/);
-              if (base64Match) {
-                const audioBytes = base64ToUint8Array(base64Match[2]);
-                const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}-tts.mp3`;
-                const { error: audioUploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(audioFileName, audioBytes, { contentType: base64Match[1], upsert: true });
-                
-                if (!audioUploadError) {
-                  const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
-                  sceneAudioUrl = audioPublicUrl.publicUrl;
-                  console.log(`Scene ${scene.sceneNumber}: Uploaded base64 audio to storage: ${sceneAudioUrl}`);
-                }
-              }
-            } catch (audioUploadErr) {
-              console.error(`Scene ${scene.sceneNumber}: Failed to upload audio to storage:`, audioUploadErr);
-            }
-          }
+          const isCloseUp = (scene as any).cameraAngle?.toLowerCase().includes('extreme close-up') || (scene as any).cameraAngle?.toLowerCase().includes('intimate');
+          const closeUpNote = isCloseUp ? 'CAMERA: Tight close-up on face — eyes + mouth fill the frame, intimate emphatic framing.' : '';
           
-          if (!sceneAudioUrl) {
-            console.warn(`Scene ${scene.sceneNumber}: No audio URL for InfiniteTalk — falling back to Sora-2 native`);
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-            const sora2Durations = [4, 8, 12, 16, 20];
-            const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-            const hasImage = !!imageUrl;
-            const sora2CharContext = hasImage ? '' : charContext;
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+${closeUpNote}
 Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
 Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
 Lip movement must match the spoken words exactly. No silent clips, no music replacement.
 No captions, no subtitles, no watermarks.`,
-              duration: sora2Duration,
-              aspect_ratio: '9:16'
-            };
-            sceneHasEmbeddedAudio = true;
-          } else {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-            const sora2NarrDurations = [4, 8, 12, 16, 20];
-            const sora2NarrDuration = sora2NarrDurations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
-Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
-Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
-Lip movement must match the spoken words exactly. No silent clips, no music replacement.
-No captions, no subtitles, no watermarks.`,
-              duration: sora2NarrDuration,
-              aspect_ratio: '9:16'
-            };
-            sceneHasEmbeddedAudio = true;
-            console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator (replaced infinitetalk-fast)`);
-          }
+            duration: sora2Duration,
+            aspect_ratio: '9:16'
+          };
+          sceneHasEmbeddedAudio = true;
           
         } else if (videoModel === 'sora-2') {
           // ====== SORA-2: Intro/Outro/B-roll scenes (non-narrator) ======
@@ -725,64 +567,24 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
-          // ====== INFINITETALK: Audio-driven lip sync (up to 10 min) ======
-          // Takes portrait image + audio URL, produces video with embedded lip-synced audio
-          // Duration auto-matches the audio length — no cap needed
-          console.log(`Scene ${scene.sceneNumber}: Using InfiniteTalk for lip-sync narrator scene`);
+          // ====== INFINITETALK FALLBACK: Now routes to Sora-2 native audio ======
+          console.log(`Scene ${scene.sceneNumber}: InfiniteTalk requested — routing to Sora-2 native audio instead`);
           
-          // We need an audio URL for infinitetalk
-          let sceneAudioUrl = audioUrl;
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
           
-          // If audio is base64, upload to storage first
-          if (sceneAudioUrl && sceneAudioUrl.startsWith('data:') && supabase) {
-            try {
-              const base64Match = sceneAudioUrl.match(/^data:([^;]+);base64,(.+)$/);
-              if (base64Match) {
-                const audioBytes = base64ToUint8Array(base64Match[2]);
-                const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}-tts.mp3`;
-                const { error: audioUploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(audioFileName, audioBytes, { contentType: base64Match[1], upsert: true });
-                
-                if (!audioUploadError) {
-                  const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
-                  sceneAudioUrl = audioPublicUrl.publicUrl;
-                  console.log(`Scene ${scene.sceneNumber}: Uploaded base64 audio to storage: ${sceneAudioUrl}`);
-                }
-              }
-            } catch (audioUploadErr) {
-              console.error(`Scene ${scene.sceneNumber}: Failed to upload audio to storage:`, audioUploadErr);
-            }
-          }
-          
-          if (!sceneAudioUrl) {
-            console.warn(`Scene ${scene.sceneNumber}: No audio URL for InfiniteTalk, falling back to Kling`);
-            // Fall through to kling fallback below
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
-            const klingDuration = clipDuration <= 7 ? 5 : 10;
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${charContext} ${topicContext} Natural expression, cinematic quality. No text.`,
-              duration: klingDuration
-            };
-            sceneHasEmbeddedAudio = false;
-          } else {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-            const sora2NarrDurations2 = [4, 8, 12, 16, 20];
-            const sora2NarrDuration2 = sora2NarrDurations2.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
 Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
 Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
 Lip movement must match the spoken words exactly. No silent clips, no music replacement.
 No captions, no subtitles, no watermarks.`,
-              duration: sora2NarrDuration2,
-              aspect_ratio: '9:16'
-            };
-            sceneHasEmbeddedAudio = true;
-            console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator (replaced infinitetalk-fast)`);
-          }
+            duration: sora2Duration,
+            aspect_ratio: '9:16'
+          };
+          sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
           // ====== WAN 2.5 VIDEO EXTEND: Two-step pipeline ======
