@@ -5307,7 +5307,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 }} className={`cursor-pointer rounded-lg border-2 p-1.5 transition-all text-center ${isSelected ? 'border-primary ring-2 ring-primary/40 bg-primary/5' : 'border-border hover:border-primary/50 bg-muted/30'} ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                                   {thumbUrl ? <img src={thumbUrl} alt={twin.name} className="w-full aspect-square object-cover rounded-md mb-1" /> : <div className="w-full aspect-square rounded-md bg-muted flex items-center justify-center mb-1"><User className="w-6 h-6 text-muted-foreground" /></div>}
                                   <p className="text-[10px] font-medium text-foreground truncate">{twin.name}</p>
-                                  {(twin.voice_cloning_key || twin.voice_engine === 'wavespeed') && <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">{twin.voice_engine === 'wavespeed' ? '🌊' : '🎙️'}</Badge>}
+                                  {twin.voice_cloning_key && <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">🎙️</Badge>}
                                 </div>
                               );
                             })}
