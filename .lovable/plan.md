@@ -1,37 +1,41 @@
 
 
-## Fix Video URL Import — Replace Shutdown Cobalt API
+## Video Repo Pro — 30-Second Multi-Clip Stitched Videos
 
-### The Problem
-The Cobalt v7 API (`api.cobalt.tools/api/json`) was permanently shut down in November 2024. That's why YouTube Shorts imports are failing. You do **not** need to add a Cobalt API key — the old public endpoint simply no longer exists.
+### What We're Building
+A clone of the Video Repo page called "Video Repo Pro" that generates full 30-second videos by splitting the script into segments, generating multiple Sora-2 clips (up to 20 seconds each), and stitching them together seamlessly — no cutoffs.
 
-### The Fix
-Replace the Cobalt v7 call with the **new Cobalt v10+ API format** pointed at a public instance, plus add a fallback using a **RapidAPI YouTube downloader** for reliability.
-
-### Approach Options
-
-Since Cobalt's public API is gone, there are two paths:
-
-1. **Use a public Cobalt v10 instance** — Free but potentially unreliable (public instances may block YouTube). The new API format uses `POST /` with updated field names (`videoQuality` instead of `vQuality`, `downloadMode` instead of separate flags).
-
-2. **Use a paid video download API via RapidAPI** — Reliable, supports YouTube/TikTok/Instagram, but requires adding an API key (~$10/month for moderate use).
-
-**Recommended: Option 2** — A RapidAPI-based downloader is more reliable for production use. We'd add one secret (`RAPIDAPI_KEY`) and update the edge function.
+### How It Works
+```text
+Reference analysis → AI writes a 30s scene-by-scene script
+→ Script split into 2 segments (~15-20s each)
+→ Sora-2 generates each segment in parallel
+→ Segments stitched via videoStitch pipeline
+→ Single seamless 30s MP4 delivered
+```
 
 ### File Changes
 
-**`supabase/functions/download-video-url/index.ts`**
-- Remove the dead Cobalt v7 API call
-- Add a primary download method using a RapidAPI video downloader (e.g., `ytdl-core` or `social-media-video-downloader`)
-- Keep the same auth, validation, storage upload, and response format
-- Add better error messages indicating which platforms are supported
+**1. `src/pages/VideoRepoPro.tsx`** (new — cloned from VideoRepo.tsx)
+- Update page title/branding to "Video Repo Pro"
+- Change the AI system prompt to generate a **structured multi-segment script** with explicit timing per segment (e.g., Segment 1: 0-15s, Segment 2: 15-30s)
+- Output format: multiple `video-prompt-1`, `video-prompt-2` blocks instead of one
+- After analysis, generate each segment as a separate Sora-2 call with `duration: 20` (max allowed)
+- Run both generation jobs in parallel, poll both until complete
+- Once all clips are ready, call `stitchVideosWithAudio` from `@/lib/videoStitch` to merge them into one seamless MP4
+- Upload the final stitched blob to Supabase Storage and save it as the project result
+- Show progress: "Generating segment 1/2...", "Stitching final video..."
 
-### What You'd Need
-- A RapidAPI key (free tier available, paid for higher volume)
-- I'll walk you through getting one before implementing
+**2. `src/App.tsx`**
+- Import `VideoRepoPro` and add route `/video-repo-pro`
 
-### Alternative: No API Key Needed
-If you'd prefer not to add an API key, I can instead:
-- Try multiple known public Cobalt v10 instances with automatic fallback
-- This is free but may be less reliable for YouTube specifically (TikTok/Instagram tend to work better on public instances)
+**3. `src/components/Navigation.tsx`**
+- Add "Video Repo Pro" nav item under AI Tools group with a distinct icon (e.g., `Film` or `Sparkles`)
+
+### Key Technical Details
+- Sora-2 supports up to 20s per clip — two clips covers 30s+ comfortably
+- The existing `stitchVideosWithAudio` handles cloud stitching (Creatomate) with canvas fallback
+- The AI prompt instructs continuity between segments: Segment 2's opening matches Segment 1's ending for seamless transitions
+- Uses the same `video_repo_projects` table for history — adds a `source: 'video-repo-pro'` tag to distinguish
+- All existing features (URL import, product image, frame extraction, history) carry over from the clone
 
