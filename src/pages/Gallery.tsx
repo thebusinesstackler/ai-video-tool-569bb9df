@@ -77,7 +77,10 @@ const Gallery = () => {
   };
 
   useEffect(() => {
-    if (user) fetchProducts();
+    if (user) {
+      fetchProducts();
+      fetchVideoRepoEntries();
+    }
   }, [user]);
 
   const handleProductUpload = async (files: FileList) => {
