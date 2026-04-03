@@ -263,7 +263,26 @@ const VideoRepoPro = () => {
       toast({ title: 'Video imported!', description: 'Reference video ready for analysis.' });
     } catch (err: any) {
       console.error('[URL import error]', err);
-      toast({ title: 'Import failed', description: err.message || 'Could not download video from URL', variant: 'destructive' });
+
+      let description = err?.message || 'Could not download video from URL';
+      const response = err && typeof err === 'object' && 'context' in err ? (err as { context?: Response }).context : undefined;
+
+      if (response instanceof Response) {
+        try {
+          const body = await response.clone().json();
+          if (body?.error && typeof body.error === 'string') {
+            description = body.error;
+          }
+        } catch {
+          try {
+            const text = await response.clone().text();
+            if (text) description = text;
+          } catch {
+          }
+        }
+      }
+
+      toast({ title: 'Import failed', description, variant: 'destructive' });
     } finally {
       setIsDownloadingUrl(false);
     }

@@ -94,6 +94,24 @@ function extractDownloadUrl(platform: string, data: any): string | null {
   return null;
 }
 
+function getRapidApiHeaders(rapidApiKey: string, url?: string): Record<string, string> | undefined {
+  if (!url) return undefined;
+
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.endsWith('smvd.xyz') || hostname.includes('rapidapi')) {
+      return {
+        'X-RapidAPI-Key': rapidApiKey,
+        'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com',
+      };
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -194,8 +212,12 @@ Deno.serve(async (req) => {
 
     // Download the video
     console.log('[download-video-url] Downloading video from:', downloadUrl.substring(0, 80));
-    const videoResponse = await fetch(downloadUrl);
+    const videoResponse = await fetch(downloadUrl, {
+      headers: getRapidApiHeaders(rapidApiKey, downloadUrl),
+    });
     if (!videoResponse.ok) {
+      const errText = await videoResponse.text();
+      console.error('[download-video-url] Source download error:', videoResponse.status, errText.substring(0, 500));
       return new Response(JSON.stringify({ error: 'Failed to download video from source' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
