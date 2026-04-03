@@ -81,10 +81,37 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
   };
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [isBatchSwapping, setIsBatchSwapping] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showLibrary, setShowLibrary] = useState(false);
+
+  // Auto-analyze product when selected/uploaded
+  const analyzeProduct = async (imageUrl: string) => {
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-product', {
+        body: { imageUrl }
+      });
+      if (error) throw error;
+      const info = data?.productInfo;
+      if (info) {
+        const desc = [
+          info.productName,
+          info.description,
+          info.category ? `(${info.category})` : ''
+        ].filter(Boolean).join(' — ');
+        updateProductPrompt(desc);
+        toast({ title: 'Product analyzed ✨', description: `Identified: ${info.productName || 'product'}` });
+      }
+    } catch (err: any) {
+      console.error('Product analysis failed:', err);
+      // Non-blocking — user can still describe manually
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   useEffect(() => {
     if (user) loadProductLibrary();
@@ -123,7 +150,9 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
 
       updateProductUrl(publicUrl);
       await loadProductLibrary();
-      toast({ title: 'Product uploaded', description: 'Saved to your product library' });
+      toast({ title: 'Product uploaded', description: 'Analyzing product...' });
+      // Auto-analyze the uploaded product
+      analyzeProduct(publicUrl);
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     } finally {
@@ -266,7 +295,7 @@ CRITICAL RULES — DO NOT VIOLATE:
                   ? 'border-primary ring-2 ring-primary/40'
                   : 'border-border hover:border-primary/50'
               }`}
-              onClick={() => updateProductUrl(p.image_url)}
+              onClick={() => { updateProductUrl(p.image_url); analyzeProduct(p.image_url); }}
             >
               <img src={p.image_url} alt={p.name || 'Product'} className="w-full aspect-square object-cover" />
               <button
@@ -293,14 +322,19 @@ CRITICAL RULES — DO NOT VIOLATE:
                 <X className="h-2 w-2 text-white" />
               </button>
             </div>
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 space-y-1 relative">
               <Input
-                placeholder="Optional: describe the product (e.g. 'blue water bottle')"
+                placeholder={isAnalyzing ? "Analyzing product..." : "Describe the product (auto-filled by AI)"}
                 value={productPrompt}
                 onChange={(e) => updateProductPrompt(e.target.value)}
                 className="h-7 text-xs"
-                disabled={isSwapping || isBatchSwapping || disabled}
+                disabled={isSwapping || isBatchSwapping || disabled || isAnalyzing}
               />
+              {isAnalyzing && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                </div>
+              )}
             </div>
           </div>
           
