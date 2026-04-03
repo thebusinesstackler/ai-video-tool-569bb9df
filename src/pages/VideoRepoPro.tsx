@@ -571,32 +571,7 @@ And finally, provide the voiceover narration script that will be read over the e
             await supabase.from('video_repo_projects').update({ status: 'stitching' as any }).eq('id', projectId);
           }
 
-          // Generate voiceover from narration script (if available)
-          let voiceoverUrl: string | undefined;
-          const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
-          if (narrationMatch) {
-            const narrationText = narrationMatch[1].trim();
-            if (narrationText) {
-              setGenerationProgress('Generating voiceover narration...');
-              try {
-                const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-                  body: {
-                    text: narrationText,
-                    voice: 'English_Trustworth_Man',
-                    speed: 1,
-                  },
-                });
-                if (!ttsError && ttsData?.audioUrl) {
-                  voiceoverUrl = ttsData.audioUrl;
-                  console.log('[VideoRepoPro] Voiceover generated successfully');
-                } else {
-                  console.warn('[VideoRepoPro] TTS failed:', ttsError);
-                }
-              } catch (ttsErr) {
-                console.warn('[VideoRepoPro] TTS generation error:', ttsErr);
-              }
-            }
-          }
+          // Sora-2 clips already include native voiceover — no separate TTS needed
 
           // Download videos as blobs to avoid CORS canvas tainting
           setGenerationProgress('Downloading clips for stitching...');
