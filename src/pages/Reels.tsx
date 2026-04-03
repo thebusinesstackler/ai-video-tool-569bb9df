@@ -350,7 +350,7 @@ const Reels = () => {
   } = useScenePreview();
   
   // Lip sync mode
-  const [enableLipSync, setEnableLipSync] = useState(false);
+  const [enableLipSync, setEnableLipSync] = useState(isBeginner || isQuick);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
   const videoModel = 'sora-2' as const;
   const [wan26Duration, setWan26Duration] = useState<5 | 10 | 15>(5);
