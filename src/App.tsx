@@ -19,6 +19,7 @@ import TestimonialCommercial from "./pages/TestimonialCommercial";
 import AISpokesperson from "./pages/AISpokesperson";
 import HookEngine from "./pages/HookEngine";
 import VideoRepo from "./pages/VideoRepo";
+import VideoRepoPro from "./pages/VideoRepoPro";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/commercial-studio" element={<Navigate to="/testimonial-commercial" replace />} />
               <Route path="/hook-engine" element={<ProtectedRoute><HookEngine /></ProtectedRoute>} />
               <Route path="/video-repo" element={<ProtectedRoute><VideoRepo /></ProtectedRoute>} />
+              <Route path="/video-repo-pro" element={<ProtectedRoute><VideoRepoPro /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
