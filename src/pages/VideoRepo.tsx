@@ -209,6 +209,60 @@ const VideoRepo = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleUrlImport = async () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed || isDownloadingUrl) return;
+    try {
+      new URL(trimmed);
+    } catch {
+      toast({ title: 'Invalid URL', description: 'Please enter a valid TikTok, YouTube, or video URL.', variant: 'destructive' });
+      return;
+    }
+    setIsDownloadingUrl(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('download-video-url', {
+        body: { url: trimmed },
+      });
+      if (error) throw new Error(typeof error === 'object' && 'message' in error ? error.message : 'Download failed');
+      if (!data?.videoUrl) throw new Error(data?.error || 'No video returned');
+
+      // Set as reference video
+      if (referenceVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(referenceVideoUrl);
+      setReferenceVideoUrl(data.videoUrl);
+      try {
+        const hostname = new URL(trimmed).hostname.replace('www.', '');
+        setReferenceVideoName(`${hostname} import`);
+      } catch {
+        setReferenceVideoName('URL import');
+      }
+      setReferenceVideoFile(null);
+      setUrlInput('');
+      setVideoFrames([]);
+
+      // Extract frames from the downloaded video
+      setIsExtractingFrames(true);
+      try {
+        const videoResp = await fetch(data.videoUrl);
+        const blob = await videoResp.blob();
+        const file = new File([blob], 'imported.mp4', { type: 'video/mp4' });
+        const frames = await extractVideoFrames(file, 6);
+        setVideoFrames(frames);
+      } catch (frameErr) {
+        console.warn('Could not extract frames from imported video:', frameErr);
+        toast({ title: 'Video imported', description: 'Frames could not be extracted but you can still generate.' });
+      } finally {
+        setIsExtractingFrames(false);
+      }
+
+      toast({ title: 'Video imported!', description: 'Reference video ready for analysis.' });
+    } catch (err: any) {
+      console.error('[URL import error]', err);
+      toast({ title: 'Import failed', description: err.message || 'Could not download video from URL', variant: 'destructive' });
+    } finally {
+      setIsDownloadingUrl(false);
+    }
+  };
+
   const handleReferenceVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
