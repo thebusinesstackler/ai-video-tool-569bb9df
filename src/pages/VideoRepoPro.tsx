@@ -390,7 +390,8 @@ CRITICAL RULES:
 - The total ad is 30 seconds, split into Segment 1 (~15s) and Segment 2 (~15s)
 - Segment 2 MUST visually continue from where Segment 1 ends — same character, same environment, continuous action
 - Each segment prompt must be 80-150 words with full cinematic detail
-- Include explicit transition instructions: Segment 1's final frame should set up Segment 2's opening frame`;
+- Include explicit transition instructions: Segment 1's final frame should set up Segment 2's opening frame
+- You MUST also provide a narration script that will be read as voiceover over the full 30-second video`;
 
       const analysisInstruction = `User request: "${userMsg.content}"
 
@@ -413,6 +414,12 @@ Then provide TWO video prompt blocks — one per segment:
 
 \`\`\`video-prompt-2
 [Segment 2: 15-30 seconds. Detailed video generation prompt — 80-150 words. This segment starts EXACTLY where Segment 1 ends — same character, same environment, continuous motion. Covers the SOLUTION/PRODUCT SHOWCASE and CTA. Include the closing action and call-to-action.]
+\`\`\`
+
+And finally, provide the voiceover narration script that will be read over the entire 30-second video. Write it as natural, conversational speech — no stage directions, no character names, no brackets. Just the words to be spoken aloud:
+
+\`\`\`narration
+[The full voiceover script for the 30-second ad. 60-90 words. Conversational, punchy, direct. Should complement the visuals without describing them literally.]
 \`\`\``;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
@@ -545,6 +552,33 @@ Then provide TWO video prompt blocks — one per segment:
             await supabase.from('video_repo_projects').update({ status: 'stitching' as any }).eq('id', projectId);
           }
 
+          // Generate voiceover from narration script (if available)
+          let voiceoverUrl: string | undefined;
+          const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
+          if (narrationMatch) {
+            const narrationText = narrationMatch[1].trim();
+            if (narrationText) {
+              setGenerationProgress('Generating voiceover narration...');
+              try {
+                const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+                  body: {
+                    text: narrationText,
+                    voice: 'English_Trustworth_Man',
+                    speed: 1,
+                  },
+                });
+                if (!ttsError && ttsData?.audioUrl) {
+                  voiceoverUrl = ttsData.audioUrl;
+                  console.log('[VideoRepoPro] Voiceover generated successfully');
+                } else {
+                  console.warn('[VideoRepoPro] TTS failed:', ttsError);
+                }
+              } catch (ttsErr) {
+                console.warn('[VideoRepoPro] TTS generation error:', ttsErr);
+              }
+            }
+          }
+
           // Download videos as blobs to avoid CORS canvas tainting
           setGenerationProgress('Downloading clips for stitching...');
           const blobUrls: string[] = [];
@@ -557,6 +591,8 @@ Then provide TWO video prompt blocks — one per segment:
 
           const stitchedBlob = await stitchVideosWithAudio({
             videoUrls: blobUrls,
+            embeddedAudioIndices: [0, 1],
+            audioUrls: voiceoverUrl ? [voiceoverUrl] : [],
             onProgress: (pct) => setGenerationProgress(`Stitching... ${pct}%`),
           });
 

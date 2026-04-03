@@ -7,6 +7,8 @@ import { canvasStitchVideos } from '@/lib/canvasStitch';
 interface StitchOptions {
   videoUrls: string[];
   audioUrls?: string[];
+  /** Indices into videoUrls whose embedded audio should be captured (unmuted playback) */
+  embeddedAudioIndices?: number[];
   transitions?: string[];
   onProgress?: (percent: number) => void;
 }
@@ -97,7 +99,7 @@ async function cloudStitch(
  * Returns a Blob of the final MP4.
  */
 export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blob> {
-  const { videoUrls, audioUrls = [], onProgress } = options;
+  const { videoUrls, audioUrls = [], embeddedAudioIndices = [], onProgress } = options;
 
   if (!videoUrls || videoUrls.length === 0) throw new Error('No video URLs provided');
 
@@ -126,6 +128,7 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
   return canvasStitchVideos({
     videoUrls,
     audioUrls: audioUrls.length > 0 ? audioUrls : undefined,
+    embeddedAudioIndices,
     onProgress,
   });
 }
