@@ -182,7 +182,7 @@ async function generateWaveSpeedTTS(
   } catch { return null; }
 }
 
-// ── Google Cloud TTS (cloned voice) ────────────────────────────────
+// ── Google Cloud TTS (cloned voice only) ───────────────────────────
 async function generateClonedVoiceTTS(
   text: string, apiKey: string, voiceCloningKey: string
 ): Promise<Uint8Array | null> {
@@ -194,33 +194,6 @@ async function generateClonedVoiceTTS(
         input: { text: text.substring(0, 5000) },
         voice: { languageCode: 'en-US', voiceClone: { voiceCloningKey } },
         audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 },
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.audioContent) return null;
-    const bin = atob(data.audioContent);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
-  } catch { return null; }
-}
-
-// ── Google Cloud TTS (standard voice) ──────────────────────────────
-async function generateGoogleTTS(
-  text: string, apiKey: string, voiceName: string
-): Promise<Uint8Array | null> {
-  try {
-    const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: { text: text.substring(0, 5000) },
-        voice: {
-          languageCode: 'en-US', name: voiceName,
-          ssmlGender: voiceName.includes('-F') || voiceName.includes('-O') || voiceName.includes('-C') ? 'FEMALE' : 'MALE',
-        },
-        audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0, effectsProfileId: ['headphone-class-device'] },
       }),
     });
     if (!res.ok) return null;
