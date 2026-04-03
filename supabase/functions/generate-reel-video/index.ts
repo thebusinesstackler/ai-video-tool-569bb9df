@@ -497,70 +497,30 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           sceneHasEmbeddedAudio = true;
           
         } else if (videoModel === 'sora-2' && isNarratorScene) {
-          // ====== SORA-2 NARRATOR: Route to InfiniteTalk for reliable lip-sync ======
-          // Sora-2 doesn't reliably produce lip-synced speech, so narrator scenes
-          // use InfiniteTalk (portrait + TTS audio) for guaranteed lip-sync.
-          console.log(`Scene ${scene.sceneNumber}: Sora-2 mode — routing narrator to InfiniteTalk for reliable lip-sync`);
+          // ====== SORA-2 NARRATOR: Native audio — narration embedded in prompt ======
+          console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator with native audio`);
           
-          let sceneAudioUrl = audioUrl;
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
+          const hasImage = !!imageUrl;
+          const sora2CharContext = hasImage ? '' : charContext;
           
-          // If audio is base64, upload to storage first
-          if (sceneAudioUrl && sceneAudioUrl.startsWith('data:') && supabase) {
-            try {
-              const base64Match = sceneAudioUrl.match(/^data:([^;]+);base64,(.+)$/);
-              if (base64Match) {
-                const audioBytes = base64ToUint8Array(base64Match[2]);
-                const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}-tts.mp3`;
-                const { error: audioUploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(audioFileName, audioBytes, { contentType: base64Match[1], upsert: true });
-                
-                if (!audioUploadError) {
-                  const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
-                  sceneAudioUrl = audioPublicUrl.publicUrl;
-                  console.log(`Scene ${scene.sceneNumber}: Uploaded base64 audio to storage: ${sceneAudioUrl}`);
-                }
-              }
-            } catch (audioUploadErr) {
-              console.error(`Scene ${scene.sceneNumber}: Failed to upload audio to storage:`, audioUploadErr);
-            }
-          }
+          const isCloseUp = (scene as any).cameraAngle?.toLowerCase().includes('extreme close-up') || (scene as any).cameraAngle?.toLowerCase().includes('intimate');
+          const closeUpNote = isCloseUp ? 'CAMERA: Tight close-up on face — eyes + mouth fill the frame, intimate emphatic framing.' : '';
           
-          if (!sceneAudioUrl) {
-            console.warn(`Scene ${scene.sceneNumber}: No audio URL for InfiniteTalk — falling back to Sora-2 native`);
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-            const sora2Durations = [4, 8, 12, 16, 20];
-            const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-            const hasImage = !!imageUrl;
-            const sora2CharContext = hasImage ? '' : charContext;
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
+${closeUpNote}
 Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
 Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
 Lip movement must match the spoken words exactly. No silent clips, no music replacement.
 No captions, no subtitles, no watermarks.`,
-              duration: sora2Duration,
-              aspect_ratio: '9:16'
-            };
-            sceneHasEmbeddedAudio = true;
-          } else {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-            const sora2NarrDurations = [4, 8, 12, 16, 20];
-            const sora2NarrDuration = sora2NarrDurations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
-Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
-Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
-Lip movement must match the spoken words exactly. No silent clips, no music replacement.
-No captions, no subtitles, no watermarks.`,
-              duration: sora2NarrDuration,
-              aspect_ratio: '9:16'
-            };
-            sceneHasEmbeddedAudio = true;
-            console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator (replaced infinitetalk-fast)`);
-          }
+            duration: sora2Duration,
+            aspect_ratio: '9:16'
+          };
+          sceneHasEmbeddedAudio = true;
           
         } else if (videoModel === 'sora-2') {
           // ====== SORA-2: Intro/Outro/B-roll scenes (non-narrator) ======
