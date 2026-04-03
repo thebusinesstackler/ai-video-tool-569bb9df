@@ -679,6 +679,54 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   setGenerationProgress(`Trimming clip ${i + 1}... ${pct}%`);
                 });
                 blob = trimmedBlob;
+
+                // Auto-extend the trimmed clip using Wan 2.5 Video Extend to recover lost content
+                try {
+                  const originalDuration = 20; // Sora-2 target duration
+                  const lostSeconds = originalDuration - trimData.trimTimestamp;
+                  if (lostSeconds >= 3) {
+                    setGenerationProgress(`Extending clip ${i + 1} by ${Math.round(lostSeconds)}s to recover trimmed content...`);
+                    const trimmedUrl = await uploadBlobToStorage(blob, 'trimmed-for-extend', 'mp4');
+
+                    const { data: extendResult, error: extendError } = await supabase.functions.invoke('wavespeed-video', {
+                      body: {
+                        action: 'create',
+                        model: 'alibaba/wan-2.5/video-extend',
+                        videoUrl: trimmedUrl,
+                        prompt: 'Continue the scene naturally — same character, same environment, smooth cinematic motion. Maintain the same speaking style and energy.',
+                        duration: Math.min(10, Math.round(lostSeconds)),
+                      },
+                    });
+
+                    if (!extendError && extendResult?.taskId) {
+                      let extendAttempts = 0;
+                      const maxExtendAttempts = 60;
+                      while (extendAttempts < maxExtendAttempts) {
+                        await new Promise(r => setTimeout(r, 5000));
+                        const extJob = await getWaveSpeedVideoJob(extendResult.taskId);
+                        if (extJob.status === 'completed' && extJob.videoUrl) {
+                          setGenerationProgress(`Clip ${i + 1} extended successfully ✓`);
+                          const extResp = await fetch(extJob.videoUrl);
+                          if (extResp.ok) {
+                            blob = await extResp.blob();
+                            console.log(`[VideoRepoPro] Clip ${i + 1}: extended by ${Math.round(lostSeconds)}s`);
+                          }
+                          break;
+                        }
+                        if (extJob.status === 'failed') {
+                          console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}:`, extJob.error);
+                          break;
+                        }
+                        extendAttempts++;
+                        setGenerationProgress(`Extending clip ${i + 1}... (${Math.round((extendAttempts / maxExtendAttempts) * 100)}%)`);
+                      }
+                    }
+                  } else {
+                    console.log(`[VideoRepoPro] Clip ${i + 1}: only lost ${lostSeconds.toFixed(1)}s — too short to extend`);
+                  }
+                } catch (extendErr) {
+                  console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}, using trimmed version:`, extendErr);
+                }
               } else {
                 console.log(`[VideoRepoPro] Clip ${i + 1}: audio ends cleanly — no trim needed`);
               }
