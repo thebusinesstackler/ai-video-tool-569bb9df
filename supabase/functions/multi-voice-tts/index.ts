@@ -307,7 +307,6 @@ async function generatePerLineFallback(
       const wsVoice = pickWaveSpeedVoice(charLower, 'male');
       audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
     }
-    }
 
     if (audioData) {
       audioBuffers.push(audioData);
