@@ -710,15 +710,15 @@ Then provide TWO video prompt blocks — one per segment:
   return (
     <Layout>
       <div className="flex h-[calc(100vh-4rem)] max-w-6xl mx-auto flex-col overflow-hidden">
-        <div className="text-center py-6 px-4">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+        <div className="text-center py-3 md:py-5 px-4">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
               Video Repo Pro
             </h1>
-            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-xs">PRO</Badge>
+            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-[10px] md:text-xs">PRO</Badge>
           </div>
-          <p className="text-muted-foreground text-sm md:text-base max-w-2xl mx-auto">
-            Full 30-second UGC ads — two AI-generated segments stitched seamlessly. No cutoffs.
+          <p className="text-muted-foreground text-xs md:text-base max-w-2xl mx-auto">
+            Full 30s UGC ads — two segments stitched seamlessly.
           </p>
         </div>
 
@@ -737,22 +737,20 @@ Then provide TWO video prompt blocks — one per segment:
             </TabsList>
           </div>
 
-          <TabsContent value="create" className="flex-1 flex flex-col items-center px-4 min-h-0 overflow-y-auto mt-4">
-            <Card className="w-full max-w-3xl bg-card/95 border-2 border-orange-500/30 shadow-card rounded-3xl overflow-hidden mb-4 backdrop-blur-sm">
-              <div className="px-4 py-3 border-b border-border/50 bg-background/70">
-                <div className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Prompt</div>
+          <TabsContent value="create" className="flex-1 flex flex-col items-center px-4 min-h-0 overflow-y-auto mt-2">
+            <Card className="w-full max-w-3xl bg-card/95 border-2 border-orange-500/30 shadow-card rounded-2xl md:rounded-3xl overflow-hidden mb-3 backdrop-blur-sm">
+              <div className="px-3 md:px-4 py-2 md:py-3 border-b border-border/50 bg-background/70">
                 <Textarea
-                  placeholder="Upload your product image or reference video and describe your 30-second ad idea"
+                  placeholder="Describe your 30-second ad idea..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="min-h-[88px] rounded-2xl border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
-                  rows={3}
+                  className="min-h-[60px] md:min-h-[88px] rounded-xl md:rounded-2xl border border-border bg-background px-3 md:px-4 py-2 md:py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                  rows={2}
                 />
               </div>
 
-              <div className="px-4 py-3 space-y-3 bg-background/60">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Uploads</div>
+              <div className="px-3 md:px-4 py-2 md:py-3 space-y-2 bg-background/60">
 
                 {(referenceVideoUrl || productImageUrl || statusLabel) && (
                   <div className="space-y-2">
@@ -891,8 +889,8 @@ Then provide TWO video prompt blocks — one per segment:
                 </div>
               </ScrollArea>
             ) : (
-              <div className="w-full max-w-3xl mb-6 min-h-[220px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center shadow-card">
-                Upload a product image and a reference video, then press send. We'll create a full 30-second ad by generating two segments and stitching them together seamlessly.
+              <div className="w-full max-w-3xl mb-3 min-h-[120px] md:min-h-[180px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-4 py-4 md:py-6 text-center text-xs md:text-sm text-muted-foreground flex items-center justify-center shadow-card">
+                Upload a product image and reference video, then press send to create a full 30-second ad.
               </div>
             )}
           </TabsContent>
