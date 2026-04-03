@@ -473,6 +473,9 @@ Then provide TWO video prompt blocks — one per segment:
         };
         setMessages((prev) => [...prev, generatingMsg]);
 
+        let segment1Url: string | null = null;
+        let segment2Url: string | null = null;
+
         try {
           // Launch both segments in parallel
           setGenerationProgress('Starting Segment 1 & 2 generation...');
@@ -499,8 +502,6 @@ Then provide TWO video prompt blocks — one per segment:
           ]);
 
           // Poll both in parallel
-          let segment1Url: string | null = null;
-          let segment2Url: string | null = null;
           let attempts = 0;
           const maxAttempts = 150; // ~12.5 minutes
 
@@ -594,10 +595,26 @@ Then provide TWO video prompt blocks — one per segment:
           if (projectId) {
             await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
           }
+
+          // Build segment download links if we have individual segment URLs
+          const segmentLinks: string[] = [];
+          if (segment1Url) segmentLinks.push(segment1Url);
+          if (segment2Url) segmentLinks.push(segment2Url);
+
+          let errorContent = `⚠️ Video stitching failed: ${genErr.message}\n\n`;
+          if (segmentLinks.length > 0) {
+            errorContent += `Your individual segments were generated successfully. You can download them separately and combine them in any video editor:\n`;
+            segmentLinks.forEach((url, idx) => {
+              errorContent += `\n- [Download Segment ${idx + 1}](${url})`;
+            });
+          } else {
+            errorContent += 'You can retry or copy the video prompts above and try again.';
+          }
+
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
             role: 'assistant',
-            content: `⚠️ Video generation encountered an issue: ${genErr.message}. You can retry or copy the video prompts above and try again.`,
+            content: errorContent,
             retryable: true,
           };
           setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
