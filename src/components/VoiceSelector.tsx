@@ -70,7 +70,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
       const { data, error } = await supabase.rpc('get_twins_summary', { _user_id: user.id });
       if (error) throw error;
       const withVoice = (data || [])
-        .filter((t: any) => t.voice_cloning_key || t.voice_engine === 'wavespeed')
+        .filter((t: any) => t.voice_cloning_key && t.voice_engine === 'speechify')
         .map((t: any) => ({
           id: t.id,
           name: t.name,
