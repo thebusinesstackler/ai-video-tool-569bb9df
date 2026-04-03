@@ -161,8 +161,8 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
           Voice
         </CardTitle>
         {!compact && (
-          <CardDescription>
-            A voice is auto-selected based on your character. Optionally pick a cloned voice below.
+         <CardDescription>
+           Sora-2 generates a unique voice automatically. Optionally pick a cloned voice below.
           </CardDescription>
         )}
       </CardHeader>
