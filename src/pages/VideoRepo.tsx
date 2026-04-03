@@ -1,15 +1,20 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Send, ImagePlus, Video, Upload, Bot, User, Loader2, 
-  Play, Download, Link2, ArrowUp
+import {
+  ImagePlus,
+  Video,
+  Bot,
+  User,
+  Loader2,
+  Play,
+  Download,
+  ArrowUp,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -45,9 +50,26 @@ const VideoRepo = () => {
   const [videoFrames, setVideoFrames] = useState<string[]>([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
 
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
+  const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isExtractingFrames;
+  const statusLabel = isExtractingFrames
+    ? 'Extracting key frames from your reference video...'
+    : isAnalyzing
+      ? 'Researching the reference video and writing your new ad...'
+      : isGenerating
+        ? 'Generating your video with Sora 2...'
+        : null;
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    window.requestAnimationFrame(() => {
+      chatEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    });
   };
+
+  useEffect(() => {
+    if (!showConversation) return;
+    scrollToBottom(messages.length > 0 ? 'smooth' : 'auto');
+  }, [messages, showConversation, isAnalyzing, isGenerating, isExtractingFrames]);
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -70,7 +92,7 @@ const VideoRepo = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
         const frames: string[] = [];
-        const timestamps = Array.from({ length: count }, (_, i) => 
+        const timestamps = Array.from({ length: count }, (_, i) =>
           Math.min(duration * (i / (count - 1)), duration - 0.1)
         );
         let idx = 0;
@@ -100,19 +122,53 @@ const VideoRepo = () => {
     });
   };
 
+  const clearReferenceVideo = () => {
+    if (referenceVideoUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(referenceVideoUrl);
+    }
+    setReferenceVideoUrl(null);
+    setReferenceVideoName('');
+    setVideoFrames([]);
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
+    }
+  };
+
+  const clearProductImage = () => {
+    setProductImageUrl(null);
+    setProductImageName('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleReferenceVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (referenceVideoUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(referenceVideoUrl);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
     setReferenceVideoName(file.name);
+    setReferenceVideoUrl(objectUrl);
+    setVideoFrames([]);
     setIsExtractingFrames(true);
+
     try {
       const frames = await extractVideoFrames(file, 6);
       setVideoFrames(frames);
-      setReferenceVideoUrl(URL.createObjectURL(file));
     } catch {
+      URL.revokeObjectURL(objectUrl);
+      setReferenceVideoUrl(null);
+      setReferenceVideoName('');
+      setVideoFrames([]);
       toast({ title: 'Could not extract frames from video', variant: 'destructive' });
+    } finally {
+      setIsExtractingFrames(false);
+      e.target.value = '';
     }
-    setIsExtractingFrames(false);
   };
 
   const handleProductImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,39 +176,52 @@ const VideoRepo = () => {
     if (!file) return;
     setProductImageName(file.name);
     const url = await fileToDataUrl(file);
-    if (url) setProductImageUrl(url);
+    if (url) {
+      setProductImageUrl(url);
+    }
+    e.target.value = '';
   };
 
   const analyzeAndGenerate = async () => {
-    if (!prompt.trim() && !referenceVideoUrl && !productImageUrl) return;
+    if (isExtractingFrames) {
+      toast({
+        title: 'Reference video still processing',
+        description: 'Please wait for frame extraction to finish before sending.',
+      });
+      return;
+    }
+
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt && !referenceVideoUrl && !productImageUrl) return;
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: prompt || 'Analyze this reference and generate a UGC ad video.',
+      content: trimmedPrompt || 'Analyze this reference and generate a UGC ad video.',
       attachments: [
         ...(referenceVideoUrl ? [{ type: 'video' as const, url: referenceVideoUrl, name: referenceVideoName }] : []),
         ...(productImageUrl ? [{ type: 'image' as const, url: productImageUrl, name: productImageName }] : []),
       ],
     };
-    setMessages(prev => [...prev, userMsg]);
+
+    setMessages((prev) => [...prev, userMsg]);
     setPrompt('');
     setIsAnalyzing(true);
-    scrollToBottom();
+    scrollToBottom('auto');
 
     try {
-      // Build multimodal messages with video frames
       const contentParts: any[] = [];
 
-      // Add video frames as images for visual analysis
       if (videoFrames.length > 0) {
-        contentParts.push({ type: 'text', text: `I've extracted ${videoFrames.length} key frames from the reference video "${referenceVideoName}". Analyze these frames to understand the visual style, hook strategy, pacing, transitions, camera angles, and talent actions:` });
+        contentParts.push({
+          type: 'text',
+          text: `I've extracted ${videoFrames.length} key frames from the reference video "${referenceVideoName}". Analyze these frames to understand the visual style, hook strategy, pacing, transitions, camera angles, and talent actions:`,
+        });
         for (const frame of videoFrames) {
           contentParts.push({ type: 'image_url', image_url: { url: frame } });
         }
       }
 
-      // Add product image
       if (productImageUrl && !productImageUrl.startsWith('blob:')) {
         contentParts.push({ type: 'text', text: 'Here is the product image to feature in the ad:' });
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
@@ -163,7 +232,7 @@ const VideoRepo = () => {
       const analysisInstruction = `User request: "${userMsg.content}"
 
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
-${productImageUrl ? `Product image provided above — incorporate this product naturally.` : ''}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
@@ -181,21 +250,21 @@ Then provide a final **VIDEO PROMPT** block:
       contentParts.push({ type: 'text', text: analysisInstruction });
 
       console.log('[VideoRepo] Sending analysis request with', contentParts.length, 'content parts,', videoFrames.length, 'frames');
-      
+
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
-        body: { 
+        body: {
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: contentParts.length > 1 ? contentParts : analysisInstruction },
-          ]
-        }
+          ],
+        },
       });
 
       console.log('[VideoRepo] AI response:', { aiData, aiError });
 
       if (aiError) {
-        const errorBody = typeof aiError === 'object' && 'context' in aiError 
-          ? JSON.stringify(aiError) 
+        const errorBody = typeof aiError === 'object' && 'context' in aiError
+          ? JSON.stringify(aiError)
           : (aiError.message || 'AI analysis failed');
         throw new Error(errorBody);
       }
@@ -211,11 +280,9 @@ Then provide a final **VIDEO PROMPT** block:
         role: 'assistant',
         content: analysisText,
       };
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
       setIsAnalyzing(false);
-      scrollToBottom();
 
-      // Step 2: Extract video prompt and auto-generate
       const videoPromptMatch = analysisText.match(/```video-prompt\n([\s\S]*?)```/);
       if (videoPromptMatch) {
         const videoPrompt = videoPromptMatch[1].trim();
@@ -226,8 +293,7 @@ Then provide a final **VIDEO PROMPT** block:
           role: 'assistant',
           content: '🎬 Generating your UGC ad video with Sora-2... This may take a few minutes.',
         };
-        setMessages(prev => [...prev, generatingMsg]);
-        scrollToBottom();
+        setMessages((prev) => [...prev, generatingMsg]);
 
         try {
           const taskId = await createWaveSpeedVideo({
@@ -240,13 +306,12 @@ Then provide a final **VIDEO PROMPT** block:
             ...(productImageUrl && !productImageUrl.startsWith('data:video') ? { imageUrls: [productImageUrl] } : {}),
           });
 
-          // Poll for completion
           let attempts = 0;
           const maxAttempts = 120;
           while (attempts < maxAttempts) {
-            await new Promise(r => setTimeout(r, 5000));
+            await new Promise((r) => setTimeout(r, 5000));
             const job = await getWaveSpeedVideoJob(taskId);
-            
+
             if (job.status === 'completed' && job.videoUrl) {
               const resultMsg: ChatMessage = {
                 id: `result-${Date.now()}`,
@@ -254,7 +319,7 @@ Then provide a final **VIDEO PROMPT** block:
                 content: '✅ Your UGC ad video is ready! You can download it or use it directly.',
                 videoResult: { url: job.videoUrl, status: 'completed' },
               };
-              setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(resultMsg));
+              setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
               break;
             }
             if (job.status === 'failed') {
@@ -272,11 +337,10 @@ Then provide a final **VIDEO PROMPT** block:
             role: 'assistant',
             content: `⚠️ Video generation encountered an issue: ${genErr.message}. You can copy the video prompt above and try again.`,
           };
-          setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(errorMsg));
+          setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
         }
         setIsGenerating(false);
       }
-
     } catch (err: any) {
       console.error('[VideoRepo] Analysis error:', err);
       toast({ title: 'Analysis failed', description: err.message, variant: 'destructive' });
@@ -285,11 +349,10 @@ Then provide a final **VIDEO PROMPT** block:
         role: 'assistant',
         content: `❌ ${err.message}. Please try again.`,
       };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages((prev) => [...prev, errorMsg]);
       setIsAnalyzing(false);
       setIsGenerating(false);
     }
-    scrollToBottom();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -301,8 +364,7 @@ Then provide a final **VIDEO PROMPT** block:
 
   return (
     <Layout>
-      <div className="flex flex-col h-[calc(100vh-4rem)] max-w-6xl mx-auto">
-        {/* Hero Header */}
+      <div className="flex h-[calc(100vh-4rem)] max-w-6xl mx-auto flex-col overflow-hidden">
         <div className="text-center py-8 px-4">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-4">
             AI UGC Video Generator for UGC Ads That Convert
@@ -312,11 +374,9 @@ Then provide a final **VIDEO PROMPT** block:
           </p>
         </div>
 
-        {/* Chat + Input Area */}
-        <div className="flex-1 flex flex-col items-center px-4 min-h-0">
-          {/* Chat Messages */}
-          {messages.length > 0 && (
-            <ScrollArea className="flex-1 w-full max-w-3xl mb-4">
+        <div className="flex-1 flex flex-col items-center px-4 min-h-0 overflow-hidden">
+          {showConversation ? (
+            <ScrollArea className="flex-1 w-full max-w-3xl mb-4 min-h-0 rounded-2xl border border-border/60 bg-background/20 px-4">
               <div className="space-y-4 py-4">
                 {messages.map((msg) => (
                   <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -325,11 +385,13 @@ Then provide a final **VIDEO PROMPT** block:
                         <Bot className="w-4 h-4 text-primary" />
                       </div>
                     )}
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      msg.role === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted'
-                    }`}>
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      }`}
+                    >
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="flex gap-2 mb-2 flex-wrap">
                           {msg.attachments.map((att, i) => (
@@ -345,9 +407,9 @@ Then provide a final **VIDEO PROMPT** block:
                       </div>
                       {msg.videoResult && (
                         <div className="mt-3 space-y-2">
-                          <video 
-                            src={msg.videoResult.url} 
-                            controls 
+                          <video
+                            src={msg.videoResult.url}
+                            controls
                             className="w-full rounded-lg max-h-[400px]"
                           />
                           <div className="flex gap-2">
@@ -367,33 +429,33 @@ Then provide a final **VIDEO PROMPT** block:
                     )}
                   </div>
                 ))}
-                {(isAnalyzing || isGenerating || isExtractingFrames) && (
+                {statusLabel && (
                   <div className="flex gap-3 justify-start">
                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                       <Bot className="w-4 h-4 text-primary" />
                     </div>
                     <div className="bg-muted rounded-2xl px-4 py-3 flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm text-muted-foreground">
-                        {isExtractingFrames ? 'Extracting video frames...' : isGenerating ? 'Generating video...' : 'Analyzing reference & crafting strategy...'}
-                      </span>
+                      <span className="text-sm text-muted-foreground">{statusLabel}</span>
                     </div>
                   </div>
                 )}
                 <div ref={chatEndRef} />
               </div>
             </ScrollArea>
+          ) : (
+            <div className="flex-1 w-full max-w-3xl mb-4 min-h-[220px] rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center">
+              Upload a product image and a reference video, then press send. We’ll extract key frames, study the hook, pacing, and composition, and build a new ad around your product.
+            </div>
           )}
 
-          {/* Input Card */}
           <Card className="w-full max-w-3xl bg-card border border-border rounded-2xl overflow-hidden mb-6">
-            {/* Tabs */}
             <div className="flex items-center gap-1 px-4 pt-3">
               <button
                 onClick={() => setActiveTab('ad')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  activeTab === 'ad' 
-                    ? 'bg-primary/15 text-primary' 
+                  activeTab === 'ad'
+                    ? 'bg-primary/15 text-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -402,8 +464,8 @@ Then provide a final **VIDEO PROMPT** block:
               <button
                 onClick={() => setActiveTab('motion')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  activeTab === 'motion' 
-                    ? 'bg-primary/15 text-primary' 
+                  activeTab === 'motion'
+                    ? 'bg-primary/15 text-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -412,7 +474,6 @@ Then provide a final **VIDEO PROMPT** block:
               </button>
             </div>
 
-            {/* Text Input */}
             <div className="px-4 py-3">
               <Textarea
                 placeholder="Upload your product image or reference video and describe your idea"
@@ -424,40 +485,55 @@ Then provide a final **VIDEO PROMPT** block:
               />
             </div>
 
-            {/* Attachments preview */}
-            {(referenceVideoUrl || productImageUrl) && (
-              <div className="px-4 pb-2 flex gap-2 flex-wrap">
-                {productImageUrl && (
-                  <Badge variant="outline" className="text-xs gap-1">
-                    <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
-                    <button onClick={() => { setProductImageUrl(null); setProductImageName(''); }} className="ml-1 hover:text-destructive">×</button>
-                  </Badge>
+            {(referenceVideoUrl || productImageUrl || statusLabel) && (
+              <div className="px-4 pb-2 space-y-2">
+                {(referenceVideoUrl || productImageUrl) && (
+                  <div className="flex gap-2 flex-wrap">
+                    {productImageUrl && (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
+                        <button type="button" onClick={clearProductImage} className="ml-1 hover:text-destructive">×</button>
+                      </Badge>
+                    )}
+                    {referenceVideoUrl && (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} {videoFrames.length > 0 ? `(${videoFrames.length} frames)` : ''}
+                        <button type="button" onClick={clearReferenceVideo} className="ml-1 hover:text-destructive">×</button>
+                      </Badge>
+                    )}
+                  </div>
                 )}
-                {referenceVideoUrl && (
-                  <Badge variant="outline" className="text-xs gap-1">
-                    <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} ({videoFrames.length} frames)
-                    <button onClick={() => { setReferenceVideoUrl(null); setReferenceVideoName(''); setVideoFrames([]); }} className="ml-1 hover:text-destructive">×</button>
-                  </Badge>
+
+                {referenceVideoUrl && videoFrames.length > 0 && !statusLabel && (
+                  <p className="text-xs text-muted-foreground">
+                    We’ll analyze {videoFrames.length} key frames from your reference video to learn the hook, pacing, camera style, and product placement before generating your new ad.
+                  </p>
+                )}
+
+                {statusLabel && (
+                  <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{statusLabel}</span>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Bottom Bar */}
-            <div className="flex items-center justify-between px-4 pb-3">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 pb-3 gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
                 <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="text-xs gap-1.5 rounded-full"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <ImagePlus className="w-3.5 h-3.5" /> Add Image & Link
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="text-xs gap-1.5 rounded-full"
                   onClick={() => videoInputRef.current?.click()}
                 >
@@ -465,7 +541,7 @@ Then provide a final **VIDEO PROMPT** block:
                 </Button>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
                   <SelectTrigger className="h-8 text-xs w-[130px] rounded-full">
                     <SelectValue />
@@ -475,13 +551,14 @@ Then provide a final **VIDEO PROMPT** block:
                     <SelectItem value="freeform">Freeform</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button 
-                  size="icon" 
+                <Button
+                  size="icon"
+                  aria-label="Send prompt"
                   className="h-8 w-8 rounded-full"
                   onClick={analyzeAndGenerate}
-                  disabled={isAnalyzing || isGenerating || (!prompt.trim() && !referenceVideoUrl && !productImageUrl)}
+                  disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
                 >
-                  <ArrowUp className="w-4 h-4" />
+                  {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
                 </Button>
               </div>
             </div>
