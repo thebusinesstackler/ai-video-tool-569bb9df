@@ -632,7 +632,7 @@ const Reels = () => {
         setIntroText(draft.introText || '');
         setOutroText(draft.outroText || '');
         setEnableCutScenes(draft.enableCutScenes || false);
-        setEnableLipSync(draft.enableLipSync || false);
+        setEnableLipSync(isBeginner || isQuick ? true : (draft.enableLipSync || false));
         setPortraitImage(draft.portraitImage);
         setFeatureToggles(draft.featureToggles || {
           introOutro: false,
