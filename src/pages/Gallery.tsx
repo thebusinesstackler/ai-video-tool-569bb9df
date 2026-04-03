@@ -317,6 +317,49 @@ const Gallery = () => {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="video-repo" className="space-y-6 mt-4">
+            {isLoadingVideoRepo ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+            ) : videoRepoEntries.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Video className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No Video Repo projects yet</p>
+                <p className="text-sm mt-1">Generated videos from Video Repo will appear here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {videoRepoEntries.map((entry) => (
+                  <Card key={entry.id} className="overflow-hidden group">
+                    <div className="aspect-[9/16] relative bg-black">
+                      <video
+                        src={entry.image_url}
+                        className="w-full h-full object-cover"
+                        muted
+                        preload="metadata"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                        <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
+                          <a href={entry.image_url} target="_blank" rel="noopener noreferrer">
+                            <Play className="w-4 h-4" />
+                          </a>
+                        </Button>
+                        <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
+                          <a href={entry.image_url} download>
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground line-clamp-2">{entry.prompt || 'Video Repo project'}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">{new Date(entry.created_at).toLocaleDateString()}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
