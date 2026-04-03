@@ -587,7 +587,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             createWaveSpeedVideo({
               prompt: videoPrompt1,
               model: 'sora-2',
-              aspectRatio: '9:16',
+              aspectRatio,
               duration: 20,
               userId: user?.id,
               source: 'video-repo-pro',
@@ -596,7 +596,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             createWaveSpeedVideo({
               prompt: videoPrompt2,
               model: 'sora-2',
-              aspectRatio: '9:16',
+              aspectRatio,
               duration: 20,
               userId: user?.id,
               source: 'video-repo-pro',
