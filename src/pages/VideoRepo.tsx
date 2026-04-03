@@ -20,7 +20,9 @@ import {
   ArrowLeft,
   Calendar,
   X,
+  Link,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
