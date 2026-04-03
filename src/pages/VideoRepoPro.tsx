@@ -482,8 +482,82 @@ And finally, provide the voiceover narration script that will be read over the e
       const prompt2Match = analysisText.match(/```video-prompt-2\n([\s\S]*?)```/);
 
       if (prompt1Match && prompt2Match) {
-        const videoPrompt1 = prompt1Match[1].trim();
-        const videoPrompt2 = prompt2Match[1].trim();
+        let videoPrompt1 = prompt1Match[1].trim();
+        let videoPrompt2 = prompt2Match[1].trim();
+
+        // --- AI Script Pacing Agent ---
+        // Review each segment's narration for word count vs duration (~2.5 words/sec for Sora-2)
+        try {
+          setGenerationProgress('AI Agent reviewing script pacing...');
+          const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
+          const fullNarration = narrationMatch ? narrationMatch[1].trim() : '';
+
+          const { data: pacingData, error: pacingError } = await supabase.functions.invoke('ai', {
+            body: {
+              messages: [
+                {
+                  role: 'system',
+                  content: `You are a script pacing QA agent. Your job is to ensure video generation prompts and narrations fit within Sora-2's timing constraints.
+
+RULES:
+- Speaking rate is ~2.5 words/second
+- Each segment is ~15 seconds (max 20s), so each segment narration should be 30-50 words MAX
+- Video prompts should be 80-150 words with full cinematic detail
+- Sentences must end cleanly — no trailing articles, prepositions, or mid-thought cutoffs
+- If a segment's narration is too long, trim or redistribute words between segments
+- If prompts reference actions that would take longer than 15-20s, simplify them
+
+RESPOND IN EXACTLY THIS FORMAT (no extra text):
+\`\`\`video-prompt-1
+[corrected segment 1 prompt]
+\`\`\`
+
+\`\`\`video-prompt-2
+[corrected segment 2 prompt]
+\`\`\`
+
+\`\`\`narration-1
+[segment 1 narration — 30-50 words max]
+\`\`\`
+
+\`\`\`narration-2
+[segment 2 narration — 30-50 words max]
+\`\`\`
+
+If everything is already fine, return them unchanged.`
+                },
+                {
+                  role: 'user',
+                  content: `Review these for pacing issues:
+
+VIDEO PROMPT 1:
+${videoPrompt1}
+
+VIDEO PROMPT 2:
+${videoPrompt2}
+
+FULL NARRATION:
+${fullNarration}
+
+Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per segment). Fix any issues.`
+                }
+              ],
+            },
+          });
+
+          if (!pacingError && pacingData?.response) {
+            const reviewed = pacingData.response;
+            const rp1 = reviewed.match(/```video-prompt-1\n([\s\S]*?)```/);
+            const rp2 = reviewed.match(/```video-prompt-2\n([\s\S]*?)```/);
+            if (rp1 && rp2) {
+              videoPrompt1 = rp1[1].trim();
+              videoPrompt2 = rp2[1].trim();
+              console.log('[VideoRepoPro] AI Pacing Agent revised prompts');
+            }
+          }
+        } catch (pacingErr) {
+          console.warn('[VideoRepoPro] Pacing review failed, using original prompts:', pacingErr);
+        }
 
         if (projectId) {
           await supabase.from('video_repo_projects').update({
@@ -605,6 +679,54 @@ And finally, provide the voiceover narration script that will be read over the e
                   setGenerationProgress(`Trimming clip ${i + 1}... ${pct}%`);
                 });
                 blob = trimmedBlob;
+
+                // Auto-extend the trimmed clip using Wan 2.5 Video Extend to recover lost content
+                try {
+                  const originalDuration = 20; // Sora-2 target duration
+                  const lostSeconds = originalDuration - trimData.trimTimestamp;
+                  if (lostSeconds >= 3) {
+                    setGenerationProgress(`Extending clip ${i + 1} by ${Math.round(lostSeconds)}s to recover trimmed content...`);
+                    const trimmedUrl = await uploadBlobToStorage(blob, 'trimmed-for-extend', 'mp4');
+
+                    const { data: extendResult, error: extendError } = await supabase.functions.invoke('wavespeed-video', {
+                      body: {
+                        action: 'create',
+                        model: 'alibaba/wan-2.5/video-extend',
+                        videoUrl: trimmedUrl,
+                        prompt: 'Continue the scene naturally — same character, same environment, smooth cinematic motion. Maintain the same speaking style and energy.',
+                        duration: Math.min(10, Math.round(lostSeconds)),
+                      },
+                    });
+
+                    if (!extendError && extendResult?.taskId) {
+                      let extendAttempts = 0;
+                      const maxExtendAttempts = 60;
+                      while (extendAttempts < maxExtendAttempts) {
+                        await new Promise(r => setTimeout(r, 5000));
+                        const extJob = await getWaveSpeedVideoJob(extendResult.taskId);
+                        if (extJob.status === 'completed' && extJob.videoUrl) {
+                          setGenerationProgress(`Clip ${i + 1} extended successfully ✓`);
+                          const extResp = await fetch(extJob.videoUrl);
+                          if (extResp.ok) {
+                            blob = await extResp.blob();
+                            console.log(`[VideoRepoPro] Clip ${i + 1}: extended by ${Math.round(lostSeconds)}s`);
+                          }
+                          break;
+                        }
+                        if (extJob.status === 'failed') {
+                          console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}:`, extJob.error);
+                          break;
+                        }
+                        extendAttempts++;
+                        setGenerationProgress(`Extending clip ${i + 1}... (${Math.round((extendAttempts / maxExtendAttempts) * 100)}%)`);
+                      }
+                    }
+                  } else {
+                    console.log(`[VideoRepoPro] Clip ${i + 1}: only lost ${lostSeconds.toFixed(1)}s — too short to extend`);
+                  }
+                } catch (extendErr) {
+                  console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}, using trimmed version:`, extendErr);
+                }
               } else {
                 console.log(`[VideoRepoPro] Clip ${i + 1}: audio ends cleanly — no trim needed`);
               }
