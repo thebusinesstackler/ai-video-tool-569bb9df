@@ -351,7 +351,7 @@ Then provide a final **VIDEO PROMPT** block:
                     )}
                   </div>
                 ))}
-                {(isAnalyzing || isGenerating) && (
+                {(isAnalyzing || isGenerating || isExtractingFrames) && (
                   <div className="flex gap-3 justify-start">
                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                       <Bot className="w-4 h-4 text-primary" />
@@ -359,7 +359,7 @@ Then provide a final **VIDEO PROMPT** block:
                     <div className="bg-muted rounded-2xl px-4 py-3 flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-sm text-muted-foreground">
-                        {isGenerating ? 'Generating video...' : 'Analyzing reference...'}
+                        {isExtractingFrames ? 'Extracting video frames...' : isGenerating ? 'Generating video...' : 'Analyzing reference & crafting strategy...'}
                       </span>
                     </div>
                   </div>
