@@ -1169,9 +1169,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
               <Badge className="bg-green-500/10 text-green-500 border-green-500/30" variant="outline">
                 <Check className="w-3 h-3 mr-1" />
                 Ready — Sora-2 handles voice automatically
-                  </p>
-                </div>
-              )}
+              </Badge>
             </div>
           )}
         </CardContent>
