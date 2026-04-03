@@ -346,7 +346,7 @@ const MovieSceneCreator = () => {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: previewText,
-          voice: 'en-US-Journey-D',
+          voice: 'en-US-Studio-M',
           speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
           voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
         }
