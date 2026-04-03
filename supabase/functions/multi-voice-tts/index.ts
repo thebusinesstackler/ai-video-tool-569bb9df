@@ -158,29 +158,7 @@ async function generateGeminiMultiSpeakerTTS(
   }
 }
 
-// ── WaveSpeed MiniMax TTS (per-line fallback) ──────────────────────
-async function generateWaveSpeedTTS(
-  text: string, apiKey: string, voiceId: string,
-): Promise<Uint8Array | null> {
-  try {
-    const res = await fetch('https://api.wavespeed.ai/api/v3/minimax/speech-02-hd', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: text.length > 10000 ? text.substring(0, 10000) : text,
-        voice_id: voiceId, speed: 1, volume: 1, pitch: 0, emotion: 'neutral', english_normalization: true,
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.code !== 200 || !data.data?.id) return null;
-    const audioUrl = await pollWaveSpeedResult(data.data.id, apiKey);
-    if (!audioUrl) return null;
-    const audioRes = await fetch(audioUrl);
-    if (!audioRes.ok) return null;
-    return new Uint8Array(await audioRes.arrayBuffer());
-  } catch { return null; }
-}
+// WaveSpeed MiniMax TTS removed — Gemini multi-speaker + Speechify cloned voices only
 
 // ── Google Cloud TTS (cloned voice only) ───────────────────────────
 async function generateClonedVoiceTTS(
