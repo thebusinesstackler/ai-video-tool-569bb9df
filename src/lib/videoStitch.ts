@@ -103,14 +103,14 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
 
   console.log(`[VideoStitch] Stitching ${videoUrls.length} videos, ${audioUrls.length} audio tracks`);
 
-  // Filter out data: URLs — cloud stitching needs public URLs
-  const allPublic = videoUrls.every(u => u.startsWith('http'));
+  // Detect blob: or data: URLs — cloud stitching needs real public URLs
+  const hasLocalUrls = videoUrls.some(u => u.startsWith('blob:') || u.startsWith('data:'));
+  const allPublic = !hasLocalUrls && videoUrls.every(u => u.startsWith('http'));
 
   if (allPublic) {
     try {
       console.log('[VideoStitch] Trying cloud stitching (Creatomate)...');
       const url = await cloudStitch(videoUrls, audioUrls, onProgress);
-      // Fetch the rendered video as a blob
       const resp = await fetch(url);
       if (!resp.ok) throw new Error('Failed to download rendered video');
       return await resp.blob();
@@ -118,7 +118,7 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
       console.warn('[VideoStitch] Cloud stitch failed, falling back to canvas:', err);
     }
   } else {
-    console.log('[VideoStitch] Some URLs are local/data — skipping cloud, using canvas');
+    console.log('[VideoStitch] Local/blob URLs detected — skipping cloud, using canvas directly');
   }
 
   // Fallback: canvas-based stitching
