@@ -3334,7 +3334,7 @@ const MovieSceneCreator = () => {
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
           body: { 
             text: dialogueText, 
-            voice: 'en-US-Studio-M',
+            voice: 'English_Trustworth_Man',
             speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
             voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
           }
