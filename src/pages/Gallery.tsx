@@ -36,6 +36,27 @@ const Gallery = () => {
   const [isUploadingProduct, setIsUploadingProduct] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
+  const [videoRepoEntries, setVideoRepoEntries] = useState<{ id: string; image_url: string; prompt: string | null; created_at: string }[]>([]);
+  const [isLoadingVideoRepo, setIsLoadingVideoRepo] = useState(false);
+
+  const fetchVideoRepoEntries = async () => {
+    if (!user) return;
+    setIsLoadingVideoRepo(true);
+    try {
+      const { data, error } = await supabase
+        .from('generated_images')
+        .select('id, image_url, prompt, created_at')
+        .eq('user_id', user.id)
+        .eq('source', 'video-repo')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setVideoRepoEntries(data || []);
+    } catch (error: any) {
+      console.error('Error fetching video repo entries:', error);
+    } finally {
+      setIsLoadingVideoRepo(false);
+    }
+  };
 
   const fetchProducts = async () => {
     if (!user) return;
