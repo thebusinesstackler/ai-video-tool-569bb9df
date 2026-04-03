@@ -81,10 +81,37 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
   };
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [isBatchSwapping, setIsBatchSwapping] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [showLibrary, setShowLibrary] = useState(false);
+
+  // Auto-analyze product when selected/uploaded
+  const analyzeProduct = async (imageUrl: string) => {
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-product', {
+        body: { imageUrl }
+      });
+      if (error) throw error;
+      const info = data?.productInfo;
+      if (info) {
+        const desc = [
+          info.productName,
+          info.description,
+          info.category ? `(${info.category})` : ''
+        ].filter(Boolean).join(' — ');
+        updateProductPrompt(desc);
+        toast({ title: 'Product analyzed ✨', description: `Identified: ${info.productName || 'product'}` });
+      }
+    } catch (err: any) {
+      console.error('Product analysis failed:', err);
+      // Non-blocking — user can still describe manually
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   useEffect(() => {
     if (user) loadProductLibrary();
