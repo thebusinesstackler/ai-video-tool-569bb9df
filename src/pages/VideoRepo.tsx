@@ -784,6 +784,10 @@ Then provide a final **VIDEO PROMPT** block:
                         </Button>
                       )}
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 justify-between md:justify-end">
+                    <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
+                      <SelectTrigger className="h-8 text-xs w-[130px] rounded-full bg-background"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="guided">Guided Mode</SelectItem>
                         <SelectItem value="freeform">Freeform</SelectItem>
