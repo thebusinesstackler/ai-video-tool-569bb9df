@@ -278,13 +278,16 @@ Then provide a final **VIDEO PROMPT** block:
       }
 
     } catch (err: any) {
+      console.error('[VideoRepo] Analysis error:', err);
+      toast({ title: 'Analysis failed', description: err.message, variant: 'destructive' });
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: `Error: ${err.message}. Please try again.`,
+        content: `❌ ${err.message}. Please try again.`,
       };
       setMessages(prev => [...prev, errorMsg]);
       setIsAnalyzing(false);
+      setIsGenerating(false);
     }
     scrollToBottom();
   };
