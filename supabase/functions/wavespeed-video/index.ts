@@ -434,6 +434,23 @@ serve(async (req) => {
         }
 
         console.log('Using Kling V3.0 Pro for high-quality image-to-video generation');
+      } else if (params.model === 'alibaba/wan-2.5/video-extend') {
+        // Wan 2.5 Video Extend — extend an existing video clip
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/video-extend';
+        
+        if (!params.videoUrl) {
+          throw new Error('Source video URL is required for Video Extend model');
+        }
+
+        const extendDuration = Math.max(3, Math.min(10, duration));
+
+        requestBody = {
+          video: params.videoUrl,
+          prompt: params.prompt || 'Continue the scene naturally with smooth cinematic motion',
+          duration: extendDuration
+        };
+
+        console.log(`Using Wan 2.5 Video Extend: extending by ${extendDuration}s`);
       } else if (params.model === 'alibaba/wan-2.7/video-edit') {
         // Wan 2.7 Video Edit — prompt-driven editing on existing video
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.7/video-edit';
