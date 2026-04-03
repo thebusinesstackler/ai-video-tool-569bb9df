@@ -418,6 +418,36 @@ serve(async (req) => {
         }
 
         console.log('Using Kling V3.0 Pro for high-quality image-to-video generation');
+      } else if (params.model === 'alibaba/wan-2.7/video-edit') {
+        // Wan 2.7 Video Edit — prompt-driven editing on existing video
+        apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.7/video-edit';
+        
+        if (!params.videoUrl) {
+          throw new Error('Source video URL is required for Wan 2.7 Video Edit model');
+        }
+
+        // Duration: 2-10 seconds, 0 = match input
+        const editDuration = duration > 0 ? Math.min(10, Math.max(2, duration)) : 0;
+
+        requestBody = {
+          video: params.videoUrl,
+          prompt: params.prompt || 'Enhance cinematic quality, improve lighting and color grading',
+          resolution: '720p',
+          audio_setting: 'origin', // preserve original audio
+          enable_prompt_expansion: false,
+          seed: seed
+        };
+
+        if (editDuration > 0) {
+          requestBody.duration = editDuration;
+        }
+
+        // Add reference images if provided
+        if (params.imageUrls && params.imageUrls.length > 0) {
+          requestBody.images = params.imageUrls.slice(0, 3);
+        }
+
+        console.log('Using Wan 2.7 Video Edit for prompt-driven video editing');
       } else {
         // Text-to-Video model (default wan-2.2)
         // IMPORTANT: wan-2.2 only accepts duration values of [5, 8]
