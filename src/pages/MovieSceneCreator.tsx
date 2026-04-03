@@ -3193,7 +3193,7 @@ const MovieSceneCreator = () => {
                   gender: twin.gender || inferCharacterGender(char),
                   voiceEngine: twin.voice_engine || undefined,
                   googleVoiceId: twin.google_voice_id || undefined,
-                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
+                  defaultVoice: inferCharacterGender(char) === 'female' ? 'English_compelling_lady1' : 'English_Trustworth_Man'
                 });
               }
             } else {
