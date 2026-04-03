@@ -7602,12 +7602,30 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                   
                                   const productImageUrl = urlData.publicUrl;
                                   
+                                  // Analyze product image to get accurate description
+                                  let productDesc = '';
+                                  try {
+                                    const { data: analyzeData } = await supabase.functions.invoke('analyze-product', {
+                                      body: { imageUrl: productImageUrl }
+                                    });
+                                    const info = analyzeData?.productInfo;
+                                    if (info) {
+                                      productDesc = [info.productName, info.description, info.category ? `(${info.category})` : ''].filter(Boolean).join(' — ');
+                                    }
+                                  } catch (e) {
+                                    console.warn('Product analysis failed, using generic prompt:', e);
+                                  }
+                                  
+                                  const swapPrompt = productDesc
+                                    ? `Replace the product/object being held or displayed with: ${productDesc}. Use the reference image for exact visual appearance. Keep the person, pose, lighting, and background exactly the same. Only swap the product.`
+                                    : `Replace the product/object being held or displayed in this scene with the product shown in the reference image. Keep the person, pose, lighting, and background exactly the same. Only swap the product.`;
+                                  
                                   // Use edit-scene-image to swap product
                                   const { data: editData, error: editError } = await supabase.functions.invoke('edit-scene-image', {
                                     body: {
                                       sceneImageUrl: scene.imageUrl,
                                       referenceImageUrl: productImageUrl,
-                                      editPrompt: `Replace the product/object being held or displayed in this scene with the product shown in the reference image. Keep the person, pose, lighting, and background exactly the same. Only swap the product.`,
+                                      editPrompt: swapPrompt,
                                       aspectRatio: '9:16'
                                     }
                                   });
