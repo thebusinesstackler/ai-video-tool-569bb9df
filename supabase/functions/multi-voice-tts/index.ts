@@ -275,15 +275,6 @@ async function generatePerLineFallback(
         audioData = await generateSpeechifyTTS(text, speechifyApiKey, assignment.speechifyVoiceId);
       if (!audioData && assignment.voiceCloningKey && googleApiKey)
         audioData = await generateClonedVoiceTTS(text, googleApiKey, assignment.voiceCloningKey);
-      if (!audioData && waveSpeedApiKey) {
-        const wsVoice = pickWaveSpeedVoice(charLower, assignment.gender || 'male');
-        audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
-      }
-    }
-
-    if (!audioData && waveSpeedApiKey) {
-      const wsVoice = pickWaveSpeedVoice(charLower, 'male');
-      audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
     }
 
     if (audioData) {

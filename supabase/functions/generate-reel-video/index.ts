@@ -567,64 +567,24 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
-          // ====== INFINITETALK: Audio-driven lip sync (up to 10 min) ======
-          // Takes portrait image + audio URL, produces video with embedded lip-synced audio
-          // Duration auto-matches the audio length — no cap needed
-          console.log(`Scene ${scene.sceneNumber}: Using InfiniteTalk for lip-sync narrator scene`);
+          // ====== INFINITETALK FALLBACK: Now routes to Sora-2 native audio ======
+          console.log(`Scene ${scene.sceneNumber}: InfiniteTalk requested — routing to Sora-2 native audio instead`);
           
-          // We need an audio URL for infinitetalk
-          let sceneAudioUrl = audioUrl;
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
           
-          // If audio is base64, upload to storage first
-          if (sceneAudioUrl && sceneAudioUrl.startsWith('data:') && supabase) {
-            try {
-              const base64Match = sceneAudioUrl.match(/^data:([^;]+);base64,(.+)$/);
-              if (base64Match) {
-                const audioBytes = base64ToUint8Array(base64Match[2]);
-                const audioFileName = `audio/${Date.now()}-scene-${scene.sceneNumber}-tts.mp3`;
-                const { error: audioUploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(audioFileName, audioBytes, { contentType: base64Match[1], upsert: true });
-                
-                if (!audioUploadError) {
-                  const { data: audioPublicUrl } = supabase.storage.from('reels').getPublicUrl(audioFileName);
-                  sceneAudioUrl = audioPublicUrl.publicUrl;
-                  console.log(`Scene ${scene.sceneNumber}: Uploaded base64 audio to storage: ${sceneAudioUrl}`);
-                }
-              }
-            } catch (audioUploadErr) {
-              console.error(`Scene ${scene.sceneNumber}: Failed to upload audio to storage:`, audioUploadErr);
-            }
-          }
-          
-          if (!sceneAudioUrl) {
-            console.warn(`Scene ${scene.sceneNumber}: No audio URL for InfiniteTalk, falling back to Kling`);
-            // Fall through to kling fallback below
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
-            const klingDuration = clipDuration <= 7 ? 5 : 10;
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${charContext} ${topicContext} Natural expression, cinematic quality. No text.`,
-              duration: klingDuration
-            };
-            sceneHasEmbeddedAudio = false;
-          } else {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-            const sora2NarrDurations2 = [4, 8, 12, 16, 20];
-            const sora2NarrDuration2 = sora2NarrDurations2.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-            requestBody = {
-              image: imageUrl,
-              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+          requestBody = {
+            image: imageUrl,
+            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
 Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
 Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
 Lip movement must match the spoken words exactly. No silent clips, no music replacement.
 No captions, no subtitles, no watermarks.`,
-              duration: sora2NarrDuration2,
-              aspect_ratio: '9:16'
-            };
-            sceneHasEmbeddedAudio = true;
-            console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator (replaced infinitetalk-fast)`);
-          }
+            duration: sora2Duration,
+            aspect_ratio: '9:16'
+          };
+          sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
           // ====== WAN 2.5 VIDEO EXTEND: Two-step pipeline ======

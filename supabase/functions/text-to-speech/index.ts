@@ -94,7 +94,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { text: rawText, voice = 'English_Trustworth_Man', speed = 1, pitch: rawPitch = 0, voiceCloningKey, speechifyVoiceId, gender } = await req.json();
+    const { text: rawText, voice = 'ai-auto', speed = 1, pitch: rawPitch = 0, voiceCloningKey, speechifyVoiceId, gender } = await req.json();
 
     // Sanitize text before any TTS engine sees it
     const text = sanitizeForTTS(rawText);
@@ -114,7 +114,6 @@ serve(async (req) => {
 
     console.log(`TTS request - Voice: ${voice}, Pitch: ${validatedPitch}, Text length: ${text.length}`);
 
-    const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
 
     // Priority 1: Speechify cloned voice
@@ -138,37 +137,7 @@ serve(async (req) => {
       }
     }
     
-    // Priority 3: WaveSpeed MiniMax HD (primary for standard voices)
-    if (waveSpeedApiKey) {
-      // Resolve AI auto-select or legacy Google voice IDs
-      let resolvedVoice = voice;
-      
-      if (voice === 'ai-auto') {
-        // Pick based on gender hint or default to male
-        if (gender === 'female') {
-          resolvedVoice = FEMALE_VOICES[Math.floor(Math.random() * FEMALE_VOICES.length)];
-        } else {
-          resolvedVoice = MALE_VOICES[Math.floor(Math.random() * MALE_VOICES.length)];
-        }
-      } else if (voice.startsWith('en-')) {
-        // Map legacy Google voice IDs to WaveSpeed equivalents
-        if (voice.includes('-F') || voice.includes('-O')) {
-          resolvedVoice = 'English_compelling_lady1';
-        } else {
-          resolvedVoice = 'English_Trustworth_Man';
-        }
-      } else if (!WAVESPEED_VOICES.includes(voice)) {
-        // Unknown voice ID — fall back to default
-        console.warn(`Unknown voice ID "${voice}", falling back to English_Trustworth_Man`);
-        resolvedVoice = 'English_Trustworth_Man';
-      }
-      
-      const result = await generateWaveSpeedTTS(text, waveSpeedApiKey, resolvedVoice, validatedSpeed, 'neutral', validatedPitch);
-      if (result) {
-        return new Response(JSON.stringify({ ...result, provider: 'wavespeed', voiceUsed: resolvedVoice }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-    }
+    // No WaveSpeed MiniMax fallback — Sora-2 native audio is used for non-cloned voices
     
     
     throw new Error('No TTS engine available or all attempts failed');
