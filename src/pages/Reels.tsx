@@ -350,7 +350,7 @@ const Reels = () => {
   } = useScenePreview();
   
   // Lip sync mode
-  const [enableLipSync, setEnableLipSync] = useState(false);
+  const [enableLipSync, setEnableLipSync] = useState(isBeginner || isQuick);
   const [lipSyncModel, setLipSyncModel] = useState<'infinitetalk'>('infinitetalk');
   const videoModel = 'sora-2' as const;
   const [wan26Duration, setWan26Duration] = useState<5 | 10 | 15>(5);
@@ -632,7 +632,7 @@ const Reels = () => {
         setIntroText(draft.introText || '');
         setOutroText(draft.outroText || '');
         setEnableCutScenes(draft.enableCutScenes || false);
-        setEnableLipSync(draft.enableLipSync || false);
+        setEnableLipSync(isBeginner || isQuick ? true : (draft.enableLipSync || false));
         setPortraitImage(draft.portraitImage);
         setFeatureToggles(draft.featureToggles || {
           introOutro: false,
@@ -706,7 +706,7 @@ const Reels = () => {
     setIntroText(draft.introText || '');
     setOutroText(draft.outroText || '');
     setEnableCutScenes(draft.enableCutScenes || false);
-    setEnableLipSync(draft.enableLipSync || false);
+    setEnableLipSync(isBeginner || isQuick ? true : (draft.enableLipSync || false));
     setPortraitImage(draft.portraitImage);
     setFeatureToggles(draft.featureToggles || {
       introOutro: false,
@@ -1495,7 +1495,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setIntroText(ds.introText || '');
     setOutroText(ds.outroText || '');
     setEnableCutScenes(ds.enableCutScenes || false);
-    setEnableLipSync(ds.enableLipSync || false);
+    setEnableLipSync(isBeginner || isQuick ? true : (ds.enableLipSync || false));
     setPortraitImage(ds.portraitImage);
     setFeatureToggles(ds.featureToggles || {
       introOutro: false,
@@ -1723,9 +1723,9 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         introText: '',
         outroText: '',
         enableCutScenes: false,
-        enableLipSync: false,
+        enableLipSync: isBeginner || isQuick,
         portraitImage: null,
-        featureToggles: { introOutro: false, cutScenes: false, upscaler: false, lipSync: false, captions: true, backgroundMusic: false },
+        featureToggles: { introOutro: false, cutScenes: false, upscaler: false, lipSync: isBeginner || isQuick, captions: true, backgroundMusic: false },
         scenes: scriptScenes,
         previewScenes: scenes.map(s => ({
           sceneNumber: s.sceneNumber,
@@ -2868,11 +2868,19 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       if (twin.face_description) {
         setCharacterDescription(twin.face_description);
       }
-      // Enable lip sync for talking head style
       shouldEnableLipSync = true;
       activeLipSyncModel = 'infinitetalk';
       setEnableLipSync(true);
       setLipSyncModel('infinitetalk');
+    }
+    
+    // If beginner mode has no portrait and no twins, auto-generate a character
+    if (isBeginner && !portraitImage && aiTwins.length === 0 && topic.trim()) {
+      toast({ title: "Creating Character", description: "Generating a character from your topic..." });
+      await generateCharacter();
+      // After generation, portrait should be set — continue with lip sync enabled
+      shouldEnableLipSync = true;
+      activeLipSyncModel = 'infinitetalk';
     }
 
     // If user already has a portrait, enable lip sync
@@ -4653,7 +4661,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           Regenerate
                         </Button>
                         <Button
-                          onClick={() => setBeginnerStep(3)}
+                          onClick={() => {
+                            setBeginnerStep(3);
+                            // Auto-generate character if none exists
+                            if (!portraitImage && !selectedTwinId && topic.trim()) {
+                              setTimeout(() => generateCharacter(), 300);
+                            }
+                          }}
                           className="flex-[2] bg-gradient-to-r from-primary to-primary/80"
                         >
                           Looks Good, Continue →
@@ -4809,9 +4823,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                           </div>
                                         )}
                                         <p className="text-[9px] font-medium text-foreground truncate">{twin.name}</p>
-                                        {(twin.voice_cloning_key || twin.voice_engine === 'wavespeed') && (
+                                        {twin.voice_cloning_key && (
                                           <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">
-                                            {twin.voice_engine === 'wavespeed' ? '🌊 Voice' : '🎙️ Voice'}
+                                            🎙️ Voice
                                           </Badge>
                                         )}
                                       </div>
@@ -5293,7 +5307,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                                 }} className={`cursor-pointer rounded-lg border-2 p-1.5 transition-all text-center ${isSelected ? 'border-primary ring-2 ring-primary/40 bg-primary/5' : 'border-border hover:border-primary/50 bg-muted/30'} ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}>
                                   {thumbUrl ? <img src={thumbUrl} alt={twin.name} className="w-full aspect-square object-cover rounded-md mb-1" /> : <div className="w-full aspect-square rounded-md bg-muted flex items-center justify-center mb-1"><User className="w-6 h-6 text-muted-foreground" /></div>}
                                   <p className="text-[10px] font-medium text-foreground truncate">{twin.name}</p>
-                                  {(twin.voice_cloning_key || twin.voice_engine === 'wavespeed') && <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">{twin.voice_engine === 'wavespeed' ? '🌊' : '🎙️'}</Badge>}
+                                  {twin.voice_cloning_key && <Badge variant="outline" className="text-[8px] px-1 py-0 mt-0.5 bg-primary/10 text-primary border-primary/30">🎙️</Badge>}
                                 </div>
                               );
                             })}
