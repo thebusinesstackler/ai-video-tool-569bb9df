@@ -307,8 +307,7 @@ async function generatePerLineFallback(
       const wsVoice = pickWaveSpeedVoice(charLower, 'male');
       audioData = await generateWaveSpeedTTS(text, waveSpeedApiKey, wsVoice);
     }
-    if (!audioData && googleApiKey)
-      audioData = await generateGoogleTTS(text, googleApiKey, 'en-US-Studio-M');
+    }
 
     if (audioData) {
       audioBuffers.push(audioData);
