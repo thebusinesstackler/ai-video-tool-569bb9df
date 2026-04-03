@@ -175,26 +175,7 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to Google Cloud TTS
-    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
-    if (GOOGLE_API_KEY) {
-      try {
-        const base64Audio = await generateGoogleTTS(cleanedText, resolvedVoice, GOOGLE_API_KEY);
-        const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
-        
-        console.log('Voiceover generated with Google TTS for scene:', sceneNumber);
-        
-        return new Response(
-          JSON.stringify({ audioUrl, sceneNumber, provider: 'google-fallback' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (googleError) {
-        console.error('Google TTS also failed:', googleError);
-        throw googleError;
-      }
-    }
-
-    console.error('No TTS API key configured');
+    console.error('No WaveSpeed API key configured');
     return new Response(
       JSON.stringify({ error: 'No TTS API configured.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
