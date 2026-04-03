@@ -17,9 +17,6 @@ export interface AITwin {
 
 // Curated Google Cloud TTS voices (premium quality)
 export const GOOGLE_CLOUD_VOICES = [
-  { id: 'en-US-Journey-D', label: 'Journey D', gender: 'male', family: 'Journey' },
-  { id: 'en-US-Journey-F', label: 'Journey F', gender: 'female', family: 'Journey' },
-  { id: 'en-US-Journey-O', label: 'Journey O', gender: 'female', family: 'Journey' },
   { id: 'en-US-Studio-M', label: 'Studio M', gender: 'male', family: 'Studio' },
   { id: 'en-US-Studio-O', label: 'Studio O', gender: 'female', family: 'Studio' },
   { id: 'en-US-Studio-Q', label: 'Studio Q', gender: 'male', family: 'Studio' },

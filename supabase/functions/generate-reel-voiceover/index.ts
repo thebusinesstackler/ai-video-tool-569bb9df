@@ -124,16 +124,16 @@ async function generateWaveSpeedTTS(text: string, voiceId: string, apiKey: strin
 
 // Google Cloud TTS voice mapping (fallback)
 const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
-  'English_compelling_lady1': { name: 'en-US-Journey-F', languageCode: 'en-US' },
-  'English_radiant_girl': { name: 'en-US-Journey-F', languageCode: 'en-US' },
-  'English_magnetic_voiced_man': { name: 'en-US-Journey-D', languageCode: 'en-US' },
-  'English_Trustworth_Man': { name: 'en-US-Journey-D', languageCode: 'en-US' },
-  'nova': { name: 'en-US-Journey-F', languageCode: 'en-US' },
-  'alloy': { name: 'en-US-Journey-D', languageCode: 'en-US' },
+  'English_compelling_lady1': { name: 'en-US-Studio-O', languageCode: 'en-US' },
+  'English_radiant_girl': { name: 'en-US-Studio-O', languageCode: 'en-US' },
+  'English_magnetic_voiced_man': { name: 'en-US-Studio-M', languageCode: 'en-US' },
+  'English_Trustworth_Man': { name: 'en-US-Studio-M', languageCode: 'en-US' },
+  'nova': { name: 'en-US-Studio-O', languageCode: 'en-US' },
+  'alloy': { name: 'en-US-Studio-M', languageCode: 'en-US' },
 };
 
 async function generateGoogleTTS(text: string, voice: string, apiKey: string): Promise<string> {
-  const voiceConfig = GOOGLE_VOICES[voice] || { name: 'en-US-Journey-D', languageCode: 'en-US' };
+  const voiceConfig = GOOGLE_VOICES[voice] || { name: 'en-US-Studio-M', languageCode: 'en-US' };
   
   const response = await fetch(
     `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,

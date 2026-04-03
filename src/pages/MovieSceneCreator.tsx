@@ -3200,7 +3200,7 @@ const MovieSceneCreator = () => {
                   gender: twin.gender || inferCharacterGender(char),
                   voiceEngine: twin.voice_engine || undefined,
                   googleVoiceId: twin.google_voice_id || undefined,
-                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
+                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
                 });
               }
             } else {
@@ -3208,7 +3208,7 @@ const MovieSceneCreator = () => {
               voiceAssignments.push({
                 characterName: char.name,
                 gender: inferCharacterGender(char),
-                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
+                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
               });
             }
           }
