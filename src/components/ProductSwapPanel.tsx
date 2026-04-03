@@ -150,7 +150,9 @@ export const ProductSwapPanel: React.FC<ProductSwapPanelProps> = ({
 
       updateProductUrl(publicUrl);
       await loadProductLibrary();
-      toast({ title: 'Product uploaded', description: 'Saved to your product library' });
+      toast({ title: 'Product uploaded', description: 'Analyzing product...' });
+      // Auto-analyze the uploaded product
+      analyzeProduct(publicUrl);
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
     } finally {
