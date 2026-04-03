@@ -134,38 +134,65 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
     }
   };
 
+  const autoVoiceLabel = (() => {
+    const ctx = `${characterDescription || ''} ${characterGender || ''}`.toLowerCase();
+    const isFemale = characterGender === 'female' || ['woman', 'female', 'girl', 'lady'].some(k => ctx.includes(k));
+    if (isFemale) {
+      if (/(older|mentor|expert|authority|founder|ceo|coach)/.test(ctx)) return 'Wise Woman';
+      if (/(energetic|viral|fun|young|playful|bold|hype)/.test(ctx)) return 'Inspirational Girl';
+      if (/(calm|luxury|gentle|warm|trusted)/.test(ctx)) return 'Calm Woman';
+      return 'Radiant Girl';
+    }
+    if (/(story|cinematic|documentary|narrator)/.test(ctx)) return 'Expressive Narrator';
+    if (/(calm|trusted|coach|mentor|teacher|explainer|warm)/.test(ctx)) return 'Patient Man';
+    if (/(direct|bold|sales|urgent|controversy|strong)/.test(ctx)) return 'Determined Man';
+    return 'Magnetic Man';
+  })();
+
+  const isAutoSelected = !selectedVoice || !twins.some(t => t.voice_cloning_key === selectedVoice);
+
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Mic className="w-5 h-5 text-primary" />
-          AI Twin Voice
-          <Badge variant="outline" className="ml-auto text-xs bg-primary/10 text-primary border-primary/30">
-            <Sparkles className="w-3 h-3 mr-1" />
-            Cloned Voices
-          </Badge>
+          Voice
         </CardTitle>
         {!compact && (
           <CardDescription>
-            {twins.length > 0
-              ? <>Select a cloned voice from your AI Twins. Click <Volume2 className="inline h-3 w-3" /> to preview.</>
-              : 'Clone a voice from the AI Twins page to use it here.'}
+            A voice is auto-selected based on your character. Optionally pick a cloned voice below.
           </CardDescription>
         )}
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
+        {/* Auto voice option */}
+        <div
+          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
+            isAutoSelected
+              ? 'border-primary bg-primary/10 shadow-sm'
+              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+          }`}
+          onClick={() => onVoiceSelect('')}
+        >
+          <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+          <div className="flex-1">
+            <span className={`font-medium text-sm ${isAutoSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Auto — {autoVoiceLabel}
+            </span>
+            <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">
+              Matched to character
+            </Badge>
+          </div>
+        </div>
+
+        {/* Cloned voice options */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          <div className="flex items-center justify-center py-3">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           </div>
-        ) : twins.length === 0 ? (
-          <div className="text-center py-6 space-y-3">
-            <AlertCircle className="w-8 h-8 mx-auto text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">No cloned voices available</p>
-            <p className="text-xs text-muted-foreground">Go to <strong>AI Twins</strong> and clone a voice to use it in your videos.</p>
-          </div>
-        ) : (
+        ) : twins.length > 0 ? (
           <div className="space-y-1.5">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">Cloned Voices (optional)</p>
             {twins.map((twin) => {
               const isSelected = selectedVoice === twin.voice_cloning_key;
               const isPreviewing = previewingVoice === twin.voice_cloning_key;
@@ -216,7 +243,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
               );
             })}
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
