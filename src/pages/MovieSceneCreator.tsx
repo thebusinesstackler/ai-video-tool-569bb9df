@@ -3236,7 +3236,7 @@ const MovieSceneCreator = () => {
           body: {
             dialogue: scene.dialogue,
             voiceAssignments,
-            defaultVoice: 'en-US-Journey-D'
+            defaultVoice: 'en-US-Studio-M'
           }
         });
 
