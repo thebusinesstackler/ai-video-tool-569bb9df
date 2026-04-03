@@ -123,10 +123,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
       // Build TTS request body based on voice engine
       const ttsBody: any = { text: script };
 
-      if (voiceEngine === 'google-cloud' && googleVoiceId) {
-        ttsBody.voiceEngine = 'google-cloud';
-        ttsBody.googleVoiceId = googleVoiceId;
-      } else if (voiceEngine === 'wavespeed') {
+      if (voiceEngine === 'wavespeed') {
         ttsBody.gender = gender || 'male';
         ttsBody.voice = 'ai-auto';
       } else if (speechifyVoiceId) {
