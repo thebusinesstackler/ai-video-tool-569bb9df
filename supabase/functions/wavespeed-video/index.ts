@@ -292,26 +292,42 @@ serve(async (req) => {
           duration: duration
         };
       } else if (params.model === 'infinitetalk' || params.model === 'infinitetalk-hd') {
-        // InfiniteTalk for audio-driven lip sync (up to 10min)
-        // 'infinitetalk' → fast 480p endpoint (cost-efficient for Reels/Commercials)
-        // 'infinitetalk-hd' → standard 720p HD endpoint (higher quality for Movies)
-        apiEndpoint = params.model === 'infinitetalk-hd'
-          ? 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk'
-          : 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
-        
-        if (!params.imageUrls || params.imageUrls.length === 0) {
-          throw new Error('Portrait image is required for InfiniteTalk model');
-        }
-        
-        if (!params.audioUrl) {
-          throw new Error('Audio is required for InfiniteTalk model');
-        }
+        // 'infinitetalk' → Sora-2 with native audio (replaces infinitetalk-fast)
+        // 'infinitetalk-hd' → standard 720p HD InfiniteTalk endpoint
+        if (params.model === 'infinitetalk-hd') {
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+          
+          if (!params.imageUrls || params.imageUrls.length === 0) {
+            throw new Error('Portrait image is required for InfiniteTalk HD model');
+          }
+          if (!params.audioUrl) {
+            throw new Error('Audio is required for InfiniteTalk HD model');
+          }
 
-        requestBody = {
-          image: params.imageUrls[0],
-          audio: params.audioUrl,
-          ...(params.prompt && { prompt: params.prompt })
-        };
+          requestBody = {
+            image: params.imageUrls[0],
+            audio: params.audioUrl,
+            ...(params.prompt && { prompt: params.prompt })
+          };
+        } else {
+          // Sora-2 with native audio generation
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+          
+          if (!params.imageUrls || params.imageUrls.length === 0) {
+            throw new Error('Portrait image is required for Sora-2 lip-sync');
+          }
+
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const targetDur = params.duration || 10;
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - targetDur) < Math.abs(best - targetDur) ? d : best, 8);
+
+          requestBody = {
+            image: params.imageUrls[0],
+            prompt: params.prompt || 'Person speaking directly to camera with natural expression and lip movement. Cinematic quality, professional lighting.',
+            duration: sora2Duration,
+            aspect_ratio: params.aspectRatio === '9:16' ? '9:16' : '16:9'
+          };
+        }
       } else if (params.model === 'wan-animate') {
         // WAN Animate model for character animation with lip sync
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-animate';
