@@ -663,13 +663,21 @@ No captions, no subtitles, no watermarks.`,
             };
             sceneHasEmbeddedAudio = true;
           } else {
-            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast';
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+            const sora2NarrDurations = [4, 8, 12, 16, 20];
+            const sora2NarrDuration = sora2NarrDurations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
             requestBody = {
               image: imageUrl,
-              audio: sceneAudioUrl,
+              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
+Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
+Lip movement must match the spoken words exactly. No silent clips, no music replacement.
+No captions, no subtitles, no watermarks.`,
+              duration: sora2NarrDuration,
+              aspect_ratio: '9:16'
             };
             sceneHasEmbeddedAudio = true;
-            console.log(`Scene ${scene.sceneNumber}: InfiniteTalk request — image + audio, duration will match audio length`);
+            console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator (replaced infinitetalk-fast)`);
           }
           
         } else if (videoModel === 'sora-2') {
