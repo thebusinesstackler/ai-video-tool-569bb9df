@@ -322,28 +322,6 @@ serve(async (req) => {
       }
     }
     
-    // Fallback: Google Cloud TTS (only if voice was explicitly a Google voice)
-    if (googleApiKey && voice.startsWith('en-') && GOOGLE_VOICES[voice]) {
-      const voiceConfig = GOOGLE_VOICES[voice];
-      
-      const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
-          voice: { languageCode: voiceConfig.languageCode, name: voiceConfig.name, ssmlGender: voiceConfig.ssmlGender },
-          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: validatedPitch, effectsProfileId: ['headphone-class-device'] }
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.audioContent) {
-          return new Response(JSON.stringify({ audioContent: data.audioContent, audioUrl: `data:audio/mp3;base64,${data.audioContent}`, provider: 'google-fallback' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-      }
-    }
     
     throw new Error('No TTS engine available or all attempts failed');
     
