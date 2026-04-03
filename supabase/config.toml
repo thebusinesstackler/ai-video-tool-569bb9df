@@ -103,3 +103,6 @@ verify_jwt = false
 
 [functions.download-video-url]
 verify_jwt = true
+
+[functions.analyze-audio-trim]
+verify_jwt = true

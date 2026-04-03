@@ -412,3 +412,153 @@ export async function canvasStitch(
 ): Promise<Blob> {
   return canvasStitchVideos({ videoUrls, audioUrls, onProgress });
 }
+
+/**
+ * Trims a video blob to a specific timestamp using Canvas + MediaRecorder.
+ * Used to cut off abrupt audio endings detected by AI analysis.
+ */
+export async function trimVideoToTimestamp(
+  videoBlob: Blob,
+  timestampSeconds: number,
+  onProgress?: (percent: number) => void
+): Promise<Blob> {
+  const blobUrl = URL.createObjectURL(videoBlob);
+
+  try {
+    const video = await loadVideo(blobUrl, false);
+    const duration = safeDuration(video);
+
+    // If timestamp >= duration, no trimming needed
+    if (timestampSeconds >= duration - 0.1) {
+      console.log(`[TrimVideo] No trim needed: timestamp ${timestampSeconds}s >= duration ${duration}s`);
+      return videoBlob;
+    }
+
+    console.log(`[TrimVideo] Trimming from ${duration}s to ${timestampSeconds}s`);
+
+    const width = video.videoWidth || 1080;
+    const height = video.videoHeight || 1920;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx2d = canvas.getContext('2d')!;
+
+    // Black initial frame
+    ctx2d.fillStyle = '#000000';
+    ctx2d.fillRect(0, 0, width, height);
+
+    // Audio context with silent oscillator for valid audio track
+    const audioCtx = new AudioContext();
+    const mixDest = audioCtx.createMediaStreamDestination();
+    const silentOsc = audioCtx.createOscillator();
+    const silentGain = audioCtx.createGain();
+    silentGain.gain.value = 0;
+    silentOsc.connect(silentGain);
+    silentGain.connect(mixDest);
+    silentOsc.start();
+
+    // Capture video's embedded audio
+    let videoAudioSource: MediaStreamAudioSourceNode | null = null;
+    try {
+      const videoStream = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+      if (videoStream) {
+        const audioTracks = videoStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          videoAudioSource = audioCtx.createMediaStreamSource(videoStream);
+          videoAudioSource.connect(mixDest);
+        }
+      }
+    } catch (e) {
+      console.warn('[TrimVideo] Could not capture video audio:', e);
+    }
+
+    // Set up output stream
+    const canvasStream = canvas.captureStream(30);
+    const mixAudioTrack = mixDest.stream.getAudioTracks()[0];
+    if (mixAudioTrack) canvasStream.addTrack(mixAudioTrack);
+
+    const codecs = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ];
+    let mimeType = 'video/webm';
+    for (const codec of codecs) {
+      if (MediaRecorder.isTypeSupported(codec)) {
+        mimeType = codec;
+        break;
+      }
+    }
+
+    const recorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: 8_000_000 });
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+    recorder.start(100);
+    video.currentTime = 0;
+
+    await new Promise<void>((resolve, reject) => {
+      const safetyTimeout = setTimeout(() => {
+        console.warn('[TrimVideo] Safety timeout');
+        resolve();
+      }, (timestampSeconds + 3) * 1000);
+
+      let animId: number;
+
+      const drawFrame = () => {
+        if (video.paused || video.ended) return;
+
+        // Stop at the trim point
+        if (video.currentTime >= timestampSeconds) {
+          video.pause();
+          clearTimeout(safetyTimeout);
+          cancelAnimationFrame(animId);
+          if (videoAudioSource) try { videoAudioSource.disconnect(); } catch {}
+          resolve();
+          return;
+        }
+
+        ctx2d.drawImage(video, 0, 0, width, height);
+        onProgress?.(Math.round((video.currentTime / timestampSeconds) * 100));
+        animId = requestAnimationFrame(drawFrame);
+      };
+
+      video.onended = () => {
+        clearTimeout(safetyTimeout);
+        cancelAnimationFrame(animId);
+        if (videoAudioSource) try { videoAudioSource.disconnect(); } catch {}
+        resolve();
+      };
+
+      video.onerror = () => {
+        clearTimeout(safetyTimeout);
+        cancelAnimationFrame(animId);
+        reject(new Error('Error during video trimming playback'));
+      };
+
+      video.play().then(() => drawFrame()).catch(reject);
+    });
+
+    silentOsc.stop();
+
+    return new Promise<Blob>((resolve, reject) => {
+      recorder.onstop = () => {
+        const finalBlob = new Blob(chunks, { type: mimeType });
+        console.log(`[TrimVideo] Trimmed video: ${(finalBlob.size / 1024 / 1024).toFixed(2)} MB`);
+        try { audioCtx.close(); } catch {}
+        if (finalBlob.size < 1000) {
+          reject(new Error('Trimmed video is too small — trimming may have failed'));
+          return;
+        }
+        onProgress?.(100);
+        resolve(finalBlob);
+      };
+      recorder.onerror = (e) => reject(new Error(`Trim recording failed: ${e}`));
+      try { recorder.requestData(); } catch {}
+      setTimeout(() => { try { recorder.stop(); } catch {} }, 500);
+    });
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
