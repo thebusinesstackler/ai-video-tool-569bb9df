@@ -5,6 +5,105 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function detectPlatform(url: string): { platform: string; endpoint: string; params: Record<string, string> } | null {
+  const u = url.toLowerCase();
+
+  // YouTube
+  if (u.includes('youtube.com') || u.includes('youtu.be')) {
+    let videoId = '';
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === 'youtu.be') {
+        videoId = parsed.pathname.slice(1);
+      } else {
+        videoId = parsed.searchParams.get('v') || '';
+        // Handle /shorts/ID format
+        if (!videoId && parsed.pathname.includes('/shorts/')) {
+          videoId = parsed.pathname.split('/shorts/')[1]?.split(/[?/]/)[0] || '';
+        }
+      }
+    } catch { /* */ }
+    if (!videoId) return null;
+    return {
+      platform: 'youtube',
+      endpoint: '/youtube/v3/video/details',
+      params: { videoId, renderableFormats: '720p' },
+    };
+  }
+
+  // TikTok
+  if (u.includes('tiktok.com')) {
+    return {
+      platform: 'tiktok',
+      endpoint: '/tiktok/v3/post/details',
+      params: { url },
+    };
+  }
+
+  // Instagram
+  if (u.includes('instagram.com')) {
+    // Extract shortcode from URL
+    let shortcode = '';
+    try {
+      const parsed = new URL(url);
+      const match = parsed.pathname.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
+      if (match) shortcode = match[2];
+    } catch { /* */ }
+    if (!shortcode) return null;
+    return {
+      platform: 'instagram',
+      endpoint: '/instagram/v3/media/post/details',
+      params: { shortcode },
+    };
+  }
+
+  return null;
+}
+
+function extractDownloadUrl(platform: string, data: any): string | null {
+  try {
+    if (platform === 'youtube') {
+      // Try renderable videos first (pre-merged audio+video)
+      const renderables = data?.contents?.renderableVideos;
+      if (renderables?.length > 0) {
+        const rv = renderables.find((v: any) => v.renderConfig?.url);
+        if (rv?.renderConfig?.url) return rv.renderConfig.url;
+      }
+      // Fall back to regular videos
+      const videos = data?.contents?.videos;
+      if (videos?.length > 0) {
+        // Prefer 720p or lower
+        const v = videos.find((v: any) => v.metadata?.quality_label === '720p') || videos[0];
+        if (v?.url) return v.url;
+      }
+    }
+
+    if (platform === 'tiktok') {
+      const videos = data?.contents?.videos;
+      if (videos?.length > 0) {
+        return videos[0]?.url || null;
+      }
+    }
+
+    if (platform === 'instagram') {
+      const videos = data?.contents?.videos;
+      if (videos?.length > 0) {
+        return videos[0]?.url || null;
+      }
+      // Some posts might have the video in a different structure
+      const contents = data?.contents;
+      if (Array.isArray(contents)) {
+        for (const c of contents) {
+          if (c?.videos?.length > 0) return c.videos[0]?.url;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[download-video-url] Error extracting URL:', e);
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,6 +121,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
+
+    if (!rapidApiKey) {
+      return new Response(JSON.stringify({ error: 'Video download service not configured' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -53,49 +159,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[download-video-url] User ${user.id} requesting download for: ${url}`);
+    // Detect platform
+    const platformInfo = detectPlatform(url);
+    if (!platformInfo) {
+      return new Response(JSON.stringify({ error: 'Unsupported platform. Supported: YouTube, TikTok, Instagram' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    // Use Cobalt API to get direct download link
-    const cobaltResponse = await fetch('https://api.cobalt.tools/api/json', {
-      method: 'POST',
+    console.log(`[download-video-url] User ${user.id} requesting ${platformInfo.platform} download for: ${url}`);
+
+    // Call SMVD API via RapidAPI
+    const queryParams = new URLSearchParams(platformInfo.params);
+    const apiUrl = `https://social-media-video-downloader.p.rapidapi.com${platformInfo.endpoint}?${queryParams}`;
+
+    console.log(`[download-video-url] Calling SMVD API: ${platformInfo.endpoint}`);
+    const smvdResponse = await fetch(apiUrl, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        'X-RapidAPI-Key': rapidApiKey,
+        'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com',
       },
-      body: JSON.stringify({
-        url: url,
-        vCodec: 'h264',
-        vQuality: '720',
-        aFormat: 'mp3',
-        isNoTTWatermark: true,
-      }),
     });
 
-    if (!cobaltResponse.ok) {
-      const errText = await cobaltResponse.text();
-      console.error('[download-video-url] Cobalt API error:', cobaltResponse.status, errText);
-      return new Response(JSON.stringify({ error: 'Could not process this URL. Try uploading the video file directly.' }), {
+    if (!smvdResponse.ok) {
+      const errText = await smvdResponse.text();
+      console.error('[download-video-url] SMVD API error:', smvdResponse.status, errText);
+      return new Response(JSON.stringify({ error: 'Could not process this URL. The video may be private or unavailable.' }), {
         status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const cobaltData = await cobaltResponse.json();
-    console.log('[download-video-url] Cobalt response status:', cobaltData.status);
+    const smvdData = await smvdResponse.json();
+    console.log('[download-video-url] SMVD response received, extracting download URL...');
 
-    let downloadUrl: string | null = null;
-
-    if (cobaltData.status === 'redirect' || cobaltData.status === 'stream') {
-      downloadUrl = cobaltData.url;
-    } else if (cobaltData.status === 'picker' && cobaltData.picker?.length > 0) {
-      // Pick the first video option
-      downloadUrl = cobaltData.picker[0].url;
-    } else if (cobaltData.url) {
-      downloadUrl = cobaltData.url;
-    }
+    const downloadUrl = extractDownloadUrl(platformInfo.platform, smvdData);
 
     if (!downloadUrl) {
-      console.error('[download-video-url] No download URL from Cobalt:', JSON.stringify(cobaltData));
-      return new Response(JSON.stringify({ error: 'Could not extract video from this URL. Try uploading the file directly.' }), {
+      console.error('[download-video-url] No download URL found:', JSON.stringify(smvdData).substring(0, 500));
+      return new Response(JSON.stringify({ error: 'Could not extract video from this URL. The video may be private or not contain downloadable video content.' }), {
         status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -111,6 +213,7 @@ Deno.serve(async (req) => {
 
     const contentLength = videoResponse.headers.get('content-length');
     if (contentLength && parseInt(contentLength) > 100 * 1024 * 1024) {
+      await videoResponse.arrayBuffer(); // consume body
       return new Response(JSON.stringify({ error: 'Video is too large (max 100MB)' }), {
         status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
