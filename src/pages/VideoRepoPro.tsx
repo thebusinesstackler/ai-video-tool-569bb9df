@@ -889,8 +889,8 @@ Then provide TWO video prompt blocks — one per segment:
                 </div>
               </ScrollArea>
             ) : (
-              <div className="w-full max-w-3xl mb-6 min-h-[220px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center shadow-card">
-                Upload a product image and a reference video, then press send. We'll create a full 30-second ad by generating two segments and stitching them together seamlessly.
+              <div className="w-full max-w-3xl mb-3 min-h-[120px] md:min-h-[180px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-4 py-4 md:py-6 text-center text-xs md:text-sm text-muted-foreground flex items-center justify-center shadow-card">
+                Upload a product image and reference video, then press send to create a full 30-second ad.
               </div>
             )}
           </TabsContent>
