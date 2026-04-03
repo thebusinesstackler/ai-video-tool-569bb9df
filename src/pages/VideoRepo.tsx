@@ -374,9 +374,133 @@ Then provide a final **VIDEO PROMPT** block:
           </p>
         </div>
 
-        <div className="flex-1 flex flex-col items-center px-4 min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col items-center px-4 min-h-0 overflow-y-auto">
+          <Card className="w-full max-w-3xl bg-card/95 border-2 border-primary/30 shadow-card rounded-3xl overflow-hidden mb-4 backdrop-blur-sm">
+            <div className="flex items-center gap-1 px-4 pt-3 border-b border-border/60 bg-muted/30">
+              <button
+                onClick={() => setActiveTab('ad')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  activeTab === 'ad'
+                    ? 'bg-primary/15 text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5" /> Ad Video
+              </button>
+              <button
+                onClick={() => setActiveTab('motion')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  activeTab === 'motion'
+                    ? 'bg-primary/15 text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Video className="w-3.5 h-3.5" /> Motion Video
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Beta</Badge>
+              </button>
+            </div>
+
+            <div className="px-4 py-3 border-b border-border/50 bg-background/70">
+              <div className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
+                Prompt
+              </div>
+              <Textarea
+                placeholder="Upload your product image or reference video and describe your idea"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="min-h-[88px] rounded-2xl border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
+                rows={3}
+              />
+            </div>
+
+            <div className="px-4 py-3 space-y-3 bg-background/60">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
+                Uploads
+              </div>
+
+              {(referenceVideoUrl || productImageUrl || statusLabel) && (
+                <div className="space-y-2">
+                  {(referenceVideoUrl || productImageUrl) && (
+                    <div className="flex gap-2 flex-wrap">
+                      {productImageUrl && (
+                        <Badge variant="outline" className="text-xs gap-1 bg-background">
+                          <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
+                          <button type="button" onClick={clearProductImage} className="ml-1 hover:text-destructive">×</button>
+                        </Badge>
+                      )}
+                      {referenceVideoUrl && (
+                        <Badge variant="outline" className="text-xs gap-1 bg-background">
+                          <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} {videoFrames.length > 0 ? `(${videoFrames.length} frames)` : ''}
+                          <button type="button" onClick={clearReferenceVideo} className="ml-1 hover:text-destructive">×</button>
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {referenceVideoUrl && videoFrames.length > 0 && !statusLabel && (
+                    <p className="text-xs text-muted-foreground">
+                      We’ll analyze {videoFrames.length} key frames from your reference video to learn the hook, pacing, camera style, and product placement before generating your new ad.
+                    </p>
+                  )}
+
+                  {statusLabel && (
+                    <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>{statusLabel}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
+                  <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 rounded-full bg-background"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImagePlus className="w-3.5 h-3.5" /> Add Image & Link
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 rounded-full bg-background"
+                    onClick={() => videoInputRef.current?.click()}
+                  >
+                    <Video className="w-3.5 h-3.5" /> Reference Video
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2 justify-between md:justify-end">
+                  <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
+                    <SelectTrigger className="h-8 text-xs w-[130px] rounded-full bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="guided">Guided Mode</SelectItem>
+                      <SelectItem value="freeform">Freeform</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="icon"
+                    aria-label="Send prompt"
+                    className="h-9 w-9 rounded-full"
+                    onClick={analyzeAndGenerate}
+                    disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
+                  >
+                    {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {showConversation ? (
-            <ScrollArea className="flex-1 w-full max-w-3xl mb-4 min-h-0 rounded-2xl border border-border/60 bg-background/20 px-4">
+            <ScrollArea className="w-full max-w-3xl mb-6 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
               <div className="space-y-4 py-4">
                 {messages.map((msg) => (
                   <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -444,125 +568,10 @@ Then provide a final **VIDEO PROMPT** block:
               </div>
             </ScrollArea>
           ) : (
-            <div className="flex-1 w-full max-w-3xl mb-4 min-h-[220px] rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center">
+            <div className="w-full max-w-3xl mb-6 min-h-[220px] rounded-2xl border border-dashed border-border/80 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center shadow-card">
               Upload a product image and a reference video, then press send. We’ll extract key frames, study the hook, pacing, and composition, and build a new ad around your product.
             </div>
           )}
-
-          <Card className="w-full max-w-3xl bg-card border border-border rounded-2xl overflow-hidden mb-6">
-            <div className="flex items-center gap-1 px-4 pt-3">
-              <button
-                onClick={() => setActiveTab('ad')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  activeTab === 'ad'
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Play className="w-3.5 h-3.5" /> Ad Video
-              </button>
-              <button
-                onClick={() => setActiveTab('motion')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  activeTab === 'motion'
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Video className="w-3.5 h-3.5" /> Motion Video
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Beta</Badge>
-              </button>
-            </div>
-
-            <div className="px-4 py-3">
-              <Textarea
-                placeholder="Upload your product image or reference video and describe your idea"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="border-0 bg-transparent resize-none focus-visible:ring-0 text-sm placeholder:text-muted-foreground/60 min-h-[40px] max-h-[120px] p-0"
-                rows={1}
-              />
-            </div>
-
-            {(referenceVideoUrl || productImageUrl || statusLabel) && (
-              <div className="px-4 pb-2 space-y-2">
-                {(referenceVideoUrl || productImageUrl) && (
-                  <div className="flex gap-2 flex-wrap">
-                    {productImageUrl && (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
-                        <button type="button" onClick={clearProductImage} className="ml-1 hover:text-destructive">×</button>
-                      </Badge>
-                    )}
-                    {referenceVideoUrl && (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} {videoFrames.length > 0 ? `(${videoFrames.length} frames)` : ''}
-                        <button type="button" onClick={clearReferenceVideo} className="ml-1 hover:text-destructive">×</button>
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {referenceVideoUrl && videoFrames.length > 0 && !statusLabel && (
-                  <p className="text-xs text-muted-foreground">
-                    We’ll analyze {videoFrames.length} key frames from your reference video to learn the hook, pacing, camera style, and product placement before generating your new ad.
-                  </p>
-                )}
-
-                {statusLabel && (
-                  <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>{statusLabel}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between px-4 pb-3 gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
-                <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5 rounded-full"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <ImagePlus className="w-3.5 h-3.5" /> Add Image & Link
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5 rounded-full"
-                  onClick={() => videoInputRef.current?.click()}
-                >
-                  <Video className="w-3.5 h-3.5" /> Reference Video
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
-                  <SelectTrigger className="h-8 text-xs w-[130px] rounded-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="guided">Guided Mode</SelectItem>
-                    <SelectItem value="freeform">Freeform</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="icon"
-                  aria-label="Send prompt"
-                  className="h-8 w-8 rounded-full"
-                  onClick={analyzeAndGenerate}
-                  disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
-                >
-                  {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-          </Card>
         </div>
       </div>
     </Layout>
