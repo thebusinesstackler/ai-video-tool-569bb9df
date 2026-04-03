@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ImagePlus,
@@ -92,6 +93,7 @@ const VideoRepoPro = () => {
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames;
@@ -404,10 +406,12 @@ const VideoRepoPro = () => {
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
       }
 
-      const systemPrompt = `You are a UGC ad video strategist creating FULL 30-SECOND videos. You must split the ad into exactly TWO segments that will be generated separately and stitched together seamlessly.
+      const formatLabel = aspectRatio === '9:16' ? 'vertical reel (9:16)' : 'horizontal landscape (16:9)';
+      const systemPrompt = `You are a UGC ad video strategist creating FULL 30-SECOND videos in ${formatLabel} format. You must split the ad into exactly TWO segments that will be generated separately and stitched together seamlessly.
 
 CRITICAL RULES:
 - The total ad is 30 seconds, split into Segment 1 (~15s) and Segment 2 (~15s)
+- Format: ${formatLabel} — frame all shots accordingly
 - Segment 2 MUST visually continue from where Segment 1 ends — same character, same environment, continuous action
 - Each segment prompt must be 80-150 words with full cinematic detail
 - Include explicit transition instructions: Segment 1's final frame should set up Segment 2's opening frame
@@ -585,7 +589,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             createWaveSpeedVideo({
               prompt: videoPrompt1,
               model: 'sora-2',
-              aspectRatio: '9:16',
+              aspectRatio,
               duration: 20,
               userId: user?.id,
               source: 'video-repo-pro',
@@ -594,7 +598,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             createWaveSpeedVideo({
               prompt: videoPrompt2,
               model: 'sora-2',
-              aspectRatio: '9:16',
+              aspectRatio,
               duration: 20,
               userId: user?.id,
               source: 'video-repo-pro',
@@ -1033,6 +1037,15 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     </div>
                   </div>
                   <div className="flex items-center gap-2 justify-between md:justify-end">
+                    <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as '9:16' | '16:9')}>
+                      <SelectTrigger className="h-8 w-[120px] text-xs rounded-full bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="9:16">📱 Reel (9:16)</SelectItem>
+                        <SelectItem value="16:9">🖥️ Landscape (16:9)</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       size="icon"
                       aria-label="Send prompt"
