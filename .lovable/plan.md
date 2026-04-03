@@ -1,40 +1,45 @@
 
 
-## Add Audio to Video Repo Pro
+## Smart Audio Trim — Per-Clip Analysis
 
-### Problem
-Video Repo Pro generates two Sora-2 video segments and stitches them, but the final video has zero audio because:
-1. Sora-2 clips may contain native audio, but `embeddedAudioIndices` is never passed to the stitcher — so all clips play muted
-2. No voiceover/TTS is generated from the script
+### Problem (Updated)
+Both Sora-2 clips can have abrupt mid-word audio cutoffs — not just the final one. If we only trim the end of the stitched video, a cutoff at the end of clip 1 would appear as a jarring audio glitch in the middle of the final video.
 
-### Plan
+### Solution
+Analyze and trim **each clip individually** before stitching, rather than trimming the stitched result.
 
-**Step 1: Capture Sora-2 native audio (quick win)**
-In `VideoRepoPro.tsx`, pass `embeddedAudioIndices: [0, 1]` to `stitchVideosWithAudio()` so the canvas stitcher plays both clips unmuted and captures their native audio track (ambient sounds, effects Sora-2 generates).
+```text
+Sora-2 Clip 1 → Analyze audio → Trim to clean ending ─┐
+                                                        ├─ Stitch → Final video
+Sora-2 Clip 2 → Analyze audio → Trim to clean ending ─┘
+```
 
-**Step 2: Add TTS voiceover generation**
-After the AI generates the script analysis (which contains the full 30-second ad script), extract a clean narration script from the analysis text and generate voiceover audio using the existing `text-to-speech` edge function. Pass the resulting audio URL as `audioUrls` to the stitcher so there's a narration track layered over the video.
+### Steps
 
-Changes:
-- Have the AI output a dedicated `narration` block in its response (alongside the video prompts)
-- After video segments are generated but before stitching, call the TTS edge function to produce a voiceover MP3
-- Pass both `embeddedAudioIndices: [0, 1]` and `audioUrls: [voiceoverUrl]` to the stitcher
+**Step 1: Create `analyze-audio-trim` edge function**
+- Accepts a video URL (one clip at a time)
+- Downloads the video, sends to Gemini 2.5 Flash with the prompt: *"Find the timestamp of the last naturally completed sentence. If speech is cut off mid-word, return the timestamp right after the last complete sentence."*
+- Returns `{ trimTimestamp: number, reason: string }` as structured JSON
+- Uses `LOVABLE_API_KEY` via Lovable AI gateway (no new API key needed)
 
-**Step 3: Optional background music**
-Add an optional toggle in the UI for background music. The stitcher already supports `backgroundMusicUrl` and `backgroundMusicVolume` — just needs a UI control and a music URL source.
+**Step 2: Add `trimVideoToTimestamp()` utility**
+- New function in `src/lib/canvasStitch.ts`
+- Takes a video Blob and a timestamp, re-encodes from 0 to that timestamp using Canvas + MediaRecorder
+- Reuses the existing silent-oscillator pattern for a valid audio track
+
+**Step 3: Integrate per-clip trimming into VideoRepoPro pipeline**
+- After downloading each Sora-2 segment as a blob (line ~579), call the edge function for each clip
+- If the returned trim timestamp is earlier than the clip's full duration, trim that clip's blob before adding it to the stitch array
+- Then stitch the two clean clips as usual
+- Progress updates: "Analyzing clip 1 audio..." → "Trimming clip 1..." → repeat for clip 2 → "Stitching..."
 
 ### Files Changed
-- `src/pages/VideoRepoPro.tsx` — add narration extraction, TTS call, pass audio params to stitcher
-- No edge function changes needed — existing `text-to-speech` function handles TTS
+- `supabase/functions/analyze-audio-trim/index.ts` — new edge function
+- `src/lib/canvasStitch.ts` — add `trimVideoToTimestamp()` export
+- `src/pages/VideoRepoPro.tsx` — add per-clip analyze+trim step before stitching
 
-### Technical Detail
-The `stitchVideosWithAudio` call on line 558 currently only passes `videoUrls` and `onProgress`. It will be updated to:
-```typescript
-const stitchedBlob = await stitchVideosWithAudio({
-  videoUrls: blobUrls,
-  embeddedAudioIndices: [0, 1],
-  audioUrls: voiceoverUrl ? [voiceoverUrl] : [],
-  onProgress: (pct) => setGenerationProgress(`Stitching... ${pct}%`),
-});
-```
+### Notes
+- Each Sora-2 clip is ~10-20s, well within Gemini's input limits
+- Both clips are processed independently so they could be analyzed in parallel
+- If neither clip has a cutoff, the pipeline proceeds unchanged (no unnecessary re-encoding)
 
