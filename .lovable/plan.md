@@ -1,36 +1,43 @@
 
 
-## Video Repo History & Gallery Integration
+## Add TikTok/YouTube URL Import to Video Repo
 
 ### What We're Building
 
-A persistent history system for Video Repo that saves every session (prompt, reference video, product image, AI analysis, and generated video) to the database. Users can browse past projects with side-by-side comparison of reference vs. generated video. Generated videos also appear in the Gallery under a "Video Repo" filter tab.
+A URL input option alongside the existing file upload button so users can paste a TikTok or YouTube link as their reference video. A new edge function will download the video server-side and store it in Supabase Storage, then the existing frame extraction and analysis pipeline proceeds as normal.
 
-### Database Changes
+### How It Works
 
-**New table: `video_repo_projects`**
-- `id`, `user_id`, `prompt`, `reference_video_url`, `product_image_url`, `analysis_text`, `generated_video_url`, `video_prompt`, `status` (analyzing/generating/completed/failed), `created_at`, `updated_at`
-- RLS: authenticated users CRUD their own rows
+```text
+User pastes URL → Edge function downloads video → Stored in Supabase Storage
+→ Browser fetches stored video → Extracts frames locally → Normal analysis pipeline
+```
 
 ### File Changes
 
-**1. `src/pages/VideoRepo.tsx`**
-- Upload reference video and product image to Supabase Storage (`reels` bucket) before analysis, so we have persistent URLs (not blob/data URIs)
-- Insert a `video_repo_projects` row when the user hits Send, update it as the pipeline progresses (analysis text, generated video URL, status)
-- Add a "History" tab/panel below the composer showing saved projects as cards
-- Each history card shows: prompt snippet, reference video thumbnail, generated video thumbnail, date, status badge
-- Clicking a card opens a side-by-side view: reference video (left) vs generated video (right) with the prompt and analysis below
-- Also save the generated video to `generated_images` table with `source: 'video-repo'` for Gallery integration
+**1. New Edge Function: `supabase/functions/download-video-url/index.ts`**
+- Accepts `{ url: string }` in the request body
+- Validates the URL is from TikTok or YouTube (or allows any video URL)
+- Uses a lightweight approach: fetches the page via [cobalt.tools API](https://cobalt.tools) (free, no API key needed) to extract the direct video download link from TikTok/YouTube
+- Downloads the video binary, uploads it to `reels/{user_id}/video-repo/imports/{uuid}.mp4`
+- Returns `{ videoUrl: string }` — the public Supabase Storage URL
+- Includes CORS headers, input validation, and auth check
 
-**2. `src/pages/Gallery.tsx`**
-- Add a third tab: "Video Repo" that filters `generated_images` where `source = 'video-repo'`
-- Display video entries with playable thumbnails in the same grid layout
+**2. `src/pages/VideoRepo.tsx`**
+- Add a new state: `urlInput` string, `isDownloadingUrl` boolean
+- Add a URL input field next to the "Reference Video" button with a `Link` icon and placeholder "Paste TikTok or YouTube URL"
+- When user pastes a URL and clicks "Import" (or presses Enter):
+  - Call the `download-video-url` edge function
+  - On success, set `referenceVideoUrl` to the returned storage URL, set `referenceVideoName` to the original URL domain
+  - Fetch the video as a blob to run the existing `extractVideoFrames` logic for frame capture
+  - Show a loading spinner on the URL input while downloading
+- The rest of the pipeline (analysis, generation, history) works unchanged since it already handles storage URLs
 
 ### Technical Details
 
-- Reference videos uploaded to `reels/{user_id}/video-repo/{uuid}.mp4`
-- Product images uploaded to `reels/{user_id}/video-repo/{uuid}.jpg`
-- History cards use the stored URLs so they persist across sessions
-- Side-by-side layout uses a responsive 2-column grid (`grid-cols-1 md:grid-cols-2`)
-- Status badge on each card: `analyzing` (yellow), `generating` (blue), `completed` (green), `failed` (red)
+- Cobalt API is free and open-source — supports TikTok, YouTube, Instagram, Twitter, and more with no API key
+- The edge function downloads the video to memory and streams it to Supabase Storage
+- Video size capped at 100MB to prevent abuse
+- URL validation ensures only http/https protocols
+- The downloaded video gets the same persistent storage path as manually uploaded videos, so history works seamlessly
 
