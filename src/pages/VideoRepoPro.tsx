@@ -93,6 +93,7 @@ const VideoRepoPro = () => {
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames;
