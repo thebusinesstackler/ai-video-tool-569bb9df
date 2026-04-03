@@ -295,7 +295,7 @@ CRITICAL RULES — DO NOT VIOLATE:
                   ? 'border-primary ring-2 ring-primary/40'
                   : 'border-border hover:border-primary/50'
               }`}
-              onClick={() => updateProductUrl(p.image_url)}
+              onClick={() => { updateProductUrl(p.image_url); analyzeProduct(p.image_url); }}
             >
               <img src={p.image_url} alt={p.name || 'Product'} className="w-full aspect-square object-cover" />
               <button
