@@ -758,10 +758,32 @@ Then provide a final **VIDEO PROMPT** block:
                     <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => videoInputRef.current?.click()}>
                       <Video className="w-3.5 h-3.5" /> Reference Video
                     </Button>
-                  </div>
-                  <div className="flex items-center gap-2 justify-between md:justify-end">
-                    <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
-                      <SelectTrigger className="h-8 text-xs w-[130px] rounded-full bg-background"><SelectValue /></SelectTrigger>
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative">
+                        <Link className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <Input
+                          type="url"
+                          placeholder="Paste TikTok or YouTube URL"
+                          value={urlInput}
+                          onChange={(e) => setUrlInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleUrlImport(); } }}
+                          className="h-8 text-xs rounded-full pl-8 pr-2 w-[200px] md:w-[240px] bg-background"
+                          disabled={isDownloadingUrl}
+                        />
+                      </div>
+                      {urlInput.trim() && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs rounded-full gap-1"
+                          onClick={handleUrlImport}
+                          disabled={isDownloadingUrl}
+                        >
+                          {isDownloadingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                          {isDownloadingUrl ? 'Importing...' : 'Import'}
+                        </Button>
+                      )}
+                    </div>
                       <SelectContent>
                         <SelectItem value="guided">Guided Mode</SelectItem>
                         <SelectItem value="freeform">Freeform</SelectItem>
