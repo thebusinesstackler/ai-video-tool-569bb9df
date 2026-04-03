@@ -482,8 +482,82 @@ And finally, provide the voiceover narration script that will be read over the e
       const prompt2Match = analysisText.match(/```video-prompt-2\n([\s\S]*?)```/);
 
       if (prompt1Match && prompt2Match) {
-        const videoPrompt1 = prompt1Match[1].trim();
-        const videoPrompt2 = prompt2Match[1].trim();
+        let videoPrompt1 = prompt1Match[1].trim();
+        let videoPrompt2 = prompt2Match[1].trim();
+
+        // --- AI Script Pacing Agent ---
+        // Review each segment's narration for word count vs duration (~2.5 words/sec for Sora-2)
+        try {
+          setGenerationProgress('AI Agent reviewing script pacing...');
+          const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
+          const fullNarration = narrationMatch ? narrationMatch[1].trim() : '';
+
+          const { data: pacingData, error: pacingError } = await supabase.functions.invoke('ai', {
+            body: {
+              messages: [
+                {
+                  role: 'system',
+                  content: `You are a script pacing QA agent. Your job is to ensure video generation prompts and narrations fit within Sora-2's timing constraints.
+
+RULES:
+- Speaking rate is ~2.5 words/second
+- Each segment is ~15 seconds (max 20s), so each segment narration should be 30-50 words MAX
+- Video prompts should be 80-150 words with full cinematic detail
+- Sentences must end cleanly — no trailing articles, prepositions, or mid-thought cutoffs
+- If a segment's narration is too long, trim or redistribute words between segments
+- If prompts reference actions that would take longer than 15-20s, simplify them
+
+RESPOND IN EXACTLY THIS FORMAT (no extra text):
+\`\`\`video-prompt-1
+[corrected segment 1 prompt]
+\`\`\`
+
+\`\`\`video-prompt-2
+[corrected segment 2 prompt]
+\`\`\`
+
+\`\`\`narration-1
+[segment 1 narration — 30-50 words max]
+\`\`\`
+
+\`\`\`narration-2
+[segment 2 narration — 30-50 words max]
+\`\`\`
+
+If everything is already fine, return them unchanged.`
+                },
+                {
+                  role: 'user',
+                  content: `Review these for pacing issues:
+
+VIDEO PROMPT 1:
+${videoPrompt1}
+
+VIDEO PROMPT 2:
+${videoPrompt2}
+
+FULL NARRATION:
+${fullNarration}
+
+Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per segment). Fix any issues.`
+                }
+              ],
+            },
+          });
+
+          if (!pacingError && pacingData?.response) {
+            const reviewed = pacingData.response;
+            const rp1 = reviewed.match(/```video-prompt-1\n([\s\S]*?)```/);
+            const rp2 = reviewed.match(/```video-prompt-2\n([\s\S]*?)```/);
+            if (rp1 && rp2) {
+              videoPrompt1 = rp1[1].trim();
+              videoPrompt2 = rp2[1].trim();
+              console.log('[VideoRepoPro] AI Pacing Agent revised prompts');
+            }
+          }
+        } catch (pacingErr) {
+          console.warn('[VideoRepoPro] Pacing review failed, using original prompts:', pacingErr);
+        }
 
         if (projectId) {
           await supabase.from('video_repo_projects').update({
