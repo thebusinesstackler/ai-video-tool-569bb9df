@@ -22,6 +22,7 @@ import {
   X,
   Link,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +38,7 @@ interface ChatMessage {
   content: string;
   attachments?: { type: 'image' | 'video'; url: string; name?: string }[];
   videoResult?: { url: string; status: string };
+  retryable?: boolean;
 }
 
 interface VideoRepoProject {
@@ -595,7 +597,8 @@ Then provide TWO video prompt blocks — one per segment:
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
             role: 'assistant',
-            content: `⚠️ Video generation encountered an issue: ${genErr.message}. You can copy the video prompts above and try again.`,
+            content: `⚠️ Video generation encountered an issue: ${genErr.message}. You can retry or copy the video prompts above and try again.`,
+            retryable: true,
           };
           setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
         }
@@ -877,6 +880,13 @@ Then provide TWO video prompt blocks — one per segment:
                                 </a>
                               </Button>
                             </div>
+                          </div>
+                        )}
+                        {msg.retryable && !isAnalyzing && !isGenerating && !isStitching && (
+                          <div className="mt-2">
+                            <Button size="sm" variant="outline" onClick={analyzeAndGenerate}>
+                              <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                            </Button>
                           </div>
                         )}
                       </div>
