@@ -737,17 +737,16 @@ Then provide TWO video prompt blocks — one per segment:
             </TabsList>
           </div>
 
-          <TabsContent value="create" className="flex-1 flex flex-col items-center px-4 min-h-0 overflow-y-auto mt-4">
-            <Card className="w-full max-w-3xl bg-card/95 border-2 border-orange-500/30 shadow-card rounded-3xl overflow-hidden mb-4 backdrop-blur-sm">
-              <div className="px-4 py-3 border-b border-border/50 bg-background/70">
-                <div className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Prompt</div>
+          <TabsContent value="create" className="flex-1 flex flex-col items-center px-4 min-h-0 overflow-y-auto mt-2">
+            <Card className="w-full max-w-3xl bg-card/95 border-2 border-orange-500/30 shadow-card rounded-2xl md:rounded-3xl overflow-hidden mb-3 backdrop-blur-sm">
+              <div className="px-3 md:px-4 py-2 md:py-3 border-b border-border/50 bg-background/70">
                 <Textarea
-                  placeholder="Upload your product image or reference video and describe your 30-second ad idea"
+                  placeholder="Describe your 30-second ad idea..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="min-h-[88px] rounded-2xl border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
-                  rows={3}
+                  className="min-h-[60px] md:min-h-[88px] rounded-xl md:rounded-2xl border border-border bg-background px-3 md:px-4 py-2 md:py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                  rows={2}
                 />
               </div>
 
