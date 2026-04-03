@@ -1142,7 +1142,6 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="speechify">🎙️ Cloned Voice (Speechify)</SelectItem>
-              <SelectItem value="google-cloud">🔊 Google Cloud TTS (Premium)</SelectItem>
               <SelectItem value="wavespeed">🌊 WaveSpeed MiniMax</SelectItem>
             </SelectContent>
           </Select>
