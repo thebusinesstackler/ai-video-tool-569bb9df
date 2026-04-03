@@ -62,30 +62,29 @@ function detectPlatform(url: string): { platform: string; endpoint: string; para
 
 function extractDownloadUrl(platform: string, data: any): string | null {
   try {
+    // Normalize contents — API sometimes returns an array, sometimes an object
+    let contents = data?.contents;
+    if (Array.isArray(contents)) {
+      contents = contents[0]; // first item holds the media
+    }
+
     if (platform === 'youtube') {
       // Try renderable videos first (pre-merged audio+video)
-      const renderables = data?.contents?.renderableVideos;
+      const renderables = contents?.renderableVideos;
       if (renderables?.length > 0) {
         const rv = renderables.find((v: any) => v.renderConfig?.url);
         if (rv?.renderConfig?.url) return rv.renderConfig.url;
       }
       // Fall back to regular videos
-      const videos = data?.contents?.videos;
+      const videos = contents?.videos;
       if (videos?.length > 0) {
-        // Prefer 720p or lower
         const v = videos.find((v: any) => v.metadata?.quality_label === '720p') || videos[0];
         if (v?.url) return v.url;
       }
     }
 
     if (platform === 'tiktok' || platform === 'instagram') {
-      // contents can be an object with .videos or an array of objects with .videos
-      const contents = data?.contents;
-      if (Array.isArray(contents)) {
-        for (const c of contents) {
-          if (c?.videos?.length > 0) return c.videos[0]?.url || null;
-        }
-      } else if (contents?.videos?.length > 0) {
+      if (contents?.videos?.length > 0) {
         return contents.videos[0]?.url || null;
       }
     }
