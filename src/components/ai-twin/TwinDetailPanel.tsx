@@ -940,11 +940,10 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </Select>
           </div>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Badge variant={(voiceCloningKey || voiceEngine === 'wavespeed') ? "default" : "secondary"}>
+            <Badge variant={voiceCloningKey ? "default" : "secondary"}>
               <Volume2 className="w-3 h-3 mr-1" />
-              {voiceEngine === 'wavespeed' ? '🌊 WaveSpeed Voice'
-                : voiceCloningKey ? '🎙️ Voice Cloned' 
-                : 'No Voice'}
+              {voiceCloningKey ? '🎙️ Voice Cloned' 
+                : '🎬 Sora-2 Native'}
             </Badge>
             <Badge variant="outline">
               <ImageIcon className="w-3 h-3 mr-1" />
