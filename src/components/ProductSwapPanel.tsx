@@ -322,14 +322,19 @@ CRITICAL RULES — DO NOT VIOLATE:
                 <X className="h-2 w-2 text-white" />
               </button>
             </div>
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 space-y-1 relative">
               <Input
-                placeholder="Optional: describe the product (e.g. 'blue water bottle')"
+                placeholder={isAnalyzing ? "Analyzing product..." : "Describe the product (auto-filled by AI)"}
                 value={productPrompt}
                 onChange={(e) => updateProductPrompt(e.target.value)}
                 className="h-7 text-xs"
-                disabled={isSwapping || isBatchSwapping || disabled}
+                disabled={isSwapping || isBatchSwapping || disabled || isAnalyzing}
               />
+              {isAnalyzing && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                </div>
+              )}
             </div>
           </div>
           
