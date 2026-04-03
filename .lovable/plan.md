@@ -1,45 +1,47 @@
 
 
-## Smart Audio Trim — Per-Clip Analysis
+## Remove WaveSpeed MiniMax TTS — Use Sora-2 Native Audio Everywhere
 
-### Problem (Updated)
-Both Sora-2 clips can have abrupt mid-word audio cutoffs — not just the final one. If we only trim the end of the stitched video, a cutoff at the end of clip 1 would appear as a jarring audio glitch in the middle of the final video.
+### Problem
+WaveSpeed MiniMax TTS voices sometimes produce "Journey D"-style voices the user dislikes. Sora-2 generates varied, natural-sounding voices natively that the user prefers.
 
-### Solution
-Analyze and trim **each clip individually** before stitching, rather than trimming the stitched result.
+### Approach
+Stop generating separate TTS audio via WaveSpeed MiniMax. Instead, pass the narration text directly into Sora-2's prompt so it generates the voice as part of the video. This is already working for intro/outro/b-roll scenes — we just need to extend it to narrator (speaking) scenes too.
 
-```text
-Sora-2 Clip 1 → Analyze audio → Trim to clean ending ─┐
-                                                        ├─ Stitch → Final video
-Sora-2 Clip 2 → Analyze audio → Trim to clean ending ─┘
-```
+### Changes
 
-### Steps
+**1. Edge Function: `generate-reel-video/index.ts`**
+- Remove the `generateWaveSpeedTTS` and `pollWaveSpeedTTSResult` functions (lines 70-166) — no longer needed
+- Remove the `calculateTTSSpeed` helper
+- Update the Sora-2 narrator scene routing (line 617-681): instead of generating TTS audio first and then trying to pass it to a lip-sync model, go straight to Sora-2 image-to-video with the narration embedded in the prompt (same pattern already used for intro/outro scenes)
+- All narrator scenes become: image + prompt with `Audio (MANDATORY): person says EXACTLY: "..."` — no separate TTS step
 
-**Step 1: Create `analyze-audio-trim` edge function**
-- Accepts a video URL (one clip at a time)
-- Downloads the video, sends to Gemini 2.5 Flash with the prompt: *"Find the timestamp of the last naturally completed sentence. If speech is cut off mid-word, return the timestamp right after the last complete sentence."*
-- Returns `{ trimTimestamp: number, reason: string }` as structured JSON
-- Uses `LOVABLE_API_KEY` via Lovable AI gateway (no new API key needed)
+**2. Edge Function: `generate-reel-voiceover/index.ts`**
+- This function generates standalone voiceovers using WaveSpeed MiniMax. Since we're moving to Sora-2 native audio, this function becomes a lightweight passthrough — it can return a placeholder or be skipped entirely by the caller
+- Alternatively, keep it but mark it as optional/deprecated so existing callers don't break
 
-**Step 2: Add `trimVideoToTimestamp()` utility**
-- New function in `src/lib/canvasStitch.ts`
-- Takes a video Blob and a timestamp, re-encodes from 0 to that timestamp using Canvas + MediaRecorder
-- Reuses the existing silent-oscillator pattern for a valid audio track
+**3. Frontend: `src/components/VoiceSelector.tsx`**
+- Simplify to only show cloned voices (for Speechify use cases) and the "Auto" option
+- Remove references to WaveSpeed MiniMax voice IDs (English_Trustworth_Man, etc.)
+- The "Auto" option now means "Sora-2 will generate a unique voice"
 
-**Step 3: Integrate per-clip trimming into VideoRepoPro pipeline**
-- After downloading each Sora-2 segment as a blob (line ~579), call the edge function for each clip
-- If the returned trim timestamp is earlier than the clip's full duration, trim that clip's blob before adding it to the stitch array
-- Then stitch the two clean clips as usual
-- Progress updates: "Analyzing clip 1 audio..." → "Trimming clip 1..." → repeat for clip 2 → "Stitching..."
+**4. Frontend: `src/pages/Reels.tsx`**
+- Update `resolveVoiceForGeneration` to default to `'ai-auto'` which signals Sora-2 native audio
+- Remove MiniMax voice references from UI labels
 
-### Files Changed
-- `supabase/functions/analyze-audio-trim/index.ts` — new edge function
-- `src/lib/canvasStitch.ts` — add `trimVideoToTimestamp()` export
-- `src/pages/VideoRepoPro.tsx` — add per-clip analyze+trim step before stitching
+**5. Frontend: `src/components/ai-twin/TwinDetailPanel.tsx`**
+- Remove "WaveSpeed MiniMax" engine option — keep only "Cloned Voice (Speechify)" for twins with cloned voices
+- The non-cloned path now means "native model voice" (Sora-2/VEO3)
 
-### Notes
-- Each Sora-2 clip is ~10-20s, well within Gemini's input limits
-- Both clips are processed independently so they could be analyzed in parallel
-- If neither clip has a cutoff, the pipeline proceeds unchanged (no unnecessary re-encoding)
+**6. Edge Function: `text-to-speech/index.ts` and `multi-voice-tts/index.ts`**
+- Remove WaveSpeed MiniMax TTS code paths
+- Keep Speechify path for cloned voice twins only
+
+### What stays
+- Speechify cloned voice support (for users who uploaded voice samples)
+- Sora-2 and VEO3 native audio generation (already working)
+- The voice prompt strategy: narration text embedded in video prompt with MANDATORY audio instructions
+
+### Result
+Every non-cloned voice scene uses Sora-2's native audio — producing unique, natural voices without any Journey D artifacts.
 
