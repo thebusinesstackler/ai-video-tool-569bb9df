@@ -419,8 +419,8 @@ Then provide a final **VIDEO PROMPT** block:
                 )}
                 {referenceVideoUrl && (
                   <Badge variant="outline" className="text-xs gap-1">
-                    <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'}
-                    <button onClick={() => { setReferenceVideoUrl(null); setReferenceVideoName(''); }} className="ml-1 hover:text-destructive">×</button>
+                    <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} ({videoFrames.length} frames)
+                    <button onClick={() => { setReferenceVideoUrl(null); setReferenceVideoName(''); setVideoFrames([]); }} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 )}
               </div>
