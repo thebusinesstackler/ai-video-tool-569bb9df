@@ -1114,7 +1114,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             <Volume2 className="w-4 h-4" />
             Voice Engine
             <Badge variant="outline" className="ml-auto text-xs">
-              {voiceEngine === 'speechify' ? '🎙️ Cloned' : voiceEngine === 'google-cloud' ? '🔊 Google' : '🌊 WaveSpeed'}
+              {voiceEngine === 'speechify' ? '🎙️ Cloned' : '🌊 WaveSpeed'}
             </Badge>
           </CardTitle>
         </CardHeader>
