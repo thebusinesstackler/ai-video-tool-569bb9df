@@ -750,8 +750,7 @@ Then provide TWO video prompt blocks — one per segment:
                 />
               </div>
 
-              <div className="px-4 py-3 space-y-3 bg-background/60">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Uploads</div>
+              <div className="px-3 md:px-4 py-2 md:py-3 space-y-2 bg-background/60">
 
                 {(referenceVideoUrl || productImageUrl || statusLabel) && (
                   <div className="space-y-2">
