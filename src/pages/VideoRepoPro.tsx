@@ -1035,6 +1035,15 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     </div>
                   </div>
                   <div className="flex items-center gap-2 justify-between md:justify-end">
+                    <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as '9:16' | '16:9')}>
+                      <SelectTrigger className="h-8 w-[120px] text-xs rounded-full bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="9:16">📱 Reel (9:16)</SelectItem>
+                        <SelectItem value="16:9">🖥️ Landscape (16:9)</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       size="icon"
                       aria-label="Send prompt"
