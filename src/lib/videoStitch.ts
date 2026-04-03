@@ -7,6 +7,8 @@ import { canvasStitchVideos } from '@/lib/canvasStitch';
 interface StitchOptions {
   videoUrls: string[];
   audioUrls?: string[];
+  /** Indices into videoUrls whose embedded audio should be captured (unmuted playback) */
+  embeddedAudioIndices?: number[];
   transitions?: string[];
   onProgress?: (percent: number) => void;
 }
