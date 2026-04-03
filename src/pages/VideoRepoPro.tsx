@@ -30,6 +30,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
+import { trimVideoToTimestamp } from '@/lib/canvasStitch';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatMessage {
