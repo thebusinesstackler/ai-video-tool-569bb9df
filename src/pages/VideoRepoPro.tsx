@@ -882,6 +882,13 @@ Then provide TWO video prompt blocks — one per segment:
                             </div>
                           </div>
                         )}
+                        {msg.retryable && !isAnalyzing && !isGenerating && !isStitching && (
+                          <div className="mt-2">
+                            <Button size="sm" variant="outline" onClick={analyzeAndGenerate}>
+                              <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       {msg.role === 'user' && (
                         <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
