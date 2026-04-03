@@ -966,6 +966,54 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
             body: { action: 'status', taskId: videoData.taskId }
           });
           if (statusData?.status === 'completed' && statusData?.videoUrl) {
+            // Post-process with Wan 2.7 Video Edit
+            setProgress(80);
+            setProgressStatus('Loop AI: Enhancing with Wan 2.7...');
+            
+            try {
+              const mood = MOODS.find(m => m.id === (generatedScript?.mood || selectedMood));
+              const setting = SETTINGS.find(s => s.id === (generatedScript?.setting || selectedSetting));
+              const enhPrompt = `Enhance cinematic quality: improve lighting, smooth color grading, add film grain, natural skin tones, broadcast quality. Preserve all lip-sync and motion. ${mood?.prompt || ''}. ${setting?.prompt || ''}.`;
+              
+              const { data: enhData, error: enhErr } = await supabase.functions.invoke('wavespeed-video', {
+                body: {
+                  action: 'create',
+                  model: 'alibaba/wan-2.7/video-edit',
+                  videoUrl: statusData.videoUrl,
+                  prompt: enhPrompt,
+                  imageUrls: shot.imageUrl ? [shot.imageUrl] : undefined,
+                  duration: 0
+                }
+              });
+
+              if (!enhErr && enhData?.taskId) {
+                setProgressStatus('Loop AI: Rendering enhanced version (1-2 min)...');
+                let enhAttempts = 0;
+                while (enhAttempts < 80) {
+                  enhAttempts++;
+                  await new Promise(r => setTimeout(r, 3000));
+                  const { data: eStatus } = await supabase.functions.invoke('wavespeed-video', {
+                    body: { action: 'status', taskId: enhData.taskId }
+                  });
+                  if (eStatus?.status === 'completed' && eStatus?.videoUrl) {
+                    setVideoUrl(eStatus.videoUrl);
+                    setVideoTask({ taskId: enhData.taskId, status: 'completed', videoUrl: eStatus.videoUrl });
+                    setProgress(100);
+                    setProgressStatus('Enhanced video ready! 🎬✨');
+                    toast({ title: '🎬✨ Enhanced Video Ready!', description: 'Your video has been enhanced with Wan 2.7.' });
+                    return;
+                  } else if (eStatus?.status === 'failed') {
+                    console.warn('Wan 2.7 enhancement failed, using original');
+                    break;
+                  }
+                  setProgress(Math.min(80 + (enhAttempts / 80) * 19, 99));
+                }
+              }
+            } catch (enhErr) {
+              console.warn('Wan 2.7 enhancement error, using original:', enhErr);
+            }
+            
+            // Fallback: use original video
             setVideoUrl(statusData.videoUrl);
             setVideoTask({ taskId: videoData.taskId, status: 'completed', videoUrl: statusData.videoUrl });
             setProgress(100);
