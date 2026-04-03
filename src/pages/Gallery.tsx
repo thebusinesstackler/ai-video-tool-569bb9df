@@ -4,7 +4,7 @@ import { ImageGallery } from '@/components/ImageGallery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
