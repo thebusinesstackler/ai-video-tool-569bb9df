@@ -100,4 +100,6 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.generate-video-hooks]
+
+[functions.download-video-url]
 verify_jwt = true
