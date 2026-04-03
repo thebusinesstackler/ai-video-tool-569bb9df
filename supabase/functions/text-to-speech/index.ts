@@ -60,8 +60,11 @@ interface VoiceConfig {
 }
 
 const GOOGLE_VOICES: Record<string, VoiceConfig> = {
-  'en-US-Journey-F': { languageCode: 'en-US', name: 'en-US-Journey-F', ssmlGender: 'FEMALE' },
-  'en-US-Journey-D': { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' },
+  'en-US-Studio-O': { languageCode: 'en-US', name: 'en-US-Studio-O', ssmlGender: 'FEMALE' },
+  'en-US-Studio-M': { languageCode: 'en-US', name: 'en-US-Studio-M', ssmlGender: 'MALE' },
+  'en-US-Studio-Q': { languageCode: 'en-US', name: 'en-US-Studio-Q', ssmlGender: 'MALE' },
+  'en-US-Neural2-A': { languageCode: 'en-US', name: 'en-US-Neural2-A', ssmlGender: 'MALE' },
+  'en-US-Neural2-C': { languageCode: 'en-US', name: 'en-US-Neural2-C', ssmlGender: 'FEMALE' },
 };
 
 async function generateClonedVoiceTTS(

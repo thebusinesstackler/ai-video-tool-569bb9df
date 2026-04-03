@@ -346,7 +346,7 @@ const MovieSceneCreator = () => {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: previewText,
-          voice: 'en-US-Journey-D',
+          voice: 'en-US-Studio-M',
           speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
           voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
         }
@@ -3200,7 +3200,7 @@ const MovieSceneCreator = () => {
                   gender: twin.gender || inferCharacterGender(char),
                   voiceEngine: twin.voice_engine || undefined,
                   googleVoiceId: twin.google_voice_id || undefined,
-                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
+                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
                 });
               }
             } else {
@@ -3208,7 +3208,7 @@ const MovieSceneCreator = () => {
               voiceAssignments.push({
                 characterName: char.name,
                 gender: inferCharacterGender(char),
-                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Journey-F' : 'en-US-Journey-D'
+                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
               });
             }
           }
@@ -3236,7 +3236,7 @@ const MovieSceneCreator = () => {
           body: {
             dialogue: scene.dialogue,
             voiceAssignments,
-            defaultVoice: 'en-US-Journey-D'
+            defaultVoice: 'en-US-Studio-M'
           }
         });
 
@@ -3341,7 +3341,7 @@ const MovieSceneCreator = () => {
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
           body: { 
             text: dialogueText, 
-            voice: 'en-US-Journey-D',
+            voice: 'en-US-Studio-M',
             speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
             voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
           }
