@@ -574,13 +574,44 @@ And finally, provide the voiceover narration script that will be read over the e
 
           // Sora-2 clips already include native voiceover — no separate TTS needed
 
-          // Download videos as blobs to avoid CORS canvas tainting
-          setGenerationProgress('Downloading clips for stitching...');
+          // Download videos as blobs, analyze audio for cutoffs, and trim if needed
+          setGenerationProgress('Downloading clips for analysis...');
           const blobUrls: string[] = [];
-          for (const segUrl of [segment1Url, segment2Url]) {
+          const segmentUrls = [segment1Url, segment2Url];
+
+          for (let i = 0; i < segmentUrls.length; i++) {
+            const segUrl = segmentUrls[i];
+            setGenerationProgress(`Downloading clip ${i + 1}...`);
             const resp = await fetch(segUrl);
-            if (!resp.ok) throw new Error(`Failed to download segment: ${resp.status}`);
-            const blob = await resp.blob();
+            if (!resp.ok) throw new Error(`Failed to download segment ${i + 1}: ${resp.status}`);
+            let blob = await resp.blob();
+
+            // Analyze audio for abrupt cutoff using AI
+            try {
+              setGenerationProgress(`Analyzing clip ${i + 1} audio for clean ending...`);
+              // Upload the segment temporarily so the edge function can access it
+              const tempUrl = await uploadBlobToStorage(blob, 'temp-analysis', 'mp4');
+
+              const { data: trimData, error: trimError } = await supabase.functions.invoke('analyze-audio-trim', {
+                body: { videoUrl: tempUrl },
+              });
+
+              if (trimError) {
+                console.warn(`[VideoRepoPro] Audio analysis failed for clip ${i + 1}:`, trimError);
+              } else if (trimData?.hasCutoff && trimData.trimTimestamp > 0) {
+                setGenerationProgress(`Trimming clip ${i + 1} to clean ending at ${trimData.trimTimestamp.toFixed(1)}s...`);
+                console.log(`[VideoRepoPro] Clip ${i + 1}: trimming to ${trimData.trimTimestamp}s — ${trimData.reason}`);
+                const trimmedBlob = await trimVideoToTimestamp(blob, trimData.trimTimestamp, (pct) => {
+                  setGenerationProgress(`Trimming clip ${i + 1}... ${pct}%`);
+                });
+                blob = trimmedBlob;
+              } else {
+                console.log(`[VideoRepoPro] Clip ${i + 1}: audio ends cleanly — no trim needed`);
+              }
+            } catch (trimErr) {
+              console.warn(`[VideoRepoPro] Audio trim step failed for clip ${i + 1}, using original:`, trimErr);
+            }
+
             blobUrls.push(URL.createObjectURL(blob));
           }
 
