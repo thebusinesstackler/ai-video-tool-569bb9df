@@ -586,7 +586,7 @@ And finally, provide the voiceover narration script that will be read over the e
           const stitchedBlob = await stitchVideosWithAudio({
             videoUrls: blobUrls,
             embeddedAudioIndices: [0, 1],
-            audioUrls: voiceoverUrl ? [voiceoverUrl] : [],
+            audioUrls: [],
             onProgress: (pct) => setGenerationProgress(`Stitching... ${pct}%`),
           });
 
