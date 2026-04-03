@@ -30,9 +30,9 @@ interface MultiVoiceTTSRequest {
 const MALE_GEMINI_VOICES = ['Charon', 'Fenrir', 'Puck', 'Orus', 'Enceladus', 'Iapetus', 'Umbriel', 'Algenib', 'Rasalgethi', 'Alnilam', 'Schedar'];
 const FEMALE_GEMINI_VOICES = ['Kore', 'Aoede', 'Zephyr', 'Leda', 'Despina', 'Callirrhoe', 'Autonoe', 'Erinome', 'Algieba', 'Laomedeia', 'Achernar'];
 
-// WaveSpeed MiniMax voices by gender (fallback)
-const MALE_WAVESPEED_VOICES = ['English_magnetic_voiced_man', 'English_Trustworth_Man', 'Casual_Guy', 'Deep_Voice_Man', 'Determined_Man', 'Elegant_Man'];
-const FEMALE_WAVESPEED_VOICES = ['English_compelling_lady1', 'English_radiant_girl', 'Calm_Woman', 'Inspirational_girl', 'Lively_Girl', 'Lovely_Girl'];
+// WaveSpeed MiniMax voices removed — kept as empty arrays for compatibility
+const MALE_WAVESPEED_VOICES: string[] = [];
+const FEMALE_WAVESPEED_VOICES: string[] = [];
 
 // ── Polling helper ─────────────────────────────────────────────────
 async function pollWaveSpeedResult(taskId: string, apiKey: string): Promise<string | null> {
