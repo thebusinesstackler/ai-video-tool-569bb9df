@@ -314,6 +314,9 @@ const VideoRepo = () => {
     try {
       if (referenceVideoFile) {
         persistentVideoUrl = await uploadFileToStorage(referenceVideoFile, 'videos');
+      } else if (referenceVideoUrl && !referenceVideoUrl.startsWith('blob:')) {
+        // URL import — already stored in Supabase Storage
+        persistentVideoUrl = referenceVideoUrl;
       }
       if (productImageFile) {
         persistentImageUrl = await uploadFileToStorage(productImageFile, 'images');
