@@ -473,6 +473,9 @@ Then provide TWO video prompt blocks — one per segment:
         };
         setMessages((prev) => [...prev, generatingMsg]);
 
+        let segment1Url: string | null = null;
+        let segment2Url: string | null = null;
+
         try {
           // Launch both segments in parallel
           setGenerationProgress('Starting Segment 1 & 2 generation...');
@@ -499,8 +502,6 @@ Then provide TWO video prompt blocks — one per segment:
           ]);
 
           // Poll both in parallel
-          let segment1Url: string | null = null;
-          let segment2Url: string | null = null;
           let attempts = 0;
           const maxAttempts = 150; // ~12.5 minutes
 
