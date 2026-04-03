@@ -141,36 +141,51 @@ const VideoRepo = () => {
     scrollToBottom();
 
     try {
-      // Step 1: Analyze the reference content with AI
-      let analysisPrompt = `You are a UGC ad video strategist. The user wants to create an AI UGC-style video ad.
+      // Build multimodal messages with video frames
+      const contentParts: any[] = [];
 
-User request: "${userMsg.content}"
-
-`;
-      if (referenceVideoUrl) {
-        analysisPrompt += `They've uploaded a reference video for style/hook analysis. `;
-      }
-      if (productImageUrl) {
-        analysisPrompt += `They've uploaded a product image to feature in the ad. `;
+      // Add video frames as images for visual analysis
+      if (videoFrames.length > 0) {
+        contentParts.push({ type: 'text', text: `I've extracted ${videoFrames.length} key frames from the reference video "${referenceVideoName}". Analyze these frames to understand the visual style, hook strategy, pacing, transitions, camera angles, and talent actions:` });
+        for (const frame of videoFrames) {
+          contentParts.push({ type: 'image_url', image_url: { url: frame } });
+        }
       }
 
-      analysisPrompt += `
+      // Add product image
+      if (productImageUrl && !productImageUrl.startsWith('blob:')) {
+        contentParts.push({ type: 'text', text: 'Here is the product image to feature in the ad:' });
+        contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
+      }
+
+      const systemPrompt = `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
+
+      const analysisInstruction = `User request: "${userMsg.content}"
+
+${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
+${productImageUrl ? `Product image provided above — incorporate this product naturally.` : ''}
+
 Provide:
-1. **Hook Analysis**: What makes this type of content scroll-stopping (first 3 seconds strategy)
-2. **Script Breakdown**: A 15-30 second UGC-style script with scene-by-scene directions
-3. **Visual Direction**: Camera angles, lighting, talent actions for each scene
-4. **CTA Strategy**: How to close the ad for maximum conversion
+1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
+2. **Hook Strategy**: How the first 3 seconds will stop the scroll (based on what works in the reference)
+3. **Scene-by-Scene Script**: A 15-30 second UGC-style script with specific visual directions inspired by the reference
+4. **Product Integration**: How and when the product appears naturally
+5. **CTA Strategy**: Closing technique for maximum conversion
 
-Then provide a final **VIDEO PROMPT** block that I can use directly for Sora-2 generation. Format it as:
+Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[Your detailed video generation prompt here - 80-150 words covering environment, character, action, camera, lighting, product placement, pacing]
+[Your detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. Incorporate the visual style from the reference.]
 \`\`\``;
+
+      contentParts.push({ type: 'text', text: analysisInstruction });
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: { 
-          message: analysisPrompt,
-          ...(productImageUrl && !productImageUrl.startsWith('data:video') ? { imageUrl: productImageUrl } : {})
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: contentParts.length > 1 ? contentParts : analysisInstruction },
+          ]
         }
       });
 
