@@ -1,43 +1,37 @@
 
 
-## Add TikTok/YouTube URL Import to Video Repo
+## Fix Video URL Import — Replace Shutdown Cobalt API
 
-### What We're Building
+### The Problem
+The Cobalt v7 API (`api.cobalt.tools/api/json`) was permanently shut down in November 2024. That's why YouTube Shorts imports are failing. You do **not** need to add a Cobalt API key — the old public endpoint simply no longer exists.
 
-A URL input option alongside the existing file upload button so users can paste a TikTok or YouTube link as their reference video. A new edge function will download the video server-side and store it in Supabase Storage, then the existing frame extraction and analysis pipeline proceeds as normal.
+### The Fix
+Replace the Cobalt v7 call with the **new Cobalt v10+ API format** pointed at a public instance, plus add a fallback using a **RapidAPI YouTube downloader** for reliability.
 
-### How It Works
+### Approach Options
 
-```text
-User pastes URL → Edge function downloads video → Stored in Supabase Storage
-→ Browser fetches stored video → Extracts frames locally → Normal analysis pipeline
-```
+Since Cobalt's public API is gone, there are two paths:
+
+1. **Use a public Cobalt v10 instance** — Free but potentially unreliable (public instances may block YouTube). The new API format uses `POST /` with updated field names (`videoQuality` instead of `vQuality`, `downloadMode` instead of separate flags).
+
+2. **Use a paid video download API via RapidAPI** — Reliable, supports YouTube/TikTok/Instagram, but requires adding an API key (~$10/month for moderate use).
+
+**Recommended: Option 2** — A RapidAPI-based downloader is more reliable for production use. We'd add one secret (`RAPIDAPI_KEY`) and update the edge function.
 
 ### File Changes
 
-**1. New Edge Function: `supabase/functions/download-video-url/index.ts`**
-- Accepts `{ url: string }` in the request body
-- Validates the URL is from TikTok or YouTube (or allows any video URL)
-- Uses a lightweight approach: fetches the page via [cobalt.tools API](https://cobalt.tools) (free, no API key needed) to extract the direct video download link from TikTok/YouTube
-- Downloads the video binary, uploads it to `reels/{user_id}/video-repo/imports/{uuid}.mp4`
-- Returns `{ videoUrl: string }` — the public Supabase Storage URL
-- Includes CORS headers, input validation, and auth check
+**`supabase/functions/download-video-url/index.ts`**
+- Remove the dead Cobalt v7 API call
+- Add a primary download method using a RapidAPI video downloader (e.g., `ytdl-core` or `social-media-video-downloader`)
+- Keep the same auth, validation, storage upload, and response format
+- Add better error messages indicating which platforms are supported
 
-**2. `src/pages/VideoRepo.tsx`**
-- Add a new state: `urlInput` string, `isDownloadingUrl` boolean
-- Add a URL input field next to the "Reference Video" button with a `Link` icon and placeholder "Paste TikTok or YouTube URL"
-- When user pastes a URL and clicks "Import" (or presses Enter):
-  - Call the `download-video-url` edge function
-  - On success, set `referenceVideoUrl` to the returned storage URL, set `referenceVideoName` to the original URL domain
-  - Fetch the video as a blob to run the existing `extractVideoFrames` logic for frame capture
-  - Show a loading spinner on the URL input while downloading
-- The rest of the pipeline (analysis, generation, history) works unchanged since it already handles storage URLs
+### What You'd Need
+- A RapidAPI key (free tier available, paid for higher volume)
+- I'll walk you through getting one before implementing
 
-### Technical Details
-
-- Cobalt API is free and open-source — supports TikTok, YouTube, Instagram, Twitter, and more with no API key
-- The edge function downloads the video to memory and streams it to Supabase Storage
-- Video size capped at 100MB to prevent abuse
-- URL validation ensures only http/https protocols
-- The downloaded video gets the same persistent storage path as manually uploaded videos, so history works seamlessly
+### Alternative: No API Key Needed
+If you'd prefer not to add an API key, I can instead:
+- Try multiple known public Cobalt v10 instances with automatic fallback
+- This is free but may be less reliable for YouTube specifically (TikTok/Instagram tend to work better on public instances)
 
