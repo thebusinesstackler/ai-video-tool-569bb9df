@@ -42,21 +42,61 @@ const VideoRepo = () => {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const [videoFrames, setVideoFrames] = useState<string[]>([]);
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const uploadFile = async (file: File, type: 'image' | 'video'): Promise<string | null> => {
-    if (!user) return null;
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/${Date.now()}.${ext}`;
-    const bucket = type === 'video' ? 'videos' : 'product-images';
-
-    // For now, convert to base64 data URL for analysis
+  const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
       reader.readAsDataURL(file);
+    });
+  };
+
+  const extractVideoFrames = async (file: File, count = 6): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        const frames: string[] = [];
+        const timestamps = Array.from({ length: count }, (_, i) => 
+          Math.min(duration * (i / (count - 1)), duration - 0.1)
+        );
+        let idx = 0;
+
+        const captureFrame = () => {
+          canvas.width = Math.min(video.videoWidth, 640);
+          canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL('image/jpeg', 0.7));
+          idx++;
+          if (idx < timestamps.length) {
+            video.currentTime = timestamps[idx];
+          } else {
+            URL.revokeObjectURL(url);
+            resolve(frames);
+          }
+        };
+
+        video.onseeked = captureFrame;
+        video.currentTime = timestamps[0];
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load video'));
+      };
     });
   };
 
