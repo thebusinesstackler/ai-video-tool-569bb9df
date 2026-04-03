@@ -2868,11 +2868,19 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       if (twin.face_description) {
         setCharacterDescription(twin.face_description);
       }
-      // Enable lip sync for talking head style
       shouldEnableLipSync = true;
       activeLipSyncModel = 'infinitetalk';
       setEnableLipSync(true);
       setLipSyncModel('infinitetalk');
+    }
+    
+    // If beginner mode has no portrait and no twins, auto-generate a character
+    if (isBeginner && !portraitImage && aiTwins.length === 0 && topic.trim()) {
+      toast({ title: "Creating Character", description: "Generating a character from your topic..." });
+      await generateCharacter();
+      // After generation, portrait should be set — continue with lip sync enabled
+      shouldEnableLipSync = true;
+      activeLipSyncModel = 'infinitetalk';
     }
 
     // If user already has a portrait, enable lip sync
