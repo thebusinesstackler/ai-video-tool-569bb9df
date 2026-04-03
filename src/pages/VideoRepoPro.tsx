@@ -38,6 +38,7 @@ interface ChatMessage {
   content: string;
   attachments?: { type: 'image' | 'video'; url: string; name?: string }[];
   videoResult?: { url: string; status: string };
+  retryable?: boolean;
 }
 
 interface VideoRepoProject {
