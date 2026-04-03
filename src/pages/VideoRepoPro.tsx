@@ -597,7 +597,8 @@ Then provide TWO video prompt blocks — one per segment:
           const errorMsg: ChatMessage = {
             id: `error-${Date.now()}`,
             role: 'assistant',
-            content: `⚠️ Video generation encountered an issue: ${genErr.message}. You can copy the video prompts above and try again.`,
+            content: `⚠️ Video generation encountered an issue: ${genErr.message}. You can retry or copy the video prompts above and try again.`,
+            retryable: true,
           };
           setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
         }
