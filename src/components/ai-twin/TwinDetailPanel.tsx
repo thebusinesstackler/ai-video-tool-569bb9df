@@ -1124,14 +1124,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             onValueChange={async (newEngine) => {
               setVoiceEngine(newEngine);
               try {
-                const updateData: any = { voice_engine: newEngine };
-                // If switching to google-cloud and no voice selected, pick a default
-                if (newEngine === 'google-cloud' && !googleVoiceId) {
-                  const genderVoices = GOOGLE_CLOUD_VOICES.filter(v => v.gender === (twin.gender || 'male'));
-                  const defaultVoice = genderVoices[0] || GOOGLE_CLOUD_VOICES[0];
-                  setGoogleVoiceId(defaultVoice.id);
-                  updateData.google_voice_id = defaultVoice.id;
-                }
+               const updateData: any = { voice_engine: newEngine };
                 const { error } = await supabase
                   .from('ai_twins')
                   .update(updateData)
