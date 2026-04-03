@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { GOOGLE_CLOUD_VOICES } from '@/types/aiTwin';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -941,10 +940,9 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </Select>
           </div>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Badge variant={(voiceCloningKey || voiceEngine === 'google-cloud' || voiceEngine === 'wavespeed') ? "default" : "secondary"}>
+            <Badge variant={(voiceCloningKey || voiceEngine === 'wavespeed') ? "default" : "secondary"}>
               <Volume2 className="w-3 h-3 mr-1" />
-              {voiceEngine === 'google-cloud' ? '🔊 Google Voice' 
-                : voiceEngine === 'wavespeed' ? '🌊 WaveSpeed Voice'
+              {voiceEngine === 'wavespeed' ? '🌊 WaveSpeed Voice'
                 : voiceCloningKey ? '🎙️ Voice Cloned' 
                 : 'No Voice'}
             </Badge>
@@ -1114,7 +1112,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             <Volume2 className="w-4 h-4" />
             Voice Engine
             <Badge variant="outline" className="ml-auto text-xs">
-              {voiceEngine === 'speechify' ? '🎙️ Cloned' : voiceEngine === 'google-cloud' ? '🔊 Google' : '🌊 WaveSpeed'}
+              {voiceEngine === 'speechify' ? '🎙️ Cloned' : '🌊 WaveSpeed'}
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -1124,14 +1122,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             onValueChange={async (newEngine) => {
               setVoiceEngine(newEngine);
               try {
-                const updateData: any = { voice_engine: newEngine };
-                // If switching to google-cloud and no voice selected, pick a default
-                if (newEngine === 'google-cloud' && !googleVoiceId) {
-                  const genderVoices = GOOGLE_CLOUD_VOICES.filter(v => v.gender === (twin.gender || 'male'));
-                  const defaultVoice = genderVoices[0] || GOOGLE_CLOUD_VOICES[0];
-                  setGoogleVoiceId(defaultVoice.id);
-                  updateData.google_voice_id = defaultVoice.id;
-                }
+               const updateData: any = { voice_engine: newEngine };
                 const { error } = await supabase
                   .from('ai_twins')
                   .update(updateData)
@@ -1149,44 +1140,9 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="speechify">🎙️ Cloned Voice (Speechify)</SelectItem>
-              <SelectItem value="google-cloud">🔊 Google Cloud TTS (Premium)</SelectItem>
               <SelectItem value="wavespeed">🌊 WaveSpeed MiniMax</SelectItem>
             </SelectContent>
           </Select>
-
-          {voiceEngine === 'google-cloud' && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Select a Google Cloud premium voice:</p>
-              <Select
-                value={googleVoiceId || ''}
-                onValueChange={async (voiceId) => {
-                  setGoogleVoiceId(voiceId);
-                  try {
-                    const { error } = await supabase
-                      .from('ai_twins')
-                      .update({ google_voice_id: voiceId })
-                      .eq('id', twin.id);
-                    if (error) throw error;
-                    toast({ title: 'Google voice updated' });
-                    onUpdate();
-                  } catch (err: any) {
-                    toast({ title: 'Failed to update', description: err.message, variant: 'destructive' });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Choose a voice" />
-                </SelectTrigger>
-                <SelectContent>
-                  {GOOGLE_CLOUD_VOICES.map((voice) => (
-                    <SelectItem key={voice.id} value={voice.id}>
-                      {voice.label} ({voice.family} · {voice.gender})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           {voiceEngine === 'speechify' && (
             <>

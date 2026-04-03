@@ -32,12 +32,10 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
   googleVoiceId,
   gender,
 }) => {
-  // Voice is available if: cloned voice exists (speechify), or google-cloud with a voice selected, or wavespeed
-  const hasVoice = voiceEngine === 'google-cloud' 
-    ? !!googleVoiceId 
-    : voiceEngine === 'wavespeed' 
-      ? true 
-      : !!speechifyVoiceId;
+  // Voice is available if: cloned voice exists (speechify), or wavespeed
+  const hasVoice = voiceEngine === 'wavespeed' 
+    ? true 
+    : !!speechifyVoiceId;
 
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -125,10 +123,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
       // Build TTS request body based on voice engine
       const ttsBody: any = { text: script };
 
-      if (voiceEngine === 'google-cloud' && googleVoiceId) {
-        ttsBody.voiceEngine = 'google-cloud';
-        ttsBody.googleVoiceId = googleVoiceId;
-      } else if (voiceEngine === 'wavespeed') {
+      if (voiceEngine === 'wavespeed') {
         ttsBody.gender = gender || 'male';
         ttsBody.voice = 'ai-auto';
       } else if (speechifyVoiceId) {
@@ -219,9 +214,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
 
   const noVoiceMessage = voiceEngine === 'speechify' 
     ? 'Clone a voice first to make your AI Twin speak with their own voice.'
-    : voiceEngine === 'google-cloud'
-      ? 'Select a Google Cloud voice in the Voice Engine section above.'
-      : 'Configure a voice engine above to enable speaking.';
+    : 'Configure a voice engine above to enable speaking.';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>

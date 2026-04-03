@@ -122,39 +122,6 @@ async function generateWaveSpeedTTS(text: string, voiceId: string, apiKey: strin
   return base64Encode(arrayBuffer);
 }
 
-// Google Cloud TTS voice mapping (fallback)
-const GOOGLE_VOICES: Record<string, { name: string; languageCode: string }> = {
-  'English_compelling_lady1': { name: 'en-US-Studio-O', languageCode: 'en-US' },
-  'English_radiant_girl': { name: 'en-US-Studio-O', languageCode: 'en-US' },
-  'English_magnetic_voiced_man': { name: 'en-US-Studio-M', languageCode: 'en-US' },
-  'English_Trustworth_Man': { name: 'en-US-Studio-M', languageCode: 'en-US' },
-  'nova': { name: 'en-US-Studio-O', languageCode: 'en-US' },
-  'alloy': { name: 'en-US-Studio-M', languageCode: 'en-US' },
-};
-
-async function generateGoogleTTS(text: string, voice: string, apiKey: string): Promise<string> {
-  const voiceConfig = GOOGLE_VOICES[voice] || { name: 'en-US-Studio-M', languageCode: 'en-US' };
-  
-  const response = await fetch(
-    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: { text },
-        voice: { languageCode: voiceConfig.languageCode, name: voiceConfig.name },
-        audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Google TTS error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.audioContent;
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -208,26 +175,7 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to Google Cloud TTS
-    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
-    if (GOOGLE_API_KEY) {
-      try {
-        const base64Audio = await generateGoogleTTS(cleanedText, resolvedVoice, GOOGLE_API_KEY);
-        const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
-        
-        console.log('Voiceover generated with Google TTS for scene:', sceneNumber);
-        
-        return new Response(
-          JSON.stringify({ audioUrl, sceneNumber, provider: 'google-fallback' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (googleError) {
-        console.error('Google TTS also failed:', googleError);
-        throw googleError;
-      }
-    }
-
-    console.error('No TTS API key configured');
+    console.error('No WaveSpeed API key configured');
     return new Response(
       JSON.stringify({ error: 'No TTS API configured.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

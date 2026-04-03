@@ -346,7 +346,7 @@ const MovieSceneCreator = () => {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: previewText,
-          voice: 'en-US-Studio-M',
+          voice: 'English_Trustworth_Man',
           speechifyVoiceId: isSpeechify ? twin.voice_cloning_key : undefined,
           voiceCloningKey: !isSpeechify ? twin.voice_cloning_key : undefined
         }
@@ -1351,11 +1351,6 @@ const MovieSceneCreator = () => {
           voiceParams = {
             speechifyVoiceId: isSpeechify ? speakerTwin.voice_cloning_key : undefined,
             voiceCloningKey: !isSpeechify ? speakerTwin.voice_cloning_key : undefined
-          };
-        } else if (speakerTwin.voice_engine === 'google-cloud' && speakerTwin.google_voice_id) {
-          voiceParams = {
-            voiceEngine: 'google-cloud',
-            googleVoiceId: speakerTwin.google_voice_id
           };
         } else {
           // Use gender-appropriate WaveSpeed voice
@@ -2933,7 +2928,7 @@ const MovieSceneCreator = () => {
           };
         }
 
-        const voiceType = voiceToUse?.speechifyVoiceId ? 'cloned' : voiceToUse?.voiceCloningKey ? 'cloned' : voiceToUse?.voiceEngine === 'google-cloud' ? 'Google Cloud' : 'WaveSpeed AI';
+        const voiceType = voiceToUse?.speechifyVoiceId ? 'cloned' : voiceToUse?.voiceCloningKey ? 'cloned' : 'WaveSpeed AI';
         toast({
           title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
           description: voiceToUse 
@@ -2944,8 +2939,6 @@ const MovieSceneCreator = () => {
         let ttsVoiceParams: any = {};
         if (voiceToUse?.speechifyVoiceId || voiceToUse?.voiceCloningKey) {
           ttsVoiceParams = { speechifyVoiceId: voiceToUse.speechifyVoiceId, voiceCloningKey: voiceToUse.voiceCloningKey };
-        } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
-          ttsVoiceParams = { voiceEngine: 'google-cloud', googleVoiceId: voiceToUse.googleVoiceId };
         } else {
           // Infer gender from story bible character if available
           const charGender = (() => {
@@ -3200,7 +3193,7 @@ const MovieSceneCreator = () => {
                   gender: twin.gender || inferCharacterGender(char),
                   voiceEngine: twin.voice_engine || undefined,
                   googleVoiceId: twin.google_voice_id || undefined,
-                  defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
+                  defaultVoice: inferCharacterGender(char) === 'female' ? 'English_compelling_lady1' : 'English_Trustworth_Man'
                 });
               }
             } else {
@@ -3208,7 +3201,7 @@ const MovieSceneCreator = () => {
               voiceAssignments.push({
                 characterName: char.name,
                 gender: inferCharacterGender(char),
-                defaultVoice: inferCharacterGender(char) === 'female' ? 'en-US-Studio-O' : 'en-US-Studio-M'
+                defaultVoice: inferCharacterGender(char) === 'female' ? 'English_compelling_lady1' : 'English_Trustworth_Man'
               });
             }
           }
@@ -3236,7 +3229,7 @@ const MovieSceneCreator = () => {
           body: {
             dialogue: scene.dialogue,
             voiceAssignments,
-            defaultVoice: 'en-US-Studio-M'
+            defaultVoice: 'English_Trustworth_Man'
           }
         });
 
@@ -3341,7 +3334,7 @@ const MovieSceneCreator = () => {
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
           body: { 
             text: dialogueText, 
-            voice: 'en-US-Studio-M',
+            voice: 'English_Trustworth_Man',
             speechifyVoiceId: voiceToUse?.speechifyVoiceId || undefined,
             voiceCloningKey: voiceToUse?.voiceCloningKey || undefined
           }
