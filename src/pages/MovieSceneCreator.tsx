@@ -3229,7 +3229,7 @@ const MovieSceneCreator = () => {
           body: {
             dialogue: scene.dialogue,
             voiceAssignments,
-            defaultVoice: 'en-US-Studio-M'
+            defaultVoice: 'English_Trustworth_Man'
           }
         });
 
