@@ -80,6 +80,8 @@ const VideoRepo = () => {
 
   const [videoFrames, setVideoFrames] = useState<string[]>([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
 
   // History state
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
