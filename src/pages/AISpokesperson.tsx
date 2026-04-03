@@ -638,6 +638,56 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Must look like a real p
             });
 
             if (statusData?.status === 'completed' && statusData?.videoUrl) {
+              // Post-process with Wan 2.7 Video Edit for enhanced quality
+              setProgress(85);
+              setProgressStatus('Loop AI: Enhancing video with Wan 2.7...');
+              
+              try {
+                const enhancePrompt = `Enhance cinematic quality: improve lighting consistency, smooth color grading, add subtle film grain, ensure natural skin tones and professional broadcast quality. Preserve all lip-sync and motion exactly as-is. ${mood?.prompt || 'Professional, polished look'}. ${setting?.prompt || 'Studio environment'}.`;
+                
+                const { data: enhanceData, error: enhanceError } = await supabase.functions.invoke('wavespeed-video', {
+                  body: {
+                    action: 'create',
+                    model: 'alibaba/wan-2.7/video-edit',
+                    videoUrl: statusData.videoUrl,
+                    prompt: enhancePrompt,
+                    imageUrls: generatedImageUrl ? [generatedImageUrl] : undefined,
+                    duration: 0 // match input duration
+                  }
+                });
+
+                if (!enhanceError && enhanceData?.taskId) {
+                  setProgressStatus('Loop AI: Rendering enhanced version (1-2 min)...');
+                  let enhanceAttempts = 0;
+                  const maxEnhanceAttempts = 80;
+                  
+                  while (enhanceAttempts < maxEnhanceAttempts) {
+                    enhanceAttempts++;
+                    await new Promise(r => setTimeout(r, 3000));
+                    const { data: enhStatus } = await supabase.functions.invoke('wavespeed-video', {
+                      body: { action: 'status', taskId: enhanceData.taskId }
+                    });
+                    
+                    if (enhStatus?.status === 'completed' && enhStatus?.videoUrl) {
+                      setVideoUrl(enhStatus.videoUrl);
+                      setVideoTask({ taskId: enhanceData.taskId, status: 'completed', videoUrl: enhStatus.videoUrl });
+                      setProgress(100);
+                      setProgressStatus('Enhanced video ready! 🎬✨');
+                      toast({ title: '🎬✨ Enhanced Video Ready!', description: 'Your AI spokesperson video has been enhanced with Wan 2.7.' });
+                      return;
+                    } else if (enhStatus?.status === 'failed') {
+                      console.warn('Wan 2.7 enhancement failed, using original video');
+                      break;
+                    }
+                    const enhPct = Math.min(85 + (enhanceAttempts / maxEnhanceAttempts) * 14, 99);
+                    setProgress(enhPct);
+                  }
+                }
+              } catch (enhErr) {
+                console.warn('Wan 2.7 enhancement error, using original:', enhErr);
+              }
+              
+              // Fallback: use original infinitetalk video
               setVideoUrl(statusData.videoUrl);
               setVideoTask({ taskId: videoData.taskId, status: 'completed', videoUrl: statusData.videoUrl });
               setProgress(100);
