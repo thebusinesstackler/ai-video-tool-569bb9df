@@ -2939,8 +2939,6 @@ const MovieSceneCreator = () => {
         let ttsVoiceParams: any = {};
         if (voiceToUse?.speechifyVoiceId || voiceToUse?.voiceCloningKey) {
           ttsVoiceParams = { speechifyVoiceId: voiceToUse.speechifyVoiceId, voiceCloningKey: voiceToUse.voiceCloningKey };
-        } else if (voiceToUse?.voiceEngine === 'google-cloud' && voiceToUse?.googleVoiceId) {
-          ttsVoiceParams = { voiceEngine: 'google-cloud', googleVoiceId: voiceToUse.googleVoiceId };
         } else {
           // Infer gender from story bible character if available
           const charGender = (() => {
