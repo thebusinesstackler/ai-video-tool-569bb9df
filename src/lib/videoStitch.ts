@@ -99,7 +99,7 @@ async function cloudStitch(
  * Returns a Blob of the final MP4.
  */
 export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blob> {
-  const { videoUrls, audioUrls = [], onProgress } = options;
+  const { videoUrls, audioUrls = [], embeddedAudioIndices = [], onProgress } = options;
 
   if (!videoUrls || videoUrls.length === 0) throw new Error('No video URLs provided');
 
