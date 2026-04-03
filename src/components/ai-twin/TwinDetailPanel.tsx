@@ -1146,40 +1146,6 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </SelectContent>
           </Select>
 
-          {voiceEngine === 'google-cloud' && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Select a Google Cloud premium voice:</p>
-              <Select
-                value={googleVoiceId || ''}
-                onValueChange={async (voiceId) => {
-                  setGoogleVoiceId(voiceId);
-                  try {
-                    const { error } = await supabase
-                      .from('ai_twins')
-                      .update({ google_voice_id: voiceId })
-                      .eq('id', twin.id);
-                    if (error) throw error;
-                    toast({ title: 'Google voice updated' });
-                    onUpdate();
-                  } catch (err: any) {
-                    toast({ title: 'Failed to update', description: err.message, variant: 'destructive' });
-                  }
-                }}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Choose a voice" />
-                </SelectTrigger>
-                <SelectContent>
-                  {GOOGLE_CLOUD_VOICES.map((voice) => (
-                    <SelectItem key={voice.id} value={voice.id}>
-                      {voice.label} ({voice.family} · {voice.gender})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {voiceEngine === 'speechify' && (
             <>
               <VoiceCloner

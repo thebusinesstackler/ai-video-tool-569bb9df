@@ -1285,7 +1285,6 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
         if (statusData?.status === 'completed' && statusData?.videoUrl) {
           const voiceLabel = selectedTwin.voice_cloning_key ? 'Cloned Voice'
-            : selectedTwin.voice_engine === 'google-cloud' ? `Google (${selectedTwin.google_voice_id || 'default'})`
             : selectedTwin.gender === 'female' ? 'WaveSpeed (Female)' : 'WaveSpeed (Male)';
 
           setVersionB({

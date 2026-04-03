@@ -214,9 +214,7 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
 
   const noVoiceMessage = voiceEngine === 'speechify' 
     ? 'Clone a voice first to make your AI Twin speak with their own voice.'
-    : voiceEngine === 'google-cloud'
-      ? 'Select a Google Cloud voice in the Voice Engine section above.'
-      : 'Configure a voice engine above to enable speaking.';
+    : 'Configure a voice engine above to enable speaking.';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
