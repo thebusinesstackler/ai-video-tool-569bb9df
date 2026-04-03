@@ -20,7 +20,9 @@ import {
   ArrowLeft,
   Calendar,
   X,
+  Link,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -78,6 +80,8 @@ const VideoRepo = () => {
 
   const [videoFrames, setVideoFrames] = useState<string[]>([]);
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
 
   // History state
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
@@ -205,6 +209,60 @@ const VideoRepo = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleUrlImport = async () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed || isDownloadingUrl) return;
+    try {
+      new URL(trimmed);
+    } catch {
+      toast({ title: 'Invalid URL', description: 'Please enter a valid TikTok, YouTube, or video URL.', variant: 'destructive' });
+      return;
+    }
+    setIsDownloadingUrl(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('download-video-url', {
+        body: { url: trimmed },
+      });
+      if (error) throw new Error(typeof error === 'object' && 'message' in error ? error.message : 'Download failed');
+      if (!data?.videoUrl) throw new Error(data?.error || 'No video returned');
+
+      // Set as reference video
+      if (referenceVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(referenceVideoUrl);
+      setReferenceVideoUrl(data.videoUrl);
+      try {
+        const hostname = new URL(trimmed).hostname.replace('www.', '');
+        setReferenceVideoName(`${hostname} import`);
+      } catch {
+        setReferenceVideoName('URL import');
+      }
+      setReferenceVideoFile(null);
+      setUrlInput('');
+      setVideoFrames([]);
+
+      // Extract frames from the downloaded video
+      setIsExtractingFrames(true);
+      try {
+        const videoResp = await fetch(data.videoUrl);
+        const blob = await videoResp.blob();
+        const file = new File([blob], 'imported.mp4', { type: 'video/mp4' });
+        const frames = await extractVideoFrames(file, 6);
+        setVideoFrames(frames);
+      } catch (frameErr) {
+        console.warn('Could not extract frames from imported video:', frameErr);
+        toast({ title: 'Video imported', description: 'Frames could not be extracted but you can still generate.' });
+      } finally {
+        setIsExtractingFrames(false);
+      }
+
+      toast({ title: 'Video imported!', description: 'Reference video ready for analysis.' });
+    } catch (err: any) {
+      console.error('[URL import error]', err);
+      toast({ title: 'Import failed', description: err.message || 'Could not download video from URL', variant: 'destructive' });
+    } finally {
+      setIsDownloadingUrl(false);
+    }
+  };
+
   const handleReferenceVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -256,6 +314,9 @@ const VideoRepo = () => {
     try {
       if (referenceVideoFile) {
         persistentVideoUrl = await uploadFileToStorage(referenceVideoFile, 'videos');
+      } else if (referenceVideoUrl && !referenceVideoUrl.startsWith('blob:')) {
+        // URL import — already stored in Supabase Storage
+        persistentVideoUrl = referenceVideoUrl;
       }
       if (productImageFile) {
         persistentImageUrl = await uploadFileToStorage(productImageFile, 'images');
@@ -700,6 +761,32 @@ Then provide a final **VIDEO PROMPT** block:
                     <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => videoInputRef.current?.click()}>
                       <Video className="w-3.5 h-3.5" /> Reference Video
                     </Button>
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative">
+                        <Link className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                        <Input
+                          type="url"
+                          placeholder="Paste TikTok or YouTube URL"
+                          value={urlInput}
+                          onChange={(e) => setUrlInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleUrlImport(); } }}
+                          className="h-8 text-xs rounded-full pl-8 pr-2 w-[200px] md:w-[240px] bg-background"
+                          disabled={isDownloadingUrl}
+                        />
+                      </div>
+                      {urlInput.trim() && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs rounded-full gap-1"
+                          onClick={handleUrlImport}
+                          disabled={isDownloadingUrl}
+                        >
+                          {isDownloadingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                          {isDownloadingUrl ? 'Importing...' : 'Import'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 justify-between md:justify-end">
                     <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
