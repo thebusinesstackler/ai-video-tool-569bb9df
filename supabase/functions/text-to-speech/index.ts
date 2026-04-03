@@ -344,9 +344,9 @@ serve(async (req) => {
       }
     }
     
-    // Fallback: Google Cloud TTS
-    if (googleApiKey) {
-      const voiceConfig = GOOGLE_VOICES[voice] || { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' as const };
+    // Fallback: Google Cloud TTS (only if voice was explicitly a Google voice)
+    if (googleApiKey && voice.startsWith('en-') && GOOGLE_VOICES[voice]) {
+      const voiceConfig = GOOGLE_VOICES[voice];
       
       const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleApiKey}`, {
         method: 'POST',
