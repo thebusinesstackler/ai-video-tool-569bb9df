@@ -940,10 +940,9 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             </Select>
           </div>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Badge variant={(voiceCloningKey || voiceEngine === 'google-cloud' || voiceEngine === 'wavespeed') ? "default" : "secondary"}>
+            <Badge variant={(voiceCloningKey || voiceEngine === 'wavespeed') ? "default" : "secondary"}>
               <Volume2 className="w-3 h-3 mr-1" />
-              {voiceEngine === 'google-cloud' ? '🔊 Google Voice' 
-                : voiceEngine === 'wavespeed' ? '🌊 WaveSpeed Voice'
+              {voiceEngine === 'wavespeed' ? '🌊 WaveSpeed Voice'
                 : voiceCloningKey ? '🎙️ Voice Cloned' 
                 : 'No Voice'}
             </Badge>
