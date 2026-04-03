@@ -133,6 +133,7 @@ serve(async (req) => {
             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+        // Only length-check string content; array content (multimodal) is allowed
         if (typeof msg.content === 'string' && msg.content.length > MAX_MESSAGE_LENGTH) {
           return new Response(JSON.stringify({ error: `Message content exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters` }), {
             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
