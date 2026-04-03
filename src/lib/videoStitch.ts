@@ -128,6 +128,7 @@ export async function stitchVideosWithAudio(options: StitchOptions): Promise<Blo
   return canvasStitchVideos({
     videoUrls,
     audioUrls: audioUrls.length > 0 ? audioUrls : undefined,
+    embeddedAudioIndices,
     onProgress,
   });
 }
