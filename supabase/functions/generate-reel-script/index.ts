@@ -839,9 +839,13 @@ Return ONLY valid JSON array:
       };
     });
 
-    // AI Director validation pass — log quality issues
+    // AI Director validation pass — enforce quality and word count
     const directorIssues: string[] = [];
-    for (const scene of scenes) {
+    const wordsPerSecond = 2.5;
+    const scenesToExtend: { index: number; scene: any; targetWords: number }[] = [];
+    
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
       if (scene.narration && /^(POV|NARRATOR|HOOK|SCENE)\s*:/i.test(scene.narration)) {
         directorIssues.push(`Scene ${scene.sceneNumber}: narration still has label prefix`);
         scene.narration = scene.narration.replace(/^(POV|NARRATOR|HOOK|SCENE\s*\d*)\s*[:\-]\s*/i, '');
@@ -852,7 +856,56 @@ Return ONLY valid JSON array:
       if (scene.visualDescription && /dark|moody|dramatic shadow|dimly lit|nighttime/i.test(scene.visualDescription) && !/explicitly/i.test(scene.visualDescription)) {
         directorIssues.push(`Scene ${scene.sceneNumber}: visual may be too dark — should be bright UGC-style`);
       }
+      
+      // Word count enforcement: narration must fill at least 70% of the scene duration
+      if (scene.narration && !scene.isIntro && !scene.isOutro && !scene.isSilentCTA) {
+        const wordCount = scene.narration.split(/\s+/).length;
+        const sceneDur = scene.duration || finalSceneDuration;
+        const targetMin = Math.round(sceneDur * wordsPerSecond * 0.7);
+        const targetMax = Math.round(sceneDur * wordsPerSecond);
+        
+        if (wordCount < targetMin) {
+          directorIssues.push(`Scene ${scene.sceneNumber}: narration too short (${wordCount} words for ${sceneDur}s scene, need ${targetMin}-${targetMax})`);
+          scenesToExtend.push({ index: i, scene, targetWords: targetMax });
+        }
+      }
     }
+    
+    // Auto-extend short narrations using AI
+    if (scenesToExtend.length > 0) {
+      console.log(`AI Director: extending ${scenesToExtend.length} scene(s) with insufficient word count`);
+      
+      try {
+        const extendPrompt = scenesToExtend.map(s => 
+          `Scene ${s.scene.sceneNumber} (${s.scene.duration || finalSceneDuration}s, need ~${s.targetWords} words): "${s.scene.narration}"`
+        ).join('\n');
+        
+        const extendResult = await callClaude(
+          `You are a script editor. Expand each narration to hit the target word count while keeping the same meaning, tone, and conversational style. Add natural detail, emphasis, or elaboration — don't just pad with filler words. Keep it feeling authentic and spoken.
+
+Return ONLY a JSON array of objects: [{"sceneNumber": N, "narration": "expanded text"}]`,
+          `Expand these narrations to fill their scene durations:\n${extendPrompt}\n\nReturn ONLY the JSON array.`,
+          4096
+        );
+        
+        const extendMatch = extendResult.match(/\[[\s\S]*\]/);
+        if (extendMatch) {
+          const expanded = JSON.parse(extendMatch[0]);
+          for (const exp of expanded) {
+            const idx = scenesToExtend.find(s => s.scene.sceneNumber === exp.sceneNumber)?.index;
+            if (idx !== undefined && exp.narration) {
+              const newWordCount = exp.narration.split(/\s+/).length;
+              console.log(`Scene ${exp.sceneNumber}: extended from ${scenes[idx].narration.split(/\s+/).length} to ${newWordCount} words`);
+              scenes[idx].narration = formatScriptForTTS(exp.narration);
+            }
+          }
+        }
+      } catch (extendErr) {
+        console.error('AI Director: failed to extend narrations:', extendErr);
+        // Non-blocking — original narration stays
+      }
+    }
+    
     if (directorIssues.length > 0) {
       console.log('AI Director validation issues:', directorIssues);
     }
