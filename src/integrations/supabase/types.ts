@@ -563,6 +563,48 @@ export type Database = {
         }
         Relationships: []
       }
+      video_repo_projects: {
+        Row: {
+          analysis_text: string | null
+          created_at: string
+          generated_video_url: string | null
+          id: string
+          product_image_url: string | null
+          prompt: string | null
+          reference_video_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          video_prompt: string | null
+        }
+        Insert: {
+          analysis_text?: string | null
+          created_at?: string
+          generated_video_url?: string | null
+          id?: string
+          product_image_url?: string | null
+          prompt?: string | null
+          reference_video_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          video_prompt?: string | null
+        }
+        Update: {
+          analysis_text?: string | null
+          created_at?: string
+          generated_video_url?: string | null
+          id?: string
+          product_image_url?: string | null
+          prompt?: string | null
+          reference_video_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          video_prompt?: string | null
+        }
+        Relationships: []
+      }
       video_tasks: {
         Row: {
           created_at: string
