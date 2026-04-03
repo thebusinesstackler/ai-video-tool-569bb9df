@@ -1,46 +1,36 @@
 
 
-## Problem
+## Video Repo History & Gallery Integration
 
-When the user resizes the screen while using the product swap feature in Quick/Easy mode, the product swap state is lost and the UI resets. This happens because:
+### What We're Building
 
-1. **`ProductSwapPanel` stores all state locally** — `selectedProductUrl`, `productPrompt`, `isSwapping`, `showLibrary` are local state inside the component. When the parent re-renders due to `isMobile` changing at the 768px breakpoint, the component can unmount/remount and lose this state.
+A persistent history system for Video Repo that saves every session (prompt, reference video, product image, AI analysis, and generated video) to the database. Users can browse past projects with side-by-side comparison of reference vs. generated video. Generated videos also appear in the Gallery under a "Video Repo" filter tab.
 
-2. **Layout shift on resize** — The main content area switches between `p-0 pb-24` (mobile) and `p-6 pb-24` (desktop), and the sidebar conditionally renders/hides, causing the content to reflow and potentially confuse users.
+### Database Changes
 
-3. **No state persistence** — The product swap workflow has no mechanism to preserve mid-operation state across re-renders.
+**New table: `video_repo_projects`**
+- `id`, `user_id`, `prompt`, `reference_video_url`, `product_image_url`, `analysis_text`, `generated_video_url`, `video_prompt`, `status` (analyzing/generating/completed/failed), `created_at`, `updated_at`
+- RLS: authenticated users CRUD their own rows
 
-## Plan
+### File Changes
 
-### 1. Lift product swap state to Reels.tsx parent
-**File**: `src/pages/Reels.tsx`
+**1. `src/pages/VideoRepo.tsx`**
+- Upload reference video and product image to Supabase Storage (`reels` bucket) before analysis, so we have persistent URLs (not blob/data URIs)
+- Insert a `video_repo_projects` row when the user hits Send, update it as the pipeline progresses (analysis text, generated video URL, status)
+- Add a "History" tab/panel below the composer showing saved projects as cards
+- Each history card shows: prompt snippet, reference video thumbnail, generated video thumbnail, date, status badge
+- Clicking a card opens a side-by-side view: reference video (left) vs generated video (right) with the prompt and analysis below
+- Also save the generated video to `generated_images` table with `source: 'video-repo'` for Gallery integration
 
-- Add parent-level state for active product swap: `activeSwapProductUrl`, `activeSwapPrompt`
-- Pass these as props to `ProductSwapPanel` so they persist across re-renders
-- When the user selects a product in the swap panel, update parent state
-
-### 2. Make ProductSwapPanel controlled
-**File**: `src/components/ProductSwapPanel.tsx`
-
-- Accept optional `initialProductUrl` and `initialPrompt` props
-- Initialize local state from props so state survives parent re-renders
-- Add `onProductSelected` callback to sync selection back to parent
-
-### 3. Stabilize layout on resize
-**File**: `src/pages/Reels.tsx`
-
-- Use CSS `transition-all` on the main content wrapper so layout changes are smooth rather than abrupt
-- Ensure the Quick mode card and its children don't unmount when `isMobile` toggles — currently the Quick mode sections don't depend on `isMobile`, but verify no intermediate wrapper causes remounting
-
-### 4. Prevent useIsMobile flash
-**File**: `src/hooks/use-mobile.tsx`
-
-- Initialize `isMobile` state with a synchronous check (`window.innerWidth < 768`) instead of `undefined` to prevent the initial `false → true` flash that causes an extra re-render on mobile devices
-- This eliminates one unnecessary unmount/remount cycle on page load
+**2. `src/pages/Gallery.tsx`**
+- Add a third tab: "Video Repo" that filters `generated_images` where `source = 'video-repo'`
+- Display video entries with playable thumbnails in the same grid layout
 
 ### Technical Details
 
-- **`use-mobile.tsx`**: Change `useState<boolean | undefined>(undefined)` to `useState(() => window.innerWidth < MOBILE_BREAKPOINT)` — this removes the initial undefined state and the double-render
-- **`ProductSwapPanel.tsx`**: Add `selectedProductUrlProp?: string | null` and `onProductChange?: (url: string | null) => void` props. Use `useEffect` to sync prop → local state only on mount, keeping local state as source of truth during interaction
-- **`Reels.tsx`**: Add `swapPanelProductUrl` state. Pass to all `ProductSwapPanel` instances. This state persists across `isMobile` toggles since it lives at the page component level
+- Reference videos uploaded to `reels/{user_id}/video-repo/{uuid}.mp4`
+- Product images uploaded to `reels/{user_id}/video-repo/{uuid}.jpg`
+- History cards use the stored URLs so they persist across sessions
+- Side-by-side layout uses a responsive 2-column grid (`grid-cols-1 md:grid-cols-2`)
+- Status badge on each card: `analyzing` (yellow), `generating` (blue), `completed` (green), `failed` (red)
 
