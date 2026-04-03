@@ -104,15 +104,22 @@ const VideoRepo = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     setReferenceVideoName(file.name);
-    const url = await uploadFile(file, 'video');
-    if (url) setReferenceVideoUrl(url);
+    setIsExtractingFrames(true);
+    try {
+      const frames = await extractVideoFrames(file, 6);
+      setVideoFrames(frames);
+      setReferenceVideoUrl(URL.createObjectURL(file));
+    } catch {
+      toast({ title: 'Could not extract frames from video', variant: 'destructive' });
+    }
+    setIsExtractingFrames(false);
   };
 
   const handleProductImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setProductImageName(file.name);
-    const url = await uploadFile(file, 'image');
+    const url = await fileToDataUrl(file);
     if (url) setProductImageUrl(url);
   };
 
