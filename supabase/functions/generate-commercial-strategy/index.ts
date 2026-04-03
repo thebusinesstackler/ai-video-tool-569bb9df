@@ -400,7 +400,7 @@ You have access to these video generation models. Choose the best one based on t
 | Model | Best For | Max Duration | Resolution | Notes |
 |---|---|---|---|---|
 | **infinitetalk** | Speaking scenes with lip-sync | 10s | 720p | Primary for dialogue. Syncs lips to audio perfectly. ALWAYS use for speaking segments. |
-| **infinitetalk-fast** | Quick speaking previews | 10s | 480p | Faster but lower quality lip-sync. Good for drafts. |
+| **sora-2** | Speaking scenes with native audio | 4-20s | 1080p | Primary for dialogue. Native lip-sync and voice generation. ALWAYS use for speaking segments. |
 | **alibaba/wan-2.5/text-to-video** | B-roll, product shots | 5s | 720p | Best visual quality for non-speaking scenes. Cinematic motion. |
 | **alibaba/wan-2.1-i2v-480p** | Image-to-video conversion | 5s | 480p | Low-cost testing. Takes a still image and adds motion. |
 | **alibaba/wan-2.5/video-extend** | Extending existing clips | 5s extension | 720p | Extends a video clip. Needs a base clip first. Two-step pipeline. |
