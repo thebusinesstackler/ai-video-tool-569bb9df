@@ -180,6 +180,8 @@ Then provide a final **VIDEO PROMPT** block:
 
       contentParts.push({ type: 'text', text: analysisInstruction });
 
+      console.log('[VideoRepo] Sending analysis request with', contentParts.length, 'content parts,', videoFrames.length, 'frames');
+      
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: { 
           messages: [
@@ -189,9 +191,20 @@ Then provide a final **VIDEO PROMPT** block:
         }
       });
 
-      if (aiError) throw new Error(aiError.message || 'AI analysis failed');
+      console.log('[VideoRepo] AI response:', { aiData, aiError });
 
-      const analysisText = aiData?.response || 'Unable to analyze. Please try again.';
+      if (aiError) {
+        const errorBody = typeof aiError === 'object' && 'context' in aiError 
+          ? JSON.stringify(aiError) 
+          : (aiError.message || 'AI analysis failed');
+        throw new Error(errorBody);
+      }
+
+      if (!aiData?.response) {
+        throw new Error('No response from AI. The model may be overloaded — please try again.');
+      }
+
+      const analysisText = aiData.response;
 
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
