@@ -278,12 +278,15 @@ serve(async (req) => {
       }
     }
     
-    // Priority 2: Google Cloud cloned voice (voice cloning only, not standard voices)
-    const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
-      const result = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, validatedSpeed);
-      if (result) {
-        return new Response(JSON.stringify({ ...result, isClonedVoice: true, provider: 'google' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Priority 2: Google Cloud cloned voice (cloning only, not standard voices)
+    if (voiceCloningKey) {
+      const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
+      if (googleApiKey) {
+        const result = await generateClonedVoiceTTS(text, googleApiKey, voiceCloningKey, validatedSpeed);
+        if (result) {
+          return new Response(JSON.stringify({ ...result, isClonedVoice: true, provider: 'google' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
       }
     }
     
