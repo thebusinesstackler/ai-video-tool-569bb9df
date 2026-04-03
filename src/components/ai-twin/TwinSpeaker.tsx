@@ -32,12 +32,10 @@ export const TwinSpeaker: React.FC<TwinSpeakerProps> = ({
   googleVoiceId,
   gender,
 }) => {
-  // Voice is available if: cloned voice exists (speechify), or google-cloud with a voice selected, or wavespeed
-  const hasVoice = voiceEngine === 'google-cloud' 
-    ? !!googleVoiceId 
-    : voiceEngine === 'wavespeed' 
-      ? true 
-      : !!speechifyVoiceId;
+  // Voice is available if: cloned voice exists (speechify), or wavespeed
+  const hasVoice = voiceEngine === 'wavespeed' 
+    ? true 
+    : !!speechifyVoiceId;
 
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
