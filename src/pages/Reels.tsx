@@ -4653,7 +4653,13 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           Regenerate
                         </Button>
                         <Button
-                          onClick={() => setBeginnerStep(3)}
+                          onClick={() => {
+                            setBeginnerStep(3);
+                            // Auto-generate character if none exists
+                            if (!portraitImage && !selectedTwinId && topic.trim()) {
+                              setTimeout(() => generateCharacter(), 300);
+                            }
+                          }}
                           className="flex-[2] bg-gradient-to-r from-primary to-primary/80"
                         >
                           Looks Good, Continue →
