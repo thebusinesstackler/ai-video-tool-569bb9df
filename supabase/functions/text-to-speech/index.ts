@@ -264,38 +264,10 @@ serve(async (req) => {
     const validatedSpeed = typeof speed === 'number' ? Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed)) : 1.0;
     const validatedPitch = typeof rawPitch === 'number' ? Math.max(-10, Math.min(10, rawPitch)) : 0;
 
-    console.log(`TTS request - Voice: ${voice}, Engine: ${voiceEngine || 'auto'}, Pitch: ${validatedPitch}, Text length: ${text.length}`);
+    console.log(`TTS request - Voice: ${voice}, Pitch: ${validatedPitch}, Text length: ${text.length}`);
 
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
-    const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
-    
-    // Route based on explicit voiceEngine if provided
-    
-    // Priority 0: Explicit Google Cloud TTS engine selection
-    if (voiceEngine === 'google-cloud' && googleVoiceId && googleApiKey) {
-      const voiceName = googleVoiceId;
-      const ssmlGender = voiceName.includes('-F') || voiceName.includes('-O') || voiceName.includes('-C') ? 'FEMALE' : 'MALE';
-      
-      const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
-          voice: { languageCode: 'en-US', name: voiceName, ssmlGender },
-          audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed, pitch: validatedPitch, effectsProfileId: ['headphone-class-device'] }
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.audioContent) {
-          return new Response(JSON.stringify({ audioContent: data.audioContent, audioUrl: `data:audio/mp3;base64,${data.audioContent}`, provider: 'google-cloud', voiceUsed: voiceName }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-      }
-      console.warn('Google Cloud TTS failed for explicit engine selection, falling through...');
-    }
 
     // Priority 1: Speechify cloned voice
     if (speechifyVoiceId && speechifyApiKey) {
