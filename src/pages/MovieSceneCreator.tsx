@@ -2928,7 +2928,7 @@ const MovieSceneCreator = () => {
           };
         }
 
-        const voiceType = voiceToUse?.speechifyVoiceId ? 'cloned' : voiceToUse?.voiceCloningKey ? 'cloned' : voiceToUse?.voiceEngine === 'google-cloud' ? 'Google Cloud' : 'WaveSpeed AI';
+        const voiceType = voiceToUse?.speechifyVoiceId ? 'cloned' : voiceToUse?.voiceCloningKey ? 'cloned' : 'WaveSpeed AI';
         toast({
           title: voiceToUse ? `Generating ${voiceToUse.name}'s Voice` : "Generating Audio",
           description: voiceToUse 
