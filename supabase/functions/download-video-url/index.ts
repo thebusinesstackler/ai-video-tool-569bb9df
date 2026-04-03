@@ -78,24 +78,15 @@ function extractDownloadUrl(platform: string, data: any): string | null {
       }
     }
 
-    if (platform === 'tiktok') {
-      const videos = data?.contents?.videos;
-      if (videos?.length > 0) {
-        return videos[0]?.url || null;
-      }
-    }
-
-    if (platform === 'instagram') {
-      const videos = data?.contents?.videos;
-      if (videos?.length > 0) {
-        return videos[0]?.url || null;
-      }
-      // Some posts might have the video in a different structure
+    if (platform === 'tiktok' || platform === 'instagram') {
+      // contents can be an object with .videos or an array of objects with .videos
       const contents = data?.contents;
       if (Array.isArray(contents)) {
         for (const c of contents) {
-          if (c?.videos?.length > 0) return c.videos[0]?.url;
+          if (c?.videos?.length > 0) return c.videos[0]?.url || null;
         }
+      } else if (contents?.videos?.length > 0) {
+        return contents.videos[0]?.url || null;
       }
     }
   } catch (e) {
