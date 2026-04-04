@@ -162,20 +162,22 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
       .lbl{font-size:10px;text-transform:uppercase;color:#9ca3af;margin-bottom:3px;letter-spacing:.5px}
       .script{background:#f9fafb;padding:10px;border-radius:8px;font-size:12px;line-height:1.6;white-space:pre-wrap;margin-bottom:10px}
       .meta{font-size:11px;color:#6b7280}
-      .thumb{width:100px;height:70px;object-fit:cover;border-radius:8px;margin-right:14px;float:left}
+      .thumb{width:120px;height:80px;object-fit:cover;border-radius:8px;margin-right:14px;float:left;background:#000}
+      .video-link{display:inline-block;background:#7c3aed;color:white;padding:4px 12px;border-radius:6px;font-size:11px;text-decoration:none;margin-top:4px}
       @media print{.item{break-inside:avoid}}
     </style></head><body>
     <h1>📅 Content Calendar – ${label}</h1>
     <p class="sub">Generated ${new Date().toLocaleDateString()} • ${items.length} videos</p>
     ${items.map((p, i) => {
       const schedule = POSTING_SCHEDULE[i % POSTING_SCHEDULE.length];
+      const thumbSrc = thumbnails[p.id] || null;
       return `<div class="item">
         <div class="row"><span class="badge">${assignments[p.id] || 'Uncategorized'}</span><div class="sched">📅 ${schedule.day} at ${schedule.time}</div></div>
-        ${p.product_image_url ? `<img class="thumb" src="${p.product_image_url}" alt="" />` : ''}
+        ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="" />` : p.generated_video_url ? `<video class="thumb" src="${p.generated_video_url}" muted preload="metadata"></video>` : ''}
         <div class="hook">${extractHook(p)}</div>
         <div class="lbl">Script</div>
         <div class="script">${extractScript(p) || 'No script available'}</div>
-        <div class="meta">Created: ${new Date(p.created_at).toLocaleDateString()} ${p.generated_video_url ? '• 📹 Video available' : ''}</div>
+        <div class="meta">Created: ${new Date(p.created_at).toLocaleDateString()} ${p.generated_video_url ? `• <a class="video-link" href="${p.generated_video_url}" target="_blank">▶ Watch Video</a>` : ''}</div>
       </div>`;
     }).join('')}
     </body></html>`;
@@ -242,15 +244,36 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
           </SelectContent>
         </Select>
 
-        <div className="flex gap-2 ml-auto">
+        <div className="flex gap-2 ml-auto flex-wrap">
           <Button size="sm" variant="default" disabled={filteredProjects.length === 0} onClick={() => downloadPDF(filteredProjects, filterCategory === 'all' ? 'All' : filterCategory)} className="gap-1.5 text-xs">
-            <FileText className="w-3.5 h-3.5" /> PDF
+            <FileText className="w-3.5 h-3.5" /> PDF ({filterCategory === 'all' ? 'All' : filterCategory})
           </Button>
           <Button size="sm" variant="outline" disabled={filteredProjects.length === 0} onClick={() => downloadCSV(filteredProjects, filterCategory === 'all' ? 'All' : filterCategory)} className="gap-1.5 text-xs">
             <Table2 className="w-3.5 h-3.5" /> CSV
           </Button>
         </div>
       </div>
+
+      {/* Per-category quick download */}
+      {filterCategory === 'all' && categories.some(cat => (categoryCounts[cat] || 0) > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-muted-foreground">Download by category:</span>
+          {categories.filter(cat => (categoryCounts[cat] || 0) > 0).map(cat => (
+            <Button
+              key={cat}
+              size="sm"
+              variant="ghost"
+              className="h-6 text-[10px] gap-1 px-2"
+              onClick={() => {
+                const catItems = completedProjects.filter(p => assignments[p.id] === cat);
+                downloadPDF(catItems, cat);
+              }}
+            >
+              <FileText className="w-3 h-3" /> {cat} ({categoryCounts[cat]})
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* Video List */}
       {completedProjects.length === 0 ? (
@@ -270,14 +293,21 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
               <Card key={project.id} className="glass">
                 <CardContent className="p-3">
                   <div className="flex gap-3">
-                     {/* Thumbnail */}
-                    <div className="flex-shrink-0">
+                     {/* Video Preview */}
+                    <div className="flex-shrink-0 relative group">
                       {thumbnails[project.id] ? (
-                        <img src={thumbnails[project.id]} alt="Thumbnail" className="w-20 h-14 object-cover rounded-lg" />
-                      ) : project.product_image_url ? (
-                        <img src={project.product_image_url} alt="" className="w-20 h-14 object-cover rounded-lg" />
+                        <img src={thumbnails[project.id]} alt="Thumbnail" className="w-24 h-16 object-cover rounded-lg" />
+                      ) : project.generated_video_url ? (
+                        <video
+                          src={project.generated_video_url}
+                          muted
+                          preload="metadata"
+                          className="w-24 h-16 object-cover rounded-lg bg-black"
+                          onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
+                          onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                        />
                       ) : (
-                        <div className="w-20 h-14 bg-muted rounded-lg flex items-center justify-center">
+                        <div className="w-24 h-16 bg-muted rounded-lg flex items-center justify-center">
                           <Video className="w-5 h-5 text-muted-foreground" />
                         </div>
                       )}
