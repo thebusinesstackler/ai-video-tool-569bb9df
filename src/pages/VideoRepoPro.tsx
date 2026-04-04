@@ -78,6 +78,7 @@ const VideoRepoPro = () => {
   const [referenceVideoUrl, setReferenceVideoUrl] = useState<string | null>(null);
   const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
   const [referenceVideoName, setReferenceVideoName] = useState('');
+  const [referenceVideoName2, _] = useState('');
   const [productImageName, setProductImageName] = useState('');
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
@@ -94,6 +95,14 @@ const VideoRepoPro = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
+
+  // AI Script Director chat state
+  const [hasAnalysis, setHasAnalysis] = useState(false);
+  const [latestAnalysisText, setLatestAnalysisText] = useState('');
+  const [persistentVideoUrl, setPersistentVideoUrl] = useState<string | null>(null);
+  const [persistentImageUrl, setPersistentImageUrl] = useState<string | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [isChatting, setIsChatting] = useState(false);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames;
