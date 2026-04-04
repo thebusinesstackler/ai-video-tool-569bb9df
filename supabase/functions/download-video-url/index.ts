@@ -94,15 +94,22 @@ function extractDownloadUrl(platform: string, data: any): string | null {
   return null;
 }
 
-function getRapidApiHeaders(rapidApiKey: string, url?: string): Record<string, string> | undefined {
+function getDownloadHeaders(rapidApiKey: string, url?: string): Record<string, string> | undefined {
   if (!url) return undefined;
 
   try {
     const hostname = new URL(url).hostname.toLowerCase();
-    if (hostname.endsWith('smvd.xyz') || hostname.includes('rapidapi')) {
+    // For RapidAPI proxy domains, send the API key
+    if (hostname.includes('rapidapi')) {
       return {
         'X-RapidAPI-Key': rapidApiKey,
         'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com',
+      };
+    }
+    // For SMVD direct domains, just send a browser-like User-Agent (no RapidAPI headers)
+    if (hostname.endsWith('smvd.xyz')) {
+      return {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       };
     }
   } catch {
