@@ -45,7 +45,65 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-// (WaveSpeed MiniMax TTS removed — Sora-2 native audio is used for all non-cloned voices)
+// ── OpenAI TTS for clear narrator speech ──────────────────────────────────
+async function generateOpenAITTS(
+  text: string,
+  apiKey: string,
+  gender?: string,
+  instructions?: string
+): Promise<Uint8Array> {
+  const maleVoices = ['onyx', 'echo', 'ash'];
+  const femaleVoices = ['nova', 'shimmer', 'coral'];
+  const isFemale = gender?.toLowerCase() === 'female' ||
+    gender?.toLowerCase() === 'woman';
+  const voicePool = isFemale ? femaleVoices : maleVoices;
+  const selectedVoice = voicePool[Math.floor(Math.random() * voicePool.length)];
+
+  const body: any = {
+    model: 'gpt-4o-mini-tts',
+    input: text,
+    voice: selectedVoice,
+    response_format: 'mp3',
+  };
+  if (instructions) body.instructions = instructions;
+
+  const resp = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`OpenAI TTS failed (${resp.status}): ${errText}`);
+  }
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
+async function uploadTTSAudio(
+  supabase: any,
+  audioBytes: Uint8Array,
+  sceneNumber: number
+): Promise<string> {
+  const fileName = `tts/${Date.now()}-scene-${sceneNumber}.mp3`;
+  const { error } = await supabase.storage
+    .from('reels')
+    .upload(fileName, audioBytes, { contentType: 'audio/mpeg', upsert: true });
+  if (error) throw new Error(`TTS upload failed: ${error.message}`);
+  const { data: urlData } = supabase.storage.from('reels').getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
+
+// Detect gender from character description
+function detectGender(desc?: string): string {
+  if (!desc) return 'male';
+  const lower = desc.toLowerCase();
+  if (lower.includes('woman') || lower.includes('female') || lower.includes('girl') || lower.includes('lady') || lower.includes('she ')) return 'female';
+  return 'male';
+}
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
 // Sanitize character description to remove prop/product references
@@ -497,28 +555,26 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           sceneHasEmbeddedAudio = true;
           
         } else if (videoModel === 'sora-2' && isNarratorScene) {
-          // ====== SORA-2 NARRATOR: Native audio — narration embedded in prompt ======
-          console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator with native audio`);
+          // ====== SORA-2 NARRATOR: OpenAI TTS + InfiniteTalk HD for clear speech ======
+          console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator → OpenAI TTS + InfiniteTalk HD`);
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-          const sora2Durations = [4, 8, 12, 16, 20];
-          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-          const hasImage = !!imageUrl;
-          const sora2CharContext = hasImage ? '' : charContext;
+          if (!supabase) throw new Error('Supabase client required for TTS upload');
           
-          const isCloseUp = (scene as any).cameraAngle?.toLowerCase().includes('extreme close-up') || (scene as any).cameraAngle?.toLowerCase().includes('intimate');
-          const closeUpNote = isCloseUp ? 'CAMERA: Tight close-up on face — eyes + mouth fill the frame, intimate emphatic framing.' : '';
+          const gender = detectGender(characterDescription);
+          const ttsBytes = await generateOpenAITTS(
+            scene.narration,
+            OPENAI_API_KEY!,
+            gender,
+            'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
+          );
+          const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, scene.sceneNumber);
+          console.log(`Scene ${scene.sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
           
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
           requestBody = {
             image: imageUrl,
-            prompt: `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
-${closeUpNote}
-Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
-Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
-Lip movement must match the spoken words exactly. No silent clips, no music replacement.
-No captions, no subtitles, no watermarks.`,
-            duration: sora2Duration,
-            aspect_ratio: '9:16'
+            audio: ttsUrl,
+            resolution: '720p'
           };
           sceneHasEmbeddedAudio = true;
           
@@ -567,22 +623,26 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
-          // ====== INFINITETALK FALLBACK: Now routes to Sora-2 native audio ======
-          console.log(`Scene ${scene.sceneNumber}: InfiniteTalk requested — routing to Sora-2 native audio instead`);
+          // ====== INFINITETALK: OpenAI TTS + InfiniteTalk HD ======
+          console.log(`Scene ${scene.sceneNumber}: InfiniteTalk — generating OpenAI TTS first`);
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-          const sora2Durations = [4, 8, 12, 16, 20];
-          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
+          if (!supabase) throw new Error('Supabase client required for TTS upload');
           
+          const gender = detectGender(characterDescription);
+          const ttsBytes = await generateOpenAITTS(
+            scene.narration,
+            OPENAI_API_KEY!,
+            gender,
+            'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
+          );
+          const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, scene.sceneNumber);
+          console.log(`Scene ${scene.sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
           requestBody = {
             image: imageUrl,
-            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
-Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
-Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
-Lip movement must match the spoken words exactly. No silent clips, no music replacement.
-No captions, no subtitles, no watermarks.`,
-            duration: sora2Duration,
-            aspect_ratio: '9:16'
+            audio: ttsUrl,
+            resolution: '720p'
           };
           sceneHasEmbeddedAudio = true;
           
