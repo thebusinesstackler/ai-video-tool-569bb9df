@@ -28,6 +28,8 @@ import {
   Pencil,
   RotateCcw,
   Check,
+  Film,
+  Wand2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +40,7 @@ import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { trimVideoToTimestamp } from '@/lib/canvasStitch';
 import ReactMarkdown from 'react-markdown';
 import { ContentCalendarTab } from '@/components/ContentCalendarTab';
+import { VideoRepoTimeline } from '@/components/VideoRepoTimeline';
 
 interface ChatMessage {
   id: string;
@@ -101,6 +104,7 @@ const VideoRepoPro = () => {
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
+  const [showTimeline, setShowTimeline] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
 
   // AI Script Director chat state
@@ -1017,6 +1021,17 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => remakeWithEdits(selectedProject, e)}>
               <RotateCcw className="w-3.5 h-3.5" /> Remake with Edits
             </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => {
+              e.stopPropagation();
+              remakeWithEdits(selectedProject, e);
+            }}>
+              <RefreshCw className="w-3.5 h-3.5" /> New Version
+            </Button>
+            {selectedProject.generated_video_url && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowTimeline(!showTimeline)}>
+                <Film className="w-3.5 h-3.5" /> {showTimeline ? 'Hide Timeline' : 'Edit on Timeline'}
+              </Button>
+            )}
             <Badge variant="outline" className={`${statusColors[selectedProject.status] || ''}`}>
               {selectedProject.status}
             </Badge>
@@ -1076,6 +1091,13 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
               </div>
             </CardContent></Card>
+          )}
+
+          {showTimeline && selectedProject.generated_video_url && (
+            <VideoRepoTimeline
+              videoUrl={selectedProject.generated_video_url}
+              onClose={() => setShowTimeline(false)}
+            />
           )}
         </div>
       </Layout>
@@ -1396,6 +1418,14 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Remake with edits</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); remakeWithEdits(project, e); }}>
+                                <RefreshCw className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Generate new version</TooltipContent>
                           </Tooltip>
                           {project.generated_video_url && (
                             <Tooltip>
