@@ -1305,6 +1305,10 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
               )}
             </div>
           </TabsContent>
+
+          <TabsContent value="calendar" className="flex-1 min-h-0 overflow-y-auto mt-2">
+            <ContentCalendarTab projects={historyProjects} />
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
