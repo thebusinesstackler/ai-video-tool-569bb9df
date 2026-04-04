@@ -555,28 +555,26 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           sceneHasEmbeddedAudio = true;
           
         } else if (videoModel === 'sora-2' && isNarratorScene) {
-          // ====== SORA-2 NARRATOR: Native audio — narration embedded in prompt ======
-          console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator with native audio`);
+          // ====== SORA-2 NARRATOR: OpenAI TTS + InfiniteTalk HD for clear speech ======
+          console.log(`Scene ${scene.sceneNumber}: Sora-2 narrator → OpenAI TTS + InfiniteTalk HD`);
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-          const sora2Durations = [4, 8, 12, 16, 20];
-          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
-          const hasImage = !!imageUrl;
-          const sora2CharContext = hasImage ? '' : charContext;
+          if (!supabase) throw new Error('Supabase client required for TTS upload');
           
-          const isCloseUp = (scene as any).cameraAngle?.toLowerCase().includes('extreme close-up') || (scene as any).cameraAngle?.toLowerCase().includes('intimate');
-          const closeUpNote = isCloseUp ? 'CAMERA: Tight close-up on face — eyes + mouth fill the frame, intimate emphatic framing.' : '';
+          const gender = detectGender(characterDescription);
+          const ttsBytes = await generateOpenAITTS(
+            scene.narration,
+            OPENAI_API_KEY!,
+            gender,
+            'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
+          );
+          const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, scene.sceneNumber);
+          console.log(`Scene ${scene.sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
           
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
           requestBody = {
             image: imageUrl,
-            prompt: `${scene.visualDescription}. ${sora2CharContext} ${topicContext}
-${closeUpNote}
-Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
-Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
-Lip movement must match the spoken words exactly. No silent clips, no music replacement.
-No captions, no subtitles, no watermarks.`,
-            duration: sora2Duration,
-            aspect_ratio: '9:16'
+            audio: ttsUrl,
+            resolution: '720p'
           };
           sceneHasEmbeddedAudio = true;
           
