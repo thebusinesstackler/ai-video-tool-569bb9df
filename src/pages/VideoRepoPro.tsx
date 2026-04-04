@@ -1026,13 +1026,14 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
   if (selectedProject) {
     return (
       <Layout>
-        <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-          <div className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
+          {/* Header bar */}
+          <div className="flex items-center gap-3 flex-wrap">
             <Button variant="ghost" size="icon" onClick={() => setSelectedProject(null)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-foreground">{selectedProject.custom_name || 'Project Details'}</h2>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-foreground truncate">{selectedProject.custom_name || 'Project Details'}</h2>
               <p className="text-xs text-muted-foreground">
                 {new Date(selectedProject.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
@@ -1041,17 +1042,14 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
               <Star className={`w-5 h-5 ${selectedProject.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`} />
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => remakeWithEdits(selectedProject, e)}>
-              <RotateCcw className="w-3.5 h-3.5" /> Remake with Edits
+              <RotateCcw className="w-3.5 h-3.5" /> Remake
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => {
-              e.stopPropagation();
-              remakeWithEdits(selectedProject, e);
-            }}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => { e.stopPropagation(); remakeWithEdits(selectedProject, e); }}>
               <RefreshCw className="w-3.5 h-3.5" /> New Version
             </Button>
             {selectedProject.generated_video_url && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowTimeline(!showTimeline)}>
-                <Film className="w-3.5 h-3.5" /> {showTimeline ? 'Hide Timeline' : 'Edit on Timeline'}
+                <Film className="w-3.5 h-3.5" /> {showTimeline ? 'Hide Timeline' : 'Timeline'}
               </Button>
             )}
             <Badge variant="outline" className={`${statusColors[selectedProject.status] || ''}`}>
@@ -1059,61 +1057,82 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             </Badge>
           </div>
 
-          {selectedProject.prompt && (
-            <Card><CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Prompt</p>
-              <p className="text-sm text-foreground">{selectedProject.prompt}</p>
-            </CardContent></Card>
-          )}
+          {/* Main content: Videos left, Script/Analysis right */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Left column: Videos stacked compact */}
+            <div className="lg:col-span-1 space-y-3">
+              <Card><CardContent className="p-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Reference Video</p>
+                {selectedProject.reference_video_url ? (
+                  <video src={selectedProject.reference_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
+                ) : (
+                  <div className="h-40 rounded-lg bg-muted flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">No reference video</p>
+                  </div>
+                )}
+              </CardContent></Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card><CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase mb-3">Reference Video</p>
-              {selectedProject.reference_video_url ? (
-                <video src={selectedProject.reference_video_url} controls className="w-full rounded-lg aspect-[9/16] object-cover bg-black" />
-              ) : (
-                <div className="aspect-[9/16] rounded-lg bg-muted flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">No reference video</p>
-                </div>
+              <Card><CardContent className="p-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Generated Video</p>
+                {selectedProject.generated_video_url ? (
+                  <div className="space-y-2">
+                    <video src={selectedProject.generated_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
+                    <Button size="sm" variant="secondary" className="w-full" asChild>
+                      <a href={selectedProject.generated_video_url} download target="_blank" rel="noopener noreferrer">
+                        <Download className="w-3 h-3 mr-1" /> Download
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-40 rounded-lg bg-muted flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">
+                      {selectedProject.status === 'generating' || selectedProject.status === 'stitching' ? 'Processing...' : selectedProject.status === 'failed' ? 'Failed' : 'Not generated'}
+                    </p>
+                  </div>
+                )}
+              </CardContent></Card>
+
+              {selectedProject.product_image_url && (
+                <Card><CardContent className="p-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Product Image</p>
+                  <img src={selectedProject.product_image_url} alt="Product" className="w-24 h-24 object-cover rounded-lg" />
+                </CardContent></Card>
               )}
-            </CardContent></Card>
+            </div>
 
-            <Card><CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase mb-3">Generated Video (30s Stitched)</p>
-              {selectedProject.generated_video_url ? (
-                <div className="space-y-2">
-                  <video src={selectedProject.generated_video_url} controls className="w-full rounded-lg aspect-[9/16] object-cover bg-black" />
-                  <Button size="sm" variant="secondary" asChild>
-                    <a href={selectedProject.generated_video_url} download target="_blank" rel="noopener noreferrer">
-                      <Download className="w-3 h-3 mr-1" /> Download
-                    </a>
-                  </Button>
-                </div>
-              ) : (
-                <div className="aspect-[9/16] rounded-lg bg-muted flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">
-                    {selectedProject.status === 'generating' || selectedProject.status === 'stitching' ? 'Still processing...' : selectedProject.status === 'failed' ? 'Generation failed' : 'No generated video'}
+            {/* Right column: Script + Analysis, scrollable */}
+            <div className="lg:col-span-2 space-y-3">
+              {/* Video Script / Narration */}
+              {selectedProject.video_prompt && (
+                <Card><CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" /> Video Script &amp; Narration
                   </p>
-                </div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{selectedProject.video_prompt}</ReactMarkdown>
+                  </div>
+                </CardContent></Card>
               )}
-            </CardContent></Card>
+
+              {selectedProject.prompt && (
+                <Card><CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Prompt</p>
+                  <p className="text-sm text-foreground">{selectedProject.prompt}</p>
+                </CardContent></Card>
+              )}
+
+              {selectedProject.analysis_text && (
+                <Card><CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
+                    <Wand2 className="w-3.5 h-3.5 text-primary" /> AI Analysis
+                  </p>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
+                  </div>
+                </CardContent></Card>
+              )}
+            </div>
           </div>
-
-          {selectedProject.product_image_url && (
-            <Card><CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Product Image</p>
-              <img src={selectedProject.product_image_url} alt="Product" className="w-32 h-32 object-cover rounded-lg" />
-            </CardContent></Card>
-          )}
-
-          {selectedProject.analysis_text && (
-            <Card><CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase mb-2">AI Analysis</p>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
-              </div>
-            </CardContent></Card>
-          )}
 
           {showTimeline && selectedProject.generated_video_url && (
             <VideoRepoTimeline
