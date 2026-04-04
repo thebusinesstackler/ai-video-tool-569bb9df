@@ -1190,7 +1190,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                         )}
                         {msg.retryable && !isAnalyzing && !isGenerating && !isStitching && (
                           <div className="mt-2">
-                            <Button size="sm" variant="outline" onClick={analyzeAndGenerate}>
+                            <Button size="sm" variant="outline" onClick={analyzeReference}>
                               <RefreshCw className="w-3 h-3 mr-1" /> Retry
                             </Button>
                           </div>
