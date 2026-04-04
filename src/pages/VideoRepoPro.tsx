@@ -1153,86 +1153,99 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             </Card>
 
             {showConversation ? (
-              <ScrollArea className="w-full max-w-3xl mb-6 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
-                <div className="space-y-4 py-4">
-                  {messages.map((msg) => (
-                    <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      {msg.role === 'assistant' && (
+              <>
+                <ScrollArea className="w-full max-w-3xl mb-4 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
+                  <div className="space-y-4 py-4">
+                    {messages.map((msg) => (
+                      <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        {msg.role === 'assistant' && (
+                          <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                            <Bot className="w-4 h-4 text-orange-500" />
+                          </div>
+                        )}
+                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex gap-2 mb-2 flex-wrap">
+                              {msg.attachments.map((att, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs">
+                                  {att.type === 'video' ? <Video className="w-3 h-3 mr-1" /> : <ImagePlus className="w-3 h-3 mr-1" />}
+                                  {att.name || att.type}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                          {msg.videoResult && (
+                            <div className="mt-3 space-y-2">
+                              <video src={msg.videoResult.url} controls className="w-full rounded-lg max-h-[400px]" />
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="secondary" asChild>
+                                  <a href={msg.videoResult.url} download target="_blank" rel="noopener noreferrer">
+                                    <Download className="w-3 h-3 mr-1" /> Download
+                                  </a>
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          {msg.retryable && !isAnalyzing && !isGenerating && !isStitching && (
+                            <div className="mt-2">
+                              <Button size="sm" variant="outline" onClick={analyzeReference}>
+                                <RefreshCw className="w-3 h-3 mr-1" /> Retry
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        {msg.role === 'user' && (
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-secondary-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {statusLabel && (
+                      <div className="flex gap-3 justify-start">
                         <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
                           <Bot className="w-4 h-4 text-orange-500" />
                         </div>
-                      )}
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="flex gap-2 mb-2 flex-wrap">
-                            {msg.attachments.map((att, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
-                                {att.type === 'video' ? <Video className="w-3 h-3 mr-1" /> : <ImagePlus className="w-3 h-3 mr-1" />}
-                                {att.name || att.type}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <div className="bg-muted rounded-2xl px-4 py-3 flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm text-muted-foreground">{statusLabel}</span>
                         </div>
-                        {msg.videoResult && (
-                          <div className="mt-3 space-y-2">
-                            <video src={msg.videoResult.url} controls className="w-full rounded-lg max-h-[400px]" />
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="secondary" asChild>
-                                <a href={msg.videoResult.url} download target="_blank" rel="noopener noreferrer">
-                                  <Download className="w-3 h-3 mr-1" /> Download
-                                </a>
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        {msg.retryable && !isAnalyzing && !isGenerating && !isStitching && (
-                          <div className="mt-2">
-                            <Button size="sm" variant="outline" onClick={analyzeReference}>
-                              <RefreshCw className="w-3 h-3 mr-1" /> Retry
-                            </Button>
-                          </div>
-                        )}
                       </div>
-                      {msg.role === 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                          <User className="w-4 h-4 text-secondary-foreground" />
+                    )}
+                    {isChatting && (
+                      <div className="flex gap-3 justify-start">
+                        <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                          <Bot className="w-4 h-4 text-orange-500" />
                         </div>
-                      )}
-                    </div>
-                  ))}
-                  {statusLabel && (
-                    <div className="flex gap-3 justify-start">
-                      <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-4 h-4 text-orange-500" />
+                        <div className="bg-muted rounded-2xl px-4 py-3 flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm text-muted-foreground">Thinking about your feedback...</span>
+                        </div>
                       </div>
-                      <div className="bg-muted rounded-2xl px-4 py-3 flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-sm text-muted-foreground">{statusLabel}</span>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-              </ScrollArea>
-              {/* Generate Video CTA */}
-              {hasAnalysis && !isGenerating && !isStitching && (
-                <div className="w-full max-w-3xl mb-4">
-                  <Button
-                    onClick={generateFromScript}
-                    className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white gap-2 shadow-lg"
-                    disabled={isAnalyzing || isChatting}
-                  >
-                    <Sparkles className="w-5 h-5" />
-                    Generate Video from Script
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center mt-1.5">
-                    Happy with the script? Hit generate. Want changes? Type feedback above.
-                  </p>
-                </div>
-              )}
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                </ScrollArea>
+                {/* Generate Video CTA */}
+                {hasAnalysis && !isGenerating && !isStitching && (
+                  <div className="w-full max-w-3xl mb-4">
+                    <Button
+                      onClick={generateFromScript}
+                      className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white gap-2 shadow-lg"
+                      disabled={isAnalyzing || isChatting}
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      Generate Video from Script
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center mt-1.5">
+                      Happy with the script? Hit generate. Want changes? Type feedback above.
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="w-full max-w-3xl mb-3 min-h-[120px] md:min-h-[180px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-4 py-4 md:py-6 text-center text-xs md:text-sm text-muted-foreground flex items-center justify-center shadow-card">
                 Upload a product image and reference video, then press send to create a full 30-second ad.
