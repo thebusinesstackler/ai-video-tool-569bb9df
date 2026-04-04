@@ -1242,11 +1242,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   </div>
                 )}
               </>
-            ) : (
-              <div className="w-full max-w-3xl mb-3 min-h-[120px] md:min-h-[180px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-4 py-4 md:py-6 text-center text-xs md:text-sm text-muted-foreground flex items-center justify-center shadow-card">
-                Upload a product image and reference video, then press send to create a full 30-second ad.
-              </div>
-            )}
+            ) : null}
           </TabsContent>
 
           <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
