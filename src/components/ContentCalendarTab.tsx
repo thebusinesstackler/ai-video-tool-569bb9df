@@ -247,8 +247,11 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
           ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="Video thumbnail" />` : videoUrl ? `<video class="thumb" src="${videoUrl}" muted preload="metadata"></video>` : ''}
           ${videoUrl ? `<br/><a class="video-link" href="${videoUrl}" target="_blank" rel="noopener noreferrer">▶ Watch Full Video</a><span class="video-url">${videoUrl}</span>` : ''}
         </div>
-        <div class="hook">${extractHook(p)}</div>
-        <div class="lbl">Script</div>
+        <div class="hook-section">
+          <div class="hook-label">🎯 Hook</div>
+          <div class="hook">${extractHook(p) || 'No hook available'}</div>
+        </div>
+        <div class="lbl">📝 Full Script</div>
         <div class="script">${extractScript(p) || 'No script available'}</div>
         <div class="meta">Created: ${new Date(p.created_at).toLocaleDateString()}</div>
       </div>`;
