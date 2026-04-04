@@ -24,6 +24,10 @@ import {
   Link,
   Sparkles,
   RefreshCw,
+  Star,
+  Pencil,
+  RotateCcw,
+  Check,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
