@@ -24,6 +24,7 @@ import {
   Layers,
   Zap
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
