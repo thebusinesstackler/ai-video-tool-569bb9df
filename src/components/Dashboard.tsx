@@ -237,6 +237,7 @@ export const Dashboard = () => {
                   Start Creating
                 </Link>
               </Button>
+              <ContentCalendarDownload />
             </div>
           </div>
         </div>
