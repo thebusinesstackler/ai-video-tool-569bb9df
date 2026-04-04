@@ -305,7 +305,6 @@ export default function HookEngine() {
     await analyzeVideo();
   };
 
-  // Auto-generate hooks after analysis
   const handleGenerateAfterAnalysis = async () => {
     await generateHooks();
   };

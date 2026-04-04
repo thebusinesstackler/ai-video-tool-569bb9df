@@ -1,10 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+async function callLovableAI(prompt: string): Promise<string> {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error("Lovable AI error:", response.status, errText);
+    throw new Error(`AI error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,10 +37,7 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY_EXISTS = !!Deno.env.get("ANTHROPIC_API_KEY");
-    if (!LOVABLE_API_KEY_EXISTS) throw new Error("ANTHROPIC_API_KEY is not configured");
-
-    const { action, videoTitle, videoDescription, transcript, contextSettings, existingHooks, hookToRefine, refineInstruction } = await req.json();
+    const { action, videoTitle, videoDescription, transcript, contextSettings, hookToRefine, refineInstruction } = await req.json();
 
     const ctx = contextSettings || {};
     const contextBlock = [
@@ -32,7 +54,7 @@ serve(async (req) => {
     ].filter(Boolean).join("\n");
 
     if (action === "analyze") {
-      const analysisPrompt = `You are an elite video performance analyst. Analyze the following video content.
+      const prompt = `You are an elite video performance analyst. Analyze the following video content.
 
 VIDEO TITLE: ${videoTitle || "Untitled"}
 VIDEO DESCRIPTION / TRANSCRIPT:
@@ -47,27 +69,22 @@ Produce a JSON object with these fields:
   "pacing": "fast|medium|slow", "contentType": "ad|educational|testimonial|promo|founder|product-demo|social|ugc",
   "keyInsights": ["..."]
 }
-Return ONLY valid JSON, no markdown.`;
+Return ONLY valid JSON, no markdown fences.`;
 
+      const result = await callLovableAI(prompt);
+      let summary;
       try {
-        const result = await callClaude({ messages: [{ role: "user", content: analysisPrompt }], thinkingBudget: 8000 });
-        let summary;
-        try {
-          const cleaned = result.text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-          summary = JSON.parse(cleaned);
-        } catch {
-          summary = { mainTopic: result.text, keyPromise: "", problemBeingSolved: "", emotionalTone: "neutral", strongestClaims: [], ctaIntent: "", bestAudienceAngle: "", likelyUseCase: "social", pacing: "medium", contentType: "social", keyInsights: [] };
-        }
-        return new Response(JSON.stringify({ summary }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (error) {
-        if (error instanceof ClaudeError) return new Response(JSON.stringify({ error: error.message }), { status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw error;
+        const cleaned = result.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        summary = JSON.parse(cleaned);
+      } catch {
+        summary = { mainTopic: result, keyPromise: "", problemBeingSolved: "", emotionalTone: "neutral", strongestClaims: [], ctaIntent: "", bestAudienceAngle: "", likelyUseCase: "social", pacing: "medium", contentType: "social", keyInsights: [] };
       }
+      return new Response(JSON.stringify({ summary }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "generate") {
-      const summary = contextSettings?.contentSummary || {};
-      const style = contextSettings?.hookStyle || "balanced";
+      const summary = ctx.contentSummary || {};
+      const style = ctx.hookStyle || "balanced";
 
       const styleInstructions: Record<string, string> = {
         "aggressive": "Be bold, provocative, and attention-grabbing.",
@@ -83,7 +100,7 @@ Return ONLY valid JSON, no markdown.`;
         "balanced": "A mix of styles optimized for the specific video content.",
       };
 
-      const hookPrompt = `You are the world's best video hook strategist.
+      const prompt = `You are the world's best video hook strategist.
 
 VIDEO ANALYSIS: ${JSON.stringify(summary, null, 2)}
 VIDEO TITLE: ${videoTitle || "Untitled"}
@@ -95,46 +112,36 @@ ${styleInstructions[style] || styleInstructions["balanced"]}
 
 Generate exactly 8 unique, high-performing video hooks for the first 5 seconds. Use DIFFERENT hook frameworks.
 
-Return a JSON array of hook objects with: hookText, hookType, whyChosen, bestPlatform, onScreenText, voiceoverVersion, visualDirection, scores (scrollStop, clarity, emotionalPull, conversionIntent, curiosity, adSuitability, organicSuitability), bestFor.
+Each hook object must have: hookText, hookType (one of: curiosity, shocking, problem-solution, pain-point, transformation, social-proof, fomo, direct-benefit, contrarian, emotional-story, urgency, authority, question, list-style, myth-busting, educational), whyChosen, bestPlatform, onScreenText, voiceoverVersion, visualDirection, scores (object with scrollStop, clarity, emotionalPull, conversionIntent, curiosity, adSuitability, organicSuitability as numbers 1-10), bestFor (array of strings).
 
-Return ONLY valid JSON array, no markdown.`;
+Return ONLY a valid JSON array, no markdown fences.`;
 
+      const result = await callLovableAI(prompt);
+      let hooks;
       try {
-        const result = await callClaude({ messages: [{ role: "user", content: hookPrompt }], thinkingBudget: 8000 });
-        let hooks;
-        try {
-          const cleaned = result.text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-          hooks = JSON.parse(cleaned);
-        } catch { hooks = []; }
-        return new Response(JSON.stringify({ hooks }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (error) {
-        if (error instanceof ClaudeError) return new Response(JSON.stringify({ error: error.message }), { status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw error;
-      }
+        const cleaned = result.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        hooks = JSON.parse(cleaned);
+      } catch { hooks = []; }
+      return new Response(JSON.stringify({ hooks }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "refine") {
-      const refinePrompt = `You are a video hook optimization expert.
+      const prompt = `You are a video hook optimization expert.
 
 ORIGINAL HOOK: ${JSON.stringify(hookToRefine, null, 2)}
 INSTRUCTION: ${refineInstruction}
 VIDEO CONTEXT: Title: ${videoTitle || "Untitled"}
 ${contextBlock ? `\n${contextBlock}` : ""}
 
-Rewrite this hook. Return a single JSON object with the same structure. Return ONLY valid JSON, no markdown.`;
+Rewrite this hook following the instruction. Return a single JSON object with the same structure (hookText, hookType, whyChosen, bestPlatform, onScreenText, voiceoverVersion, visualDirection, scores, bestFor). Return ONLY valid JSON, no markdown fences.`;
 
+      const result = await callLovableAI(prompt);
+      let refined;
       try {
-        const result = await callClaude({ messages: [{ role: "user", content: refinePrompt }], thinkingBudget: 4000 });
-        let refined;
-        try {
-          const cleaned = result.text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-          refined = JSON.parse(cleaned);
-        } catch { refined = hookToRefine; }
-        return new Response(JSON.stringify({ hook: refined }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (error) {
-        if (error instanceof ClaudeError) return new Response(JSON.stringify({ error: error.message }), { status: error.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw error;
-      }
+        const cleaned = result.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        refined = JSON.parse(cleaned);
+      } catch { refined = hookToRefine; }
+      return new Response(JSON.stringify({ hook: refined }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
