@@ -180,15 +180,39 @@ serve(async (req) => {
     // Priority 3: OpenAI TTS for non-cloned voices (clear, natural speech)
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (openaiApiKey) {
-      // Map gender to voice selection
+      // Map legacy WaveSpeed/MiniMax voice IDs to valid OpenAI voices
+      const wavespeedToOpenAI: Record<string, string> = {
+        'English_magnetic_voiced_man': 'onyx',
+        'English_Trustworth_Man': 'echo',
+        'Deep_Voice_Man': 'ash',
+        'Casual_Guy': 'echo',
+        'Determined_Man': 'onyx',
+        'English_expressive_narrator': 'ash',
+        'English_compelling_lady1': 'nova',
+        'English_radiant_girl': 'shimmer',
+        'Calm_Woman': 'coral',
+        'Inspirational_girl': 'nova',
+        'Lively_Girl': 'shimmer',
+      };
+      
       const genderLower = (gender || '').toLowerCase();
       const isFemale = genderLower === 'female' || genderLower === 'woman';
       const maleVoices = ['onyx', 'echo', 'ash'];
       const femaleVoices = ['nova', 'shimmer', 'coral'];
+      const validOpenAIVoices = [...maleVoices, ...femaleVoices, 'alloy', 'fable', 'verse', 'ballad', 'sage', 'marin', 'cedar'];
       const voicePool = isFemale ? femaleVoices : maleVoices;
-      const selectedVoice = voice === 'ai-auto'
-        ? voicePool[Math.floor(Math.random() * voicePool.length)]
-        : voice;
+      
+      let selectedVoice: string;
+      if (voice === 'ai-auto') {
+        selectedVoice = voicePool[Math.floor(Math.random() * voicePool.length)];
+      } else if (wavespeedToOpenAI[voice]) {
+        selectedVoice = wavespeedToOpenAI[voice];
+      } else if (validOpenAIVoices.includes(voice)) {
+        selectedVoice = voice;
+      } else {
+        // Unknown voice ID — fallback to gender-based selection
+        selectedVoice = voicePool[Math.floor(Math.random() * voicePool.length)];
+      }
       
       console.log(`Using OpenAI TTS with voice: ${selectedVoice}`);
       const result = await generateOpenAITTS(text, openaiApiKey, selectedVoice, validatedSpeed);
