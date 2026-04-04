@@ -178,8 +178,26 @@ serve(async (req) => {
       }
     }
     
-    // No WaveSpeed MiniMax fallback — Sora-2 native audio is used for non-cloned voices
-    
+    // Priority 3: OpenAI TTS for non-cloned voices (clear, natural speech)
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (openaiApiKey) {
+      // Map gender to voice selection
+      const genderLower = (gender || '').toLowerCase();
+      const isFemale = genderLower === 'female' || genderLower === 'woman';
+      const maleVoices = ['onyx', 'echo', 'ash'];
+      const femaleVoices = ['nova', 'shimmer', 'coral'];
+      const voicePool = isFemale ? femaleVoices : maleVoices;
+      const selectedVoice = voice === 'ai-auto'
+        ? voicePool[Math.floor(Math.random() * voicePool.length)]
+        : voice;
+      
+      console.log(`Using OpenAI TTS with voice: ${selectedVoice}`);
+      const result = await generateOpenAITTS(text, openaiApiKey, selectedVoice, validatedSpeed);
+      if (result) {
+        return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'openai' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
     
     throw new Error('No TTS engine available or all attempts failed');
     
