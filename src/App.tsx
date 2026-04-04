@@ -22,7 +22,9 @@ import VideoRepo from "./pages/VideoRepo";
 import VideoRepoPro from "./pages/VideoRepoPro";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1 } },
+});
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
