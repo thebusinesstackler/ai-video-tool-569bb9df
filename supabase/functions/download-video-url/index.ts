@@ -206,21 +206,23 @@ Deno.serve(async (req) => {
     }
 
     const smvdData = await smvdResponse.json();
-    console.log('[download-video-url] SMVD response received, extracting download URL...');
+    console.log('[download-video-url] SMVD response keys:', JSON.stringify(smvdData).substring(0, 1000));
 
     const downloadUrl = extractDownloadUrl(platformInfo.platform, smvdData);
 
     if (!downloadUrl) {
-      console.error('[download-video-url] No download URL found:', JSON.stringify(smvdData).substring(0, 500));
+      console.error('[download-video-url] No download URL found in response');
       return new Response(JSON.stringify({ error: 'Could not extract video from this URL. The video may be private or not contain downloadable video content.' }), {
         status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Download the video
-    console.log('[download-video-url] Downloading video from:', downloadUrl.substring(0, 80));
+    // Download the video - try without special headers first, then with User-Agent
+    console.log('[download-video-url] Downloading video from:', downloadUrl.substring(0, 120));
+    const dlHeaders = getDownloadHeaders(rapidApiKey, downloadUrl);
+    console.log('[download-video-url] Using download headers:', dlHeaders ? Object.keys(dlHeaders).join(',') : 'none');
     const videoResponse = await fetch(downloadUrl, {
-      headers: getRapidApiHeaders(rapidApiKey, downloadUrl),
+      ...(dlHeaders ? { headers: dlHeaders } : {}),
     });
     if (!videoResponse.ok) {
       const errText = await videoResponse.text();
