@@ -38,7 +38,48 @@ function sanitizeForTTS(text: string): string {
 
 // WaveSpeed MiniMax TTS removed — Sora-2 native audio used for non-cloned voices
 
-async function generateSpeechifyTTS(
+async function generateOpenAITTS(
+  text: string,
+  apiKey: string,
+  voice: string = 'nova',
+  speed: number = 1.0
+): Promise<{ audioContent: string; audioUrl: string } | null> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini-tts',
+        input: text.length > 4096 ? text.substring(0, 4096) : text,
+        voice: voice,
+        response_format: 'mp3',
+        speed: speed,
+      }),
+    });
+    if (!response.ok) {
+      console.error('OpenAI TTS error:', response.status, await response.text());
+      return null;
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    const audioBytes = new Uint8Array(audioBuffer);
+    let binary = '';
+    const chunkSize = 32768;
+    for (let i = 0; i < audioBytes.length; i += chunkSize) {
+      const chunk = audioBytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64Audio = btoa(binary);
+    return { audioContent: base64Audio, audioUrl: `data:audio/mp3;base64,${base64Audio}` };
+  } catch (e) {
+    console.error('OpenAI TTS exception:', e);
+    return null;
+  }
+}
+
   text: string,
   apiKey: string,
   voiceId: string,
