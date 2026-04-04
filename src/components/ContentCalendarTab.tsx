@@ -306,6 +306,20 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             </a>
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-[10px] gap-1 px-2"
+                          disabled={generatingThumbnail === project.id}
+                          onClick={() => generateThumbnail(project)}
+                        >
+                          {generatingThumbnail === project.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-3 h-3" />
+                          )}
+                          {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'Gen Thumbnail'}
+                        </Button>
                       </div>
                     </div>
                   </div>
