@@ -79,8 +79,7 @@ async function generateOpenAITTS(
     return null;
   }
 }
-
-  text: string,
+async function generateSpeechifyTTS(
   apiKey: string,
   voiceId: string,
   speed: number = 1.0
