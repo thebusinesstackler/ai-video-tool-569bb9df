@@ -1005,13 +1005,19 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Button variant="ghost" size="icon" onClick={() => setSelectedProject(null)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Project Details</h2>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-foreground">{selectedProject.custom_name || 'Project Details'}</h2>
               <p className="text-xs text-muted-foreground">
                 {new Date(selectedProject.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
-            <Badge variant="outline" className={`ml-auto ${statusColors[selectedProject.status] || ''}`}>
+            <Button variant="ghost" size="icon" onClick={(e) => toggleFavorite(selectedProject, e)}>
+              <Star className={`w-5 h-5 ${selectedProject.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`} />
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => remakeWithEdits(selectedProject, e)}>
+              <RotateCcw className="w-3.5 h-3.5" /> Remake with Edits
+            </Button>
+            <Badge variant="outline" className={`${statusColors[selectedProject.status] || ''}`}>
               {selectedProject.status}
             </Badge>
           </div>
