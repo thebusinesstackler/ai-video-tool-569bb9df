@@ -33,6 +33,7 @@ import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { trimVideoToTimestamp } from '@/lib/canvasStitch';
 import ReactMarkdown from 'react-markdown';
+import { ContentCalendarTab } from '@/components/ContentCalendarTab';
 
 interface ChatMessage {
   id: string;
