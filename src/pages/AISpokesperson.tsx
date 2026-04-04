@@ -2326,52 +2326,68 @@ Return ONLY the JSON object.`
         {isAdvanced && !videoUrl && (
           <div className="space-y-4">
             {/* Twin Selection */}
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <User className="w-5 h-5 text-primary" />
-                  Select Spokesperson
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingTwins ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading twins...
-                  </div>
-                ) : twins.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No AI Twins found. <a href="/ai-twin" className="text-primary underline">Create one first</a>.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {twins.map(twin => (
-                      <button
-                        key={twin.id}
-                        onClick={() => setSelectedTwinId(twin.id)}
-                        className={`p-3 rounded-lg border transition-all text-left ${
-                          selectedTwinId === twin.id
-                            ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
-                            : 'border-border bg-card hover:border-primary/50'
-                        }`}
-                      >
-                        {twin.reference_images?.[0] ? (
-                          <img src={twin.reference_images[0]} alt={twin.name} className="w-full aspect-square object-cover rounded-md mb-2" />
-                        ) : (
-                          <div className="w-full aspect-square bg-muted rounded-md mb-2 flex items-center justify-center">
-                            <User className="w-8 h-8 text-muted-foreground" />
-                          </div>
-                        )}
-                        <p className="text-sm font-medium truncate">{twin.name}</p>
-                        <div className="flex gap-1 mt-1">
-                          {twin.voice_cloning_key && <Badge variant="secondary" className="text-[10px]">Voice</Badge>}
-                          <Badge variant="outline" className="text-[10px]">{twin.reference_images?.length || 0} imgs</Badge>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <Collapsible open={!selectedTwinId || twinPickerOpen} onOpenChange={setTwinPickerOpen}>
+              <Card className="bg-card border-border">
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-accent/5 transition-colors">
+                    <CardTitle className="flex items-center justify-between text-lg">
+                      <span className="flex items-center gap-2">
+                        <User className="w-5 h-5 text-primary" />
+                        {selectedTwin ? (
+                          <span className="flex items-center gap-2">
+                            {selectedTwin.reference_images?.[0] && (
+                              <img src={selectedTwin.reference_images[0]} alt={selectedTwin.name} className="w-6 h-6 rounded-full object-cover" />
+                            )}
+                            {selectedTwin.name}
+                          </span>
+                        ) : 'Select Spokesperson'}
+                      </span>
+                      <ChevronDown className={`w-5 h-5 transition-transform ${(!selectedTwinId || twinPickerOpen) ? 'rotate-180' : ''}`} />
+                    </CardTitle>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent>
+                    {loadingTwins ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Loading twins...
+                      </div>
+                    ) : twins.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No AI Twins found. <a href="/ai-twin" className="text-primary underline">Create one first</a>.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {twins.map(twin => (
+                          <button
+                            key={twin.id}
+                            onClick={() => { setSelectedTwinId(twin.id); setTwinPickerOpen(false); }}
+                            className={`p-3 rounded-lg border transition-all text-left ${
+                              selectedTwinId === twin.id
+                                ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                                : 'border-border bg-card hover:border-primary/50'
+                            }`}
+                          >
+                            {twin.reference_images?.[0] ? (
+                              <img src={twin.reference_images[0]} alt={twin.name} className="w-full aspect-square object-cover rounded-md mb-2" />
+                            ) : (
+                              <div className="w-full aspect-square bg-muted rounded-md mb-2 flex items-center justify-center">
+                                <User className="w-8 h-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            <p className="text-sm font-medium truncate">{twin.name}</p>
+                            <div className="flex gap-1 mt-1">
+                              {twin.voice_cloning_key && <Badge variant="secondary" className="text-[10px]">Voice</Badge>}
+                              <Badge variant="outline" className="text-[10px]">{twin.reference_images?.length || 0} imgs</Badge>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             {/* Message Input */}
             <Card className="bg-card border-border">
