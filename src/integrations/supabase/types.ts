@@ -521,6 +521,42 @@ export type Database = {
         }
         Relationships: []
       }
+      video_clip_templates: {
+        Row: {
+          category: string | null
+          created_at: string
+          end_time: number
+          id: string
+          label: string
+          source_video_url: string
+          start_time: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          end_time?: number
+          id?: string
+          label?: string
+          source_video_url: string
+          start_time?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          end_time?: number
+          id?: string
+          label?: string
+          source_video_url?: string
+          start_time?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       video_hooks: {
         Row: {
           content_summary: Json | null
