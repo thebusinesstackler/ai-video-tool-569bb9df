@@ -936,7 +936,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      analyzeAndGenerate();
+      handleSubmit();
     }
   };
 
