@@ -28,6 +28,8 @@ import {
   Pencil,
   RotateCcw,
   Check,
+  Film,
+  Wand2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
