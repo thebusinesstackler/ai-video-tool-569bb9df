@@ -203,27 +203,28 @@ const AISpokesperson = () => {
     });
   }, [message, selectedTwinId, selectedSetting, selectedMood, selectedCameraAngle, selectedDuration, selectedQuality, generatedScript, videoUrl, audioUrl]);
 
-  // Load twins
+  // Load twins using lightweight summary RPC
   useEffect(() => {
     if (!user?.id) return;
     
     const load = async () => {
       try {
-        const { data, error } = await supabase
-          .from('ai_twins')
-          .select('id, name, reference_images, voice_cloning_key, face_description, gender, voice_engine, google_voice_id')
-          .eq('user_id', user.id)
-          .order('name');
+        const { data, error } = await supabase.rpc('get_twins_summary', { _user_id: user.id });
         
         if (error) throw error;
-        const validTwins = (data || []).filter(t => t.reference_images && t.reference_images.length > 0)
-          .map(t => ({ ...t, voice_engine: t.voice_engine as AITwin['voice_engine'] }));
-        setTwins(validTwins);
-        
-        // Auto-select first twin
-        if (validTwins.length > 0 && !selectedTwinId) {
-          setSelectedTwinId(validTwins[0].id);
-        }
+        const mapped: AITwin[] = (data || []).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          reference_images: t.first_image ? [t.first_image] : [],
+          voice_cloning_key: t.voice_cloning_key,
+          voice_sample_url: t.voice_sample_url,
+          face_description: t.face_description,
+          gender: t.gender,
+          voice_engine: (t.voice_engine || 'speechify') as AITwin['voice_engine'],
+          google_voice_id: t.google_voice_id,
+        }));
+        setTwins(mapped);
+        // No auto-select — user picks the twin they want
       } catch (err) {
         console.error('Failed to load twins:', err);
       } finally {
@@ -232,6 +233,30 @@ const AISpokesperson = () => {
     };
     load();
   }, [user?.id]);
+
+  // Lazy-load full reference images when a twin is selected
+  useEffect(() => {
+    if (!selectedTwinId || !user?.id) return;
+    const twin = twins.find(t => t.id === selectedTwinId);
+    // If we only have the summary thumbnail (1 image), fetch full set
+    if (twin && twin.reference_images.length <= 1) {
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from('ai_twins')
+            .select('reference_images')
+            .eq('id', selectedTwinId)
+            .eq('user_id', user.id)
+            .single();
+          if (data?.reference_images && data.reference_images.length > 1) {
+            setTwins(prev => prev.map(t => 
+              t.id === selectedTwinId ? { ...t, reference_images: data.reference_images! } : t
+            ));
+          }
+        } catch {}
+      })();
+    }
+  }, [selectedTwinId, user?.id]);
 
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
   const selectedSettingData = SETTINGS.find(s => s.id === selectedSetting);
