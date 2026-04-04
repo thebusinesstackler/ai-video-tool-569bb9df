@@ -33,6 +33,7 @@ import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { trimVideoToTimestamp } from '@/lib/canvasStitch';
 import ReactMarkdown from 'react-markdown';
+import { ContentCalendarTab } from '@/components/ContentCalendarTab';
 
 interface ChatMessage {
   id: string;
@@ -68,7 +69,7 @@ const statusColors: Record<string, string> = {
 const VideoRepoPro = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [mainTab, setMainTab] = useState<'create' | 'history'>('create');
+  const [mainTab, setMainTab] = useState<'create' | 'history' | 'calendar'>('create');
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -1035,7 +1036,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
           </p>
         </div>
 
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history')} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'calendar')} className="flex-1 flex flex-col min-h-0">
           <div className="flex justify-center px-4">
             <TabsList>
               <TabsTrigger value="create" className="gap-1.5">
@@ -1046,6 +1047,9 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 {historyProjects.length > 0 && (
                   <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{historyProjects.length}</span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-1.5">
+                <Calendar className="w-3.5 h-3.5" /> Content Calendar
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1300,6 +1304,10 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="calendar" className="flex-1 min-h-0 overflow-y-auto mt-2">
+            <ContentCalendarTab projects={historyProjects} />
           </TabsContent>
         </Tabs>
       </div>
