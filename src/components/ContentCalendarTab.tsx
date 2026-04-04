@@ -20,6 +20,7 @@ interface VideoRepoProject {
   video_prompt: string | null;
   status: string;
   created_at: string;
+  category?: string | null;
 }
 
 interface ContentCalendarTabProps {
