@@ -217,31 +217,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Try multiple download strategies
+    // Try multiple download strategies for the tunnel URL
     console.log('[download-video-url] Downloading video from:', downloadUrl.substring(0, 120));
     
+    // Strategy 1: Proxy through RapidAPI by rewriting the URL
+    const tunnelPath = new URL(downloadUrl).pathname + '?' + new URL(downloadUrl).search.slice(1);
+    const rapidApiProxyUrl = `https://social-media-video-downloader.p.rapidapi.com${tunnelPath}`;
+    
     const strategies = [
-      { name: 'plain', headers: {} as Record<string, string> },
-      { name: 'rapidapi-key-only', headers: { 'X-RapidAPI-Key': rapidApiKey } },
-      { name: 'user-agent', headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } },
-      { name: 'rapidapi-full', headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com' } },
+      { name: 'rapidapi-proxy', url: rapidApiProxyUrl, headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com' } },
+      { name: 'referer', url: downloadUrl, headers: { 'Referer': 'https://rapidapi.com/', 'X-RapidAPI-Key': rapidApiKey } },
+      { name: 'plain', url: downloadUrl, headers: {} as Record<string, string> },
     ];
 
     let videoResponse: Response | null = null;
     for (const strategy of strategies) {
-      console.log(`[download-video-url] Trying strategy: ${strategy.name}`);
-      const resp = await fetch(downloadUrl, { headers: strategy.headers });
-      if (resp.ok) {
-        videoResponse = resp;
-        console.log(`[download-video-url] Strategy ${strategy.name} succeeded!`);
-        break;
+      console.log(`[download-video-url] Trying strategy: ${strategy.name} -> ${strategy.url.substring(0, 80)}`);
+      try {
+        const resp = await fetch(strategy.url, { headers: strategy.headers });
+        const ct = resp.headers.get('content-type') || '';
+        console.log(`[download-video-url] Strategy ${strategy.name}: status=${resp.status} content-type=${ct}`);
+        if (resp.ok && (ct.includes('video') || ct.includes('octet-stream') || parseInt(resp.headers.get('content-length') || '0') > 100000)) {
+          videoResponse = resp;
+          console.log(`[download-video-url] Strategy ${strategy.name} succeeded!`);
+          break;
+        }
+        await resp.arrayBuffer(); // consume body
+      } catch (e) {
+        console.log(`[download-video-url] Strategy ${strategy.name} error:`, e);
       }
-      console.log(`[download-video-url] Strategy ${strategy.name} failed: ${resp.status}`);
-      await resp.arrayBuffer(); // consume body
     }
 
-    if (!videoResponse || !videoResponse.ok) {
-      return new Response(JSON.stringify({ error: 'Failed to download video from source. All download strategies failed.' }), {
+    if (!videoResponse) {
+      return new Response(JSON.stringify({ error: 'Failed to download video from source. The video provider may be temporarily unavailable.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
