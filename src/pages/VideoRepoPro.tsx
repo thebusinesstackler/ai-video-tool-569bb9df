@@ -1021,6 +1021,17 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => remakeWithEdits(selectedProject, e)}>
               <RotateCcw className="w-3.5 h-3.5" /> Remake with Edits
             </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => {
+              e.stopPropagation();
+              remakeWithEdits(selectedProject, e);
+            }}>
+              <RefreshCw className="w-3.5 h-3.5" /> New Version
+            </Button>
+            {selectedProject.generated_video_url && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowTimeline(!showTimeline)}>
+                <Film className="w-3.5 h-3.5" /> {showTimeline ? 'Hide Timeline' : 'Edit on Timeline'}
+              </Button>
+            )}
             <Badge variant="outline" className={`${statusColors[selectedProject.status] || ''}`}>
               {selectedProject.status}
             </Badge>
