@@ -142,9 +142,9 @@ const VideoRepoPro = () => {
         .from('video_repo_projects')
         .select('*')
         .eq('user_id', user.id)
+        .order('is_favorite', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
-      // Filter to only show pro projects if we want, or show all
       setHistoryProjects((data as VideoRepoProject[]) || []);
     } catch (err: any) {
       console.error('Error fetching history:', err);
@@ -152,6 +152,55 @@ const VideoRepoPro = () => {
       setIsLoadingHistory(false);
     }
   }, [user]);
+
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState('');
+
+  const toggleFavorite = async (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newVal = !project.is_favorite;
+    setHistoryProjects(prev => prev.map(p => p.id === project.id ? { ...p, is_favorite: newVal } : p));
+    const { error } = await supabase.from('video_repo_projects').update({ is_favorite: newVal } as any).eq('id', project.id);
+    if (error) {
+      setHistoryProjects(prev => prev.map(p => p.id === project.id ? { ...p, is_favorite: !newVal } : p));
+      toast({ title: 'Error', description: 'Could not update favorite', variant: 'destructive' });
+    } else {
+      fetchHistory();
+    }
+  };
+
+  const startRename = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingNameId(project.id);
+    setEditNameValue(project.custom_name || project.prompt?.replace(/^\[PRO\]\s*/, '') || '');
+  };
+
+  const saveRename = async (projectId: string) => {
+    const trimmed = editNameValue.trim();
+    if (!trimmed) { setEditingNameId(null); return; }
+    setHistoryProjects(prev => prev.map(p => p.id === projectId ? { ...p, custom_name: trimmed } : p));
+    setEditingNameId(null);
+    const { error } = await supabase.from('video_repo_projects').update({ custom_name: trimmed } as any).eq('id', projectId);
+    if (error) {
+      toast({ title: 'Error', description: 'Could not rename', variant: 'destructive' });
+      fetchHistory();
+    }
+  };
+
+  const remakeWithEdits = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMainTab('create');
+    if (project.reference_video_url) {
+      setReferenceVideoUrl(project.reference_video_url);
+      setReferenceVideoName('Previous reference');
+    }
+    if (project.product_image_url) {
+      setProductImageUrl(project.product_image_url);
+      setProductImageName('Previous product');
+    }
+    setPrompt(project.prompt?.replace(/^\[PRO\]\s*/, '') || '');
+    toast({ title: 'Project loaded', description: 'Edit your prompt and hit send to remake.' });
+  };
 
   useEffect(() => {
     if (user) fetchHistory();
