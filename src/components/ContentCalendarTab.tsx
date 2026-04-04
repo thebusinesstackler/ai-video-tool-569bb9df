@@ -83,6 +83,37 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
     setAssignments((prev) => ({ ...prev, [projectId]: category === 'none' ? '' : category }));
   };
 
+  const generateThumbnail = async (project: VideoRepoProject) => {
+    setGeneratingThumbnail(project.id);
+    try {
+      const hook = extractHook(project);
+      const script = extractScript(project);
+      const category = assignments[project.id] || 'Product Video';
+
+      const { data, error } = await supabase.functions.invoke('generate-premium-visual', {
+        body: {
+          type: 'thumbnail',
+          topic: hook || script.substring(0, 100),
+          style: 'Bold',
+          customPrompt: `Create a professional, eye-catching YouTube/social media thumbnail for a ${category} video. The video is about: ${hook}. Script excerpt: ${script.substring(0, 200)}. Make it vibrant, high-contrast with bold visual elements that grab attention. Do NOT include any text.`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.imageUrl) {
+        setThumbnails(prev => ({ ...prev, [project.id]: data.imageUrl }));
+        toast({ title: 'Thumbnail generated!', description: 'Your new thumbnail is ready.' });
+      } else {
+        throw new Error('No image returned');
+      }
+    } catch (err: any) {
+      console.error('Thumbnail generation error:', err);
+      toast({ title: 'Thumbnail failed', description: err.message || 'Could not generate thumbnail', variant: 'destructive' });
+    } finally {
+      setGeneratingThumbnail(null);
+    }
+  };
+
   const extractScript = (project: VideoRepoProject): string => {
     const match = project.analysis_text?.match(/```narration\n([\s\S]*?)```/);
     return match?.[1]?.trim() || project.video_prompt || '';
