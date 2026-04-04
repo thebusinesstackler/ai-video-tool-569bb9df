@@ -1,35 +1,53 @@
 
-## Add AI Script Director Chat to Video Repo Pro
 
-### Problem
-Currently the page auto-generates videos immediately after AI analysis. Users can't discuss, refine, or give feedback on the script/scenes before committing to expensive video generation.
+## Plan: Enhance Content Calendar PDF + History Actions + Timeline Editor
 
-### Solution
-Split the flow into **Chat Phase** (discuss script) → **Generate Phase** (make video), allowing back-and-forth conversation with the AI Script Director.
+Three feature areas to implement:
 
-### Changes to `src/pages/VideoRepoPro.tsx`
+---
 
-1. **Split `analyzeAndGenerate` into two functions:**
-   - `analyzeReference()` — sends the initial analysis request + reference/product, shows AI response in chat
-   - `generateFromScript()` — extracts video prompts from the latest AI message and runs the existing Sora-2 generation pipeline
+### 1. Content Calendar PDF — Add Script & Hook
 
-2. **Add `handleFollowUp()` function** — When the user types a follow-up message (after initial analysis), send the full `messages` history to the AI edge function so it can refine the script based on feedback. The AI responds with an updated analysis/script.
+**File:** `src/components/ContentCalendarTab.tsx`
 
-3. **Add state to track phase:**
-   - `hasAnalysis` boolean — true once AI has produced a script with video-prompt blocks
-   - `latestAnalysisText` — stores the most recent AI response containing video prompts
+The PDF already shows the hook and script (lines 248-250), but they can be truncated or missing. Updates:
+- Make the hook more prominent with larger font and a "HOOK:" label
+- Show the full script text (not truncated) with a clear "SCRIPT:" section header
+- Ensure both are always visible even when no thumbnail exists
 
-4. **Update composer behavior:**
-   - Before analysis: existing flow (send with attachments)
-   - After analysis: follow-up chat mode (send text only, AI refines script)
-   - Show a prominent "🎬 Generate Video" button when video-prompt blocks are detected in the latest AI message
+---
 
-5. **UI: Add "Generate Video" button** — Appears after AI analysis, triggers `generateFromScript()` using the latest script. Styled as a gradient CTA.
+### 2. History Cards — "Generate Another Version" Button
 
-6. **Composer hint text changes** — "Describe your 30-second ad idea..." → "Give feedback on the script or ask for changes..." after analysis
+**File:** `src/pages/VideoRepoPro.tsx`
 
-### What stays the same
-- Video generation pipeline (Sora-2, stitching, audio trim, extend)
-- History tab
-- File upload / URL import
-- Aspect ratio selector
+Add a new action button to the history card hover actions (around line 1383-1411):
+- Add a **"Generate New Version"** button (RefreshCw icon) that loads the project's reference assets and prompt back into the Create tab (similar to `remakeWithEdits` but auto-triggers analysis)
+- Add an **"Extend Video"** button (visible only for completed projects) that analyzes whether the hook is fully captured in the video and triggers a video extension if needed — this will call the existing `wan-2.5/video-extend` pipeline
+
+Also add these buttons to the **selected project detail view** (around line 1017).
+
+---
+
+### 3. Timeline Editor on Edit Click
+
+**File:** `src/pages/VideoRepoPro.tsx`
+
+When clicking a completed project in history, the detail view currently shows a simple side-by-side of reference vs generated video. Enhance it:
+- Add an **"Edit on Timeline"** button in the detail view
+- When clicked, show a timeline editor component that displays the video segments on a scrubable timeline with:
+  - Visual waveform/segment representation
+  - Play/pause transport controls
+  - Segment markers showing the two stitched clips
+  - Ability to trim start/end of each segment
+- Reuse patterns from the existing `TimelineEditor` component (`src/components/TimelineEditor.tsx`) adapted for the Video Repo Pro two-segment structure
+
+---
+
+### Files to modify
+1. **`src/components/ContentCalendarTab.tsx`** — Enhance `downloadPDF` function to show hook and script more prominently
+2. **`src/pages/VideoRepoPro.tsx`** — Add "Generate New Version" and "Extend Video" buttons to history cards + detail view; add timeline editor mode to the detail view
+
+### New file
+3. **`src/components/VideoRepoTimeline.tsx`** — Timeline editor component for Video Repo Pro projects, showing segment markers, transport controls, and trim handles
+
