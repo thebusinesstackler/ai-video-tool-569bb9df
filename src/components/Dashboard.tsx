@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import heroImage from '@/assets/hero-image.jpg';
+import { ContentCalendarDownload } from '@/components/ContentCalendarDownload';
 
 
 const quickActions = [
@@ -236,6 +237,7 @@ export const Dashboard = () => {
                   Start Creating
                 </Link>
               </Button>
+              <ContentCalendarDownload />
             </div>
           </div>
         </div>
