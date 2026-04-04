@@ -623,22 +623,26 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           sceneHasEmbeddedAudio = true;
           
         } else if (isNarratorScene && enableLipSync && (videoModel === 'infinitetalk' || lipSyncModel === 'infinitetalk')) {
-          // ====== INFINITETALK FALLBACK: Now routes to Sora-2 native audio ======
-          console.log(`Scene ${scene.sceneNumber}: InfiniteTalk requested — routing to Sora-2 native audio instead`);
+          // ====== INFINITETALK: OpenAI TTS + InfiniteTalk HD ======
+          console.log(`Scene ${scene.sceneNumber}: InfiniteTalk — generating OpenAI TTS first`);
           
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
-          const sora2Durations = [4, 8, 12, 16, 20];
-          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
+          if (!supabase) throw new Error('Supabase client required for TTS upload');
           
+          const gender = detectGender(characterDescription);
+          const ttsBytes = await generateOpenAITTS(
+            scene.narration,
+            OPENAI_API_KEY!,
+            gender,
+            'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
+          );
+          const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, scene.sceneNumber);
+          console.log(`Scene ${scene.sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
+          
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
           requestBody = {
             image: imageUrl,
-            prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
-Camera: smooth cinematic motion, subtle depth shifts, professional color grading.
-Audio (MANDATORY): The person speaks directly to camera. They say EXACTLY: "${scene.narration}"
-Lip movement must match the spoken words exactly. No silent clips, no music replacement.
-No captions, no subtitles, no watermarks.`,
-            duration: sora2Duration,
-            aspect_ratio: '9:16'
+            audio: ttsUrl,
+            resolution: '720p'
           };
           sceneHasEmbeddedAudio = true;
           
