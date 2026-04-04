@@ -1419,6 +1419,14 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             </TooltipTrigger>
                             <TooltipContent>Remake with edits</TooltipContent>
                           </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); remakeWithEdits(project, e); }}>
+                                <RefreshCw className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Generate new version</TooltipContent>
+                          </Tooltip>
                           {project.generated_video_url && (
                             <Tooltip>
                               <TooltipTrigger asChild>
