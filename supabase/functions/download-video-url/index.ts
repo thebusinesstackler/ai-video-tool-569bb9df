@@ -206,94 +206,89 @@ Deno.serve(async (req) => {
     }
 
     const smvdData = await smvdResponse.json();
-    console.log('[download-video-url] SMVD response keys:', JSON.stringify(smvdData).substring(0, 1000));
+    console.log('[download-video-url] SMVD response received');
 
     const downloadUrl = extractDownloadUrl(platformInfo.platform, smvdData);
 
     if (!downloadUrl) {
-      console.error('[download-video-url] No download URL found in response');
+      console.error('[download-video-url] No download URL found');
       return new Response(JSON.stringify({ error: 'Could not extract video from this URL. The video may be private or not contain downloadable video content.' }), {
         status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Try multiple download strategies for the tunnel URL
-    console.log('[download-video-url] Downloading video from:', downloadUrl.substring(0, 120));
-    
-    // Strategy 1: Proxy through RapidAPI by rewriting the URL
-    const tunnelPath = new URL(downloadUrl).pathname + '?' + new URL(downloadUrl).search.slice(1);
-    const rapidApiProxyUrl = `https://social-media-video-downloader.p.rapidapi.com${tunnelPath}`;
-    
-    const strategies = [
-      { name: 'rapidapi-proxy', url: rapidApiProxyUrl, headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com' } },
-      { name: 'referer', url: downloadUrl, headers: { 'Referer': 'https://rapidapi.com/', 'X-RapidAPI-Key': rapidApiKey } },
-      { name: 'plain', url: downloadUrl, headers: {} as Record<string, string> },
-    ];
+    // Try server-side download first
+    console.log('[download-video-url] Attempting server-side download from:', downloadUrl.substring(0, 100));
+    try {
+      const videoResponse = await fetch(downloadUrl);
+      if (videoResponse.ok) {
+        const ct = videoResponse.headers.get('content-type') || '';
+        const cl = parseInt(videoResponse.headers.get('content-length') || '0');
+        if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
+          const videoBuffer = await videoResponse.arrayBuffer();
+          console.log(`[download-video-url] Server download succeeded: ${(videoBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
 
-    let videoResponse: Response | null = null;
-    for (const strategy of strategies) {
-      console.log(`[download-video-url] Trying strategy: ${strategy.name} -> ${strategy.url.substring(0, 80)}`);
-      try {
-        const resp = await fetch(strategy.url, { headers: strategy.headers });
-        const ct = resp.headers.get('content-type') || '';
-        console.log(`[download-video-url] Strategy ${strategy.name}: status=${resp.status} content-type=${ct}`);
-        if (resp.ok && (ct.includes('video') || ct.includes('octet-stream') || parseInt(resp.headers.get('content-length') || '0') > 100000)) {
-          videoResponse = resp;
-          console.log(`[download-video-url] Strategy ${strategy.name} succeeded!`);
-          break;
+          if (videoBuffer.byteLength > 100 * 1024 * 1024) {
+            return new Response(JSON.stringify({ error: 'Video is too large (max 100MB)' }), {
+              status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+
+          const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+          const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+
+          const { error: uploadError } = await adminClient.storage
+            .from('reels')
+            .upload(storagePath, videoBuffer, { contentType: 'video/mp4', upsert: false });
+
+          if (uploadError) {
+            console.error('[download-video-url] Upload error:', uploadError);
+            return new Response(JSON.stringify({ error: 'Failed to store video' }), {
+              status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+
+          const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+          console.log('[download-video-url] Success! Stored at:', publicUrl);
+          return new Response(JSON.stringify({ videoUrl: publicUrl }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
-        await resp.arrayBuffer(); // consume body
-      } catch (e) {
-        console.log(`[download-video-url] Strategy ${strategy.name} error:`, e);
+        await videoResponse.arrayBuffer();
+      } else {
+        console.log(`[download-video-url] Server download failed: ${videoResponse.status}, falling back to client-side`);
+        await videoResponse.arrayBuffer();
       }
+    } catch (e) {
+      console.log('[download-video-url] Server download error, falling back to client-side:', e);
     }
 
-    if (!videoResponse) {
-      return new Response(JSON.stringify({ error: 'Failed to download video from source. The video provider may be temporarily unavailable.' }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const contentLength = videoResponse.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 100 * 1024 * 1024) {
-      await videoResponse.arrayBuffer(); // consume body
-      return new Response(JSON.stringify({ error: 'Video is too large (max 100MB)' }), {
-        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const videoBuffer = await videoResponse.arrayBuffer();
-    console.log(`[download-video-url] Downloaded ${(videoBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
-
-    if (videoBuffer.byteLength > 100 * 1024 * 1024) {
-      return new Response(JSON.stringify({ error: 'Video is too large (max 100MB)' }), {
-        status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Upload to Supabase Storage using service role
+    // Fallback: return the download URL for client-side download + a signed upload URL
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
 
-    const { error: uploadError } = await adminClient.storage
+    const { data: signedData, error: signError } = await adminClient.storage
       .from('reels')
-      .upload(storagePath, videoBuffer, {
-        contentType: 'video/mp4',
-        upsert: false,
-      });
+      .createSignedUploadUrl(storagePath);
 
-    if (uploadError) {
-      console.error('[download-video-url] Upload error:', uploadError);
-      return new Response(JSON.stringify({ error: 'Failed to store video' }), {
+    if (signError || !signedData) {
+      console.error('[download-video-url] Signed URL error:', signError);
+      return new Response(JSON.stringify({ error: 'Failed to prepare upload' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
 
-    console.log('[download-video-url] Success! Stored at:', publicUrl);
-
-    return new Response(JSON.stringify({ videoUrl: publicUrl }), {
+    console.log('[download-video-url] Returning client-side download fallback');
+    return new Response(JSON.stringify({
+      clientDownload: true,
+      downloadUrl,
+      signedUploadUrl: signedData.signedUrl,
+      uploadToken: signedData.token,
+      storagePath,
+      publicUrl,
+    }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
