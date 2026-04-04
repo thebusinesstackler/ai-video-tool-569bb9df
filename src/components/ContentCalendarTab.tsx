@@ -244,15 +244,36 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
           </SelectContent>
         </Select>
 
-        <div className="flex gap-2 ml-auto">
+        <div className="flex gap-2 ml-auto flex-wrap">
           <Button size="sm" variant="default" disabled={filteredProjects.length === 0} onClick={() => downloadPDF(filteredProjects, filterCategory === 'all' ? 'All' : filterCategory)} className="gap-1.5 text-xs">
-            <FileText className="w-3.5 h-3.5" /> PDF
+            <FileText className="w-3.5 h-3.5" /> PDF ({filterCategory === 'all' ? 'All' : filterCategory})
           </Button>
           <Button size="sm" variant="outline" disabled={filteredProjects.length === 0} onClick={() => downloadCSV(filteredProjects, filterCategory === 'all' ? 'All' : filterCategory)} className="gap-1.5 text-xs">
             <Table2 className="w-3.5 h-3.5" /> CSV
           </Button>
         </div>
       </div>
+
+      {/* Per-category quick download */}
+      {filterCategory === 'all' && categories.some(cat => (categoryCounts[cat] || 0) > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-muted-foreground">Download by category:</span>
+          {categories.filter(cat => (categoryCounts[cat] || 0) > 0).map(cat => (
+            <Button
+              key={cat}
+              size="sm"
+              variant="ghost"
+              className="h-6 text-[10px] gap-1 px-2"
+              onClick={() => {
+                const catItems = completedProjects.filter(p => assignments[p.id] === cat);
+                downloadPDF(catItems, cat);
+              }}
+            >
+              <FileText className="w-3 h-3" /> {cat} ({categoryCounts[cat]})
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* Video List */}
       {completedProjects.length === 0 ? (
