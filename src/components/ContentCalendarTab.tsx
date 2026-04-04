@@ -43,6 +43,8 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const [newCategory, setNewCategory] = useState('');
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [generatingThumbnail, setGeneratingThumbnail] = useState<string | null>(null);
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
 
   const completedProjects = useMemo(
     () => projects.filter((p) => p.status === 'completed' && p.generated_video_url),
