@@ -217,17 +217,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Download the video - try without special headers first, then with User-Agent
+    // Try multiple download strategies
     console.log('[download-video-url] Downloading video from:', downloadUrl.substring(0, 120));
-    const dlHeaders = getDownloadHeaders(rapidApiKey, downloadUrl);
-    console.log('[download-video-url] Using download headers:', dlHeaders ? Object.keys(dlHeaders).join(',') : 'none');
-    const videoResponse = await fetch(downloadUrl, {
-      ...(dlHeaders ? { headers: dlHeaders } : {}),
-    });
-    if (!videoResponse.ok) {
-      const errText = await videoResponse.text();
-      console.error('[download-video-url] Source download error:', videoResponse.status, errText.substring(0, 500));
-      return new Response(JSON.stringify({ error: 'Failed to download video from source' }), {
+    
+    const strategies = [
+      { name: 'plain', headers: {} as Record<string, string> },
+      { name: 'rapidapi-key-only', headers: { 'X-RapidAPI-Key': rapidApiKey } },
+      { name: 'user-agent', headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } },
+      { name: 'rapidapi-full', headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com' } },
+    ];
+
+    let videoResponse: Response | null = null;
+    for (const strategy of strategies) {
+      console.log(`[download-video-url] Trying strategy: ${strategy.name}`);
+      const resp = await fetch(downloadUrl, { headers: strategy.headers });
+      if (resp.ok) {
+        videoResponse = resp;
+        console.log(`[download-video-url] Strategy ${strategy.name} succeeded!`);
+        break;
+      }
+      console.log(`[download-video-url] Strategy ${strategy.name} failed: ${resp.status}`);
+      await resp.arrayBuffer(); // consume body
+    }
+
+    if (!videoResponse || !videoResponse.ok) {
+      return new Response(JSON.stringify({ error: 'Failed to download video from source. All download strategies failed.' }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
