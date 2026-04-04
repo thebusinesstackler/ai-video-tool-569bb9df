@@ -1253,7 +1253,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             )}
           </TabsContent>
 
-          <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
+          <TabsContent value="history" className="flex-1 px-4 mt-4 pb-24">
             <div className="max-w-4xl mx-auto space-y-4">
               {isLoadingHistory ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
