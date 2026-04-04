@@ -1142,8 +1142,8 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       size="icon"
                       aria-label="Send prompt"
                       className="h-9 w-9 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-                      onClick={analyzeAndGenerate}
-                      disabled={isAnalyzing || isGenerating || isStitching || isExtractingFrames || !hasComposerInput}
+                      onClick={handleSubmit}
+                      disabled={isAnalyzing || isGenerating || isStitching || isExtractingFrames || isChatting || (!hasComposerInput && !prompt.trim())}
                     >
                       {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
                     </Button>
