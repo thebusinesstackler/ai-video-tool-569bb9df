@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ interface VideoRepoProject {
   video_prompt: string | null;
   status: string;
   created_at: string;
+  category?: string | null;
 }
 
 interface ContentCalendarTabProps {
@@ -42,7 +43,22 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const { toast } = useToast();
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState('');
-  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    projects.forEach(p => { if (p.category) initial[p.id] = p.category; });
+    return initial;
+  });
+
+  // Sync assignments when projects change (e.g. after reload)
+  useEffect(() => {
+    setAssignments(prev => {
+      const next = { ...prev };
+      projects.forEach(p => {
+        if (p.category && !next[p.id]) next[p.id] = p.category;
+      });
+      return next;
+    });
+  }, [projects]);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [generatingThumbnail, setGeneratingThumbnail] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
@@ -85,9 +101,22 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
     });
   };
 
-  const assignCategory = (projectId: string, category: string) => {
-    setAssignments((prev) => ({ ...prev, [projectId]: category === 'none' ? '' : category }));
-  };
+  const assignCategory = useCallback(async (projectId: string, category: string) => {
+    const value = category === 'none' ? '' : category;
+    setAssignments((prev) => ({ ...prev, [projectId]: value }));
+    
+    // Persist to database
+    const dbValue = value || null;
+    const { error } = await supabase
+      .from('video_repo_projects')
+      .update({ category: dbValue })
+      .eq('id', projectId);
+    
+    if (error) {
+      console.error('Failed to save category:', error);
+      toast({ title: 'Failed to save category', variant: 'destructive' });
+    }
+  }, [toast]);
 
   const captureFrame = () => {
     const video = previewVideoRef.current;
