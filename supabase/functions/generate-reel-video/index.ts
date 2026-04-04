@@ -45,7 +45,65 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-// (WaveSpeed MiniMax TTS removed — Sora-2 native audio is used for all non-cloned voices)
+// ── OpenAI TTS for clear narrator speech ──────────────────────────────────
+async function generateOpenAITTS(
+  text: string,
+  apiKey: string,
+  gender?: string,
+  instructions?: string
+): Promise<Uint8Array> {
+  const maleVoices = ['onyx', 'echo', 'ash'];
+  const femaleVoices = ['nova', 'shimmer', 'coral'];
+  const isFemale = gender?.toLowerCase() === 'female' ||
+    gender?.toLowerCase() === 'woman';
+  const voicePool = isFemale ? femaleVoices : maleVoices;
+  const selectedVoice = voicePool[Math.floor(Math.random() * voicePool.length)];
+
+  const body: any = {
+    model: 'gpt-4o-mini-tts',
+    input: text,
+    voice: selectedVoice,
+    response_format: 'mp3',
+  };
+  if (instructions) body.instructions = instructions;
+
+  const resp = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`OpenAI TTS failed (${resp.status}): ${errText}`);
+  }
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
+async function uploadTTSAudio(
+  supabase: any,
+  audioBytes: Uint8Array,
+  sceneNumber: number
+): Promise<string> {
+  const fileName = `tts/${Date.now()}-scene-${sceneNumber}.mp3`;
+  const { error } = await supabase.storage
+    .from('reels')
+    .upload(fileName, audioBytes, { contentType: 'audio/mpeg', upsert: true });
+  if (error) throw new Error(`TTS upload failed: ${error.message}`);
+  const { data: urlData } = supabase.storage.from('reels').getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
+
+// Detect gender from character description
+function detectGender(desc?: string): string {
+  if (!desc) return 'male';
+  const lower = desc.toLowerCase();
+  if (lower.includes('woman') || lower.includes('female') || lower.includes('girl') || lower.includes('lady') || lower.includes('she ')) return 'female';
+  return 'male';
+}
 
 // Generate special prompt for intro/outro templates - NO TEXT in images to avoid spelling errors
 // Sanitize character description to remove prop/product references
