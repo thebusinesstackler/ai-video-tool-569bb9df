@@ -220,7 +220,7 @@ export const VideoRepoTimeline = ({ videoUrl, onClose }: VideoRepoTimelineProps)
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setSavedClips((data || []) as SavedClip[]);
+      setSavedClips((data || []) as unknown as SavedClip[]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
