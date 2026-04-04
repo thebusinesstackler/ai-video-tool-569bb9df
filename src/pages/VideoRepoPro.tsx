@@ -1092,6 +1092,13 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
               </div>
             </CardContent></Card>
           )}
+
+          {showTimeline && selectedProject.generated_video_url && (
+            <VideoRepoTimeline
+              videoUrl={selectedProject.generated_video_url}
+              onClose={() => setShowTimeline(false)}
+            />
+          )}
         </div>
       </Layout>
     );
