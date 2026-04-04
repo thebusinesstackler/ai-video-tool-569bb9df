@@ -1036,7 +1036,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
           </p>
         </div>
 
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history')} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'calendar')} className="flex-1 flex flex-col min-h-0">
           <div className="flex justify-center px-4">
             <TabsList>
               <TabsTrigger value="create" className="gap-1.5">
@@ -1047,6 +1047,9 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 {historyProjects.length > 0 && (
                   <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{historyProjects.length}</span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-1.5">
+                <Calendar className="w-3.5 h-3.5" /> Content Calendar
               </TabsTrigger>
             </TabsList>
           </div>
