@@ -1054,7 +1054,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Card className="w-full max-w-3xl bg-card/95 border-2 border-orange-500/30 shadow-card rounded-2xl md:rounded-3xl overflow-hidden mb-3 backdrop-blur-sm">
               <div className="px-3 md:px-4 py-2 md:py-3 border-b border-border/50 bg-background/70">
                 <Textarea
-                  placeholder="Describe your 30-second ad idea..."
+                  placeholder={hasAnalysis ? "Give feedback on the script, ask for changes, or hit Generate Video when ready..." : "Describe your 30-second ad idea..."}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={handleKeyDown}
