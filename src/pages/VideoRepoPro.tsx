@@ -527,11 +527,12 @@ ${productImageUrl ? 'Product image provided above — incorporate this product n
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Hook Strategy**: How the first 3 seconds will stop the scroll
-3. **Full 30-Second Script**: Scene-by-scene breakdown covering 0-30 seconds
-4. **Segment Breakdown**: How the 30s ad splits into two ~15s segments with seamless continuity
-5. **Product Integration**: How and when the product appears naturally
-6. **CTA Strategy**: Closing technique for maximum conversion
+2. **Estimated Transcript**: Based on the visual cues (lip movements, expressions, gestures, text overlays, captions), reconstruct what the person in the video is most likely saying throughout the ad. Present this as a timestamped script (e.g., "0-3s: ...", "3-8s: ..."). If you can see captions or text overlays, transcribe them exactly.
+3. **Hook Strategy**: How the first 3 seconds will stop the scroll
+4. **Full 30-Second Script**: Scene-by-scene breakdown covering 0-30 seconds
+5. **Segment Breakdown**: How the 30s ad splits into two ~15s segments with seamless continuity
+6. **Product Integration**: How and when the product appears naturally
+7. **CTA Strategy**: Closing technique for maximum conversion
 
 Then provide TWO video prompt blocks — one per segment:
 
