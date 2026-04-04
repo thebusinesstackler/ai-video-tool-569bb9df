@@ -375,7 +375,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             src={project.generated_video_url}
                             muted
                             preload="metadata"
-                            className="w-24 h-16 object-cover rounded-lg bg-black"
+                            className="w-28 h-24 object-cover rounded-lg bg-black"
                             onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
                             onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
                           />
