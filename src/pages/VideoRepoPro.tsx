@@ -78,7 +78,7 @@ const VideoRepoPro = () => {
   const [referenceVideoUrl, setReferenceVideoUrl] = useState<string | null>(null);
   const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
   const [referenceVideoName, setReferenceVideoName] = useState('');
-  const [referenceVideoName2, _] = useState('');
+  
   const [productImageName, setProductImageName] = useState('');
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
