@@ -60,6 +60,8 @@ interface VideoRepoProject {
   status: string;
   created_at: string;
   updated_at: string;
+  is_favorite?: boolean;
+  custom_name?: string | null;
 }
 
 const statusColors: Record<string, string> = {
