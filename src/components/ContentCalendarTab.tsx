@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen, ImageIcon, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen, ImageIcon, Loader2, Camera, Play, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -45,6 +46,11 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [generatingThumbnail, setGeneratingThumbnail] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  
+  // Video preview & frame capture
+  const [previewProject, setPreviewProject] = useState<VideoRepoProject | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
 
   const completedProjects = useMemo(
     () => projects.filter((p) => p.status === 'completed' && p.generated_video_url),
@@ -81,6 +87,35 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
 
   const assignCategory = (projectId: string, category: string) => {
     setAssignments((prev) => ({ ...prev, [projectId]: category === 'none' ? '' : category }));
+  };
+
+  const captureFrame = () => {
+    const video = previewVideoRef.current;
+    if (!video || !previewProject) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    
+    setThumbnails(prev => ({ ...prev, [previewProject.id]: dataUrl }));
+    toast({ title: 'Frame captured!', description: 'Thumbnail set from video frame.' });
+  };
+
+  const togglePlayPause = () => {
+    const video = previewVideoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
   };
 
   const generateThumbnail = async (project: VideoRepoProject) => {
@@ -246,7 +281,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
 
         <div className="flex gap-2 ml-auto flex-wrap">
           <Button size="sm" variant="default" disabled={filteredProjects.length === 0} onClick={() => downloadPDF(filteredProjects, filterCategory === 'all' ? 'All' : filterCategory)} className="gap-1.5 text-xs">
-            <FileText className="w-3.5 h-3.5" /> PDF ({filterCategory === 'all' ? 'All' : filterCategory})
+            <FileText className="w-3.5 h-3.5" /> PDF ({filteredProjects.length} {filterCategory === 'all' ? 'All' : filterCategory})
           </Button>
           <Button size="sm" variant="outline" disabled={filteredProjects.length === 0} onClick={() => downloadCSV(filteredProjects, filterCategory === 'all' ? 'All' : filterCategory)} className="gap-1.5 text-xs">
             <Table2 className="w-3.5 h-3.5" /> CSV
@@ -293,19 +328,32 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
               <Card key={project.id} className="glass">
                 <CardContent className="p-3">
                   <div className="flex gap-3">
-                     {/* Video Preview */}
-                    <div className="flex-shrink-0 relative group">
+                    {/* Video Preview - click to open player */}
+                    <div
+                      className="flex-shrink-0 relative group cursor-pointer"
+                      onClick={() => { setPreviewProject(project); setIsPlaying(false); }}
+                    >
                       {thumbnails[project.id] ? (
-                        <img src={thumbnails[project.id]} alt="Thumbnail" className="w-24 h-16 object-cover rounded-lg" />
+                        <div className="relative">
+                          <img src={thumbnails[project.id]} alt="Thumbnail" className="w-24 h-16 object-cover rounded-lg" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white" />
+                          </div>
+                        </div>
                       ) : project.generated_video_url ? (
-                        <video
-                          src={project.generated_video_url}
-                          muted
-                          preload="metadata"
-                          className="w-24 h-16 object-cover rounded-lg bg-black"
-                          onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
-                          onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
-                        />
+                        <div className="relative">
+                          <video
+                            src={project.generated_video_url}
+                            muted
+                            preload="metadata"
+                            className="w-24 h-16 object-cover rounded-lg bg-black"
+                            onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
+                            onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white" />
+                          </div>
+                        </div>
                       ) : (
                         <div className="w-24 h-16 bg-muted rounded-lg flex items-center justify-center">
                           <Video className="w-5 h-5 text-muted-foreground" />
@@ -348,8 +396,18 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                           ) : (
                             <ImageIcon className="w-3 h-3" />
                           )}
-                          {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'Gen Thumbnail'}
+                          {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'AI Thumbnail'}
                         </Button>
+                        {project.generated_video_url && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => { setPreviewProject(project); setIsPlaying(false); }}
+                          >
+                            <Camera className="w-3 h-3" /> Freeze Frame
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -359,6 +417,49 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
           </div>
         </ScrollArea>
       )}
+
+      {/* Video Preview & Frame Capture Dialog */}
+      <Dialog open={!!previewProject} onOpenChange={(open) => { if (!open) setPreviewProject(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Watch & Capture Thumbnail Frame</DialogTitle>
+          </DialogHeader>
+          {previewProject?.generated_video_url && (
+            <div className="space-y-3">
+              <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                <video
+                  ref={previewVideoRef}
+                  src={previewProject.generated_video_url}
+                  className="w-full h-full object-contain"
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onEnded={() => setIsPlaying(false)}
+                  controls={false}
+                  crossOrigin="anonymous"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={togglePlayPause} className="gap-1.5 text-xs">
+                    {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    {isPlaying ? 'Pause' : 'Play'}
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground">Pause at the perfect moment, then capture</span>
+                </div>
+                <Button size="sm" variant="default" onClick={captureFrame} disabled={isPlaying} className="gap-1.5 text-xs">
+                  <Camera className="w-3.5 h-3.5" /> Capture Frame as Thumbnail
+                </Button>
+              </div>
+              {thumbnails[previewProject.id] && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Current Thumbnail</p>
+                  <img src={thumbnails[previewProject.id]} alt="Captured thumbnail" className="w-40 h-auto rounded-lg border border-border" />
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
