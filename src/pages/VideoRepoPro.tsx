@@ -40,6 +40,7 @@ import { stitchVideosWithAudio } from '@/lib/videoStitch';
 import { trimVideoToTimestamp } from '@/lib/canvasStitch';
 import ReactMarkdown from 'react-markdown';
 import { ContentCalendarTab } from '@/components/ContentCalendarTab';
+import { VideoRepoTimeline } from '@/components/VideoRepoTimeline';
 
 interface ChatMessage {
   id: string;
