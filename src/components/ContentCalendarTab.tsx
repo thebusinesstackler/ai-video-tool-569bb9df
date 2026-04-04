@@ -270,9 +270,11 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
               <Card key={project.id} className="glass">
                 <CardContent className="p-3">
                   <div className="flex gap-3">
-                    {/* Thumbnail */}
+                     {/* Thumbnail */}
                     <div className="flex-shrink-0">
-                      {project.product_image_url ? (
+                      {thumbnails[project.id] ? (
+                        <img src={thumbnails[project.id]} alt="Thumbnail" className="w-20 h-14 object-cover rounded-lg" />
+                      ) : project.product_image_url ? (
                         <img src={project.product_image_url} alt="" className="w-20 h-14 object-cover rounded-lg" />
                       ) : (
                         <div className="w-20 h-14 bg-muted rounded-lg flex items-center justify-center">
