@@ -145,11 +145,16 @@ export const Navigation = () => {
         />
         {!collapsed && (
           <span className={cn(
-            "font-medium transition-colors text-sm",
+            "font-medium transition-colors text-sm flex-1",
             isActive ? "text-primary" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
           )}>
             {item.name}
           </span>
+        )}
+        {!collapsed && item.beta && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20">
+            Beta
+          </Badge>
         )}
       </Link>
     );
