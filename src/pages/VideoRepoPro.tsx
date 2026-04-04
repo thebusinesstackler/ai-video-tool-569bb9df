@@ -336,7 +336,12 @@ const VideoRepoPro = () => {
     e.target.value = '';
   };
 
-  const analyzeAndGenerate = async () => {
+  // Check if text contains video prompt blocks
+  const hasVideoPrompts = (text: string) => {
+    return /```video-prompt-1\n/.test(text) && /```video-prompt-2\n/.test(text);
+  };
+
+  const analyzeReference = async () => {
     if (isExtractingFrames) {
       toast({ title: 'Reference video still processing', description: 'Please wait for frame extraction to finish.' });
       return;
@@ -344,22 +349,25 @@ const VideoRepoPro = () => {
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt && !referenceVideoUrl && !productImageUrl) return;
 
-    let persistentVideoUrl: string | null = null;
-    let persistentImageUrl: string | null = null;
+    let pVideoUrl: string | null = null;
+    let pImageUrl: string | null = null;
 
     try {
       if (referenceVideoFile) {
-        persistentVideoUrl = await uploadFileToStorage(referenceVideoFile, 'videos');
+        pVideoUrl = await uploadFileToStorage(referenceVideoFile, 'videos');
       } else if (referenceVideoUrl && !referenceVideoUrl.startsWith('blob:')) {
-        persistentVideoUrl = referenceVideoUrl;
+        pVideoUrl = referenceVideoUrl;
       }
       if (productImageFile) {
-        persistentImageUrl = await uploadFileToStorage(productImageFile, 'images');
+        pImageUrl = await uploadFileToStorage(productImageFile, 'images');
       }
     } catch (err: any) {
       console.error('Upload error:', err);
       toast({ title: 'File upload failed', description: err.message, variant: 'destructive' });
     }
+
+    setPersistentVideoUrl(pVideoUrl);
+    setPersistentImageUrl(pImageUrl);
 
     let projectId: string | null = null;
     if (user) {
@@ -369,8 +377,8 @@ const VideoRepoPro = () => {
           .insert({
             user_id: user.id,
             prompt: `[PRO] ${trimmedPrompt || 'Analyze reference and generate 30s ad'}`,
-            reference_video_url: persistentVideoUrl,
-            product_image_url: persistentImageUrl,
+            reference_video_url: pVideoUrl,
+            product_image_url: pImageUrl,
             status: 'analyzing',
           })
           .select('id')
@@ -381,6 +389,7 @@ const VideoRepoPro = () => {
         console.error('DB insert error:', err);
       }
     }
+    setCurrentProjectId(projectId);
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -416,7 +425,9 @@ const VideoRepoPro = () => {
       }
 
       const formatLabel = aspectRatio === '9:16' ? 'vertical reel (9:16)' : 'horizontal landscape (16:9)';
-      const systemPrompt = `You are a UGC ad video strategist creating FULL 30-SECOND videos in ${formatLabel} format. You must split the ad into exactly TWO segments that will be generated separately and stitched together seamlessly.
+      const systemPrompt = `You are an AI Script Director for UGC ad videos. You help filmmakers craft and refine scripts for FULL 30-SECOND videos in ${formatLabel} format. You split ads into exactly TWO segments that will be generated separately and stitched together seamlessly.
+
+Your personality: Warm, experienced, collaborative. You speak like a veteran ad creative director. You welcome feedback and iterate on scripts.
 
 CRITICAL RULES:
 - The total ad is 30 seconds, split into Segment 1 (~15s) and Segment 2 (~15s)
@@ -424,7 +435,8 @@ CRITICAL RULES:
 - Segment 2 MUST visually continue from where Segment 1 ends — same character, same environment, continuous action
 - Each segment prompt must be 80-150 words with full cinematic detail
 - Include explicit transition instructions: Segment 1's final frame should set up Segment 2's opening frame
-- You MUST also provide a narration script that will be read as voiceover over the full 30-second video`;
+- You MUST also provide a narration script that will be read as voiceover over the full 30-second video
+- ALWAYS include the video-prompt-1, video-prompt-2, and narration code blocks in your response so the user can generate when ready`;
 
       const analysisInstruction = `User request: "${userMsg.content}"
 
@@ -449,11 +461,13 @@ Then provide TWO video prompt blocks — one per segment:
 [Segment 2: 15-30 seconds. Detailed video generation prompt — 80-150 words. This segment starts EXACTLY where Segment 1 ends — same character, same environment, continuous motion. Covers the SOLUTION/PRODUCT SHOWCASE and CTA. Include the closing action and call-to-action.]
 \`\`\`
 
-And finally, provide the voiceover narration script that will be read over the entire 30-second video. Write it as natural, conversational speech — no stage directions, no character names, no brackets. Just the words to be spoken aloud:
+And finally, provide the voiceover narration script:
 
 \`\`\`narration
 [The full voiceover script for the 30-second ad. 60-90 words. Conversational, punchy, direct. Should complement the visuals without describing them literally.]
-\`\`\``;
+\`\`\`
+
+After providing the script, let the user know they can give feedback to refine it, or hit "Generate Video" when they're happy with it.`;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
 
@@ -479,7 +493,7 @@ And finally, provide the voiceover narration script that will be read over the e
       const analysisText = aiData.response;
 
       if (projectId) {
-        await supabase.from('video_repo_projects').update({ analysis_text: analysisText, status: 'generating' }).eq('id', projectId);
+        await supabase.from('video_repo_projects').update({ analysis_text: analysisText, status: 'analyzed' as any }).eq('id', projectId);
       }
 
       const assistantMsg: ChatMessage = {
@@ -488,29 +502,130 @@ And finally, provide the voiceover narration script that will be read over the e
         content: analysisText,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+      setLatestAnalysisText(analysisText);
+      if (hasVideoPrompts(analysisText)) {
+        setHasAnalysis(true);
+      }
       setIsAnalyzing(false);
+    } catch (err: any) {
+      console.error('[VideoRepoPro] Analysis error:', err);
+      if (projectId) {
+        await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
+      }
+      toast({ title: 'Analysis failed', description: err.message, variant: 'destructive' });
+      const errorMsg: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: `❌ ${err.message}. Please try again.`,
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+      setIsAnalyzing(false);
+    }
+  };
 
-      // Extract TWO video prompts
-      const prompt1Match = analysisText.match(/```video-prompt-1\n([\s\S]*?)```/);
-      const prompt2Match = analysisText.match(/```video-prompt-2\n([\s\S]*?)```/);
+  // Follow-up chat with AI Script Director
+  const handleFollowUp = async () => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt || isChatting) return;
 
-      if (prompt1Match && prompt2Match) {
-        let videoPrompt1 = prompt1Match[1].trim();
-        let videoPrompt2 = prompt2Match[1].trim();
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmedPrompt,
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setPrompt('');
+    setIsChatting(true);
+    scrollToBottom('auto');
 
-        // --- AI Script Pacing Agent ---
-        // Review each segment's narration for word count vs duration (~2.5 words/sec for Sora-2)
-        try {
-          setGenerationProgress('AI Agent reviewing script pacing...');
-          const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
-          const fullNarration = narrationMatch ? narrationMatch[1].trim() : '';
+    try {
+      const formatLabel = aspectRatio === '9:16' ? 'vertical reel (9:16)' : 'horizontal landscape (16:9)';
+      const systemPrompt = `You are an AI Script Director for UGC ad videos. You're in a collaborative session helping refine a 30-second ${formatLabel} ad script.
 
-          const { data: pacingData, error: pacingError } = await supabase.functions.invoke('ai', {
-            body: {
-              messages: [
-                {
-                  role: 'system',
-                  content: `You are a script pacing QA agent. Your job is to ensure video generation prompts and narrations fit within Sora-2's timing constraints.
+RULES:
+- Listen to user feedback and revise the script accordingly
+- ALWAYS include updated video-prompt-1, video-prompt-2, and narration code blocks when you make script changes
+- Keep segment timing at ~15s each (total 30s)
+- Maintain continuity between segments
+- Be collaborative, warm, and constructive
+- If the user asks questions about the script, answer helpfully
+- Each segment prompt must be 80-150 words with full cinematic detail`;
+
+      // Build conversation history for context
+      const aiMessages: any[] = [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: trimmedPrompt },
+      ];
+
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
+        body: { messages: aiMessages },
+      });
+
+      if (aiError) throw new Error(aiError.message || 'AI chat failed');
+      if (!aiData?.response) throw new Error('No response from AI');
+
+      const responseText = aiData.response;
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: responseText,
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+
+      // Update latest analysis if it contains video prompts
+      if (hasVideoPrompts(responseText)) {
+        setLatestAnalysisText(responseText);
+        setHasAnalysis(true);
+      }
+    } catch (err: any) {
+      console.error('[VideoRepoPro] Follow-up error:', err);
+      const errorMsg: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: `❌ ${err.message}. Please try again.`,
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsChatting(false);
+    }
+  };
+
+  // Generate video from the latest approved script
+  const generateFromScript = async () => {
+    if (!latestAnalysisText || !hasAnalysis) return;
+
+    const analysisText = latestAnalysisText;
+    const projectId = currentProjectId;
+
+    if (projectId) {
+      await supabase.from('video_repo_projects').update({ analysis_text: analysisText, status: 'generating' }).eq('id', projectId);
+    }
+
+    // Extract TWO video prompts
+    const prompt1Match = analysisText.match(/```video-prompt-1\n([\s\S]*?)```/);
+    const prompt2Match = analysisText.match(/```video-prompt-2\n([\s\S]*?)```/);
+
+    if (!prompt1Match || !prompt2Match) {
+      toast({ title: 'No video prompts found', description: 'Ask the AI to include video-prompt blocks.', variant: 'destructive' });
+      return;
+    }
+
+    let videoPrompt1 = prompt1Match[1].trim();
+    let videoPrompt2 = prompt2Match[1].trim();
+
+    // --- AI Script Pacing Agent ---
+    try {
+      setGenerationProgress('AI Agent reviewing script pacing...');
+      const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
+      const fullNarration = narrationMatch ? narrationMatch[1].trim() : '';
+
+      const { data: pacingData, error: pacingError } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are a script pacing QA agent. Your job is to ensure video generation prompts and narrations fit within Sora-2's timing constraints.
 
 RULES:
 - Speaking rate is ~2.5 words/second
@@ -538,10 +653,10 @@ RESPOND IN EXACTLY THIS FORMAT (no extra text):
 \`\`\`
 
 If everything is already fine, return them unchanged.`
-                },
-                {
-                  role: 'user',
-                  content: `Review these for pacing issues:
+            },
+            {
+              role: 'user',
+              content: `Review these for pacing issues:
 
 VIDEO PROMPT 1:
 ${videoPrompt1}
@@ -553,300 +668,268 @@ FULL NARRATION:
 ${fullNarration}
 
 Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per segment). Fix any issues.`
-                }
-              ],
-            },
-          });
-
-          if (!pacingError && pacingData?.response) {
-            const reviewed = pacingData.response;
-            const rp1 = reviewed.match(/```video-prompt-1\n([\s\S]*?)```/);
-            const rp2 = reviewed.match(/```video-prompt-2\n([\s\S]*?)```/);
-            if (rp1 && rp2) {
-              videoPrompt1 = rp1[1].trim();
-              videoPrompt2 = rp2[1].trim();
-              console.log('[VideoRepoPro] AI Pacing Agent revised prompts');
             }
-          }
-        } catch (pacingErr) {
-          console.warn('[VideoRepoPro] Pacing review failed, using original prompts:', pacingErr);
-        }
+          ],
+        },
+      });
 
-        if (projectId) {
-          await supabase.from('video_repo_projects').update({
-            video_prompt: `SEGMENT 1:\n${videoPrompt1}\n\nSEGMENT 2:\n${videoPrompt2}`,
-          }).eq('id', projectId);
-        }
-
-        setIsGenerating(true);
-
-        const generatingMsg: ChatMessage = {
-          id: `assistant-gen-${Date.now()}`,
-          role: 'assistant',
-          content: '🎬 Generating TWO video segments with Sora-2 in parallel... Each segment is up to 20 seconds. They will be stitched into a seamless 30-second video.',
-        };
-        setMessages((prev) => [...prev, generatingMsg]);
-
-        let segment1Url: string | null = null;
-        let segment2Url: string | null = null;
-
-        try {
-          // Launch both segments in parallel
-          setGenerationProgress('Starting Segment 1 & 2 generation...');
-
-          const [taskId1, taskId2] = await Promise.all([
-            createWaveSpeedVideo({
-              prompt: videoPrompt1,
-              model: 'sora-2',
-              aspectRatio,
-              duration: 20,
-              userId: user?.id,
-              source: 'video-repo-pro',
-              ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-            }),
-            createWaveSpeedVideo({
-              prompt: videoPrompt2,
-              model: 'sora-2',
-              aspectRatio,
-              duration: 20,
-              userId: user?.id,
-              source: 'video-repo-pro',
-              ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-            }),
-          ]);
-
-          // Poll both in parallel
-          let attempts = 0;
-          const maxAttempts = 150; // ~12.5 minutes
-
-          while (attempts < maxAttempts && (!segment1Url || !segment2Url)) {
-            await new Promise((r) => setTimeout(r, 5000));
-
-            const [job1, job2] = await Promise.all([
-              segment1Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId1),
-              segment2Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId2),
-            ]);
-
-            if (job1?.status === 'completed' && job1.videoUrl) {
-              segment1Url = job1.videoUrl;
-              setGenerationProgress(segment2Url ? 'Both segments ready!' : 'Segment 1 ready ✓ — waiting for Segment 2...');
-            }
-            if (job1?.status === 'failed') throw new Error(`Segment 1 failed: ${job1.error || 'Unknown error'}`);
-
-            if (job2?.status === 'completed' && job2.videoUrl) {
-              segment2Url = job2.videoUrl;
-              setGenerationProgress(segment1Url ? 'Both segments ready!' : 'Segment 2 ready ✓ — waiting for Segment 1...');
-            }
-            if (job2?.status === 'failed') throw new Error(`Segment 2 failed: ${job2.error || 'Unknown error'}`);
-
-            if (!segment1Url && !segment2Url) {
-              setGenerationProgress(`Generating both segments... (${Math.round((attempts / maxAttempts) * 100)}%)`);
-            }
-
-            attempts++;
-          }
-
-          if (!segment1Url || !segment2Url) {
-            throw new Error('Video generation timed out. One or both segments did not complete.');
-          }
-
-          // Stitch the two segments together
-          setIsGenerating(false);
-          setIsStitching(true);
-          setGenerationProgress('Stitching segments into one seamless video...');
-
-          if (projectId) {
-            await supabase.from('video_repo_projects').update({ status: 'stitching' as any }).eq('id', projectId);
-          }
-
-          // Sora-2 clips already include native voiceover — no separate TTS needed
-
-          // Download videos as blobs, analyze audio for cutoffs, and trim if needed
-          setGenerationProgress('Downloading clips for analysis...');
-          const blobUrls: string[] = [];
-          const segmentUrls = [segment1Url, segment2Url];
-
-          for (let i = 0; i < segmentUrls.length; i++) {
-            const segUrl = segmentUrls[i];
-            setGenerationProgress(`Downloading clip ${i + 1}...`);
-            const resp = await fetch(segUrl);
-            if (!resp.ok) throw new Error(`Failed to download segment ${i + 1}: ${resp.status}`);
-            let blob = await resp.blob();
-
-            // Analyze audio for abrupt cutoff using AI
-            try {
-              setGenerationProgress(`Analyzing clip ${i + 1} audio for clean ending...`);
-              // Upload the segment temporarily so the edge function can access it
-              const tempUrl = await uploadBlobToStorage(blob, 'temp-analysis', 'mp4');
-
-              const { data: trimData, error: trimError } = await supabase.functions.invoke('analyze-audio-trim', {
-                body: { videoUrl: tempUrl },
-              });
-
-              if (trimError) {
-                console.warn(`[VideoRepoPro] Audio analysis failed for clip ${i + 1}:`, trimError);
-              } else if (trimData?.hasCutoff && trimData.trimTimestamp > 0) {
-                setGenerationProgress(`Trimming clip ${i + 1} to clean ending at ${trimData.trimTimestamp.toFixed(1)}s...`);
-                console.log(`[VideoRepoPro] Clip ${i + 1}: trimming to ${trimData.trimTimestamp}s — ${trimData.reason}`);
-                const trimmedBlob = await trimVideoToTimestamp(blob, trimData.trimTimestamp, (pct) => {
-                  setGenerationProgress(`Trimming clip ${i + 1}... ${pct}%`);
-                });
-                blob = trimmedBlob;
-
-                // Auto-extend the trimmed clip using Wan 2.5 Video Extend to recover lost content
-                try {
-                  const originalDuration = 20; // Sora-2 target duration
-                  const lostSeconds = originalDuration - trimData.trimTimestamp;
-                  if (lostSeconds >= 3) {
-                    setGenerationProgress(`Extending clip ${i + 1} by ${Math.round(lostSeconds)}s to recover trimmed content...`);
-                    const trimmedUrl = await uploadBlobToStorage(blob, 'trimmed-for-extend', 'mp4');
-
-                    const { data: extendResult, error: extendError } = await supabase.functions.invoke('wavespeed-video', {
-                      body: {
-                        action: 'create',
-                        model: 'alibaba/wan-2.5/video-extend',
-                        videoUrl: trimmedUrl,
-                        prompt: 'Continue the scene naturally — same character, same environment, smooth cinematic motion. Maintain the same speaking style and energy.',
-                        duration: Math.min(10, Math.round(lostSeconds)),
-                      },
-                    });
-
-                    if (!extendError && extendResult?.taskId) {
-                      let extendAttempts = 0;
-                      const maxExtendAttempts = 60;
-                      while (extendAttempts < maxExtendAttempts) {
-                        await new Promise(r => setTimeout(r, 5000));
-                        const extJob = await getWaveSpeedVideoJob(extendResult.taskId);
-                        if (extJob.status === 'completed' && extJob.videoUrl) {
-                          setGenerationProgress(`Clip ${i + 1} extended successfully ✓`);
-                          const extResp = await fetch(extJob.videoUrl);
-                          if (extResp.ok) {
-                            blob = await extResp.blob();
-                            console.log(`[VideoRepoPro] Clip ${i + 1}: extended by ${Math.round(lostSeconds)}s`);
-                          }
-                          break;
-                        }
-                        if (extJob.status === 'failed') {
-                          console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}:`, extJob.error);
-                          break;
-                        }
-                        extendAttempts++;
-                        setGenerationProgress(`Extending clip ${i + 1}... (${Math.round((extendAttempts / maxExtendAttempts) * 100)}%)`);
-                      }
-                    }
-                  } else {
-                    console.log(`[VideoRepoPro] Clip ${i + 1}: only lost ${lostSeconds.toFixed(1)}s — too short to extend`);
-                  }
-                } catch (extendErr) {
-                  console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}, using trimmed version:`, extendErr);
-                }
-              } else {
-                console.log(`[VideoRepoPro] Clip ${i + 1}: audio ends cleanly — no trim needed`);
-              }
-            } catch (trimErr) {
-              console.warn(`[VideoRepoPro] Audio trim step failed for clip ${i + 1}, using original:`, trimErr);
-            }
-
-            blobUrls.push(URL.createObjectURL(blob));
-          }
-
-          const stitchedBlob = await stitchVideosWithAudio({
-            videoUrls: blobUrls,
-            embeddedAudioIndices: [0, 1],
-            audioUrls: [],
-            onProgress: (pct) => setGenerationProgress(`Stitching... ${pct}%`),
-          });
-
-          // Clean up blob URLs
-          blobUrls.forEach(u => URL.revokeObjectURL(u));
-
-          // Upload the final stitched video
-          const finalVideoUrl = await uploadBlobToStorage(stitchedBlob, 'stitched');
-
-          if (projectId) {
-            await supabase.from('video_repo_projects').update({
-              generated_video_url: finalVideoUrl,
-              status: 'completed',
-            }).eq('id', projectId);
-          }
-
-          if (user) {
-            await supabase.from('generated_images').insert({
-              user_id: user.id,
-              image_url: finalVideoUrl,
-              prompt: `[PRO 30s] ${videoPrompt1.substring(0, 100)}...`,
-              source: 'video-repo-pro',
-              reference_image_url: persistentImageUrl,
-            });
-          }
-
-          const resultMsg: ChatMessage = {
-            id: `result-${Date.now()}`,
-            role: 'assistant',
-            content: '✅ Your full 30-second UGC ad video is ready! Two segments have been stitched into one seamless video.',
-            videoResult: { url: finalVideoUrl, status: 'completed' },
-          };
-          setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
-          fetchHistory();
-        } catch (genErr: any) {
-          if (projectId) {
-            await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
-          }
-
-          // Build segment download links if we have individual segment URLs
-          const segmentLinks: string[] = [];
-          if (segment1Url) segmentLinks.push(segment1Url);
-          if (segment2Url) segmentLinks.push(segment2Url);
-
-          let errorContent = `⚠️ Video stitching failed: ${genErr.message}\n\n`;
-          if (segmentLinks.length > 0) {
-            errorContent += `Your individual segments were generated successfully. You can download them separately and combine them in any video editor:\n`;
-            segmentLinks.forEach((url, idx) => {
-              errorContent += `\n- [Download Segment ${idx + 1}](${url})`;
-            });
-          } else {
-            errorContent += 'You can retry or copy the video prompts above and try again.';
-          }
-
-          const errorMsg: ChatMessage = {
-            id: `error-${Date.now()}`,
-            role: 'assistant',
-            content: errorContent,
-            retryable: true,
-          };
-          setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
-        }
-        setIsGenerating(false);
-        setIsStitching(false);
-        setGenerationProgress('');
-      } else {
-        // Fallback: try single video-prompt block
-        const singleMatch = analysisText.match(/```video-prompt\n([\s\S]*?)```/);
-        if (singleMatch) {
-          toast({ title: 'Single segment detected', description: 'AI returned one segment instead of two. Generating as a single clip.' });
-        }
-        if (projectId) {
-          await supabase.from('video_repo_projects').update({ status: 'completed' }).eq('id', projectId);
+      if (!pacingError && pacingData?.response) {
+        const reviewed = pacingData.response;
+        const rp1 = reviewed.match(/```video-prompt-1\n([\s\S]*?)```/);
+        const rp2 = reviewed.match(/```video-prompt-2\n([\s\S]*?)```/);
+        if (rp1 && rp2) {
+          videoPrompt1 = rp1[1].trim();
+          videoPrompt2 = rp2[1].trim();
+          console.log('[VideoRepoPro] AI Pacing Agent revised prompts');
         }
       }
+    } catch (pacingErr) {
+      console.warn('[VideoRepoPro] Pacing review failed, using original prompts:', pacingErr);
+    }
+
+    if (projectId) {
+      await supabase.from('video_repo_projects').update({
+        video_prompt: `SEGMENT 1:\n${videoPrompt1}\n\nSEGMENT 2:\n${videoPrompt2}`,
+      }).eq('id', projectId);
+    }
+
+    setIsGenerating(true);
+
+    const generatingMsg: ChatMessage = {
+      id: `assistant-gen-${Date.now()}`,
+      role: 'assistant',
+      content: '🎬 Generating TWO video segments with Sora-2 in parallel... Each segment is up to 20 seconds. They will be stitched into a seamless 30-second video.',
+    };
+    setMessages((prev) => [...prev, generatingMsg]);
+
+    let segment1Url: string | null = null;
+    let segment2Url: string | null = null;
+
+    try {
+      setGenerationProgress('Starting Segment 1 & 2 generation...');
+
+      const [taskId1, taskId2] = await Promise.all([
+        createWaveSpeedVideo({
+          prompt: videoPrompt1,
+          model: 'sora-2',
+          aspectRatio,
+          duration: 20,
+          userId: user?.id,
+          source: 'video-repo-pro',
+          ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
+        }),
+        createWaveSpeedVideo({
+          prompt: videoPrompt2,
+          model: 'sora-2',
+          aspectRatio,
+          duration: 20,
+          userId: user?.id,
+          source: 'video-repo-pro',
+          ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
+        }),
+      ]);
+
+      let attempts = 0;
+      const maxAttempts = 150;
+
+      while (attempts < maxAttempts && (!segment1Url || !segment2Url)) {
+        await new Promise((r) => setTimeout(r, 5000));
+
+        const [job1, job2] = await Promise.all([
+          segment1Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId1),
+          segment2Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId2),
+        ]);
+
+        if (job1?.status === 'completed' && job1.videoUrl) {
+          segment1Url = job1.videoUrl;
+          setGenerationProgress(segment2Url ? 'Both segments ready!' : 'Segment 1 ready ✓ — waiting for Segment 2...');
+        }
+        if (job1?.status === 'failed') throw new Error(`Segment 1 failed: ${job1.error || 'Unknown error'}`);
+
+        if (job2?.status === 'completed' && job2.videoUrl) {
+          segment2Url = job2.videoUrl;
+          setGenerationProgress(segment1Url ? 'Both segments ready!' : 'Segment 2 ready ✓ — waiting for Segment 1...');
+        }
+        if (job2?.status === 'failed') throw new Error(`Segment 2 failed: ${job2.error || 'Unknown error'}`);
+
+        if (!segment1Url && !segment2Url) {
+          setGenerationProgress(`Generating both segments... (${Math.round((attempts / maxAttempts) * 100)}%)`);
+        }
+
+        attempts++;
+      }
+
+      if (!segment1Url || !segment2Url) {
+        throw new Error('Video generation timed out. One or both segments did not complete.');
+      }
+
+      setIsGenerating(false);
+      setIsStitching(true);
+      setGenerationProgress('Stitching segments into one seamless video...');
+
+      if (projectId) {
+        await supabase.from('video_repo_projects').update({ status: 'stitching' as any }).eq('id', projectId);
+      }
+
+      setGenerationProgress('Downloading clips for analysis...');
+      const blobUrls: string[] = [];
+      const segmentUrls = [segment1Url, segment2Url];
+
+      for (let i = 0; i < segmentUrls.length; i++) {
+        const segUrl = segmentUrls[i];
+        setGenerationProgress(`Downloading clip ${i + 1}...`);
+        const resp = await fetch(segUrl);
+        if (!resp.ok) throw new Error(`Failed to download segment ${i + 1}: ${resp.status}`);
+        let blob = await resp.blob();
+
+        try {
+          setGenerationProgress(`Analyzing clip ${i + 1} audio for clean ending...`);
+          const tempUrl = await uploadBlobToStorage(blob, 'temp-analysis', 'mp4');
+
+          const { data: trimData, error: trimError } = await supabase.functions.invoke('analyze-audio-trim', {
+            body: { videoUrl: tempUrl },
+          });
+
+          if (trimError) {
+            console.warn(`[VideoRepoPro] Audio analysis failed for clip ${i + 1}:`, trimError);
+          } else if (trimData?.hasCutoff && trimData.trimTimestamp > 0) {
+            setGenerationProgress(`Trimming clip ${i + 1} to clean ending at ${trimData.trimTimestamp.toFixed(1)}s...`);
+            console.log(`[VideoRepoPro] Clip ${i + 1}: trimming to ${trimData.trimTimestamp}s — ${trimData.reason}`);
+            const trimmedBlob = await trimVideoToTimestamp(blob, trimData.trimTimestamp, (pct) => {
+              setGenerationProgress(`Trimming clip ${i + 1}... ${pct}%`);
+            });
+            blob = trimmedBlob;
+
+            try {
+              const originalDuration = 20;
+              const lostSeconds = originalDuration - trimData.trimTimestamp;
+              if (lostSeconds >= 3) {
+                setGenerationProgress(`Extending clip ${i + 1} by ${Math.round(lostSeconds)}s to recover trimmed content...`);
+                const trimmedUrl = await uploadBlobToStorage(blob, 'trimmed-for-extend', 'mp4');
+
+                const { data: extendResult, error: extendError } = await supabase.functions.invoke('wavespeed-video', {
+                  body: {
+                    action: 'create',
+                    model: 'alibaba/wan-2.5/video-extend',
+                    videoUrl: trimmedUrl,
+                    prompt: 'Continue the scene naturally — same character, same environment, smooth cinematic motion. Maintain the same speaking style and energy.',
+                    duration: Math.min(10, Math.round(lostSeconds)),
+                  },
+                });
+
+                if (!extendError && extendResult?.taskId) {
+                  let extendAttempts = 0;
+                  const maxExtendAttempts = 60;
+                  while (extendAttempts < maxExtendAttempts) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    const extJob = await getWaveSpeedVideoJob(extendResult.taskId);
+                    if (extJob.status === 'completed' && extJob.videoUrl) {
+                      setGenerationProgress(`Clip ${i + 1} extended successfully ✓`);
+                      const extResp = await fetch(extJob.videoUrl);
+                      if (extResp.ok) {
+                        blob = await extResp.blob();
+                        console.log(`[VideoRepoPro] Clip ${i + 1}: extended by ${Math.round(lostSeconds)}s`);
+                      }
+                      break;
+                    }
+                    if (extJob.status === 'failed') {
+                      console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}:`, extJob.error);
+                      break;
+                    }
+                    extendAttempts++;
+                    setGenerationProgress(`Extending clip ${i + 1}... (${Math.round((extendAttempts / maxExtendAttempts) * 100)}%)`);
+                  }
+                }
+              } else {
+                console.log(`[VideoRepoPro] Clip ${i + 1}: only lost ${lostSeconds.toFixed(1)}s — too short to extend`);
+              }
+            } catch (extendErr) {
+              console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}, using trimmed version:`, extendErr);
+            }
+          } else {
+            console.log(`[VideoRepoPro] Clip ${i + 1}: audio ends cleanly — no trim needed`);
+          }
+        } catch (trimErr) {
+          console.warn(`[VideoRepoPro] Audio trim step failed for clip ${i + 1}, using original:`, trimErr);
+        }
+
+        blobUrls.push(URL.createObjectURL(blob));
+      }
+
+      const stitchedBlob = await stitchVideosWithAudio({
+        videoUrls: blobUrls,
+        embeddedAudioIndices: [0, 1],
+        audioUrls: [],
+        onProgress: (pct) => setGenerationProgress(`Stitching... ${pct}%`),
+      });
+
+      blobUrls.forEach(u => URL.revokeObjectURL(u));
+
+      const finalVideoUrl = await uploadBlobToStorage(stitchedBlob, 'stitched');
+
+      if (projectId) {
+        await supabase.from('video_repo_projects').update({
+          generated_video_url: finalVideoUrl,
+          status: 'completed',
+        }).eq('id', projectId);
+      }
+
+      if (user) {
+        await supabase.from('generated_images').insert({
+          user_id: user.id,
+          image_url: finalVideoUrl,
+          prompt: `[PRO 30s] ${videoPrompt1.substring(0, 100)}...`,
+          source: 'video-repo-pro',
+          reference_image_url: persistentImageUrl,
+        });
+      }
+
+      const resultMsg: ChatMessage = {
+        id: `result-${Date.now()}`,
+        role: 'assistant',
+        content: '✅ Your full 30-second UGC ad video is ready! Two segments have been stitched into one seamless video.',
+        videoResult: { url: finalVideoUrl, status: 'completed' },
+      };
+      setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
       fetchHistory();
-    } catch (err: any) {
-      console.error('[VideoRepoPro] Analysis error:', err);
+    } catch (genErr: any) {
       if (projectId) {
         await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
       }
-      toast({ title: 'Analysis failed', description: err.message, variant: 'destructive' });
+
+      const segmentLinks: string[] = [];
+      if (segment1Url) segmentLinks.push(segment1Url);
+      if (segment2Url) segmentLinks.push(segment2Url);
+
+      let errorContent = `⚠️ Video stitching failed: ${genErr.message}\n\n`;
+      if (segmentLinks.length > 0) {
+        errorContent += `Your individual segments were generated successfully. You can download them separately and combine them in any video editor:\n`;
+        segmentLinks.forEach((url, idx) => {
+          errorContent += `\n- [Download Segment ${idx + 1}](${url})`;
+        });
+      } else {
+        errorContent += 'You can retry or copy the video prompts above and try again.';
+      }
+
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: `❌ ${err.message}. Please try again.`,
+        content: errorContent,
+        retryable: true,
       };
-      setMessages((prev) => [...prev, errorMsg]);
-      setIsAnalyzing(false);
-      setIsGenerating(false);
-      setIsStitching(false);
-      setGenerationProgress('');
-      fetchHistory();
+      setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
+    }
+    setIsGenerating(false);
+    setIsStitching(false);
+    setGenerationProgress('');
+    fetchHistory();
+  };
+
+  const handleSubmit = () => {
+    if (hasAnalysis && prompt.trim()) {
+      handleFollowUp();
+    } else {
+      analyzeReference();
     }
   };
 
