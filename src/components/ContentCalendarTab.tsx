@@ -226,22 +226,29 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
       .lbl{font-size:10px;text-transform:uppercase;color:#9ca3af;margin-bottom:3px;letter-spacing:.5px}
       .script{background:#f9fafb;padding:10px;border-radius:8px;font-size:12px;line-height:1.6;white-space:pre-wrap;margin-bottom:10px}
       .meta{font-size:11px;color:#6b7280}
-      .thumb{width:120px;height:80px;object-fit:cover;border-radius:8px;margin-right:14px;float:left;background:#000}
-      .video-link{display:inline-block;background:#7c3aed;color:white;padding:4px 12px;border-radius:6px;font-size:11px;text-decoration:none;margin-top:4px}
-      @media print{.item{break-inside:avoid}}
+      .thumb-container{margin-bottom:12px;text-align:center}
+      .thumb{width:100%;max-width:320px;height:auto;aspect-ratio:9/16;object-fit:cover;border-radius:10px;background:#000;border:1px solid #e5e7eb}
+      .video-link{display:inline-flex;align-items:center;gap:6px;background:#7c3aed;color:white;padding:8px 18px;border-radius:8px;font-size:13px;text-decoration:none;margin-top:8px;font-weight:600}
+      .video-link:hover{background:#6d28d9}
+      .video-url{display:block;font-size:10px;color:#9ca3af;word-break:break-all;margin-top:4px}
+      @media print{.item{break-inside:avoid}.video-link{background:#7c3aed!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
     </style></head><body>
     <h1>📅 Content Calendar – ${label}</h1>
     <p class="sub">Generated ${new Date().toLocaleDateString()} • ${items.length} videos</p>
     ${items.map((p, i) => {
       const schedule = POSTING_SCHEDULE[i % POSTING_SCHEDULE.length];
       const thumbSrc = thumbnails[p.id] || null;
+      const videoUrl = p.generated_video_url || '';
       return `<div class="item">
         <div class="row"><span class="badge">${assignments[p.id] || 'Uncategorized'}</span><div class="sched">📅 ${schedule.day} at ${schedule.time}</div></div>
-        ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="" />` : p.generated_video_url ? `<video class="thumb" src="${p.generated_video_url}" muted preload="metadata"></video>` : ''}
+        <div class="thumb-container">
+          ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="Video thumbnail" />` : videoUrl ? `<video class="thumb" src="${videoUrl}" muted preload="metadata"></video>` : ''}
+          ${videoUrl ? `<br/><a class="video-link" href="${videoUrl}" target="_blank" rel="noopener noreferrer">▶ Watch Full Video</a><span class="video-url">${videoUrl}</span>` : ''}
+        </div>
         <div class="hook">${extractHook(p)}</div>
         <div class="lbl">Script</div>
         <div class="script">${extractScript(p) || 'No script available'}</div>
-        <div class="meta">Created: ${new Date(p.created_at).toLocaleDateString()} ${p.generated_video_url ? `• <a class="video-link" href="${p.generated_video_url}" target="_blank">▶ Watch Video</a>` : ''}</div>
+        <div class="meta">Created: ${new Date(p.created_at).toLocaleDateString()}</div>
       </div>`;
     }).join('')}
     </body></html>`;
