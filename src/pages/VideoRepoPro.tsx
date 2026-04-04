@@ -1319,10 +1319,10 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   {historyProjects.map((project) => (
                     <Card
                       key={project.id}
-                      className="overflow-hidden cursor-pointer hover:border-orange-500/40 transition-colors group"
+                      className={`overflow-hidden cursor-pointer hover:border-orange-500/40 transition-colors group ${project.is_favorite ? 'ring-1 ring-amber-400/50' : ''}`}
                       onClick={() => setSelectedProject(project)}
                     >
-                      <div className="grid grid-cols-2 aspect-video">
+                      <div className="grid grid-cols-2 aspect-video relative">
                         {project.reference_video_url ? (
                           <video src={project.reference_video_url} className="w-full h-full object-cover" muted preload="metadata" />
                         ) : (
@@ -1341,6 +1341,12 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             )}
                           </div>
                         )}
+                        <button
+                          onClick={(e) => toggleFavorite(project, e)}
+                          className="absolute top-2 right-2 p-1 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                        >
+                          <Star className={`w-4 h-4 ${project.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-white/70'}`} />
+                        </button>
                       </div>
                       <CardContent className="p-3 space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -1352,7 +1358,52 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             {new Date(project.created_at).toLocaleDateString()}
                           </span>
                         </div>
-                        <p className="text-xs text-foreground line-clamp-2">{project.prompt || 'No prompt'}</p>
+                        {editingNameId === project.id ? (
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              value={editNameValue}
+                              onChange={(e) => setEditNameValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveRename(project.id); if (e.key === 'Escape') setEditingNameId(null); }}
+                              className="h-6 text-xs"
+                              autoFocus
+                            />
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => saveRename(project.id)}>
+                              <Check className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-foreground line-clamp-2">{project.custom_name || project.prompt || 'No prompt'}</p>
+                        )}
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => startRename(project, e)}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Rename</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => remakeWithEdits(project, e)}>
+                                <RotateCcw className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Remake with edits</TooltipContent>
+                          </Tooltip>
+                          {project.generated_video_url && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-6 w-6" asChild>
+                                  <a href={project.generated_video_url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                    <Download className="w-3 h-3" />
+                                  </a>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Download</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
