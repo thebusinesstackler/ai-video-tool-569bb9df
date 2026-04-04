@@ -1022,7 +1022,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-4rem)] max-w-6xl mx-auto flex-col overflow-hidden">
+      <div className={`flex max-w-6xl mx-auto flex-col ${mainTab === 'create' ? 'h-[calc(100vh-4rem)] overflow-hidden' : ''}`}>
         <div className="text-center py-3 md:py-5 px-4">
           <div className="flex items-center justify-center gap-2 mb-1">
             <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
@@ -1245,7 +1245,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             ) : null}
           </TabsContent>
 
-          <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
+          <TabsContent value="history" className="flex-1 px-4 mt-4 pb-24">
             <div className="max-w-4xl mx-auto space-y-4">
               {isLoadingHistory ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
