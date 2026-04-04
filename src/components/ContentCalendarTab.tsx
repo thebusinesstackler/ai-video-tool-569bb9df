@@ -270,14 +270,21 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
               <Card key={project.id} className="glass">
                 <CardContent className="p-3">
                   <div className="flex gap-3">
-                     {/* Thumbnail */}
-                    <div className="flex-shrink-0">
+                     {/* Video Preview */}
+                    <div className="flex-shrink-0 relative group">
                       {thumbnails[project.id] ? (
-                        <img src={thumbnails[project.id]} alt="Thumbnail" className="w-20 h-14 object-cover rounded-lg" />
-                      ) : project.product_image_url ? (
-                        <img src={project.product_image_url} alt="" className="w-20 h-14 object-cover rounded-lg" />
+                        <img src={thumbnails[project.id]} alt="Thumbnail" className="w-24 h-16 object-cover rounded-lg" />
+                      ) : project.generated_video_url ? (
+                        <video
+                          src={project.generated_video_url}
+                          muted
+                          preload="metadata"
+                          className="w-24 h-16 object-cover rounded-lg bg-black"
+                          onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
+                          onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                        />
                       ) : (
-                        <div className="w-20 h-14 bg-muted rounded-lg flex items-center justify-center">
+                        <div className="w-24 h-16 bg-muted rounded-lg flex items-center justify-center">
                           <Video className="w-5 h-5 text-muted-foreground" />
                         </div>
                       )}
