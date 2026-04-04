@@ -68,7 +68,7 @@ const statusColors: Record<string, string> = {
 const VideoRepoPro = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [mainTab, setMainTab] = useState<'create' | 'history'>('create');
+  const [mainTab, setMainTab] = useState<'create' | 'history' | 'calendar'>('create');
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
