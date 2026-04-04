@@ -384,7 +384,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                           </div>
                         </div>
                       ) : (
-                        <div className="w-24 h-16 bg-muted rounded-lg flex items-center justify-center">
+                        <div className="w-28 h-24 bg-muted rounded-lg flex items-center justify-center">
                           <Video className="w-5 h-5 text-muted-foreground" />
                         </div>
                       )}
