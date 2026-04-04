@@ -222,9 +222,11 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
       .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
       .badge{background:#7c3aed;color:white;padding:3px 10px;border-radius:20px;font-size:11px}
       .sched{background:#f0fdf4;border:1px solid #bbf7d0;padding:6px 12px;border-radius:8px;font-size:12px;color:#166534}
-      .hook{font-weight:bold;font-size:15px;margin-bottom:6px}
-      .lbl{font-size:10px;text-transform:uppercase;color:#9ca3af;margin-bottom:3px;letter-spacing:.5px}
-      .script{background:#f9fafb;padding:10px;border-radius:8px;font-size:12px;line-height:1.6;white-space:pre-wrap;margin-bottom:10px}
+      .hook-section{margin-bottom:14px}
+      .hook-label{font-size:11px;text-transform:uppercase;color:#7c3aed;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+      .hook{font-weight:bold;font-size:16px;margin-bottom:0;color:#1a1a1a;line-height:1.4}
+      .lbl{font-size:11px;text-transform:uppercase;color:#7c3aed;margin-bottom:4px;letter-spacing:.5px;font-weight:700}
+      .script{background:#f9fafb;padding:12px;border-radius:8px;font-size:12px;line-height:1.7;white-space:pre-wrap;margin-bottom:10px;border:1px solid #e5e7eb}
       .meta{font-size:11px;color:#6b7280}
       .thumb-container{margin-bottom:12px;text-align:center}
       .thumb{width:100%;max-width:320px;height:auto;aspect-ratio:9/16;object-fit:cover;border-radius:10px;background:#000;border:1px solid #e5e7eb}
