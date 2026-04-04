@@ -566,6 +566,7 @@ export type Database = {
       video_repo_projects: {
         Row: {
           analysis_text: string | null
+          category: string | null
           created_at: string
           custom_name: string | null
           generated_video_url: string | null
@@ -581,6 +582,7 @@ export type Database = {
         }
         Insert: {
           analysis_text?: string | null
+          category?: string | null
           created_at?: string
           custom_name?: string | null
           generated_video_url?: string | null
@@ -596,6 +598,7 @@ export type Database = {
         }
         Update: {
           analysis_text?: string | null
+          category?: string | null
           created_at?: string
           custom_name?: string | null
           generated_video_url?: string | null
