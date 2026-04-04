@@ -162,20 +162,22 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
       .lbl{font-size:10px;text-transform:uppercase;color:#9ca3af;margin-bottom:3px;letter-spacing:.5px}
       .script{background:#f9fafb;padding:10px;border-radius:8px;font-size:12px;line-height:1.6;white-space:pre-wrap;margin-bottom:10px}
       .meta{font-size:11px;color:#6b7280}
-      .thumb{width:100px;height:70px;object-fit:cover;border-radius:8px;margin-right:14px;float:left}
+      .thumb{width:120px;height:80px;object-fit:cover;border-radius:8px;margin-right:14px;float:left;background:#000}
+      .video-link{display:inline-block;background:#7c3aed;color:white;padding:4px 12px;border-radius:6px;font-size:11px;text-decoration:none;margin-top:4px}
       @media print{.item{break-inside:avoid}}
     </style></head><body>
     <h1>📅 Content Calendar – ${label}</h1>
     <p class="sub">Generated ${new Date().toLocaleDateString()} • ${items.length} videos</p>
     ${items.map((p, i) => {
       const schedule = POSTING_SCHEDULE[i % POSTING_SCHEDULE.length];
+      const thumbSrc = thumbnails[p.id] || null;
       return `<div class="item">
         <div class="row"><span class="badge">${assignments[p.id] || 'Uncategorized'}</span><div class="sched">📅 ${schedule.day} at ${schedule.time}</div></div>
-        ${p.product_image_url ? `<img class="thumb" src="${p.product_image_url}" alt="" />` : ''}
+        ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="" />` : p.generated_video_url ? `<video class="thumb" src="${p.generated_video_url}" muted preload="metadata"></video>` : ''}
         <div class="hook">${extractHook(p)}</div>
         <div class="lbl">Script</div>
         <div class="script">${extractScript(p) || 'No script available'}</div>
-        <div class="meta">Created: ${new Date(p.created_at).toLocaleDateString()} ${p.generated_video_url ? '• 📹 Video available' : ''}</div>
+        <div class="meta">Created: ${new Date(p.created_at).toLocaleDateString()} ${p.generated_video_url ? `• <a class="video-link" href="${p.generated_video_url}" target="_blank">▶ Watch Video</a>` : ''}</div>
       </div>`;
     }).join('')}
     </body></html>`;
