@@ -1097,12 +1097,11 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
                     <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => fileInputRef.current?.click()}>
-                      <ImagePlus className="w-3.5 h-3.5" /> Add Image & Link
+                      <ImagePlus className="w-3.5 h-3.5" /> Add Image
                     </Button>
                     <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => videoInputRef.current?.click()}>
                       <Video className="w-3.5 h-3.5" /> Reference Video
@@ -1112,43 +1111,40 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                         <Link className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                         <Input
                           type="url"
-                          placeholder="Paste TikTok or YouTube URL"
+                          placeholder="Paste URL"
                           value={urlInput}
                           onChange={(e) => setUrlInput(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleUrlImport(); } }}
-                          className="h-8 text-xs rounded-full pl-8 pr-2 w-[200px] md:w-[240px] bg-background"
+                          className="h-8 text-xs rounded-full pl-8 pr-2 w-[160px] md:w-[200px] bg-background"
                           disabled={isDownloadingUrl}
                         />
                       </div>
                       {urlInput.trim() && (
                         <Button variant="outline" size="sm" className="text-xs rounded-full gap-1" onClick={handleUrlImport} disabled={isDownloadingUrl}>
                           {isDownloadingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                          {isDownloadingUrl ? 'Importing...' : 'Import'}
+                          {isDownloadingUrl ? '...' : 'Import'}
                         </Button>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 justify-between md:justify-end">
                     <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as '9:16' | '16:9')}>
-                      <SelectTrigger className="h-8 w-[120px] text-xs rounded-full bg-background">
+                      <SelectTrigger className="h-8 w-[110px] text-xs rounded-full bg-background">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="9:16">📱 Reel (9:16)</SelectItem>
-                        <SelectItem value="16:9">🖥️ Landscape (16:9)</SelectItem>
+                        <SelectItem value="9:16">📱 9:16</SelectItem>
+                        <SelectItem value="16:9">🖥️ 16:9</SelectItem>
                       </SelectContent>
                     </Select>
                     <Button
                       size="icon"
                       aria-label="Send prompt"
-                      className="h-9 w-9 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                      className="h-8 w-8 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 ml-auto"
                       onClick={handleSubmit}
                       disabled={isAnalyzing || isGenerating || isStitching || isExtractingFrames || isChatting || (!hasComposerInput && !prompt.trim())}
                     >
                       {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
                     </Button>
                   </div>
-                </div>
               </div>
             </Card>
 
@@ -1246,11 +1242,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   </div>
                 )}
               </>
-            ) : (
-              <div className="w-full max-w-3xl mb-3 min-h-[120px] md:min-h-[180px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-4 py-4 md:py-6 text-center text-xs md:text-sm text-muted-foreground flex items-center justify-center shadow-card">
-                Upload a product image and reference video, then press send to create a full 30-second ad.
-              </div>
-            )}
+            ) : null}
           </TabsContent>
 
           <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
