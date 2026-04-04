@@ -108,6 +108,7 @@ const AISpokesperson = () => {
   const [selectedCameraAngle, setSelectedCameraAngle] = useState('low-angle');
   const [selectedDuration, setSelectedDuration] = useState('15');
   const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const [twinPickerOpen, setTwinPickerOpen] = useState(false);
   
   // Video generation
   const [isGenerating, setIsGenerating] = useState(false);
