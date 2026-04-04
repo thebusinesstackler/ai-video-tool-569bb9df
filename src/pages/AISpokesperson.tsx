@@ -2399,14 +2399,29 @@ Return ONLY the JSON object.`
                 </CardTitle>
                 <CardDescription>What should your spokesperson say?</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-2">
                 <Textarea
                   placeholder="Enter the key message, product pitch, announcement, or talking points..."
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => {
+                    setMessage(e.target.value);
+                    // Auto-set duration based on word count (~2.5 words/sec)
+                    const words = e.target.value.trim().split(/\s+/).filter(Boolean).length;
+                    if (words > 0) {
+                      const estSeconds = Math.round(words / 2.5);
+                      const durations = [10, 15, 30, 45, 60];
+                      const best = durations.reduce((prev, curr) => Math.abs(curr - estSeconds) < Math.abs(prev - estSeconds) ? curr : prev);
+                      setSelectedDuration(String(best));
+                    }
+                  }}
                   className="min-h-[120px] bg-background border-border"
                   disabled={isGenerating}
                 />
+                {message.trim() && (
+                  <p className="text-xs text-muted-foreground">
+                    {message.trim().split(/\s+/).filter(Boolean).length} words · ~{Math.round(message.trim().split(/\s+/).filter(Boolean).length / 2.5)}s estimated duration → auto-set to {selectedDuration}s
+                  </p>
+                )}
               </CardContent>
             </Card>
 
