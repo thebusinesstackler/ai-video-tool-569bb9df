@@ -1217,6 +1217,22 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   <div ref={chatEndRef} />
                 </div>
               </ScrollArea>
+              {/* Generate Video CTA */}
+              {hasAnalysis && !isGenerating && !isStitching && (
+                <div className="w-full max-w-3xl mb-4">
+                  <Button
+                    onClick={generateFromScript}
+                    className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white gap-2 shadow-lg"
+                    disabled={isAnalyzing || isChatting}
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    Generate Video from Script
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center mt-1.5">
+                    Happy with the script? Hit generate. Want changes? Type feedback above.
+                  </p>
+                </div>
+              )}
             ) : (
               <div className="w-full max-w-3xl mb-3 min-h-[120px] md:min-h-[180px] rounded-2xl border border-dashed border-orange-500/30 bg-muted/20 px-4 py-4 md:py-6 text-center text-xs md:text-sm text-muted-foreground flex items-center justify-center shadow-card">
                 Upload a product image and reference video, then press send to create a full 30-second ad.
