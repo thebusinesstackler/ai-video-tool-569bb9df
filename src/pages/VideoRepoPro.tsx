@@ -105,7 +105,7 @@ const VideoRepoPro = () => {
   const [isChatting, setIsChatting] = useState(false);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
-  const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames;
+  const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames || isChatting;
   const statusLabel = isExtractingFrames
     ? 'Extracting key frames from your reference video...'
     : isAnalyzing
