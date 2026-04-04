@@ -40,6 +40,7 @@ interface NavItem {
   name: string;
   href: string;
   icon: React.ElementType;
+  beta?: boolean;
 }
 
 interface NavGroup {
@@ -57,9 +58,9 @@ const navGroups: NavGroup[] = [
     label: 'Create',
     icon: Layers,
     items: [
-      { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard },
+      { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard, beta: true },
       { name: 'Movies', href: '/movies', icon: Film },
-      { name: 'Reels & Stories', href: '/reels', icon: Smartphone },
+      { name: 'Reels & Stories', href: '/reels', icon: Smartphone, beta: true },
     ],
   },
   {
@@ -67,11 +68,11 @@ const navGroups: NavGroup[] = [
     icon: Wand2,
     items: [
       { name: 'AI Twin', href: '/ai-twin', icon: ScanFace },
-      { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation },
-      { name: 'Hook Engine', href: '/hook-engine', icon: Zap },
+      { name: 'AI Spokesperson', href: '/ai-spokesperson', icon: Presentation, beta: true },
+      { name: 'Hook Engine', href: '/hook-engine', icon: Zap, beta: true },
       { name: 'Video Repo', href: '/video-repo', icon: Film },
-      { name: 'Video Repo Pro', href: '/video-repo-pro', icon: SparklesIcon },
-      { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote },
+      { name: 'Video Repo Pro', href: '/video-repo-pro', icon: SparklesIcon, beta: true },
+      { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote, beta: true },
     ],
   },
   {
