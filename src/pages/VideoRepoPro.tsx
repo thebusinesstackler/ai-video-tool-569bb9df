@@ -307,10 +307,32 @@ const VideoRepoPro = () => {
     try {
       const { data, error } = await supabase.functions.invoke('download-video-url', { body: { url: trimmed } });
       if (error) throw new Error(typeof error === 'object' && 'message' in error ? error.message : 'Download failed');
-      if (!data?.videoUrl) throw new Error(data?.error || 'No video returned');
+      if (data?.error) throw new Error(data.error);
+
+      let finalVideoUrl = data?.videoUrl;
+
+      // Handle client-side download fallback
+      if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl) {
+        toast({ title: 'Downloading video...', description: 'Browser is fetching the video directly.' });
+        const videoResp = await fetch(data.downloadUrl);
+        if (!videoResp.ok) throw new Error('Browser could not download the video. It may be private or geo-restricted.');
+        const videoBlob = await videoResp.blob();
+        if (videoBlob.size > 100 * 1024 * 1024) throw new Error('Video is too large (max 100MB)');
+
+        // Upload to storage using signed URL
+        const uploadResp = await fetch(data.signedUploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'video/mp4' },
+          body: videoBlob,
+        });
+        if (!uploadResp.ok) throw new Error('Failed to upload video');
+        finalVideoUrl = data.publicUrl;
+      }
+
+      if (!finalVideoUrl) throw new Error('No video returned');
 
       if (referenceVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(referenceVideoUrl);
-      setReferenceVideoUrl(data.videoUrl);
+      setReferenceVideoUrl(finalVideoUrl);
       try {
         const hostname = new URL(trimmed).hostname.replace('www.', '');
         setReferenceVideoName(`${hostname} import`);
@@ -321,7 +343,7 @@ const VideoRepoPro = () => {
 
       setIsExtractingFrames(true);
       try {
-        const videoResp = await fetch(data.videoUrl);
+        const videoResp = await fetch(finalVideoUrl);
         const blob = await videoResp.blob();
         const file = new File([blob], 'imported.mp4', { type: 'video/mp4' });
         const frames = await extractVideoFrames(file, 6);
