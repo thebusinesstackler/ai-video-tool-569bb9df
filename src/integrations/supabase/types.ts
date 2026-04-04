@@ -567,8 +567,10 @@ export type Database = {
         Row: {
           analysis_text: string | null
           created_at: string
+          custom_name: string | null
           generated_video_url: string | null
           id: string
+          is_favorite: boolean
           product_image_url: string | null
           prompt: string | null
           reference_video_url: string | null
@@ -580,8 +582,10 @@ export type Database = {
         Insert: {
           analysis_text?: string | null
           created_at?: string
+          custom_name?: string | null
           generated_video_url?: string | null
           id?: string
+          is_favorite?: boolean
           product_image_url?: string | null
           prompt?: string | null
           reference_video_url?: string | null
@@ -593,8 +597,10 @@ export type Database = {
         Update: {
           analysis_text?: string | null
           created_at?: string
+          custom_name?: string | null
           generated_video_url?: string | null
           id?: string
+          is_favorite?: boolean
           product_image_url?: string | null
           prompt?: string | null
           reference_video_url?: string | null

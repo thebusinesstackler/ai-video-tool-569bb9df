@@ -24,6 +24,10 @@ import {
   Link,
   Sparkles,
   RefreshCw,
+  Star,
+  Pencil,
+  RotateCcw,
+  Check,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,6 +60,8 @@ interface VideoRepoProject {
   status: string;
   created_at: string;
   updated_at: string;
+  is_favorite?: boolean;
+  custom_name?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -136,9 +142,9 @@ const VideoRepoPro = () => {
         .from('video_repo_projects')
         .select('*')
         .eq('user_id', user.id)
+        .order('is_favorite', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
-      // Filter to only show pro projects if we want, or show all
       setHistoryProjects((data as VideoRepoProject[]) || []);
     } catch (err: any) {
       console.error('Error fetching history:', err);
@@ -146,6 +152,55 @@ const VideoRepoPro = () => {
       setIsLoadingHistory(false);
     }
   }, [user]);
+
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState('');
+
+  const toggleFavorite = async (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newVal = !project.is_favorite;
+    setHistoryProjects(prev => prev.map(p => p.id === project.id ? { ...p, is_favorite: newVal } : p));
+    const { error } = await supabase.from('video_repo_projects').update({ is_favorite: newVal } as any).eq('id', project.id);
+    if (error) {
+      setHistoryProjects(prev => prev.map(p => p.id === project.id ? { ...p, is_favorite: !newVal } : p));
+      toast({ title: 'Error', description: 'Could not update favorite', variant: 'destructive' });
+    } else {
+      fetchHistory();
+    }
+  };
+
+  const startRename = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingNameId(project.id);
+    setEditNameValue(project.custom_name || project.prompt?.replace(/^\[PRO\]\s*/, '') || '');
+  };
+
+  const saveRename = async (projectId: string) => {
+    const trimmed = editNameValue.trim();
+    if (!trimmed) { setEditingNameId(null); return; }
+    setHistoryProjects(prev => prev.map(p => p.id === projectId ? { ...p, custom_name: trimmed } : p));
+    setEditingNameId(null);
+    const { error } = await supabase.from('video_repo_projects').update({ custom_name: trimmed } as any).eq('id', projectId);
+    if (error) {
+      toast({ title: 'Error', description: 'Could not rename', variant: 'destructive' });
+      fetchHistory();
+    }
+  };
+
+  const remakeWithEdits = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMainTab('create');
+    if (project.reference_video_url) {
+      setReferenceVideoUrl(project.reference_video_url);
+      setReferenceVideoName('Previous reference');
+    }
+    if (project.product_image_url) {
+      setProductImageUrl(project.product_image_url);
+      setProductImageName('Previous product');
+    }
+    setPrompt(project.prompt?.replace(/^\[PRO\]\s*/, '') || '');
+    toast({ title: 'Project loaded', description: 'Edit your prompt and hit send to remake.' });
+  };
 
   useEffect(() => {
     if (user) fetchHistory();
@@ -950,13 +1005,19 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Button variant="ghost" size="icon" onClick={() => setSelectedProject(null)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Project Details</h2>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-foreground">{selectedProject.custom_name || 'Project Details'}</h2>
               <p className="text-xs text-muted-foreground">
                 {new Date(selectedProject.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
-            <Badge variant="outline" className={`ml-auto ${statusColors[selectedProject.status] || ''}`}>
+            <Button variant="ghost" size="icon" onClick={(e) => toggleFavorite(selectedProject, e)}>
+              <Star className={`w-5 h-5 ${selectedProject.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`} />
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => remakeWithEdits(selectedProject, e)}>
+              <RotateCcw className="w-3.5 h-3.5" /> Remake with Edits
+            </Button>
+            <Badge variant="outline" className={`${statusColors[selectedProject.status] || ''}`}>
               {selectedProject.status}
             </Badge>
           </div>
@@ -1264,10 +1325,10 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   {historyProjects.map((project) => (
                     <Card
                       key={project.id}
-                      className="overflow-hidden cursor-pointer hover:border-orange-500/40 transition-colors group"
+                      className={`overflow-hidden cursor-pointer hover:border-orange-500/40 transition-colors group ${project.is_favorite ? 'ring-1 ring-amber-400/50' : ''}`}
                       onClick={() => setSelectedProject(project)}
                     >
-                      <div className="grid grid-cols-2 aspect-video">
+                      <div className="grid grid-cols-2 aspect-video relative">
                         {project.reference_video_url ? (
                           <video src={project.reference_video_url} className="w-full h-full object-cover" muted preload="metadata" />
                         ) : (
@@ -1286,6 +1347,12 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             )}
                           </div>
                         )}
+                        <button
+                          onClick={(e) => toggleFavorite(project, e)}
+                          className="absolute top-2 right-2 p-1 rounded-full bg-black/50 hover:bg-black/70 transition-colors"
+                        >
+                          <Star className={`w-4 h-4 ${project.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-white/70'}`} />
+                        </button>
                       </div>
                       <CardContent className="p-3 space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -1297,7 +1364,52 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             {new Date(project.created_at).toLocaleDateString()}
                           </span>
                         </div>
-                        <p className="text-xs text-foreground line-clamp-2">{project.prompt || 'No prompt'}</p>
+                        {editingNameId === project.id ? (
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              value={editNameValue}
+                              onChange={(e) => setEditNameValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveRename(project.id); if (e.key === 'Escape') setEditingNameId(null); }}
+                              className="h-6 text-xs"
+                              autoFocus
+                            />
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => saveRename(project.id)}>
+                              <Check className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-foreground line-clamp-2">{project.custom_name || project.prompt || 'No prompt'}</p>
+                        )}
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => startRename(project, e)}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Rename</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => remakeWithEdits(project, e)}>
+                                <RotateCcw className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Remake with edits</TooltipContent>
+                          </Tooltip>
+                          {project.generated_video_url && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-6 w-6" asChild>
+                                  <a href={project.generated_video_url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                    <Download className="w-3 h-3" />
+                                  </a>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Download</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

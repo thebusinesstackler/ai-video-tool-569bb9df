@@ -5,8 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen } from 'lucide-react';
+import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen, ImageIcon, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VideoRepoProject {
   id: string;
@@ -42,6 +43,8 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const [newCategory, setNewCategory] = useState('');
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [generatingThumbnail, setGeneratingThumbnail] = useState<string | null>(null);
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
 
   const completedProjects = useMemo(
     () => projects.filter((p) => p.status === 'completed' && p.generated_video_url),
@@ -78,6 +81,37 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
 
   const assignCategory = (projectId: string, category: string) => {
     setAssignments((prev) => ({ ...prev, [projectId]: category === 'none' ? '' : category }));
+  };
+
+  const generateThumbnail = async (project: VideoRepoProject) => {
+    setGeneratingThumbnail(project.id);
+    try {
+      const hook = extractHook(project);
+      const script = extractScript(project);
+      const category = assignments[project.id] || 'Product Video';
+
+      const { data, error } = await supabase.functions.invoke('generate-premium-visual', {
+        body: {
+          type: 'thumbnail',
+          topic: hook || script.substring(0, 100),
+          style: 'Bold',
+          customPrompt: `Create a professional, eye-catching YouTube/social media thumbnail for a ${category} video. The video is about: ${hook}. Script excerpt: ${script.substring(0, 200)}. Make it vibrant, high-contrast with bold visual elements that grab attention. Do NOT include any text.`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.imageUrl) {
+        setThumbnails(prev => ({ ...prev, [project.id]: data.imageUrl }));
+        toast({ title: 'Thumbnail generated!', description: 'Your new thumbnail is ready.' });
+      } else {
+        throw new Error('No image returned');
+      }
+    } catch (err: any) {
+      console.error('Thumbnail generation error:', err);
+      toast({ title: 'Thumbnail failed', description: err.message || 'Could not generate thumbnail', variant: 'destructive' });
+    } finally {
+      setGeneratingThumbnail(null);
+    }
   };
 
   const extractScript = (project: VideoRepoProject): string => {
@@ -236,9 +270,11 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
               <Card key={project.id} className="glass">
                 <CardContent className="p-3">
                   <div className="flex gap-3">
-                    {/* Thumbnail */}
+                     {/* Thumbnail */}
                     <div className="flex-shrink-0">
-                      {project.product_image_url ? (
+                      {thumbnails[project.id] ? (
+                        <img src={thumbnails[project.id]} alt="Thumbnail" className="w-20 h-14 object-cover rounded-lg" />
+                      ) : project.product_image_url ? (
                         <img src={project.product_image_url} alt="" className="w-20 h-14 object-cover rounded-lg" />
                       ) : (
                         <div className="w-20 h-14 bg-muted rounded-lg flex items-center justify-center">
@@ -270,6 +306,20 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             </a>
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-[10px] gap-1 px-2"
+                          disabled={generatingThumbnail === project.id}
+                          onClick={() => generateThumbnail(project)}
+                        >
+                          {generatingThumbnail === project.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-3 h-3" />
+                          )}
+                          {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'Gen Thumbnail'}
+                        </Button>
                       </div>
                     </div>
                   </div>
