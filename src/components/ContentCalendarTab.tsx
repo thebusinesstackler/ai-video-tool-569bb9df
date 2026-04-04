@@ -101,9 +101,22 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
     });
   };
 
-  const assignCategory = (projectId: string, category: string) => {
-    setAssignments((prev) => ({ ...prev, [projectId]: category === 'none' ? '' : category }));
-  };
+  const assignCategory = useCallback(async (projectId: string, category: string) => {
+    const value = category === 'none' ? '' : category;
+    setAssignments((prev) => ({ ...prev, [projectId]: value }));
+    
+    // Persist to database
+    const dbValue = value || null;
+    const { error } = await supabase
+      .from('video_repo_projects')
+      .update({ category: dbValue })
+      .eq('id', projectId);
+    
+    if (error) {
+      console.error('Failed to save category:', error);
+      toast({ title: 'Failed to save category', variant: 'destructive' });
+    }
+  }, [toast]);
 
   const captureFrame = () => {
     const video = previewVideoRef.current;
