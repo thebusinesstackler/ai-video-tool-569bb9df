@@ -287,6 +287,56 @@ export default function HookEngine() {
   } = useVideoHooks();
 
   const [activeTab, setActiveTab] = useState('input');
+  const [selectedHookForReview, setSelectedHookForReview] = useState<{ hookText: string; folderName: string } | null>(null);
+  const [directorReview, setDirectorReview] = useState('');
+  const [isReviewing, setIsReviewing] = useState(false);
+
+  const handleSelectHookForReview = (hook: any, folderName: string) => {
+    setSelectedHookForReview({ hookText: hook.hook_text, folderName });
+    toast.success(`Hook selected: "${hook.hook_text.slice(0, 40)}…"`);
+  };
+
+  const runDirectorReview = async () => {
+    if (!selectedHookForReview || (!videoTitle && !videoDescription)) {
+      toast.error('Load a video from History first, then select a hook from Library');
+      return;
+    }
+    setIsReviewing(true);
+    setDirectorReview('');
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          message: `You are the AI Director reviewing a video script with a specific hook.
+
+CURRENT VIDEO:
+Title: ${videoTitle}
+Script/Description: ${videoDescription}
+
+SELECTED HOOK (from "${selectedHookForReview.folderName}" folder):
+"${selectedHookForReview.hookText}"
+
+Please review this video script paired with this hook and provide:
+
+1. **Hook Fit Score** (1-10): How well does this hook match the video content?
+2. **Script Pacing Review**: Does the script flow naturally from this hook?
+3. **Strengths**: What works well with this hook + script combo
+4. **Improvements Needed**: Specific changes to make the script work better with this hook
+5. **Suggested Script Rewrite**: Rewrite the first 2-3 lines of the script to flow perfectly from this hook
+6. **Visual Direction**: How should the opening 3 seconds look to match this hook
+7. **Overall Verdict**: Should they use this hook or try a different one?
+
+Be specific, actionable, and direct. Think like a viral content director.`
+        }
+      });
+      if (error) throw error;
+      setDirectorReview(data.response || 'No review generated');
+    } catch (err: any) {
+      toast.error('Failed to get AI Director review');
+      console.error(err);
+    } finally {
+      setIsReviewing(false);
+    }
+  };
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
