@@ -17,10 +17,11 @@ import {
   Play, Save, RotateCcw, ChevronDown, ChevronUp, Copy, Wand2,
   BarChart3, Lightbulb, Film, Volume2, Type, Loader2, Clock,
   ArrowLeft, Trash2, CheckCircle2, AlertCircle, Star, Flame,
-  Shield, Heart, Trophy, Megaphone
+  Shield, Heart, Trophy, Megaphone, FolderPlus, Folder
 } from 'lucide-react';
 import { useVideoHooks, VideoHook, HookScores } from '@/hooks/useVideoHooks';
 import { cn } from '@/lib/utils';
+import { HookLibrary, SaveToFolderDialog } from '@/components/HookLibrary';
 
 const HOOK_TYPE_ICONS: Record<string, { icon: typeof Sparkles; color: string }> = {
   'curiosity': { icon: Eye, color: 'text-violet-500' },
