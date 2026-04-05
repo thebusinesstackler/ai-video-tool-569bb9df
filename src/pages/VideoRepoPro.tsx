@@ -1556,7 +1556,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             <Bot className="w-4 h-4 text-orange-500" />
                           </div>
                         )}
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        <div className={`max-w-[85%] rounded-2xl px-4 py-3 overflow-x-auto ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                           {msg.attachments && msg.attachments.length > 0 && (
                             <div className="flex gap-2 mb-2 flex-wrap">
                               {msg.attachments.map((att, i) => (
