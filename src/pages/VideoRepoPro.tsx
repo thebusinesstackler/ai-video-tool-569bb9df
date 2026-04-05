@@ -1528,7 +1528,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); remakeWithEdits(project, e); }}>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => newVersionFromProject(project, e)}>
                                 <RefreshCw className="w-3 h-3" />
                               </Button>
                             </TooltipTrigger>
