@@ -1384,7 +1384,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       ? 'This is the script that was planned for production (generation failed).'
                       : 'This is the script that was generated for production.'}
                   </p>
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
                   </div>
                 </CardContent></Card>
