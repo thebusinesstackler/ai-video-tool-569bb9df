@@ -128,6 +128,10 @@ const VideoRepoPro = () => {
   const [isCreatingImproved, setIsCreatingImproved] = useState(false);
   const [isReviewingGenerated, setIsReviewingGenerated] = useState(false);
   const [expandedScript, setExpandedScript] = useState(false);
+  const [detailChatInput, setDetailChatInput] = useState('');
+  const [detailChatMessages, setDetailChatMessages] = useState<{role: 'user' | 'assistant'; content: string}[]>([]);
+  const [isDetailChatting, setIsDetailChatting] = useState(false);
+  const [showSegments, setShowSegments] = useState(false);
   
   // Find the latest generated video URL from chat messages
   const latestGeneratedVideoUrl = [...messages].reverse().find(m => m.videoResult?.url)?.videoResult?.url || null;
