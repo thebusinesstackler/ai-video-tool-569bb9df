@@ -254,7 +254,25 @@ const VideoRepoPro = () => {
     toast({ title: 'Starting new version', description: 'Auto-analyzing reference video...' });
   };
 
-  const reAnalyzeFromDetail = (project: VideoRepoProject) => {
+  const sendToSpokesperson = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const script = project.analysis_text || project.prompt || '';
+    const wordCount = script.split(/\s+/).filter(Boolean).length;
+    const estimatedSeconds = Math.ceil(wordCount / 2.5);
+    const durationOptions = [10, 15, 30, 45, 60, 90, 120, 180];
+    const bestDuration = durationOptions.reduce((prev, curr) =>
+      Math.abs(curr - estimatedSeconds) < Math.abs(prev - estimatedSeconds) ? curr : prev
+    );
+    sessionStorage.setItem('video-repo-to-spokesperson', JSON.stringify({
+      script,
+      duration: String(bestDuration),
+      title: project.custom_name || project.prompt?.slice(0, 60) || 'Untitled',
+    }));
+    navigate('/ai-spokesperson');
+    toast({ title: 'Sent to AI Spokesperson', description: `Script loaded — pick your AI Twin to produce a ${bestDuration}s talking-head video.` });
+  };
+
+
     loadProjectAssets(project);
     const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze this reference and generate a full 30-second UGC ad video.';
     setPrompt(originalPrompt);
