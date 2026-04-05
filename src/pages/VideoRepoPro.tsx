@@ -2043,6 +2043,11 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
           <TabsContent value="history" className="flex-1 px-4 mt-4 pb-24">
             <div className="max-w-4xl mx-auto space-y-4">
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fetchHistory()} disabled={isLoadingHistory}>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingHistory ? 'animate-spin' : ''}`} /> Sync from database
+                </Button>
+              </div>
               {isLoadingHistory ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
               ) : historyProjects.length === 0 ? (
@@ -2050,6 +2055,9 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   <History className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p className="font-medium">No projects yet</p>
                   <p className="text-sm mt-1">Create your first 30-second video to see it here</p>
+                  <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => fetchHistory()}>
+                    <RefreshCw className="w-3.5 h-3.5" /> Sync from database
+                  </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
