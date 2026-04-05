@@ -459,6 +459,7 @@ export type Database = {
           updated_at: string
           user_id: string
           video_url: string | null
+          video_url_no_captions: string | null
         }
         Insert: {
           audio_url?: string | null
@@ -474,6 +475,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           video_url?: string | null
+          video_url_no_captions?: string | null
         }
         Update: {
           audio_url?: string | null
@@ -489,6 +491,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           video_url?: string | null
+          video_url_no_captions?: string | null
         }
         Relationships: []
       }

@@ -89,6 +89,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TopicStrategist, ContentStrategy } from '@/components/TopicStrategist';
 import { VideoQueue } from '@/components/VideoQueue';
 import { useBackgroundVideo } from '@/contexts/BackgroundVideoContext';
+import { CaptionPreviewDialog } from '@/components/CaptionPreviewDialog';
+import { ContinueVideoPanel } from '@/components/ContinueVideoPanel';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
@@ -189,6 +191,7 @@ interface SavedReel {
   id: string;
   topic: string;
   video_url: string | null;
+  video_url_no_captions?: string | null;
   thumbnail_url: string | null;
   audio_url?: string | null;
   scenes: GeneratedScene[];
@@ -471,6 +474,13 @@ const Reels = () => {
   });
   const [editingReel, setEditingReel] = useState<SavedReel | null>(null);
   const [showUpscaler, setShowUpscaler] = useState(false);
+  
+  // Caption preview & continue video state
+  const [captionPreviewReel, setCaptionPreviewReel] = useState<SavedReel | null>(null);
+  const [captionedVideoUrl, setCaptionedVideoUrl] = useState<string | null>(null);
+  const [isBurningCaptions, setIsBurningCaptions] = useState(false);
+  const [addingCaptionsId, setAddingCaptionsId] = useState<string | null>(null);
+  const [continueVideoReel, setContinueVideoReel] = useState<SavedReel | null>(null);
   
   // Post-production: append B-roll
   const [showAppendBroll, setShowAppendBroll] = useState(false);
@@ -970,6 +980,107 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       toast({ title: "Enhancement Failed", description: "Could not enhance your prompt. Try again.", variant: "destructive" });
     } finally {
       setIsEnhancingPrompt(false);
+    }
+  };
+
+  // Add captions to a completed reel
+  const handleAddCaptions = async (reel: SavedReel) => {
+    if (!reel.video_url || !reel.scenes?.length) return;
+    setAddingCaptionsId(reel.id);
+    setCaptionPreviewReel(reel);
+    setIsBurningCaptions(true);
+    setCaptionedVideoUrl(null);
+
+    try {
+      const clips = reel.scenes.map((s: any) => ({
+        url: s.videoUrl || reel.video_url!,
+        duration: s.audioDuration || s.duration || 5,
+        caption: s.text || s.narration || '',
+        audioDuration: s.audioDuration || s.duration || 5,
+      })).filter((c: any) => c.url);
+
+      const captionSettings = reel.caption_settings || { style: 'karaoke', background: 'glass', position: 'bottom' };
+
+      const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
+        body: {
+          clips,
+          audioUrl: reel.audio_url || undefined,
+          captionStyle: captionSettings.position || 'bottom',
+          captionBackground: captionSettings.background || 'glass',
+          captionFontSize: 'medium',
+          transition: 'crossfade',
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.renderId) throw new Error('No render ID returned');
+
+      // Poll for completion
+      let attempts = 0;
+      while (attempts < 60) {
+        await new Promise(r => setTimeout(r, 3000));
+        const { data: statusData } = await supabase.functions.invoke('creatomate-status', {
+          body: { renderId: data.renderId },
+        });
+        if (statusData?.status === 'succeeded' && statusData?.url) {
+          setCaptionedVideoUrl(statusData.url);
+          setIsBurningCaptions(false);
+          return;
+        }
+        if (statusData?.status === 'failed') throw new Error('Caption render failed');
+        attempts++;
+      }
+      throw new Error('Caption render timed out');
+    } catch (e: any) {
+      console.error('Add captions failed:', e);
+      toast({ title: 'Caption Failed', description: e.message, variant: 'destructive' });
+      setCaptionPreviewReel(null);
+      setIsBurningCaptions(false);
+    } finally {
+      setAddingCaptionsId(null);
+    }
+  };
+
+  const handleSaveCaptions = async () => {
+    if (!captionPreviewReel || !captionedVideoUrl) return;
+    try {
+      const { error } = await supabase.from('reels').update({
+        video_url: captionedVideoUrl,
+        video_url_no_captions: captionPreviewReel.video_url,
+      }).eq('id', captionPreviewReel.id);
+      if (error) throw error;
+
+      setSavedReels(prev => prev.map(r =>
+        r.id === captionPreviewReel.id
+          ? { ...r, video_url: captionedVideoUrl, video_url_no_captions: r.video_url }
+          : r
+      ));
+      toast({ title: 'Captions Saved', description: 'Video updated with burned-in captions.' });
+    } catch (e: any) {
+      toast({ title: 'Save Failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setCaptionPreviewReel(null);
+      setCaptionedVideoUrl(null);
+    }
+  };
+
+  const handleRemoveCaptions = async (reel: SavedReel) => {
+    if (!reel.video_url_no_captions) return;
+    try {
+      const { error } = await supabase.from('reels').update({
+        video_url: reel.video_url_no_captions,
+        video_url_no_captions: null,
+      }).eq('id', reel.id);
+      if (error) throw error;
+
+      setSavedReels(prev => prev.map(r =>
+        r.id === reel.id
+          ? { ...r, video_url: reel.video_url_no_captions!, video_url_no_captions: null }
+          : r
+      ));
+      toast({ title: 'Captions Removed', description: 'Restored original video without captions.' });
+    } catch (e: any) {
+      toast({ title: 'Remove Failed', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -7988,6 +8099,44 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               Download
                             </Button>
                           )}
+                          {reel.video_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddCaptions(reel)}
+                              disabled={addingCaptionsId === reel.id}
+                              title={reel.video_url_no_captions ? 'Re-add captions' : 'Add captions'}
+                            >
+                              {addingCaptionsId === reel.id ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Captions className="w-4 h-4 mr-2" />
+                              )}
+                              Captions
+                            </Button>
+                          )}
+                          {reel.video_url_no_captions && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRemoveCaptions(reel)}
+                              title="Remove captions and restore original"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Remove Captions
+                            </Button>
+                          )}
+                          {reel.video_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setContinueVideoReel(reel)}
+                              title="Continue / extend this video"
+                            >
+                              <Film className="w-4 h-4 mr-2" />
+                              Continue
+                            </Button>
+                          )}
                           <Button
                             variant="destructive"
                             size="sm"
@@ -8076,6 +8225,38 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           onReelUpdated={(updatedReel) => {
             setSavedReels(prev => prev.map(r => r.id === updatedReel.id ? updatedReel : r));
             setEditingReel(null);
+          }}
+        />
+      )}
+
+      {/* Caption Preview Dialog */}
+      {captionPreviewReel && (
+        <CaptionPreviewDialog
+          open={!!captionPreviewReel}
+          onOpenChange={(open) => { if (!open) { setCaptionPreviewReel(null); setCaptionedVideoUrl(null); } }}
+          originalVideoUrl={captionPreviewReel.video_url!}
+          captionedVideoUrl={captionedVideoUrl}
+          isProcessing={isBurningCaptions}
+          onSave={handleSaveCaptions}
+          onDiscard={() => { setCaptionPreviewReel(null); setCaptionedVideoUrl(null); }}
+        />
+      )}
+
+      {/* Continue Video Panel */}
+      {continueVideoReel && (
+        <ContinueVideoPanel
+          open={!!continueVideoReel}
+          onOpenChange={(open) => { if (!open) setContinueVideoReel(null); }}
+          reelId={continueVideoReel.id}
+          videoUrl={continueVideoReel.video_url!}
+          audioUrl={continueVideoReel.audio_url}
+          scenes={continueVideoReel.scenes || []}
+          onComplete={(newVideoUrl) => {
+            setSavedReels(prev => prev.map(r =>
+              r.id === continueVideoReel.id ? { ...r, video_url: newVideoUrl } : r
+            ));
+            supabase.from('reels').update({ video_url: newVideoUrl }).eq('id', continueVideoReel.id);
+            setContinueVideoReel(null);
           }}
         />
       )}
