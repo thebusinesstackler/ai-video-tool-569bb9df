@@ -149,18 +149,27 @@ const VideoRepurposer = () => {
     // Handle client-side download fallback
     if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl) {
       toast.info('Browser is downloading the video directly...');
-      const videoResp = await fetch(data.downloadUrl);
-      if (!videoResp.ok) throw new Error('Client-side download failed');
-      const blob = await videoResp.blob();
+      try {
+        const videoResp = await fetch(data.downloadUrl);
+        if (!videoResp.ok) throw new Error(`Download returned ${videoResp.status}`);
+        const blob = await videoResp.blob();
+        console.log('Client downloaded video, size:', blob.size);
 
-      // Upload to storage via signed URL
-      const uploadResp = await fetch(data.signedUploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'video/mp4' },
-        body: blob,
-      });
-      if (!uploadResp.ok) throw new Error('Upload failed');
-      finalUrl = data.publicUrl;
+        // Upload to storage via signed URL
+        const uploadResp = await fetch(data.signedUploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'video/mp4' },
+          body: blob,
+        });
+        if (!uploadResp.ok) throw new Error(`Upload returned ${uploadResp.status}`);
+        finalUrl = data.publicUrl;
+        toast.success('Video downloaded and stored successfully');
+      } catch (clientErr: any) {
+        console.error('Client download/upload failed:', clientErr);
+        toast.warning('Browser download blocked — will try server-side analysis...');
+        // Return the direct download URL so transcribe-video (server-side) can try it
+        finalUrl = data.downloadUrl;
+      }
     }
 
     if (!finalUrl) throw new Error('No video URL returned');
