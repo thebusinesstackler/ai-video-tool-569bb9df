@@ -492,241 +492,343 @@ Return ONLY a JSON object:
     }
   };
 
-  // Generate the full video
+  // Helper: generate TTS for a text segment and upload to storage
+  const generateAndUploadTTS = async (text: string, twin: AITwin, label: string): Promise<string> => {
+    const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+      body: buildTtsBody(text, twin)
+    });
+    if (ttsError) throw ttsError;
+    if (!ttsData?.audioContent) throw new Error(`No audio generated for ${label}`);
+
+    const audioDataUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+    if (!user) return audioDataUrl;
+
+    try {
+      const bytes = Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0));
+      const fileName = `${user.id}/spokesperson/${Date.now()}-${label}.mp3`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('reels')
+        .upload(fileName, bytes, { contentType: 'audio/mp3' });
+      if (!uploadError && uploadData) {
+        const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
+        return publicUrl.publicUrl;
+      }
+    } catch (e) { console.warn('Audio upload failed:', e); }
+    return audioDataUrl;
+  };
+
+  // Helper: generate a character image for a scene
+  const generateSceneImage = async (scenePrompt: string, twin: AITwin): Promise<string> => {
+    const portraitImage = twin.reference_images[0];
+    const imageMessages: any[] = [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: portraitImage } },
+        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${scenePrompt}` }
+      ]
+    }];
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+    const imageResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: imageMessages,
+        model: 'google/gemini-3.1-flash-image-preview',
+        modalities: ['image', 'text']
+      })
+    });
+
+    if (!imageResponse.ok) return portraitImage;
+
+    const imageData = await imageResponse.json();
+    const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!imgUrl) return portraitImage;
+
+    // Upload base64 to storage
+    if (imgUrl.startsWith('data:') && user) {
+      try {
+        const matches = imgUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          const imgBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+          const imgFileName = `${user.id}/spokesperson/${Date.now()}-scene-${Math.random().toString(36).slice(2, 6)}.png`;
+          const { data: imgUpload, error: imgUploadErr } = await supabase.storage
+            .from('reels')
+            .upload(imgFileName, imgBytes, { contentType: matches[1], upsert: true });
+          if (!imgUploadErr && imgUpload) {
+            const { data: imgPublicUrl } = supabase.storage.from('reels').getPublicUrl(imgFileName);
+            return imgPublicUrl.publicUrl;
+          }
+        }
+      } catch { /* fallback */ }
+    }
+    return imgUrl.startsWith('data:') ? portraitImage : imgUrl;
+  };
+
+  // Helper: poll a wavespeed task until completed
+  const pollWaveSpeedTask = async (taskId: string, maxAttempts = 120): Promise<string> => {
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+      attempts++;
+      await new Promise(r => setTimeout(r, 3000));
+      const { data: statusData } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId }
+      });
+      if (statusData?.status === 'completed' && statusData?.videoUrl) return statusData.videoUrl;
+      if (statusData?.status === 'failed') throw new Error(statusData?.error || 'Video generation failed');
+    }
+    throw new Error('Video generation timed out');
+  };
+
+  // Generate the full video — multi-scene with proper lip-sync
   const generateVideo = async () => {
     if (!generatedScript || !selectedTwin) return;
     
     setIsGenerating(true);
     setProgress(5);
-    setProgressStatus('Loop AI: Generating voiceover...');
     setVideoUrl(null);
 
     try {
-      // Step 1: Generate voiceover
-      const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: buildTtsBody(generatedScript.narration, selectedTwin)
-      });
+      const scenes = generatedScript.scenes && generatedScript.scenes.length > 0
+        ? generatedScript.scenes
+        : [{ type: 'speaking' as const, description: generatedScript.visualDescription, cameraAngle: generatedScript.cameraAngle, duration: parseInt(selectedDuration), narrationSegment: generatedScript.narration }];
 
-      if (ttsError) throw ttsError;
-      if (!ttsData?.audioContent) throw new Error('No audio generated');
+      const speakingScenes = scenes.filter(s => s.type === 'speaking');
+      const totalScenes = scenes.length;
 
-      const audioDataUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
+      // ── Step 1: Generate per-scene TTS for speaking scenes ──
+      setProgressStatus(`Loop AI: Generating voiceover (${speakingScenes.length} segment${speakingScenes.length > 1 ? 's' : ''})...`);
       
-      // Upload audio to storage
-      let storageAudioUrl = audioDataUrl;
-      if (user) {
-        try {
-          const bytes = Uint8Array.from(atob(ttsData.audioContent), c => c.charCodeAt(0));
-          const fileName = `${user.id}/spokesperson/${Date.now()}-voiceover.mp3`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('reels')
-            .upload(fileName, bytes, { contentType: 'audio/mp3' });
-          if (!uploadError && uploadData) {
-            const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-            storageAudioUrl = publicUrl.publicUrl;
-          }
-        } catch (uploadErr) {
-          console.warn('Audio upload failed:', uploadErr);
+      const sceneAudioUrls: Map<number, string> = new Map();
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        if (scene.type === 'speaking' && scene.narrationSegment) {
+          const url = await generateAndUploadTTS(scene.narrationSegment, selectedTwin, `scene-${i}`);
+          sceneAudioUrls.set(i, url);
         }
       }
-      
-      setAudioUrl(storageAudioUrl);
-      setProgress(25);
-      setProgressStatus('Loop AI: Generating character image...');
 
-      // Step 2: Generate the spokesperson image
+      // Keep full narration audio for draft/playback
+      const firstSpeakingAudio = sceneAudioUrls.values().next().value;
+      if (firstSpeakingAudio) setAudioUrl(firstSpeakingAudio);
+      setProgress(20);
+
+      // ── Step 2: Generate character images per scene ──
+      setProgressStatus(`Loop AI: Generating scene images (${totalScenes} scenes)...`);
+
       const portraitImage = selectedTwin.reference_images[0];
       const angle = CAMERA_ANGLES.find(a => a.id === (generatedScript.cameraAngle || selectedCameraAngle));
       const setting = SETTINGS.find(s => s.id === (generatedScript.setting || selectedSetting));
       const mood = MOODS.find(m => m.id === (generatedScript.mood || selectedMood));
 
-      const imagePrompt = `Generate a PREMIUM cinematic portrait of this EXACT person for a professional spokesperson video. The image must look like a still frame from a high-end commercial — NOT a posed headshot.
+      const sceneImages: string[] = [];
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        const sceneAngle = scene.cameraAngle || angle?.promptModifier || 'medium close-up';
+        const expressionGuide = scene.type === 'speaking'
+          ? `${mood?.prompt || 'confident'}, mouth slightly open as if mid-sentence, natural speaking expression`
+          : `${mood?.prompt || 'confident'}, contemplative, candid`;
+        const motionGuide = scene.type === 'broll'
+          ? 'B-roll feel — character in natural activity, environmental storytelling'
+          : scene.type === 'transition'
+          ? 'Dynamic transition — character in motion'
+          : 'Direct-to-camera spokesperson framing';
 
+        const prompt = `PREMIUM cinematic ${scene.type === 'broll' ? 'B-roll' : 'portrait'} of this EXACT person.
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
+CAMERA: ${sceneAngle}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm at f/1.4
+SETTING: ${setting?.prompt || 'professional studio'}
+EXPRESSION: ${expressionGuide}
+MOTION: ${motionGuide}
+SCENE: ${scene.description}
+LIGHTING: Hollywood 3-point setup, warm tungsten key at 45°, soft fill, rim light
+QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
-CAMERA: ${angle?.promptModifier || 'low angle shot'}, shot on RED V-RAPTOR 8K, Cooke S7/i 85mm lens at f/1.4, ultra shallow depth of field with natural bokeh
-CAMERA FEEL: Slight off-center framing for cinematic tension — NOT perfectly centered. Subject placed at golden ratio intersection point
-SETTING: ${setting?.prompt || 'professional studio'}, atmospheric haze, environmental depth layers (foreground blur element, subject, layered background)
-EXPRESSION: ${mood?.prompt || 'confident, direct engagement'}, natural micro-expression — as if mid-thought, genuine and human
-BODY LANGUAGE: Natural posture, slight lean or gesture that conveys ${mood?.prompt || 'confidence'}, hands visible if waist-up shot
+        const img = await generateSceneImage(prompt, selectedTwin);
+        sceneImages.push(img);
+        setProgress(20 + ((i + 1) / totalScenes) * 15);
+      }
 
-LIGHTING: Hollywood-grade 3-point setup — warm tungsten key light (3200K) at 45° creating gentle shadow modeling, large soft fill from opposite side, crisp rim/hair light separating subject from background. Subtle practical lights in background for depth
-COLOR SCIENCE: Shot on ARRI LogC, graded with rich skin tones, teal-orange color harmony in shadows/highlights, subtle film grain
+      setProgress(40);
 
-COMPOSITION: Vertical 9:16 format, rule of thirds with dynamic negative space, environmental storytelling in background
-QUALITY: Ultra photorealistic, 8K, Vogue/GQ editorial quality, professional color grading with lifted blacks
+      // ── Step 3: Create video tasks per scene ──
+      setProgressStatus(`Loop AI: Rendering ${totalScenes} scene${totalScenes > 1 ? 's' : ''}...`);
 
-CRITICAL: NO text, NO captions, NO watermarks, NO logos. Must look like a real photograph, NOT AI-generated.`;
+      const sceneTaskIds: { idx: number; taskId: string }[] = [];
+      
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        const isSpeaking = scene.type === 'speaking';
+        const sceneAudioUrl = sceneAudioUrls.get(i);
+        
+        let model: string;
+        let body: any;
 
-      // Build multimodal message with reference
-      const imageMessages: any[] = [{
-        role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: portraitImage } },
-          { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${imagePrompt}` }
-        ]
-      }];
+        if (isSpeaking && sceneAudioUrl && sceneAudioUrl.startsWith('http')) {
+          // Speaking scene → InfiniteTalk HD for real lip-sync
+          model = 'infinitetalk-hd';
+          body = {
+            action: 'create',
+            model,
+            imageUrls: [sceneImages[i]],
+            audioUrl: sceneAudioUrl,
+            prompt: `Cinematic spokesperson — ${scene.cameraAngle || 'medium close-up'}. ${mood?.prompt || 'confident'}. Natural lip-sync, fluid mouth movements, subtle expressions, gentle head movements. ${setting?.prompt || 'Professional studio'}. Premium broadcast quality.`,
+            aspectRatio: '9:16',
+          };
+        } else {
+          // B-roll / transition → Sora-2 for cinematic motion
+          model = 'sora-2';
+          const sora2Durations = [4, 8, 12, 16, 20];
+          const targetDur = scene.duration || 4;
+          const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - targetDur) < Math.abs(best - targetDur) ? d : best, 4);
+          
+          body = {
+            action: 'create',
+            model,
+            imageUrls: [sceneImages[i]],
+            prompt: `Cinematic ${scene.type === 'broll' ? 'B-roll' : 'transition'} — ${scene.cameraAngle || 'wide shot'}. ${scene.description}. ${mood?.prompt || 'contemplative'}. Rich atmospheric cinematography, slow camera movement, volumetric lighting, film grain. ${setting?.prompt || 'Professional studio'}. NO text, NO watermarks.`,
+            aspectRatio: '9:16',
+            duration: sora2Duration,
+          };
+        }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', { body });
+        if (videoError) throw videoError;
+        if (!videoData?.taskId) throw new Error(`No task created for scene ${i + 1}`);
+        
+        sceneTaskIds.push({ idx: i, taskId: videoData.taskId });
+        setProgressStatus(`Loop AI: Scene ${i + 1}/${totalScenes} submitted (${model})...`);
+      }
 
-      const imageResponse = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: imageMessages,
-           model: 'google/gemini-3.1-flash-image-preview',
-          modalities: ['image', 'text']
-        })
-      });
+      setProgress(50);
+      setProgressStatus(`Loop AI: Rendering ${totalScenes} scenes (this takes 1-4 minutes)...`);
 
-      let generatedImageUrl = portraitImage; // Fallback to reference
-      if (imageResponse.ok) {
-        const imageData = await imageResponse.json();
-        // Use unified imageUrl first, fallback to legacy choices path
-        const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (imgUrl) {
-          // Upload to storage
-          if (imgUrl.startsWith('data:') && user) {
-            try {
-              const matches = imgUrl.match(/^data:([^;]+);base64,(.+)$/);
-              if (matches) {
-                const imgBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
-                const imgFileName = `${user.id}/spokesperson/${Date.now()}-scene.png`;
-                const { data: imgUpload, error: imgUploadErr } = await supabase.storage
-                  .from('reels')
-                  .upload(imgFileName, imgBytes, { contentType: matches[1], upsert: true });
-                if (!imgUploadErr && imgUpload) {
-                  const { data: imgPublicUrl } = supabase.storage.from('reels').getPublicUrl(imgFileName);
-                  generatedImageUrl = imgPublicUrl.publicUrl;
-                }
-              }
-            } catch { /* fallback */ }
-          } else {
-            generatedImageUrl = imgUrl;
+      // ── Step 4: Poll all tasks until completion ──
+      const sceneVideoUrls: string[] = new Array(scenes.length).fill('');
+      const completed = new Set<number>();
+
+      let pollAttempts = 0;
+      const maxPollAttempts = 150;
+
+      while (completed.size < sceneTaskIds.length && pollAttempts < maxPollAttempts) {
+        pollAttempts++;
+        await new Promise(r => setTimeout(r, 3000));
+
+        for (const { idx, taskId } of sceneTaskIds) {
+          if (completed.has(idx)) continue;
+          try {
+            const { data: statusData } = await supabase.functions.invoke('wavespeed-video', {
+              body: { action: 'status', taskId }
+            });
+            if (statusData?.status === 'completed' && statusData?.videoUrl) {
+              sceneVideoUrls[idx] = statusData.videoUrl;
+              completed.add(idx);
+              setProgressStatus(`Loop AI: Scene ${completed.size}/${totalScenes} complete...`);
+            } else if (statusData?.status === 'failed') {
+              throw new Error(`Scene ${idx + 1} failed: ${statusData?.error || 'Unknown error'}`);
+            }
+          } catch (pollErr: any) {
+            if (pollErr.message?.includes('failed')) throw pollErr;
+            console.warn('Poll error:', pollErr);
+          }
+        }
+
+        const pct = 50 + (completed.size / sceneTaskIds.length) * 30;
+        setProgress(Math.min(pct, 85));
+      }
+
+      if (completed.size < sceneTaskIds.length) {
+        throw new Error('Some scenes timed out. Please retry.');
+      }
+
+      // ── Step 5: If single scene, use directly. Otherwise stitch. ──
+      let finalVideoUrl: string;
+
+      if (sceneVideoUrls.length === 1) {
+        finalVideoUrl = sceneVideoUrls[0];
+      } else {
+        setProgress(85);
+        setProgressStatus('Loop AI: Stitching scenes together...');
+
+        // Build clips for Creatomate
+        const clips = sceneVideoUrls.map((url, i) => ({
+          url,
+          duration: scenes[i].duration || 5,
+          caption: scenes[i].type === 'speaking' ? scenes[i].narrationSegment : undefined,
+        }));
+
+        const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+          body: { clips, transition: 'crossfade', transitionDuration: 0.5 }
+        });
+
+        if (stitchError || !stitchData?.success || !stitchData?.renderId) {
+          console.warn('Creatomate stitch failed, using first scene as fallback');
+          finalVideoUrl = sceneVideoUrls[0];
+        } else {
+          // Poll Creatomate render
+          setProgressStatus('Loop AI: Final render in progress...');
+          const startTime = Date.now();
+          const maxWait = 300000;
+          let stitchDone = false;
+
+          while (Date.now() - startTime < maxWait) {
+            const { data: statusData } = await supabase.functions.invoke('creatomate-status', {
+              body: { renderId: stitchData.renderId }
+            });
+            if (statusData?.status === 'succeeded' && statusData?.url) {
+              finalVideoUrl = statusData.url;
+              stitchDone = true;
+              break;
+            } else if (statusData?.status === 'failed') {
+              console.warn('Creatomate failed, using first scene');
+              finalVideoUrl = sceneVideoUrls[0];
+              stitchDone = true;
+              break;
+            }
+            await new Promise(r => setTimeout(r, 3000));
+            setProgress(Math.min(85 + ((Date.now() - startTime) / maxWait) * 12, 97));
+          }
+
+          if (!stitchDone) {
+            console.warn('Creatomate timed out, using first scene');
+            finalVideoUrl = sceneVideoUrls[0];
           }
         }
       }
 
-      setProgress(50);
-      setProgressStatus('Loop AI: Creating lip-sync video...');
+      // ── Step 6: Optional Wan 2.7 enhancement ──
+      setProgress(92);
+      setProgressStatus('Loop AI: Enhancing with Wan 2.7...');
 
-      // Step 3: Generate video with lip sync
-      // ALWAYS use infinitetalk for lip-sync speaking shots — Kling is image-to-video only (no audio sync)
-      const videoModel = 'infinitetalk';
-      const sfxHints = generatedScript.sfxCues?.join(', ') || '';
-      const musicHint = generatedScript.musicSuggestion || '';
-      const videoPromptText = `Cinematic spokesperson video — ${angle?.promptModifier || 'professional medium shot'}. ${mood?.prompt || 'confident and engaging presence'}. NATURAL LIP-SYNC: Character speaks with fluid, natural mouth movements synchronized to audio. Subtle eyebrow raises, natural blinks, gentle head tilts between sentences. Micro-expressions of genuine emotion and engagement. Natural breathing pauses — NOT robotic or mechanical delivery. Gentle camera drift and shallow depth of field shift throughout. ${setting?.prompt || 'Professional studio setting'}. ${sfxHints ? `Ambient sound atmosphere: ${sfxHints}.` : ''} ${musicHint ? `Background music energy: ${musicHint}.` : ''} Premium broadcast quality — warm cinematic lighting, film grain, rich color grading. NO jump cuts, NO sudden transitions — one continuous smooth take.`;
-      
-      const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
-        body: {
-          action: 'create',
-          model: videoModel,
-          imageUrls: [generatedImageUrl],
-          audioUrl: storageAudioUrl.startsWith('http') ? storageAudioUrl : undefined,
-          prompt: videoPromptText,
-          aspectRatio: '9:16',
-          duration: parseInt(selectedDuration)
-        }
-      });
+      try {
+        const enhancePrompt = `Enhance cinematic quality: improve lighting consistency, smooth color grading, add subtle film grain, natural skin tones, broadcast quality. Preserve all lip-sync and motion exactly. ${mood?.prompt || ''}. ${setting?.prompt || ''}.`;
+        const { data: enhData, error: enhErr } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'create', model: 'alibaba/wan-2.7/video-edit', videoUrl: finalVideoUrl, prompt: enhancePrompt, duration: 0 }
+        });
 
-      if (videoError) throw videoError;
-      if (!videoData?.taskId) throw new Error('No video task created');
-
-      setVideoTask({ taskId: videoData.taskId, status: 'processing' });
-      setProgress(60);
-      setProgressStatus('Loop AI: Rendering video (this takes 1-3 minutes)...');
-
-      // Step 4: Poll for completion
-      let attempts = 0;
-      const maxAttempts = 120;
-      
-      const poll = async () => {
-        while (attempts < maxAttempts) {
-          attempts++;
-          await new Promise(r => setTimeout(r, 3000));
-          
+        if (!enhErr && enhData?.taskId) {
           try {
-            const { data: statusData } = await supabase.functions.invoke('wavespeed-video', {
-              body: { action: 'status', taskId: videoData.taskId }
-            });
-
-            if (statusData?.status === 'completed' && statusData?.videoUrl) {
-              // Post-process with Wan 2.7 Video Edit for enhanced quality
-              setProgress(85);
-              setProgressStatus('Loop AI: Enhancing video with Wan 2.7...');
-              
-              try {
-                const enhancePrompt = `Enhance cinematic quality: improve lighting consistency, smooth color grading, add subtle film grain, ensure natural skin tones and professional broadcast quality. Preserve all lip-sync and motion exactly as-is. ${mood?.prompt || 'Professional, polished look'}. ${setting?.prompt || 'Studio environment'}.`;
-                
-                const { data: enhanceData, error: enhanceError } = await supabase.functions.invoke('wavespeed-video', {
-                  body: {
-                    action: 'create',
-                    model: 'alibaba/wan-2.7/video-edit',
-                    videoUrl: statusData.videoUrl,
-                    prompt: enhancePrompt,
-                    imageUrls: generatedImageUrl ? [generatedImageUrl] : undefined,
-                    duration: 0 // match input duration
-                  }
-                });
-
-                if (!enhanceError && enhanceData?.taskId) {
-                  setProgressStatus('Loop AI: Rendering enhanced version (1-2 min)...');
-                  let enhanceAttempts = 0;
-                  const maxEnhanceAttempts = 80;
-                  
-                  while (enhanceAttempts < maxEnhanceAttempts) {
-                    enhanceAttempts++;
-                    await new Promise(r => setTimeout(r, 3000));
-                    const { data: enhStatus } = await supabase.functions.invoke('wavespeed-video', {
-                      body: { action: 'status', taskId: enhanceData.taskId }
-                    });
-                    
-                    if (enhStatus?.status === 'completed' && enhStatus?.videoUrl) {
-                      setVideoUrl(enhStatus.videoUrl);
-                      setVideoTask({ taskId: enhanceData.taskId, status: 'completed', videoUrl: enhStatus.videoUrl });
-                      setProgress(100);
-                      setProgressStatus('Enhanced video ready! 🎬✨');
-                      toast({ title: '🎬✨ Enhanced Video Ready!', description: 'Your AI spokesperson video has been enhanced with Wan 2.7.' });
-                      return;
-                    } else if (enhStatus?.status === 'failed') {
-                      console.warn('Wan 2.7 enhancement failed, using original video');
-                      break;
-                    }
-                    const enhPct = Math.min(85 + (enhanceAttempts / maxEnhanceAttempts) * 14, 99);
-                    setProgress(enhPct);
-                  }
-                }
-              } catch (enhErr) {
-                console.warn('Wan 2.7 enhancement error, using original:', enhErr);
-              }
-              
-              // Fallback: use original infinitetalk video
-              setVideoUrl(statusData.videoUrl);
-              setVideoTask({ taskId: videoData.taskId, status: 'completed', videoUrl: statusData.videoUrl });
-              setProgress(100);
-              setProgressStatus('Video ready! 🎬');
-              toast({ title: '🎬 Video Ready!', description: 'Your AI spokesperson video has been generated.' });
-              return;
-            } else if (statusData?.status === 'failed') {
-              throw new Error(statusData?.error || 'Video generation failed');
-            }
-            
-            // Update progress
-            const pctDone = Math.min(60 + (attempts / maxAttempts) * 35, 95);
-            setProgress(pctDone);
-          } catch (pollErr) {
-            console.warn('Poll error:', pollErr);
-          }
+            const enhUrl = await pollWaveSpeedTask(enhData.taskId, 80);
+            finalVideoUrl = enhUrl;
+          } catch { console.warn('Wan 2.7 enhancement failed, using original'); }
         }
-        throw new Error('Video generation timed out');
-      };
+      } catch (enhErr) {
+        console.warn('Enhancement error:', enhErr);
+      }
 
-      await poll();
+      // ── Done ──
+      setVideoUrl(finalVideoUrl);
+      setVideoTask({ taskId: 'multi-scene', status: 'completed', videoUrl: finalVideoUrl });
+      setProgress(100);
+      setProgressStatus('Video ready! 🎬✨');
+      toast({ title: '🎬✨ Video Ready!', description: `Your ${totalScenes}-scene spokesperson video is complete.` });
+
     } catch (err: any) {
       console.error('Video generation error:', err);
       toast({ 
@@ -734,7 +836,6 @@ CRITICAL: NO text, NO captions, NO watermarks, NO logos. Must look like a real p
         description: `${err.message}. Your progress has been saved — you can retry.`, 
         variant: 'destructive' 
       });
-      // Keep script + scene shots so user can retry
       if (generatedScript && selectedQuality === 'kling-pro') {
         setShowSceneGallery(true);
       }
