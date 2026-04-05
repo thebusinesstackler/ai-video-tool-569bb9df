@@ -1711,6 +1711,26 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     <p className="text-xs text-muted-foreground text-center mt-1.5">
                       Happy with the script? Hit generate. Want changes? Type feedback above.
                     </p>
+                    {latestGeneratedVideoUrl && (
+                      <Button
+                        onClick={reviewGeneratedVideo}
+                        variant="outline"
+                        className="w-full h-10 mt-2 text-sm font-medium rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10 gap-2"
+                        disabled={isReviewingGenerated || isAnalyzing || isChatting || isGenerating || isStitching}
+                      >
+                        {isReviewingGenerated ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            AI Director is reviewing...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-4 h-4" />
+                            AI Director: Review & Improve
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 )}
               </>
