@@ -22,6 +22,7 @@ import {
 import { useVideoHooks, VideoHook, HookScores } from '@/hooks/useVideoHooks';
 import { cn } from '@/lib/utils';
 import { HookLibrary, SaveToFolderDialog } from '@/components/HookLibrary';
+import { supabase } from '@/integrations/supabase/client';
 
 const HOOK_TYPE_ICONS: Record<string, { icon: typeof Sparkles; color: string }> = {
   'curiosity': { icon: Eye, color: 'text-violet-500' },
