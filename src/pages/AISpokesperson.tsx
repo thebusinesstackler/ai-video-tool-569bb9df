@@ -1054,7 +1054,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
         : `Cinematic B-roll — ${shot.angleLabel}. ${mood?.prompt || 'contemplative'}. Character in a natural, candid moment. Subtle movements: turning head, adjusting posture, walking, or gazing thoughtfully. ${sfxNote} ${musicNote} ${setting?.prompt || 'Professional studio'}. Rich atmospheric cinematography — slow camera movement, volumetric lighting, environmental storytelling. Film grain, shallow depth of field, editorial quality.`;
 
       // Use infinitetalk for speaking shots (lip-sync with audio), kling-v3.0-pro for B-roll (visual quality)
-      const shotModel = isSpeakingShot ? 'infinitetalk' : 'kling-v3.0-pro';
+      const shotModel = isSpeakingShot ? 'infinitetalk-hd' : 'kling-v3.0-pro';
       const { data: videoData, error: videoError } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
