@@ -1567,7 +1567,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                               ))}
                             </div>
                           )}
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_code]:break-all">
                             <ReactMarkdown>{msg.content}</ReactMarkdown>
                           </div>
                           {msg.videoResult && (
