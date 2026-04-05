@@ -114,7 +114,9 @@ const VideoRepoPro = () => {
   const [persistentImageUrl, setPersistentImageUrl] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isChatting, setIsChatting] = useState(false);
-
+  const [pendingAutoAnalysis, setPendingAutoAnalysis] = useState(false);
+  const pendingAutoPromptRef = useRef<string>('');
+  
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames || isChatting;
   const statusLabel = isExtractingFrames
