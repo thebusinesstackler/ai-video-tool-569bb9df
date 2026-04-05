@@ -1201,11 +1201,18 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
       const finalVideoUrl = await uploadBlobToStorage(stitchedBlob, 'stitched');
 
+      // Also upload individual segments for later viewing
+      const seg1Blob = await fetch(blobUrls[0] || segment1Url!).then(r => r.blob()).catch(() => null);
+      const seg2Blob = await fetch(blobUrls[1] || segment2Url!).then(r => r.blob()).catch(() => null);
+      const seg1StoredUrl = segment1Url;
+      const seg2StoredUrl = segment2Url;
+
       if (projectId) {
         await supabase.from('video_repo_projects').update({
           generated_video_url: finalVideoUrl,
           status: 'completed',
-        }).eq('id', projectId);
+          segment_urls: [seg1StoredUrl, seg2StoredUrl].filter(Boolean),
+        } as any).eq('id', projectId);
       }
 
       if (user) {
