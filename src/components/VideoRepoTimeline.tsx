@@ -8,8 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Play, Pause, SkipBack, SkipForward, Scissors, ZoomIn, ZoomOut,
-  Download, Save, SplitSquareHorizontal, Film, Trash2, Plus, BookmarkPlus, Library
+  Download, Save, SplitSquareHorizontal, Film, Trash2, Plus, BookmarkPlus, Library,
+  ScanSearch, MessageSquare, Wand2
 } from 'lucide-react';
+import { SceneDetector } from '@/components/SceneDetector';
+import { TimelineAIDirector, DirectorAction } from '@/components/TimelineAIDirector';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
@@ -73,6 +76,45 @@ export const VideoRepoTimeline = ({ videoUrl, onClose }: VideoRepoTimelineProps)
   // B-roll dialog
   const [showBrollDialog, setShowBrollDialog] = useState(false);
   const [brollUrl, setBrollUrl] = useState('');
+
+  // AI Director
+  const [showAIDirector, setShowAIDirector] = useState(false);
+
+  const handleDirectorAction = useCallback((action: DirectorAction) => {
+    switch (action.type) {
+      case 'split_clip': {
+        if (action.clipIndex !== undefined && action.timestamp !== undefined) {
+          const seg = segments[action.clipIndex];
+          if (!seg) return;
+          const splitTime = seg.startTime + action.timestamp;
+          if (splitTime <= seg.startTime || splitTime >= seg.endTime) return;
+          const first = { ...seg, endTime: splitTime };
+          const second = { ...seg, id: `seg-${Date.now()}`, startTime: splitTime, label: `${seg.label} (split)`, color: SEGMENT_COLORS[(action.clipIndex + 1) % SEGMENT_COLORS.length] };
+          setSegments(prev => [...prev.slice(0, action.clipIndex!), first, second, ...prev.slice(action.clipIndex! + 1)]);
+        }
+        break;
+      }
+      case 'delete_clip': {
+        if (action.clipIndex !== undefined) {
+          setSegments(prev => prev.filter((_, i) => i !== action.clipIndex));
+        }
+        break;
+      }
+      case 'reorder_clips': {
+        if (action.fromIndex !== undefined && action.toIndex !== undefined) {
+          setSegments(prev => {
+            const updated = [...prev];
+            const [moved] = updated.splice(action.fromIndex!, 1);
+            updated.splice(action.toIndex!, 0, moved);
+            return updated;
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }, [segments]);
 
   // Initialize segments from duration
   useEffect(() => {
@@ -364,6 +406,34 @@ export const VideoRepoTimeline = ({ videoUrl, onClose }: VideoRepoTimelineProps)
               <Film className="w-3.5 h-3.5" /> B-Roll
             </Button>
 
+            {/* Scene Detection */}
+            <SceneDetector
+              videoUrl={videoUrl}
+              duration={duration}
+              onSplitAt={(ts) => {
+                const seg = segments.find(s => ts >= s.startTime && ts < s.endTime);
+                if (seg) {
+                  const idx = segments.indexOf(seg);
+                  handleDirectorAction({ type: 'split_clip', clipIndex: idx, timestamp: ts - seg.startTime });
+                }
+              }}
+              onSplitAll={(timestamps) => {
+                const sorted = [...timestamps].sort((a, b) => b - a);
+                for (const ts of sorted) {
+                  const seg = segments.find(s => ts >= s.startTime && ts < s.endTime);
+                  if (seg) {
+                    const idx = segments.indexOf(seg);
+                    handleDirectorAction({ type: 'split_clip', clipIndex: idx, timestamp: ts - seg.startTime });
+                  }
+                }
+              }}
+            />
+
+            {/* AI Director */}
+            <Button size="sm" variant={showAIDirector ? 'secondary' : 'outline'} className="h-8 gap-1 text-xs" onClick={() => setShowAIDirector(true)}>
+              <Wand2 className="w-3.5 h-3.5" /> AI Director
+            </Button>
+
             <div className="mx-1 h-4 w-px bg-border" />
 
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
@@ -593,6 +663,20 @@ export const VideoRepoTimeline = ({ videoUrl, onClose }: VideoRepoTimelineProps)
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* AI Director Panel */}
+      <TimelineAIDirector
+        open={showAIDirector}
+        onOpenChange={setShowAIDirector}
+        clips={segments.map((s, i) => ({
+          sceneNumber: i + 1,
+          duration: s.endTime - s.startTime,
+          caption: s.label,
+          text: s.label,
+          videoUrl: s.videoUrl || videoUrl,
+        }))}
+        totalDuration={duration}
+        onAction={handleDirectorAction}
+      />
     </>
   );
 };

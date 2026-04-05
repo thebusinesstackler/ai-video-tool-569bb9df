@@ -21,8 +21,11 @@ import {
   ChevronRight, ZoomIn, ZoomOut, Maximize2, Image as ImageIcon,
   ArrowLeftRight, Mic, SlidersHorizontal, Eye, EyeOff, Wand2,
   Undo2, Redo2, Save, RotateCcw, Camera, User, Zap,
-  MoveHorizontal, AlertTriangle, Target, Sparkles, RefreshCw
+  MoveHorizontal, AlertTriangle, Target, Sparkles, RefreshCw,
+  ScanSearch, MessageSquare
 } from 'lucide-react';
+import { SceneDetector } from '@/components/SceneDetector';
+import { TimelineAIDirector, DirectorAction } from '@/components/TimelineAIDirector';
 
 // ─── Types ────────────────────────────────────────────────────────────
 interface TimelineScene {
@@ -236,6 +239,9 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // AI Director
+  const [showAIDirector, setShowAIDirector] = useState(false);
+
   // Track visibility
   const [trackVisibility, setTrackVisibility] = useState({
     scenes: true, broll: true, text: true, products: true,
@@ -440,6 +446,79 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
     onScenesUpdate(reindexed);
     setHasUnsavedChanges(true);
   };
+
+  // ─── AI Director Action Handler ────────────────────────────────────
+  const handleDirectorAction = useCallback((action: DirectorAction) => {
+    switch (action.type) {
+      case 'split_clip': {
+        if (action.clipIndex !== undefined && action.timestamp !== undefined) {
+          pushUndo();
+          const idx = action.clipIndex;
+          if (idx < 0 || idx >= scenes.length) return;
+          const scene = scenes[idx];
+          const splitAt = action.timestamp;
+          if (splitAt <= 0 || splitAt >= scene.duration) return;
+          const first = { ...scene, duration: splitAt, endTime: scene.startTime + splitAt };
+          const second = { ...scene, duration: scene.duration - splitAt, startTime: scene.startTime + splitAt, sceneNumber: scene.sceneNumber + 1 };
+          const updated = [...scenes.slice(0, idx), first, second, ...scenes.slice(idx + 1)];
+          recalcTimings(updated);
+          toast({ title: `Split clip #${idx + 1} at ${splitAt.toFixed(1)}s` });
+        }
+        break;
+      }
+      case 'trim_clip': {
+        if (action.clipIndex !== undefined) {
+          trimScene(action.clipIndex, action.trimStart || 0, action.trimEnd || 0);
+        }
+        break;
+      }
+      case 'delete_clip': {
+        if (action.clipIndex !== undefined) deleteScene(action.clipIndex);
+        break;
+      }
+      case 'reorder_clips': {
+        if (action.fromIndex !== undefined && action.toIndex !== undefined) {
+          moveScene(action.fromIndex, action.toIndex);
+        }
+        break;
+      }
+      case 'regenerate_clip': {
+        if (action.clipIndex !== undefined && onRegenerateScene) {
+          onRegenerateScene(scenes[action.clipIndex]?.sceneNumber);
+        }
+        break;
+      }
+      case 'add_caption': {
+        if (action.clipIndex !== undefined && action.text) {
+          updateSceneProperty(action.clipIndex, { narration: action.text });
+        }
+        break;
+      }
+      case 'set_transition': {
+        // Handled after transition functions are defined
+        break;
+      }
+      default:
+        break;
+    }
+  }, [scenes, pushUndo, recalcTimings, trimScene, deleteScene, moveScene, updateSceneProperty, onRegenerateScene, toast]);
+
+  const handleSplitAt = useCallback((timestamp: number) => {
+    // Find which scene this timestamp falls into
+    const sceneIdx = scenes.findIndex(s => timestamp >= s.startTime && timestamp < s.endTime);
+    if (sceneIdx >= 0) {
+      const localTime = timestamp - scenes[sceneIdx].startTime;
+      handleDirectorAction({ type: 'split_clip', clipIndex: sceneIdx, timestamp: localTime });
+    }
+  }, [scenes, handleDirectorAction]);
+
+  const handleSplitAll = useCallback((timestamps: number[]) => {
+    // Sort descending so indices don't shift
+    const sorted = [...timestamps].sort((a, b) => b - a);
+    for (const ts of sorted) {
+      handleSplitAt(ts);
+    }
+  }, [handleSplitAt]);
 
   // ─── Transitions ───────────────────────────────────────────────────
   const addTransition = (afterSceneIndex: number) => { setEditingTransitionIndex(afterSceneIndex); setTransitionDialogOpen(true); };
@@ -688,6 +767,9 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
             </TooltipTrigger><TooltipContent>Safe Zones</TooltipContent></Tooltip>
             <Button variant={showAssetPanel ? 'secondary' : 'ghost'} size="sm" className="h-8 text-xs gap-1.5" onClick={() => setShowAssetPanel(!showAssetPanel)}>
               <Layers className="w-3.5 h-3.5" /> Properties
+            </Button>
+            <Button variant={showAIDirector ? 'secondary' : 'outline'} size="sm" className="h-8 text-xs gap-1.5" onClick={() => setShowAIDirector(true)}>
+              <Wand2 className="w-3.5 h-3.5" /> AI Director
             </Button>
             <Separator orientation="vertical" className="h-5 mx-1" />
             <div className="flex items-center gap-0.5 bg-muted/50 rounded-md px-1 py-0.5">
@@ -1365,6 +1447,35 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Scene Detector - rendered when AI Director triggers it */}
+      <div className="hidden">
+        <SceneDetector
+          videoUrl={scenes[0]?.videoUrl || ''}
+          audioUrl={voiceovers[0]?.audioUrl}
+          duration={totalDuration}
+          onSplitAt={handleSplitAt}
+          onSplitAll={handleSplitAll}
+        />
+      </div>
+
+      {/* AI Director Panel */}
+      <TimelineAIDirector
+        open={showAIDirector}
+        onOpenChange={setShowAIDirector}
+        clips={scenes.map(s => ({
+          sceneNumber: s.sceneNumber,
+          duration: s.duration,
+          trimStart: s.trimStart,
+          trimEnd: s.trimEnd,
+          caption: s.narration,
+          text: s.narration,
+          videoUrl: s.videoUrl || undefined,
+          transition: s.transitionIn,
+        }))}
+        totalDuration={totalDuration}
+        onAction={handleDirectorAction}
+      />
     </TooltipProvider>
   );
 };
