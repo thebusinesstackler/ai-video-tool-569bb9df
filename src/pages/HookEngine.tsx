@@ -17,10 +17,11 @@ import {
   Play, Save, RotateCcw, ChevronDown, ChevronUp, Copy, Wand2,
   BarChart3, Lightbulb, Film, Volume2, Type, Loader2, Clock,
   ArrowLeft, Trash2, CheckCircle2, AlertCircle, Star, Flame,
-  Shield, Heart, Trophy, Megaphone
+  Shield, Heart, Trophy, Megaphone, FolderPlus, Folder
 } from 'lucide-react';
 import { useVideoHooks, VideoHook, HookScores } from '@/hooks/useVideoHooks';
 import { cn } from '@/lib/utils';
+import { HookLibrary, SaveToFolderDialog } from '@/components/HookLibrary';
 
 const HOOK_TYPE_ICONS: Record<string, { icon: typeof Sparkles; color: string }> = {
   'curiosity': { icon: Eye, color: 'text-violet-500' },
@@ -253,9 +254,21 @@ function HookCard({
               <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'voiceover')}>
                 <Volume2 className="h-3 w-3" /> Voiceover Script
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'save')}>
-                <Save className="h-3 w-3" /> Save to Library
-              </Button>
+              <SaveToFolderDialog
+                hookText={hook.hookText}
+                hookType={hook.hookType}
+                onScreenText={hook.onScreenText}
+                voiceoverVersion={hook.voiceoverVersion}
+                visualDirection={hook.visualDirection}
+                scores={hook.scores}
+                bestFor={hook.bestFor}
+                bestPlatform={hook.bestPlatform}
+                whyChosen={hook.whyChosen}
+              >
+                <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1">
+                  <FolderPlus className="h-3 w-3" /> Save to Folder
+                </Button>
+              </SaveToFolderDialog>
             </div>
           </div>
         )}
@@ -348,15 +361,18 @@ export default function HookEngine() {
           {/* Left Panel — Input & Context */}
           <div className="lg:col-span-4 space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="w-full grid grid-cols-3">
+              <TabsList className="w-full grid grid-cols-4">
                 <TabsTrigger value="input" className="text-xs gap-1">
                   <Film className="h-3 w-3" /> Video
                 </TabsTrigger>
                 <TabsTrigger value="context" className="text-xs gap-1">
                   <Target className="h-3 w-3" /> Context
                 </TabsTrigger>
+                <TabsTrigger value="library" className="text-xs gap-1">
+                  <Folder className="h-3 w-3" /> Library
+                </TabsTrigger>
                 <TabsTrigger value="saved" className="text-xs gap-1">
-                  <Save className="h-3 w-3" /> Saved
+                  <Save className="h-3 w-3" /> History
                 </TabsTrigger>
               </TabsList>
 
@@ -481,6 +497,10 @@ export default function HookEngine() {
                   <label className="text-xs font-semibold">Offer Being Promoted</label>
                   <Input placeholder="e.g., Free trial, $997 course" value={contextSettings.offer} onChange={(e) => updateContext('offer', e.target.value)} />
                 </div>
+              </TabsContent>
+
+              <TabsContent value="library" className="mt-4">
+                <HookLibrary />
               </TabsContent>
 
               <TabsContent value="saved" className="mt-4">
