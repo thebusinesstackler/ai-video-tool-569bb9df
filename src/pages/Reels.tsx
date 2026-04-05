@@ -8228,6 +8228,38 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }}
         />
       )}
+
+      {/* Caption Preview Dialog */}
+      {captionPreviewReel && (
+        <CaptionPreviewDialog
+          open={!!captionPreviewReel}
+          onOpenChange={(open) => { if (!open) { setCaptionPreviewReel(null); setCaptionedVideoUrl(null); } }}
+          originalVideoUrl={captionPreviewReel.video_url!}
+          captionedVideoUrl={captionedVideoUrl}
+          isProcessing={isBurningCaptions}
+          onSave={handleSaveCaptions}
+          onDiscard={() => { setCaptionPreviewReel(null); setCaptionedVideoUrl(null); }}
+        />
+      )}
+
+      {/* Continue Video Panel */}
+      {continueVideoReel && (
+        <ContinueVideoPanel
+          open={!!continueVideoReel}
+          onOpenChange={(open) => { if (!open) setContinueVideoReel(null); }}
+          reelId={continueVideoReel.id}
+          videoUrl={continueVideoReel.video_url!}
+          audioUrl={continueVideoReel.audio_url}
+          scenes={continueVideoReel.scenes || []}
+          onComplete={(newVideoUrl) => {
+            setSavedReels(prev => prev.map(r =>
+              r.id === continueVideoReel.id ? { ...r, video_url: newVideoUrl } : r
+            ));
+            supabase.from('reels').update({ video_url: newVideoUrl }).eq('id', continueVideoReel.id);
+            setContinueVideoReel(null);
+          }}
+        />
+      )}
     </Layout>
   );
 };
