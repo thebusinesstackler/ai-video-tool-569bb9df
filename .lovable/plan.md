@@ -1,53 +1,44 @@
 
 
-## Plan: Enhance Content Calendar PDF + History Actions + Timeline Editor
+## Plan: Fix Remake/New Version Auto-Trigger + Clarify AI Analysis Labels
 
-Three feature areas to implement:
+### Problems Identified
 
----
+1. **"Project loaded" but nothing happens**: `remakeWithEdits` loads assets into the Create tab and shows a toast, but the user must manually type a prompt and send it. "New Version" does the exact same thing as "Remake" — neither auto-triggers the analysis.
 
-### 1. Content Calendar PDF — Add Script & Hook
-
-**File:** `src/components/ContentCalendarTab.tsx`
-
-The PDF already shows the hook and script (lines 248-250), but they can be truncated or missing. Updates:
-- Make the hook more prominent with larger font and a "HOOK:" label
-- Show the full script text (not truncated) with a clear "SCRIPT:" section header
-- Ensure both are always visible even when no thumbnail exists
+2. **AI Analysis labeling is misleading**: The "AI Analysis" card shows the AI's script proposal (video prompts + narration), not an actual analysis of the reference or generated video. For failed projects, it shows what was *planned* to be created, which is confusing.
 
 ---
 
-### 2. History Cards — "Generate Another Version" Button
+### Changes
 
+#### 1. Auto-trigger analysis on Remake / New Version
 **File:** `src/pages/VideoRepoPro.tsx`
 
-Add a new action button to the history card hover actions (around line 1383-1411):
-- Add a **"Generate New Version"** button (RefreshCw icon) that loads the project's reference assets and prompt back into the Create tab (similar to `remakeWithEdits` but auto-triggers analysis)
-- Add an **"Extend Video"** button (visible only for completed projects) that analyzes whether the hook is fully captured in the video and triggers a video extension if needed — this will call the existing `wan-2.5/video-extend` pipeline
+- After `remakeWithEdits` loads assets and switches to the Create tab, auto-trigger the `handleSendMessage` flow (or a dedicated re-analysis function) so the AI immediately starts analyzing the reference video and generating a new script.
+- Differentiate "Remake" (loads into Create tab for manual editing) from "New Version" (loads AND auto-triggers fresh analysis with existing prompt).
+- For "New Version": set a flag like `autoTriggerAnalysis` that a `useEffect` picks up once the Create tab is active, then calls the analysis with the loaded reference video + product image + original prompt.
 
-Also add these buttons to the **selected project detail view** (around line 1017).
-
----
-
-### 3. Timeline Editor on Edit Click
-
+#### 2. Separate and clarify analysis labels in the detail view
 **File:** `src/pages/VideoRepoPro.tsx`
 
-When clicking a completed project in history, the detail view currently shows a simple side-by-side of reference vs generated video. Enhance it:
-- Add an **"Edit on Timeline"** button in the detail view
-- When clicked, show a timeline editor component that displays the video segments on a scrubable timeline with:
-  - Visual waveform/segment representation
-  - Play/pause transport controls
-  - Segment markers showing the two stitched clips
-  - Ability to trim start/end of each segment
-- Reuse patterns from the existing `TimelineEditor` component (`src/components/TimelineEditor.tsx`) adapted for the Video Repo Pro two-segment structure
+- Rename the current "AI Analysis" card to **"AI Script Director"** — because it contains the two-segment video prompts and narration, not a video analysis.
+- Add a clear label: "This is the script that was generated for production" (or "planned for production" if status is failed).
+- For the **reference video**: label the prompt card as **"Your Prompt"** (already exists) — no change needed.
+- For the **Video Script & Narration** card: keep as-is, this shows `video_prompt` which is the final production script.
+
+#### 3. Add "Re-Analyze" button for failed projects
+**File:** `src/pages/VideoRepoPro.tsx`
+
+- On failed projects, show a **"Re-Analyze Video"** button in the detail view that re-runs analysis on the existing reference assets without needing to go back to the Create tab.
 
 ---
 
 ### Files to modify
-1. **`src/components/ContentCalendarTab.tsx`** — Enhance `downloadPDF` function to show hook and script more prominently
-2. **`src/pages/VideoRepoPro.tsx`** — Add "Generate New Version" and "Extend Video" buttons to history cards + detail view; add timeline editor mode to the detail view
+1. **`src/pages/VideoRepoPro.tsx`** — All three changes above
 
-### New file
-3. **`src/components/VideoRepoTimeline.tsx`** — Timeline editor component for Video Repo Pro projects, showing segment markers, transport controls, and trim handles
+### Technical detail
+- The auto-trigger will use a `useEffect` watching a `pendingAutoAnalysis` ref/state. When set (by "New Version"), and the Create tab is active with loaded assets, it calls `handleSendMessage` with the original prompt.
+- The "Remake" button keeps current behavior (manual editing).
+- The "New Version" button sets the auto-trigger flag after loading assets.
 
