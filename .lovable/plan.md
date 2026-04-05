@@ -1,72 +1,90 @@
 
 
-## Plan: Fix AI Spokesperson Video Quality — Proper Lip-Sync, Duration Control, and Multi-Scene B-Roll
+# Plan: One-Click Captions, Video Continuation & Auto Voice Cloning for Reels
 
-### Root Causes
+## What We're Building
 
-1. **Wrong model routing**: `infinitetalk` now maps to Sora-2 image-to-video (no audio input). The generated TTS audio is uploaded but never sent to the video model. Result: silent or static video with no lip-sync.
-2. **Duration mismatch**: User selects 15s/30s/45s/60s but Sora-2 only accepts 4/8/12/16/20s. No feedback about this.
-3. **No B-roll rendering**: The AI script generates 3-5 scenes (speaking + broll + transition), but `generateVideo()` only renders a single video from scene 1 and ignores the rest.
+Three connected features for the Reels history section:
 
----
-
-### Changes
-
-#### 1. Fix lip-sync by using real InfiniteTalk HD for speaking scenes
-**File:** `src/pages/AISpokesperson.tsx`
-
-- Change `generateVideo()` to use model `'infinitetalk-hd'` instead of `'infinitetalk'` for the main speaking video. This routes to the actual WaveSpeed InfiniteTalk endpoint that accepts both `image` and `audio` inputs for real lip-sync.
-- Ensure the `audioUrl` is always passed (it's already uploaded to storage).
-
-#### 2. Implement multi-scene rendering with B-roll
-**File:** `src/pages/AISpokesperson.tsx`
-
-- When the script has `scenes`, render each scene separately:
-  - **Speaking scenes** → `infinitetalk-hd` (image + audio segment)
-  - **B-roll scenes** → `sora-2` or `kling-v3.0-pro` (image only, cinematic prompt, no audio needed)
-  - **Transition scenes** → short `sora-2` clips
-- After all scenes complete, stitch them together using the existing `creatomate-stitch` or `canvasStitch` fallback.
-- Show per-scene progress in the UI.
-
-#### 3. Fix duration control
-**File:** `src/pages/AISpokesperson.tsx`
-
-- The total duration is controlled by the script's scene breakdown (sum of scene durations), not by the video model's duration parameter.
-- For InfiniteTalk HD: duration is determined by the audio length (natural).
-- For Sora-2 B-roll: snap to nearest allowed duration (4/8s for short B-roll clips).
-- Show the user the estimated vs actual duration before generation.
-
-#### 4. Split narration audio per scene
-**File:** `src/pages/AISpokesperson.tsx`
-
-- Generate TTS for each speaking scene's `narrationSegment` separately (not the full narration as one block). This gives precise audio for each lip-sync segment.
-- Non-speaking scenes get no audio (or ambient SFX if available).
+1. **One-Click "Add Captions" button** on completed reels in history — sends the existing video + scene narrations to the `creatomate-stitch` edge function to burn in captions, then lets you save or discard.
+2. **"Continue Video" flow** for videos that got cut off — extracts the last frame as a reference image, auto-generates a continuation script that picks up from the last sentence, and generates a new clip to extend the video.
+3. **Auto voice cloning** from the reel's existing audio — when continuing a video, the system automatically clones the speaker's voice (using the Speechify clone engine, same as AI Twins) so the extension matches perfectly.
 
 ---
 
-### Technical Flow
+## Technical Details
 
-```text
-User clicks "Generate Video"
-  │
-  ├─ For each scene in generatedScript.scenes:
-  │    ├─ Speaking → TTS(narrationSegment) → upload audio → infinitetalk-hd(image, audio)
-  │    ├─ B-roll  → sora-2(image, cinematic prompt, 4-8s)
-  │    └─ Transition → sora-2(image, movement prompt, 4s)
-  │
-  ├─ Poll all tasks until complete
-  │
-  ├─ Stitch scene videos in order (creatomate-stitch or canvas fallback)
-  │
-  └─ Optional: Wan 2.7 post-production enhancement on final video
+### 1. One-Click Captions (History Cards)
+
+**File: `src/pages/Reels.tsx`** — history section (~line 7948)
+
+- Add a **"Add Captions"** button to each reel card (next to Download).
+- On click:
+  - Extract scene narrations from `reel.scenes` and video URLs.
+  - Call `creatomate-stitch` with the existing clips + caption text using default caption settings (karaoke style).
+  - Show a loading state on the button.
+  - When done, open a preview dialog showing the captioned video side-by-side with the original.
+  - Two buttons: **"Save with Captions"** (updates `video_url` in `reels` table) and **"Discard"**.
+  - Store original URL in a `video_url_no_captions` field so captions can be toggled/removed later.
+
+**Migration**: Add `video_url_no_captions text` column to `reels` table.
+
+### 2. Continue Video Flow
+
+**File: `src/pages/Reels.tsx`** — new "Continue" button on history cards
+
+- Add **"Continue Video"** button on reel cards.
+- On click:
+  - Extract last frame from the video using a hidden `<video>` + `<canvas>` (similar to existing `FrameCapture` component pattern).
+  - Parse the last scene's narration to identify where speech was cut off.
+  - Call the `ai` edge function with a prompt: "Given this script that was cut off at: '[last narration]', write a natural 5-10 second closing script that wraps up the thought."
+  - Open a "Continue Video" panel showing: the extracted frame, the AI-suggested closing script (editable), and a "Generate Continuation" button.
+  - Generate the continuation clip using the same pipeline (Sora-2 or InfiniteTalk depending on whether it's a speaking scene).
+  - Auto-stitch the original video with the new clip via `creatomate-stitch`.
+
+### 3. Auto Voice Cloning for Continuation
+
+- When the "Continue Video" flow starts, extract audio from the reel's `audio_url` or scene audio.
+- Automatically call `clone-voice-speechify` with the reel's audio to get a temporary voice clone.
+- Use that cloned voice ID for TTS generation of the continuation script.
+- This ensures the extended portion sounds like the same speaker.
+- If the reel was made with an AI Twin that already has a cloned voice, skip cloning and reuse the twin's `voice_cloning_key` directly.
+
+### 4. UI Component: CaptionPreviewDialog
+
+**New file: `src/components/CaptionPreviewDialog.tsx`**
+
+- Dialog with two video players (original vs captioned).
+- "Save" and "Discard" buttons.
+- Caption style selector for quick adjustments before saving.
+
+### 5. UI Component: ContinueVideoPanel
+
+**New file: `src/components/ContinueVideoPanel.tsx`**
+
+- Sheet/dialog showing:
+  - Last frame thumbnail
+  - Last sentence context
+  - AI-generated continuation script (editable textarea)
+  - Voice match status (cloned / using existing twin voice)
+  - "Generate & Stitch" button
+  - Progress indicator
+
+### Database Migration
+
+```sql
+ALTER TABLE public.reels 
+  ADD COLUMN video_url_no_captions text DEFAULT NULL;
 ```
 
-### Files to Modify
-1. **`src/pages/AISpokesperson.tsx`** — Rewrite `generateVideo()` to handle multi-scene rendering with correct model routing
+### Flow Diagram
 
-### What This Fixes
-- **Audio/lip-sync**: Real InfiniteTalk HD generates actual mouth movements synced to speech
-- **B-roll**: Cinematic cutaway scenes render between speaking segments
-- **Duration**: Total video length matches the script's scene breakdown naturally
-- **Static video**: Sora-2 was generating a still image animation with no audio — replaced with proper lip-sync model
+```text
+History Card
+├── [Add Captions] → creatomate-stitch with narrations → Preview Dialog → Save/Discard
+├── [Continue Video] → Extract last frame + parse script
+│   ├── Has AI Twin voice? → Reuse clone
+│   └── No twin? → clone-voice-speechify(reel audio) → temp voice
+│   └── AI generates closing script → Generate clip → Stitch → Save
+```
 
