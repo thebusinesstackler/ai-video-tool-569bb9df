@@ -186,6 +186,20 @@ const AISpokesperson = () => {
     }
   }, []);
 
+  // Pick up handoff from Video Repo Pro
+  useEffect(() => {
+    const raw = sessionStorage.getItem('video-repo-to-spokesperson');
+    if (!raw) return;
+    sessionStorage.removeItem('video-repo-to-spokesperson');
+    try {
+      const data = JSON.parse(raw) as { script: string; duration: string; title: string };
+      if (data.script) setMessage(data.script);
+      if (data.duration) setSelectedDuration(data.duration);
+    } catch (e) {
+      console.error('Failed to parse spokesperson handoff', e);
+    }
+  }, []);
+
   // Auto-save draft on state changes (debounced via hook)
   useEffect(() => {
     saveDraft({
