@@ -144,7 +144,10 @@ const VideoRepurposer = () => {
     if (error) throw new Error('Failed to download video');
     if (data?.error) throw new Error(data.error);
 
-    let finalUrl = data?.videoUrl;
+    // If we got a direct videoUrl (server successfully downloaded & stored it), use it
+    if (data?.videoUrl) {
+      return data.videoUrl;
+    }
 
     // Handle client-side download fallback
     if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl) {
@@ -153,6 +156,7 @@ const VideoRepurposer = () => {
         const videoResp = await fetch(data.downloadUrl);
         if (!videoResp.ok) throw new Error(`Download returned ${videoResp.status}`);
         const blob = await videoResp.blob();
+        if (blob.size < 1000) throw new Error('Downloaded file too small — likely blocked');
         console.log('Client downloaded video, size:', blob.size);
 
         // Upload to storage via signed URL
@@ -162,18 +166,19 @@ const VideoRepurposer = () => {
           body: blob,
         });
         if (!uploadResp.ok) throw new Error(`Upload returned ${uploadResp.status}`);
-        finalUrl = data.publicUrl;
         toast.success('Video downloaded and stored successfully');
+        return data.publicUrl;
       } catch (clientErr: any) {
         console.error('Client download/upload failed:', clientErr);
-        toast.warning('Browser download blocked — will try server-side analysis...');
-        // Return the direct download URL so transcribe-video (server-side) can try it
-        finalUrl = data.downloadUrl;
+        // Don't silently continue — this means we have NO usable video
+        throw new Error(
+          'Could not download this video. YouTube and some platforms block automated downloads. ' +
+          'Please download the video to your device first, then use the Upload tab to analyze it.'
+        );
       }
     }
 
-    if (!finalUrl) throw new Error('No video URL returned');
-    return finalUrl;
+    throw new Error('No video URL returned from download service');
   };
 
   const isYouTubeOrSocialUrl = (url: string) => {
