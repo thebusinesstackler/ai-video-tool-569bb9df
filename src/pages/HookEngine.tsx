@@ -361,15 +361,18 @@ export default function HookEngine() {
           {/* Left Panel — Input & Context */}
           <div className="lg:col-span-4 space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="w-full grid grid-cols-3">
+              <TabsList className="w-full grid grid-cols-4">
                 <TabsTrigger value="input" className="text-xs gap-1">
                   <Film className="h-3 w-3" /> Video
                 </TabsTrigger>
                 <TabsTrigger value="context" className="text-xs gap-1">
                   <Target className="h-3 w-3" /> Context
                 </TabsTrigger>
+                <TabsTrigger value="library" className="text-xs gap-1">
+                  <Folder className="h-3 w-3" /> Library
+                </TabsTrigger>
                 <TabsTrigger value="saved" className="text-xs gap-1">
-                  <Save className="h-3 w-3" /> Saved
+                  <Save className="h-3 w-3" /> History
                 </TabsTrigger>
               </TabsList>
 
