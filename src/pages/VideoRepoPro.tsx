@@ -1201,7 +1201,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
         <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
           {/* Header bar */}
           <div className="flex items-center gap-3 flex-wrap">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedProject(null)}>
+            <Button variant="ghost" size="icon" onClick={() => { setSelectedProject(null); setDirectorAnalysisRef(null); setDirectorAnalysisGen(null); }}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex-1 min-w-0">
@@ -1234,7 +1234,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             {/* Left column: Videos stacked compact */}
             <div className="lg:col-span-1 space-y-3">
               <Card><CardContent className="p-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Reference Video</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">Reference Video</p>
+                  {selectedProject.reference_video_url && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs gap-1"
+                      disabled={isAnalyzingRef}
+                      onClick={() => analyzeVideoWithDirector(selectedProject.reference_video_url!, 'reference', selectedProject)}
+                    >
+                      {isAnalyzingRef ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                      {isAnalyzingRef ? 'Analyzing...' : 'AI Director'}
+                    </Button>
+                  )}
+                </div>
                 {selectedProject.reference_video_url ? (
                   <video src={selectedProject.reference_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
                 ) : (
@@ -1245,7 +1259,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
               </CardContent></Card>
 
               <Card><CardContent className="p-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Generated Video</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase">Generated Video</p>
+                  {selectedProject.generated_video_url && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs gap-1"
+                      disabled={isAnalyzingGen}
+                      onClick={() => analyzeVideoWithDirector(selectedProject.generated_video_url!, 'generated', selectedProject)}
+                    >
+                      {isAnalyzingGen ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                      {isAnalyzingGen ? 'Analyzing...' : 'AI Director'}
+                    </Button>
+                  )}
+                </div>
                 {selectedProject.generated_video_url ? (
                   <div className="space-y-2">
                     <video src={selectedProject.generated_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
@@ -1270,10 +1298,60 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   <img src={selectedProject.product_image_url} alt="Product" className="w-24 h-24 object-cover rounded-lg" />
                 </CardContent></Card>
               )}
+
+              {/* Create Improved Version CTA */}
+              {(directorAnalysisRef || directorAnalysisGen) && (
+                <Button
+                  className="w-full h-11 gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg"
+                  disabled={isCreatingImproved}
+                  onClick={() => createImprovedVersion(selectedProject)}
+                >
+                  {isCreatingImproved ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  Create Improved Version
+                </Button>
+              )}
             </div>
 
-            {/* Right column: Script + Analysis, scrollable */}
+            {/* Right column: Script + Analysis + Director Reviews, scrollable */}
             <div className="lg:col-span-2 space-y-3">
+              {/* AI Director Reference Analysis */}
+              {(isAnalyzingRef || directorAnalysisRef) && (
+                <Card className="border-amber-500/30"><CardContent className="p-4">
+                  <p className="text-xs font-medium uppercase mb-2 flex items-center gap-1.5 text-amber-500">
+                    <Eye className="w-3.5 h-3.5" /> AI Director — Reference Video Review
+                  </p>
+                  {isAnalyzingRef ? (
+                    <div className="flex items-center gap-2 py-4">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                      <span className="text-sm text-muted-foreground">AI Director is reviewing the reference video...</span>
+                    </div>
+                  ) : directorAnalysisRef && (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{directorAnalysisRef}</ReactMarkdown>
+                    </div>
+                  )}
+                </CardContent></Card>
+              )}
+
+              {/* AI Director Generated Analysis */}
+              {(isAnalyzingGen || directorAnalysisGen) && (
+                <Card className="border-orange-500/30"><CardContent className="p-4">
+                  <p className="text-xs font-medium uppercase mb-2 flex items-center gap-1.5 text-orange-500">
+                    <Eye className="w-3.5 h-3.5" /> AI Director — Generated Video Review
+                  </p>
+                  {isAnalyzingGen ? (
+                    <div className="flex items-center gap-2 py-4">
+                      <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                      <span className="text-sm text-muted-foreground">AI Director is reviewing the generated video...</span>
+                    </div>
+                  ) : directorAnalysisGen && (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{directorAnalysisGen}</ReactMarkdown>
+                    </div>
+                  )}
+                </CardContent></Card>
+              )}
+
               {/* Video Script / Narration */}
               {selectedProject.video_prompt && (
                 <Card><CardContent className="p-4">
