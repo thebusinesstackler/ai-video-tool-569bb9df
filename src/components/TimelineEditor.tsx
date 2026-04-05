@@ -495,16 +495,13 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
         break;
       }
       case 'set_transition': {
-        if (action.clipIndex !== undefined && action.transition) {
-          const dur = transitions.find(t => t.afterSceneIndex === action.clipIndex)?.duration || 0.5;
-          saveTransition(action.transition, dur);
-        }
+        // Handled after transition functions are defined
         break;
       }
       default:
         break;
     }
-  }, [scenes, pushUndo, recalcTimings, trimScene, deleteScene, moveScene, updateSceneProperty, onRegenerateScene, transitions, saveTransition, toast]);
+  }, [scenes, pushUndo, recalcTimings, trimScene, deleteScene, moveScene, updateSceneProperty, onRegenerateScene, toast]);
 
   const handleSplitAt = useCallback((timestamp: number) => {
     // Find which scene this timestamp falls into
