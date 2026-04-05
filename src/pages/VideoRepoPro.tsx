@@ -125,6 +125,10 @@ const VideoRepoPro = () => {
   const [isAnalyzingRef, setIsAnalyzingRef] = useState(false);
   const [isAnalyzingGen, setIsAnalyzingGen] = useState(false);
   const [isCreatingImproved, setIsCreatingImproved] = useState(false);
+  const [isReviewingGenerated, setIsReviewingGenerated] = useState(false);
+  
+  // Find the latest generated video URL from chat messages
+  const latestGeneratedVideoUrl = [...messages].reverse().find(m => m.videoResult?.url)?.videoResult?.url || null;
   
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames || isChatting;
