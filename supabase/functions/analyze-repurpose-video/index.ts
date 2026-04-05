@@ -5,7 +5,7 @@ const corsHeaders = {
 
 const LOVABLE_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-async function callLovableAI(system: string, userPrompt: string): Promise<string> {
+async function callLovableAI(system: string, userContent: any[]): Promise<string> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -19,7 +19,7 @@ async function callLovableAI(system: string, userPrompt: string): Promise<string
       model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: system },
-        { role: "user", content: userPrompt },
+        { role: "user", content: userContent },
       ],
       max_tokens: 16000,
     }),
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, videoUrl, platform, analysis, additionalNotes } = await req.json();
+    const { action, videoUrl, platform, analysis, additionalNotes, frames, transcript } = await req.json();
 
     if (!action) {
       return new Response(JSON.stringify({ error: "action is required" }), {
@@ -50,15 +50,22 @@ Deno.serve(async (req) => {
     }
 
     if (action === "analyze") {
+      const hasFrames = frames && Array.isArray(frames) && frames.length > 0;
+      const hasTranscript = transcript && transcript.length > 10;
+
       const systemPrompt = `You are an elite video content strategist and creative director. You analyze viral video content to reverse-engineer why it performs well.
 
-Given a video URL or description, provide a comprehensive breakdown in STRICT JSON format. Your analysis must cover:
-- Hook (text, type, strength rating)
+You will be provided with ${hasFrames ? 'actual video frames extracted from the video' : 'a video URL'} ${hasTranscript ? 'AND the full audio transcript from speech-to-text' : ''}.
+
+Analyze EVERYTHING you can see and hear. Be specific about what's actually shown and said — do NOT guess or hallucinate content. Use the transcript for exact quotes.
+
+Provide a comprehensive breakdown in STRICT JSON format covering:
+- Hook (exact text from transcript if available, type, strength rating)
 - Core messaging (topic, key promise, emotional angle)  
 - Script structure (sections with names, durations, purposes)
-- Scene sequence (each scene with description, visual style, duration)
+- Scene sequence (each scene with description based on actual frames, visual style, duration)
 - Pacing (overall, hook speed, build-up, climax)
-- Visual style (aesthetic, color palette, transitions)
+- Visual style (aesthetic, color palette, transitions — based on actual frames)
 - Captions (style, placement, animation)
 - CTA (text, type, placement)
 - Creative direction (list of reasons why it works, winning formula summary)
@@ -66,17 +73,45 @@ Given a video URL or description, provide a comprehensive breakdown in STRICT JS
 
 Be specific and actionable. This analysis will be used to create a repurposed version.`;
 
-      const userPrompt = `Analyze this video for repurposing. Target platform: ${platform || "TikTok"}.
+      // Build multimodal content array
+      const contentParts: any[] = [];
 
-Video URL: ${videoUrl}
+      // Add transcript info
+      if (hasTranscript) {
+        contentParts.push({
+          type: "text",
+          text: `📝 AUDIO TRANSCRIPT (from speech-to-text):\n"${transcript}"\n\nUse the exact words from this transcript in your analysis. Do NOT guess what's being said.`,
+        });
+      } else {
+        contentParts.push({
+          type: "text",
+          text: "⚠️ No audio transcript available. Analyze based on visual frames only.",
+        });
+      }
 
-Respond ONLY with valid JSON in this exact shape:
+      // Add frames as images
+      if (hasFrames) {
+        contentParts.push({
+          type: "text",
+          text: `\n🎬 ${frames.length} KEY FRAMES extracted from the video (in chronological order):`,
+        });
+        for (const frame of frames) {
+          contentParts.push({
+            type: "image_url",
+            image_url: { url: frame },
+          });
+        }
+      }
+
+      contentParts.push({
+        type: "text",
+        text: `\nTarget platform: ${platform || "TikTok"}.\nVideo URL: ${videoUrl || "uploaded file"}\n\nRespond ONLY with valid JSON in this exact shape:
 {
   "analysis": {
-    "hook": { "text": "...", "type": "curiosity|controversy|story|shock|question", "strength": "weak|moderate|strong|viral" },
+    "hook": { "text": "exact words from transcript", "type": "curiosity|controversy|story|shock|question", "strength": "weak|moderate|strong|viral" },
     "messaging": { "coreTopic": "...", "keyPromise": "...", "emotionalAngle": "..." },
     "scriptStructure": { "sections": [{ "name": "...", "duration": "...", "purpose": "..." }] },
-    "sceneSequence": { "scenes": [{ "description": "...", "visualStyle": "...", "duration": "..." }] },
+    "sceneSequence": { "scenes": [{ "description": "what's actually shown in the frames", "visualStyle": "...", "duration": "..." }] },
     "pacing": { "overall": "...", "hookSpeed": "...", "buildUp": "...", "climax": "..." },
     "visualStyle": { "aesthetic": "...", "colorPalette": "...", "transitions": "..." },
     "captions": { "style": "...", "placement": "...", "animation": "..." },
@@ -84,9 +119,10 @@ Respond ONLY with valid JSON in this exact shape:
     "creativeDirection": { "whyItWorks": ["..."], "winningFormula": "..." },
     "overallScore": 85
   }
-}`;
+}`,
+      });
 
-      const result = await callLovableAI(systemPrompt, userPrompt);
+      const result = await callLovableAI(systemPrompt, contentParts);
 
       let parsed;
       try {
@@ -121,7 +157,9 @@ Respond ONLY with valid JSON in this exact shape:
 
 The repurposed script must be production-ready with clear narration and visual directions.`;
 
-      const userPrompt = `Repurpose this video for ${platform || "TikTok"}.
+      const userContent = [{
+        type: "text",
+        text: `Repurpose this video for ${platform || "TikTok"}.
 
 ORIGINAL VIDEO ANALYSIS:
 ${JSON.stringify(analysis, null, 2)}
@@ -144,9 +182,10 @@ Create a repurposed script. Respond ONLY with valid JSON:
     "improvements": ["Tighter hook", "Better pacing", "Stronger CTA", ...],
     "estimatedDuration": "30s"
   }
-}`;
+}`,
+      }];
 
-      const result = await callLovableAI(systemPrompt, userPrompt);
+      const result = await callLovableAI(systemPrompt, userContent);
 
       let parsed;
       try {
