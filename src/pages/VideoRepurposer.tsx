@@ -12,10 +12,11 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  RefreshCw, Upload, Link2, Sparkles, Play, Download,
+  RefreshCw, Upload, Link2, Sparkles, Video, Download,
   Eye, Wand2, Zap, Target, Clock, Film, Type, Volume2,
   TrendingUp, Palette, SplitSquareVertical, Loader2, CheckCircle2
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoAnalysis {
   hook: { text: string; type: string; strength: string };
