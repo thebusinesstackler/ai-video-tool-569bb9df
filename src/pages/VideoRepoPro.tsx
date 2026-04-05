@@ -126,6 +126,7 @@ const VideoRepoPro = () => {
   const [isAnalyzingGen, setIsAnalyzingGen] = useState(false);
   const [isCreatingImproved, setIsCreatingImproved] = useState(false);
   const [isReviewingGenerated, setIsReviewingGenerated] = useState(false);
+  const [expandedScript, setExpandedScript] = useState(false);
   
   // Find the latest generated video URL from chat messages
   const latestGeneratedVideoUrl = [...messages].reverse().find(m => m.videoResult?.url)?.videoResult?.url || null;
@@ -1377,6 +1378,26 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 </CardContent></Card>
               )}
 
+              {/* Action buttons: Analyze + Regenerate */}
+              {selectedProject.generated_video_url && (
+                <div className="space-y-2">
+                  <Button
+                    className="w-full h-10 gap-2 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                    variant="outline"
+                    disabled={isAnalyzingGen || isAnalyzingRef}
+                    onClick={() => {
+                      analyzeVideoWithDirector(selectedProject.generated_video_url!, 'generated', selectedProject);
+                      if (selectedProject.reference_video_url) {
+                        analyzeVideoWithDirector(selectedProject.reference_video_url!, 'reference', selectedProject);
+                      }
+                    }}
+                  >
+                    {(isAnalyzingGen || isAnalyzingRef) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                    {(isAnalyzingGen || isAnalyzingRef) ? 'Analyzing Videos...' : 'Analyze Video'}
+                  </Button>
+                </div>
+              )}
+
               {/* Create Improved Version CTA */}
               {(directorAnalysisRef || directorAnalysisGen) && (
                 <Button
@@ -1385,7 +1406,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   onClick={() => createImprovedVersion(selectedProject)}
                 >
                   {isCreatingImproved ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  Create Improved Version
+                  Regenerate Improved Version
                 </Button>
               )}
             </div>
@@ -1433,12 +1454,19 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
               {/* Video Script / Narration */}
               {selectedProject.video_prompt && (
                 <Card><CardContent className="p-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-primary" /> Video Script &amp; Narration
-                  </p>
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" /> Video Script &amp; Narration
+                    </p>
+                  </div>
+                  <div className={`prose prose-sm dark:prose-invert max-w-none overflow-hidden transition-all ${!expandedScript ? 'max-h-[120px]' : ''}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <ReactMarkdown>{selectedProject.video_prompt}</ReactMarkdown>
                   </div>
+                  {selectedProject.video_prompt.length > 200 && (
+                    <Button variant="ghost" size="sm" className="mt-1 text-xs text-primary h-7 px-2" onClick={() => setExpandedScript(!expandedScript)}>
+                      {expandedScript ? 'Show Less' : 'Read More'}
+                    </Button>
+                  )}
                 </CardContent></Card>
               )}
 
@@ -1459,9 +1487,14 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       ? 'This is the script that was planned for production (generation failed).'
                       : 'This is the script that was generated for production.'}
                   </p>
-                  <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                  <div className={`prose prose-sm dark:prose-invert max-w-none overflow-hidden transition-all ${!expandedScript ? 'max-h-[200px]' : ''}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
                   </div>
+                  {selectedProject.analysis_text.length > 300 && (
+                    <Button variant="ghost" size="sm" className="mt-1 text-xs text-primary h-7 px-2" onClick={() => setExpandedScript(!expandedScript)}>
+                      {expandedScript ? 'Show Less' : 'Read More'}
+                    </Button>
+                  )}
                 </CardContent></Card>
               )}
 
@@ -1753,16 +1786,16 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     <Card
                       key={project.id}
                       className={`overflow-hidden cursor-pointer hover:border-orange-500/40 transition-colors group ${project.is_favorite ? 'ring-1 ring-amber-400/50' : ''}`}
-                      onClick={() => setSelectedProject(project)}
+                      onClick={() => { setSelectedProject(project); setExpandedScript(false); }}
                     >
                       <div className="grid grid-cols-2 aspect-[4/3] relative">
                         {project.reference_video_url ? (
-                          <video src={project.reference_video_url} className="w-full h-full object-cover" muted preload="metadata" />
+                          <video src={`${project.reference_video_url}#t=0.5`} className="w-full h-full object-cover" muted preload="metadata" playsInline />
                         ) : (
                           <div className="bg-muted flex items-center justify-center"><Video className="w-6 h-6 text-muted-foreground/40" /></div>
                         )}
                         {project.generated_video_url ? (
-                          <video src={project.generated_video_url} className="w-full h-full object-cover" muted preload="metadata" />
+                          <video src={`${project.generated_video_url}#t=0.5`} className="w-full h-full object-cover" muted preload="metadata" playsInline />
                         ) : (
                           <div className="bg-muted flex items-center justify-center">
                             {project.status === 'generating' || project.status === 'stitching' ? (
