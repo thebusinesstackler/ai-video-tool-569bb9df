@@ -1,27 +1,33 @@
 
 
-# Fix: Video Repurposer YouTube Import — Use VideoRepoPro's Robust Download Pipeline
+# Redirect "Send to Reels Editor" → Video Repo Pro
 
 ## Problem
-The Video Repurposer's `downloadVideoFromUrl` has a weak client-side fallback that just does a plain `fetch()` on the download URL, which fails due to CORS. The Video Repo Pro page has a much more robust fallback using `MediaRecorder` + `captureStream()` that actually works for YouTube Shorts. The Repurposer needs the same approach.
+The "Send to Reels Editor" button in Video Repurposer sends data to the Reels page, which doesn't work well for this use case. It should instead send the reference video and repurposed script to Video Repo Pro, which has the full video generation pipeline.
 
 ## What changes
 
-### 1. Port VideoRepoPro's client-download fallback into VideoRepurposer
-In `src/pages/VideoRepurposer.tsx`, replace the simple `fetch()` client-side fallback in `downloadVideoFromUrl` with the multi-layered strategy from VideoRepoPro:
-- First try direct `fetch()` of the download URL
-- If that fails (CORS), fall back to loading a hidden `<video>` element and capturing via `MediaRecorder` + `captureStream()`
-- Upload the resulting blob (video/webm or video/mp4) to storage via the signed URL
-- Return the public URL
+### 1. Update `handleSendToReels` in `VideoRepurposer.tsx`
+- Rename to `handleSendToVideoRepo`
+- Store the reference video URL (the downloaded/uploaded video) and the repurposed script text into `sessionStorage` under a key like `repurpose-to-video-repo`
+- Navigate to `/video-repo-pro` instead of `/reels`
+- Update button label to "Create Video" or "Send to Video Studio"
 
-### 2. Fix frame extraction to work with stored URLs
-The current `extractVideoFrames` fetches the URL and creates a blob — but if the stored video is cross-origin, this fetch can also fail. Add `crossOrigin = 'anonymous'` to the video element since the Supabase storage bucket is public and serves CORS headers.
+### 2. Add sessionStorage pickup in `VideoRepoPro.tsx`
+- On mount, check for `repurpose-to-video-repo` in sessionStorage
+- If found, populate:
+  - `referenceVideoUrl` with the stored video URL
+  - `prompt` with the repurposed script text (formatted as a video creation prompt)
+  - Trigger frame extraction from the reference video
+  - Set `pendingAutoAnalysis = true` to auto-start the AI Script Director
+- Clear the sessionStorage key after consuming it
 
-### 3. Ensure transcription uses the stored URL
-After download, both frame extraction and transcription should use the Supabase storage URL (which is reliably accessible), not the original social media URL.
+### 3. Update button UI in `VideoRepurposer.tsx`
+- Change icon from `Play` to `Video` (or similar)
+- Change label from "Send to Reels Editor" to "Create Video"
 
 ## Technical details
-- The key difference is VideoRepoPro uses `captureStream()` + `MediaRecorder` as a CORS bypass — it plays the video through a `<video>` element (which doesn't require CORS) and records the output stream
-- This captures both audio and video tracks, so the resulting blob will have audio for transcription
-- The `transcribe-video` edge function receives a proper Supabase storage URL that it can fetch server-side without CORS issues
+- SessionStorage payload: `{ videoUrl: string, script: string, title: string }`
+- Video Repo Pro already has `pendingAutoAnalysis` + `pendingAutoPromptRef` pattern for auto-triggering analysis — we reuse that exact flow
+- The reference video URL comes from the repurposer's `uploadedVideoUrl` (for uploads) or the stored URL after download
 
