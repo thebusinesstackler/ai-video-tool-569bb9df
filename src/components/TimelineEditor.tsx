@@ -447,6 +447,82 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
     setHasUnsavedChanges(true);
   };
 
+  // ─── AI Director Action Handler ────────────────────────────────────
+  const handleDirectorAction = useCallback((action: DirectorAction) => {
+    switch (action.type) {
+      case 'split_clip': {
+        if (action.clipIndex !== undefined && action.timestamp !== undefined) {
+          pushUndo();
+          const idx = action.clipIndex;
+          if (idx < 0 || idx >= scenes.length) return;
+          const scene = scenes[idx];
+          const splitAt = action.timestamp;
+          if (splitAt <= 0 || splitAt >= scene.duration) return;
+          const first = { ...scene, duration: splitAt, endTime: scene.startTime + splitAt };
+          const second = { ...scene, duration: scene.duration - splitAt, startTime: scene.startTime + splitAt, sceneNumber: scene.sceneNumber + 1 };
+          const updated = [...scenes.slice(0, idx), first, second, ...scenes.slice(idx + 1)];
+          recalcTimings(updated);
+          toast({ title: `Split clip #${idx + 1} at ${splitAt.toFixed(1)}s` });
+        }
+        break;
+      }
+      case 'trim_clip': {
+        if (action.clipIndex !== undefined) {
+          trimScene(action.clipIndex, action.trimStart || 0, action.trimEnd || 0);
+        }
+        break;
+      }
+      case 'delete_clip': {
+        if (action.clipIndex !== undefined) deleteScene(action.clipIndex);
+        break;
+      }
+      case 'reorder_clips': {
+        if (action.fromIndex !== undefined && action.toIndex !== undefined) {
+          moveScene(action.fromIndex, action.toIndex);
+        }
+        break;
+      }
+      case 'regenerate_clip': {
+        if (action.clipIndex !== undefined && onRegenerateScene) {
+          onRegenerateScene(scenes[action.clipIndex]?.sceneNumber);
+        }
+        break;
+      }
+      case 'add_caption': {
+        if (action.clipIndex !== undefined && action.text) {
+          updateSceneProperty(action.clipIndex, { narration: action.text });
+        }
+        break;
+      }
+      case 'set_transition': {
+        if (action.clipIndex !== undefined && action.transition) {
+          const dur = transitions.find(t => t.afterSceneIndex === action.clipIndex)?.duration || 0.5;
+          saveTransition(action.transition, dur);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }, [scenes, pushUndo, recalcTimings, trimScene, deleteScene, moveScene, updateSceneProperty, onRegenerateScene, transitions, saveTransition, toast]);
+
+  const handleSplitAt = useCallback((timestamp: number) => {
+    // Find which scene this timestamp falls into
+    const sceneIdx = scenes.findIndex(s => timestamp >= s.startTime && timestamp < s.endTime);
+    if (sceneIdx >= 0) {
+      const localTime = timestamp - scenes[sceneIdx].startTime;
+      handleDirectorAction({ type: 'split_clip', clipIndex: sceneIdx, timestamp: localTime });
+    }
+  }, [scenes, handleDirectorAction]);
+
+  const handleSplitAll = useCallback((timestamps: number[]) => {
+    // Sort descending so indices don't shift
+    const sorted = [...timestamps].sort((a, b) => b - a);
+    for (const ts of sorted) {
+      handleSplitAt(ts);
+    }
+  }, [handleSplitAt]);
+
   // ─── Transitions ───────────────────────────────────────────────────
   const addTransition = (afterSceneIndex: number) => { setEditingTransitionIndex(afterSceneIndex); setTransitionDialogOpen(true); };
   const saveTransition = (type: string, duration: number) => {
