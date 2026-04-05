@@ -60,38 +60,45 @@ function detectPlatform(url: string): { platform: string; endpoint: string; para
   return null;
 }
 
-function extractDownloadUrl(platform: string, data: any): string | null {
+function extractDownloadUrl(platform: string, data: any): string[] {
+  const urls: string[] = [];
   try {
-    // Normalize contents — API sometimes returns an array, sometimes an object
     let contents = data?.contents;
     if (Array.isArray(contents)) {
-      contents = contents[0]; // first item holds the media
+      contents = contents[0];
     }
 
     if (platform === 'youtube') {
       // Try renderable videos first (pre-merged audio+video)
       const renderables = contents?.renderableVideos;
       if (renderables?.length > 0) {
-        const rv = renderables.find((v: any) => v.renderConfig?.url);
-        if (rv?.renderConfig?.url) return rv.renderConfig.url;
+        for (const rv of renderables) {
+          if (rv.renderConfig?.url) urls.push(rv.renderConfig.url);
+        }
       }
-      // Fall back to regular videos
+      // Then regular videos
       const videos = contents?.videos;
       if (videos?.length > 0) {
-        const v = videos.find((v: any) => v.metadata?.quality_label === '720p') || videos[0];
-        if (v?.url) return v.url;
+        // Prefer non-tunnel URLs
+        const nonTunnel = videos.filter((v: any) => v.url && !v.url.includes('smvd.xyz'));
+        const tunnel = videos.filter((v: any) => v.url && v.url.includes('smvd.xyz'));
+        for (const v of [...nonTunnel, ...tunnel]) {
+          if (v.url) urls.push(v.url);
+        }
       }
     }
 
     if (platform === 'tiktok' || platform === 'instagram') {
       if (contents?.videos?.length > 0) {
-        return contents.videos[0]?.url || null;
+        for (const v of contents.videos) {
+          if (v.url) urls.push(v.url);
+        }
       }
     }
   } catch (e) {
     console.error('[download-video-url] Error extracting URL:', e);
   }
-  return null;
+  return urls;
 }
 
 function getDownloadHeaders(rapidApiKey: string, url?: string): Record<string, string> {
