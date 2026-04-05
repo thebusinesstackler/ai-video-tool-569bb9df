@@ -239,6 +239,9 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // AI Director
+  const [showAIDirector, setShowAIDirector] = useState(false);
+
   // Track visibility
   const [trackVisibility, setTrackVisibility] = useState({
     scenes: true, broll: true, text: true, products: true,
