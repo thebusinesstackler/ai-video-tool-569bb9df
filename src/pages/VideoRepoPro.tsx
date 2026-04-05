@@ -197,12 +197,15 @@ const VideoRepoPro = () => {
     if (project.reference_video_url) {
       setReferenceVideoUrl(project.reference_video_url);
       setReferenceVideoName('Previous reference');
+      setPersistentVideoUrl(project.reference_video_url);
     }
     if (project.product_image_url) {
       setProductImageUrl(project.product_image_url);
       setProductImageName('Previous product');
+      setPersistentImageUrl(project.product_image_url);
     }
     setPrompt(project.prompt?.replace(/^\[PRO\]\s*/, '') || '');
+    setSelectedProject(null);
     toast({ title: 'Project loaded', description: 'Edit your prompt and hit send to remake.' });
   };
 
