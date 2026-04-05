@@ -89,6 +89,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TopicStrategist, ContentStrategy } from '@/components/TopicStrategist';
 import { VideoQueue } from '@/components/VideoQueue';
 import { useBackgroundVideo } from '@/contexts/BackgroundVideoContext';
+import { CaptionPreviewDialog } from '@/components/CaptionPreviewDialog';
+import { ContinueVideoPanel } from '@/components/ContinueVideoPanel';
 
 // Speech Recognition types
 interface SpeechRecognitionEvent extends Event {
