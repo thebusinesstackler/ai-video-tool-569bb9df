@@ -638,8 +638,8 @@ const VideoRepurposer = () => {
 
             {/* Actions */}
             <div className="flex gap-3">
-              <Button onClick={handleSendToReels} className="gap-2">
-                <Play className="w-4 h-4" /> Send to Reels Editor
+              <Button onClick={handleSendToVideoRepo} className="gap-2">
+                <Video className="w-4 h-4" /> Create Video
               </Button>
               <Button variant="outline" onClick={handleRepurpose} disabled={isRepurposing} className="gap-2">
                 <RefreshCw className="w-4 h-4" /> Regenerate
