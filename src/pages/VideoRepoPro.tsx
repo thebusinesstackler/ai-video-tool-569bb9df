@@ -365,7 +365,7 @@ ${project.video_prompt || 'Not available'}
     }
   };
 
-
+  useEffect(() => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
 
