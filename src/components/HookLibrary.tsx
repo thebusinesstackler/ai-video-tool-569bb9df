@@ -39,7 +39,7 @@ const FOLDER_COLORS = [
   '#ec4899', '#f97316', '#06b6d4', '#6366f1', '#14b8a6',
 ];
 
-export function HookLibrary() {
+export function HookLibrary({ onSelectHook }: { onSelectHook?: (hook: SavedHook, folderName: string) => void } = {}) {
   const { user } = useAuth();
   const [folders, setFolders] = useState<HookFolder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<HookFolder | null>(null);
@@ -269,7 +269,12 @@ export function HookLibrary() {
                   {hook.on_screen_text && (
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Type className="h-2.5 w-2.5" /> {hook.on_screen_text}</p>
                   )}
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap">
+                    {onSelectHook && (
+                      <Button variant="default" size="sm" className="h-6 text-[10px] gap-1" onClick={() => onSelectHook(hook, selectedFolder.name)}>
+                        <Sparkles className="h-2.5 w-2.5" /> Use for Review
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={() => copyHook(hook.hook_text)}>
                       <Copy className="h-2.5 w-2.5" /> Copy
                     </Button>

@@ -17,11 +17,12 @@ import {
   Play, Save, RotateCcw, ChevronDown, ChevronUp, Copy, Wand2,
   BarChart3, Lightbulb, Film, Volume2, Type, Loader2, Clock,
   ArrowLeft, Trash2, CheckCircle2, AlertCircle, Star, Flame,
-  Shield, Heart, Trophy, Megaphone, FolderPlus, Folder
+  Shield, Heart, Trophy, Megaphone, FolderPlus, Folder, Send,
 } from 'lucide-react';
 import { useVideoHooks, VideoHook, HookScores } from '@/hooks/useVideoHooks';
 import { cn } from '@/lib/utils';
 import { HookLibrary, SaveToFolderDialog } from '@/components/HookLibrary';
+import { supabase } from '@/integrations/supabase/client';
 
 const HOOK_TYPE_ICONS: Record<string, { icon: typeof Sparkles; color: string }> = {
   'curiosity': { icon: Eye, color: 'text-violet-500' },
@@ -287,6 +288,56 @@ export default function HookEngine() {
   } = useVideoHooks();
 
   const [activeTab, setActiveTab] = useState('input');
+  const [selectedHookForReview, setSelectedHookForReview] = useState<{ hookText: string; folderName: string } | null>(null);
+  const [directorReview, setDirectorReview] = useState('');
+  const [isReviewing, setIsReviewing] = useState(false);
+
+  const handleSelectHookForReview = (hook: any, folderName: string) => {
+    setSelectedHookForReview({ hookText: hook.hook_text, folderName });
+    toast.success(`Hook selected: "${hook.hook_text.slice(0, 40)}…"`);
+  };
+
+  const runDirectorReview = async () => {
+    if (!selectedHookForReview || (!videoTitle && !videoDescription)) {
+      toast.error('Load a video from History first, then select a hook from Library');
+      return;
+    }
+    setIsReviewing(true);
+    setDirectorReview('');
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          message: `You are the AI Director reviewing a video script with a specific hook.
+
+CURRENT VIDEO:
+Title: ${videoTitle}
+Script/Description: ${videoDescription}
+
+SELECTED HOOK (from "${selectedHookForReview.folderName}" folder):
+"${selectedHookForReview.hookText}"
+
+Please review this video script paired with this hook and provide:
+
+1. **Hook Fit Score** (1-10): How well does this hook match the video content?
+2. **Script Pacing Review**: Does the script flow naturally from this hook?
+3. **Strengths**: What works well with this hook + script combo
+4. **Improvements Needed**: Specific changes to make the script work better with this hook
+5. **Suggested Script Rewrite**: Rewrite the first 2-3 lines of the script to flow perfectly from this hook
+6. **Visual Direction**: How should the opening 3 seconds look to match this hook
+7. **Overall Verdict**: Should they use this hook or try a different one?
+
+Be specific, actionable, and direct. Think like a viral content director.`
+        }
+      });
+      if (error) throw error;
+      setDirectorReview(data.response || 'No review generated');
+    } catch (err: any) {
+      toast.error('Failed to get AI Director review');
+      console.error(err);
+    } finally {
+      setIsReviewing(false);
+    }
+  };
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -500,7 +551,31 @@ export default function HookEngine() {
               </TabsContent>
 
               <TabsContent value="library" className="mt-4">
-                <HookLibrary />
+                <HookLibrary onSelectHook={handleSelectHookForReview} />
+                {selectedHookForReview && (
+                  <Card className="mt-3 border-primary/30 bg-primary/5">
+                    <CardContent className="p-3 space-y-2">
+                      <p className="text-[10px] font-semibold text-muted-foreground">Selected Hook</p>
+                      <p className="text-xs font-medium">"{selectedHookForReview.hookText}"</p>
+                      <p className="text-[10px] text-muted-foreground">from {selectedHookForReview.folderName}</p>
+                      <Button
+                        size="sm"
+                        className="w-full gap-1.5 mt-1"
+                        onClick={runDirectorReview}
+                        disabled={isReviewing || (!videoTitle && !videoDescription)}
+                      >
+                        {isReviewing ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" /> Reviewing...</>
+                        ) : (
+                          <><Brain className="h-3 w-3" /> AI Director Review</>
+                        )}
+                      </Button>
+                      {!videoTitle && !videoDescription && (
+                        <p className="text-[9px] text-destructive">Load a video from History first</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="saved" className="mt-4">
@@ -610,6 +685,35 @@ export default function HookEngine() {
                   </div>
                 </ScrollArea>
               </div>
+            )}
+
+            {/* AI Director Review Panel */}
+            {directorReview && (
+              <Card className="mt-4 border-primary/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-primary" />
+                    AI Director Review
+                    {selectedHookForReview && (
+                      <Badge variant="secondary" className="text-[9px] ml-auto">
+                        {selectedHookForReview.folderName}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  {selectedHookForReview && (
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Hook: "{selectedHookForReview.hookText}"
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="max-h-[400px]">
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-xs whitespace-pre-wrap break-words">
+                      {directorReview}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
