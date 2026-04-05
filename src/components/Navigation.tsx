@@ -22,7 +22,8 @@ import {
   Wand2,
   FolderOpen,
   Layers,
-  Zap
+  Zap,
+  Package
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
