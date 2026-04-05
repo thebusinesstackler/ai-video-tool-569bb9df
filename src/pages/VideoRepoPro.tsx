@@ -272,17 +272,6 @@ const VideoRepoPro = () => {
     toast({ title: 'Sent to AI Spokesperson', description: `Script loaded — pick your AI Twin to produce a ${bestDuration}s talking-head video.` });
   };
 
-
-    loadProjectAssets(project);
-    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze this reference and generate a full 30-second UGC ad video.';
-    setPrompt(originalPrompt);
-    setSelectedProject(null);
-    setMainTab('create');
-    pendingAutoPromptRef.current = originalPrompt;
-    setPendingAutoAnalysis(true);
-    toast({ title: 'Re-analyzing', description: 'Starting fresh AI analysis...' });
-  };
-
   // AI Director: Analyze a video from its URL (extract frames + AI review)
   const extractFramesFromUrl = async (videoUrl: string, count = 6): Promise<string[]> => {
     const resp = await fetch(videoUrl);
