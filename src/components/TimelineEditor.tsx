@@ -768,6 +768,9 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
             <Button variant={showAssetPanel ? 'secondary' : 'ghost'} size="sm" className="h-8 text-xs gap-1.5" onClick={() => setShowAssetPanel(!showAssetPanel)}>
               <Layers className="w-3.5 h-3.5" /> Properties
             </Button>
+            <Button variant={showAIDirector ? 'secondary' : 'outline'} size="sm" className="h-8 text-xs gap-1.5" onClick={() => setShowAIDirector(true)}>
+              <Wand2 className="w-3.5 h-3.5" /> AI Director
+            </Button>
             <Separator orientation="vertical" className="h-5 mx-1" />
             <div className="flex items-center gap-0.5 bg-muted/50 rounded-md px-1 py-0.5">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}>
