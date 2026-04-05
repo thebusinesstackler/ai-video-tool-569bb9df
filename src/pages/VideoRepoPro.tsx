@@ -500,7 +500,7 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     toast({ title: 'Recreating with same ending', description: 'Only the first segment will be regenerated — the ending stays the same.' });
   };
 
-
+  useEffect(() => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
 
