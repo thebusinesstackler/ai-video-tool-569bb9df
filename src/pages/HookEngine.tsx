@@ -686,6 +686,35 @@ Be specific, actionable, and direct. Think like a viral content director.`
                 </ScrollArea>
               </div>
             )}
+
+            {/* AI Director Review Panel */}
+            {directorReview && (
+              <Card className="mt-4 border-primary/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-primary" />
+                    AI Director Review
+                    {selectedHookForReview && (
+                      <Badge variant="secondary" className="text-[9px] ml-auto">
+                        {selectedHookForReview.folderName}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  {selectedHookForReview && (
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Hook: "{selectedHookForReview.hookText}"
+                    </p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="max-h-[400px]">
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-xs whitespace-pre-wrap break-words">
+                      {directorReview}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
