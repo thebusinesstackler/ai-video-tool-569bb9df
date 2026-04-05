@@ -79,6 +79,7 @@ const navGroups: NavGroup[] = [
     label: 'Manage',
     icon: FolderOpen,
     items: [
+      { name: 'Product Library', href: '/products', icon: Package },
       { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
       { name: 'Characters', href: '/characters', icon: UsersIcon },
     ],
