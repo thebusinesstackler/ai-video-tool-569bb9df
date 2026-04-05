@@ -119,6 +119,13 @@ const VideoRepoPro = () => {
   const [pendingAutoAnalysis, setPendingAutoAnalysis] = useState(false);
   const pendingAutoPromptRef = useRef<string>('');
   
+  // AI Director detail view analysis
+  const [directorAnalysisRef, setDirectorAnalysisRef] = useState<string | null>(null);
+  const [directorAnalysisGen, setDirectorAnalysisGen] = useState<string | null>(null);
+  const [isAnalyzingRef, setIsAnalyzingRef] = useState(false);
+  const [isAnalyzingGen, setIsAnalyzingGen] = useState(false);
+  const [isCreatingImproved, setIsCreatingImproved] = useState(false);
+  
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames || isChatting;
   const statusLabel = isExtractingFrames
