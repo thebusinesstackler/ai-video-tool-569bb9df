@@ -613,14 +613,17 @@ ${project.video_prompt || 'Not available'}
       }
       if (productImageFile) {
         pImageUrl = await uploadFileToStorage(productImageFile, 'images');
+      } else if (productImageUrl && !productImageUrl.startsWith('data:') && !productImageUrl.startsWith('blob:')) {
+        pImageUrl = productImageUrl;
       }
     } catch (err: any) {
       console.error('Upload error:', err);
       toast({ title: 'File upload failed', description: err.message, variant: 'destructive' });
     }
 
-    setPersistentVideoUrl(pVideoUrl);
-    setPersistentImageUrl(pImageUrl);
+    // Preserve existing persistent URLs if new ones aren't available
+    setPersistentVideoUrl(pVideoUrl || persistentVideoUrl);
+    setPersistentImageUrl(pImageUrl || persistentImageUrl);
 
     let projectId: string | null = null;
     if (user) {
