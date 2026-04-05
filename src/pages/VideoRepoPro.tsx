@@ -1437,6 +1437,34 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 )}
               </CardContent></Card>
 
+              {/* Individual Segments */}
+              {selectedProject.segment_urls && selectedProject.segment_urls.length > 0 && (
+                <Card><CardContent className="p-3">
+                  <button
+                    className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground uppercase"
+                    onClick={() => setShowSegments(!showSegments)}
+                  >
+                    <span className="flex items-center gap-1.5"><Film className="w-3.5 h-3.5" /> Individual Segments ({selectedProject.segment_urls.length})</span>
+                    <span className="text-[10px] text-primary">{showSegments ? 'Hide' : 'Show'}</span>
+                  </button>
+                  {showSegments && (
+                    <div className="mt-3 space-y-3">
+                      {selectedProject.segment_urls.map((segUrl, idx) => (
+                        <div key={idx} className="space-y-1.5">
+                          <p className="text-[11px] font-medium text-muted-foreground">Segment {idx + 1}</p>
+                          <video src={`${segUrl}#t=0.5`} controls className="w-full rounded-lg max-h-[200px] object-contain bg-black" preload="metadata" playsInline />
+                          <Button size="sm" variant="ghost" className="w-full h-7 text-xs" asChild>
+                            <a href={segUrl} download target="_blank" rel="noopener noreferrer">
+                              <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent></Card>
+              )}
+
               {selectedProject.product_image_url && (
                 <Card><CardContent className="p-3">
                   <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Product Image</p>
@@ -1444,7 +1472,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 </CardContent></Card>
               )}
 
-              {/* Action buttons: Analyze + Regenerate */}
+              {/* Action buttons: Analyze + Regenerate + Recreate with Same Ending */}
               {selectedProject.generated_video_url && (
                 <div className="space-y-2">
                   <Button
@@ -1461,6 +1489,18 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     {(isAnalyzingGen || isAnalyzingRef) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
                     {(isAnalyzingGen || isAnalyzingRef) ? 'Analyzing Videos...' : 'Analyze Video'}
                   </Button>
+
+                  {/* Recreate with Same Ending */}
+                  {selectedProject.segment_urls && selectedProject.segment_urls.length >= 2 && (
+                    <Button
+                      className="w-full h-10 gap-2 rounded-xl border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
+                      variant="outline"
+                      onClick={() => recreateWithSameEnding(selectedProject)}
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Recreate with Same Ending
+                    </Button>
+                  )}
                 </div>
               )}
 
