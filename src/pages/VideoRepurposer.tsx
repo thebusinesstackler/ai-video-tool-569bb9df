@@ -88,6 +88,89 @@ const VideoRepurposer = () => {
 
   const getVideoSource = () => inputMode === 'upload' ? uploadedVideoUrl : videoUrl;
 
+  // Extract frames from a video URL (client-side)
+  const extractVideoFrames = async (videoUrl: string, count = 6): Promise<string[]> => {
+    const resp = await fetch(videoUrl);
+    const blob = await resp.blob();
+    const file = new File([blob], 'video.mp4', { type: 'video/mp4' });
+
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        const frames: string[] = [];
+        const timestamps = Array.from({ length: count }, (_, i) =>
+          Math.min(duration * (i / (count - 1)), duration - 0.1)
+        );
+        let idx = 0;
+
+        const captureFrame = () => {
+          canvas.width = Math.min(video.videoWidth, 640);
+          canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL('image/jpeg', 0.7));
+          idx++;
+          if (idx < timestamps.length) {
+            video.currentTime = timestamps[idx];
+          } else {
+            URL.revokeObjectURL(url);
+            resolve(frames);
+          }
+        };
+
+        video.onseeked = captureFrame;
+        video.currentTime = timestamps[0];
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load video for frame extraction'));
+      };
+    });
+  };
+
+  // Download a YouTube/social URL to get a playable video URL
+  const downloadVideoFromUrl = async (url: string): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke('download-video-url', {
+      body: { url },
+    });
+    if (error) throw new Error('Failed to download video');
+    if (data?.error) throw new Error(data.error);
+
+    let finalUrl = data?.videoUrl;
+
+    // Handle client-side download fallback
+    if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl) {
+      toast.info('Browser is downloading the video directly...');
+      const videoResp = await fetch(data.downloadUrl);
+      if (!videoResp.ok) throw new Error('Client-side download failed');
+      const blob = await videoResp.blob();
+
+      // Upload to storage via signed URL
+      const uploadResp = await fetch(data.signedUploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'video/mp4' },
+        body: blob,
+      });
+      if (!uploadResp.ok) throw new Error('Upload failed');
+      finalUrl = data.publicUrl;
+    }
+
+    if (!finalUrl) throw new Error('No video URL returned');
+    return finalUrl;
+  };
+
+  const isYouTubeOrSocialUrl = (url: string) => {
+    return /youtube\.com|youtu\.be|tiktok\.com|instagram\.com/i.test(url);
+  };
+
   const handleAnalyze = async () => {
     const source = getVideoSource();
     if (!source) { toast.error('Provide a video URL or upload a file'); return; }
@@ -95,22 +178,59 @@ const VideoRepurposer = () => {
     setIsAnalyzing(true);
     setAnalysis(null);
     setRepurposedScript(null);
-    setAnalyzeProgress(10);
+    setAnalyzeProgress(5);
 
     const progressInterval = setInterval(() => {
-      setAnalyzeProgress(prev => Math.min(prev + 8, 90));
-    }, 1500);
+      setAnalyzeProgress(prev => Math.min(prev + 3, 90));
+    }, 2000);
 
     try {
+      let analyzeUrl = source;
+
+      // Step 1: If it's a social media URL, download it first
+      if (isYouTubeOrSocialUrl(source)) {
+        toast.info('Downloading video from URL...');
+        setAnalyzeProgress(10);
+        analyzeUrl = await downloadVideoFromUrl(source);
+        toast.success('Video downloaded, extracting frames & transcribing...');
+      }
+
+      setAnalyzeProgress(25);
+
+      // Step 2: Extract frames and transcribe audio in parallel
+      const [frames, transcriptResult] = await Promise.all([
+        extractVideoFrames(analyzeUrl, 6).catch(err => {
+          console.warn('Frame extraction failed:', err);
+          return [] as string[];
+        }),
+        supabase.functions.invoke('transcribe-video', { body: { videoUrl: analyzeUrl } })
+          .then(res => res.data)
+          .catch(err => {
+            console.warn('Transcription failed, continuing without:', err);
+            return null;
+          }),
+      ]);
+
+      const transcript = transcriptResult?.text || '';
+      setAnalyzeProgress(60);
+      toast.info(`Extracted ${frames.length} frames${transcript ? ' + transcript' : ''}. Running AI analysis...`);
+
+      // Step 3: Send frames + transcript to AI for real analysis
       const { data, error } = await supabase.functions.invoke('analyze-repurpose-video', {
-        body: { action: 'analyze', videoUrl: source, platform },
+        body: {
+          action: 'analyze',
+          videoUrl: source,
+          platform,
+          frames,
+          transcript,
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
       setAnalysis(data.analysis);
       setAnalyzeProgress(100);
-      toast.success('Video analyzed — the AI found the winning formula');
+      toast.success('Video analyzed with real frames & audio — the AI found the winning formula');
     } catch (err: any) {
       toast.error(err.message || 'Analysis failed');
     } finally {
