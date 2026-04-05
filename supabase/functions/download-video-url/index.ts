@@ -235,23 +235,30 @@ Deno.serve(async (req) => {
     
     // Try multiple download strategies
     const downloadStrategies = [
-      // Strategy 1: Browser-like headers with Referer
+      // Strategy 1: Mimic browser <video> element request
       {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'video/mp4,video/*,*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://www.youtube.com/',
-        'Origin': 'https://www.youtube.com',
-      },
-      // Strategy 2: Minimal headers
-      {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'identity;q=1, *;q=0',
         'Range': 'bytes=0-',
+        'Sec-Fetch-Dest': 'video',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'cross-site',
+        'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Referer': 'https://www.youtube.com/',
       },
-      // Strategy 3: curl-like
+      // Strategy 2: Simple browser fetch
       {
-        'User-Agent': 'curl/8.4.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'video/mp4,video/*,*/*',
+        'Referer': 'https://www.youtube.com/',
+      },
+      // Strategy 3: Wget-like
+      {
+        'User-Agent': 'Wget/1.21.4',
         'Accept': '*/*',
       },
     ];
