@@ -1617,6 +1617,64 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             </div>
           </div>
 
+          {/* AI Director Chat */}
+          <Card className="border-orange-500/20">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium uppercase mb-3 flex items-center gap-1.5 text-orange-500">
+                <Bot className="w-3.5 h-3.5" /> Chat with AI Director
+              </p>
+              {detailChatMessages.length > 0 && (
+                <ScrollArea className="max-h-[300px] mb-3">
+                  <div className="space-y-3">
+                    {detailChatMessages.map((msg, idx) => (
+                      <div key={idx} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        {msg.role === 'assistant' && (
+                          <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-1">
+                            <Bot className="w-3 h-3 text-orange-500" />
+                          </div>
+                        )}
+                        <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                          <div className="prose prose-sm dark:prose-invert max-w-none" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {isDetailChatting && (
+                      <div className="flex gap-2">
+                        <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                          <Bot className="w-3 h-3 text-orange-500" />
+                        </div>
+                        <div className="bg-muted rounded-xl px-3 py-2 flex items-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="text-xs text-muted-foreground">Thinking...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ask the AI Director about this video..."
+                  value={detailChatInput}
+                  onChange={(e) => setDetailChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDetailChat(selectedProject); } }}
+                  className="text-sm"
+                  disabled={isDetailChatting}
+                />
+                <Button
+                  size="icon"
+                  className="h-9 w-9 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  onClick={() => sendDetailChat(selectedProject)}
+                  disabled={isDetailChatting || !detailChatInput.trim()}
+                >
+                  {isDetailChatting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {showTimeline && selectedProject.generated_video_url && (
             <VideoRepoTimeline
               videoUrl={selectedProject.generated_video_url}
