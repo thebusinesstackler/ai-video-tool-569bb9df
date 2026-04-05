@@ -1346,7 +1346,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
         <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
           {/* Header bar */}
           <div className="flex items-center gap-3 flex-wrap">
-            <Button variant="ghost" size="icon" onClick={() => { setSelectedProject(null); setDirectorAnalysisRef(null); setDirectorAnalysisGen(null); }}>
+            <Button variant="ghost" size="icon" onClick={() => { setSelectedProject(null); setDirectorAnalysisRef(null); setDirectorAnalysisGen(null); setDetailChatMessages([]); setDetailChatInput(''); setShowSegments(false); }}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex-1 min-w-0">
