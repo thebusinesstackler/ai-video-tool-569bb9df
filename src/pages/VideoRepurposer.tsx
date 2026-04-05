@@ -149,18 +149,27 @@ const VideoRepurposer = () => {
     // Handle client-side download fallback
     if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl) {
       toast.info('Browser is downloading the video directly...');
-      const videoResp = await fetch(data.downloadUrl);
-      if (!videoResp.ok) throw new Error('Client-side download failed');
-      const blob = await videoResp.blob();
+      try {
+        const videoResp = await fetch(data.downloadUrl);
+        if (!videoResp.ok) throw new Error(`Download returned ${videoResp.status}`);
+        const blob = await videoResp.blob();
+        console.log('Client downloaded video, size:', blob.size);
 
-      // Upload to storage via signed URL
-      const uploadResp = await fetch(data.signedUploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'video/mp4' },
-        body: blob,
-      });
-      if (!uploadResp.ok) throw new Error('Upload failed');
-      finalUrl = data.publicUrl;
+        // Upload to storage via signed URL
+        const uploadResp = await fetch(data.signedUploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'video/mp4' },
+          body: blob,
+        });
+        if (!uploadResp.ok) throw new Error(`Upload returned ${uploadResp.status}`);
+        finalUrl = data.publicUrl;
+        toast.success('Video downloaded and stored successfully');
+      } catch (clientErr: any) {
+        console.error('Client download/upload failed:', clientErr);
+        toast.warning('Browser download blocked — will try server-side analysis...');
+        // Return the direct download URL so transcribe-video (server-side) can try it
+        finalUrl = data.downloadUrl;
+      }
     }
 
     if (!finalUrl) throw new Error('No video URL returned');
@@ -198,20 +207,39 @@ const VideoRepurposer = () => {
       setAnalyzeProgress(25);
 
       // Step 2: Extract frames and transcribe audio in parallel
-      const [frames, transcriptResult] = await Promise.all([
-        extractVideoFrames(analyzeUrl, 6).catch(err => {
-          console.warn('Frame extraction failed:', err);
-          return [] as string[];
-        }),
-        supabase.functions.invoke('transcribe-video', { body: { videoUrl: analyzeUrl } })
-          .then(res => res.data)
-          .catch(err => {
-            console.warn('Transcription failed, continuing without:', err);
-            return null;
-          }),
-      ]);
+      let frames: string[] = [];
+      let transcript = '';
 
-      const transcript = transcriptResult?.text || '';
+      // Try frame extraction
+      try {
+        frames = await extractVideoFrames(analyzeUrl, 6);
+        console.log(`Extracted ${frames.length} frames successfully`);
+      } catch (frameErr: any) {
+        console.warn('Frame extraction failed:', frameErr?.message);
+        toast.warning('Could not extract video frames — trying transcript only...');
+      }
+
+      // Try transcription (use the original social URL if analyzeUrl might be empty storage)
+      try {
+        const transcriptResult = await supabase.functions.invoke('transcribe-video', { 
+          body: { videoUrl: analyzeUrl } 
+        });
+        transcript = transcriptResult.data?.text || '';
+        if (transcript) {
+          console.log('Transcript extracted, length:', transcript.length);
+        }
+      } catch (transcribeErr: any) {
+        console.warn('Transcription failed:', transcribeErr?.message);
+      }
+
+      // CRITICAL: If we have neither frames nor transcript, abort — don't let AI hallucinate
+      if (frames.length === 0 && !transcript) {
+        throw new Error(
+          'Could not extract frames or audio from this video. The video may not be downloadable. ' +
+          'Try uploading the video file directly instead of using a URL.'
+        );
+      }
+
       setAnalyzeProgress(60);
       toast.info(`Extracted ${frames.length} frames${transcript ? ' + transcript' : ''}. Running AI analysis...`);
 
