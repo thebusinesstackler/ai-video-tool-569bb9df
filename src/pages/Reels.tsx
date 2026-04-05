@@ -983,6 +983,107 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
+  // Add captions to a completed reel
+  const handleAddCaptions = async (reel: SavedReel) => {
+    if (!reel.video_url || !reel.scenes?.length) return;
+    setAddingCaptionsId(reel.id);
+    setCaptionPreviewReel(reel);
+    setIsBurningCaptions(true);
+    setCaptionedVideoUrl(null);
+
+    try {
+      const clips = reel.scenes.map((s: any) => ({
+        url: s.videoUrl || reel.video_url!,
+        duration: s.audioDuration || s.duration || 5,
+        caption: s.text || s.narration || '',
+        audioDuration: s.audioDuration || s.duration || 5,
+      })).filter((c: any) => c.url);
+
+      const captionSettings = reel.caption_settings || { style: 'karaoke', background: 'glass', position: 'bottom' };
+
+      const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
+        body: {
+          clips,
+          audioUrl: reel.audio_url || undefined,
+          captionStyle: captionSettings.position || 'bottom',
+          captionBackground: captionSettings.background || 'glass',
+          captionFontSize: 'medium',
+          transition: 'crossfade',
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.renderId) throw new Error('No render ID returned');
+
+      // Poll for completion
+      let attempts = 0;
+      while (attempts < 60) {
+        await new Promise(r => setTimeout(r, 3000));
+        const { data: statusData } = await supabase.functions.invoke('creatomate-status', {
+          body: { renderId: data.renderId },
+        });
+        if (statusData?.status === 'succeeded' && statusData?.url) {
+          setCaptionedVideoUrl(statusData.url);
+          setIsBurningCaptions(false);
+          return;
+        }
+        if (statusData?.status === 'failed') throw new Error('Caption render failed');
+        attempts++;
+      }
+      throw new Error('Caption render timed out');
+    } catch (e: any) {
+      console.error('Add captions failed:', e);
+      toast({ title: 'Caption Failed', description: e.message, variant: 'destructive' });
+      setCaptionPreviewReel(null);
+      setIsBurningCaptions(false);
+    } finally {
+      setAddingCaptionsId(null);
+    }
+  };
+
+  const handleSaveCaptions = async () => {
+    if (!captionPreviewReel || !captionedVideoUrl) return;
+    try {
+      const { error } = await supabase.from('reels').update({
+        video_url: captionedVideoUrl,
+        video_url_no_captions: captionPreviewReel.video_url,
+      }).eq('id', captionPreviewReel.id);
+      if (error) throw error;
+
+      setSavedReels(prev => prev.map(r =>
+        r.id === captionPreviewReel.id
+          ? { ...r, video_url: captionedVideoUrl, video_url_no_captions: r.video_url }
+          : r
+      ));
+      toast({ title: 'Captions Saved', description: 'Video updated with burned-in captions.' });
+    } catch (e: any) {
+      toast({ title: 'Save Failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setCaptionPreviewReel(null);
+      setCaptionedVideoUrl(null);
+    }
+  };
+
+  const handleRemoveCaptions = async (reel: SavedReel) => {
+    if (!reel.video_url_no_captions) return;
+    try {
+      const { error } = await supabase.from('reels').update({
+        video_url: reel.video_url_no_captions,
+        video_url_no_captions: null,
+      }).eq('id', reel.id);
+      if (error) throw error;
+
+      setSavedReels(prev => prev.map(r =>
+        r.id === reel.id
+          ? { ...r, video_url: reel.video_url_no_captions!, video_url_no_captions: null }
+          : r
+      ));
+      toast({ title: 'Captions Removed', description: 'Restored original video without captions.' });
+    } catch (e: any) {
+      toast({ title: 'Remove Failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
 
   const handlePortraitUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
