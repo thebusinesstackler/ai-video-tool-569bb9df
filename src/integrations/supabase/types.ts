@@ -95,6 +95,36 @@ export type Database = {
         }
         Relationships: []
       }
+      brands: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       characters: {
         Row: {
           created_at: string
@@ -242,6 +272,44 @@ export type Database = {
         }
         Relationships: []
       }
+      product_gallery: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          is_primary: boolean
+          label: string | null
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          is_primary?: boolean
+          label?: string | null
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          is_primary?: boolean
+          label?: string | null
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_gallery_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_images: {
         Row: {
           created_at: string
@@ -265,6 +333,56 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      products: {
+        Row: {
+          benefits: string[] | null
+          brand_id: string
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          target_audience: string | null
+          updated_at: string
+          user_id: string
+          youtube_short_url: string | null
+        }
+        Insert: {
+          benefits?: string[] | null
+          brand_id: string
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          target_audience?: string | null
+          updated_at?: string
+          user_id: string
+          youtube_short_url?: string | null
+        }
+        Update: {
+          benefits?: string[] | null
+          brand_id?: string
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          target_audience?: string | null
+          updated_at?: string
+          user_id?: string
+          youtube_short_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
