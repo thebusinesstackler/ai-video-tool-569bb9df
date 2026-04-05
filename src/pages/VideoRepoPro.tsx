@@ -1173,13 +1173,29 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
               {selectedProject.analysis_text && (
                 <Card><CardContent className="p-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
-                    <Wand2 className="w-3.5 h-3.5 text-primary" /> AI Analysis
+                  <p className="text-xs font-medium text-muted-foreground uppercase mb-1 flex items-center gap-1.5">
+                    <Wand2 className="w-3.5 h-3.5 text-primary" /> AI Script Director
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mb-3">
+                    {selectedProject.status === 'failed'
+                      ? 'This is the script that was planned for production (generation failed).'
+                      : 'This is the script that was generated for production.'}
                   </p>
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
                   </div>
                 </CardContent></Card>
+              )}
+
+              {/* Re-Analyze button for failed projects */}
+              {selectedProject.status === 'failed' && selectedProject.reference_video_url && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => reAnalyzeFromDetail(selectedProject)}
+                >
+                  <RefreshCw className="w-4 h-4" /> Re-Analyze &amp; Try Again
+                </Button>
               )}
             </div>
           </div>
