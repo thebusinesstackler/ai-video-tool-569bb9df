@@ -77,6 +77,45 @@ export const VideoRepoTimeline = ({ videoUrl, onClose }: VideoRepoTimelineProps)
   const [showBrollDialog, setShowBrollDialog] = useState(false);
   const [brollUrl, setBrollUrl] = useState('');
 
+  // AI Director
+  const [showAIDirector, setShowAIDirector] = useState(false);
+
+  const handleDirectorAction = useCallback((action: DirectorAction) => {
+    switch (action.type) {
+      case 'split_clip': {
+        if (action.clipIndex !== undefined && action.timestamp !== undefined) {
+          const seg = segments[action.clipIndex];
+          if (!seg) return;
+          const splitTime = seg.startTime + action.timestamp;
+          if (splitTime <= seg.startTime || splitTime >= seg.endTime) return;
+          const first = { ...seg, endTime: splitTime };
+          const second = { ...seg, id: `seg-${Date.now()}`, startTime: splitTime, label: `${seg.label} (split)`, color: SEGMENT_COLORS[(action.clipIndex + 1) % SEGMENT_COLORS.length] };
+          setSegments(prev => [...prev.slice(0, action.clipIndex!), first, second, ...prev.slice(action.clipIndex! + 1)]);
+        }
+        break;
+      }
+      case 'delete_clip': {
+        if (action.clipIndex !== undefined) {
+          setSegments(prev => prev.filter((_, i) => i !== action.clipIndex));
+        }
+        break;
+      }
+      case 'reorder_clips': {
+        if (action.fromIndex !== undefined && action.toIndex !== undefined) {
+          setSegments(prev => {
+            const updated = [...prev];
+            const [moved] = updated.splice(action.fromIndex!, 1);
+            updated.splice(action.toIndex!, 0, moved);
+            return updated;
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }, [segments]);
+
   // Initialize segments from duration
   useEffect(() => {
     if (duration > 0 && segments.length === 0) {
