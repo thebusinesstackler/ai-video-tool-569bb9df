@@ -220,7 +220,8 @@ Deno.serve(async (req) => {
     // Try server-side download first
     console.log('[download-video-url] Attempting server-side download from:', downloadUrl.substring(0, 100));
     try {
-      const videoResponse = await fetch(downloadUrl);
+      const dlHeaders = getDownloadHeaders(rapidApiKey, downloadUrl) || {};
+      const videoResponse = await fetch(downloadUrl, { headers: dlHeaders, redirect: 'follow' });
       if (videoResponse.ok) {
         const ct = videoResponse.headers.get('content-type') || '';
         const cl = parseInt(videoResponse.headers.get('content-length') || '0');
