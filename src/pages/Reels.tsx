@@ -8099,6 +8099,44 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               Download
                             </Button>
                           )}
+                          {reel.video_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddCaptions(reel)}
+                              disabled={addingCaptionsId === reel.id}
+                              title={reel.video_url_no_captions ? 'Re-add captions' : 'Add captions'}
+                            >
+                              {addingCaptionsId === reel.id ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Captions className="w-4 h-4 mr-2" />
+                              )}
+                              Captions
+                            </Button>
+                          )}
+                          {reel.video_url_no_captions && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRemoveCaptions(reel)}
+                              title="Remove captions and restore original"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Remove Captions
+                            </Button>
+                          )}
+                          {reel.video_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setContinueVideoReel(reel)}
+                              title="Continue / extend this video"
+                            >
+                              <Film className="w-4 h-4 mr-2" />
+                              Continue
+                            </Button>
+                          )}
                           <Button
                             variant="destructive"
                             size="sm"
