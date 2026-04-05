@@ -445,8 +445,62 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
       setIsCreatingImproved(false);
     }
   };
+  // AI Director chat in detail view
+  const sendDetailChat = async (project: VideoRepoProject) => {
+    if (!detailChatInput.trim() || isDetailChatting) return;
+    const userMsg = detailChatInput.trim();
+    setDetailChatInput('');
+    setDetailChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setIsDetailChatting(true);
 
-  useEffect(() => {
+    try {
+      const context = [
+        project.video_prompt ? `Video Script:\n${project.video_prompt}` : '',
+        project.analysis_text ? `AI Script Director Notes:\n${project.analysis_text}` : '',
+        directorAnalysisRef ? `Reference Video Analysis:\n${directorAnalysisRef}` : '',
+        directorAnalysisGen ? `Generated Video Analysis:\n${directorAnalysisGen}` : '',
+        project.segment_urls?.length ? `This video has ${project.segment_urls.length} individual segments.` : '',
+      ].filter(Boolean).join('\n\n');
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: `You are an expert AI Video Director. You have full context of this project. Answer questions, suggest improvements, and provide actionable feedback. Be concise and direct.\n\nProject Context:\n${context}` },
+            ...detailChatMessages.map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content: userMsg },
+          ],
+        },
+      });
+
+      if (error) throw error;
+      setDetailChatMessages(prev => [...prev, { role: 'assistant', content: data?.response || 'No response' }]);
+    } catch (err: any) {
+      setDetailChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+    } finally {
+      setIsDetailChatting(false);
+    }
+  };
+
+  // Recreate with same ending — keeps segment 2, regenerates segment 1
+  const recreateWithSameEnding = async (project: VideoRepoProject) => {
+    if (!project.segment_urls?.length || project.segment_urls.length < 2) {
+      toast({ title: 'Cannot recreate', description: 'No individual segments found for this project. Generate a new video first.', variant: 'destructive' });
+      return;
+    }
+    loadProjectAssets(project);
+    // Parse the video_prompt to get just segment 1's prompt
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze reference and generate 30s ad';
+    const keepEndingNote = `\n\n**IMPORTANT — KEEP SAME ENDING**: The second segment (ending) from the previous version will be reused. Only regenerate Segment 1 (the hook/intro) with improvements. The ending segment URL is: ${project.segment_urls[1]}`;
+    
+    setPrompt(originalPrompt + keepEndingNote);
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({ title: 'Recreating with same ending', description: 'Only the first segment will be regenerated — the ending stays the same.' });
+  };
+
+
     if (user) fetchHistory();
   }, [user, fetchHistory]);
 
