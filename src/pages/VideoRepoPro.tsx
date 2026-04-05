@@ -1786,7 +1786,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     <Card
                       key={project.id}
                       className={`overflow-hidden cursor-pointer hover:border-orange-500/40 transition-colors group ${project.is_favorite ? 'ring-1 ring-amber-400/50' : ''}`}
-                      onClick={() => setSelectedProject(project)}
+                      onClick={() => { setSelectedProject(project); setExpandedScript(false); }}
                     >
                       <div className="grid grid-cols-2 aspect-[4/3] relative">
                         {project.reference_video_url ? (
