@@ -333,6 +333,77 @@ ${project.video_prompt || 'Not available'}
     }
   };
 
+  // AI Director: Review generated video inline in chat
+  const reviewGeneratedVideo = async () => {
+    if (!latestGeneratedVideoUrl) return;
+    setIsReviewingGenerated(true);
+    
+    try {
+      toast({ title: 'AI Director Review', description: 'Extracting frames and analyzing your generated video...' });
+      const frames = await extractFramesFromUrl(latestGeneratedVideoUrl, 6);
+      
+      // Find the script that was used
+      const scriptMsg = [...messages].reverse().find(m => m.role === 'assistant' && m.content.includes('Segment'));
+      const scriptUsed = scriptMsg?.content || latestAnalysisText || 'Not available';
+
+      const contentParts: any[] = [
+        { type: 'text', text: 'I\'ve extracted 6 key frames from the generated video. Provide a thorough post-production review.' },
+        ...frames.map(f => ({ type: 'image_url', image_url: { url: f } })),
+        { type: 'text', text: `You are an expert AI Video Director doing a post-production review of a just-generated UGC ad. Your goal is to help the creator iterate and improve.
+
+## Script that was used:
+${scriptUsed}
+
+## Your Review Should Cover:
+
+### 🎬 Overall Score (1-10)
+Rate the overall quality of this video.
+
+### ✅ What Worked Well
+- List 3-5 specific things that came out great (hook, transitions, expressions, lighting, pacing, etc.)
+
+### ⚠️ Issues & Improvements Needed
+- List specific problems you see (static moments, awkward transitions, poor framing, lip-sync issues, unnatural movement, etc.)
+- For EACH issue, provide a concrete suggestion on how to fix it in the next version
+
+### 🎯 Script Adjustments for V2
+- Suggest specific script/prompt changes that would address the issues above
+- Include timing adjustments, camera angle changes, or action modifications
+
+### 💡 Director's Priority Fix
+- What is the SINGLE most impactful change to make for the next version?
+
+Be specific, constructive, and actionable. Reference exact moments/frames when possible.` },
+      ];
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: 'You are an expert AI Video Director reviewing a just-generated UGC ad video. Provide constructive, specific, and actionable feedback to help the creator improve the next version.' },
+            { role: 'user', content: contentParts },
+          ],
+        },
+      });
+
+      if (error) throw new Error('AI review failed');
+      if (!data?.response) throw new Error('No response from AI');
+
+      const reviewMsg: ChatMessage = {
+        id: `review-${Date.now()}`,
+        role: 'assistant',
+        content: `🎬 **AI Director — Post-Production Review**\n\n${data.response}\n\n---\n*Type feedback above to refine the script based on these notes, then hit "Generate Video from Script" to create V2.*`,
+      };
+      setMessages(prev => [...prev, reviewMsg]);
+      scrollToBottom();
+      toast({ title: 'Review complete', description: 'AI Director has reviewed your video with improvement suggestions.' });
+    } catch (err: any) {
+      console.error('[AI Director] review error:', err);
+      toast({ title: 'Review failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsReviewingGenerated(false);
+    }
+  };
+
   // Create improved version using AI Director analysis
   const createImprovedVersion = async (project: VideoRepoProject) => {
     setIsCreatingImproved(true);
