@@ -613,14 +613,17 @@ ${project.video_prompt || 'Not available'}
       }
       if (productImageFile) {
         pImageUrl = await uploadFileToStorage(productImageFile, 'images');
+      } else if (productImageUrl && !productImageUrl.startsWith('data:') && !productImageUrl.startsWith('blob:')) {
+        pImageUrl = productImageUrl;
       }
     } catch (err: any) {
       console.error('Upload error:', err);
       toast({ title: 'File upload failed', description: err.message, variant: 'destructive' });
     }
 
-    setPersistentVideoUrl(pVideoUrl);
-    setPersistentImageUrl(pImageUrl);
+    // Preserve existing persistent URLs if new ones aren't available
+    setPersistentVideoUrl(pVideoUrl || persistentVideoUrl);
+    setPersistentImageUrl(pImageUrl || persistentImageUrl);
 
     let projectId: string | null = null;
     if (user) {
@@ -1544,7 +1547,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
             {showConversation ? (
               <>
-                <ScrollArea className="w-full max-w-3xl mb-4 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
+                <ScrollArea className="w-full max-w-3xl mb-4 min-h-[280px] max-h-[60vh] rounded-2xl border border-border/60 bg-background/20 px-4">
                   <div className="space-y-4 py-4">
                     {messages.map((msg) => (
                       <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -1553,7 +1556,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             <Bot className="w-4 h-4 text-orange-500" />
                           </div>
                         )}
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        <div className={`max-w-[85%] rounded-2xl px-4 py-3 overflow-x-auto ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                           {msg.attachments && msg.attachments.length > 0 && (
                             <div className="flex gap-2 mb-2 flex-wrap">
                               {msg.attachments.map((att, i) => (
@@ -1564,7 +1567,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                               ))}
                             </div>
                           )}
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <div className="prose prose-sm dark:prose-invert max-w-none break-words [&_pre]:whitespace-pre-wrap [&_pre]:break-all [&_code]:break-all">
                             <ReactMarkdown>{msg.content}</ReactMarkdown>
                           </div>
                           {msg.videoResult && (
