@@ -33,6 +33,7 @@ import {
   Wand2,
   Eye,
   Zap,
+  Mic,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
