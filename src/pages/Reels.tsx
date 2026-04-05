@@ -189,6 +189,7 @@ interface SavedReel {
   id: string;
   topic: string;
   video_url: string | null;
+  video_url_no_captions?: string | null;
   thumbnail_url: string | null;
   audio_url?: string | null;
   scenes: GeneratedScene[];
