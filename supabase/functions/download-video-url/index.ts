@@ -94,29 +94,25 @@ function extractDownloadUrl(platform: string, data: any): string | null {
   return null;
 }
 
-function getDownloadHeaders(rapidApiKey: string, url?: string): Record<string, string> | undefined {
-  if (!url) return undefined;
+function getDownloadHeaders(rapidApiKey: string, url?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': '*/*',
+    'Accept-Encoding': 'identity',
+    'Referer': 'https://www.youtube.com/',
+  };
+
+  if (!url) return headers;
 
   try {
     const hostname = new URL(url).hostname.toLowerCase();
-    // For RapidAPI proxy domains, send the API key
     if (hostname.includes('rapidapi')) {
-      return {
-        'X-RapidAPI-Key': rapidApiKey,
-        'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com',
-      };
+      headers['X-RapidAPI-Key'] = rapidApiKey;
+      headers['X-RapidAPI-Host'] = 'social-media-video-downloader.p.rapidapi.com';
     }
-    // For SMVD direct domains, just send a browser-like User-Agent (no RapidAPI headers)
-    if (hostname.endsWith('smvd.xyz')) {
-      return {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      };
-    }
-  } catch {
-    return undefined;
-  }
+  } catch { /* */ }
 
-  return undefined;
+  return headers;
 }
 
 Deno.serve(async (req) => {
