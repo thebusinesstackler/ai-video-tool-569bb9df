@@ -89,17 +89,13 @@ const VideoRepurposer = () => {
   const getVideoSource = () => inputMode === 'upload' ? uploadedVideoUrl : videoUrl;
 
   // Extract frames from a video URL (client-side)
-  const extractVideoFrames = async (videoUrl: string, count = 6): Promise<string[]> => {
-    const resp = await fetch(videoUrl);
-    const blob = await resp.blob();
-    const file = new File([blob], 'video.mp4', { type: 'video/mp4' });
-
+  const extractVideoFrames = async (sourceUrl: string, count = 6): Promise<string[]> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.preload = 'auto';
       video.muted = true;
-      const url = URL.createObjectURL(file);
-      video.src = url;
+      video.crossOrigin = 'anonymous';
+      video.src = sourceUrl;
 
       video.onloadedmetadata = () => {
         const duration = video.duration;
@@ -120,7 +116,6 @@ const VideoRepurposer = () => {
           if (idx < timestamps.length) {
             video.currentTime = timestamps[idx];
           } else {
-            URL.revokeObjectURL(url);
             resolve(frames);
           }
         };
@@ -130,13 +125,16 @@ const VideoRepurposer = () => {
       };
 
       video.onerror = () => {
-        URL.revokeObjectURL(url);
         reject(new Error('Failed to load video for frame extraction'));
       };
     });
   };
 
   // Download a YouTube/social URL to get a playable video URL
+  // Uses the same robust multi-layered strategy as Video Repo Pro:
+  // 1. Server-side download via edge function
+  // 2. Client-side direct fetch
+  // 3. Client-side MediaRecorder + captureStream() fallback (bypasses CORS)
   const downloadVideoFromUrl = async (url: string): Promise<string> => {
     const { data, error } = await supabase.functions.invoke('download-video-url', {
       body: { url },
@@ -144,38 +142,93 @@ const VideoRepurposer = () => {
     if (error) throw new Error('Failed to download video');
     if (data?.error) throw new Error(data.error);
 
-    // If we got a direct videoUrl (server successfully downloaded & stored it), use it
+    // If server successfully downloaded & stored it, use that URL directly
     if (data?.videoUrl) {
       return data.videoUrl;
     }
 
-    // Handle client-side download fallback
+    // Handle client-side download fallback (same as VideoRepoPro)
     if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl) {
       toast.info('Browser is downloading the video directly...');
-      try {
-        const videoResp = await fetch(data.downloadUrl);
-        if (!videoResp.ok) throw new Error(`Download returned ${videoResp.status}`);
-        const blob = await videoResp.blob();
-        if (blob.size < 1000) throw new Error('Downloaded file too small — likely blocked');
-        console.log('Client downloaded video, size:', blob.size);
 
-        // Upload to storage via signed URL
-        const uploadResp = await fetch(data.signedUploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'video/mp4' },
-          body: blob,
-        });
-        if (!uploadResp.ok) throw new Error(`Upload returned ${uploadResp.status}`);
-        toast.success('Video downloaded and stored successfully');
-        return data.publicUrl;
-      } catch (clientErr: any) {
-        console.error('Client download/upload failed:', clientErr);
-        // Don't silently continue — this means we have NO usable video
-        throw new Error(
-          'Could not download this video. YouTube and some platforms block automated downloads. ' +
-          'Please download the video to your device first, then use the Upload tab to analyze it.'
-        );
-      }
+      const videoBlob = await new Promise<Blob>((resolve, reject) => {
+        // First try direct fetch
+        fetch(data.downloadUrl)
+          .then(resp => {
+            if (!resp.ok) throw new Error('fetch failed');
+            return resp.blob();
+          })
+          .then(blob => {
+            if (blob.size < 1000) throw new Error('Downloaded file too small');
+            resolve(blob);
+          })
+          .catch(() => {
+            // Fallback: use video element + MediaRecorder captureStream
+            const video = document.createElement('video');
+            video.muted = true;
+            video.playsInline = true;
+            video.preload = 'auto';
+            video.crossOrigin = 'anonymous';
+            video.src = data.downloadUrl;
+
+            video.onerror = () => {
+              // Last resort: try without crossOrigin
+              video.removeAttribute('crossorigin');
+              video.src = '';
+              video.src = data.downloadUrl;
+              video.onerror = () => reject(new Error(
+                'Could not download this video. Please download it to your device first, then use the Upload tab.'
+              ));
+              video.onloadeddata = () => {
+                try {
+                  const stream = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+                  if (!stream) throw new Error('captureStream not supported');
+                  const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                  const chunks: Blob[] = [];
+                  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                  recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
+                  recorder.start();
+                  video.play();
+                  video.onended = () => recorder.stop();
+                  setTimeout(() => { try { recorder.stop(); } catch {} }, 120000);
+                } catch {
+                  reject(new Error('Could not capture video. Please download it manually and upload.'));
+                }
+              };
+            };
+
+            video.onloadeddata = () => {
+              try {
+                const stream = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+                if (!stream) throw new Error('captureStream not supported');
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                const chunks: Blob[] = [];
+                recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
+                recorder.start();
+                video.play();
+                video.onended = () => recorder.stop();
+                setTimeout(() => { try { recorder.stop(); } catch {} }, 120000);
+              } catch {
+                reject(new Error('Could not capture video. Please download it manually and upload.'));
+              }
+            };
+
+            video.load();
+          });
+      });
+
+      if (videoBlob.size > 100 * 1024 * 1024) throw new Error('Video is too large (max 100MB)');
+
+      // Upload to storage via signed URL
+      const uploadResp = await fetch(data.signedUploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': videoBlob.type || 'video/mp4' },
+        body: videoBlob,
+      });
+      if (!uploadResp.ok) throw new Error(`Upload returned ${uploadResp.status}`);
+      toast.success('Video downloaded and stored successfully');
+      return data.publicUrl;
     }
 
     throw new Error('No video URL returned from download service');
