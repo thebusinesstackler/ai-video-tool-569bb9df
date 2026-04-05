@@ -1454,12 +1454,19 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
               {/* Video Script / Narration */}
               {selectedProject.video_prompt && (
                 <Card><CardContent className="p-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-primary" /> Video Script &amp; Narration
-                  </p>
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" /> Video Script &amp; Narration
+                    </p>
+                  </div>
+                  <div className={`prose prose-sm dark:prose-invert max-w-none overflow-hidden transition-all ${!expandedScript ? 'max-h-[120px]' : ''}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <ReactMarkdown>{selectedProject.video_prompt}</ReactMarkdown>
                   </div>
+                  {selectedProject.video_prompt.length > 200 && (
+                    <Button variant="ghost" size="sm" className="mt-1 text-xs text-primary h-7 px-2" onClick={() => setExpandedScript(!expandedScript)}>
+                      {expandedScript ? 'Show Less' : 'Read More'}
+                    </Button>
+                  )}
                 </CardContent></Card>
               )}
 
@@ -1480,9 +1487,14 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       ? 'This is the script that was planned for production (generation failed).'
                       : 'This is the script that was generated for production.'}
                   </p>
-                  <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                  <div className={`prose prose-sm dark:prose-invert max-w-none overflow-hidden transition-all ${!expandedScript ? 'max-h-[200px]' : ''}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
                   </div>
+                  {selectedProject.analysis_text.length > 300 && (
+                    <Button variant="ghost" size="sm" className="mt-1 text-xs text-primary h-7 px-2" onClick={() => setExpandedScript(!expandedScript)}>
+                      {expandedScript ? 'Show Less' : 'Read More'}
+                    </Button>
+                  )}
                 </CardContent></Card>
               )}
 
