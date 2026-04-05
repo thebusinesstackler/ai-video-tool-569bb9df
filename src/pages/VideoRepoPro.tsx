@@ -1547,7 +1547,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
             {showConversation ? (
               <>
-                <ScrollArea className="w-full max-w-3xl mb-4 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
+                <ScrollArea className="w-full max-w-3xl mb-4 min-h-[280px] max-h-[60vh] rounded-2xl border border-border/60 bg-background/20 px-4">
                   <div className="space-y-4 py-4">
                     {messages.map((msg) => (
                       <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
