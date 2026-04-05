@@ -1,44 +1,72 @@
 
 
-## Plan: Fix Remake/New Version Auto-Trigger + Clarify AI Analysis Labels
+## Plan: Fix AI Spokesperson Video Quality — Proper Lip-Sync, Duration Control, and Multi-Scene B-Roll
 
-### Problems Identified
+### Root Causes
 
-1. **"Project loaded" but nothing happens**: `remakeWithEdits` loads assets into the Create tab and shows a toast, but the user must manually type a prompt and send it. "New Version" does the exact same thing as "Remake" — neither auto-triggers the analysis.
-
-2. **AI Analysis labeling is misleading**: The "AI Analysis" card shows the AI's script proposal (video prompts + narration), not an actual analysis of the reference or generated video. For failed projects, it shows what was *planned* to be created, which is confusing.
+1. **Wrong model routing**: `infinitetalk` now maps to Sora-2 image-to-video (no audio input). The generated TTS audio is uploaded but never sent to the video model. Result: silent or static video with no lip-sync.
+2. **Duration mismatch**: User selects 15s/30s/45s/60s but Sora-2 only accepts 4/8/12/16/20s. No feedback about this.
+3. **No B-roll rendering**: The AI script generates 3-5 scenes (speaking + broll + transition), but `generateVideo()` only renders a single video from scene 1 and ignores the rest.
 
 ---
 
 ### Changes
 
-#### 1. Auto-trigger analysis on Remake / New Version
-**File:** `src/pages/VideoRepoPro.tsx`
+#### 1. Fix lip-sync by using real InfiniteTalk HD for speaking scenes
+**File:** `src/pages/AISpokesperson.tsx`
 
-- After `remakeWithEdits` loads assets and switches to the Create tab, auto-trigger the `handleSendMessage` flow (or a dedicated re-analysis function) so the AI immediately starts analyzing the reference video and generating a new script.
-- Differentiate "Remake" (loads into Create tab for manual editing) from "New Version" (loads AND auto-triggers fresh analysis with existing prompt).
-- For "New Version": set a flag like `autoTriggerAnalysis` that a `useEffect` picks up once the Create tab is active, then calls the analysis with the loaded reference video + product image + original prompt.
+- Change `generateVideo()` to use model `'infinitetalk-hd'` instead of `'infinitetalk'` for the main speaking video. This routes to the actual WaveSpeed InfiniteTalk endpoint that accepts both `image` and `audio` inputs for real lip-sync.
+- Ensure the `audioUrl` is always passed (it's already uploaded to storage).
 
-#### 2. Separate and clarify analysis labels in the detail view
-**File:** `src/pages/VideoRepoPro.tsx`
+#### 2. Implement multi-scene rendering with B-roll
+**File:** `src/pages/AISpokesperson.tsx`
 
-- Rename the current "AI Analysis" card to **"AI Script Director"** — because it contains the two-segment video prompts and narration, not a video analysis.
-- Add a clear label: "This is the script that was generated for production" (or "planned for production" if status is failed).
-- For the **reference video**: label the prompt card as **"Your Prompt"** (already exists) — no change needed.
-- For the **Video Script & Narration** card: keep as-is, this shows `video_prompt` which is the final production script.
+- When the script has `scenes`, render each scene separately:
+  - **Speaking scenes** → `infinitetalk-hd` (image + audio segment)
+  - **B-roll scenes** → `sora-2` or `kling-v3.0-pro` (image only, cinematic prompt, no audio needed)
+  - **Transition scenes** → short `sora-2` clips
+- After all scenes complete, stitch them together using the existing `creatomate-stitch` or `canvasStitch` fallback.
+- Show per-scene progress in the UI.
 
-#### 3. Add "Re-Analyze" button for failed projects
-**File:** `src/pages/VideoRepoPro.tsx`
+#### 3. Fix duration control
+**File:** `src/pages/AISpokesperson.tsx`
 
-- On failed projects, show a **"Re-Analyze Video"** button in the detail view that re-runs analysis on the existing reference assets without needing to go back to the Create tab.
+- The total duration is controlled by the script's scene breakdown (sum of scene durations), not by the video model's duration parameter.
+- For InfiniteTalk HD: duration is determined by the audio length (natural).
+- For Sora-2 B-roll: snap to nearest allowed duration (4/8s for short B-roll clips).
+- Show the user the estimated vs actual duration before generation.
+
+#### 4. Split narration audio per scene
+**File:** `src/pages/AISpokesperson.tsx`
+
+- Generate TTS for each speaking scene's `narrationSegment` separately (not the full narration as one block). This gives precise audio for each lip-sync segment.
+- Non-speaking scenes get no audio (or ambient SFX if available).
 
 ---
 
-### Files to modify
-1. **`src/pages/VideoRepoPro.tsx`** — All three changes above
+### Technical Flow
 
-### Technical detail
-- The auto-trigger will use a `useEffect` watching a `pendingAutoAnalysis` ref/state. When set (by "New Version"), and the Create tab is active with loaded assets, it calls `handleSendMessage` with the original prompt.
-- The "Remake" button keeps current behavior (manual editing).
-- The "New Version" button sets the auto-trigger flag after loading assets.
+```text
+User clicks "Generate Video"
+  │
+  ├─ For each scene in generatedScript.scenes:
+  │    ├─ Speaking → TTS(narrationSegment) → upload audio → infinitetalk-hd(image, audio)
+  │    ├─ B-roll  → sora-2(image, cinematic prompt, 4-8s)
+  │    └─ Transition → sora-2(image, movement prompt, 4s)
+  │
+  ├─ Poll all tasks until complete
+  │
+  ├─ Stitch scene videos in order (creatomate-stitch or canvas fallback)
+  │
+  └─ Optional: Wan 2.7 post-production enhancement on final video
+```
+
+### Files to Modify
+1. **`src/pages/AISpokesperson.tsx`** — Rewrite `generateVideo()` to handle multi-scene rendering with correct model routing
+
+### What This Fixes
+- **Audio/lip-sync**: Real InfiniteTalk HD generates actual mouth movements synced to speech
+- **B-roll**: Cinematic cutaway scenes render between speaking segments
+- **Duration**: Total video length matches the script's scene breakdown naturally
+- **Static video**: Sora-2 was generating a still image animation with no audio — replaced with proper lip-sync model
 
