@@ -12,10 +12,11 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  RefreshCw, Upload, Link2, Sparkles, Play, Download,
+  RefreshCw, Upload, Link2, Sparkles, Video, Download,
   Eye, Wand2, Zap, Target, Clock, Film, Type, Volume2,
   TrendingUp, Palette, SplitSquareVertical, Loader2, CheckCircle2
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoAnalysis {
   hook: { text: string; type: string; strength: string };
@@ -352,19 +353,22 @@ const VideoRepurposer = () => {
     }
   };
 
-  const handleSendToReels = () => {
+  const navigate = useNavigate();
+
+  const handleSendToVideoRepo = () => {
     if (!repurposedScript) return;
     const scriptText = repurposedScript.scenes
       .map(s => `Scene ${s.sceneNumber}: ${s.narration}\n[Visual: ${s.visualDirection}]`)
       .join('\n\n');
     
-    sessionStorage.setItem('repurposed-script', JSON.stringify({
-      topic: repurposedScript.title,
+    const videoSource = uploadedVideoUrl || videoUrl;
+    sessionStorage.setItem('repurpose-to-video-repo', JSON.stringify({
+      videoUrl: videoSource,
       script: scriptText,
-      scenes: repurposedScript.scenes,
+      title: repurposedScript.title,
     }));
-    window.location.href = '/reels';
-    toast.success('Script sent to Reels editor');
+    navigate('/video-repo-pro');
+    toast.success('Sent to Video Studio — auto-analyzing...');
   };
 
   return (
@@ -634,8 +638,8 @@ const VideoRepurposer = () => {
 
             {/* Actions */}
             <div className="flex gap-3">
-              <Button onClick={handleSendToReels} className="gap-2">
-                <Play className="w-4 h-4" /> Send to Reels Editor
+              <Button onClick={handleSendToVideoRepo} className="gap-2">
+                <Video className="w-4 h-4" /> Create Video
               </Button>
               <Button variant="outline" onClick={handleRepurpose} disabled={isRepurposing} className="gap-2">
                 <RefreshCw className="w-4 h-4" /> Regenerate

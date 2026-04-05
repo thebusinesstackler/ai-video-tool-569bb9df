@@ -535,6 +535,28 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     }
   }, [pendingAutoAnalysis, mainTab, isAnalyzing, isGenerating, isStitching]);
 
+  // Pick up data from Video Repurposer handoff
+  useEffect(() => {
+    const raw = sessionStorage.getItem('repurpose-to-video-repo');
+    if (!raw) return;
+    sessionStorage.removeItem('repurpose-to-video-repo');
+    try {
+      const data = JSON.parse(raw) as { videoUrl: string; script: string; title: string };
+      if (data.videoUrl) {
+        setReferenceVideoUrl(data.videoUrl);
+        setReferenceVideoName(data.title || 'Repurposed reference');
+      }
+      if (data.script) {
+        setPrompt(data.script);
+        pendingAutoPromptRef.current = data.script;
+      }
+      setMainTab('create');
+      setPendingAutoAnalysis(true);
+    } catch (e) {
+      console.error('Failed to parse repurpose handoff data', e);
+    }
+  }, []);
+
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
