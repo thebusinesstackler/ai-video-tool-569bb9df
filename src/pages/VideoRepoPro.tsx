@@ -114,7 +114,9 @@ const VideoRepoPro = () => {
   const [persistentImageUrl, setPersistentImageUrl] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isChatting, setIsChatting] = useState(false);
-
+  const [pendingAutoAnalysis, setPendingAutoAnalysis] = useState(false);
+  const pendingAutoPromptRef = useRef<string>('');
+  
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isStitching || isExtractingFrames || isChatting;
   const statusLabel = isExtractingFrames
@@ -191,9 +193,7 @@ const VideoRepoPro = () => {
     }
   };
 
-  const remakeWithEdits = (project: VideoRepoProject, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMainTab('create');
+  const loadProjectAssets = (project: VideoRepoProject) => {
     if (project.reference_video_url) {
       setReferenceVideoUrl(project.reference_video_url);
       setReferenceVideoName('Previous reference');
@@ -204,14 +204,60 @@ const VideoRepoPro = () => {
       setProductImageName('Previous product');
       setPersistentImageUrl(project.product_image_url);
     }
+    // Reset chat state for fresh session
+    setMessages([]);
+    setHasAnalysis(false);
+    setLatestAnalysisText('');
+    setCurrentProjectId(null);
+  };
+
+  const remakeWithEdits = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    loadProjectAssets(project);
     setPrompt(project.prompt?.replace(/^\[PRO\]\s*/, '') || '');
     setSelectedProject(null);
+    setMainTab('create');
     toast({ title: 'Project loaded', description: 'Edit your prompt and hit send to remake.' });
+  };
+
+  const newVersionFromProject = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    loadProjectAssets(project);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze this reference and generate a full 30-second UGC ad video.';
+    setPrompt(originalPrompt);
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({ title: 'Starting new version', description: 'Auto-analyzing reference video...' });
+  };
+
+  const reAnalyzeFromDetail = (project: VideoRepoProject) => {
+    loadProjectAssets(project);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze this reference and generate a full 30-second UGC ad video.';
+    setPrompt(originalPrompt);
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({ title: 'Re-analyzing', description: 'Starting fresh AI analysis...' });
   };
 
   useEffect(() => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
+
+  // Auto-trigger analysis for "New Version" flow
+  useEffect(() => {
+    if (pendingAutoAnalysis && mainTab === 'create' && !isAnalyzing && !isGenerating && !isStitching) {
+      setPendingAutoAnalysis(false);
+      // Small delay to ensure state is settled
+      const timer = setTimeout(() => {
+        analyzeReference();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingAutoAnalysis, mainTab, isAnalyzing, isGenerating, isStitching]);
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -1048,7 +1094,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => remakeWithEdits(selectedProject, e)}>
               <RotateCcw className="w-3.5 h-3.5" /> Remake
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => { e.stopPropagation(); remakeWithEdits(selectedProject, e); }}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => newVersionFromProject(selectedProject, e)}>
               <RefreshCw className="w-3.5 h-3.5" /> New Version
             </Button>
             {selectedProject.generated_video_url && (
@@ -1127,13 +1173,29 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
               {selectedProject.analysis_text && (
                 <Card><CardContent className="p-4">
-                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2 flex items-center gap-1.5">
-                    <Wand2 className="w-3.5 h-3.5 text-primary" /> AI Analysis
+                  <p className="text-xs font-medium text-muted-foreground uppercase mb-1 flex items-center gap-1.5">
+                    <Wand2 className="w-3.5 h-3.5 text-primary" /> AI Script Director
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mb-3">
+                    {selectedProject.status === 'failed'
+                      ? 'This is the script that was planned for production (generation failed).'
+                      : 'This is the script that was generated for production.'}
                   </p>
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown>{selectedProject.analysis_text}</ReactMarkdown>
                   </div>
                 </CardContent></Card>
+              )}
+
+              {/* Re-Analyze button for failed projects */}
+              {selectedProject.status === 'failed' && selectedProject.reference_video_url && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => reAnalyzeFromDetail(selectedProject)}
+                >
+                  <RefreshCw className="w-4 h-4" /> Re-Analyze &amp; Try Again
+                </Button>
               )}
             </div>
           </div>
@@ -1466,7 +1528,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); remakeWithEdits(project, e); }}>
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => newVersionFromProject(project, e)}>
                                 <RefreshCw className="w-3 h-3" />
                               </Button>
                             </TooltipTrigger>
