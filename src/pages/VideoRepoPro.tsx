@@ -193,9 +193,7 @@ const VideoRepoPro = () => {
     }
   };
 
-  const remakeWithEdits = (project: VideoRepoProject, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMainTab('create');
+  const loadProjectAssets = (project: VideoRepoProject) => {
     if (project.reference_video_url) {
       setReferenceVideoUrl(project.reference_video_url);
       setReferenceVideoName('Previous reference');
@@ -206,9 +204,43 @@ const VideoRepoPro = () => {
       setProductImageName('Previous product');
       setPersistentImageUrl(project.product_image_url);
     }
+    // Reset chat state for fresh session
+    setMessages([]);
+    setHasAnalysis(false);
+    setLatestAnalysisText('');
+    setCurrentProjectId(null);
+  };
+
+  const remakeWithEdits = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    loadProjectAssets(project);
     setPrompt(project.prompt?.replace(/^\[PRO\]\s*/, '') || '');
     setSelectedProject(null);
+    setMainTab('create');
     toast({ title: 'Project loaded', description: 'Edit your prompt and hit send to remake.' });
+  };
+
+  const newVersionFromProject = (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    loadProjectAssets(project);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze this reference and generate a full 30-second UGC ad video.';
+    setPrompt(originalPrompt);
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({ title: 'Starting new version', description: 'Auto-analyzing reference video...' });
+  };
+
+  const reAnalyzeFromDetail = (project: VideoRepoProject) => {
+    loadProjectAssets(project);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze this reference and generate a full 30-second UGC ad video.';
+    setPrompt(originalPrompt);
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({ title: 'Re-analyzing', description: 'Starting fresh AI analysis...' });
   };
 
   useEffect(() => {
