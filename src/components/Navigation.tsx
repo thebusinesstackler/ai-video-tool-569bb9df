@@ -23,7 +23,8 @@ import {
   FolderOpen,
   Layers,
   Zap,
-  Package
+  Package,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';

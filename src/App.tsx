@@ -71,6 +71,7 @@ const App = () => (
               <Route path="/video-repo" element={<ProtectedRoute><VideoRepo /></ProtectedRoute>} />
               <Route path="/video-repo-pro" element={<ProtectedRoute><VideoRepoPro /></ProtectedRoute>} />
               <Route path="/products" element={<ProtectedRoute><ProductLibrary /></ProtectedRoute>} />
+              <Route path="/video-repurposer" element={<ProtectedRoute><VideoRepurposer /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
