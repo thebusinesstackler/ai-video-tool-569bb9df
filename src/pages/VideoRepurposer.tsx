@@ -353,19 +353,22 @@ const VideoRepurposer = () => {
     }
   };
 
-  const handleSendToReels = () => {
+  const navigate = useNavigate();
+
+  const handleSendToVideoRepo = () => {
     if (!repurposedScript) return;
     const scriptText = repurposedScript.scenes
       .map(s => `Scene ${s.sceneNumber}: ${s.narration}\n[Visual: ${s.visualDirection}]`)
       .join('\n\n');
     
-    sessionStorage.setItem('repurposed-script', JSON.stringify({
-      topic: repurposedScript.title,
+    const videoSource = uploadedVideoUrl || videoUrl;
+    sessionStorage.setItem('repurpose-to-video-repo', JSON.stringify({
+      videoUrl: videoSource,
       script: scriptText,
-      scenes: repurposedScript.scenes,
+      title: repurposedScript.title,
     }));
-    window.location.href = '/reels';
-    toast.success('Script sent to Reels editor');
+    navigate('/video-repo-pro');
+    toast.success('Sent to Video Studio — auto-analyzing...');
   };
 
   return (
