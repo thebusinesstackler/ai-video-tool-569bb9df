@@ -20,6 +20,7 @@ import AISpokesperson from "./pages/AISpokesperson";
 import HookEngine from "./pages/HookEngine";
 import VideoRepo from "./pages/VideoRepo";
 import VideoRepoPro from "./pages/VideoRepoPro";
+import ProductLibrary from "./pages/ProductLibrary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
