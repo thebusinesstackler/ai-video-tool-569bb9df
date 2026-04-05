@@ -663,6 +663,20 @@ export const VideoRepoTimeline = ({ videoUrl, onClose }: VideoRepoTimelineProps)
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* AI Director Panel */}
+      <TimelineAIDirector
+        open={showAIDirector}
+        onOpenChange={setShowAIDirector}
+        clips={segments.map((s, i) => ({
+          sceneNumber: i + 1,
+          duration: s.endTime - s.startTime,
+          caption: s.label,
+          text: s.label,
+          videoUrl: s.videoUrl || videoUrl,
+        }))}
+        totalDuration={duration}
+        onAction={handleDirectorAction}
+      />
     </>
   );
 };
