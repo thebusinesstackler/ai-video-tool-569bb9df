@@ -202,7 +202,24 @@ Deno.serve(async (req) => {
     }
 
     const smvdData = await smvdResponse.json();
-    console.log('[download-video-url] SMVD response received');
+    console.log('[download-video-url] SMVD response keys:', JSON.stringify(Object.keys(smvdData)));
+    
+    // Log available video URLs for debugging
+    const contents = Array.isArray(smvdData?.contents) ? smvdData.contents[0] : smvdData?.contents;
+    if (contents) {
+      console.log('[download-video-url] Contents keys:', JSON.stringify(Object.keys(contents)));
+      if (contents.videos?.length > 0) {
+        console.log('[download-video-url] Videos[0] keys:', JSON.stringify(Object.keys(contents.videos[0])));
+        console.log('[download-video-url] Videos[0] url prefix:', contents.videos[0]?.url?.substring(0, 80));
+      }
+      if (contents.renderableVideos?.length > 0) {
+        const rv = contents.renderableVideos[0];
+        console.log('[download-video-url] RenderableVideo keys:', JSON.stringify(Object.keys(rv)));
+        if (rv.renderConfig) {
+          console.log('[download-video-url] RenderConfig url prefix:', rv.renderConfig?.url?.substring(0, 80));
+        }
+      }
+    }
 
     const downloadUrl = extractDownloadUrl(platformInfo.platform, smvdData);
 
