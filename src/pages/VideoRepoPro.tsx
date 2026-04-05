@@ -247,6 +247,18 @@ const VideoRepoPro = () => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
 
+  // Auto-trigger analysis for "New Version" flow
+  useEffect(() => {
+    if (pendingAutoAnalysis && mainTab === 'create' && !isAnalyzing && !isGenerating && !isStitching) {
+      setPendingAutoAnalysis(false);
+      // Small delay to ensure state is settled
+      const timer = setTimeout(() => {
+        analyzeReference();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingAutoAnalysis, mainTab, isAnalyzing, isGenerating, isStitching]);
+
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
