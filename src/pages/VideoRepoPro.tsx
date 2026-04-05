@@ -67,6 +67,7 @@ interface VideoRepoProject {
   updated_at: string;
   is_favorite?: boolean;
   custom_name?: string | null;
+  segment_urls?: string[] | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -127,6 +128,10 @@ const VideoRepoPro = () => {
   const [isCreatingImproved, setIsCreatingImproved] = useState(false);
   const [isReviewingGenerated, setIsReviewingGenerated] = useState(false);
   const [expandedScript, setExpandedScript] = useState(false);
+  const [detailChatInput, setDetailChatInput] = useState('');
+  const [detailChatMessages, setDetailChatMessages] = useState<{role: 'user' | 'assistant'; content: string}[]>([]);
+  const [isDetailChatting, setIsDetailChatting] = useState(false);
+  const [showSegments, setShowSegments] = useState(false);
   
   // Find the latest generated video URL from chat messages
   const latestGeneratedVideoUrl = [...messages].reverse().find(m => m.videoResult?.url)?.videoResult?.url || null;
@@ -439,6 +444,60 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     } finally {
       setIsCreatingImproved(false);
     }
+  };
+  // AI Director chat in detail view
+  const sendDetailChat = async (project: VideoRepoProject) => {
+    if (!detailChatInput.trim() || isDetailChatting) return;
+    const userMsg = detailChatInput.trim();
+    setDetailChatInput('');
+    setDetailChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setIsDetailChatting(true);
+
+    try {
+      const context = [
+        project.video_prompt ? `Video Script:\n${project.video_prompt}` : '',
+        project.analysis_text ? `AI Script Director Notes:\n${project.analysis_text}` : '',
+        directorAnalysisRef ? `Reference Video Analysis:\n${directorAnalysisRef}` : '',
+        directorAnalysisGen ? `Generated Video Analysis:\n${directorAnalysisGen}` : '',
+        project.segment_urls?.length ? `This video has ${project.segment_urls.length} individual segments.` : '',
+      ].filter(Boolean).join('\n\n');
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: `You are an expert AI Video Director. You have full context of this project. Answer questions, suggest improvements, and provide actionable feedback. Be concise and direct.\n\nProject Context:\n${context}` },
+            ...detailChatMessages.map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content: userMsg },
+          ],
+        },
+      });
+
+      if (error) throw error;
+      setDetailChatMessages(prev => [...prev, { role: 'assistant', content: data?.response || 'No response' }]);
+    } catch (err: any) {
+      setDetailChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+    } finally {
+      setIsDetailChatting(false);
+    }
+  };
+
+  // Recreate with same ending — keeps segment 2, regenerates segment 1
+  const recreateWithSameEnding = async (project: VideoRepoProject) => {
+    if (!project.segment_urls?.length || project.segment_urls.length < 2) {
+      toast({ title: 'Cannot recreate', description: 'No individual segments found for this project. Generate a new video first.', variant: 'destructive' });
+      return;
+    }
+    loadProjectAssets(project);
+    // Parse the video_prompt to get just segment 1's prompt
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze reference and generate 30s ad';
+    const keepEndingNote = `\n\n**IMPORTANT — KEEP SAME ENDING**: The second segment (ending) from the previous version will be reused. Only regenerate Segment 1 (the hook/intro) with improvements. The ending segment URL is: ${project.segment_urls[1]}`;
+    
+    setPrompt(originalPrompt + keepEndingNote);
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({ title: 'Recreating with same ending', description: 'Only the first segment will be regenerated — the ending stays the same.' });
   };
 
   useEffect(() => {
@@ -1200,11 +1259,18 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
       const finalVideoUrl = await uploadBlobToStorage(stitchedBlob, 'stitched');
 
+      // Also upload individual segments for later viewing
+      const seg1Blob = await fetch(blobUrls[0] || segment1Url!).then(r => r.blob()).catch(() => null);
+      const seg2Blob = await fetch(blobUrls[1] || segment2Url!).then(r => r.blob()).catch(() => null);
+      const seg1StoredUrl = segment1Url;
+      const seg2StoredUrl = segment2Url;
+
       if (projectId) {
         await supabase.from('video_repo_projects').update({
           generated_video_url: finalVideoUrl,
           status: 'completed',
-        }).eq('id', projectId);
+          segment_urls: [seg1StoredUrl, seg2StoredUrl].filter(Boolean),
+        } as any).eq('id', projectId);
       }
 
       if (user) {
@@ -1280,7 +1346,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
         <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
           {/* Header bar */}
           <div className="flex items-center gap-3 flex-wrap">
-            <Button variant="ghost" size="icon" onClick={() => { setSelectedProject(null); setDirectorAnalysisRef(null); setDirectorAnalysisGen(null); }}>
+            <Button variant="ghost" size="icon" onClick={() => { setSelectedProject(null); setDirectorAnalysisRef(null); setDirectorAnalysisGen(null); setDetailChatMessages([]); setDetailChatInput(''); setShowSegments(false); }}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex-1 min-w-0">
@@ -1371,6 +1437,34 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 )}
               </CardContent></Card>
 
+              {/* Individual Segments */}
+              {selectedProject.segment_urls && selectedProject.segment_urls.length > 0 && (
+                <Card><CardContent className="p-3">
+                  <button
+                    className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground uppercase"
+                    onClick={() => setShowSegments(!showSegments)}
+                  >
+                    <span className="flex items-center gap-1.5"><Film className="w-3.5 h-3.5" /> Individual Segments ({selectedProject.segment_urls.length})</span>
+                    <span className="text-[10px] text-primary">{showSegments ? 'Hide' : 'Show'}</span>
+                  </button>
+                  {showSegments && (
+                    <div className="mt-3 space-y-3">
+                      {selectedProject.segment_urls.map((segUrl, idx) => (
+                        <div key={idx} className="space-y-1.5">
+                          <p className="text-[11px] font-medium text-muted-foreground">Segment {idx + 1}</p>
+                          <video src={`${segUrl}#t=0.5`} controls className="w-full rounded-lg max-h-[200px] object-contain bg-black" preload="metadata" playsInline />
+                          <Button size="sm" variant="ghost" className="w-full h-7 text-xs" asChild>
+                            <a href={segUrl} download target="_blank" rel="noopener noreferrer">
+                              <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent></Card>
+              )}
+
               {selectedProject.product_image_url && (
                 <Card><CardContent className="p-3">
                   <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Product Image</p>
@@ -1378,7 +1472,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 </CardContent></Card>
               )}
 
-              {/* Action buttons: Analyze + Regenerate */}
+              {/* Action buttons: Analyze + Regenerate + Recreate with Same Ending */}
               {selectedProject.generated_video_url && (
                 <div className="space-y-2">
                   <Button
@@ -1395,6 +1489,18 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     {(isAnalyzingGen || isAnalyzingRef) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
                     {(isAnalyzingGen || isAnalyzingRef) ? 'Analyzing Videos...' : 'Analyze Video'}
                   </Button>
+
+                  {/* Recreate with Same Ending */}
+                  {selectedProject.segment_urls && selectedProject.segment_urls.length >= 2 && (
+                    <Button
+                      className="w-full h-10 gap-2 rounded-xl border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
+                      variant="outline"
+                      onClick={() => recreateWithSameEnding(selectedProject)}
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Recreate with Same Ending
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -1510,6 +1616,64 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
               )}
             </div>
           </div>
+
+          {/* AI Director Chat */}
+          <Card className="border-orange-500/20">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium uppercase mb-3 flex items-center gap-1.5 text-orange-500">
+                <Bot className="w-3.5 h-3.5" /> Chat with AI Director
+              </p>
+              {detailChatMessages.length > 0 && (
+                <ScrollArea className="max-h-[300px] mb-3">
+                  <div className="space-y-3">
+                    {detailChatMessages.map((msg, idx) => (
+                      <div key={idx} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        {msg.role === 'assistant' && (
+                          <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-1">
+                            <Bot className="w-3 h-3 text-orange-500" />
+                          </div>
+                        )}
+                        <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                          <div className="prose prose-sm dark:prose-invert max-w-none" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {isDetailChatting && (
+                      <div className="flex gap-2">
+                        <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                          <Bot className="w-3 h-3 text-orange-500" />
+                        </div>
+                        <div className="bg-muted rounded-xl px-3 py-2 flex items-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span className="text-xs text-muted-foreground">Thinking...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ask the AI Director about this video..."
+                  value={detailChatInput}
+                  onChange={(e) => setDetailChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDetailChat(selectedProject); } }}
+                  className="text-sm"
+                  disabled={isDetailChatting}
+                />
+                <Button
+                  size="icon"
+                  className="h-9 w-9 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  onClick={() => sendDetailChat(selectedProject)}
+                  disabled={isDetailChatting || !detailChatInput.trim()}
+                >
+                  {isDetailChatting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {showTimeline && selectedProject.generated_video_url && (
             <VideoRepoTimeline
