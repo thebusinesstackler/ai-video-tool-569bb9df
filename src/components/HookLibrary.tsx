@@ -39,7 +39,7 @@ const FOLDER_COLORS = [
   '#ec4899', '#f97316', '#06b6d4', '#6366f1', '#14b8a6',
 ];
 
-export function HookLibrary() {
+export function HookLibrary({ onSelectHook }: { onSelectHook?: (hook: SavedHook, folderName: string) => void } = {}) {
   const { user } = useAuth();
   const [folders, setFolders] = useState<HookFolder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<HookFolder | null>(null);
