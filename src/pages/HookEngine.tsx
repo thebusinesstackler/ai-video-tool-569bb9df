@@ -551,7 +551,31 @@ Be specific, actionable, and direct. Think like a viral content director.`
               </TabsContent>
 
               <TabsContent value="library" className="mt-4">
-                <HookLibrary />
+                <HookLibrary onSelectHook={handleSelectHookForReview} />
+                {selectedHookForReview && (
+                  <Card className="mt-3 border-primary/30 bg-primary/5">
+                    <CardContent className="p-3 space-y-2">
+                      <p className="text-[10px] font-semibold text-muted-foreground">Selected Hook</p>
+                      <p className="text-xs font-medium">"{selectedHookForReview.hookText}"</p>
+                      <p className="text-[10px] text-muted-foreground">from {selectedHookForReview.folderName}</p>
+                      <Button
+                        size="sm"
+                        className="w-full gap-1.5 mt-1"
+                        onClick={runDirectorReview}
+                        disabled={isReviewing || (!videoTitle && !videoDescription)}
+                      >
+                        {isReviewing ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" /> Reviewing...</>
+                        ) : (
+                          <><Brain className="h-3 w-3" /> AI Director Review</>
+                        )}
+                      </Button>
+                      {!videoTitle && !videoDescription && (
+                        <p className="text-[9px] text-destructive">Load a video from History first</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="saved" className="mt-4">
