@@ -475,6 +475,13 @@ const Reels = () => {
   const [editingReel, setEditingReel] = useState<SavedReel | null>(null);
   const [showUpscaler, setShowUpscaler] = useState(false);
   
+  // Caption preview & continue video state
+  const [captionPreviewReel, setCaptionPreviewReel] = useState<SavedReel | null>(null);
+  const [captionedVideoUrl, setCaptionedVideoUrl] = useState<string | null>(null);
+  const [isBurningCaptions, setIsBurningCaptions] = useState(false);
+  const [addingCaptionsId, setAddingCaptionsId] = useState<string | null>(null);
+  const [continueVideoReel, setContinueVideoReel] = useState<SavedReel | null>(null);
+  
   // Post-production: append B-roll
   const [showAppendBroll, setShowAppendBroll] = useState(false);
   const [appendBrollPrompt, setAppendBrollPrompt] = useState('');
