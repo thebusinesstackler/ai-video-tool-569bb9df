@@ -611,6 +611,7 @@ export type Database = {
           product_image_url: string | null
           prompt: string | null
           reference_video_url: string | null
+          segment_urls: string[] | null
           status: string
           updated_at: string
           user_id: string
@@ -627,6 +628,7 @@ export type Database = {
           product_image_url?: string | null
           prompt?: string | null
           reference_video_url?: string | null
+          segment_urls?: string[] | null
           status?: string
           updated_at?: string
           user_id: string
@@ -643,6 +645,7 @@ export type Database = {
           product_image_url?: string | null
           prompt?: string | null
           reference_video_url?: string | null
+          segment_urls?: string[] | null
           status?: string
           updated_at?: string
           user_id?: string

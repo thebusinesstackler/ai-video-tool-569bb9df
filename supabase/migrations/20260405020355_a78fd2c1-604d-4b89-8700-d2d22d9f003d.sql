@@ -1,0 +1,1 @@
+ALTER TABLE public.video_repo_projects ADD COLUMN segment_urls text[] DEFAULT NULL;
