@@ -21,8 +21,11 @@ import {
   ChevronRight, ZoomIn, ZoomOut, Maximize2, Image as ImageIcon,
   ArrowLeftRight, Mic, SlidersHorizontal, Eye, EyeOff, Wand2,
   Undo2, Redo2, Save, RotateCcw, Camera, User, Zap,
-  MoveHorizontal, AlertTriangle, Target, Sparkles, RefreshCw
+  MoveHorizontal, AlertTriangle, Target, Sparkles, RefreshCw,
+  ScanSearch, MessageSquare
 } from 'lucide-react';
+import { SceneDetector } from '@/components/SceneDetector';
+import { TimelineAIDirector, DirectorAction } from '@/components/TimelineAIDirector';
 
 // ─── Types ────────────────────────────────────────────────────────────
 interface TimelineScene {

@@ -8,8 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Play, Pause, SkipBack, SkipForward, Scissors, ZoomIn, ZoomOut,
-  Download, Save, SplitSquareHorizontal, Film, Trash2, Plus, BookmarkPlus, Library
+  Download, Save, SplitSquareHorizontal, Film, Trash2, Plus, BookmarkPlus, Library,
+  ScanSearch, MessageSquare, Wand2
 } from 'lucide-react';
+import { SceneDetector } from '@/components/SceneDetector';
+import { TimelineAIDirector, DirectorAction } from '@/components/TimelineAIDirector';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
