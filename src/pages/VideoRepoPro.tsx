@@ -272,7 +272,7 @@ const VideoRepoPro = () => {
     toast({ title: 'Sent to AI Spokesperson', description: `Script loaded — pick your AI Twin to produce a ${bestDuration}s talking-head video.` });
   };
 
-
+  const reAnalyzeFromDetail = (project: VideoRepoProject) => {
     loadProjectAssets(project);
     const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze this reference and generate a full 30-second UGC ad video.';
     setPrompt(originalPrompt);
