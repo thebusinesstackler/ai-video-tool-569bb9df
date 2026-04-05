@@ -254,9 +254,21 @@ function HookCard({
               <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'voiceover')}>
                 <Volume2 className="h-3 w-3" /> Voiceover Script
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => onApply(hook, 'save')}>
-                <Save className="h-3 w-3" /> Save to Library
-              </Button>
+              <SaveToFolderDialog
+                hookText={hook.hookText}
+                hookType={hook.hookType}
+                onScreenText={hook.onScreenText}
+                voiceoverVersion={hook.voiceoverVersion}
+                visualDirection={hook.visualDirection}
+                scores={hook.scores}
+                bestFor={hook.bestFor}
+                bestPlatform={hook.bestPlatform}
+                whyChosen={hook.whyChosen}
+              >
+                <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1">
+                  <FolderPlus className="h-3 w-3" /> Save to Folder
+                </Button>
+              </SaveToFolderDialog>
             </div>
           </div>
         )}
