@@ -1,0 +1,1 @@
+ALTER TABLE public.reels ADD COLUMN video_url_no_captions text DEFAULT NULL;
