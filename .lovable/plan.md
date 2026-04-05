@@ -1,33 +1,22 @@
 
+# Add "Recreate as Spokesperson" Button in Video Repo Pro
 
-# Redirect "Send to Reels Editor" → Video Repo Pro
+## What it does
+When viewing a completed project in Video Repo Pro's detail view, a new button appears below the reference video that sends the analyzed script to the **AI Spokesperson** page. This lets users turn any reference video's script into a full-length talking-head video with their AI Twin — no duration limit.
 
-## Problem
-The "Send to Reels Editor" button in Video Repurposer sends data to the Reels page, which doesn't work well for this use case. It should instead send the reference video and repurposed script to Video Repo Pro, which has the full video generation pipeline.
+## Changes
 
-## What changes
+### 1. Add "Recreate as Spokesperson" button in VideoRepoPro detail view
+- In the project detail panel (where Remake/New Version already live), add a new button: **"Recreate with AI Twin"**
+- On click: store the script text, estimated duration, and title into `sessionStorage` under `video-repo-to-spokesperson`
+- Navigate to `/ai-spokesperson`
 
-### 1. Update `handleSendToReels` in `VideoRepurposer.tsx`
-- Rename to `handleSendToVideoRepo`
-- Store the reference video URL (the downloaded/uploaded video) and the repurposed script text into `sessionStorage` under a key like `repurpose-to-video-repo`
-- Navigate to `/video-repo-pro` instead of `/reels`
-- Update button label to "Create Video" or "Send to Video Studio"
+### 2. Add sessionStorage pickup in AISpokesperson.tsx
+- On mount, check for `video-repo-to-spokesperson` in sessionStorage
+- If found, auto-populate:
+  - The "message to deliver" textarea with the script
+  - The duration (auto-calculated from word count)
+- Clear sessionStorage after consuming
 
-### 2. Add sessionStorage pickup in `VideoRepoPro.tsx`
-- On mount, check for `repurpose-to-video-repo` in sessionStorage
-- If found, populate:
-  - `referenceVideoUrl` with the stored video URL
-  - `prompt` with the repurposed script text (formatted as a video creation prompt)
-  - Trigger frame extraction from the reference video
-  - Set `pendingAutoAnalysis = true` to auto-start the AI Script Director
-- Clear the sessionStorage key after consuming it
-
-### 3. Update button UI in `VideoRepurposer.tsx`
-- Change icon from `Play` to `Video` (or similar)
-- Change label from "Send to Reels Editor" to "Create Video"
-
-## Technical details
-- SessionStorage payload: `{ videoUrl: string, script: string, title: string }`
-- Video Repo Pro already has `pendingAutoAnalysis` + `pendingAutoPromptRef` pattern for auto-triggering analysis — we reuse that exact flow
-- The reference video URL comes from the repurposer's `uploadedVideoUrl` (for uploads) or the stored URL after download
-
+### 3. No duration cap enforcement
+- The AI Spokesperson already supports variable durations — this just pre-fills the script so the user can pick their Twin and produce immediately
