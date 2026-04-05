@@ -406,6 +406,34 @@ export const VideoRepoTimeline = ({ videoUrl, onClose }: VideoRepoTimelineProps)
               <Film className="w-3.5 h-3.5" /> B-Roll
             </Button>
 
+            {/* Scene Detection */}
+            <SceneDetector
+              videoUrl={videoUrl}
+              duration={duration}
+              onSplitAt={(ts) => {
+                const seg = segments.find(s => ts >= s.startTime && ts < s.endTime);
+                if (seg) {
+                  const idx = segments.indexOf(seg);
+                  handleDirectorAction({ type: 'split_clip', clipIndex: idx, timestamp: ts - seg.startTime });
+                }
+              }}
+              onSplitAll={(timestamps) => {
+                const sorted = [...timestamps].sort((a, b) => b - a);
+                for (const ts of sorted) {
+                  const seg = segments.find(s => ts >= s.startTime && ts < s.endTime);
+                  if (seg) {
+                    const idx = segments.indexOf(seg);
+                    handleDirectorAction({ type: 'split_clip', clipIndex: idx, timestamp: ts - seg.startTime });
+                  }
+                }
+              }}
+            />
+
+            {/* AI Director */}
+            <Button size="sm" variant={showAIDirector ? 'secondary' : 'outline'} className="h-8 gap-1 text-xs" onClick={() => setShowAIDirector(true)}>
+              <Wand2 className="w-3.5 h-3.5" /> AI Director
+            </Button>
+
             <div className="mx-1 h-4 w-px bg-border" />
 
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
