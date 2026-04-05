@@ -17,7 +17,7 @@ import {
   Play, Save, RotateCcw, ChevronDown, ChevronUp, Copy, Wand2,
   BarChart3, Lightbulb, Film, Volume2, Type, Loader2, Clock,
   ArrowLeft, Trash2, CheckCircle2, AlertCircle, Star, Flame,
-  Shield, Heart, Trophy, Megaphone, FolderPlus, Folder
+  Shield, Heart, Trophy, Megaphone, FolderPlus, Folder, Send,
 } from 'lucide-react';
 import { useVideoHooks, VideoHook, HookScores } from '@/hooks/useVideoHooks';
 import { cn } from '@/lib/utils';
