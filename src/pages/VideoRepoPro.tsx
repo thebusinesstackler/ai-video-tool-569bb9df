@@ -278,38 +278,57 @@ const VideoRepoPro = () => {
     setAnalysis(null);
     
     try {
-      toast({ title: `Analyzing ${videoType} video...`, description: 'Extracting frames and running AI Director review.' });
-      const frames = await extractFramesFromUrl(videoUrl, 6);
+      toast({ title: `Analyzing ${videoType} video...`, description: 'Extracting frames, transcribing audio, and running AI Director review.' });
       
+      // Run frame extraction and audio transcription in parallel
+      const [frames, transcriptResult] = await Promise.all([
+        extractFramesFromUrl(videoUrl, 6),
+        supabase.functions.invoke('transcribe-video', { body: { videoUrl } })
+          .then(res => res.data)
+          .catch(err => { console.warn('Transcription failed, continuing without:', err); return null; }),
+      ]);
+
+      const transcript = transcriptResult?.text || '';
+      const timestampedTranscript = transcriptResult?.timestampedTranscript || '';
+      const hasTranscript = transcript.length > 10;
+      
+      const transcriptBlock = hasTranscript
+        ? `\n\n📝 AUDIO TRANSCRIPT (from Whisper speech-to-text):\n${timestampedTranscript}\n\nFull text: "${transcript}"\nDetected language: ${transcriptResult?.language || 'unknown'}\nAudio duration: ${transcriptResult?.duration ? transcriptResult.duration.toFixed(1) + 's' : 'unknown'}`
+        : '\n\n⚠️ No speech detected in the audio track. The video may be silent or music-only.';
+
       const contentParts: any[] = [
-        { type: 'text', text: `I've extracted 6 key frames from the ${videoType} video. Analyze every detail:` },
+        { type: 'text', text: `I've extracted 6 key frames from the ${videoType} video and transcribed the audio.${transcriptBlock}\n\nAnalyze every detail:` },
         ...frames.map(f => ({ type: 'image_url', image_url: { url: f } })),
       ];
 
-      const systemPrompt = `You are an expert AI Video Director reviewing a ${videoType === 'reference' ? 'reference/inspiration' : 'generated'} UGC ad video. Provide a thorough analysis.`;
+      const systemPrompt = `You are an expert AI Video Director reviewing a ${videoType === 'reference' ? 'reference/inspiration' : 'generated'} UGC ad video. You have both visual frames AND the full audio transcript. Use the transcript to provide exact quotes and analysis of what's being said.`;
 
       const analysisPrompt = videoType === 'reference'
         ? `Analyze this REFERENCE video in detail:
 
-1. **What's Being Said** — Reconstruct the exact words/narration from visual cues (lip movements, captions, text overlays). Provide a timestamped transcript.
-2. **Hook Strategy** — How do the first 3 seconds grab attention? Rate it 1-10.
+1. **What's Being Said** — Use the provided transcript to give the EXACT words spoken. Highlight the most powerful phrases and note delivery style/tone.
+2. **Hook Strategy** — How do the first 3 seconds grab attention? What exact words are used in the hook? Rate it 1-10.
 3. **Visual Style** — Camera angles, lighting, color grading, environment.
-4. **Talent Performance** — Energy, expressions, gestures, authenticity.
-5. **Product Integration** — How/when the product appears, how naturally it's featured.
-6. **Pacing & Transitions** — Shot duration, cuts, movement.
-7. **What Makes This Work** — The 3 strongest elements to replicate.
-8. **What Could Be Better** — 2-3 specific improvements for a new version.
-9. **Director's Blueprint** — A concise formula to recreate this ad style but better.`
+4. **Talent Performance** — Energy, expressions, gestures, authenticity. How does their delivery match the script?
+5. **Product Integration** — How/when the product appears, how naturally it's featured. What's said about the product?
+6. **Pacing & Transitions** — Shot duration, cuts, movement. How does the script pacing match visual pacing?
+7. **Script Analysis** — Break down the script structure: hook → problem → solution → CTA. What copywriting techniques are used?
+8. **What Makes This Work** — The 3 strongest elements to replicate (both visual AND verbal).
+9. **What Could Be Better** — 2-3 specific improvements for a new version.
+10. **Director's Blueprint** — A concise formula to recreate this ad style but better, including the script template.`
         : `Analyze this GENERATED video vs the original script:
 
 Original script used:
 ${project.video_prompt || 'Not available'}
 
+Actual audio transcript:
+${transcript || 'No speech detected'}
+
 1. **What Actually Happened** — Describe exactly what's shown in each frame, what the character does.
-2. **Estimated Dialogue** — What appears to be said based on lip movements and visual cues.
-3. **Script Accuracy** — How closely does the generated video match the intended script? What's missing or different?
+2. **Actual Dialogue** — Compare the transcript to the intended script. Quote exact words spoken.
+3. **Script Accuracy** — How closely does the spoken audio match the intended script? What's missing or different?
 4. **Visual Quality** — Rate lighting, composition, realism, character consistency (1-10 each).
-5. **Hook Effectiveness** — Did the first 3 seconds deliver the intended hook? Rate 1-10.
+5. **Hook Effectiveness** — Did the first 3 seconds deliver the intended hook? Rate 1-10. Quote what was actually said.
 6. **Product Visibility** — Is the product visible and naturally integrated?
 7. **What Worked** — The 3 best elements of this generation.
 8. **What Failed** — Issues, artifacts, mismatches, or weak moments.
