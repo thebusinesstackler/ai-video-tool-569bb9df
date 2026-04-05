@@ -119,12 +119,16 @@ Create a repurposed script. Respond ONLY with valid JSON:
   }
 }`;
 
-      const result = await callClaude(systemPrompt, userPrompt, { thinkingBudget: 10000 });
+      const result = await callClaude({
+        messages: [{ role: "user", content: userPrompt }],
+        system: systemPrompt,
+        thinkingBudget: 10000,
+      });
 
       let parsed;
       try {
-        const jsonMatch = result.match(/\{[\s\S]*\}/);
-        parsed = JSON.parse(jsonMatch?.[0] || result);
+        const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(jsonMatch?.[0] || result.text);
       } catch {
         return new Response(JSON.stringify({ error: "Failed to parse repurposed script" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
