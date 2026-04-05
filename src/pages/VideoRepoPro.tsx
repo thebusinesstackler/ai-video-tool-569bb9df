@@ -1492,6 +1492,11 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => newVersionFromProject(selectedProject, e)}>
               <RefreshCw className="w-3.5 h-3.5" /> New Version
             </Button>
+            {selectedProject.analysis_text && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => sendToSpokesperson(selectedProject, e)}>
+                <Mic className="w-3.5 h-3.5" /> Recreate with AI Twin
+              </Button>
+            )}
             {selectedProject.generated_video_url && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowTimeline(!showTimeline)}>
                 <Film className="w-3.5 h-3.5" /> {showTimeline ? 'Hide Timeline' : 'Timeline'}
