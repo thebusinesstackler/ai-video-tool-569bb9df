@@ -1447,6 +1447,35 @@ export const TimelineEditor: React.FC<TimelineEditorProps> = ({
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Scene Detector - rendered when AI Director triggers it */}
+      <div className="hidden">
+        <SceneDetector
+          videoUrl={scenes[0]?.videoUrl || ''}
+          audioUrl={voiceovers[0]?.audioUrl}
+          duration={totalDuration}
+          onSplitAt={handleSplitAt}
+          onSplitAll={handleSplitAll}
+        />
+      </div>
+
+      {/* AI Director Panel */}
+      <TimelineAIDirector
+        open={showAIDirector}
+        onOpenChange={setShowAIDirector}
+        clips={scenes.map(s => ({
+          sceneNumber: s.sceneNumber,
+          duration: s.duration,
+          trimStart: s.trimStart,
+          trimEnd: s.trimEnd,
+          caption: s.narration,
+          text: s.narration,
+          videoUrl: s.videoUrl || undefined,
+          transition: s.transitionIn,
+        }))}
+        totalDuration={totalDuration}
+        onAction={handleDirectorAction}
+      />
     </TooltipProvider>
   );
 };
