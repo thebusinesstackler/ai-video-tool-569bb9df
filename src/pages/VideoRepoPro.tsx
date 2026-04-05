@@ -1757,12 +1757,12 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     >
                       <div className="grid grid-cols-2 aspect-[4/3] relative">
                         {project.reference_video_url ? (
-                          <video src={project.reference_video_url} className="w-full h-full object-cover" muted preload="metadata" />
+                          <video src={`${project.reference_video_url}#t=0.5`} className="w-full h-full object-cover" muted preload="metadata" playsInline />
                         ) : (
                           <div className="bg-muted flex items-center justify-center"><Video className="w-6 h-6 text-muted-foreground/40" /></div>
                         )}
                         {project.generated_video_url ? (
-                          <video src={project.generated_video_url} className="w-full h-full object-cover" muted preload="metadata" />
+                          <video src={`${project.generated_video_url}#t=0.5`} className="w-full h-full object-cover" muted preload="metadata" playsInline />
                         ) : (
                           <div className="bg-muted flex items-center justify-center">
                             {project.status === 'generating' || project.status === 'stitching' ? (
