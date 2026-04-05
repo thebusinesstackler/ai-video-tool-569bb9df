@@ -252,7 +252,120 @@ const VideoRepoPro = () => {
     toast({ title: 'Re-analyzing', description: 'Starting fresh AI analysis...' });
   };
 
-  useEffect(() => {
+  // AI Director: Analyze a video from its URL (extract frames + AI review)
+  const extractFramesFromUrl = async (videoUrl: string, count = 6): Promise<string[]> => {
+    const resp = await fetch(videoUrl);
+    const blob = await resp.blob();
+    const file = new File([blob], 'video.mp4', { type: 'video/mp4' });
+    return extractVideoFrames(file, count);
+  };
+
+  const analyzeVideoWithDirector = async (videoUrl: string, videoType: 'reference' | 'generated', project: VideoRepoProject) => {
+    const setAnalysis = videoType === 'reference' ? setDirectorAnalysisRef : setDirectorAnalysisGen;
+    const setLoading = videoType === 'reference' ? setIsAnalyzingRef : setIsAnalyzingGen;
+    
+    setLoading(true);
+    setAnalysis(null);
+    
+    try {
+      toast({ title: `Analyzing ${videoType} video...`, description: 'Extracting frames and running AI Director review.' });
+      const frames = await extractFramesFromUrl(videoUrl, 6);
+      
+      const contentParts: any[] = [
+        { type: 'text', text: `I've extracted 6 key frames from the ${videoType} video. Analyze every detail:` },
+        ...frames.map(f => ({ type: 'image_url', image_url: { url: f } })),
+      ];
+
+      const systemPrompt = `You are an expert AI Video Director reviewing a ${videoType === 'reference' ? 'reference/inspiration' : 'generated'} UGC ad video. Provide a thorough analysis.`;
+
+      const analysisPrompt = videoType === 'reference'
+        ? `Analyze this REFERENCE video in detail:
+
+1. **What's Being Said** — Reconstruct the exact words/narration from visual cues (lip movements, captions, text overlays). Provide a timestamped transcript.
+2. **Hook Strategy** — How do the first 3 seconds grab attention? Rate it 1-10.
+3. **Visual Style** — Camera angles, lighting, color grading, environment.
+4. **Talent Performance** — Energy, expressions, gestures, authenticity.
+5. **Product Integration** — How/when the product appears, how naturally it's featured.
+6. **Pacing & Transitions** — Shot duration, cuts, movement.
+7. **What Makes This Work** — The 3 strongest elements to replicate.
+8. **What Could Be Better** — 2-3 specific improvements for a new version.
+9. **Director's Blueprint** — A concise formula to recreate this ad style but better.`
+        : `Analyze this GENERATED video vs the original script:
+
+Original script used:
+${project.video_prompt || 'Not available'}
+
+1. **What Actually Happened** — Describe exactly what's shown in each frame, what the character does.
+2. **Estimated Dialogue** — What appears to be said based on lip movements and visual cues.
+3. **Script Accuracy** — How closely does the generated video match the intended script? What's missing or different?
+4. **Visual Quality** — Rate lighting, composition, realism, character consistency (1-10 each).
+5. **Hook Effectiveness** — Did the first 3 seconds deliver the intended hook? Rate 1-10.
+6. **Product Visibility** — Is the product visible and naturally integrated?
+7. **What Worked** — The 3 best elements of this generation.
+8. **What Failed** — Issues, artifacts, mismatches, or weak moments.
+9. **Director's Notes for V2** — Specific prompt improvements to fix issues in the next version.`;
+
+      contentParts.push({ type: 'text', text: analysisPrompt });
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: contentParts },
+          ],
+        },
+      });
+
+      if (error) throw new Error('AI analysis failed');
+      if (!data?.response) throw new Error('No response from AI');
+      
+      setAnalysis(data.response);
+      toast({ title: 'Analysis complete', description: `AI Director has reviewed the ${videoType} video.` });
+    } catch (err: any) {
+      console.error(`[AI Director] ${videoType} analysis error:`, err);
+      toast({ title: 'Analysis failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Create improved version using AI Director analysis
+  const createImprovedVersion = async (project: VideoRepoProject) => {
+    setIsCreatingImproved(true);
+    
+    try {
+      const improvementContext = [
+        directorAnalysisRef ? `## Reference Video Analysis:\n${directorAnalysisRef}` : '',
+        directorAnalysisGen ? `## Generated Video Analysis:\n${directorAnalysisGen}` : '',
+        project.video_prompt ? `## Previous Script:\n${project.video_prompt}` : '',
+        project.analysis_text ? `## Previous AI Script Director Notes:\n${project.analysis_text}` : '',
+      ].filter(Boolean).join('\n\n');
+
+      toast({ title: 'Creating improved version', description: 'AI Director is crafting an optimized script...' });
+
+      // Load project assets
+      loadProjectAssets(project);
+      
+      // Set a detailed improvement prompt
+      const improvedPrompt = `Based on the AI Director's analysis of both the reference and generated videos, create an IMPROVED version of this ad. Fix all identified issues, amplify what worked, and apply the Director's improvement notes.\n\n${improvementContext}`;
+      
+      setPrompt(improvedPrompt);
+      setSelectedProject(null);
+      setMainTab('create');
+      pendingAutoPromptRef.current = improvedPrompt;
+      setPendingAutoAnalysis(true);
+      
+      // Reset director analyses
+      setDirectorAnalysisRef(null);
+      setDirectorAnalysisGen(null);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsCreatingImproved(false);
+    }
+  };
+
+
     if (user) fetchHistory();
   }, [user, fetchHistory]);
 
