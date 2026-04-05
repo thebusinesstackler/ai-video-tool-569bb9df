@@ -2,7 +2,38 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-import { callClaude } from "../_shared/claude.ts";
+
+const LOVABLE_API_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+async function callLovableAI(system: string, userPrompt: string): Promise<string> {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+  const response = await fetch(LOVABLE_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 16000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error("Lovable AI error:", response.status, errText);
+    throw new Error(`AI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -55,7 +86,7 @@ Respond ONLY with valid JSON in this exact shape:
   }
 }`;
 
-      const result = await callClaude(systemPrompt, userPrompt, { thinkingBudget: 8000 });
+      const result = await callLovableAI(systemPrompt, userPrompt);
 
       let parsed;
       try {
@@ -115,7 +146,7 @@ Create a repurposed script. Respond ONLY with valid JSON:
   }
 }`;
 
-      const result = await callClaude(systemPrompt, userPrompt, { thinkingBudget: 10000 });
+      const result = await callLovableAI(systemPrompt, userPrompt);
 
       let parsed;
       try {
