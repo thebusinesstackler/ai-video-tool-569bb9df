@@ -1377,6 +1377,26 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 </CardContent></Card>
               )}
 
+              {/* Action buttons: Analyze + Regenerate */}
+              {selectedProject.generated_video_url && (
+                <div className="space-y-2">
+                  <Button
+                    className="w-full h-10 gap-2 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                    variant="outline"
+                    disabled={isAnalyzingGen || isAnalyzingRef}
+                    onClick={() => {
+                      analyzeVideoWithDirector(selectedProject.generated_video_url!, 'generated', selectedProject);
+                      if (selectedProject.reference_video_url) {
+                        analyzeVideoWithDirector(selectedProject.reference_video_url!, 'reference', selectedProject);
+                      }
+                    }}
+                  >
+                    {(isAnalyzingGen || isAnalyzingRef) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                    {(isAnalyzingGen || isAnalyzingRef) ? 'Analyzing Videos...' : 'Analyze Video'}
+                  </Button>
+                </div>
+              )}
+
               {/* Create Improved Version CTA */}
               {(directorAnalysisRef || directorAnalysisGen) && (
                 <Button
@@ -1385,7 +1405,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   onClick={() => createImprovedVersion(selectedProject)}
                 >
                   {isCreatingImproved ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  Create Improved Version
+                  Regenerate Improved Version
                 </Button>
               )}
             </div>
