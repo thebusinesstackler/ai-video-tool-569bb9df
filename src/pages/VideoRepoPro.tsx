@@ -620,15 +620,81 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
       // Handle client-side download fallback
       if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl) {
         toast({ title: 'Downloading video...', description: 'Browser is fetching the video directly.' });
-        const videoResp = await fetch(data.downloadUrl);
-        if (!videoResp.ok) throw new Error('Browser could not download the video. It may be private or geo-restricted.');
-        const videoBlob = await videoResp.blob();
+        
+        // Use a hidden video element to load (bypasses CORS for playback)
+        // Then capture via MediaRecorder
+        const videoBlob = await new Promise<Blob>((resolve, reject) => {
+          // First try direct fetch
+          fetch(data.downloadUrl)
+            .then(resp => {
+              if (!resp.ok) throw new Error('fetch failed');
+              return resp.blob();
+            })
+            .then(resolve)
+            .catch(() => {
+              // Fallback: use video element + canvas capture
+              const video = document.createElement('video');
+              video.muted = true;
+              video.playsInline = true;
+              video.preload = 'auto';
+              video.crossOrigin = 'anonymous';
+              video.src = data.downloadUrl;
+              
+              video.onerror = () => {
+                // Last resort: try without crossOrigin  
+                video.removeAttribute('crossorigin');
+                video.src = '';
+                video.src = data.downloadUrl;
+                video.onerror = () => reject(new Error('Could not load this video. Please download it manually and upload the file instead.'));
+                video.onloadeddata = () => {
+                  try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const stream = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+                    if (!stream) throw new Error('captureStream not supported');
+                    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                    const chunks: Blob[] = [];
+                    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                    recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
+                    recorder.start();
+                    video.play();
+                    video.onended = () => recorder.stop();
+                    // Safety timeout
+                    setTimeout(() => { try { recorder.stop(); } catch {} }, 120000);
+                  } catch (e) {
+                    reject(new Error('Could not capture video. Please download it manually and upload the file instead.'));
+                  }
+                };
+              };
+
+              video.onloadeddata = () => {
+                try {
+                  const stream = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+                  if (!stream) throw new Error('captureStream not supported');
+                  const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                  const chunks: Blob[] = [];
+                  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                  recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
+                  recorder.start();
+                  video.play();
+                  video.onended = () => recorder.stop();
+                  setTimeout(() => { try { recorder.stop(); } catch {} }, 120000);
+                } catch (e) {
+                  reject(new Error('Could not capture video. Please download it manually and upload the file instead.'));
+                }
+              };
+
+              video.load();
+            });
+        });
+
         if (videoBlob.size > 100 * 1024 * 1024) throw new Error('Video is too large (max 100MB)');
 
         // Upload to storage using signed URL
         const uploadResp = await fetch(data.signedUploadUrl, {
           method: 'PUT',
-          headers: { 'Content-Type': 'video/mp4' },
+          headers: { 'Content-Type': videoBlob.type || 'video/mp4' },
           body: videoBlob,
         });
         if (!uploadResp.ok) throw new Error('Failed to upload video');
