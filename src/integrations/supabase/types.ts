@@ -173,6 +173,36 @@ export type Database = {
         }
         Relationships: []
       }
+      hook_folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       movie_projects: {
         Row: {
           created_at: string
@@ -343,6 +373,62 @@ export type Database = {
           video_url?: string | null
         }
         Relationships: []
+      }
+      saved_hooks: {
+        Row: {
+          best_for: string[] | null
+          best_platform: string | null
+          created_at: string
+          folder_id: string
+          hook_text: string
+          hook_type: string | null
+          id: string
+          on_screen_text: string | null
+          scores: Json | null
+          user_id: string
+          visual_direction: string | null
+          voiceover_version: string | null
+          why_chosen: string | null
+        }
+        Insert: {
+          best_for?: string[] | null
+          best_platform?: string | null
+          created_at?: string
+          folder_id: string
+          hook_text: string
+          hook_type?: string | null
+          id?: string
+          on_screen_text?: string | null
+          scores?: Json | null
+          user_id: string
+          visual_direction?: string | null
+          voiceover_version?: string | null
+          why_chosen?: string | null
+        }
+        Update: {
+          best_for?: string[] | null
+          best_platform?: string | null
+          created_at?: string
+          folder_id?: string
+          hook_text?: string
+          hook_type?: string | null
+          id?: string
+          on_screen_text?: string | null
+          scores?: Json | null
+          user_id?: string
+          visual_direction?: string | null
+          voiceover_version?: string | null
+          why_chosen?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_hooks_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "hook_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_voices: {
         Row: {
