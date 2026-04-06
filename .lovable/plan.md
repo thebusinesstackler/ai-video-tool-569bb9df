@@ -1,30 +1,28 @@
 
 
-## Transfer Gallery Uploads and Product Images to carl@lifecykel.com
+## Fix Mobile Navigation and Add Scroll-to-Top
 
-### Summary
-Create an edge function that duplicates 52 gallery uploads and 5 product images from your account to Carl's account. The image files already live in storage with public URLs, so only database records need to be copied — the URLs remain valid.
+### Problems
+1. Mobile header bar uses `bg-sidebar-background` which is near-black in dark mode — text/icons invisible
+2. Mobile header shows a generic sparkle icon + "VideoAI Pro" text instead of the actual logo
+3. Pages don't scroll to top on route change
+4. Mobile slide-out drawer also has dark background issues
 
-### Data to Transfer
-- **52 gallery uploads** (`generated_images` where `source = 'upload'`, user `fb981dfa-...`)
-- **5 product images** (`product_images`, user `fb981dfa-...`)
-- **Target user**: `carl@lifecykel.com` (`9163de93-bf46-4ca4-8479-6b82374d5a7e`)
+### Changes
 
-### Implementation
+**1. ScrollToTop component** — `src/components/ScrollToTop.tsx`
+- New component using `useLocation` to call `window.scrollTo(0, 0)` on every pathname change
+- Add it inside `BrowserRouter` in `src/App.tsx`
 
-**Step 1: Create edge function `transfer-user-data`**
-- Accepts source and target user IDs
-- Queries `generated_images` where `user_id = source` and `source = 'upload'`
-- Queries `product_images` where `user_id = source`
-- Inserts copies of each row with the target user's ID (new UUIDs, same image URLs)
-- Returns count of transferred records
+**2. Mobile header bar** — `src/components/Navigation.tsx` (lines 260-280)
+- Change header background from `bg-sidebar-background` to `bg-white dark:bg-gray-900` for solid, visible backgrounds in both themes
+- Replace the sparkle icon + "VideoAI Pro" text with the actual logo images (`logoLight`/`logoDark`), sized appropriately (e.g. `h-8`)
 
-**Step 2: Invoke the function**
-- Call the edge function with the source user ID (`fb981dfa-df6c-42dc-9650-00489ffb756b`) and target user ID (`9163de93-bf46-4ca4-8479-6b82374d5a7e`)
-- Verify the records appear under Carl's account
+**3. Mobile slide-out drawer** — same file, line 269
+- Update `SheetContent` background to `bg-white dark:bg-gray-900` to ensure readability in dark mode
 
-### Technical Notes
-- Image URLs point to the public `reels` storage bucket — no file copying needed, just DB record duplication
-- RLS won't block the edge function since it uses the service role key
-- The function will be a one-time utility; can be removed after use
+### Files to create/edit
+- **Create**: `src/components/ScrollToTop.tsx`
+- **Edit**: `src/App.tsx` — import and add `<ScrollToTop />` inside router
+- **Edit**: `src/components/Navigation.tsx` — fix mobile header background, replace icon with logo, fix drawer background
 
