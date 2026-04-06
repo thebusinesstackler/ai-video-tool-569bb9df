@@ -183,30 +183,15 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by prompt..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-1 flex-wrap">
-              {sources.map(source => (
-                <Button
-                  key={source}
-                  variant={filterSource === source ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterSource(source)}
-                  className="capitalize"
-                >
-                  {source}
-                </Button>
-              ))}
-            </div>
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by prompt..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
           </div>
 
           {/* Gallery Grid */}
