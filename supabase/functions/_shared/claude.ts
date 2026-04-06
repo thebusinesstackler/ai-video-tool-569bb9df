@@ -69,10 +69,105 @@ export async function callClaude(options: {
   system?: string;
   thinkingBudget?: number;
   maxTokens?: number;
-}): Promise<{ text: string; thinking?: string }> {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!apiKey) throw new ClaudeError('ANTHROPIC_API_KEY is not configured', 500);
+} | string, userMessage?: string, maxTokensLegacy?: number): Promise<{ text: string; thinking?: string }> {
+  // Support legacy (system, user, maxTokens) call signature
+  let opts: { messages: any[]; system?: string; thinkingBudget?: number; maxTokens?: number };
+  if (typeof options === 'string') {
+    opts = {
+      messages: [
+        { role: 'system', content: options },
+        { role: 'user', content: userMessage || '' }
+      ],
+      thinkingBudget: 4000,
+      maxTokens: maxTokensLegacy,
+    };
+  } else {
+    opts = options;
+  }
 
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  
+  // Try Claude first if key is available
+  if (apiKey) {
+    try {
+      return await _callClaudeInternal(opts, apiKey);
+    } catch (error) {
+      console.warn('Claude failed, attempting OpenAI fallback:', error instanceof Error ? error.message : error);
+      // Fall through to OpenAI fallback
+    }
+  } else {
+    console.warn('ANTHROPIC_API_KEY not set, using OpenAI fallback');
+  }
+
+  // OpenAI GPT-4o fallback
+  const openaiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiKey) {
+    throw new ClaudeError('Both Claude and OpenAI API keys are unavailable', 500);
+  }
+
+  return await _callOpenAIFallback(opts, openaiKey);
+}
+
+async function _callOpenAIFallback(
+  options: { messages: any[]; system?: string; thinkingBudget?: number; maxTokens?: number },
+  apiKey: string
+): Promise<{ text: string; thinking?: string }> {
+  console.log('Using OpenAI GPT-4o fallback for text generation');
+  
+  const { system: extractedSystem, claudeMessages } = convertMessages(options.messages);
+  const systemPrompt = options.system || extractedSystem;
+  
+  // Convert to OpenAI message format
+  const openaiMessages: any[] = [];
+  if (systemPrompt) {
+    openaiMessages.push({ role: 'system', content: systemPrompt });
+  }
+  for (const msg of claudeMessages) {
+    // Convert Claude image format back to OpenAI format if needed
+    let content = msg.content;
+    if (Array.isArray(content)) {
+      content = content.map((part: any) => {
+        if (part.type === 'image' && part.source?.type === 'base64') {
+          return {
+            type: 'image_url',
+            image_url: { url: `data:${part.source.media_type};base64,${part.source.data}` }
+          };
+        }
+        return part;
+      });
+    }
+    openaiMessages.push({ role: msg.role, content });
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: openaiMessages,
+      max_tokens: options.maxTokens || 16000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI fallback error:', response.status, errorText);
+    throw new ClaudeError(`OpenAI fallback error: ${response.status}`, response.status);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content || '';
+  console.log(`OpenAI fallback response: ${text.length} chars`);
+  return { text, thinking: '' };
+}
+
+async function _callClaudeInternal(
+  options: { messages: any[]; system?: string; thinkingBudget?: number; maxTokens?: number },
+  apiKey: string
+): Promise<{ text: string; thinking?: string }> {
   const { system: extractedSystem, claudeMessages } = convertMessages(options.messages);
   const systemPrompt = options.system || extractedSystem;
   const thinkingBudget = options.thinkingBudget || 4000;
