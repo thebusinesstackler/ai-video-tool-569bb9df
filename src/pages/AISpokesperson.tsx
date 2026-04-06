@@ -943,7 +943,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       role: 'user',
       content: [
         { type: 'image_url', image_url: { url: portraitImage } },
-        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${imagePrompt}` }
+        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.${getLogoInstruction()}\n\n${imagePrompt}` }
       ]
     }];
 
