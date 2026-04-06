@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { twinId, faceDescription, gender, name } = await req.json();
+    const { twinId, faceDescription, gender, name, shirtLogoUrl } = await req.json();
 
     if (!twinId || !faceDescription) {
       return new Response(
