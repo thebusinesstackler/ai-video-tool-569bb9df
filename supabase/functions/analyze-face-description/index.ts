@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +22,9 @@ serve(async (req) => {
 
     console.log(`Analyzing ${imageUrls.length} images for face description`);
 
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
     const imagesToAnalyze = imageUrls.slice(0, 3);
     const imageContent = imagesToAnalyze.map((url: string) => ({
       type: "image_url" as const,
@@ -32,8 +34,14 @@ serve(async (req) => {
     const genderContext = gender ? `The person is ${gender}. ` : '';
     const nameContext = name ? `Their name is ${name}. ` : '';
 
-    try {
-      const result = await callClaude({
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -56,30 +64,31 @@ Format your response as a single detailed paragraph (50-100 words) that could be
             ]
           }
         ],
-        thinkingBudget: 4000,
-        maxTokens: 4500,
-      });
+      })
+    });
 
-      const description = result.text;
-      if (!description) {
-        throw new Error('No response from AI');
-      }
-
-      console.log('Generated face description:', description);
-
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Gemini API error:', response.status, errText);
       return new Response(
-        JSON.stringify({ description: description.trim() }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: `AI analysis failed: ${response.status}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } catch (error) {
-      if (error instanceof ClaudeError) {
-        return new Response(
-          JSON.stringify({ error: error.message }),
-          { status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw error;
     }
+
+    const data = await response.json();
+    const description = data.choices?.[0]?.message?.content;
+
+    if (!description) {
+      throw new Error('No response from AI');
+    }
+
+    console.log('Generated face description:', description);
+
+    return new Response(
+      JSON.stringify({ description: description.trim() }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error: unknown) {
     console.error('Error in analyze-face-description:', error);
