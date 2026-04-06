@@ -116,6 +116,7 @@ export const Navigation = () => {
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
+    window.dispatchEvent(new Event('sidebar-collapse-changed'));
   }, [isCollapsed]);
 
   const handleSignOut = async () => {

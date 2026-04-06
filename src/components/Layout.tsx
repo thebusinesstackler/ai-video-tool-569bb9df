@@ -21,14 +21,25 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   // Listen for localStorage changes to sync collapse state
   useEffect(() => {
-    const handleStorageChange = () => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === SIDEBAR_COLLAPSED_KEY) {
+        setIsCollapsed(e.newValue === 'true');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also listen for custom event for same-tab updates
+    const handleCustom = () => {
       const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
       setIsCollapsed(saved === 'true');
     };
+    window.addEventListener('sidebar-collapse-changed', handleCustom);
 
-    // Check periodically for changes (since storage events don't fire in same tab)
-    const interval = setInterval(handleStorageChange, 100);
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('sidebar-collapse-changed', handleCustom);
+    };
   }, []);
 
   const handleClearSession = () => {
