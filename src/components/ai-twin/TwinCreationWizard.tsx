@@ -11,6 +11,7 @@ import { LogoUploadInline } from '@/components/LogoUploadInline';
 import { ImageGrouper } from './ImageGrouper';
 import { VoiceCloner } from './VoiceCloner';
 import { convertImagesToStorageUrls, hasBase64Images } from '@/lib/imageUtils';
+import { getFriendlyError } from '@/lib/errorClassifier';
 
 interface TwinCreationWizardProps {
   onComplete: () => void;
