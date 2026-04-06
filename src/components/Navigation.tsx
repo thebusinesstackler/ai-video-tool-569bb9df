@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import logoLight from '@/assets/logo-light.png';
+import logoDark from '@/assets/logo-dark.png';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   FileTextIcon, 
@@ -206,10 +208,17 @@ export const Navigation = () => {
       {/* Logo */}
       <div className={cn("flex items-center mb-6", collapsed ? "justify-center" : "justify-between")}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow flex-shrink-0">
-            <SparklesIcon className="w-6 h-6 text-primary-foreground" />
-          </div>
-          {!collapsed && <h1 className="font-bold text-xl gradient-text">VideoAI Pro</h1>}
+          {collapsed ? (
+            <div className="w-10 h-10 flex-shrink-0">
+              <img src={logoDark} alt="Video AI Pro" className="w-full h-full object-contain hidden dark:block" />
+              <img src={logoLight} alt="Video AI Pro" className="w-full h-full object-contain dark:hidden" />
+            </div>
+          ) : (
+            <div className="h-10 max-w-[180px]">
+              <img src={logoDark} alt="Video AI Pro" className="h-full object-contain hidden dark:block" />
+              <img src={logoLight} alt="Video AI Pro" className="h-full object-contain dark:hidden" />
+            </div>
+          )}
         </div>
         {!collapsed && <ThemeToggle />}
       </div>
