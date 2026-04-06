@@ -44,7 +44,7 @@ export const Landing = () => {
       <header className="border-b border-border backdrop-blur-xl sticky top-0 z-50 bg-background/80">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-            <div className="h-20 max-w-[400px]">
+            <div className="h-60 max-w-[600px]">
               <img src={logoDark} alt="Video AI Pro" className="h-full object-contain hidden dark:block" />
               <img src={logoLight} alt="Video AI Pro" className="h-full object-contain dark:hidden" />
             </div>
