@@ -211,7 +211,8 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
             faceDescription: finalFaceDescription,
             gender,
             name: name.trim(),
-            referenceImageUrl
+            referenceImageUrl,
+            shirtLogoUrl: shirtLogoUrl || undefined
           }
         });
 
