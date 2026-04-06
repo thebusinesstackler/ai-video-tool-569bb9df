@@ -179,7 +179,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
             Image Gallery
           </CardTitle>
           <CardDescription>
-            {images.length} generated images saved
+            {images.length} uploaded images
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
