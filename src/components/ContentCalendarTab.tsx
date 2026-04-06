@@ -68,10 +68,15 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
 
-  const completedProjects = useMemo(
-    () => projects.filter((p) => p.status === 'completed' && p.generated_video_url),
-    [projects]
-  );
+  const completedProjects = useMemo(() => {
+    const seen = new Set<string>();
+    return projects.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      // Include if it has a generated video OR a reference video
+      return (p.status === 'completed' && p.generated_video_url) || p.reference_video_url;
+    });
+  }, [projects]);
 
   const filteredProjects = useMemo(
     () =>
@@ -198,7 +203,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
         `"${extractScript(p).replace(/"/g, '""')}"`,
         schedule.day,
         schedule.time,
-        p.generated_video_url || '',
+        p.generated_video_url || p.reference_video_url || '',
         new Date(p.created_at).toLocaleDateString(),
       ];
     });
@@ -240,7 +245,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
     ${items.map((p, i) => {
       const schedule = POSTING_SCHEDULE[i % POSTING_SCHEDULE.length];
       const thumbSrc = thumbnails[p.id] || null;
-      const videoUrl = p.generated_video_url || '';
+      const videoUrl = p.generated_video_url || p.reference_video_url || '';
       return `<div class="item">
         <div class="row"><span class="badge">${assignments[p.id] || 'Uncategorized'}</span><div class="sched">📅 ${schedule.day} at ${schedule.time}</div></div>
         <div class="thumb-container">
@@ -381,10 +386,10 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             <Play className="w-5 h-5 text-white" />
                           </div>
                         </div>
-                      ) : project.generated_video_url ? (
+                      ) : (project.generated_video_url || project.reference_video_url) ? (
                         <div className="relative">
                           <video
-                            src={`${project.generated_video_url}#t=0.5`}
+                            src={`${(project.generated_video_url || project.reference_video_url)}#t=0.5`}
                             muted
                             playsInline
                             crossOrigin="anonymous"
@@ -421,9 +426,9 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             ))}
                           </SelectContent>
                         </Select>
-                        {project.generated_video_url && (
+                        {(project.generated_video_url || project.reference_video_url) && (
                           <Button size="sm" variant="ghost" asChild className="h-6 text-[10px] gap-1 px-2">
-                            <a href={project.generated_video_url} download target="_blank" rel="noopener noreferrer">
+                            <a href={(project.generated_video_url || project.reference_video_url)!} download target="_blank" rel="noopener noreferrer">
                               <Download className="w-3 h-3" /> Video
                             </a>
                           </Button>
@@ -442,7 +447,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                           )}
                           {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'AI Thumbnail'}
                         </Button>
-                        {project.generated_video_url && (
+                        {(project.generated_video_url || project.reference_video_url) && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -468,12 +473,12 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
           <DialogHeader>
             <DialogTitle className="text-sm">Watch & Capture Thumbnail Frame</DialogTitle>
           </DialogHeader>
-          {previewProject?.generated_video_url && (
+          {(previewProject?.generated_video_url || previewProject?.reference_video_url) && (
             <div className="space-y-3">
               <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
                 <video
                   ref={previewVideoRef}
-                  src={previewProject.generated_video_url}
+                  src={previewProject.generated_video_url || previewProject.reference_video_url!}
                   className="w-full h-full object-contain"
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
