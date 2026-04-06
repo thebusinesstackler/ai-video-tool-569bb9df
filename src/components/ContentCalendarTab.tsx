@@ -203,7 +203,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
         `"${extractScript(p).replace(/"/g, '""')}"`,
         schedule.day,
         schedule.time,
-        p.generated_video_url || '',
+        p.generated_video_url || p.reference_video_url || '',
         new Date(p.created_at).toLocaleDateString(),
       ];
     });
