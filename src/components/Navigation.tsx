@@ -24,7 +24,8 @@ import {
   Layers,
   Zap,
   Package,
-  RefreshCw
+  RefreshCw,
+  Mic
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
