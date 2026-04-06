@@ -43,6 +43,10 @@ async function generateImageWithOpenAI(prompt: string, apiKey: string): Promise<
   if (!response.ok) {
     const errorText = await response.text();
     console.error('OpenAI image error:', response.status, errorText);
+    const lower = errorText.toLowerCase();
+    if (lower.includes('billing') || lower.includes('quota') || lower.includes('insufficient')) {
+      throw new Error('Our AI services are temporarily unavailable. Please try again later.');
+    }
     throw new Error(`OpenAI image error: ${response.status}`);
   }
 
