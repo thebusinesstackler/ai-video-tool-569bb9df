@@ -246,7 +246,7 @@ export const Dashboard = () => {
   return (
     <div className="space-y-8 animate-slide-in">
       {/* Welcome Banner with Video Slideshow */}
-      <div className="relative overflow-hidden rounded-2xl glass min-h-[280px]">
+      <div className="relative overflow-hidden rounded-2xl min-h-[300px] bg-gradient-to-br from-[hsl(var(--primary))] via-[hsl(var(--primary)/0.85)] to-[hsl(var(--accent)/0.9)]">
         {/* Video slideshow background */}
         {previewVideos.length > 0 ? (
           <div className="absolute inset-0">
@@ -259,27 +259,33 @@ export const Dashboard = () => {
                 loop
                 playsInline
                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-                  i === slideIndex ? 'opacity-30' : 'opacity-0'
+                  i === slideIndex ? 'opacity-20' : 'opacity-0'
                 }`}
               />
             ))}
           </div>
         ) : (
           <div 
-            className="absolute inset-0 bg-cover bg-center opacity-20" 
+            className="absolute inset-0 bg-cover bg-center opacity-15" 
             style={{ backgroundImage: `url(${heroImage})` }}
           />
         )}
-        <div className="relative p-8 lg:p-12 flex items-center justify-between gap-8">
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/30" />
+
+        <div className="relative p-8 lg:p-12 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
           <div className="max-w-2xl flex-1">
-            <h1 className="text-3xl lg:text-5xl font-bold mb-4 text-foreground">
+            <p className="text-sm font-semibold uppercase tracking-widest text-white/70 mb-2">
+              Dashboard
+            </p>
+            <h1 className="text-3xl lg:text-5xl font-bold mb-4 text-white">
               Welcome back, {user?.email?.split('@')[0] || 'Creator'} 👋
             </h1>
-            <p className="text-lg text-foreground/90 font-medium mb-6 leading-relaxed">
+            <p className="text-lg text-white/80 font-medium mb-6 leading-relaxed">
               Your creative studio is ready. Pick up where you left off or start something new.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <Button variant="hero" size="lg" asChild>
+            <div className="flex flex-wrap gap-3">
+              <Button size="lg" asChild className="bg-white text-[hsl(var(--primary))] hover:bg-white/90 font-semibold shadow-lg">
                 <Link to="/reels">
                   <PlayIcon className="w-5 h-5" />
                   Start Creating
@@ -289,39 +295,36 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          {/* Slideshow indicator */}
-          {previewVideos.length > 1 && (
+          {/* Video preview card + slideshow nav */}
+          {previewVideos.length > 0 && (
             <div className="hidden lg:flex flex-col items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-foreground/70 hover:text-foreground"
-                onClick={() => setSlideIndex(prev => (prev - 1 + previewVideos.length) % previewVideos.length)}
-              >
-                <ChevronLeftIcon className="w-5 h-5 rotate-90" />
-              </Button>
-              <div className="flex flex-col gap-1.5">
-                {previewVideos.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSlideIndex(i)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      i === slideIndex ? 'bg-primary scale-125' : 'bg-foreground/30'
-                    }`}
-                  />
-                ))}
+              <div className="w-48 h-28 rounded-xl overflow-hidden border-2 border-white/30 shadow-2xl">
+                <video
+                  key={previewVideos[slideIndex]?.url}
+                  src={previewVideos[slideIndex]?.url}
+                  muted
+                  autoPlay
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-foreground/70 hover:text-foreground"
-                onClick={() => setSlideIndex(prev => (prev + 1) % previewVideos.length)}
-              >
-                <ChevronRightIcon className="w-5 h-5 rotate-90" />
-              </Button>
-              <span className="text-xs text-muted-foreground mt-1">
-                {previewVideos[slideIndex]?.title?.slice(0, 20)}
-              </span>
+              <p className="text-xs text-white/70 text-center max-w-[180px] truncate">
+                {previewVideos[slideIndex]?.title}
+              </p>
+              {previewVideos.length > 1 && (
+                <div className="flex gap-1.5">
+                  {previewVideos.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSlideIndex(i)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        i === slideIndex ? 'bg-white scale-125' : 'bg-white/40'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
