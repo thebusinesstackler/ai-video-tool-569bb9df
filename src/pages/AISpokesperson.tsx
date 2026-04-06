@@ -2634,6 +2634,13 @@ Return ONLY the JSON object.`
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Shirt Logo */}
+                    <LogoUploadInline
+                      logoUrl={shirtLogoUrl}
+                      onLogoChange={setShirtLogoUrl}
+                      description="Upload a logo to appear on your spokesperson's shirt in generated images."
+                    />
                   </CardContent>
                 </CollapsibleContent>
               </Card>
