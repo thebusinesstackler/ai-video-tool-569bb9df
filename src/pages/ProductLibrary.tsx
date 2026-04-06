@@ -371,6 +371,7 @@ export default function ProductLibrary() {
               )}
             </DialogContent>
           </Dialog>
+        </div>
       </Layout>
     );
   }
