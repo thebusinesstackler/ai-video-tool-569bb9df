@@ -6,9 +6,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen, ImageIcon, Loader2, Camera, Play, Pause } from 'lucide-react';
+import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen, ImageIcon, Loader2, Camera, Play, Pause, GalleryHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface VideoRepoProject {
   id: string;
@@ -40,6 +42,7 @@ const POSTING_SCHEDULE = [
 ];
 
 export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState('');
@@ -67,6 +70,19 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const [previewProject, setPreviewProject] = useState<VideoRepoProject | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const [calendarImages, setCalendarImages] = useState<{ id: string; image_url: string; label: string | null }[]>([]);
+  const [galleryPickFor, setGalleryPickFor] = useState<string | null>(null);
+
+  // Fetch calendar images for the gallery picker
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('calendar_images')
+      .select('id, image_url, label')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setCalendarImages(data || []));
+  }, [user]);
 
   const completedProjects = useMemo(() => {
     const seen = new Set<string>();
@@ -447,6 +463,33 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                           )}
                           {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'AI Thumbnail'}
                         </Button>
+                        {calendarImages.length > 0 && (
+                          <Popover open={galleryPickFor === project.id} onOpenChange={(open) => setGalleryPickFor(open ? project.id : null)}>
+                            <PopoverTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1 px-2">
+                                <GalleryHorizontal className="w-3 h-3" /> Gallery
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-2" align="start">
+                              <p className="text-[10px] text-muted-foreground mb-2 font-medium">Pick a calendar image</p>
+                              <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
+                                {calendarImages.map((img) => (
+                                  <button
+                                    key={img.id}
+                                    className="aspect-square rounded-md overflow-hidden border border-border hover:border-primary transition-colors"
+                                    onClick={() => {
+                                      setThumbnails(prev => ({ ...prev, [project.id]: img.image_url }));
+                                      setGalleryPickFor(null);
+                                      toast({ title: 'Image set', description: 'Calendar image applied as thumbnail.' });
+                                    }}
+                                  >
+                                    <img src={img.image_url} alt={img.label || ''} className="w-full h-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
                         {(project.generated_video_url || project.reference_video_url) && (
                           <Button
                             size="sm"

@@ -4,7 +4,7 @@ import { ImageGallery } from '@/components/ImageGallery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download } from 'lucide-react';
+import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
@@ -38,6 +38,9 @@ const Gallery = () => {
   const [tempName, setTempName] = useState('');
   const [videoRepoEntries, setVideoRepoEntries] = useState<{ id: string; image_url: string; prompt: string | null; created_at: string }[]>([]);
   const [isLoadingVideoRepo, setIsLoadingVideoRepo] = useState(false);
+  const [calendarImages, setCalendarImages] = useState<{ id: string; image_url: string; label: string | null; created_at: string }[]>([]);
+  const [isLoadingCalendarImages, setIsLoadingCalendarImages] = useState(false);
+  const [isUploadingCalendar, setIsUploadingCalendar] = useState(false);
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
@@ -76,10 +79,71 @@ const Gallery = () => {
     }
   };
 
+  const fetchCalendarImages = async () => {
+    if (!user) return;
+    setIsLoadingCalendarImages(true);
+    try {
+      const { data, error } = await supabase
+        .from('calendar_images')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setCalendarImages(data || []);
+    } catch (error: any) {
+      console.error('Error fetching calendar images:', error);
+    } finally {
+      setIsLoadingCalendarImages(false);
+    }
+  };
+
+  const handleCalendarUpload = async (files: FileList) => {
+    if (!user) return;
+    setIsUploadingCalendar(true);
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    try {
+      for (const file of Array.from(files)) {
+        if (!validTypes.includes(file.type)) continue;
+        if (file.size > 10 * 1024 * 1024) continue;
+        const ext = file.name.split('.').pop() || 'jpg';
+        const fileName = `${user.id}/calendar/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, file, { contentType: file.type });
+        if (uploadError) continue;
+        const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+        const label = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        await supabase.from('calendar_images').insert({
+          user_id: user.id,
+          image_url: publicUrl,
+          label,
+        });
+      }
+      toast({ title: 'Images Uploaded', description: 'Your calendar images are ready to use.' });
+      await fetchCalendarImages();
+    } catch (error: any) {
+      toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingCalendar(false);
+    }
+  };
+
+  const deleteCalendarImage = async (id: string) => {
+    try {
+      const { error } = await supabase.from('calendar_images').delete().eq('id', id);
+      if (error) throw error;
+      setCalendarImages(prev => prev.filter(i => i.id !== id));
+      toast({ title: 'Image Deleted' });
+    } catch (error: any) {
+      toast({ title: 'Delete Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchProducts();
       fetchVideoRepoEntries();
+      fetchCalendarImages();
     }
   }, [user]);
 
@@ -201,6 +265,12 @@ const Gallery = () => {
             </TabsTrigger>
             <TabsTrigger value="video-repo" className="flex items-center gap-1.5">
               <Video className="w-4 h-4" /> Video Repo
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" /> Calendar Images
+              {calendarImages.length > 0 && (
+                <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{calendarImages.length}</span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -354,6 +424,65 @@ const Gallery = () => {
                     <CardContent className="p-3">
                       <p className="text-xs text-muted-foreground line-clamp-2">{entry.prompt || 'Video Repo project'}</p>
                       <p className="text-[10px] text-muted-foreground/60 mt-1">{new Date(entry.created_at).toLocaleDateString()}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-6 mt-4">
+            <Card className="border-dashed border-2 border-muted-foreground/25">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Calendar className="w-10 h-10 text-muted-foreground/50" />
+                  <div>
+                    <p className="font-medium text-foreground">Calendar Cover Images</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Upload images here to use as thumbnails in the Content Calendar.
+                    </p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={(e) => e.target.files && handleCalendarUpload(e.target.files)}
+                    />
+                    <Button asChild variant="default" size="sm" disabled={isUploadingCalendar}>
+                      <span>
+                        {isUploadingCalendar ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                        {isUploadingCalendar ? 'Uploading...' : 'Upload Calendar Images'}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {isLoadingCalendarImages ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+            ) : calendarImages.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No calendar images yet</p>
+                <p className="text-sm mt-1">Upload images to use as covers in your Content Calendar</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {calendarImages.map((img) => (
+                  <Card key={img.id} className="overflow-hidden group relative">
+                    <div className="aspect-square relative">
+                      <img src={img.image_url} alt={img.label || 'Calendar image'} className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => deleteCalendarImage(img.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <CardContent className="p-2">
+                      <p className="text-xs text-muted-foreground truncate">{img.label || 'Untitled'}</p>
                     </CardContent>
                   </Card>
                 ))}
