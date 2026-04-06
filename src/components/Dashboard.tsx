@@ -297,7 +297,7 @@ export const Dashboard = () => {
             <p className="text-sm font-semibold uppercase tracking-widest text-white/70 mb-2">
               Dashboard
             </p>
-            <h1 className="text-3xl lg:text-5xl font-bold mb-4 text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold mb-4 text-white">
               Welcome back, {firstName || user?.email?.split('@')[0] || 'Creator'} 👋
             </h1>
             <p className="text-lg text-white/80 font-medium mb-6 leading-relaxed">
