@@ -347,7 +347,18 @@ const Gallery = () => {
             reader.onloadend = () => resolve(reader.result as string);
             reader.readAsDataURL(blob);
           });
-          pdf.addImage(dataUrl, x, y, cellW, cellH);
+          // Calculate aspect-ratio-preserving dimensions
+          const img = new Image();
+          await new Promise<void>((resolve) => { img.onload = () => resolve(); img.onerror = () => resolve(); img.src = dataUrl; });
+          const imgW = img.naturalWidth || 1;
+          const imgH = img.naturalHeight || 1;
+          const ratio = imgW / imgH;
+          let drawW = cellW;
+          let drawH = cellW / ratio;
+          if (drawH > cellH) { drawH = cellH; drawW = cellH * ratio; }
+          const drawX = x + (cellW - drawW) / 2;
+          const drawY = y + (cellH - drawH) / 2;
+          pdf.addImage(dataUrl, drawX, drawY, drawW, drawH);
         } catch {
           pdf.setFillColor(230, 230, 230);
           pdf.rect(x, y, cellW, cellH, 'F');
