@@ -6,9 +6,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen, ImageIcon, Loader2, Camera, Play, Pause } from 'lucide-react';
+import { Download, FileText, Table2, Plus, Tag, Video, Trash2, FolderOpen, ImageIcon, Loader2, Camera, Play, Pause, GalleryHorizontal } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface VideoRepoProject {
   id: string;
