@@ -550,13 +550,53 @@ const Gallery = () => {
           </TabsContent>
 
           <TabsContent value="video-repo" className="space-y-6 mt-4">
+            {/* Video upload zone */}
+            <Card className="border-dashed border-2 border-muted-foreground/25">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Video className="w-10 h-10 text-muted-foreground/50" />
+                  <div>
+                    <p className="font-medium text-foreground">Upload Videos</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Add MP4, MOV or WebM videos to your Lifecykel library (max 100MB each)
+                    </p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+                      multiple
+                      onChange={(e) => e.target.files && handleVideoUpload(e.target.files)}
+                    />
+                    <Button asChild variant="default" size="sm" disabled={isUploadingVideo}>
+                      <span>
+                        {isUploadingVideo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                        {isUploadingVideo ? 'Uploading...' : 'Upload Videos'}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Download report button */}
+            {videoRepoEntries.length > 0 && (
+              <div className="flex justify-start">
+                <Button onClick={downloadVideoReport} disabled={isGeneratingVideoReport} variant="outline" size="sm">
+                  {isGeneratingVideoReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                  {isGeneratingVideoReport ? 'Generating...' : `Download Report (${videoRepoEntries.length})`}
+                </Button>
+              </div>
+            )}
+
             {isLoadingVideoRepo ? (
               <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
             ) : videoRepoEntries.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Video className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No Video Repo projects yet</p>
-                <p className="text-sm mt-1">Generated videos from Video Repo will appear here</p>
+                <p className="font-medium">No videos yet</p>
+                <p className="text-sm mt-1">Upload videos or generate them from Video Repo</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
