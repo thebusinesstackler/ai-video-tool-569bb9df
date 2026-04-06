@@ -53,6 +53,7 @@ const App = () => (
           <Toaster />
           <BackgroundJobIndicator />
           <BrowserRouter>
+            <ScrollToTop />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
