@@ -64,7 +64,7 @@ const navGroups: NavGroup[] = [
       { name: 'Movie Scene Creator', href: '/movie-scene-creator', icon: Clapperboard, beta: true },
       { name: 'Movies', href: '/movies', icon: Film },
       { name: 'Reels & Stories', href: '/reels', icon: Smartphone, beta: true },
-      { name: 'Podcast Talking Head', href: '/podcast', icon: PlayCircleIcon, beta: true },
+      { name: 'Podcast Talking Head', href: '/podcast', icon: Mic, beta: true },
       { name: 'AI Video Repurposer', href: '/video-repurposer', icon: RefreshCw, beta: true },
     ],
   },
