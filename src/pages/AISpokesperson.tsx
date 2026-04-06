@@ -1278,8 +1278,12 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
       if (imageResponse.ok) {
         const imageData = await imageResponse.json();
-        const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        let imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
         if (imgUrl) {
+          // Apply logo edit if logo is set
+          if (shirtLogoUrl) {
+            imgUrl = await applyLogoEdit(imgUrl);
+          }
           // Upload base64 to storage
           if (imgUrl.startsWith('data:') && user) {
             try {
