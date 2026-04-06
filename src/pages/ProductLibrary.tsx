@@ -311,20 +311,26 @@ export default function ProductLibrary() {
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {gallery.map(img => (
-                        <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border">
+                        <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border cursor-pointer"
+                          onClick={() => openImageViewer(img)}>
                           <img src={img.image_url} alt={img.label || 'Product'} className="w-full h-full object-cover" />
                           {img.is_primary && (
                             <Badge className="absolute top-1 left-1 text-[8px] h-4 bg-primary/80">
                               <Star className="h-2 w-2 mr-0.5" /> Primary
                             </Badge>
                           )}
+                          {img.label && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
+                              <p className="text-[9px] text-white truncate">{img.label}</p>
+                            </div>
+                          )}
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             {!img.is_primary && (
-                              <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setPrimary(img.id)}>
+                              <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPrimary(img.id); }}>
                                 <Star className="h-3 w-3" />
                               </Button>
                             )}
-                            <Button size="icon" variant="destructive" className="h-7 w-7" onClick={() => deleteImage(img.id)}>
+                            <Button size="icon" variant="destructive" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); deleteImage(img.id); }}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
@@ -336,7 +342,35 @@ export default function ProductLibrary() {
               </Card>
             </div>
           </div>
-        </div>
+
+          {/* Image Viewer Dialog */}
+          <Dialog open={!!viewingImage} onOpenChange={(open) => { if (!open) setViewingImage(null); }}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-sm">Product Image</DialogTitle>
+              </DialogHeader>
+              {viewingImage && (
+                <div className="space-y-4">
+                  <div className="rounded-lg overflow-hidden border bg-muted flex items-center justify-center max-h-[60vh]">
+                    <img src={viewingImage.image_url} alt={viewingImage.label || 'Product'} className="max-w-full max-h-[60vh] object-contain" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Name this image..."
+                      value={editingLabel}
+                      onChange={(e) => setEditingLabel(e.target.value)}
+                      className="flex-1"
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveImageLabel(); }}
+                    />
+                    <Button size="sm" onClick={saveImageLabel} disabled={isSavingLabel || editingLabel === (viewingImage.label || '')}>
+                      {isSavingLabel ? <Loader2 className="h-3 w-3 animate-spin" /> : <Edit2 className="h-3 w-3 mr-1" />}
+                      Rename
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
       </Layout>
     );
   }
