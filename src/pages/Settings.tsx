@@ -144,6 +144,15 @@ const Settings = () => {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
+                      <Label htmlFor="email">Sign-in Email</Label>
+                      <Input
+                        id="email"
+                        value={user?.email || ''}
+                        readOnly
+                        disabled
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="first_name">First Name</Label>
                       <Input
                         id="first_name"

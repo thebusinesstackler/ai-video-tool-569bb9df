@@ -9,6 +9,7 @@ import { Film, Trash2, Eye, Volume2, ImageIcon, Play, Loader2, Square, Plus } fr
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/components/AuthProvider';
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ const Movies = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // AI Twin from navigation state
   const [selectedTwin, setSelectedTwin] = useState<AITwin | null>(null);
@@ -68,26 +70,23 @@ const Movies = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    loadProjects();
-  }, []);
-
-  // Check for AI Twin from navigation state
-  useEffect(() => {
-    const state = location.state as { selectedTwin?: AITwin } | null;
-    if (state?.selectedTwin) {
-      setSelectedTwin(state.selectedTwin);
-      // Clear the state to prevent showing twin panel on refresh
-      window.history.replaceState({}, document.title);
+    if (!user) {
+      setProjects([]);
+      setIsLoading(false);
+      return;
     }
-  }, [location.state]);
-
+    loadProjects();
+  }, [user]);
   const loadProjects = async () => {
+    if (!user) return;
+
     try {
       setIsLoading(true);
       // Only fetch metadata columns, not the large scenes JSON
       const { data, error } = await supabase
         .from('movie_projects')
         .select('id, title, movie_idea, outline, created_at, updated_at')
+        .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -110,11 +109,14 @@ const Movies = () => {
   };
 
   const deleteProject = async (projectId: string) => {
+    if (!user) return;
+
     try {
       const { error } = await supabase
         .from('movie_projects')
         .delete()
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
@@ -135,12 +137,15 @@ const Movies = () => {
   };
 
   const viewProject = async (project: MovieProject) => {
+    if (!user) return;
+
     try {
       // Load full project data including scenes
       const { data, error } = await supabase
         .from('movie_projects')
         .select('*')
         .eq('id', project.id)
+        .eq('user_id', user.id)
         .single();
 
       if (error) throw error;

@@ -1,7 +1,9 @@
 import { useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 
-const DRAFT_KEY = 'reel-draft-autosave';
+const DRAFT_KEY_PREFIX = 'reel-draft-autosave';
+const LEGACY_DRAFT_KEY = 'reel-draft-autosave';
 const AUTOSAVE_DEBOUNCE_MS = 2000;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -55,7 +57,10 @@ export interface ReelDraftState {
   savedAt: number;
 }
 
-// Helper functions outside the hook to avoid dependency issues
+function getDraftKey(userId?: string | null) {
+  return userId ? `${DRAFT_KEY_PREFIX}:${userId}` : null;
+}
+
 function cleanProjectForStorage(project: any) {
   return {
     ...project,
@@ -75,9 +80,12 @@ function cleanProjectForStorage(project: any) {
   };
 }
 
-function readDraftFromStorage(): ReelDraftState | null {
+function readDraftFromStorage(userId?: string | null): ReelDraftState | null {
+  const key = getDraftKey(userId);
+  if (!key) return null;
+
   try {
-    const stored = localStorage.getItem(DRAFT_KEY);
+    const stored = localStorage.getItem(key);
     if (!stored) return null;
     return JSON.parse(stored) as ReelDraftState;
   } catch {
@@ -85,23 +93,29 @@ function readDraftFromStorage(): ReelDraftState | null {
   }
 }
 
-function writeDraftToStorage(draft: ReelDraftState): boolean {
+function writeDraftToStorage(draft: ReelDraftState, userId?: string | null): boolean {
+  const key = getDraftKey(userId);
+  if (!key) return false;
+
   try {
     const draftJson = JSON.stringify(draft);
     if (draftJson.length > 4 * 1024 * 1024) {
       console.warn('[AutoSave] Draft too large, skipping save');
       return false;
     }
-    localStorage.setItem(DRAFT_KEY, draftJson);
+    localStorage.setItem(key, draftJson);
     return true;
   } catch {
     return false;
   }
 }
 
-function removeDraftFromStorage(): void {
+function removeDraftFromStorage(userId?: string | null): void {
+  const key = getDraftKey(userId);
   try {
-    localStorage.removeItem(DRAFT_KEY);
+    if (key) {
+      localStorage.removeItem(key);
+    }
   } catch {
     // Ignore errors
   }
@@ -122,41 +136,40 @@ function calculateDraftAge(savedAt: number): string {
 
 export function useReelDraftAutoSave() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const userId = user?.id;
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaveRef = useRef<number>(0);
 
-  // Clear draft from localStorage
   const clearDraft = useCallback(() => {
-    removeDraftFromStorage();
+    removeDraftFromStorage(userId);
     lastSaveRef.current = 0;
     console.log('[AutoSave] Draft cleared');
-  }, []);
+  }, [userId]);
 
-  // Load draft from localStorage
   const loadDraft = useCallback((): ReelDraftState | null => {
-    const draft = readDraftFromStorage();
+    const draft = readDraftFromStorage(userId);
     if (!draft) return null;
 
-    // Check if draft is too old (older than 7 days)
     if (Date.now() - draft.savedAt > SEVEN_DAYS_MS) {
       console.log('[AutoSave] Draft expired, clearing...');
-      removeDraftFromStorage();
+      removeDraftFromStorage(userId);
       return null;
     }
 
     return draft;
-  }, []);
+  }, [userId]);
 
-  // Save draft to localStorage
   const saveDraft = useCallback((state: Omit<ReelDraftState, 'savedAt'>) => {
-    // Skip if nothing meaningful to save
+    if (!userId) return;
+
     if (!state.topic?.trim() && state.project.scenes.length === 0 && state.project.previewScenes.length === 0 && !state.strategist?.niche?.trim() && !state.strategist?.strategy) {
       return;
     }
 
     try {
       const cleanedProject = cleanProjectForStorage(state.project);
-      
+
       const draft: ReelDraftState = {
         ...state,
         project: cleanedProject,
@@ -164,17 +177,16 @@ export function useReelDraftAutoSave() {
         preSelectedReference: state.preSelectedReference?.startsWith('data:') ? null : state.preSelectedReference,
         savedAt: Date.now()
       };
-      
-      if (writeDraftToStorage(draft)) {
+
+      if (writeDraftToStorage(draft, userId)) {
         lastSaveRef.current = draft.savedAt;
         console.log('[AutoSave] Draft saved at', new Date(draft.savedAt).toLocaleTimeString());
       }
     } catch (error) {
       console.error('[AutoSave] Failed to save draft:', error);
-      // If quota exceeded, clear old draft and try again with minimal data
       if ((error as any)?.name === 'QuotaExceededError') {
         try {
-          removeDraftFromStorage();
+          removeDraftFromStorage(userId);
           const minimalDraft: ReelDraftState = {
             topic: state.topic,
             selectedSceneCount: state.selectedSceneCount,
@@ -198,17 +210,18 @@ export function useReelDraftAutoSave() {
             strategist: state.strategist,
             savedAt: Date.now()
           };
-          writeDraftToStorage(minimalDraft);
+          writeDraftToStorage(minimalDraft, userId);
           console.log('[AutoSave] Saved minimal draft after quota error');
         } catch (e) {
           console.error('[AutoSave] Even minimal save failed:', e);
         }
       }
     }
-  }, []);
+  }, [userId]);
 
-  // Debounced save
   const saveDraftDebounced = useCallback((state: Omit<ReelDraftState, 'savedAt'>) => {
+    if (!userId) return;
+
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
@@ -216,19 +229,16 @@ export function useReelDraftAutoSave() {
     debounceTimerRef.current = setTimeout(() => {
       saveDraft(state);
     }, AUTOSAVE_DEBOUNCE_MS);
-  }, [saveDraft]);
+  }, [saveDraft, userId]);
 
-  // Check if draft exists and has content
   const hasDraft = useCallback((): boolean => {
-    const draft = readDraftFromStorage();
+    const draft = readDraftFromStorage(userId);
     if (!draft) return false;
-    
-    // Check if expired
+
     if (Date.now() - draft.savedAt > SEVEN_DAYS_MS) {
       return false;
     }
-    
-    // Check if there's meaningful content
+
     return !!(
       draft.topic?.trim() ||
       draft.project.scenes.length > 0 ||
@@ -237,24 +247,30 @@ export function useReelDraftAutoSave() {
       draft.strategist?.niche?.trim() ||
       draft.strategist?.strategy
     );
-  }, []);
+  }, [userId]);
 
-  // Get draft age for display
   const getDraftAge = useCallback((): string => {
-    const draft = readDraftFromStorage();
+    const draft = readDraftFromStorage(userId);
     if (!draft) return '';
     return calculateDraftAge(draft.savedAt);
-  }, []);
+  }, [userId]);
 
-  // Notify user when restoring draft
   const notifyDraftRestored = useCallback(() => {
-    const draft = readDraftFromStorage();
+    const draft = readDraftFromStorage(userId);
     const age = draft ? calculateDraftAge(draft.savedAt) : '';
     toast({
-      title: "Draft Restored",
+      title: 'Draft Restored',
       description: `Your unsaved reel draft has been recovered (saved ${age}).`,
     });
-  }, [toast]);
+  }, [toast, userId]);
+
+  const clearLegacyAnonymousDraft = useCallback(() => {
+    try {
+      localStorage.removeItem(LEGACY_DRAFT_KEY);
+    } catch {
+      // Ignore errors
+    }
+  }, []);
 
   return {
     saveDraft,
@@ -263,6 +279,7 @@ export function useReelDraftAutoSave() {
     clearDraft,
     hasDraft,
     getDraftAge,
-    notifyDraftRestored
+    notifyDraftRestored,
+    clearLegacyAnonymousDraft,
   };
 }
