@@ -398,6 +398,10 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
                 className="max-w-md"
               />
             </div>
+            <LogoUploadInline
+              logoUrl={shirtLogoUrl}
+              onLogoChange={setShirtLogoUrl}
+            />
           </div>
         )}
 
