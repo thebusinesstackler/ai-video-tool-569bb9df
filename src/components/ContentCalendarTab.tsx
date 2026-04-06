@@ -68,10 +68,15 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
 
-  const completedProjects = useMemo(
-    () => projects.filter((p) => p.status === 'completed' && p.generated_video_url),
-    [projects]
-  );
+  const completedProjects = useMemo(() => {
+    const seen = new Set<string>();
+    return projects.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      // Include if it has a generated video OR a reference video
+      return (p.status === 'completed' && p.generated_video_url) || p.reference_video_url;
+    });
+  }, [projects]);
 
   const filteredProjects = useMemo(
     () =>
