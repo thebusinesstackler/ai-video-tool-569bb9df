@@ -245,7 +245,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
     ${items.map((p, i) => {
       const schedule = POSTING_SCHEDULE[i % POSTING_SCHEDULE.length];
       const thumbSrc = thumbnails[p.id] || null;
-      const videoUrl = p.generated_video_url || '';
+      const videoUrl = p.generated_video_url || p.reference_video_url || '';
       return `<div class="item">
         <div class="row"><span class="badge">${assignments[p.id] || 'Uncategorized'}</span><div class="sched">📅 ${schedule.day} at ${schedule.time}</div></div>
         <div class="thumb-container">
