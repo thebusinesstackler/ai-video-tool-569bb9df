@@ -334,7 +334,11 @@ const Gallery = () => {
 
           <TabsContent value="gallery" className="space-y-6 mt-4">
             <ImageDropZone onFilesSelected={handleFilesSelected} isUploading={isUploading} />
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between">
+              <Button onClick={downloadPdf} disabled={isGeneratingPdf || images.length === 0} variant="outline" size="sm">
+                {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                {isGeneratingPdf ? 'Generating PDF...' : `Download PDF (${images.length})`}
+              </Button>
               <Card className="bg-muted/50 border-dashed">
                 <CardContent className="p-4 flex items-center gap-4">
                   <div className="flex-1">
