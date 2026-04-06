@@ -43,7 +43,7 @@ export function useImageGallery(): UseImageGalleryResult {
   const [isUploading, setIsUploading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 50;
 
   const fetchImages = async (reset = false) => {
     const currentPage = reset ? 0 : page;
