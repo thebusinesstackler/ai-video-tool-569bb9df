@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-...
 const Movies = () => {
   const location = useLocation();
   const [projects, setProjects] = useState<MovieProject[]>([]);
@@ -43,7 +42,6 @@ const Movies = () => {
     }
     loadProjects();
   }, [user]);
-...
   const loadProjects = async () => {
     if (!user) return;
 
