@@ -70,6 +70,19 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
   const [previewProject, setPreviewProject] = useState<VideoRepoProject | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const [calendarImages, setCalendarImages] = useState<{ id: string; image_url: string; label: string | null }[]>([]);
+  const [galleryPickFor, setGalleryPickFor] = useState<string | null>(null);
+
+  // Fetch calendar images for the gallery picker
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('calendar_images')
+      .select('id, image_url, label')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setCalendarImages(data || []));
+  }, [user]);
 
   const completedProjects = useMemo(() => {
     const seen = new Set<string>();
