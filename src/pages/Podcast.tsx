@@ -266,7 +266,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           model: 'infinitetalk-hd',
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
-          prompt: `Cinematic spokesperson — medium close-up. Confident, natural lip-sync, fluid mouth movements, subtle expressions, gentle head movements. Professional broadcast studio. Premium quality.`,
+          prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements with visible jaw and lip motion. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld camera micro-shake. Casual, authentic energy. NOT cinematic, NOT polished — raw and real like an iPhone selfie video.`,
           aspectRatio: '9:16',
         }
       });
