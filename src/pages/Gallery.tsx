@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import { ImageDropZone } from '@/components/ImageDropZone';
+import { VideoPlayer } from '@/components/VideoPlayer';
 
 interface ProductImage {
   id: string;
