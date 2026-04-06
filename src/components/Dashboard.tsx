@@ -25,7 +25,7 @@ const quickActions = [
     name: 'Create Reel', 
     description: 'Transform topics into engaging reels with AI',
     icon: VideoIcon, 
-    variant: 'hero' as const,
+    variant: 'ai' as const,
     href: '/reels'
   },
   { 
@@ -39,7 +39,7 @@ const quickActions = [
     name: 'Create Character', 
     description: 'Design AI avatars for your video productions',
     icon: UsersIcon, 
-    variant: 'glass' as const,
+    variant: 'ai' as const,
     href: '/characters'
   },
 ];
