@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import { ImageDropZone } from '@/components/ImageDropZone';
+import { VideoPlayer } from '@/components/VideoPlayer';
 
 interface ProductImage {
   id: string;
@@ -613,11 +614,15 @@ const Gallery = () => {
                         preload="metadata"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                        <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
-                          <a href={entry.image_url} target="_blank" rel="noopener noreferrer">
-                            <Play className="w-4 h-4" />
-                          </a>
-                        </Button>
+                        <VideoPlayer
+                          videoUrl={entry.image_url}
+                          title={entry.prompt || 'Video'}
+                          trigger={
+                            <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full">
+                              <Play className="w-4 h-4" />
+                            </Button>
+                          }
+                        />
                         <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
                           <a href={entry.image_url} download>
                             <Download className="w-4 h-4" />
