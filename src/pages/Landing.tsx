@@ -25,7 +25,15 @@ import {
   BriefcaseIcon,
   PlayIcon,
   LayersIcon,
-  ClapperboardIcon
+  ClapperboardIcon,
+  ScanFace,
+  Smartphone,
+  Mic,
+  Presentation,
+  MessageSquareQuote,
+  Package,
+  RefreshCw,
+  Wand2
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -123,7 +131,123 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* How It Works Section */}
+      {/* Everything You Can Create */}
+      <section className="container mx-auto px-6 py-20">
+        <div className="text-center mb-16">
+          <Badge variant="outline" className="px-4 py-2 text-sm border-primary/30 bg-primary/5 mb-6">
+            <Wand2 className="w-4 h-4 mr-2" />
+            Full AI Video Suite
+          </Badge>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">Everything You Need to Create</h2>
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            From AI-powered twins to cinematic movie scenes — one platform to create any video content
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+          {[
+            {
+              icon: ScanFace,
+              title: 'AI Twins',
+              description: 'Create a digital clone of yourself that speaks, moves, and presents just like you. Upload reference images and clone your voice.',
+              badge: 'Popular',
+            },
+            {
+              icon: ClapperboardIcon,
+              title: 'Movie Scene Creator',
+              description: 'Generate cinematic movie scenes with 50+ camera angles, keyframe interpolation, and professional lighting presets.',
+              badge: null,
+            },
+            {
+              icon: Smartphone,
+              title: 'Reels & Stories',
+              description: 'Create scroll-stopping short-form content for Instagram, TikTok, and YouTube Shorts with AI-generated visuals and voiceovers.',
+              badge: null,
+            },
+            {
+              icon: Mic,
+              title: 'Podcast Talking Heads',
+              description: 'Turn your audio into engaging talking-head videos with AI-generated visuals. Perfect for podcast clips and audiograms.',
+              badge: 'New',
+            },
+            {
+              icon: Presentation,
+              title: 'AI Spokesperson',
+              description: 'Generate professional spokesperson videos using your AI Twin. Perfect for product demos, tutorials, and announcements.',
+              badge: null,
+            },
+            {
+              icon: ZapIcon,
+              title: 'Hook Engine',
+              description: 'AI-powered hook generation for your videos. Get scroll-stopping opening lines, visual directions, and on-screen text.',
+              badge: 'New',
+            },
+            {
+              icon: FilmIcon,
+              title: 'Video Repo',
+              description: 'Analyze reference videos and recreate them with your own products. Swap products into proven viral video formats.',
+              badge: null,
+            },
+            {
+              icon: MessageSquareQuote,
+              title: 'Testimonial Ads',
+              description: 'Create professional testimonial-style commercials with AI Twins, strategic scripts, and polished editing — all automated.',
+              badge: null,
+            },
+            {
+              icon: RefreshCw,
+              title: 'AI Video Repurposer',
+              description: 'Repurpose long-form videos into multiple short-form clips optimized for each social platform automatically.',
+              badge: 'New',
+            },
+            {
+              icon: UsersIcon,
+              title: '50+ Characters',
+              description: 'Choose from over 50 pre-built AI characters or create your own custom characters with unique voices and personalities.',
+              badge: null,
+            },
+            {
+              icon: SparklesIcon,
+              title: 'Voice Cloning',
+              description: 'Clone any voice with a short sample. Use your own voice or create custom voices for your AI Twins and characters.',
+              badge: null,
+            },
+            {
+              icon: Package,
+              title: 'Product Library',
+              description: 'Manage all your product images, descriptions, and brand assets in one place. Instantly use them across any video project.',
+              badge: null,
+            },
+          ].map((feature) => (
+            <Card key={feature.title} className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-glow group relative overflow-hidden">
+              <CardContent className="pt-6 pb-6 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <feature.icon className="w-6 h-6 text-primary-foreground" />
+                  </div>
+                  {feature.badge && (
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+                      {feature.badge}
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="text-xl font-semibold">{feature.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="text-center mt-12">
+          <Link to="/auth">
+            <Button size="lg" className="bg-gradient-primary h-14 px-10 text-lg font-semibold shadow-glow">
+              Try All Features Free <ArrowRightIcon className="ml-2 w-5 h-5" />
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+
       <section className="container mx-auto px-6 py-20">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
