@@ -237,8 +237,8 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   >
                     <img
                       src={image.image_url}
-                      alt={image.prompt || 'Generated image'}
-                      className="w-full h-full object-cover"
+                      alt={image.prompt || 'Uploaded image'}
+                      className="w-full h-full object-contain"
                       loading="lazy"
                     />
                     
