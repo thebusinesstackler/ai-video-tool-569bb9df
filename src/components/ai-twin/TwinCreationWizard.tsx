@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles, Camera, Wand2 } from 'lucide-react';
+import { LogoUploadInline } from '@/components/LogoUploadInline';
 import { ImageGrouper } from './ImageGrouper';
 import { VoiceCloner } from './VoiceCloner';
 import { convertImagesToStorageUrls, hasBase64Images } from '@/lib/imageUtils';
