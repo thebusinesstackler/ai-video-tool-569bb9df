@@ -192,7 +192,7 @@ export const ContentCalendarDownload = () => {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (open) fetchAllContent(); }}>
       <DialogTrigger asChild>
-        <Button variant="glass" size="lg" className="gap-2">
+        <Button variant="outline" size="lg" className="gap-2 border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white font-semibold">
           <Calendar className="w-5 h-5" />
           Content Calendar
         </Button>
