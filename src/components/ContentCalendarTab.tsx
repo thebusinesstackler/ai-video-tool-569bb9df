@@ -244,7 +244,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
       return `<div class="item">
         <div class="row"><span class="badge">${assignments[p.id] || 'Uncategorized'}</span><div class="sched">📅 ${schedule.day} at ${schedule.time}</div></div>
         <div class="thumb-container">
-          ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="Video thumbnail" />` : videoUrl ? `<video class="thumb" src="${videoUrl}" muted preload="metadata"></video>` : ''}
+          ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="Video thumbnail" />` : videoUrl ? `<video class="thumb" src="${videoUrl}#t=0.5" muted crossorigin="anonymous" preload="metadata"></video>` : ''}
           ${videoUrl ? `<br/><a class="video-link" href="${videoUrl}" target="_blank" rel="noopener noreferrer">▶ Watch Full Video</a><span class="video-url">${videoUrl}</span>` : ''}
         </div>
         <div class="hook-section">
@@ -384,12 +384,15 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                       ) : project.generated_video_url ? (
                         <div className="relative">
                           <video
-                            src={project.generated_video_url}
+                            src={`${project.generated_video_url}#t=0.5`}
                             muted
+                            playsInline
+                            crossOrigin="anonymous"
                             preload="metadata"
                             className="w-28 h-24 object-cover rounded-lg bg-black"
+                            onLoadedMetadata={(e) => { const v = e.target as HTMLVideoElement; if (isFinite(0.5)) v.currentTime = 0.5; }}
                             onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
-                            onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                            onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0.5; }}
                           />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                             <Play className="w-5 h-5 text-white" />
