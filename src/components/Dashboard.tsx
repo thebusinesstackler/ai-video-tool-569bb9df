@@ -265,7 +265,7 @@ export const Dashboard = () => {
   return (
     <div className="space-y-8 animate-slide-in">
       {/* Welcome Banner with Video Slideshow */}
-      <div className="relative overflow-hidden rounded-2xl min-h-[300px] bg-gradient-to-br from-[hsl(var(--primary))] via-[hsl(var(--primary)/0.85)] to-[hsl(var(--accent)/0.9)]">
+      <div className="relative overflow-hidden rounded-2xl min-h-[200px] sm:min-h-[300px] bg-gradient-to-br from-[hsl(var(--primary))] via-[hsl(var(--primary)/0.85)] to-[hsl(var(--accent)/0.9)]">
         {/* Video slideshow background */}
         {previewVideos.length > 0 ? (
           <div className="absolute inset-0">
