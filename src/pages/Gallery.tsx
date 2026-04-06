@@ -38,6 +38,9 @@ const Gallery = () => {
   const [tempName, setTempName] = useState('');
   const [videoRepoEntries, setVideoRepoEntries] = useState<{ id: string; image_url: string; prompt: string | null; created_at: string }[]>([]);
   const [isLoadingVideoRepo, setIsLoadingVideoRepo] = useState(false);
+  const [calendarImages, setCalendarImages] = useState<{ id: string; image_url: string; label: string | null; created_at: string }[]>([]);
+  const [isLoadingCalendarImages, setIsLoadingCalendarImages] = useState(false);
+  const [isUploadingCalendar, setIsUploadingCalendar] = useState(false);
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
