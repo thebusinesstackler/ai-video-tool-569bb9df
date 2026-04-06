@@ -1218,9 +1218,10 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       throw new Error('Video generation timed out');
     } catch (err: any) {
       console.error('Video generation error:', err);
+      const friendly = getFriendlyError(err);
       toast({ 
-        title: 'Generation Failed', 
-        description: `${err.message}. Your progress has been saved — you can retry from the scene gallery.`, 
+        title: friendly.title, 
+        description: `${friendly.description} Your progress has been saved — you can retry from the scene gallery.`, 
         variant: 'destructive' 
       });
       // Restore scene gallery so user can retry

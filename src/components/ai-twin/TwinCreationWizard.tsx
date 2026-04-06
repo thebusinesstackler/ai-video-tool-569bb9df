@@ -251,9 +251,10 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
     } catch (error: any) {
       console.error('Error creating twin:', error);
       setIsAutoGenerating(false);
+      const friendly = getFriendlyError(error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create AI Twin',
+        title: friendly.title,
+        description: friendly.description,
         variant: 'destructive'
       });
     } finally {

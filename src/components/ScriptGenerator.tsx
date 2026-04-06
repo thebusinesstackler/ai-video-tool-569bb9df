@@ -396,9 +396,10 @@ Return ONLY valid JSON:
       setAudioUrl(audioUrl);
     } catch (error) {
       console.error('Narration error:', error);
+      const friendly = getFriendlyError(error);
       toast({
-        title: "Narration Failed",
-        description: error instanceof Error ? error.message : "Failed to create narration.",
+        title: friendly.title,
+        description: friendly.description,
         variant: "destructive"
       });
     } finally {
