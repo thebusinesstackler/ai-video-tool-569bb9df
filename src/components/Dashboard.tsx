@@ -78,7 +78,11 @@ export const Dashboard = () => {
           .order('created_at', { ascending: false })
           .limit(10);
         if (data && data.length > 0) {
-          setPreviewVideos(data.map(r => ({ url: r.video_url!, title: r.topic })));
+          setPreviewVideos(
+            data
+              .filter(r => r.video_url && r.video_url.trim() !== '')
+              .map(r => ({ url: r.video_url!, title: r.topic }))
+          );
         }
       };
       loadVideos();
