@@ -38,6 +38,7 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
   const [faceDescription, setFaceDescription] = useState<string | null>(null);
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(null);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(null);
+  const [shirtLogoUrl, setShirtLogoUrl] = useState<string | null>(null);
 
   const steps = [
     { number: 1, title: 'Basic Info' },
