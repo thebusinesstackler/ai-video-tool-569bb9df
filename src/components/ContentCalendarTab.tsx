@@ -386,10 +386,10 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             <Play className="w-5 h-5 text-white" />
                           </div>
                         </div>
-                      ) : project.generated_video_url ? (
+                      ) : (project.generated_video_url || project.reference_video_url) ? (
                         <div className="relative">
                           <video
-                            src={`${project.generated_video_url}#t=0.5`}
+                            src={`${(project.generated_video_url || project.reference_video_url)}#t=0.5`}
                             muted
                             playsInline
                             crossOrigin="anonymous"
