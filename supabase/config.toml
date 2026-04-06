@@ -106,3 +106,6 @@ verify_jwt = true
 
 [functions.analyze-audio-trim]
 verify_jwt = true
+
+[functions.transfer-assets]
+verify_jwt = true

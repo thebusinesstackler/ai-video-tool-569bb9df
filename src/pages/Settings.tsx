@@ -200,10 +200,13 @@ const Settings = () => {
                       onChange={(e) => setProfile(p => ({ ...p, brand_description: e.target.value }))}
                     />
                   </div>
-                  <Button onClick={saveProfile} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Save Profile
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={saveProfile} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Save Profile
+                    </Button>
+                    <TransferAssetsDialog />
+                  </div>
                 </div>
               )}
             </CardContent>
