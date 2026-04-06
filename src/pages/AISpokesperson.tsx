@@ -25,6 +25,7 @@ import {
 import { VideoEditorPanel } from '@/components/VideoEditorPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
+import { LogoUploadInline } from '@/components/LogoUploadInline';
 
 import type { AITwin } from '@/types/aiTwin';
 
@@ -157,6 +158,7 @@ const AISpokesperson = () => {
   const [isRefining, setIsRefining] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [shirtLogoUrl, setShirtLogoUrl] = useState<string | null>(null);
   const scriptFromDraft = useRef(false);
 
   const { saveDraft, loadDraft, clearDraft } = useSpokespersonDraft();
@@ -531,6 +533,49 @@ Return ONLY a JSON object:
     return audioDataUrl;
   };
 
+  // Helper: build logo instruction for image prompts
+  const getLogoInstruction = () => shirtLogoUrl
+    ? '\nCLOTHING: The person is wearing a t-shirt or polo with a visible company/brand logo on the chest area.'
+    : '';
+
+  // Helper: apply logo edit to a generated image using AI
+  const applyLogoEdit = async (generatedImageUrl: string): Promise<string> => {
+    if (!shirtLogoUrl || !generatedImageUrl) return generatedImageUrl;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+      const editResp = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text'],
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Place this logo onto the person\'s shirt/chest area in the portrait photo. Make it look naturally printed or embroidered on the fabric. Keep everything else identical — same person, same pose, same background, same lighting.' },
+              { type: 'image_url', image_url: { url: shirtLogoUrl } },
+              { type: 'image_url', image_url: { url: generatedImageUrl } }
+            ]
+          }]
+        })
+      });
+
+      if (editResp.ok) {
+        const editData = await editResp.json();
+        const editedUrl = editData.imageUrl || editData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (editedUrl) return editedUrl;
+      }
+    } catch (e) {
+      console.warn('Logo edit failed, using original:', e);
+    }
+    return generatedImageUrl;
+  };
+
   // Helper: generate a character image for a scene
   const generateSceneImage = async (scenePrompt: string, twin: AITwin): Promise<string> => {
     const portraitImage = twin.reference_images[0];
@@ -538,7 +583,7 @@ Return ONLY a JSON object:
       role: 'user',
       content: [
         { type: 'image_url', image_url: { url: portraitImage } },
-        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${scenePrompt}` }
+        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.${getLogoInstruction()}\n\n${scenePrompt}` }
       ]
     }];
 
@@ -561,8 +606,13 @@ Return ONLY a JSON object:
     if (!imageResponse.ok) return portraitImage;
 
     const imageData = await imageResponse.json();
-    const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    let imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     if (!imgUrl) return portraitImage;
+
+    // Apply logo edit if logo is set
+    if (shirtLogoUrl) {
+      imgUrl = await applyLogoEdit(imgUrl);
+    }
 
     // Upload base64 to storage
     if (imgUrl.startsWith('data:') && user) {
@@ -893,7 +943,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       role: 'user',
       content: [
         { type: 'image_url', image_url: { url: portraitImage } },
-        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${imagePrompt}` }
+        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.${getLogoInstruction()}\n\n${imagePrompt}` }
       ]
     }];
 
@@ -916,8 +966,13 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
     if (!imageResponse.ok) return null;
 
     const imageData = await imageResponse.json();
-    const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    let imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     if (!imgUrl) return null;
+
+    // Apply logo edit if logo is set
+    if (shirtLogoUrl) {
+      imgUrl = await applyLogoEdit(imgUrl);
+    }
 
     // Upload base64 to storage
     let finalUrl = imgUrl;
@@ -1201,7 +1256,7 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
         role: 'user',
         content: [
           { type: 'image_url', image_url: { url: portraitImage } },
-          { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${imagePrompt}` }
+          { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.${getLogoInstruction()}\n\n${imagePrompt}` }
         ]
       }];
 
@@ -1223,8 +1278,12 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
       if (imageResponse.ok) {
         const imageData = await imageResponse.json();
-        const imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        let imgUrl = imageData.imageUrl || imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
         if (imgUrl) {
+          // Apply logo edit if logo is set
+          if (shirtLogoUrl) {
+            imgUrl = await applyLogoEdit(imgUrl);
+          }
           // Upload base64 to storage
           if (imgUrl.startsWith('data:') && user) {
             try {
@@ -2632,6 +2691,13 @@ Return ONLY the JSON object.`
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Shirt Logo */}
+                    <LogoUploadInline
+                      logoUrl={shirtLogoUrl}
+                      onLogoChange={setShirtLogoUrl}
+                      description="Upload a logo to appear on your spokesperson's shirt in generated images."
+                    />
                   </CardContent>
                 </CollapsibleContent>
               </Card>

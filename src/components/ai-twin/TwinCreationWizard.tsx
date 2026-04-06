@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles, Camera, Wand2 } from 'lucide-react';
+import { LogoUploadInline } from '@/components/LogoUploadInline';
 import { ImageGrouper } from './ImageGrouper';
 import { VoiceCloner } from './VoiceCloner';
 import { convertImagesToStorageUrls, hasBase64Images } from '@/lib/imageUtils';
@@ -37,6 +38,7 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
   const [faceDescription, setFaceDescription] = useState<string | null>(null);
   const [voiceSampleUrl, setVoiceSampleUrl] = useState<string | null>(null);
   const [voiceCloningKey, setVoiceCloningKey] = useState<string | null>(null);
+  const [shirtLogoUrl, setShirtLogoUrl] = useState<string | null>(null);
 
   const steps = [
     { number: 1, title: 'Basic Info' },
@@ -209,7 +211,8 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
             faceDescription: finalFaceDescription,
             gender,
             name: name.trim(),
-            referenceImageUrl
+            referenceImageUrl,
+            shirtLogoUrl: shirtLogoUrl || undefined
           }
         });
 
@@ -396,6 +399,10 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
                 className="max-w-md"
               />
             </div>
+            <LogoUploadInline
+              logoUrl={shirtLogoUrl}
+              onLogoChange={setShirtLogoUrl}
+            />
           </div>
         )}
 
