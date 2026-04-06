@@ -80,6 +80,7 @@ async function generateOpenAITTS(
   }
 }
 async function generateSpeechifyTTS(
+  text: string,
   apiKey: string,
   voiceId: string,
   speed: number = 1.0
@@ -120,6 +121,44 @@ async function generateSpeechifyTTS(
 
     return { audioContent: base64Audio, audioUrl: `data:audio/mp3;base64,${base64Audio}` };
   } catch { return null; }
+}
+
+async function generateClonedVoiceTTS(
+  text: string,
+  apiKey: string,
+  voiceCloningKey: string,
+  speed: number = 1.0
+): Promise<{ audioContent: string; audioUrl: string } | null> {
+  try {
+    const response = await fetch(
+      `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+          voice: {
+            languageCode: 'en-US',
+            name: voiceCloningKey,
+          },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate: speed,
+          },
+        }),
+      }
+    );
+    if (!response.ok) {
+      console.error('Google cloned voice error:', response.status, await response.text());
+      return null;
+    }
+    const data = await response.json();
+    if (!data.audioContent) return null;
+    return { audioContent: data.audioContent, audioUrl: `data:audio/mp3;base64,${data.audioContent}` };
+  } catch (e) {
+    console.error('Google cloned voice exception:', e);
+    return null;
+  }
 }
 
 serve(async (req) => {
