@@ -412,6 +412,7 @@ export type Database = {
         Row: {
           brand_description: string | null
           company_name: string | null
+          content_goal: string | null
           created_at: string
           first_name: string | null
           id: string
@@ -423,6 +424,7 @@ export type Database = {
         Insert: {
           brand_description?: string | null
           company_name?: string | null
+          content_goal?: string | null
           created_at?: string
           first_name?: string | null
           id?: string
@@ -434,6 +436,7 @@ export type Database = {
         Update: {
           brand_description?: string | null
           company_name?: string | null
+          content_goal?: string | null
           created_at?: string
           first_name?: string | null
           id?: string
