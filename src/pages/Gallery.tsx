@@ -214,6 +214,61 @@ const Gallery = () => {
     await fetchImages();
   };
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const downloadPdf = async () => {
+    if (images.length === 0) return;
+    setIsGeneratingPdf(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 10;
+      const cols = 2;
+      const gap = 8;
+      const cellW = (pageWidth - margin * 2 - gap * (cols - 1)) / cols;
+      const cellH = cellW; // square
+      let col = 0;
+      let y = margin;
+
+      for (let i = 0; i < images.length; i++) {
+        if (y + cellH > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+          col = 0;
+        }
+        const x = margin + col * (cellW + gap);
+        try {
+          const res = await fetch(images[i].image_url);
+          const blob = await res.blob();
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          pdf.addImage(dataUrl, x, y, cellW, cellH);
+        } catch {
+          pdf.setFillColor(230, 230, 230);
+          pdf.rect(x, y, cellW, cellH, 'F');
+          pdf.setFontSize(8);
+          pdf.text('Failed to load', x + cellW / 2, y + cellH / 2, { align: 'center' });
+        }
+        col++;
+        if (col >= cols) {
+          col = 0;
+          y += cellH + gap;
+        }
+      }
+      pdf.save('image-gallery.pdf');
+      toast({ title: 'PDF Downloaded', description: `${images.length} images exported.` });
+    } catch (error: any) {
+      toast({ title: 'PDF Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const runSingleBatch = async () => {
     const { data, error } = await supabase.functions.invoke('migrate-images-to-storage', {});
     if (error) throw error;
