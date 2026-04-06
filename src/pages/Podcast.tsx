@@ -331,7 +331,7 @@ QUALITY: Ultra photorealistic, 8K, editorial. NO text, NO watermarks.`;
         {videoUrl ? (
           <Card>
             <CardContent className="p-4 space-y-4">
-              <VideoPlayer src={videoUrl} className="rounded-lg w-full max-w-sm mx-auto aspect-[9/16]" />
+              <VideoPlayer videoUrl={videoUrl} title="Podcast Talking Head" className="rounded-lg w-full max-w-sm mx-auto aspect-[9/16]" />
               <div className="flex gap-2 justify-center">
                 <Button variant="outline" size="sm" asChild>
                   <a href={videoUrl} download target="_blank" rel="noopener noreferrer">
