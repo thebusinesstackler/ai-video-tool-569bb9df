@@ -270,9 +270,9 @@ export const Navigation = () => {
             <NavContent collapsed={false} />
           </SheetContent>
         </Sheet>
-        <div className="flex items-center">
-          <img src={logoDark} alt="Video AI Pro" className="h-8 object-contain hidden dark:block" />
-          <img src={logoLight} alt="Video AI Pro" className="h-8 object-contain dark:hidden" />
+        <div className="flex items-center flex-1 justify-center mr-12">
+          <img src={logoDark} alt="Video AI Pro" className="h-12 max-w-[200px] object-contain hidden dark:block" />
+          <img src={logoLight} alt="Video AI Pro" className="h-12 max-w-[200px] object-contain dark:hidden" />
         </div>
       </header>
     );

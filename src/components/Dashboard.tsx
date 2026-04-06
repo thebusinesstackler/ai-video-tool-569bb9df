@@ -265,7 +265,7 @@ export const Dashboard = () => {
   return (
     <div className="space-y-8 animate-slide-in">
       {/* Welcome Banner with Video Slideshow */}
-      <div className="relative overflow-hidden rounded-2xl min-h-[300px] bg-gradient-to-br from-[hsl(var(--primary))] via-[hsl(var(--primary)/0.85)] to-[hsl(var(--accent)/0.9)]">
+      <div className="relative overflow-hidden rounded-2xl min-h-[200px] sm:min-h-[300px] bg-gradient-to-br from-[hsl(var(--primary))] via-[hsl(var(--primary)/0.85)] to-[hsl(var(--accent)/0.9)]">
         {/* Video slideshow background */}
         {previewVideos.length > 0 ? (
           <div className="absolute inset-0">
@@ -292,12 +292,12 @@ export const Dashboard = () => {
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-black/30" />
 
-        <div className="relative p-8 lg:p-12 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+        <div className="relative p-4 sm:p-8 lg:p-12 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-8">
           <div className="max-w-2xl flex-1">
             <p className="text-sm font-semibold uppercase tracking-widest text-white/70 mb-2">
               Dashboard
             </p>
-            <h1 className="text-3xl lg:text-5xl font-bold mb-4 text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold mb-4 text-white">
               Welcome back, {firstName || user?.email?.split('@')[0] || 'Creator'} 👋
             </h1>
             <p className="text-lg text-white/80 font-medium mb-6 leading-relaxed">
