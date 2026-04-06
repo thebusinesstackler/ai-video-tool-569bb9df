@@ -463,6 +463,33 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                           )}
                           {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'AI Thumbnail'}
                         </Button>
+                        {calendarImages.length > 0 && (
+                          <Popover open={galleryPickFor === project.id} onOpenChange={(open) => setGalleryPickFor(open ? project.id : null)}>
+                            <PopoverTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1 px-2">
+                                <GalleryHorizontal className="w-3 h-3" /> Gallery
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-2" align="start">
+                              <p className="text-[10px] text-muted-foreground mb-2 font-medium">Pick a calendar image</p>
+                              <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto">
+                                {calendarImages.map((img) => (
+                                  <button
+                                    key={img.id}
+                                    className="aspect-square rounded-md overflow-hidden border border-border hover:border-primary transition-colors"
+                                    onClick={() => {
+                                      setThumbnails(prev => ({ ...prev, [project.id]: img.image_url }));
+                                      setGalleryPickFor(null);
+                                      toast({ title: 'Image set', description: 'Calendar image applied as thumbnail.' });
+                                    }}
+                                  >
+                                    <img src={img.image_url} alt={img.label || ''} className="w-full h-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
                         {(project.generated_video_url || project.reference_video_url) && (
                           <Button
                             size="sm"
