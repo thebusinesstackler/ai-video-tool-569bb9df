@@ -256,6 +256,9 @@ const Gallery = () => {
           <TabsList>
             <TabsTrigger value="gallery" className="flex items-center gap-1.5">
               <ImageIcon className="w-4 h-4" /> All Images
+              {images.length > 0 && (
+                <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{images.length}</span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="products" className="flex items-center gap-1.5">
               <Package className="w-4 h-4" /> Product Library
