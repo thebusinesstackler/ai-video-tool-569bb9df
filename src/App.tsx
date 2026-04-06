@@ -22,6 +22,7 @@ import VideoRepo from "./pages/VideoRepo";
 import VideoRepoPro from "./pages/VideoRepoPro";
 import ProductLibrary from "./pages/ProductLibrary";
 import VideoRepurposer from "./pages/VideoRepurposer";
+import Podcast from "./pages/Podcast";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
