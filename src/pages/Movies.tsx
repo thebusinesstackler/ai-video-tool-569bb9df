@@ -17,6 +17,41 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+interface MovieScene {
+  sceneNumber: number;
+  title: string;
+  location: string;
+  timeOfDay: string;
+  description: string;
+  dialogue: string | null;
+  imagePrompt: string;
+  generatedImage?: string;
+  generatedVideo?: string;
+  videoTaskId?: string;
+  selectedVoice?: string;
+}
+
+interface MovieProject {
+  id: string;
+  title: string;
+  movie_idea: string;
+  outline: string;
+  scenes: MovieScene[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface AITwin {
+  id: string;
+  name: string;
+  reference_images: string[];
+  voice_cloning_key: string | null;
+  voice_sample_url: string | null;
+  description: string | null;
+  face_description: string | null;
+}
+
 const Movies = () => {
   const location = useLocation();
   const [projects, setProjects] = useState<MovieProject[]>([]);
