@@ -79,10 +79,71 @@ const Gallery = () => {
     }
   };
 
+  const fetchCalendarImages = async () => {
+    if (!user) return;
+    setIsLoadingCalendarImages(true);
+    try {
+      const { data, error } = await supabase
+        .from('calendar_images')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setCalendarImages(data || []);
+    } catch (error: any) {
+      console.error('Error fetching calendar images:', error);
+    } finally {
+      setIsLoadingCalendarImages(false);
+    }
+  };
+
+  const handleCalendarUpload = async (files: FileList) => {
+    if (!user) return;
+    setIsUploadingCalendar(true);
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    try {
+      for (const file of Array.from(files)) {
+        if (!validTypes.includes(file.type)) continue;
+        if (file.size > 10 * 1024 * 1024) continue;
+        const ext = file.name.split('.').pop() || 'jpg';
+        const fileName = `${user.id}/calendar/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, file, { contentType: file.type });
+        if (uploadError) continue;
+        const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+        const label = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+        await supabase.from('calendar_images').insert({
+          user_id: user.id,
+          image_url: publicUrl,
+          label,
+        });
+      }
+      toast({ title: 'Images Uploaded', description: 'Your calendar images are ready to use.' });
+      await fetchCalendarImages();
+    } catch (error: any) {
+      toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingCalendar(false);
+    }
+  };
+
+  const deleteCalendarImage = async (id: string) => {
+    try {
+      const { error } = await supabase.from('calendar_images').delete().eq('id', id);
+      if (error) throw error;
+      setCalendarImages(prev => prev.filter(i => i.id !== id));
+      toast({ title: 'Image Deleted' });
+    } catch (error: any) {
+      toast({ title: 'Delete Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchProducts();
       fetchVideoRepoEntries();
+      fetchCalendarImages();
     }
   }, [user]);
 
