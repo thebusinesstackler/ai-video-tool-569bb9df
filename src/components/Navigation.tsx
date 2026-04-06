@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import logoLight from '@/assets/logo-light.png';
+import logoDark from '@/assets/logo-dark.png';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   FileTextIcon, 
