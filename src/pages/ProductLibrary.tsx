@@ -56,6 +56,9 @@ export default function ProductLibrary() {
   const [showNewBrand, setShowNewBrand] = useState(false);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [viewingImage, setViewingImage] = useState<GalleryImage | null>(null);
+  const [editingLabel, setEditingLabel] = useState('');
+  const [isSavingLabel, setIsSavingLabel] = useState(false);
 
   // Form states
   const [brandForm, setBrandForm] = useState({ name: '', description: '' });
