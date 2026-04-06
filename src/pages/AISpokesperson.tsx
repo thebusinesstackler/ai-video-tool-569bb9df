@@ -893,9 +893,10 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
     } catch (err: any) {
       console.error('Video generation error:', err);
+      const friendly = getFriendlyError(err);
       toast({ 
-        title: 'Generation Failed', 
-        description: `${err.message}. Your progress has been saved — you can retry.`, 
+        title: friendly.title, 
+        description: `${friendly.description} Your progress has been saved — you can retry.`, 
         variant: 'destructive' 
       });
       if (generatedScript && selectedQuality === 'kling-pro') {
