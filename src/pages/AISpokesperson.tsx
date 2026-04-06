@@ -158,6 +158,7 @@ const AISpokesperson = () => {
   const [isRefining, setIsRefining] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [shirtLogoUrl, setShirtLogoUrl] = useState<string | null>(null);
   const scriptFromDraft = useRef(false);
 
   const { saveDraft, loadDraft, clearDraft } = useSpokespersonDraft();
