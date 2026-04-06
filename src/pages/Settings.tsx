@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { SettingsIcon, ShieldCheckIcon, ServerIcon, Volume2, Clapperboard, UserIcon, Loader2 } from 'lucide-react';
+import { TransferAssetsDialog } from '@/components/TransferAssetsDialog';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -199,10 +200,13 @@ const Settings = () => {
                       onChange={(e) => setProfile(p => ({ ...p, brand_description: e.target.value }))}
                     />
                   </div>
-                  <Button onClick={saveProfile} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Save Profile
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={saveProfile} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Save Profile
+                    </Button>
+                    <TransferAssetsDialog />
+                  </div>
                 </div>
               )}
             </CardContent>
