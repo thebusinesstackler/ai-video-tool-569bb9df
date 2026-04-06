@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,7 +9,9 @@ import {
   TrendingUpIcon,
   PlayIcon,
   UploadIcon,
-  LogInIcon
+  LogInIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
@@ -61,13 +63,41 @@ export const Dashboard = () => {
     recentProjects: []
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [previewVideos, setPreviewVideos] = useState<Array<{ url: string; title: string }>>([]);
+  const [slideIndex, setSlideIndex] = useState(0);
 
+  // Load preview videos for slideshow
+  useEffect(() => {
+    if (user) {
+      const loadVideos = async () => {
+        const { data } = await supabase
+          .from('reels')
+          .select('video_url, topic')
+          .eq('user_id', user.id)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (data && data.length > 0) {
+          setPreviewVideos(data.map(r => ({ url: r.video_url!, title: r.topic })));
+        }
+      };
+      loadVideos();
+    }
+  }, [user]);
+
+  // Auto-advance slideshow
+  useEffect(() => {
+    if (previewVideos.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlideIndex(prev => (prev + 1) % previewVideos.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [previewVideos.length]);
 
   useEffect(() => {
     if (user) {
       loadStats();
     } else {
-      // Reset stats when user logs out
       setStats({
         videosCount: 0,
         charactersCount: 0,
@@ -215,20 +245,38 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-8 animate-slide-in">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-2xl glass">
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-20" 
-          style={{ backgroundImage: `url(${heroImage})` }}
-        />
-        <div className="relative p-8 lg:p-12">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl lg:text-6xl font-bold mb-6 text-foreground">
-              AI Video Automation Platform
+      {/* Welcome Banner with Video Slideshow */}
+      <div className="relative overflow-hidden rounded-2xl glass min-h-[280px]">
+        {/* Video slideshow background */}
+        {previewVideos.length > 0 ? (
+          <div className="absolute inset-0">
+            {previewVideos.map((video, i) => (
+              <video
+                key={video.url}
+                src={video.url}
+                muted
+                autoPlay
+                loop
+                playsInline
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                  i === slideIndex ? 'opacity-30' : 'opacity-0'
+                }`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div 
+            className="absolute inset-0 bg-cover bg-center opacity-20" 
+            style={{ backgroundImage: `url(${heroImage})` }}
+          />
+        )}
+        <div className="relative p-8 lg:p-12 flex items-center justify-between gap-8">
+          <div className="max-w-2xl flex-1">
+            <h1 className="text-3xl lg:text-5xl font-bold mb-4 text-foreground">
+              Welcome back, {user?.email?.split('@')[0] || 'Creator'} 👋
             </h1>
-            <p className="text-xl text-foreground/90 font-medium mb-8 leading-relaxed">
-              Create stunning videos with AI-powered content analysis, script generation, 
-              and automated production using the latest VEO3 technology.
+            <p className="text-lg text-foreground/90 font-medium mb-6 leading-relaxed">
+              Your creative studio is ready. Pick up where you left off or start something new.
             </p>
             <div className="flex flex-wrap gap-4">
               <Button variant="hero" size="lg" asChild>
@@ -240,6 +288,42 @@ export const Dashboard = () => {
               <ContentCalendarDownload />
             </div>
           </div>
+
+          {/* Slideshow indicator */}
+          {previewVideos.length > 1 && (
+            <div className="hidden lg:flex flex-col items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-foreground/70 hover:text-foreground"
+                onClick={() => setSlideIndex(prev => (prev - 1 + previewVideos.length) % previewVideos.length)}
+              >
+                <ChevronLeftIcon className="w-5 h-5 rotate-90" />
+              </Button>
+              <div className="flex flex-col gap-1.5">
+                {previewVideos.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSlideIndex(i)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      i === slideIndex ? 'bg-primary scale-125' : 'bg-foreground/30'
+                    }`}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-foreground/70 hover:text-foreground"
+                onClick={() => setSlideIndex(prev => (prev + 1) % previewVideos.length)}
+              >
+                <ChevronRightIcon className="w-5 h-5 rotate-90" />
+              </Button>
+              <span className="text-xs text-muted-foreground mt-1">
+                {previewVideos[slideIndex]?.title?.slice(0, 20)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
