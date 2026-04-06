@@ -533,6 +533,49 @@ Return ONLY a JSON object:
     return audioDataUrl;
   };
 
+  // Helper: build logo instruction for image prompts
+  const getLogoInstruction = () => shirtLogoUrl
+    ? '\nCLOTHING: The person is wearing a t-shirt or polo with a visible company/brand logo on the chest area.'
+    : '';
+
+  // Helper: apply logo edit to a generated image using AI
+  const applyLogoEdit = async (generatedImageUrl: string): Promise<string> => {
+    if (!shirtLogoUrl || !generatedImageUrl) return generatedImageUrl;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+      const editResp = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-3.1-flash-image-preview',
+          modalities: ['image', 'text'],
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Place this logo onto the person\'s shirt/chest area in the portrait photo. Make it look naturally printed or embroidered on the fabric. Keep everything else identical — same person, same pose, same background, same lighting.' },
+              { type: 'image_url', image_url: { url: shirtLogoUrl } },
+              { type: 'image_url', image_url: { url: generatedImageUrl } }
+            ]
+          }]
+        })
+      });
+
+      if (editResp.ok) {
+        const editData = await editResp.json();
+        const editedUrl = editData.imageUrl || editData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (editedUrl) return editedUrl;
+      }
+    } catch (e) {
+      console.warn('Logo edit failed, using original:', e);
+    }
+    return generatedImageUrl;
+  };
+
   // Helper: generate a character image for a scene
   const generateSceneImage = async (scenePrompt: string, twin: AITwin): Promise<string> => {
     const portraitImage = twin.reference_images[0];
@@ -540,7 +583,7 @@ Return ONLY a JSON object:
       role: 'user',
       content: [
         { type: 'image_url', image_url: { url: portraitImage } },
-        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${scenePrompt}` }
+        { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.${getLogoInstruction()}\n\n${scenePrompt}` }
       ]
     }];
 
