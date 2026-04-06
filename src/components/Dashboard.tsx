@@ -63,6 +63,8 @@ export const Dashboard = () => {
     recentProjects: []
   });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [previewVideos, setPreviewVideos] = useState<Array<{ url: string; title: string }>>([]);
+  const [slideIndex, setSlideIndex] = useState(0);
 
 
   useEffect(() => {
