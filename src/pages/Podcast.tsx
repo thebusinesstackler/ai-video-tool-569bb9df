@@ -271,7 +271,10 @@ QUALITY: Ultra photorealistic, 8K, editorial. NO text, NO watermarks.`;
         }
       });
       if (videoErr) throw videoErr;
-      if (!videoData?.taskId) throw new Error('No video task created');
+      if (!videoData?.taskId) {
+        const apiError = videoData?.error || 'No video task created';
+        throw new Error(apiError.includes('credits') ? 'WaveSpeed API credits exhausted. Please top up your WaveSpeed account.' : apiError);
+      }
       setProgress(55);
 
       // Step 5: Poll until done
