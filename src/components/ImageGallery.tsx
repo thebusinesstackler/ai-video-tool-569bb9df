@@ -183,30 +183,15 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by prompt..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-1 flex-wrap">
-              {sources.map(source => (
-                <Button
-                  key={source}
-                  variant={filterSource === source ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterSource(source)}
-                  className="capitalize"
-                >
-                  {source}
-                </Button>
-              ))}
-            </div>
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by prompt..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
           </div>
 
           {/* Gallery Grid */}
@@ -219,8 +204,8 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               )}
             </div>
           ) : (
-            <ScrollArea className="h-[500px]">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <ScrollArea className="h-[600px]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {filteredImages.map((image) => (
                   <div 
                     key={image.id} 
@@ -230,8 +215,6 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                     onClick={() => {
                       if (selectable && onSelectImage) {
                         onSelectImage(image.image_url);
-                      } else {
-                        setSelectedImage(image);
                       }
                     }}
                   >
@@ -241,51 +224,31 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                       className="w-full h-full object-contain"
                       loading="lazy"
                     />
-                    
-                    {/* Source badge */}
-                    <div className="absolute top-2 left-2 bg-background/80 backdrop-blur-sm text-foreground text-xs px-1.5 py-0.5 rounded capitalize">
-                      {image.source}
-                    </div>
 
-                    {/* Reference indicator */}
-                    {image.reference_image_url && (
-                      <div className="absolute top-2 right-2 bg-amber-500 text-white text-xs p-1 rounded">
-                        <Star className="w-3 h-3" />
-                      </div>
-                    )}
-
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    {/* Hover overlay with View and Delete */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                       <Button
-                        size="icon"
+                        size="sm"
                         variant="secondary"
-                        className="w-8 h-8"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDownload(image.image_url, `image-${image.id.slice(0, 8)}`);
+                          setSelectedImage(image);
                         }}
                       >
-                        <Download className="w-4 h-4" />
+                        <Maximize2 className="w-4 h-4 mr-1" />
+                        View
                       </Button>
                       <Button
-                        size="icon"
+                        size="sm"
                         variant="destructive"
-                        className="w-8 h-8"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteImage(image.id);
                         }}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
                       </Button>
-                    </div>
-
-                    {/* Date */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <p className="text-white text-xs flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {format(new Date(image.created_at), 'MMM d, yyyy')}
-                      </p>
                     </div>
                   </div>
                 ))}
