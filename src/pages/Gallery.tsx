@@ -38,9 +38,11 @@ const Gallery = () => {
   const [tempName, setTempName] = useState('');
   const [videoRepoEntries, setVideoRepoEntries] = useState<{ id: string; image_url: string; prompt: string | null; created_at: string }[]>([]);
   const [isLoadingVideoRepo, setIsLoadingVideoRepo] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [calendarImages, setCalendarImages] = useState<{ id: string; image_url: string; label: string | null; created_at: string }[]>([]);
   const [isLoadingCalendarImages, setIsLoadingCalendarImages] = useState(false);
   const [isUploadingCalendar, setIsUploadingCalendar] = useState(false);
+  const [isGeneratingVideoReport, setIsGeneratingVideoReport] = useState(false);
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
@@ -214,6 +216,103 @@ const Gallery = () => {
     await fetchImages();
   };
 
+  const handleVideoUpload = async (files: FileList) => {
+    if (!user) return;
+    setIsUploadingVideo(true);
+    const validTypes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/mov'];
+    try {
+      let uploaded = 0;
+      for (const file of Array.from(files)) {
+        if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|mov|webm)$/i)) {
+          toast({ title: "Invalid File", description: `${file.name} is not a supported video format.`, variant: "destructive" });
+          continue;
+        }
+        if (file.size > 100 * 1024 * 1024) {
+          toast({ title: "File Too Large", description: `${file.name} exceeds 100MB.`, variant: "destructive" });
+          continue;
+        }
+        const ext = file.name.split('.').pop() || 'mp4';
+        const fileName = `${user.id}/videos/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, file, { contentType: file.type || 'video/mp4' });
+        if (uploadError) {
+          toast({ title: "Upload Failed", description: uploadError.message, variant: "destructive" });
+          continue;
+        }
+        const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+        await supabase.from('generated_images').insert({
+          user_id: user.id,
+          image_url: publicUrl,
+          prompt: file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
+          source: 'video-repo',
+        });
+        uploaded++;
+      }
+      if (uploaded > 0) {
+        toast({ title: "Videos Uploaded", description: `${uploaded} video(s) added to your library.` });
+        await fetchVideoRepoEntries();
+      }
+    } catch (error: any) {
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsUploadingVideo(false);
+    }
+  };
+
+  const downloadVideoReport = async () => {
+    if (videoRepoEntries.length === 0) return;
+    setIsGeneratingVideoReport(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      const margin = 15;
+      let y = margin;
+
+      // Header
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Lifecykel — Video Library Report', margin, y);
+      y += 10;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Generated: ${new Date().toLocaleDateString()} • ${videoRepoEntries.length} videos`, margin, y);
+      y += 12;
+
+      pdf.setDrawColor(200);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 8;
+
+      for (let i = 0; i < videoRepoEntries.length; i++) {
+        const entry = videoRepoEntries[i];
+        if (y > 270) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${i + 1}. ${entry.prompt || 'Untitled Video'}`, margin, y);
+        y += 6;
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Date: ${new Date(entry.created_at).toLocaleDateString()}`, margin + 4, y);
+        y += 5;
+        pdf.setTextColor(60, 120, 200);
+        pdf.textWithLink('Watch Video →', margin + 4, y, { url: entry.image_url });
+        pdf.setTextColor(0);
+        y += 10;
+      }
+
+      pdf.save('lifecykel-video-report.pdf');
+      toast({ title: 'Report Downloaded', description: `${videoRepoEntries.length} videos exported.` });
+    } catch (error: any) {
+      toast({ title: 'Report Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingVideoReport(false);
+    }
+  };
+
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const downloadPdf = async () => {
@@ -303,8 +402,8 @@ const Gallery = () => {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Image Gallery</h1>
-          <p className="text-muted-foreground mt-2">All your generated images and product library</p>
+          <h1 className="text-3xl font-bold text-foreground">Lifecykel Image Gallery</h1>
+          <p className="text-muted-foreground mt-2">All your Lifecykel brand images, products & video library</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -323,6 +422,9 @@ const Gallery = () => {
             </TabsTrigger>
             <TabsTrigger value="video-repo" className="flex items-center gap-1.5">
               <Video className="w-4 h-4" /> Video Repo
+              {videoRepoEntries.length > 0 && (
+                <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{videoRepoEntries.length}</span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="calendar" className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4" /> Calendar Images
@@ -451,13 +553,53 @@ const Gallery = () => {
           </TabsContent>
 
           <TabsContent value="video-repo" className="space-y-6 mt-4">
+            {/* Video upload zone */}
+            <Card className="border-dashed border-2 border-muted-foreground/25">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Video className="w-10 h-10 text-muted-foreground/50" />
+                  <div>
+                    <p className="font-medium text-foreground">Upload Videos</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Add MP4, MOV or WebM videos to your Lifecykel library (max 100MB each)
+                    </p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+                      multiple
+                      onChange={(e) => e.target.files && handleVideoUpload(e.target.files)}
+                    />
+                    <Button asChild variant="default" size="sm" disabled={isUploadingVideo}>
+                      <span>
+                        {isUploadingVideo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                        {isUploadingVideo ? 'Uploading...' : 'Upload Videos'}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Download report button */}
+            {videoRepoEntries.length > 0 && (
+              <div className="flex justify-start">
+                <Button onClick={downloadVideoReport} disabled={isGeneratingVideoReport} variant="outline" size="sm">
+                  {isGeneratingVideoReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                  {isGeneratingVideoReport ? 'Generating...' : `Download Report (${videoRepoEntries.length})`}
+                </Button>
+              </div>
+            )}
+
             {isLoadingVideoRepo ? (
               <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
             ) : videoRepoEntries.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Video className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No Video Repo projects yet</p>
-                <p className="text-sm mt-1">Generated videos from Video Repo will appear here</p>
+                <p className="font-medium">No videos yet</p>
+                <p className="text-sm mt-1">Upload videos or generate them from Video Repo</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
