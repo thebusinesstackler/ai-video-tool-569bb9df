@@ -26,6 +26,7 @@ import { VideoEditorPanel } from '@/components/VideoEditorPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { LogoUploadInline } from '@/components/LogoUploadInline';
+import { getFriendlyError } from '@/lib/errorClassifier';
 
 import type { AITwin } from '@/types/aiTwin';
 
