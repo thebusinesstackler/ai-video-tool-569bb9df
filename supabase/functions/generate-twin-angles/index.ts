@@ -104,9 +104,51 @@ REQUIREMENTS:
 
         if (imageUrl) {
           let finalUrl = imageUrl;
-          // Upload base64 to storage
-          if (imageUrl.startsWith('data:')) {
-            const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
+
+          // If logo provided, edit the image to overlay the actual logo on the shirt
+          if (shirtLogoUrl && imageUrl.startsWith('data:')) {
+            try {
+              const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+              if (LOVABLE_API_KEY) {
+                console.log(`Editing image to add logo on shirt for angle ${angle.name}`);
+                const editResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    model: 'google/gemini-3.1-flash-image-preview',
+                    messages: [{
+                      role: 'user',
+                      content: [
+                        { type: 'text', text: 'Place this logo onto the person\'s shirt/chest area in the portrait photo. Make it look naturally printed or embroidered on the fabric. Keep everything else identical — same person, same pose, same background, same lighting. The logo should be clearly visible but realistic on the clothing.' },
+                        { type: 'image_url', image_url: { url: shirtLogoUrl } },
+                        { type: 'image_url', image_url: { url: imageUrl } }
+                      ]
+                    }],
+                    modalities: ['image', 'text']
+                  })
+                });
+
+                if (editResp.ok) {
+                  const editData = await editResp.json();
+                  const editedUrl = editData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+                  if (editedUrl) {
+                    console.log(`Logo applied to angle ${angle.name}`);
+                    // Use the edited image instead
+                    finalUrl = editedUrl;
+                  }
+                }
+              }
+            } catch (logoErr) {
+              console.warn(`Logo edit failed for ${angle.name}, using original:`, logoErr);
+            }
+          }
+
+          // Upload to storage
+          if (finalUrl.startsWith('data:')) {
+            const base64Data = finalUrl.replace(/^data:image\/\w+;base64,/, '');
             const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
             const fileName = `twin-angles/${twinId}/${Date.now()}-${angle.name.toLowerCase().replace(/\s+/g, '-')}.png`;
 
