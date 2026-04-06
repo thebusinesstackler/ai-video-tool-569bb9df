@@ -163,21 +163,17 @@ const AISpokesperson = () => {
 
   const { saveDraft, loadDraft, clearDraft } = useSpokespersonDraft();
 
-  // Restore draft on mount
+  // Restore draft on mount — only restore settings, not message/script (start fresh)
   useEffect(() => {
     const draft = loadDraft();
     if (draft) {
-      setMessage(draft.message || '');
       setSelectedTwinId(draft.selectedTwinId);
       setSelectedSetting(draft.selectedSetting || 'studio');
       setSelectedMood(draft.selectedMood || 'confident');
       setSelectedCameraAngle(draft.selectedCameraAngle || 'low-angle');
       setSelectedDuration(draft.selectedDuration || '15');
       setSelectedQuality(draft.selectedQuality || 'standard');
-      if (draft.generatedScript) {
-        scriptFromDraft.current = true;
-        setGeneratedScript(draft.generatedScript);
-      }
+      // Don't restore message or generatedScript — page should start blank
       if (draft.sceneShots?.length > 0) {
         setSceneShots(draft.sceneShots.filter((s: any) => s.imageUrl));
         setShowSceneGallery(draft.showSceneGallery || false);
