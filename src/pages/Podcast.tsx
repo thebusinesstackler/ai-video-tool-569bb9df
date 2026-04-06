@@ -248,13 +248,13 @@ Return ONLY a JSON object:
 
       // Step 3: Generate character image
       setProgressStatus('Creating character portrait...');
-      const imgPrompt = `PREMIUM cinematic portrait of this EXACT person.
+      const imgPrompt = `Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
-CAMERA: Medium close-up, eye level, shot on RED V-RAPTOR 8K
-SETTING: Professional broadcast studio, clean backdrop, warm lighting
-EXPRESSION: Confident, natural speaking expression, engaged eye contact
-QUALITY: Ultra photorealistic, 8K, editorial. NO text, NO watermarks.`;
+CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
+SETTING: Casual real environment — home office or living room, natural window light
+EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
+QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
       const sceneImg = await generateSceneImage(imgPrompt, selectedTwin);
       setProgress(45);
 
