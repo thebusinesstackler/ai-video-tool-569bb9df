@@ -206,17 +206,17 @@ export const Navigation = () => {
   const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <div className="p-4 h-full flex flex-col">
       {/* Logo */}
-      <div className={cn("flex items-center mb-6", collapsed ? "justify-center" : "justify-between")}>
-        <div className="flex items-center gap-3">
+      <div className={cn("flex items-center mb-6", collapsed ? "justify-center" : "justify-center")}>
+        <div className="flex items-center">
           {collapsed ? (
-            <div className="w-12 h-12 flex-shrink-0">
+            <div className="w-14 h-14 flex-shrink-0">
               <img src={logoDark} alt="Video AI Pro" className="w-full h-full object-contain hidden dark:block" />
               <img src={logoLight} alt="Video AI Pro" className="w-full h-full object-contain dark:hidden" />
             </div>
           ) : (
-            <div className="h-14 w-full">
-              <img src={logoDark} alt="Video AI Pro" className="h-full object-contain hidden dark:block" />
-              <img src={logoLight} alt="Video AI Pro" className="h-full object-contain dark:hidden" />
+            <div className="w-full px-2">
+              <img src={logoDark} alt="Video AI Pro" className="w-full object-contain hidden dark:block" />
+              <img src={logoLight} alt="Video AI Pro" className="w-full object-contain dark:hidden" />
             </div>
           )}
         </div>
