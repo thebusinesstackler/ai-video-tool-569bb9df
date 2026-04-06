@@ -1,22 +1,43 @@
 
-# Add "Recreate as Spokesperson" Button in Video Repo Pro
 
-## What it does
-When viewing a completed project in Video Repo Pro's detail view, a new button appears below the reference video that sends the analyzed script to the **AI Spokesperson** page. This lets users turn any reference video's script into a full-length talking-head video with their AI Twin — no duration limit.
+## Strengthen Podcast Talking Head Prompts
 
-## Changes
+### Problem
+The current prompts use "cinematic" language and studio settings, producing overly polished results. The user wants a natural, iPhone-selfie-style talking head with realistic mouth movements and subtle camera motion.
 
-### 1. Add "Recreate as Spokesperson" button in VideoRepoPro detail view
-- In the project detail panel (where Remake/New Version already live), add a new button: **"Recreate with AI Twin"**
-- On click: store the script text, estimated duration, and title into `sessionStorage` under `video-repo-to-spokesperson`
-- Navigate to `/ai-spokesperson`
+### Changes
 
-### 2. Add sessionStorage pickup in AISpokesperson.tsx
-- On mount, check for `video-repo-to-spokesperson` in sessionStorage
-- If found, auto-populate:
-  - The "message to deliver" textarea with the script
-  - The duration (auto-calculated from word count)
-- Clear sessionStorage after consuming
+**File: `src/pages/Podcast.tsx`**
 
-### 3. No duration cap enforcement
-- The AI Spokesperson already supports variable durations — this just pre-fills the script so the user can pick their Twin and produce immediately
+**1. Update the image generation prompt (line 251-257)**
+Replace the cinematic studio portrait prompt with a natural iPhone selfie-style prompt:
+- Shot on iPhone, natural daylight, casual setting (home office, coffee shop, outdoors)
+- Natural skin texture with pores/imperfections, no retouching
+- Mid-sentence speaking expression, relaxed posture
+- Remove all "cinematic", "RED V-RAPTOR", "8K editorial" language
+
+**2. Update the lip-sync video prompt (line 269)**
+Replace the cinematic spokesperson prompt with realistic talking-head direction:
+- Emphasize wide, natural mouth movements with visible jaw motion
+- Add subtle iPhone-style camera micro-movements (handheld wobble)
+- Natural head tilts, eyebrow raises, blinking
+- Remove "cinematic", "broadcast studio", "premium quality"
+- Add "filmed on iPhone front camera" framing
+
+### Example prompts
+
+**Image prompt:**
+```
+Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
+CHARACTER: {description}
+CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
+SETTING: Casual real environment — home office or living room, natural window light
+EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
+QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.
+```
+
+**Video lip-sync prompt:**
+```
+Real person talking naturally on iPhone front camera. Wide fluid mouth movements with visible jaw and lip motion. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld camera micro-shake. Casual, authentic energy. NOT cinematic, NOT polished — raw and real like an iPhone selfie video.
+```
+
