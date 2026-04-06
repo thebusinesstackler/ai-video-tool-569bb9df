@@ -66,12 +66,38 @@ export const Dashboard = () => {
   const [previewVideos, setPreviewVideos] = useState<Array<{ url: string; title: string }>>([]);
   const [slideIndex, setSlideIndex] = useState(0);
 
+  // Load preview videos for slideshow
+  useEffect(() => {
+    if (user) {
+      const loadVideos = async () => {
+        const { data } = await supabase
+          .from('reels')
+          .select('video_url, topic')
+          .eq('user_id', user.id)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (data && data.length > 0) {
+          setPreviewVideos(data.map(r => ({ url: r.video_url!, title: r.topic })));
+        }
+      };
+      loadVideos();
+    }
+  }, [user]);
+
+  // Auto-advance slideshow
+  useEffect(() => {
+    if (previewVideos.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlideIndex(prev => (prev + 1) % previewVideos.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [previewVideos.length]);
 
   useEffect(() => {
     if (user) {
       loadStats();
     } else {
-      // Reset stats when user logs out
       setStats({
         videosCount: 0,
         charactersCount: 0,
