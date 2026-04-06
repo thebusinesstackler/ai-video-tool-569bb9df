@@ -224,7 +224,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                 {filteredImages.map((image) => (
                   <div 
                     key={image.id} 
-                    className={`group relative aspect-[9/16] rounded-lg overflow-hidden bg-muted ${
+                    className={`group relative aspect-square rounded-lg overflow-hidden bg-muted ${
                       selectable ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''
                     }`}
                     onClick={() => {
