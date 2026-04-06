@@ -65,6 +65,21 @@ export const Dashboard = () => {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [previewVideos, setPreviewVideos] = useState<Array<{ url: string; title: string }>>([]);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [firstName, setFirstName] = useState<string | null>(null);
+
+  // Load user profile
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('first_name')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.first_name) setFirstName(data.first_name);
+        });
+    }
+  }, [user]);
 
   // Load preview videos for slideshow
   useEffect(() => {
