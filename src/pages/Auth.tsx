@@ -334,7 +334,7 @@ const Auth = () => {
         {/* Logo */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="w-64">
+            <div className="w-[480px]">
               <img src={logoDark} alt="Video AI Pro" className="w-full object-contain hidden dark:block" />
               <img src={logoLight} alt="Video AI Pro" className="w-full object-contain dark:hidden" />
             </div>
