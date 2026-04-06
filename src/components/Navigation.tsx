@@ -209,12 +209,12 @@ export const Navigation = () => {
       <div className={cn("flex items-center mb-6", collapsed ? "justify-center" : "justify-between")}>
         <div className="flex items-center gap-3">
           {collapsed ? (
-            <div className="w-10 h-10 flex-shrink-0">
+            <div className="w-12 h-12 flex-shrink-0">
               <img src={logoDark} alt="Video AI Pro" className="w-full h-full object-contain hidden dark:block" />
               <img src={logoLight} alt="Video AI Pro" className="w-full h-full object-contain dark:hidden" />
             </div>
           ) : (
-            <div className="h-10 max-w-[180px]">
+            <div className="h-14 w-full">
               <img src={logoDark} alt="Video AI Pro" className="h-full object-contain hidden dark:block" />
               <img src={logoLight} alt="Video AI Pro" className="h-full object-contain dark:hidden" />
             </div>
