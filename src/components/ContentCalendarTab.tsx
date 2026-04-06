@@ -384,12 +384,15 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                       ) : project.generated_video_url ? (
                         <div className="relative">
                           <video
-                            src={project.generated_video_url}
+                            src={`${project.generated_video_url}#t=0.5`}
                             muted
+                            playsInline
+                            crossOrigin="anonymous"
                             preload="metadata"
                             className="w-28 h-24 object-cover rounded-lg bg-black"
+                            onLoadedMetadata={(e) => { const v = e.target as HTMLVideoElement; if (isFinite(0.5)) v.currentTime = 0.5; }}
                             onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
-                            onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                            onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0.5; }}
                           />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                             <Play className="w-5 h-5 text-white" />
