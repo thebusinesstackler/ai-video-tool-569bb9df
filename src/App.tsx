@@ -23,6 +23,7 @@ import VideoRepoPro from "./pages/VideoRepoPro";
 import ProductLibrary from "./pages/ProductLibrary";
 import VideoRepurposer from "./pages/VideoRepurposer";
 import Podcast from "./pages/Podcast";
+import LifestyleStories from "./pages/LifestyleStories";
 import NotFound from "./pages/NotFound";
 import { ScrollToTop } from "./components/ScrollToTop";
 
