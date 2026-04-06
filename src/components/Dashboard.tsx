@@ -65,6 +65,21 @@ export const Dashboard = () => {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [previewVideos, setPreviewVideos] = useState<Array<{ url: string; title: string }>>([]);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [firstName, setFirstName] = useState<string | null>(null);
+
+  // Load user profile
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('first_name')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.first_name) setFirstName(data.first_name);
+        });
+    }
+  }, [user]);
 
   // Load preview videos for slideshow
   useEffect(() => {
@@ -283,7 +298,7 @@ export const Dashboard = () => {
               Dashboard
             </p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-4 text-white">
-              Welcome back, {user?.email?.split('@')[0] || 'Creator'} 👋
+              Welcome back, {firstName || user?.email?.split('@')[0] || 'Creator'} 👋
             </h1>
             <p className="text-lg text-white/80 font-medium mb-6 leading-relaxed">
               Your creative studio is ready. Pick up where you left off or start something new.
