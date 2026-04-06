@@ -244,7 +244,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
       return `<div class="item">
         <div class="row"><span class="badge">${assignments[p.id] || 'Uncategorized'}</span><div class="sched">📅 ${schedule.day} at ${schedule.time}</div></div>
         <div class="thumb-container">
-          ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="Video thumbnail" />` : videoUrl ? `<video class="thumb" src="${videoUrl}" muted preload="metadata"></video>` : ''}
+          ${thumbSrc ? `<img class="thumb" src="${thumbSrc}" alt="Video thumbnail" />` : videoUrl ? `<video class="thumb" src="${videoUrl}#t=0.5" muted crossorigin="anonymous" preload="metadata"></video>` : ''}
           ${videoUrl ? `<br/><a class="video-link" href="${videoUrl}" target="_blank" rel="noopener noreferrer">▶ Watch Full Video</a><span class="video-url">${videoUrl}</span>` : ''}
         </div>
         <div class="hook-section">
