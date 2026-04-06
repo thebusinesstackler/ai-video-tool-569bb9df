@@ -426,9 +426,9 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             ))}
                           </SelectContent>
                         </Select>
-                        {project.generated_video_url && (
+                        {(project.generated_video_url || project.reference_video_url) && (
                           <Button size="sm" variant="ghost" asChild className="h-6 text-[10px] gap-1 px-2">
-                            <a href={project.generated_video_url} download target="_blank" rel="noopener noreferrer">
+                            <a href={(project.generated_video_url || project.reference_video_url)!} download target="_blank" rel="noopener noreferrer">
                               <Download className="w-3 h-3" /> Video
                             </a>
                           </Button>
