@@ -257,6 +257,60 @@ export type Database = {
         }
         Relationships: []
       }
+      lifestyle_stories: {
+        Row: {
+          brand_analysis: Json | null
+          brand_url: string | null
+          concepts: Json | null
+          created_at: string
+          duration: number | null
+          id: string
+          music_url: string | null
+          scenes: Json | null
+          selected_concept_index: number | null
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+          voiceover_url: string | null
+        }
+        Insert: {
+          brand_analysis?: Json | null
+          brand_url?: string | null
+          concepts?: Json | null
+          created_at?: string
+          duration?: number | null
+          id?: string
+          music_url?: string | null
+          scenes?: Json | null
+          selected_concept_index?: number | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+          voiceover_url?: string | null
+        }
+        Update: {
+          brand_analysis?: Json | null
+          brand_url?: string | null
+          concepts?: Json | null
+          created_at?: string
+          duration?: number | null
+          id?: string
+          music_url?: string | null
+          scenes?: Json | null
+          selected_concept_index?: number | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+          voiceover_url?: string | null
+        }
+        Relationships: []
+      }
       movie_projects: {
         Row: {
           created_at: string
