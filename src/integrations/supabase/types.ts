@@ -125,6 +125,30 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          label: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          label?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          label?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       characters: {
         Row: {
           created_at: string
