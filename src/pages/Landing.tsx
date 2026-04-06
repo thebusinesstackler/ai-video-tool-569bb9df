@@ -35,11 +35,11 @@ export const Landing = () => {
       {/* Header */}
       <header className="border-b border-border backdrop-blur-xl sticky top-0 z-50 bg-background/80">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center animate-glow">
-              <SparklesIcon className="w-6 h-6 text-primary-foreground" />
+        <div className="flex items-center gap-3">
+            <div className="h-10 max-w-[180px]">
+              <img src={logoDark} alt="Video AI Pro" className="h-full object-contain hidden dark:block" />
+              <img src={logoLight} alt="Video AI Pro" className="h-full object-contain dark:hidden" />
             </div>
-            <h1 className="font-bold text-xl gradient-text">VideoAI Pro</h1>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
