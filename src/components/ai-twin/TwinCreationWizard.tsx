@@ -11,6 +11,7 @@ import { LogoUploadInline } from '@/components/LogoUploadInline';
 import { ImageGrouper } from './ImageGrouper';
 import { VoiceCloner } from './VoiceCloner';
 import { convertImagesToStorageUrls, hasBase64Images } from '@/lib/imageUtils';
+import { getFriendlyError } from '@/lib/errorClassifier';
 
 interface TwinCreationWizardProps {
   onComplete: () => void;
@@ -91,9 +92,10 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
       }
     } catch (error: any) {
       console.error('Error analyzing face:', error);
+      const friendly = getFriendlyError(error);
       toast({
-        title: 'Analysis Failed',
-        description: error.message || 'Could not analyze face. You can still proceed.',
+        title: friendly.title,
+        description: friendly.description + ' You can still proceed.',
         variant: 'destructive'
       });
     } finally {
@@ -249,9 +251,10 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
     } catch (error: any) {
       console.error('Error creating twin:', error);
       setIsAutoGenerating(false);
+      const friendly = getFriendlyError(error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create AI Twin',
+        title: friendly.title,
+        description: friendly.description,
         variant: 'destructive'
       });
     } finally {

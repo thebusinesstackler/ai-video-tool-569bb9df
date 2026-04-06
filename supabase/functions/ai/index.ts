@@ -43,6 +43,10 @@ async function generateImageWithOpenAI(prompt: string, apiKey: string): Promise<
   if (!response.ok) {
     const errorText = await response.text();
     console.error('OpenAI image error:', response.status, errorText);
+    const lower = errorText.toLowerCase();
+    if (lower.includes('billing') || lower.includes('quota') || lower.includes('insufficient')) {
+      throw new Error('Our AI services are temporarily unavailable. Please try again later.');
+    }
     throw new Error(`OpenAI image error: ${response.status}`);
   }
 
@@ -72,6 +76,10 @@ async function callOpenAIText(messages: any[], apiKey: string): Promise<string> 
   if (!response.ok) {
     const errorText = await response.text();
     console.error('OpenAI text error:', response.status, errorText);
+    const lower = errorText.toLowerCase();
+    if (lower.includes('billing') || lower.includes('quota') || lower.includes('insufficient')) {
+      throw new Error('Our AI services are temporarily unavailable. Please try again later.');
+    }
     throw new Error(`OpenAI text error: ${response.status}`);
   }
 
@@ -221,8 +229,14 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error("Error in AI call:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const errMsg = error instanceof Error ? error.message : '';
+    const lower = errMsg.toLowerCase();
+    const isBilling = lower.includes('billing') || lower.includes('quota') || lower.includes('credit') || lower.includes('insufficient');
+    const userMessage = isBilling
+      ? 'Our AI services are temporarily unavailable. Please try again later.'
+      : 'Something went wrong. Please try this feature again later.';
+    return new Response(JSON.stringify({ error: userMessage, userMessage }), {
+      status: isBilling ? 503 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

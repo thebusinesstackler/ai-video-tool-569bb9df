@@ -26,6 +26,7 @@ import { VideoEditorPanel } from '@/components/VideoEditorPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { LogoUploadInline } from '@/components/LogoUploadInline';
+import { getFriendlyError } from '@/lib/errorClassifier';
 
 import type { AITwin } from '@/types/aiTwin';
 
@@ -498,7 +499,8 @@ Return ONLY a JSON object:
       toast({ title: 'Script Generated!', description: 'Review and generate your spokesperson video.' });
     } catch (err: any) {
       console.error('Script generation error:', err);
-      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+      const friendly = getFriendlyError(err);
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsGeneratingScript(false);
     }
@@ -891,9 +893,10 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
 
     } catch (err: any) {
       console.error('Video generation error:', err);
+      const friendly = getFriendlyError(err);
       toast({ 
-        title: 'Generation Failed', 
-        description: `${err.message}. Your progress has been saved — you can retry.`, 
+        title: friendly.title, 
+        description: `${friendly.description} Your progress has been saved — you can retry.`, 
         variant: 'destructive' 
       });
       if (generatedScript && selectedQuality === 'kling-pro') {
@@ -1215,9 +1218,10 @@ QUALITY: Ultra photorealistic, 8K, editorial quality. NO text, NO watermarks.`;
       throw new Error('Video generation timed out');
     } catch (err: any) {
       console.error('Video generation error:', err);
+      const friendly = getFriendlyError(err);
       toast({ 
-        title: 'Generation Failed', 
-        description: `${err.message}. Your progress has been saved — you can retry from the scene gallery.`, 
+        title: friendly.title, 
+        description: `${friendly.description} Your progress has been saved — you can retry from the scene gallery.`, 
         variant: 'destructive' 
       });
       // Restore scene gallery so user can retry

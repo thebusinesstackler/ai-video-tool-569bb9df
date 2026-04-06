@@ -196,8 +196,12 @@ async function _callClaudeInternal(
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Claude API error:', response.status, errorText);
-    if (response.status === 429) throw new ClaudeError('Rate limit exceeded. Please try again later.', 429);
-    if (response.status === 529) throw new ClaudeError('Claude is temporarily overloaded. Please try again.', 529);
+    if (response.status === 429) throw new ClaudeError('Too many requests. Please wait a moment and try again.', 429);
+    if (response.status === 529) throw new ClaudeError('Our AI services are experiencing high demand. Please try again in a few minutes.', 529);
+    const lowerErr = errorText.toLowerCase();
+    if (lowerErr.includes('credit') || lowerErr.includes('billing') || lowerErr.includes('insufficient')) {
+      throw new ClaudeError('Our AI services are temporarily unavailable. Please try again later.', 503);
+    }
     throw new ClaudeError(`Claude API error: ${response.status}`, response.status);
   }
 

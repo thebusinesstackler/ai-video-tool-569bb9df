@@ -29,6 +29,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { getFriendlyError } from '@/lib/errorClassifier';
 
 interface AITwin {
   id: string;
@@ -332,10 +333,10 @@ Return ONLY valid JSON:
       });
     } catch (error) {
       console.error('Script generation error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate script. Please try again.';
+      const friendly = getFriendlyError(error);
       toast({
-        title: "Generation Failed", 
-        description: errorMessage,
+        title: friendly.title, 
+        description: friendly.description,
         variant: "destructive"
       });
     } finally {
@@ -395,9 +396,10 @@ Return ONLY valid JSON:
       setAudioUrl(audioUrl);
     } catch (error) {
       console.error('Narration error:', error);
+      const friendly = getFriendlyError(error);
       toast({
-        title: "Narration Failed",
-        description: error instanceof Error ? error.message : "Failed to create narration.",
+        title: friendly.title,
+        description: friendly.description,
         variant: "destructive"
       });
     } finally {
