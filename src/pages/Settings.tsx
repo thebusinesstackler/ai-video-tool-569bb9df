@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { SettingsIcon, ShieldCheckIcon, ServerIcon, Volume2, Clapperboard, UserIcon, Loader2 } from 'lucide-react';
+import { TransferAssetsDialog } from '@/components/TransferAssetsDialog';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
