@@ -57,6 +57,12 @@ const MODES = [
     icon: <Video className="w-5 h-5" />
   },
   { 
+    id: 'podcast' as ReelMode, 
+    label: 'Podcast / Talking Head', 
+    description: 'Long-form single character monologue (up to 3 min)',
+    icon: <Mic className="w-5 h-5" />
+  },
+  { 
     id: 'ai-twin' as ReelMode, 
     label: 'AI Twin Mode', 
     description: 'Use your digital twin with cloned voice',
