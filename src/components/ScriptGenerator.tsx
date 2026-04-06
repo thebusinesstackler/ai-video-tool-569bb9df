@@ -333,10 +333,10 @@ Return ONLY valid JSON:
       });
     } catch (error) {
       console.error('Script generation error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate script. Please try again.';
+      const friendly = getFriendlyError(error);
       toast({
-        title: "Generation Failed", 
-        description: errorMessage,
+        title: friendly.title, 
+        description: friendly.description,
         variant: "destructive"
       });
     } finally {
