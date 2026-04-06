@@ -76,11 +76,14 @@ const Movies = () => {
   };
 
   const deleteProject = async (projectId: string) => {
+    if (!user) return;
+
     try {
       const { error } = await supabase
         .from('movie_projects')
         .delete()
-        .eq('id', projectId);
+        .eq('id', projectId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
