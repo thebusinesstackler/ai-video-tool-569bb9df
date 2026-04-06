@@ -473,12 +473,12 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
           <DialogHeader>
             <DialogTitle className="text-sm">Watch & Capture Thumbnail Frame</DialogTitle>
           </DialogHeader>
-          {previewProject?.generated_video_url && (
+          {(previewProject?.generated_video_url || previewProject?.reference_video_url) && (
             <div className="space-y-3">
               <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
                 <video
                   ref={previewVideoRef}
-                  src={previewProject.generated_video_url}
+                  src={previewProject.generated_video_url || previewProject.reference_video_url!}
                   className="w-full h-full object-contain"
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
