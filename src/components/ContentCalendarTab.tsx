@@ -42,6 +42,7 @@ const POSTING_SCHEDULE = [
 ];
 
 export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState('');
