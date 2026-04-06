@@ -402,8 +402,8 @@ const Gallery = () => {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Image Gallery</h1>
-          <p className="text-muted-foreground mt-2">All your generated images and product library</p>
+          <h1 className="text-3xl font-bold text-foreground">Lifecykel Image Gallery</h1>
+          <p className="text-muted-foreground mt-2">All your Lifecykel brand images, products & video library</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
