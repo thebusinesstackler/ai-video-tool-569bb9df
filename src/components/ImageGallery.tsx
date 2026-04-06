@@ -345,7 +345,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               {/* Image with navigation */}
               <div className="relative group">
                 <div 
-                  className="aspect-[9/16] max-h-[60vh] mx-auto rounded-lg overflow-hidden bg-muted cursor-pointer"
+                  className="aspect-square max-h-[60vh] mx-auto rounded-lg overflow-hidden bg-muted cursor-pointer"
                   onClick={() => setIsFullscreen(true)}
                 >
                   <img
