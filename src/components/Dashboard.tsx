@@ -25,7 +25,7 @@ const quickActions = [
     name: 'Create Reel', 
     description: 'Transform topics into engaging reels with AI',
     icon: VideoIcon, 
-    variant: 'hero' as const,
+    variant: 'ai' as const,
     href: '/reels'
   },
   { 
@@ -39,7 +39,7 @@ const quickActions = [
     name: 'Create Character', 
     description: 'Design AI avatars for your video productions',
     icon: UsersIcon, 
-    variant: 'glass' as const,
+    variant: 'ai' as const,
     href: '/characters'
   },
 ];
@@ -78,7 +78,11 @@ export const Dashboard = () => {
           .order('created_at', { ascending: false })
           .limit(10);
         if (data && data.length > 0) {
-          setPreviewVideos(data.map(r => ({ url: r.video_url!, title: r.topic })));
+          setPreviewVideos(
+            data
+              .filter(r => r.video_url && r.video_url.trim() !== '')
+              .map(r => ({ url: r.video_url!, title: r.topic }))
+          );
         }
       };
       loadVideos();
