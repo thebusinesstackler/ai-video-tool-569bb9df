@@ -298,7 +298,7 @@ export const Dashboard = () => {
               Dashboard
             </p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-4 text-white">
-              Welcome back, {user?.email?.split('@')[0] || 'Creator'} 👋
+              Welcome back, {firstName || user?.email?.split('@')[0] || 'Creator'} 👋
             </h1>
             <p className="text-lg text-white/80 font-medium mb-6 leading-relaxed">
               Your creative studio is ready. Pick up where you left off or start something new.
