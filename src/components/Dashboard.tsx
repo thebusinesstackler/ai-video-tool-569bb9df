@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,7 +9,9 @@ import {
   TrendingUpIcon,
   PlayIcon,
   UploadIcon,
-  LogInIcon
+  LogInIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
