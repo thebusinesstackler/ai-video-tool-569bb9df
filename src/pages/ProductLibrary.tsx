@@ -209,6 +209,25 @@ export default function ProductLibrary() {
     loadGallery(selectedProduct.id);
   };
 
+  const openImageViewer = (img: GalleryImage) => {
+    setViewingImage(img);
+    setEditingLabel(img.label || '');
+  };
+
+  const saveImageLabel = async () => {
+    if (!viewingImage) return;
+    setIsSavingLabel(true);
+    const { error } = await supabase
+      .from('product_gallery')
+      .update({ label: editingLabel.trim() || null } as any)
+      .eq('id', viewingImage.id);
+    if (error) { toast.error('Failed to rename'); setIsSavingLabel(false); return; }
+    toast.success('Image renamed');
+    setViewingImage({ ...viewingImage, label: editingLabel.trim() || null });
+    setGallery(prev => prev.map(g => g.id === viewingImage.id ? { ...g, label: editingLabel.trim() || null } : g));
+    setIsSavingLabel(false);
+  };
+
   // === RENDER ===
 
   // Product detail view
