@@ -24,6 +24,7 @@ import ProductLibrary from "./pages/ProductLibrary";
 import VideoRepurposer from "./pages/VideoRepurposer";
 import Podcast from "./pages/Podcast";
 import NotFound from "./pages/NotFound";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
