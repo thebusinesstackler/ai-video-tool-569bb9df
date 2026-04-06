@@ -25,7 +25,15 @@ import {
   BriefcaseIcon,
   PlayIcon,
   LayersIcon,
-  ClapperboardIcon
+  ClapperboardIcon,
+  ScanFace,
+  Smartphone,
+  Mic,
+  Presentation,
+  MessageSquareQuote,
+  Package,
+  RefreshCw,
+  Wand2
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
