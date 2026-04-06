@@ -179,7 +179,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
             Image Gallery
           </CardTitle>
           <CardDescription>
-            {images.length} generated images saved
+            {images.length} uploaded images
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -224,7 +224,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                 {filteredImages.map((image) => (
                   <div 
                     key={image.id} 
-                    className={`group relative aspect-[9/16] rounded-lg overflow-hidden bg-muted ${
+                    className={`group relative aspect-square rounded-lg overflow-hidden bg-muted ${
                       selectable ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''
                     }`}
                     onClick={() => {
@@ -345,7 +345,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
               {/* Image with navigation */}
               <div className="relative group">
                 <div 
-                  className="aspect-[9/16] max-h-[60vh] mx-auto rounded-lg overflow-hidden bg-muted cursor-pointer"
+                  className="aspect-square max-h-[60vh] mx-auto rounded-lg overflow-hidden bg-muted cursor-pointer"
                   onClick={() => setIsFullscreen(true)}
                 >
                   <img

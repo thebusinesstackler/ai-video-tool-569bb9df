@@ -57,6 +57,7 @@ export function useImageGallery(): UseImageGalleryResult {
       const { data, error } = await supabase
         .from('generated_images')
         .select('id, user_id, image_url, prompt, source, reference_image_url, transformation, scene_number, project_id, created_at')
+        .eq('source', 'upload')
         .order('created_at', { ascending: false })
         .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
@@ -87,6 +88,7 @@ export function useImageGallery(): UseImageGalleryResult {
       const { data, error } = await supabase
         .from('generated_images')
         .select('id, user_id, image_url, prompt, source, reference_image_url, transformation, scene_number, project_id, created_at')
+        .eq('source', 'upload')
         .order('created_at', { ascending: false })
         .range(nextPage * PAGE_SIZE, (nextPage + 1) * PAGE_SIZE - 1);
 
