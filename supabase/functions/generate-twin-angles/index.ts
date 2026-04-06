@@ -41,11 +41,16 @@ serve(async (req) => {
     for (let i = 0; i < CAMERA_ANGLES.length; i++) {
       const angle = CAMERA_ANGLES[i];
 
+      const logoInstruction = shirtLogoUrl
+        ? `\nCLOTHING: The person is wearing a casual t-shirt or polo shirt with a clearly visible company/brand logo printed or embroidered prominently on the chest area. The logo should be realistic and naturally integrated into the fabric.`
+        : '';
+
       const prompt = `Generate a PREMIUM cinematic portrait photograph.
 
 CHARACTER (match precisely): ${faceDescription}
 GENDER: ${gender || 'unspecified'}
 NAME: ${name || 'Character'}
+${logoInstruction}
 
 CAMERA ANGLE: ${angle.prompt}
 
