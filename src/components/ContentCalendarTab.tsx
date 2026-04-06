@@ -447,7 +447,7 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                           )}
                           {generatingThumbnail === project.id ? 'Generating...' : thumbnails[project.id] ? 'Regen Thumb' : 'AI Thumbnail'}
                         </Button>
-                        {project.generated_video_url && (
+                        {(project.generated_video_url || project.reference_video_url) && (
                           <Button
                             size="sm"
                             variant="ghost"
