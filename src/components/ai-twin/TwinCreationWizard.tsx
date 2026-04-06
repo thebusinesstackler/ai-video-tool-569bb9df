@@ -92,9 +92,10 @@ export const TwinCreationWizard: React.FC<TwinCreationWizardProps> = ({ onComple
       }
     } catch (error: any) {
       console.error('Error analyzing face:', error);
+      const friendly = getFriendlyError(error);
       toast({
-        title: 'Analysis Failed',
-        description: error.message || 'Could not analyze face. You can still proceed.',
+        title: friendly.title,
+        description: friendly.description + ' You can still proceed.',
         variant: 'destructive'
       });
     } finally {
