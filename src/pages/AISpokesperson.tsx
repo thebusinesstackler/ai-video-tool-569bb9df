@@ -499,7 +499,8 @@ Return ONLY a JSON object:
       toast({ title: 'Script Generated!', description: 'Review and generate your spokesperson video.' });
     } catch (err: any) {
       console.error('Script generation error:', err);
-      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+      const friendly = getFriendlyError(err);
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsGeneratingScript(false);
     }
