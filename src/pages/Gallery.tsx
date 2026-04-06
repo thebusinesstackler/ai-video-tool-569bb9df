@@ -21,7 +21,7 @@ interface ProductImage {
 const Gallery = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isUploading, uploadImages, fetchImages } = useImageGallery();
+  const { images, isUploading, uploadImages, fetchImages } = useImageGallery();
   const [isMigrating, setIsMigrating] = useState(false);
   const [isAutoMigrating, setIsAutoMigrating] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<{
