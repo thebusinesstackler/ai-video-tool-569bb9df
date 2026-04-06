@@ -101,12 +101,15 @@ const Movies = () => {
   };
 
   const viewProject = async (project: MovieProject) => {
+    if (!user) return;
+
     try {
       // Load full project data including scenes
       const { data, error } = await supabase
         .from('movie_projects')
         .select('*')
         .eq('id', project.id)
+        .eq('user_id', user.id)
         .single();
 
       if (error) throw error;
