@@ -266,6 +266,12 @@ const Gallery = () => {
             <TabsTrigger value="video-repo" className="flex items-center gap-1.5">
               <Video className="w-4 h-4" /> Video Repo
             </TabsTrigger>
+            <TabsTrigger value="calendar" className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" /> Calendar Images
+              {calendarImages.length > 0 && (
+                <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{calendarImages.length}</span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="gallery" className="space-y-6 mt-4">
