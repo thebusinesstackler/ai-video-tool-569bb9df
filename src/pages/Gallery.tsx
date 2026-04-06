@@ -216,6 +216,103 @@ const Gallery = () => {
     await fetchImages();
   };
 
+  const handleVideoUpload = async (files: FileList) => {
+    if (!user) return;
+    setIsUploadingVideo(true);
+    const validTypes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/mov'];
+    try {
+      let uploaded = 0;
+      for (const file of Array.from(files)) {
+        if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|mov|webm)$/i)) {
+          toast({ title: "Invalid File", description: `${file.name} is not a supported video format.`, variant: "destructive" });
+          continue;
+        }
+        if (file.size > 100 * 1024 * 1024) {
+          toast({ title: "File Too Large", description: `${file.name} exceeds 100MB.`, variant: "destructive" });
+          continue;
+        }
+        const ext = file.name.split('.').pop() || 'mp4';
+        const fileName = `${user.id}/videos/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('reels')
+          .upload(fileName, file, { contentType: file.type || 'video/mp4' });
+        if (uploadError) {
+          toast({ title: "Upload Failed", description: uploadError.message, variant: "destructive" });
+          continue;
+        }
+        const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+        await supabase.from('generated_images').insert({
+          user_id: user.id,
+          image_url: publicUrl,
+          prompt: file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
+          source: 'video-repo',
+        });
+        uploaded++;
+      }
+      if (uploaded > 0) {
+        toast({ title: "Videos Uploaded", description: `${uploaded} video(s) added to your library.` });
+        await fetchVideoRepoEntries();
+      }
+    } catch (error: any) {
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsUploadingVideo(false);
+    }
+  };
+
+  const downloadVideoReport = async () => {
+    if (videoRepoEntries.length === 0) return;
+    setIsGeneratingVideoReport(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = 210;
+      const margin = 15;
+      let y = margin;
+
+      // Header
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Lifecykel — Video Library Report', margin, y);
+      y += 10;
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Generated: ${new Date().toLocaleDateString()} • ${videoRepoEntries.length} videos`, margin, y);
+      y += 12;
+
+      pdf.setDrawColor(200);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 8;
+
+      for (let i = 0; i < videoRepoEntries.length; i++) {
+        const entry = videoRepoEntries[i];
+        if (y > 270) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${i + 1}. ${entry.prompt || 'Untitled Video'}`, margin, y);
+        y += 6;
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Date: ${new Date(entry.created_at).toLocaleDateString()}`, margin + 4, y);
+        y += 5;
+        pdf.setTextColor(60, 120, 200);
+        pdf.textWithLink('Watch Video →', margin + 4, y, { url: entry.image_url });
+        pdf.setTextColor(0);
+        y += 10;
+      }
+
+      pdf.save('lifecykel-video-report.pdf');
+      toast({ title: 'Report Downloaded', description: `${videoRepoEntries.length} videos exported.` });
+    } catch (error: any) {
+      toast({ title: 'Report Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingVideoReport(false);
+    }
+  };
+
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const downloadPdf = async () => {
