@@ -430,6 +430,65 @@ const Gallery = () => {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-6 mt-4">
+            <Card className="border-dashed border-2 border-muted-foreground/25">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <Calendar className="w-10 h-10 text-muted-foreground/50" />
+                  <div>
+                    <p className="font-medium text-foreground">Calendar Cover Images</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Upload images here to use as thumbnails in the Content Calendar.
+                    </p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={(e) => e.target.files && handleCalendarUpload(e.target.files)}
+                    />
+                    <Button asChild variant="default" size="sm" disabled={isUploadingCalendar}>
+                      <span>
+                        {isUploadingCalendar ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                        {isUploadingCalendar ? 'Uploading...' : 'Upload Calendar Images'}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {isLoadingCalendarImages ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+            ) : calendarImages.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No calendar images yet</p>
+                <p className="text-sm mt-1">Upload images to use as covers in your Content Calendar</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {calendarImages.map((img) => (
+                  <Card key={img.id} className="overflow-hidden group relative">
+                    <div className="aspect-square relative">
+                      <img src={img.image_url} alt={img.label || 'Calendar image'} className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => deleteCalendarImage(img.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <CardContent className="p-2">
+                      <p className="text-xs text-muted-foreground truncate">{img.label || 'Untitled'}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
