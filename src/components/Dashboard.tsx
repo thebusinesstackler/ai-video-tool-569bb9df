@@ -292,7 +292,7 @@ export const Dashboard = () => {
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-black/30" />
 
-        <div className="relative p-8 lg:p-12 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+        <div className="relative p-4 sm:p-8 lg:p-12 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-8">
           <div className="max-w-2xl flex-1">
             <p className="text-sm font-semibold uppercase tracking-widest text-white/70 mb-2">
               Dashboard
