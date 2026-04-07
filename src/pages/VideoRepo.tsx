@@ -1040,6 +1040,199 @@ Then provide a final **VIDEO PROMPT** block:
             )}
           </TabsContent>
 
+          {/* Import Tab */}
+          <TabsContent value="import" className="flex-1 px-4 overflow-y-auto mt-4">
+            <div className="max-w-3xl mx-auto space-y-6">
+              <input
+                ref={importVideoInputRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={handleImportFileInput}
+              />
+
+              {!importVideoUrl ? (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(false); }}
+                  onDrop={handleImportDrop}
+                  onClick={() => importVideoInputRef.current?.click()}
+                  className={`relative border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer flex flex-col items-center justify-center gap-4 ${
+                    importDragOver
+                      ? 'border-primary bg-primary/10 scale-[1.02]'
+                      : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5'
+                  }`}
+                >
+                  <div className={`p-5 rounded-full transition-colors ${importDragOver ? 'bg-primary/20' : 'bg-muted'}`}>
+                    <Upload className={`w-10 h-10 transition-colors ${importDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-lg font-medium transition-colors ${importDragOver ? 'text-primary' : 'text-foreground'}`}>
+                      {importDragOver ? 'Drop your video here' : 'Drag & drop a video'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">or click to browse • MP4, MOV, WebM</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    AI will analyze your video and suggest prompts for remixing
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Video Preview */}
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-muted-foreground uppercase">Uploaded Video</p>
+                        <Button variant="ghost" size="sm" onClick={resetImport} className="text-xs gap-1">
+                          <X className="w-3 h-3" /> Remove
+                        </Button>
+                      </div>
+                      <video
+                        src={importVideoUrl}
+                        controls
+                        className="w-full rounded-lg max-h-[300px] bg-black"
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* AI Analysis Status */}
+                  {isImportAnalyzing && (
+                    <Card className="border-primary/30">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-primary/10">
+                          <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">AI is analyzing your video...</p>
+                          <p className="text-xs text-muted-foreground">Extracting frames and studying hook, pacing, and visual style</p>
+                        </div>
+                        <Loader2 className="w-5 h-5 animate-spin text-primary ml-auto" />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Extracted Frames */}
+                  {importFrames.length > 0 && !isImportAnalyzing && (
+                    <Card>
+                      <CardContent className="p-4 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase">Extracted Key Frames</p>
+                        <div className="grid grid-cols-6 gap-2">
+                          {importFrames.map((frame, i) => (
+                            <img key={i} src={frame} alt={`Frame ${i + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border" />
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Analysis Summary */}
+                  {importAnalysis && !isImportAnalyzing && (
+                    <Card className="border-primary/20">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <p className="text-xs font-medium text-muted-foreground uppercase">AI Analysis</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {importAnalysis.hook && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Hook</p>
+                              <p className="text-foreground">{importAnalysis.hook.text || 'N/A'}</p>
+                              <Badge variant="secondary" className="text-[10px]">{importAnalysis.hook.strength || 'unknown'}</Badge>
+                            </div>
+                          )}
+                          {importAnalysis.messaging && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Core Topic</p>
+                              <p className="text-foreground">{importAnalysis.messaging.coreTopic || 'N/A'}</p>
+                            </div>
+                          )}
+                          {importAnalysis.pacing && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Pacing</p>
+                              <p className="text-foreground">{importAnalysis.pacing.overall || 'N/A'}</p>
+                            </div>
+                          )}
+                          {importAnalysis.overallScore !== undefined && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Performance Score</p>
+                              <p className="text-foreground font-bold">{importAnalysis.overallScore}/100</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Metadata Form */}
+                  {!isImportAnalyzing && (
+                    <Card>
+                      <CardContent className="p-4 space-y-4">
+                        <p className="text-xs font-medium text-muted-foreground uppercase">Video Details</p>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Name</label>
+                          <Input
+                            value={importCustomName}
+                            onChange={(e) => setImportCustomName(e.target.value)}
+                            placeholder="Give this video a name"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Prompt / Description</label>
+                          <Textarea
+                            value={importSuggestedPrompt}
+                            onChange={(e) => setImportSuggestedPrompt(e.target.value)}
+                            placeholder="The prompt used to generate this video, or describe what it shows"
+                            rows={3}
+                          />
+                          {importAnalysis && (
+                            <p className="text-xs text-muted-foreground">✨ AI-suggested based on video analysis. Feel free to edit.</p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Model</label>
+                            <Select value={importModel} onValueChange={setImportModel}>
+                              <SelectTrigger><SelectValue placeholder="Select model used" /></SelectTrigger>
+                              <SelectContent>
+                                {MODEL_OPTIONS.map((m) => (
+                                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Task / Job ID</label>
+                            <Input
+                              value={importTaskId}
+                              onChange={(e) => setImportTaskId(e.target.value)}
+                              placeholder="e.g. 3a45a1c7dd43..."
+                            />
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={saveImportedVideo}
+                          disabled={isImportSaving}
+                          className="w-full gap-2"
+                        >
+                          {isImportSaving ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                          ) : (
+                            <><Save className="w-4 h-4" /> Save to Library</>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </div>
+
           <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
             <div className="max-w-4xl mx-auto space-y-4">
               {isLoadingHistory ? (
