@@ -285,6 +285,9 @@ const Gallery = () => {
     } catch (error: any) {
       toast({ title: 'Delete Failed', description: error.message, variant: 'destructive' });
     }
+  };
+
+  const downloadVideoReport = async () => {
     if (videoRepoEntries.length === 0) return;
     setIsGeneratingVideoReport(true);
     try {
