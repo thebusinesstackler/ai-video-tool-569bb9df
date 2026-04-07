@@ -65,6 +65,45 @@ export type Database = {
         }
         Relationships: []
       }
+      animated_statics: {
+        Row: {
+          analysis: Json | null
+          animation_url: string | null
+          created_at: string
+          id: string
+          music_url: string | null
+          prompt: string | null
+          source_image_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json | null
+          animation_url?: string | null
+          created_at?: string
+          id?: string
+          music_url?: string | null
+          prompt?: string | null
+          source_image_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json | null
+          animation_url?: string | null
+          created_at?: string
+          id?: string
+          music_url?: string | null
+          prompt?: string | null
+          source_image_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       api_keys: {
         Row: {
           created_at: string

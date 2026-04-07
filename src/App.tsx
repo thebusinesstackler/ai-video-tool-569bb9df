@@ -25,6 +25,7 @@ import VideoRepurposer from "./pages/VideoRepurposer";
 import Podcast from "./pages/Podcast";
 import LifestyleStories from "./pages/LifestyleStories";
 import NotFound from "./pages/NotFound";
+import AnimateStatics from "./pages/AnimateStatics";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient({
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="/video-repurposer" element={<ProtectedRoute><VideoRepurposer /></ProtectedRoute>} />
               <Route path="/podcast" element={<ProtectedRoute><Podcast /></ProtectedRoute>} />
               <Route path="/lifestyle-stories" element={<ProtectedRoute><LifestyleStories /></ProtectedRoute>} />
+              <Route path="/animate-statics" element={<ProtectedRoute><AnimateStatics /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
