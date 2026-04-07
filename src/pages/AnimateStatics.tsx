@@ -102,12 +102,12 @@ const AnimateStatics = () => {
 
   const buildFinalPrompt = () => {
     const parts: string[] = [];
+    if (customPrompt.trim()) parts.push(customPrompt.trim());
     if (analysis) {
       selectedSuggestions.forEach(idx => {
         parts.push(analysis.suggestions[idx].prompt);
       });
     }
-    if (customPrompt.trim()) parts.push(customPrompt.trim());
     return parts.join('. ') || 'Subtle cinematic motion with slow zoom and gentle parallax';
   };
 
