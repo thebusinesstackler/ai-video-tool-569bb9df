@@ -147,6 +147,21 @@ const LifestyleStories = () => {
       setEditedProductType(data.analysis.product_type || '');
       setStep('analysis');
       toast({ title: 'Brand Analyzed!', description: `Found insights for ${data.analysis.brand_name}` });
+
+      // Save as draft
+      if (user) {
+        const { data: draftRecord } = await (supabase.from('lifestyle_stories' as any) as any).insert({
+          user_id: user.id,
+          brand_url: url.trim(),
+          brand_analysis: data.analysis,
+          title: data.analysis.brand_name,
+          status: 'draft',
+        }).select('id').single();
+        if (draftRecord?.id) {
+          setStoryId(draftRecord.id);
+          setDrafts(prev => [{ ...draftRecord, title: data.analysis.brand_name, brand_url: url.trim(), brand_analysis: data.analysis, concepts: [], status: 'draft', updated_at: new Date().toISOString() }, ...prev]);
+        }
+      }
     } catch (err: any) {
       const friendly = getFriendlyError(err);
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
