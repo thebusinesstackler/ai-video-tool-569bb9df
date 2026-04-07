@@ -25,6 +25,7 @@ interface AnimationSuggestion {
 interface Analysis {
   objects: string[];
   suggestions: AnimationSuggestion[];
+  directorPrompt: string;
 }
 
 const STEPS = ['Select Image', 'Animate', 'Generate', 'Export'];
