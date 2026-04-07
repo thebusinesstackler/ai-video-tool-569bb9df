@@ -732,23 +732,48 @@ const Gallery = () => {
                         muted
                         preload="metadata"
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                        <VideoPlayer
-                          videoUrl={entry.image_url}
-                          title={entry.prompt || 'Video'}
-                          trigger={
-                            <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full">
-                              <Play className="w-4 h-4" />
-                            </Button>
-                          }
-                        />
-                        <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
-                          <a href={entry.image_url} download>
-                            <Download className="w-4 h-4" />
-                          </a>
-                        </Button>
-                        <Button variant="destructive" size="icon" className="h-10 w-10 rounded-full" onClick={() => deleteVideoEntry(entry.id)}>
-                          <Trash2 className="w-4 h-4" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                        <div className="flex gap-2">
+                          <VideoPlayer
+                            videoUrl={entry.image_url}
+                            title={entry.prompt || 'Video'}
+                            trigger={
+                              <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full">
+                                <Play className="w-4 h-4" />
+                              </Button>
+                            }
+                          />
+                          <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
+                            <a href={entry.image_url} download>
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => { setEditingVideoId(entry.id); setEditVideoPrompt(entry.prompt || ''); }}
+                            title="Edit prompt"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button variant="destructive" size="icon" className="h-10 w-10 rounded-full" onClick={() => deleteVideoEntry(entry.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="rounded-full gap-1.5 text-xs"
+                          onClick={() => addVideoAsCharacter(entry)}
+                          disabled={isAddingCharacter === entry.id}
+                        >
+                          {isAddingCharacter === entry.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <UserPlus className="w-3 h-3" />
+                          )}
+                          Add as Character
                         </Button>
                       </div>
                     </div>
