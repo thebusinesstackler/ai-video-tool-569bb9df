@@ -32,18 +32,27 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a cinematic animation director specializing in turning static product and brand images into compelling animated video creatives. Analyze the provided image and:
+            content: `You are a cinematic animation director specializing in turning static product and brand images into compelling animated video creatives. Your job is to analyze the exact image provided and create animation directions that preserve the product/subject EXACTLY as it appears.
 
-1. Identify all objects, products, text, and layout elements visible
-2. Suggest 5-8 specific animation directions (as selectable options)
-3. Write a polished, ready-to-use animation prompt (80-120 words) that combines the best cinematic motion for this specific image — including camera movement, lighting shifts, product interaction, pacing, and atmosphere. This prompt should feel like a professional director's brief.
+CRITICAL: The video generation model will use this exact image as the starting frame. All animation must enhance the existing image — NOT replace or reimagine it. The product, bottle, packaging, text, and branding must remain identical. Only add motion, lighting effects, camera movement, and atmospheric elements.
+
+Analyze the provided image and:
+1. Identify all objects, products, text, branding, and layout elements visible
+2. Suggest 5-8 specific animation options the user can select from, each with a clear label and description of what it does
+3. Write a polished, ready-to-use animation prompt (80-120 words) that combines the best cinematic motion for this specific image
+
+IMPORTANT PROMPT RULES:
+- Always start the prompt with "Starting from this exact image, "
+- Never describe creating or generating new objects — only describe motion applied to what's already in the image
+- Include camera movement, lighting shifts, atmospheric particles, and pacing
+- Reference the specific product/objects you detected in the image
 
 Return your analysis using the provided tool.`,
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Analyze this image and create a cinematic animation direction:" },
+              { type: "text", text: "Analyze this image and create animation directions that preserve the exact product appearance:" },
               { type: "image_url", image_url: { url: imageUrl } },
             ],
           },
@@ -67,16 +76,17 @@ Return your analysis using the provided tool.`,
                     items: {
                       type: "object",
                       properties: {
-                        label: { type: "string", description: "Short label like 'Slow zoom in' or 'Product float'" },
-                        prompt: { type: "string", description: "Detailed animation prompt to pass to a video generation model" },
+                        label: { type: "string", description: "Short label like 'Slow Zoom In', 'Product Float', 'Water Splash'" },
+                        description: { type: "string", description: "One sentence describing what this animation does to the image, e.g. 'Gently zooms into the product label while adding soft bokeh'" },
+                        prompt: { type: "string", description: "Detailed animation prompt starting with 'Starting from this exact image, ' — must preserve the product exactly as shown" },
                       },
-                      required: ["label", "prompt"],
+                      required: ["label", "description", "prompt"],
                     },
                     description: "5-8 animation suggestions",
                   },
                   directorPrompt: {
                     type: "string",
-                    description: "A polished 80-120 word cinematic animation prompt combining the best motion directions for this image. Should read like a professional director's brief covering camera movement, lighting, product focus, pacing, and atmosphere.",
+                    description: "A polished 80-120 word cinematic animation prompt starting with 'Starting from this exact image, '. Must preserve every element in the image and only add motion, lighting, and atmosphere.",
                   },
                 },
                 required: ["objects", "suggestions", "directorPrompt"],
