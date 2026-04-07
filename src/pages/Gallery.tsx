@@ -292,6 +292,75 @@ const Gallery = () => {
     }
   };
 
+  const handleVideoDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setVideoDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleVideoUpload(files);
+    }
+  }, [user]);
+
+  const addVideoAsCharacter = async (entry: { id: string; image_url: string; prompt: string | null }) => {
+    if (!user) return;
+    setIsAddingCharacter(entry.id);
+    try {
+      // Extract a frame from the video to use as character reference image
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.preload = 'auto';
+      video.muted = true;
+      video.src = entry.image_url;
+
+      const frameUrl = await new Promise<string>((resolve, reject) => {
+        video.onloadeddata = () => {
+          video.currentTime = Math.min(1, video.duration * 0.3);
+        };
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(video.videoWidth, 640);
+          canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (!blob) { reject(new Error('Frame capture failed')); return; }
+            const file = new File([blob], 'character-frame.jpg', { type: 'image/jpeg' });
+            const ext = 'jpg';
+            const fileName = `${user.id}/characters/${crypto.randomUUID()}.${ext}`;
+            supabase.storage.from('reels').upload(fileName, file, { contentType: 'image/jpeg' })
+              .then(({ error }) => {
+                if (error) { reject(error); return; }
+                const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+                resolve(publicUrl);
+              });
+          }, 'image/jpeg', 0.85);
+        };
+        video.onerror = () => reject(new Error('Failed to load video'));
+      });
+
+      // Create character with reference image
+      const charName = entry.prompt
+        ? entry.prompt.substring(0, 30).replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Video Character'
+        : 'Video Character';
+
+      const { error } = await supabase.from('characters').insert({
+        user_id: user.id,
+        name: charName,
+        description: entry.prompt || 'Character extracted from video',
+        reference_images: [frameUrl],
+      });
+
+      if (error) throw error;
+      toast({ title: 'Character Created!', description: `"${charName}" added to your Characters library.` });
+    } catch (err: any) {
+      console.error('Add character error:', err);
+      toast({ title: 'Failed to add character', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsAddingCharacter(null);
+    }
+  };
+
   const downloadVideoReport = async () => {
     if (videoRepoEntries.length === 0) return;
     setIsGeneratingVideoReport(true);
