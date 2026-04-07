@@ -214,7 +214,7 @@ const AnimateStatics = () => {
                   <TabsTrigger value="gallery"><ImageIcon className="w-4 h-4 mr-1.5" />Gallery</TabsTrigger>
                 </TabsList>
                 <TabsContent value="upload" className="mt-4">
-                  <ImageDropZone onImageSelect={(url) => handleImageSelect(url)} onFileSelect={handleImageUpload} />
+                  <ImageDropZone onFilesSelected={(files) => { if (files[0]) handleImageUpload(files[0]); }} />
                 </TabsContent>
                 <TabsContent value="gallery" className="mt-4">
                   {galleryLoading ? (
