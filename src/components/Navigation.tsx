@@ -81,6 +81,7 @@ const navGroups: NavGroup[] = [
       { name: 'Video Repo Pro', href: '/video-repo-pro', icon: SparklesIcon, beta: true },
       { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote, beta: true },
       { name: 'Lifestyle Stories', href: '/lifestyle-stories', icon: Film, beta: true },
+      { name: 'Animate Statics', href: '/animate-statics', icon: Wand2, beta: true },
     ],
   },
   {

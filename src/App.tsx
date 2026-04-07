@@ -79,6 +79,7 @@ const App = () => (
               <Route path="/video-repurposer" element={<ProtectedRoute><VideoRepurposer /></ProtectedRoute>} />
               <Route path="/podcast" element={<ProtectedRoute><Podcast /></ProtectedRoute>} />
               <Route path="/lifestyle-stories" element={<ProtectedRoute><LifestyleStories /></ProtectedRoute>} />
+              <Route path="/animate-statics" element={<ProtectedRoute><AnimateStatics /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
