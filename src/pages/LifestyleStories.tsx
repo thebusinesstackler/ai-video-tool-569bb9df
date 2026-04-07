@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,10 @@ import { getFriendlyError } from '@/lib/errorClassifier';
 import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import {
   Globe, Sparkles, Play, Clock, Film, Music, Mic, Loader2, CheckCircle2,
-  ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video
+  ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video, FileText, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 
 interface BrandAnalysis {
   brand_name: string;
@@ -81,6 +82,54 @@ const LifestyleStories = () => {
   const [completedMusic, setCompletedMusic] = useState<string | null>(null);
   const [completedVideoUrl, setCompletedVideoUrl] = useState<string | null>(null);
   const [assemblingVideo, setAssemblingVideo] = useState(false);
+  const [storyId, setStoryId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+
+  // Load existing drafts on mount
+  useEffect(() => {
+    if (!user) return;
+    const loadDrafts = async () => {
+      setLoadingDrafts(true);
+      try {
+        const { data } = await (supabase.from('lifestyle_stories' as any) as any)
+          .select('id, title, brand_url, brand_analysis, concepts, selected_concept_index, duration, scenes, status, updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(10);
+        setDrafts(data || []);
+      } catch (err) {
+        console.error('Failed to load drafts:', err);
+      } finally {
+        setLoadingDrafts(false);
+      }
+    };
+    loadDrafts();
+  }, [user]);
+
+  const resumeDraft = (draft: any) => {
+    setStoryId(draft.id);
+    setUrl(draft.brand_url || '');
+    const analysis = draft.brand_analysis as BrandAnalysis;
+    setBrandAnalysis(analysis);
+    setEditedProductType(analysis?.product_type || '');
+    if (draft.duration) setDuration(draft.duration);
+
+    if (draft.concepts && (draft.concepts as any[]).length > 0) {
+      setConcepts(draft.concepts as VideoConcept[]);
+      setStep('concepts');
+    } else {
+      setStep('analysis');
+    }
+    toast({ title: 'Draft loaded', description: `Resuming "${draft.title || 'Untitled'}"` });
+  };
+
+  const deleteDraft = async (draftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await (supabase.from('lifestyle_stories' as any) as any).delete().eq('id', draftId);
+    setDrafts(prev => prev.filter(d => d.id !== draftId));
+    toast({ title: 'Draft deleted' });
+  };
 
   const analyzeBrand = async () => {
     if (!url.trim()) {
@@ -98,6 +147,21 @@ const LifestyleStories = () => {
       setEditedProductType(data.analysis.product_type || '');
       setStep('analysis');
       toast({ title: 'Brand Analyzed!', description: `Found insights for ${data.analysis.brand_name}` });
+
+      // Save as draft
+      if (user) {
+        const { data: draftRecord } = await (supabase.from('lifestyle_stories' as any) as any).insert({
+          user_id: user.id,
+          brand_url: url.trim(),
+          brand_analysis: data.analysis,
+          title: data.analysis.brand_name,
+          status: 'draft',
+        }).select('id').single();
+        if (draftRecord?.id) {
+          setStoryId(draftRecord.id);
+          setDrafts(prev => [{ ...draftRecord, title: data.analysis.brand_name, brand_url: url.trim(), brand_analysis: data.analysis, concepts: [], status: 'draft', updated_at: new Date().toISOString() }, ...prev]);
+        }
+      }
     } catch (err: any) {
       const friendly = getFriendlyError(err);
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
@@ -125,6 +189,14 @@ const LifestyleStories = () => {
       setConcepts(data.concepts || []);
       setStep('concepts');
       toast({ title: 'Concepts Ready!', description: `Generated ${(data.concepts || []).length} video concepts` });
+
+      // Update draft with concepts
+      if (storyId) {
+        await (supabase.from('lifestyle_stories' as any) as any).update({
+          concepts: data.concepts,
+          duration,
+        }).eq('id', storyId);
+      }
     } catch (err: any) {
       const friendly = getFriendlyError(err);
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
@@ -148,21 +220,30 @@ const LifestyleStories = () => {
     setCompletedVideoUrl(null);
 
     try {
-      // Save to database
-      const { data: storyRecord, error: dbError } = await (supabase.from('lifestyle_stories' as any) as any).insert({
-        user_id: user.id,
-        brand_url: url,
-        brand_analysis: brandAnalysis,
-        concepts: concepts,
-        selected_concept_index: index,
-        duration,
-        scenes: concept.scenes,
-        title: concept.title,
-        status: 'generating',
-      }).select('id').single();
-      if (dbError) console.error('Save error:', dbError);
-
-      const storyId = (storyRecord as any)?.id;
+      // Update existing draft or create new record
+      let currentStoryId = storyId;
+      if (currentStoryId) {
+        await (supabase.from('lifestyle_stories' as any) as any).update({
+          selected_concept_index: index,
+          scenes: concept.scenes,
+          title: concept.title,
+          status: 'generating',
+        }).eq('id', currentStoryId);
+      } else {
+        const { data: storyRecord } = await (supabase.from('lifestyle_stories' as any) as any).insert({
+          user_id: user.id,
+          brand_url: url,
+          brand_analysis: brandAnalysis,
+          concepts: concepts,
+          selected_concept_index: index,
+          duration,
+          scenes: concept.scenes,
+          title: concept.title,
+          status: 'generating',
+        }).select('id').single();
+        currentStoryId = storyRecord?.id || null;
+        if (currentStoryId) setStoryId(currentStoryId);
+      }
 
       // Generate scene images
       const sceneResults = [];
@@ -238,13 +319,13 @@ const LifestyleStories = () => {
       setCompletedMusic(musicUrl);
 
       // Update DB record
-      if (storyId) {
+      if (currentStoryId) {
         await supabase.from('lifestyle_stories' as any).update({
           scenes: sceneResults,
           voiceover_url: voiceoverUrl,
           music_url: musicUrl,
           status: successfulScenes.length > 0 ? 'assets_ready' : 'failed',
-        }).eq('id', storyId);
+        }).eq('id', currentStoryId);
       }
 
       // Auto-proceed to video assembly if we have scenes
@@ -309,11 +390,11 @@ const LifestyleStories = () => {
           setCompletedVideoUrl(finalVideoUrl);
           setProductionStatus(prev => ({ ...prev, video: 'done' }));
 
-          if (storyId) {
+          if (currentStoryId) {
             await supabase.from('lifestyle_stories' as any).update({
               video_url: finalVideoUrl,
               status: 'completed',
-            }).eq('id', storyId);
+            }).eq('id', currentStoryId);
           }
 
           toast({ title: 'Video complete!', description: 'Your lifestyle story video is ready to view.' });
@@ -545,6 +626,7 @@ const LifestyleStories = () => {
 
         {/* Step 1: URL Input */}
         {step === 'url' && (
+          <>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -586,6 +668,50 @@ const LifestyleStories = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Saved Drafts */}
+          {drafts.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Recent Drafts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {drafts.map(draft => (
+                    <button
+                      key={draft.id}
+                      onClick={() => resumeDraft(draft)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-accent/50 transition-colors text-left"
+                    >
+                      <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{draft.title || 'Untitled'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{draft.brand_url}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                        {draft.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {formatDistanceToNow(new Date(draft.updated_at), { addSuffix: true })}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 flex-shrink-0"
+                        onClick={(e) => deleteDraft(draft.id, e)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          </>
         )}
 
         {/* Step 2: Brand Analysis Results */}
