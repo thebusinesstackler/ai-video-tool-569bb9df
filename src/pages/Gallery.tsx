@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import { ImageDropZone } from '@/components/ImageDropZone';
-import { VideoPlayer } from '@/components/VideoPlayer';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 
 interface ProductImage {
