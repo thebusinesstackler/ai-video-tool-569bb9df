@@ -56,29 +56,34 @@ export async function createWaveSpeedVideo(params: WaveSpeedVideoParams): Promis
 }
 
 export async function getWaveSpeedVideoJob(taskId: string): Promise<WaveSpeedVideoJob> {
-  const { data, error } = await supabase.functions.invoke('wavespeed-video', {
-    body: {
-      action: 'status',
-      taskId
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+      body: {
+        action: 'status',
+        taskId
+      }
+    });
+
+    if (!error) {
+      if (!data) throw new Error('No status data received');
+      return {
+        taskId: data.taskId || taskId,
+        status: data.status || 'pending',
+        progress: data.progress,
+        videoUrl: data.videoUrl,
+        error: data.error
+      };
     }
-  });
 
-  if (error) {
-    console.error('WaveSpeed status check error:', error);
-    throw new Error('Failed to get video job status');
+    lastError = error;
+    console.warn(`WaveSpeed status check attempt ${attempt + 1} failed:`, error.message);
+    if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
   }
 
-  if (!data) {
-    throw new Error('No status data received');
-  }
-
-  return {
-    taskId: data.taskId || taskId,
-    status: data.status || 'pending',
-    progress: data.progress,
-    videoUrl: data.videoUrl,
-    error: data.error
-  };
+  console.error('WaveSpeed status check error after retries:', lastError);
+  throw new Error('Failed to get video job status');
 }
 
 // This function now always returns true since we use server-side secrets

@@ -156,18 +156,39 @@ const AnimateStatics = () => {
         sourceId: project.id,
       });
 
-      // Poll
+      // Poll with retry tolerance
       let done = false;
+      let consecutiveFailures = 0;
+      const maxFailures = 3;
+      const pollStart = Date.now();
+      const maxPollDuration = 5 * 60 * 1000; // 5 minutes
+
       while (!done) {
-        await new Promise(r => setTimeout(r, 4000));
-        const job = await getWaveSpeedVideoJob(taskId);
-        if (job.progress) setProgress(job.progress);
-        if (job.status === 'completed' && job.videoUrl) {
-          setVideoUrl(job.videoUrl);
-          await supabase.from('animated_statics').update({ animation_url: job.videoUrl, status: 'completed' }).eq('id', project.id);
-          done = true;
-        } else if (job.status === 'failed') {
-          throw new Error(job.error || 'Video generation failed');
+        await new Promise(r => setTimeout(r, 5000));
+
+        if (Date.now() - pollStart > maxPollDuration) {
+          throw new Error('Generation timed out after 5 minutes. The video may still be processing — check back later.');
+        }
+
+        try {
+          const job = await getWaveSpeedVideoJob(taskId);
+          consecutiveFailures = 0; // reset on success
+          if (job.progress) setProgress(job.progress);
+          if (job.status === 'completed' && job.videoUrl) {
+            setVideoUrl(job.videoUrl);
+            await supabase.from('animated_statics').update({ animation_url: job.videoUrl, status: 'completed' }).eq('id', project.id);
+            done = true;
+          } else if (job.status === 'failed') {
+            throw new Error(job.error || 'Video generation failed');
+          }
+        } catch (pollErr: any) {
+          // If it's a real failure (not network), rethrow
+          if (pollErr.message?.includes('Video generation failed')) throw pollErr;
+          consecutiveFailures++;
+          console.warn(`Polling attempt failed (${consecutiveFailures}/${maxFailures}):`, pollErr.message);
+          if (consecutiveFailures >= maxFailures) {
+            throw new Error('Lost connection to video service. The video may still be processing — try refreshing.');
+          }
         }
       }
       setStep(3);
