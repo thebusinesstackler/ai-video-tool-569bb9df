@@ -25,6 +25,7 @@ import VideoRepurposer from "./pages/VideoRepurposer";
 import Podcast from "./pages/Podcast";
 import LifestyleStories from "./pages/LifestyleStories";
 import NotFound from "./pages/NotFound";
+import AnimateStatics from "./pages/AnimateStatics";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient({
