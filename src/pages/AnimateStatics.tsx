@@ -93,10 +93,23 @@ const AnimateStatics = () => {
     }
   };
 
-  const toggleSuggestion = (idx: number) => {
+  const selectSuggestion = (idx: number) => {
+    if (!analysis) return;
     setSelectedSuggestions(prev => {
       const next = new Set(prev);
-      next.has(idx) ? next.delete(idx) : next.add(idx);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      // Rebuild prompt from director brief + all selected suggestions
+      const directorBase = analysis.directorPrompt || '';
+      const selectedPrompts: string[] = [];
+      next.forEach(i => selectedPrompts.push(analysis.suggestions[i].prompt));
+      setCustomPrompt(selectedPrompts.length > 0 
+        ? selectedPrompts.join('. ')
+        : directorBase
+      );
       return next;
     });
   };
