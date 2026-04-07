@@ -220,21 +220,30 @@ const LifestyleStories = () => {
     setCompletedVideoUrl(null);
 
     try {
-      // Save to database
-      const { data: storyRecord, error: dbError } = await (supabase.from('lifestyle_stories' as any) as any).insert({
-        user_id: user.id,
-        brand_url: url,
-        brand_analysis: brandAnalysis,
-        concepts: concepts,
-        selected_concept_index: index,
-        duration,
-        scenes: concept.scenes,
-        title: concept.title,
-        status: 'generating',
-      }).select('id').single();
-      if (dbError) console.error('Save error:', dbError);
-
-      const storyId = (storyRecord as any)?.id;
+      // Update existing draft or create new record
+      let currentStoryId = storyId;
+      if (currentStoryId) {
+        await (supabase.from('lifestyle_stories' as any) as any).update({
+          selected_concept_index: index,
+          scenes: concept.scenes,
+          title: concept.title,
+          status: 'generating',
+        }).eq('id', currentStoryId);
+      } else {
+        const { data: storyRecord } = await (supabase.from('lifestyle_stories' as any) as any).insert({
+          user_id: user.id,
+          brand_url: url,
+          brand_analysis: brandAnalysis,
+          concepts: concepts,
+          selected_concept_index: index,
+          duration,
+          scenes: concept.scenes,
+          title: concept.title,
+          status: 'generating',
+        }).select('id').single();
+        currentStoryId = storyRecord?.id || null;
+        if (currentStoryId) setStoryId(currentStoryId);
+      }
 
       // Generate scene images
       const sceneResults = [];
