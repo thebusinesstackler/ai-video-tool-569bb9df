@@ -32,16 +32,18 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a visual animation director. Analyze the provided image and identify:
-1. All objects, products, text, and layout elements visible
-2. Suggest 5-8 specific animation directions that would make this image compelling as an animated ad or social media creative.
+            content: `You are a cinematic animation director specializing in turning static product and brand images into compelling animated video creatives. Analyze the provided image and:
+
+1. Identify all objects, products, text, and layout elements visible
+2. Suggest 5-8 specific animation directions (as selectable options)
+3. Write a polished, ready-to-use animation prompt (80-120 words) that combines the best cinematic motion for this specific image — including camera movement, lighting shifts, product interaction, pacing, and atmosphere. This prompt should feel like a professional director's brief.
 
 Return your analysis using the provided tool.`,
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Analyze this image and suggest animation directions:" },
+              { type: "text", text: "Analyze this image and create a cinematic animation direction:" },
               { type: "image_url", image_url: { url: imageUrl } },
             ],
           },
@@ -51,7 +53,7 @@ Return your analysis using the provided tool.`,
             type: "function",
             function: {
               name: "analyze_image",
-              description: "Return structured analysis of the image with animation suggestions",
+              description: "Return structured analysis of the image with animation suggestions and a ready-to-use director's prompt",
               parameters: {
                 type: "object",
                 properties: {
@@ -72,8 +74,12 @@ Return your analysis using the provided tool.`,
                     },
                     description: "5-8 animation suggestions",
                   },
+                  directorPrompt: {
+                    type: "string",
+                    description: "A polished 80-120 word cinematic animation prompt combining the best motion directions for this image. Should read like a professional director's brief covering camera movement, lighting, product focus, pacing, and atmosphere.",
+                  },
                 },
-                required: ["objects", "suggestions"],
+                required: ["objects", "suggestions", "directorPrompt"],
               },
             },
           },
