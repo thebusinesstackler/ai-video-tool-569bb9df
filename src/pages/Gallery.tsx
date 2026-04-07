@@ -665,35 +665,43 @@ const Gallery = () => {
           </TabsContent>
 
           <TabsContent value="video-repo" className="space-y-6 mt-4">
-            {/* Video upload zone */}
-            <Card className="border-dashed border-2 border-muted-foreground/25">
-              <CardContent className="p-6">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <Video className="w-10 h-10 text-muted-foreground/50" />
-                  <div>
-                    <p className="font-medium text-foreground">Upload Videos</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Add MP4, MOV or WebM videos to your Lifecykel library (max 100MB each)
-                    </p>
-                  </div>
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
-                      multiple
-                      onChange={(e) => e.target.files && handleVideoUpload(e.target.files)}
-                    />
-                    <Button asChild variant="default" size="sm" disabled={isUploadingVideo}>
-                      <span>
-                        {isUploadingVideo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                        {isUploadingVideo ? 'Uploading...' : 'Upload Videos'}
-                      </span>
-                    </Button>
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Drag & drop video upload zone */}
+            <input
+              ref={videoFileInputRef}
+              type="file"
+              className="hidden"
+              accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+              multiple
+              onChange={(e) => e.target.files && handleVideoUpload(e.target.files)}
+            />
+            <div
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setVideoDragOver(true); }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setVideoDragOver(false); }}
+              onDrop={handleVideoDrop}
+              onClick={() => !isUploadingVideo && videoFileInputRef.current?.click()}
+              className={`relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
+                videoDragOver
+                  ? 'border-primary bg-primary/10 scale-[1.01]'
+                  : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5'
+              } ${isUploadingVideo ? 'pointer-events-none opacity-60' : ''}`}
+            >
+              <div className={`p-4 rounded-full transition-colors ${videoDragOver ? 'bg-primary/20' : 'bg-muted'}`}>
+                {isUploadingVideo ? (
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                ) : (
+                  <Upload className={`w-8 h-8 transition-colors ${videoDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+                )}
+              </div>
+              <div className="text-center">
+                <p className={`font-medium transition-colors ${videoDragOver ? 'text-primary' : 'text-foreground'}`}>
+                  {isUploadingVideo ? 'Uploading...' : videoDragOver ? 'Drop videos here' : 'Drag & drop videos'}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">or click to browse • MP4, MOV, WebM (max 100MB)</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add your prompt after upload so the AI Director can remix with the same character
+              </p>
+            </div>
 
             {/* Download report button */}
             {videoRepoEntries.length > 0 && (
