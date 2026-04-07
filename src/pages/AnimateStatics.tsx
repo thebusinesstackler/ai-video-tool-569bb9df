@@ -333,8 +333,6 @@ const AnimateStatics = () => {
                   </div>
                 </div>
               )}
-                </div>
-              </div>
 
               {analysis && (
                 <div className="space-y-2">
