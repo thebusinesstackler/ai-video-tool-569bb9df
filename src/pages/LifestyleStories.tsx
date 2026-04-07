@@ -711,6 +711,7 @@ const LifestyleStories = () => {
               </CardContent>
             </Card>
           )}
+          </>
         )}
 
         {/* Step 2: Brand Analysis Results */}
