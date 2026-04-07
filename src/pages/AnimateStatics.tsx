@@ -32,7 +32,7 @@ const STEPS = ['Select Image', 'Animate', 'Generate', 'Export'];
 const AnimateStatics = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { images: galleryImages, loading: galleryLoading } = useImageGallery();
+  const { images: galleryImages, isLoading: galleryLoading } = useImageGallery();
 
   const [step, setStep] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
