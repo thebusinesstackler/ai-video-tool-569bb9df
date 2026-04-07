@@ -1,35 +1,28 @@
 
 
-# Fix Animate Statics Prompt Quality — Prevent Object Movement
+# Fix Animate Statics: Resilient Polling for Video Generation
 
 ## Problem
-The AI video model (WaveSpeed Wan 2.5 i2v) interprets animation prompts too literally. When the analysis prompt suggests actions like "products float" or "elements slide," the video model moves products out of frame and shifts UI elements (bullet points, badges) away. The video model creates a single continuous shot — it cannot do "editing" moves like repositioning objects.
+The animation generation fails mid-polling because the `while (!done)` loop in `startGeneration` has zero error tolerance. A single network hiccup during any of the status polling calls causes the entire generation to abort with "Generation failed", even though the WaveSpeed task is still processing successfully in the background.
 
-## Root Cause
-The system prompt in `analyze-animate-image` allows suggestions like "Product Float" and movement-based animations. The video model treats these as physical motion instructions, causing products and text overlays to drift or exit the frame.
+The edge function logs confirm the task (id: `eb3d9e43...`) is actively `processing` — it's the client-side polling that breaks.
 
-## Fix — Edge Function Prompt Rewrite
+## Fix
 
-Update `supabase/functions/analyze-animate-image/index.ts` system prompt with strict constraints:
+### 1. Add retry logic to polling loop (`src/pages/AnimateStatics.tsx`)
+- Wrap `getWaveSpeedVideoJob(taskId)` in a try/catch inside the while loop
+- Allow up to 3 consecutive failures before giving up
+- Reset the failure counter on any successful poll
+- Increase poll interval slightly (5s instead of 4s) to reduce edge function pressure
+- Add a maximum poll duration (5 minutes) to prevent infinite loops
 
-1. **Add explicit prohibition rules** to the system prompt:
-   - NEVER suggest moving, floating, sliding, or repositioning any object in the image
-   - NEVER suggest removing, hiding, or transitioning any element out of frame
-   - All objects, text overlays, badges, and products must remain in their EXACT position throughout
-   - Only allow: camera movement (zoom, pan, dolly), lighting changes, atmospheric effects (particles, bokeh, lens flare), and subtle environmental motion (background blur shift, light rays)
+### 2. Add retry logic to the status helper (`src/lib/wavespeed.ts`)
+- In `getWaveSpeedVideoJob`, catch the `FunctionsFetchError` and retry once after a 2-second delay before throwing
+- This makes polling resilient across all pages that use this function, not just Animate Statics
 
-2. **Update the suggestion prompt field description** to reinforce:
-   - "Must NOT include any instruction to move, float, slide, or reposition any object. Only describe camera movement, lighting shifts, and atmospheric effects applied OVER the static composition."
+## Changes
 
-3. **Add a negative prompt pattern** — append to every generated prompt:
-   - "All products, text, badges, and UI elements remain perfectly stationary in their original positions throughout the entire animation."
+**`src/lib/wavespeed.ts`** — Add single retry with delay in `getWaveSpeedVideoJob` for transient network errors.
 
-4. **Reduce suggestion types** to safe categories only:
-   - Camera: Slow Zoom In, Slow Zoom Out, Gentle Pan, Orbit
-   - Atmosphere: Bokeh Bloom, Light Rays, Particle Dust, Lens Flare
-   - Lighting: Golden Hour Shift, Spotlight Sweep, Ambient Glow
-   - Depth: Rack Focus, Background Blur Shift
-
-### File Modified
-- `supabase/functions/analyze-animate-image/index.ts` — rewrite system prompt with movement prohibitions and safe animation categories
+**`src/pages/AnimateStatics.tsx`** — Add consecutive failure counter (max 3) and 5-minute timeout to the polling loop. On transient failure, continue polling instead of aborting.
 
