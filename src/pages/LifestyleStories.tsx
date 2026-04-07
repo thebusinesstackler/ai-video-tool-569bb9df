@@ -247,14 +247,91 @@ const LifestyleStories = () => {
         }).eq('id', storyId);
       }
 
-      const hasFailures = successfulScenes.length < concept.scenes.length || !voiceoverUrl || !musicUrl;
-      toast({
-        title: hasFailures ? 'Production Partially Complete' : 'Assets Ready!',
-        description: hasFailures
-          ? `${successfulScenes.length}/${concept.scenes.length} scenes ready. ${voiceoverUrl ? '✓' : '✗'} Voiceover. ${musicUrl ? '✓' : '✗'} Music.`
-          : 'All assets generated. Click "Generate Video" to assemble the final video.',
-        variant: hasFailures ? 'destructive' : 'default',
-      });
+      // Auto-proceed to video assembly if we have scenes
+      if (successfulScenes.length > 0) {
+        toast({ title: 'Assets ready — assembling video…' });
+        setProductionStatus(prev => ({ ...prev, video: 'in_progress' }));
+        setAssemblingVideo(true);
+
+        try {
+          const videoClips: string[] = [];
+          for (const scene of successfulScenes) {
+            try {
+              const taskId = await createWaveSpeedVideo({
+                prompt: scene.visual_prompt,
+                imageUrls: [scene.image_url],
+                model: 'wan-2.5-i2v',
+                aspectRatio: '16:9',
+                duration: Math.min(scene.duration_seconds || 5, 10),
+                userId: user.id,
+                source: 'lifestyle',
+              });
+
+              let job = await getWaveSpeedVideoJob(taskId);
+              let attempts = 0;
+              while (job.status !== 'completed' && job.status !== 'failed' && attempts < 60) {
+                await new Promise(r => setTimeout(r, 5000));
+                job = await getWaveSpeedVideoJob(taskId);
+                attempts++;
+              }
+
+              if (job.status === 'completed' && job.videoUrl) {
+                videoClips.push(job.videoUrl);
+              } else {
+                console.error(`Scene ${scene.scene_number} video failed:`, job.error);
+              }
+            } catch (err) {
+              console.error(`Scene ${scene.scene_number} video error:`, err);
+            }
+          }
+
+          if (videoClips.length === 0) throw new Error('No video clips were generated');
+
+          const audioTracks: string[] = [];
+          if (voiceoverUrl) audioTracks.push(voiceoverUrl);
+          if (musicUrl) audioTracks.push(musicUrl);
+
+          const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+            body: {
+              clips: videoClips.map((clipUrl, idx) => ({
+                url: clipUrl,
+                duration: successfulScenes[idx]?.duration_seconds || 5,
+              })),
+              audioUrls: audioTracks,
+              aspectRatio: '16:9',
+            },
+          });
+
+          if (stitchError) throw stitchError;
+          const finalVideoUrl = stitchData?.videoUrl || stitchData?.url || null;
+          if (!finalVideoUrl) throw new Error('No video URL returned from stitching');
+
+          setCompletedVideoUrl(finalVideoUrl);
+          setProductionStatus(prev => ({ ...prev, video: 'done' }));
+
+          if (storyId) {
+            await supabase.from('lifestyle_stories' as any).update({
+              video_url: finalVideoUrl,
+              status: 'completed',
+            }).eq('id', storyId);
+          }
+
+          toast({ title: 'Video complete!', description: 'Your lifestyle story video is ready to view.' });
+        } catch (videoErr: any) {
+          console.error('Video assembly failed:', videoErr);
+          setProductionStatus(prev => ({ ...prev, video: 'failed' }));
+          setProductionErrors(prev => ({ ...prev, video: videoErr.message || 'Video assembly failed' }));
+          toast({ title: 'Video assembly failed', description: videoErr.message, variant: 'destructive' });
+        } finally {
+          setAssemblingVideo(false);
+        }
+      } else {
+        toast({
+          title: 'Production Failed',
+          description: 'No scene images could be generated.',
+          variant: 'destructive',
+        });
+      }
     } catch (err: any) {
       const friendly = getFriendlyError(err);
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
