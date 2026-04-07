@@ -4,13 +4,14 @@ import { ImageGallery } from '@/components/ImageGallery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download, Calendar, FileDown } from 'lucide-react';
+import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download, Calendar, FileDown, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import { ImageDropZone } from '@/components/ImageDropZone';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ProductImage {
   id: string;
@@ -44,6 +45,8 @@ const Gallery = () => {
   const [isLoadingCalendarImages, setIsLoadingCalendarImages] = useState(false);
   const [isUploadingCalendar, setIsUploadingCalendar] = useState(false);
   const [isGeneratingVideoReport, setIsGeneratingVideoReport] = useState(false);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [editVideoPrompt, setEditVideoPrompt] = useState('');
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
@@ -258,6 +261,29 @@ const Gallery = () => {
       toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsUploadingVideo(false);
+    }
+  };
+
+  const updateVideoPrompt = async (id: string, newPrompt: string) => {
+    try {
+      const { error } = await supabase.from('generated_images').update({ prompt: newPrompt }).eq('id', id);
+      if (error) throw error;
+      setVideoRepoEntries(prev => prev.map(e => e.id === id ? { ...e, prompt: newPrompt } : e));
+      setEditingVideoId(null);
+      toast({ title: 'Prompt Updated' });
+    } catch (error: any) {
+      toast({ title: 'Update Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const deleteVideoEntry = async (id: string) => {
+    try {
+      const { error } = await supabase.from('generated_images').delete().eq('id', id);
+      if (error) throw error;
+      setVideoRepoEntries(prev => prev.filter(e => e.id !== id));
+      toast({ title: 'Video Deleted' });
+    } catch (error: any) {
+      toast({ title: 'Delete Failed', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -639,11 +665,55 @@ const Gallery = () => {
                             <Download className="w-4 h-4" />
                           </a>
                         </Button>
+                        <Button variant="destructive" size="icon" className="h-10 w-10 rounded-full" onClick={() => deleteVideoEntry(entry.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    <CardContent className="p-3">
-                      <p className="text-xs text-muted-foreground line-clamp-2">{entry.prompt || 'Video Repo project'}</p>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">{new Date(entry.created_at).toLocaleDateString()}</p>
+                    <CardContent className="p-3 space-y-1">
+                      {editingVideoId === entry.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editVideoPrompt}
+                            onChange={(e) => setEditVideoPrompt(e.target.value)}
+                            placeholder="Enter the prompt used to create this video"
+                            rows={3}
+                            className="text-xs"
+                            autoFocus
+                          />
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => setEditingVideoId(null)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => updateVideoPrompt(entry.id, editVideoPrompt)}
+                            >
+                              <Check className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-1">
+                          <p className="text-xs text-muted-foreground line-clamp-2 flex-1">{entry.prompt || 'No prompt — click edit to add one'}</p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => { setEditingVideoId(entry.id); setEditVideoPrompt(entry.prompt || ''); }}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                      <p className="text-[10px] text-muted-foreground/60">{new Date(entry.created_at).toLocaleDateString()}</p>
                     </CardContent>
                   </Card>
                 ))}
