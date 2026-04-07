@@ -1,49 +1,65 @@
 
-# Lifestyle Stories Feature
 
-## Phase 1 — Foundation (this session)
+# Animate Statics — New AI Tool
 
-### 1. Add navigation & page route
-- Add "Lifestyle Stories" nav item under AI Tools group in Navigation.tsx
-- Create `/lifestyle-stories` route in App.tsx
-- Create `src/pages/LifestyleStories.tsx` page shell with Layout
+## Overview
+A new page under AI Tools that lets users upload or select a static image, get AI-powered animation suggestions, and generate animated video clips using existing WaveSpeed image-to-video models. The AI analyzes the image and interprets natural-language prompts to determine animation direction.
 
-### 2. Brand Analysis Step
-- URL input form for website analysis
-- Create `supabase/functions/analyze-brand-website/index.ts` edge function that:
-  - Uses Firecrawl to scrape the website (or falls back to Lovable AI if no Firecrawl connector)
-  - Sends content to Lovable AI (Gemini 3 Flash) to extract: brand tone, product type, target audience, visual style, key benefits, content angles
-  - Returns recommended video types (lifestyle benefit, before/after, daily routine, problem-solution, testimonial, emotional, education)
-- Display analysis results and video type recommendations as selectable cards
+## What Gets Built
 
-### 3. Video Concept Generation
-- User selects duration (15s, 30s, 60s) and number of concepts (3-5)
-- Create `supabase/functions/generate-lifestyle-concepts/index.ts` that generates 3-5 story concepts with:
-  - Hook, scene breakdowns, product placement moments, CTA
-  - Each concept has title, description, scene list with prompts
-- Display concepts as cards for user to pick/edit
+### 1. Navigation and routing
+- Add "Animate Statics" nav item under AI Tools group in `Navigation.tsx` with `Wand2` icon and Beta badge
+- Add `/animate-statics` route in `App.tsx` (protected)
+- Create `src/pages/AnimateStatics.tsx`
 
-### 4. Database table
-- Create `lifestyle_stories` table to persist projects (user_id, brand_analysis, concepts, selected_concept, scenes, voiceover_url, music_url, video_url, status)
+### 2. Page UI — multi-step wizard
+**Step 1: Image Selection**
+- Upload a new image (drag-and-drop zone) or pick from existing Image Gallery (reuse `useImageGallery` hook)
+- Show selected image preview
 
-### 5. Video Production Pipeline
-- Reuse existing infrastructure:
-  - Scene image generation via `generate-scene-image` or `generate-premium-visual`
-  - Video generation via `wavespeed-video` (Sora-2/VEO3)
-  - Voiceover via `text-to-speech` (OpenAI TTS) or Google Cloud TTS
-  - Background music via WaveSpeed music proxy
-  - Stitching via Creatomate or canvas fallback
-- Generate all scenes for selected concept sequentially
-- Show progress indicator during generation
+**Step 2: AI Analysis and Prompt**
+- Call a new edge function `analyze-animate-image` that sends the image to Lovable AI (Gemini 2.5 Pro with vision) to identify objects, layout, product elements
+- Display AI-suggested animation ideas as clickable chips (e.g. "Slow zoom in", "Product float", "Background parallax", "Fade-in CTA text")
+- Free-text prompt input where users can type custom instructions like "Add a Shop Now button" or "Animate the bottle left and right"
+- Combine user prompt + AI suggestions into a final animation prompt
 
-### 6. Timeline Editor Integration
-- Reuse existing `TimelineEditor` component
-- Load generated scenes into timeline tracks (Scenes, Voiceover, Music)
-- Allow swap/trim/reorder while keeping alignment
-- Re-stitch capability after edits
+**Step 3: Generation**
+- Call `wavespeed-video` with model `kling-v3.0-pro` (high-quality image-to-video) using the image and composed prompt
+- Poll for status, show progress bar
+- Display video preview when complete
 
-## Phase 2 — Polish (follow-up)
-- Multiple concept batch generation
-- Advanced brand analysis with Firecrawl branding format
-- Export/download options
-- Saved templates library
+**Step 4: Refine and Export**
+- Video player with the result
+- "Refine" button to go back to prompt step and adjust
+- Option to add background music (reuse existing `generate-music` edge function)
+- Export as downloadable MP4/GIF
+- Save to gallery option
+
+### 3. New edge function: `analyze-animate-image`
+- Accepts `{ imageUrl: string }`
+- Sends image to Lovable AI Gateway (Gemini 2.5 Pro) with a system prompt asking it to:
+  - Identify objects, products, text, layout elements in the image
+  - Suggest 5-8 animation directions (zoom, pan, float, pulse, parallax, fade-in text, etc.)
+  - Return structured JSON via tool calling
+- Returns `{ objects: string[], suggestions: { label: string, prompt: string }[] }`
+
+### 4. Database table: `animated_statics`
+- Columns: `id`, `user_id`, `source_image_url`, `analysis` (JSONB), `prompt`, `animation_url`, `music_url`, `status`, `created_at`, `updated_at`
+- RLS: users can only CRUD their own rows
+
+## Technical Details
+
+**Files to create:**
+- `src/pages/AnimateStatics.tsx` — main page with 4-step wizard
+- `supabase/functions/analyze-animate-image/index.ts` — AI vision analysis
+
+**Files to modify:**
+- `src/components/Navigation.tsx` — add nav item
+- `src/App.tsx` — add route
+
+**Video generation:** Reuses existing `wavespeed-video` edge function with `kling-v3.0-pro` model (best quality for image-to-video). The composed prompt from the AI analysis + user input drives the animation style.
+
+**GIF export:** Use the browser to capture video frames and encode as GIF client-side, or provide MP4 download directly (GIF encoding can be a Phase 2 enhancement).
+
+**Music:** Reuse existing `generate-music` edge function to add background audio matched to mood.
+
