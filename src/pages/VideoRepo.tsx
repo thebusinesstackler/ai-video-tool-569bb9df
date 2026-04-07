@@ -53,7 +53,22 @@ interface VideoRepoProject {
   status: string;
   created_at: string;
   updated_at: string;
+  model?: string | null;
+  external_task_id?: string | null;
+  custom_name?: string | null;
 }
+
+const MODEL_OPTIONS = [
+  'openai/sora-2/image-to-video',
+  'openai/sora-2/text-to-video',
+  'wan-2.5-i2v',
+  'wan-2.5-t2v',
+  'veo3',
+  'kling-1.5',
+  'runway-gen3',
+  'pika-1.0',
+  'other',
+];
 
 const statusColors: Record<string, string> = {
   analyzing: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30',
