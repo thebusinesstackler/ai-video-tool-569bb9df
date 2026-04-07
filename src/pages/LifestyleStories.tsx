@@ -127,10 +127,11 @@ const LifestyleStories = () => {
 
     setGeneratingVideo(true);
     setStep('production');
+    setProductionStatus({ scenes: 'in_progress', voiceover: 'queued', music: 'queued' });
 
     try {
       // Save to database
-      const { error: dbError } = await supabase.from('lifestyle_stories' as any).insert({
+      const { data: storyRecord, error: dbError } = await supabase.from('lifestyle_stories' as any).insert({
         user_id: user.id,
         brand_url: url,
         brand_analysis: brandAnalysis,
@@ -140,12 +141,83 @@ const LifestyleStories = () => {
         scenes: concept.scenes,
         title: concept.title,
         status: 'generating',
-      });
+      }).select('id').single();
       if (dbError) console.error('Save error:', dbError);
 
+      const storyId = storyRecord?.id;
+
+      // Generate scene images
+      const sceneResults = [];
+      for (let i = 0; i < concept.scenes.length; i++) {
+        const scene = concept.scenes[i];
+        try {
+          const { data: imgData, error: imgError } = await supabase.functions.invoke('generate-scene-image', {
+            body: {
+              prompt: scene.visual_prompt,
+              style: brandAnalysis?.visual_style || 'cinematic',
+            },
+          });
+          if (imgError) throw imgError;
+          sceneResults.push({ ...scene, image_url: imgData?.imageUrl || null });
+        } catch (err) {
+          console.error(`Scene ${i + 1} image failed:`, err);
+          sceneResults.push({ ...scene, image_url: null });
+        }
+      }
+
+      setProductionStatus(prev => ({ ...prev, scenes: 'done', voiceover: 'in_progress' }));
+
+      // Generate voiceover
+      let voiceoverUrl: string | null = null;
+      try {
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+          body: {
+            text: concept.voiceover_script,
+            voice: 'alloy',
+          },
+        });
+        if (ttsError) throw ttsError;
+        voiceoverUrl = ttsData?.audioUrl || null;
+      } catch (err) {
+        console.error('Voiceover generation failed:', err);
+      }
+
+      setProductionStatus(prev => ({ ...prev, voiceover: 'done', music: 'in_progress' }));
+
+      // Generate background music
+      let musicUrl: string | null = null;
+      try {
+        const { data: musicData, error: musicError } = await supabase.functions.invoke('generate-music', {
+          body: {
+            prompt: `${concept.music_mood} background music for a ${concept.type} video, ${duration} seconds`,
+            duration,
+          },
+        });
+        if (musicError) throw musicError;
+        musicUrl = musicData?.audioUrl || null;
+      } catch (err) {
+        console.error('Music generation failed:', err);
+      }
+
+      setProductionStatus(prev => ({ ...prev, music: 'done' }));
+
+      // Update DB record
+      if (storyId) {
+        await supabase.from('lifestyle_stories' as any).update({
+          scenes: sceneResults,
+          voiceover_url: voiceoverUrl,
+          music_url: musicUrl,
+          status: 'completed',
+        }).eq('id', storyId);
+      }
+
+      setCompletedScenes(sceneResults);
+      setCompletedVoiceover(voiceoverUrl);
+      setCompletedMusic(musicUrl);
+
       toast({
-        title: 'Production Started',
-        description: 'Your lifestyle story video is being generated. This may take a few minutes.',
+        title: 'Production Complete!',
+        description: `${sceneResults.filter(s => s.image_url).length} scenes generated with voiceover and music.`,
       });
     } catch (err: any) {
       const friendly = getFriendlyError(err);
