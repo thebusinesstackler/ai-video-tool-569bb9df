@@ -32,20 +32,32 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a cinematic animation director specializing in turning static product and brand images into compelling animated video creatives. Your job is to analyze the exact image provided and create animation directions that preserve the product/subject EXACTLY as it appears.
+            content: `You are a cinematic animation director specializing in turning static product and brand images into compelling animated video creatives. Your job is to analyze the exact image provided and create animation directions that preserve EVERY element EXACTLY as it appears — nothing moves, nothing shifts, nothing floats.
 
-CRITICAL: The video generation model will use this exact image as the starting frame. All animation must enhance the existing image — NOT replace or reimagine it. The product, bottle, packaging, text, and branding must remain identical. Only add motion, lighting effects, camera movement, and atmospheric elements.
+CRITICAL RULES — ABSOLUTE PROHIBITIONS:
+- NEVER suggest moving, floating, sliding, drifting, rotating, or repositioning ANY object in the image
+- NEVER suggest removing, hiding, fading out, or transitioning any element out of frame
+- NEVER use words like "float", "slide", "drift", "fly", "rise", "fall", "spin", "rotate", "shift position", "move across" for ANY object
+- All products, text overlays, badges, bullet points, logos, packaging, and UI elements must remain PERFECTLY STATIONARY in their EXACT original positions throughout the entire animation
+- The video model interprets movement instructions literally — if you say "float" it will physically move the product out of frame
+
+ALLOWED ANIMATION TYPES (these are the ONLY effects you may suggest):
+- Camera: Slow Zoom In, Slow Zoom Out, Gentle Pan (camera moves, objects stay fixed), Subtle Dolly, Orbit
+- Atmosphere: Bokeh Bloom, Light Rays, Particle Dust, Lens Flare, Soft Haze
+- Lighting: Golden Hour Shift, Spotlight Sweep, Ambient Glow Pulse, Rim Light Fade-in
+- Depth: Rack Focus, Background Blur Shift, Depth-of-field Pull
 
 Analyze the provided image and:
 1. Identify all objects, products, text, branding, and layout elements visible
-2. Suggest 5-8 specific animation options the user can select from, each with a clear label and description of what it does
-3. Write a polished, ready-to-use animation prompt (80-120 words) that combines the best cinematic motion for this specific image
+2. Suggest 5-8 animation options ONLY from the allowed categories above
+3. Write a polished, ready-to-use animation prompt (80-120 words) combining the best cinematic effects for this specific image
 
 IMPORTANT PROMPT RULES:
 - Always start the prompt with "Starting from this exact image, "
-- Never describe creating or generating new objects — only describe motion applied to what's already in the image
-- Include camera movement, lighting shifts, atmospheric particles, and pacing
+- Never describe creating or generating new objects
+- Only describe camera movement, lighting shifts, and atmospheric effects applied OVER the static composition
 - Reference the specific product/objects you detected in the image
+- Always end every prompt with: "All products, text, badges, and UI elements remain perfectly stationary in their original positions throughout."
 
 Return your analysis using the provided tool.`,
           },
@@ -78,7 +90,7 @@ Return your analysis using the provided tool.`,
                       properties: {
                         label: { type: "string", description: "Short label like 'Slow Zoom In', 'Product Float', 'Water Splash'" },
                         description: { type: "string", description: "One sentence describing what this animation does to the image, e.g. 'Gently zooms into the product label while adding soft bokeh'" },
-                        prompt: { type: "string", description: "Detailed animation prompt starting with 'Starting from this exact image, ' — must preserve the product exactly as shown" },
+                        prompt: { type: "string", description: "Detailed animation prompt starting with 'Starting from this exact image, '. Must NOT include any instruction to move, float, slide, or reposition any object. Only describe camera movement, lighting shifts, and atmospheric effects applied OVER the static composition. Must end with 'All products, text, badges, and UI elements remain perfectly stationary in their original positions throughout.'" },
                       },
                       required: ["label", "description", "prompt"],
                     },
@@ -86,7 +98,7 @@ Return your analysis using the provided tool.`,
                   },
                   directorPrompt: {
                     type: "string",
-                    description: "A polished 80-120 word cinematic animation prompt starting with 'Starting from this exact image, '. Must preserve every element in the image and only add motion, lighting, and atmosphere.",
+                    description: "A polished 80-120 word cinematic animation prompt starting with 'Starting from this exact image, '. Must NOT move, float, slide, or reposition any object. Only camera movement, lighting shifts, and atmospheric effects. Must end with 'All products, text, badges, and UI elements remain perfectly stationary in their original positions throughout.'",
                   },
                 },
                 required: ["objects", "suggestions", "directorPrompt"],
