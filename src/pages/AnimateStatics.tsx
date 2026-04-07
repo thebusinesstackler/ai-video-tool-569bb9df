@@ -264,19 +264,24 @@ const AnimateStatics = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Wand2 className="w-5 h-5" /> Animation Direction</CardTitle>
-              <CardDescription>Choose AI-suggested animations or write your own prompt</CardDescription>
+              <CardDescription>Your AI director has analyzed the image and crafted a cinematic brief</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex gap-4">
                 <img src={selectedImage!} alt="Source" className="w-32 h-32 object-cover rounded-lg border border-border flex-shrink-0" />
                 <div className="flex-1 space-y-2">
                   {analyzing ? (
-                    <div className="flex items-center gap-2 text-muted-foreground py-8">
-                      <Loader2 className="w-5 h-5 animate-spin" /> Analyzing your image…
+                    <div className="flex flex-col items-start gap-2 py-6">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="font-medium">AI Director is analyzing your image…</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Detecting objects, composition, and crafting your animation brief</p>
                     </div>
                   ) : analysis ? (
                     <>
                       <p className="text-sm text-muted-foreground">Detected: {analysis.objects.join(', ')}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Toggle effects to add to your brief:</p>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {analysis.suggestions.map((s, i) => (
                           <Badge
@@ -294,21 +299,29 @@ const AnimateStatics = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Custom prompt (optional)</label>
-                <Textarea
-                  placeholder='e.g. "Add a Shop Now button", "Animate the bottle left and right", "Slow zoom with floating particles"'
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  rows={3}
-                />
-              </div>
+              {analysis && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    <label className="text-sm font-medium text-foreground">Director's Brief</label>
+                    <Badge variant="secondary" className="text-[10px]">AI Generated</Badge>
+                  </div>
+                  <Textarea
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    rows={4}
+                    className="text-sm"
+                    placeholder="Your AI-generated animation direction will appear here…"
+                  />
+                  <p className="text-xs text-muted-foreground">Feel free to edit — this prompt drives the animation engine</p>
+                </div>
+              )}
 
               <div className="flex justify-between">
                 <Button variant="outline" onClick={() => setStep(0)} className="gap-2">
                   <ChevronLeft className="w-4 h-4" /> Back
                 </Button>
-                <Button onClick={startGeneration} disabled={analyzing || (!selectedSuggestions.size && !customPrompt.trim())} className="gap-2">
+                <Button onClick={startGeneration} disabled={analyzing || !customPrompt.trim()} className="gap-2">
                   <Play className="w-4 h-4" /> Generate Animation
                 </Button>
               </div>
