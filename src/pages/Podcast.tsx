@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { PodcastAIDirector } from '@/components/PodcastAIDirector';
 import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
 
