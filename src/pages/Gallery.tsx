@@ -4,13 +4,14 @@ import { ImageGallery } from '@/components/ImageGallery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download, Calendar, FileDown } from 'lucide-react';
+import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download, Calendar, FileDown, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import { ImageDropZone } from '@/components/ImageDropZone';
 import { VideoPlayer } from '@/components/VideoPlayer';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ProductImage {
   id: string;
@@ -44,6 +45,8 @@ const Gallery = () => {
   const [isLoadingCalendarImages, setIsLoadingCalendarImages] = useState(false);
   const [isUploadingCalendar, setIsUploadingCalendar] = useState(false);
   const [isGeneratingVideoReport, setIsGeneratingVideoReport] = useState(false);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [editVideoPrompt, setEditVideoPrompt] = useState('');
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
