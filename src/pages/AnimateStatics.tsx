@@ -295,21 +295,44 @@ const AnimateStatics = () => {
                   ) : analysis ? (
                     <>
                       <p className="text-sm text-muted-foreground">Detected: {analysis.objects.join(', ')}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Toggle effects to add to your brief:</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {analysis.suggestions.map((s, i) => (
-                          <Badge
-                            key={i}
-                            variant={selectedSuggestions.has(i) ? 'default' : 'outline'}
-                            className="cursor-pointer transition-colors"
-                            onClick={() => toggleSuggestion(i)}
-                          >
-                            {s.label}
-                          </Badge>
-                        ))}
-                      </div>
                     </>
                   ) : null}
+                </div>
+              </div>
+
+              {analysis && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-medium text-foreground">AI Suggests</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {analysis.suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => selectSuggestion(i)}
+                        className={cn(
+                          "text-left p-3 rounded-lg border transition-all",
+                          selectedSuggestions.has(i)
+                            ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                            : "border-border hover:border-primary/40 hover:bg-muted/50"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full flex-shrink-0",
+                            selectedSuggestions.has(i) ? "bg-primary" : "bg-muted-foreground/30"
+                          )} />
+                          <span className="text-sm font-medium text-foreground">{s.label}</span>
+                        </div>
+                        {s.description && (
+                          <p className="text-xs text-muted-foreground mt-1 ml-4">{s.description}</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
                 </div>
               </div>
 
