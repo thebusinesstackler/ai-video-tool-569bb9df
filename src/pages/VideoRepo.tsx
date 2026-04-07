@@ -804,6 +804,12 @@ Then provide a final **VIDEO PROMPT** block:
               </CardContent>
             </Card>
           )}
+
+          <div className="flex gap-2">
+            <Button onClick={() => handleRemixProject(selectedProject)} className="gap-1.5">
+              <RefreshCw className="w-4 h-4" /> Remix This Video
+            </Button>
+          </div>
         </div>
       </Layout>
     );
