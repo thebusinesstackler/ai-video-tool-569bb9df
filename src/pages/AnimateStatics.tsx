@@ -120,8 +120,13 @@ const AnimateStatics = () => {
     const preservationPrefix = analysis?.objects?.length
       ? `[PRESERVE EXACTLY: ${analysis.objects.join('; ')}] `
       : '';
+    // Extract transcribed text items for a dedicated text-freeze anchor
+    const textItems = analysis?.objects?.filter((o: string) => /^Text:/i.test(o)) || [];
+    const textFreeze = textItems.length > 0
+      ? `[TEXT FREEZE: All visible text and lettering must remain exactly as shown — treat as fixed texture, do not regenerate any characters. Detected text: ${textItems.join('; ')}] `
+      : '[TEXT FREEZE: All visible text, lettering, and typography must be treated as fixed texture — do not regenerate, redraw, or alter any characters.] ';
     const prompt = customPrompt.trim() || analysis?.directorPrompt || 'Subtle cinematic motion with slow zoom and gentle parallax';
-    return preservationPrefix + prompt;
+    return preservationPrefix + textFreeze + prompt;
   };
 
   const startGeneration = async () => {

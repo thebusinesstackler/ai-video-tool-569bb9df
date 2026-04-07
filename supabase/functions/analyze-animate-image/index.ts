@@ -41,12 +41,18 @@ UNDERSTANDING THE VIDEO MODEL:
 - Camera movements work well (zoom, pan) because they move the virtual camera, not the objects
 - Lighting/atmosphere effects work well because they modify the scene globally
 - ANY instruction about an object moving WILL cause it to move and potentially leave the frame
+- The video model CANNOT accurately regenerate text — it will garble, misspell, or corrupt any lettering it tries to re-render
 
 CRITICAL PRESERVATION RULES:
 - Count every element precisely: if there are 5 stars, say "five stars"; if 3 bullet points, say "three bullet points"
 - NEVER use movement verbs (float, slide, drift, fly, rise, fall, spin, rotate, shift, move, travel, glide, sweep, sway, bounce) for ANY object, product, text, icon, badge, or UI element
 - Every product, label, star rating, bullet point, badge, logo, and text overlay must remain FROZEN in place
 - The only things that may "move" are: the camera, light sources, atmospheric particles, and focus plane
+
+TEXT PRESERVATION (CRITICAL):
+- The video model CANNOT render text accurately. All prompts MUST instruct the model to treat ALL text, lettering, typography, and characters as FIXED STATIC TEXTURES — never regenerate, redraw, or alter them
+- For every text element in the image, transcribe the EXACT wording in the objects list (e.g., "Text: 'One drop. Three mushrooms. All for her.'")
+- Every prompt must include: "All text, lettering, and typography must be treated as fixed texture — do not regenerate, redraw, or alter any characters."
 
 ALLOWED EFFECTS (the ONLY animation types you may suggest):
 - Camera: Slow Zoom In, Slow Zoom Out, Gentle Pan, Subtle Dolly Push, Slow Orbit
@@ -66,6 +72,7 @@ PROMPT FORMAT RULES:
 - Start every prompt with: "Starting from this exact image, the camera [movement]. "
 - Describe only what the CAMERA does and what LIGHT/ATMOSPHERE does — never what objects do
 - Reference specific detected elements to anchor the prompt (e.g., "the gold star rating remains crisp and fixed")
+- Include in every prompt: "All text, lettering, and typography must be treated as fixed texture — do not regenerate, redraw, or alter any characters."
 - End every prompt with: "Every element — products, text, stars, badges, icons — remains perfectly frozen in its original position throughout the entire shot."
 
 Return your analysis using the provided tool.`,
