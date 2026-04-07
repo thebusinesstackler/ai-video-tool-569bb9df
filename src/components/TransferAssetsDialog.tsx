@@ -136,12 +136,11 @@ export const TransferAssetsDialog = () => {
             onClick={handleTransfer}
             disabled={isTransferring || !email || email !== confirmEmail || selected.length === 0}
             className="w-full"
-            variant="destructive"
           >
             {isTransferring ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Transferring...</>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sharing...</>
             ) : (
-              'Transfer Selected Assets'
+              'Share Selected Assets'
             )}
           </Button>
         </div>
