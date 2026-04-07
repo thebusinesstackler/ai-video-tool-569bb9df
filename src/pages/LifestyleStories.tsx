@@ -135,7 +135,7 @@ const LifestyleStories = () => {
 
     try {
       // Save to database
-      const { data: storyRecord, error: dbError } = await supabase.from('lifestyle_stories' as any).insert({
+      const { data: storyRecord, error: dbError } = await (supabase.from('lifestyle_stories' as any) as any).insert({
         user_id: user.id,
         brand_url: url,
         brand_analysis: brandAnalysis,
@@ -148,7 +148,7 @@ const LifestyleStories = () => {
       }).select('id').single();
       if (dbError) console.error('Save error:', dbError);
 
-      const storyId = storyRecord?.id;
+      const storyId = (storyRecord as any)?.id;
 
       // Generate scene images
       const sceneResults = [];
