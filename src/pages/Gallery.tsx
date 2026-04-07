@@ -264,7 +264,27 @@ const Gallery = () => {
     }
   };
 
-  const downloadVideoReport = async () => {
+  const updateVideoPrompt = async (id: string, newPrompt: string) => {
+    try {
+      const { error } = await supabase.from('generated_images').update({ prompt: newPrompt }).eq('id', id);
+      if (error) throw error;
+      setVideoRepoEntries(prev => prev.map(e => e.id === id ? { ...e, prompt: newPrompt } : e));
+      setEditingVideoId(null);
+      toast({ title: 'Prompt Updated' });
+    } catch (error: any) {
+      toast({ title: 'Update Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const deleteVideoEntry = async (id: string) => {
+    try {
+      const { error } = await supabase.from('generated_images').delete().eq('id', id);
+      if (error) throw error;
+      setVideoRepoEntries(prev => prev.filter(e => e.id !== id));
+      toast({ title: 'Video Deleted' });
+    } catch (error: any) {
+      toast({ title: 'Delete Failed', description: error.message, variant: 'destructive' });
+    }
     if (videoRepoEntries.length === 0) return;
     setIsGeneratingVideoReport(true);
     try {
