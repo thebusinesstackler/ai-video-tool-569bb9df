@@ -1,30 +1,35 @@
 
 
-# Save Brand Analysis as Draft on Lifestyle Stories
+# Fix Animate Statics Prompt Quality — Prevent Object Movement
 
-## What Changes
+## Problem
+The AI video model (WaveSpeed Wan 2.5 i2v) interprets animation prompts too literally. When the analysis prompt suggests actions like "products float" or "elements slide," the video model moves products out of frame and shifts UI elements (bullet points, badges) away. The video model creates a single continuous shot — it cannot do "editing" moves like repositioning objects.
 
-When a brand URL is analyzed, immediately save a `lifestyle_stories` record with `status: 'draft'`. On page load, fetch existing drafts so the user can resume from where they left off. Each subsequent step (concepts generated, concept selected) updates the same record rather than creating a new one.
+## Root Cause
+The system prompt in `analyze-animate-image` allows suggestions like "Product Float" and movement-based animations. The video model treats these as physical motion instructions, causing products and text overlays to drift or exit the frame.
 
-## Plan
+## Fix — Edge Function Prompt Rewrite
 
-### 1. Save draft after brand analysis
-In `analyzeBrand()`, after receiving the analysis, insert a new `lifestyle_stories` row with `status: 'draft'`, `brand_url`, `brand_analysis`, and `title` (brand name). Store the returned row ID in state (`storyId`).
+Update `supabase/functions/analyze-animate-image/index.ts` system prompt with strict constraints:
 
-### 2. Update draft on subsequent steps
-- In `generateConcepts()`, update the existing row with concepts, duration, and selected video types.
-- In `selectConceptAndGenerate()`, update the existing row instead of inserting a new one (remove the current insert, use update with `storyId`).
+1. **Add explicit prohibition rules** to the system prompt:
+   - NEVER suggest moving, floating, sliding, or repositioning any object in the image
+   - NEVER suggest removing, hiding, or transitioning any element out of frame
+   - All objects, text overlays, badges, and products must remain in their EXACT position throughout
+   - Only allow: camera movement (zoom, pan, dolly), lighting changes, atmospheric effects (particles, bokeh, lens flare), and subtle environmental motion (background blur shift, light rays)
 
-### 3. Load existing drafts on page load
-- Add a `useEffect` that fetches the user's `lifestyle_stories` ordered by `updated_at DESC`.
-- Show a "Recent Drafts" section on the URL step with cards showing brand name, URL, and date.
-- Clicking a draft restores `brandAnalysis`, `editedProductType`, `concepts`, `url`, and navigates to the appropriate step.
+2. **Update the suggestion prompt field description** to reinforce:
+   - "Must NOT include any instruction to move, float, slide, or reposition any object. Only describe camera movement, lighting shifts, and atmospheric effects applied OVER the static composition."
 
-### 4. UI additions
-- Small "Saved Drafts" list on the first step (URL entry) showing recent brand analyses.
-- Each draft card shows brand name, URL snippet, and last updated time.
-- A "Resume" button that loads the draft state and jumps to the analysis or concepts step.
+3. **Add a negative prompt pattern** — append to every generated prompt:
+   - "All products, text, badges, and UI elements remain perfectly stationary in their original positions throughout the entire animation."
+
+4. **Reduce suggestion types** to safe categories only:
+   - Camera: Slow Zoom In, Slow Zoom Out, Gentle Pan, Orbit
+   - Atmosphere: Bokeh Bloom, Light Rays, Particle Dust, Lens Flare
+   - Lighting: Golden Hour Shift, Spotlight Sweep, Ambient Glow
+   - Depth: Rack Focus, Background Blur Shift
 
 ### File Modified
-- `src/pages/LifestyleStories.tsx` — add `storyId` state, draft save/load logic, drafts UI section
+- `supabase/functions/analyze-animate-image/index.ts` — rewrite system prompt with movement prohibitions and safe animation categories
 
