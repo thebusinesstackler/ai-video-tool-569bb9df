@@ -189,6 +189,14 @@ const LifestyleStories = () => {
       setConcepts(data.concepts || []);
       setStep('concepts');
       toast({ title: 'Concepts Ready!', description: `Generated ${(data.concepts || []).length} video concepts` });
+
+      // Update draft with concepts
+      if (storyId) {
+        await (supabase.from('lifestyle_stories' as any) as any).update({
+          concepts: data.concepts,
+          duration,
+        }).eq('id', storyId);
+      }
     } catch (err: any) {
       const friendly = getFriendlyError(err);
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
