@@ -72,6 +72,7 @@ PROMPT FORMAT RULES:
 - Start every prompt with: "Starting from this exact image, the camera [movement]. "
 - Describe only what the CAMERA does and what LIGHT/ATMOSPHERE does — never what objects do
 - Reference specific detected elements to anchor the prompt (e.g., "the gold star rating remains crisp and fixed")
+- Include in every prompt: "All text, lettering, and typography must be treated as fixed texture — do not regenerate, redraw, or alter any characters."
 - End every prompt with: "Every element — products, text, stars, badges, icons — remains perfectly frozen in its original position throughout the entire shot."
 
 Return your analysis using the provided tool.`,
