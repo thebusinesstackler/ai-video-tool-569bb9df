@@ -82,6 +82,54 @@ const LifestyleStories = () => {
   const [completedMusic, setCompletedMusic] = useState<string | null>(null);
   const [completedVideoUrl, setCompletedVideoUrl] = useState<string | null>(null);
   const [assemblingVideo, setAssemblingVideo] = useState(false);
+  const [storyId, setStoryId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+
+  // Load existing drafts on mount
+  useEffect(() => {
+    if (!user) return;
+    const loadDrafts = async () => {
+      setLoadingDrafts(true);
+      try {
+        const { data } = await (supabase.from('lifestyle_stories' as any) as any)
+          .select('id, title, brand_url, brand_analysis, concepts, selected_concept_index, duration, scenes, status, updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(10);
+        setDrafts(data || []);
+      } catch (err) {
+        console.error('Failed to load drafts:', err);
+      } finally {
+        setLoadingDrafts(false);
+      }
+    };
+    loadDrafts();
+  }, [user]);
+
+  const resumeDraft = (draft: any) => {
+    setStoryId(draft.id);
+    setUrl(draft.brand_url || '');
+    const analysis = draft.brand_analysis as BrandAnalysis;
+    setBrandAnalysis(analysis);
+    setEditedProductType(analysis?.product_type || '');
+    if (draft.duration) setDuration(draft.duration);
+
+    if (draft.concepts && (draft.concepts as any[]).length > 0) {
+      setConcepts(draft.concepts as VideoConcept[]);
+      setStep('concepts');
+    } else {
+      setStep('analysis');
+    }
+    toast({ title: 'Draft loaded', description: `Resuming "${draft.title || 'Untitled'}"` });
+  };
+
+  const deleteDraft = async (draftId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await (supabase.from('lifestyle_stories' as any) as any).delete().eq('id', draftId);
+    setDrafts(prev => prev.filter(d => d.id !== draftId));
+    toast({ title: 'Draft deleted' });
+  };
 
   const analyzeBrand = async () => {
     if (!url.trim()) {
