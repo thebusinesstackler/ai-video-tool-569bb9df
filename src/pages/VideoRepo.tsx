@@ -1232,6 +1232,7 @@ Then provide a final **VIDEO PROMPT** block:
                 </div>
               )}
             </div>
+          </TabsContent>
 
           <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
             <div className="max-w-4xl mx-auto space-y-4">
