@@ -98,7 +98,7 @@ serve(async (req) => {
         }
 
         console.log('Using keyframe interpolation with start and end frames');
-      } else if (params.model === 'alibaba/wan-2.5/text-to-video') {
+      } else if (params.model === 'alibaba/wan-2.5/text-to-video' || params.model === 'wan-2.5-i2v') {
         // Image-to-Video model (alibaba/wan-2.5/image-to-video)
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
         
@@ -122,6 +122,8 @@ serve(async (req) => {
         if (params.audioUrl) {
           requestBody.audio = params.audioUrl;
         }
+        
+        console.log('Using Wan 2.5 Image-to-Video with source image:', params.imageUrls[0]);
       } else if (params.model === 'wan-2.5-a2v') {
         // Audio-to-Video model - try both possible endpoints
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/text-to-video';
