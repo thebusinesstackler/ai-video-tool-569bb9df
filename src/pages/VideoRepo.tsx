@@ -80,7 +80,7 @@ const statusColors: Record<string, string> = {
 const VideoRepo = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [mainTab, setMainTab] = useState<'create' | 'history'>('create');
+  const [mainTab, setMainTab] = useState<'create' | 'history' | 'import'>('create');
   const [activeTab, setActiveTab] = useState<'ad' | 'motion'>('ad');
   const [mode, setMode] = useState<'guided' | 'freeform'>('guided');
   const [prompt, setPrompt] = useState('');
@@ -106,6 +106,20 @@ const VideoRepo = () => {
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
+
+  // Import tab state
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importVideoUrl, setImportVideoUrl] = useState<string | null>(null);
+  const [importFrames, setImportFrames] = useState<string[]>([]);
+  const [isImportAnalyzing, setIsImportAnalyzing] = useState(false);
+  const [importAnalysis, setImportAnalysis] = useState<any>(null);
+  const [importSuggestedPrompt, setImportSuggestedPrompt] = useState('');
+  const [importModel, setImportModel] = useState('');
+  const [importTaskId, setImportTaskId] = useState('');
+  const [importCustomName, setImportCustomName] = useState('');
+  const [isImportSaving, setIsImportSaving] = useState(false);
+  const [importDragOver, setImportDragOver] = useState(false);
+  const importVideoInputRef = useRef<HTMLInputElement>(null);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isExtractingFrames;
