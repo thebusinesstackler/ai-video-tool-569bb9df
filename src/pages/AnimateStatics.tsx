@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface AnimationSuggestion {
   label: string;
+  description?: string;
   prompt: string;
 }
 
