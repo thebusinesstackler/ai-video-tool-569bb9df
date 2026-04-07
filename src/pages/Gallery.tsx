@@ -52,6 +52,7 @@ const Gallery = () => {
   const [videoDragOver, setVideoDragOver] = useState(false);
   const videoFileInputRef = useRef<HTMLInputElement>(null);
   const [isAddingCharacter, setIsAddingCharacter] = useState<string | null>(null);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
