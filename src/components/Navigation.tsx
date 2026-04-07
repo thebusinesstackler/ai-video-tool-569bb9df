@@ -227,7 +227,7 @@ export const Navigation = () => {
       </div>
 
       {/* Navigation */}
-      <div className="space-y-1.5 flex-1">
+      <div className="space-y-1.5 flex-1 overflow-y-auto min-h-0">
         <TooltipProvider delayDuration={0}>
           {standaloneTop.map(item => renderNavLink(item, collapsed))}
           <div className="h-px bg-sidebar-border my-3" />
