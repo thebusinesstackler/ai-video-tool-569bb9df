@@ -567,33 +567,84 @@ const LifestyleStories = () => {
                 Your lifestyle story video is being produced. Scene generation, voiceover, and music will be assembled automatically.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-6 rounded-lg bg-muted/50 justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">
-                  Video production pipeline is running. Each scene will be generated and stitched together with voiceover and music.
-                </p>
-              </div>
+             <CardContent className="space-y-4">
+              {generatingVideo ? (
+                <div className="flex items-center gap-3 p-6 rounded-lg bg-muted/50 justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">
+                    Video production pipeline is running. Each scene will be generated and stitched together with voiceover and music.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 p-6 rounded-lg bg-primary/10 justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-primary" />
+                  <p className="text-sm font-medium">Production complete!</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {[
-                  { icon: Film, label: 'Scene Generation', status: 'In progress' },
-                  { icon: Mic, label: 'Voiceover', status: 'Queued' },
-                  { icon: Music, label: 'Background Music', status: 'Queued' },
+                  { icon: Film, label: 'Scene Generation', status: productionStatus.scenes },
+                  { icon: Mic, label: 'Voiceover', status: productionStatus.voiceover },
+                  { icon: Music, label: 'Background Music', status: productionStatus.music },
                 ].map(item => (
                   <div key={item.label} className="flex items-center gap-2 p-3 rounded-lg border border-border">
-                    <item.icon className="w-4 h-4 text-muted-foreground" />
+                    {item.status === 'in_progress' ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    ) : item.status === 'done' ? (
+                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                    ) : (
+                      <item.icon className="w-4 h-4 text-muted-foreground" />
+                    )}
                     <div>
                       <p className="text-sm font-medium">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.status}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{item.status === 'in_progress' ? 'In progress' : item.status}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                Timeline editing will be available once scenes are generated. You'll be able to swap, reorder, and trim clips.
-              </p>
+              {/* Show completed scenes */}
+              {completedScenes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Generated Scenes</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {completedScenes.map((scene, i) => (
+                      <div key={i} className="rounded-lg overflow-hidden border border-border">
+                        {scene.image_url ? (
+                          <img src={scene.image_url} alt={`Scene ${i + 1}`} className="w-full aspect-video object-cover" />
+                        ) : (
+                          <div className="w-full aspect-video bg-muted flex items-center justify-center">
+                            <Film className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <p className="text-xs p-2 text-muted-foreground truncate">{scene.narration}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {completedVoiceover && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Voiceover</p>
+                  <audio src={completedVoiceover} controls className="w-full" />
+                </div>
+              )}
+
+              {completedMusic && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Background Music</p>
+                  <audio src={completedMusic} controls className="w-full" />
+                </div>
+              )}
+
+              {!generatingVideo && (
+                <Button onClick={() => setStep('concepts')} variant="outline" className="w-full">
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  Back to Concepts
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
