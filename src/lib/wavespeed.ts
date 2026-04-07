@@ -84,18 +84,6 @@ export async function getWaveSpeedVideoJob(taskId: string): Promise<WaveSpeedVid
 
   console.error('WaveSpeed status check error after retries:', lastError);
   throw new Error('Failed to get video job status');
-
-  if (!data) {
-    throw new Error('No status data received');
-  }
-
-  return {
-    taskId: data.taskId || taskId,
-    status: data.status || 'pending',
-    progress: data.progress,
-    videoUrl: data.videoUrl,
-    error: data.error
-  };
 }
 
 // This function now always returns true since we use server-side secrets
