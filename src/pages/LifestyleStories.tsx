@@ -71,6 +71,10 @@ const LifestyleStories = () => {
   const [concepts, setConcepts] = useState<VideoConcept[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<number | null>(null);
   const [generatingVideo, setGeneratingVideo] = useState(false);
+  const [productionStatus, setProductionStatus] = useState<Record<string, string>>({ scenes: 'queued', voiceover: 'queued', music: 'queued' });
+  const [completedScenes, setCompletedScenes] = useState<any[]>([]);
+  const [completedVoiceover, setCompletedVoiceover] = useState<string | null>(null);
+  const [completedMusic, setCompletedMusic] = useState<string | null>(null);
 
   const analyzeBrand = async () => {
     if (!url.trim()) {
