@@ -888,6 +888,20 @@ const Gallery = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Video Preview Dialog */}
+      <Dialog open={!!previewVideoUrl} onOpenChange={(open) => { if (!open) setPreviewVideoUrl(null); }}>
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-black border-none [&>button]:text-white [&>button]:bg-black/50 [&>button]:rounded-full [&>button]:hover:bg-black/80">
+          {previewVideoUrl && (
+            <video
+              src={previewVideoUrl}
+              className="w-full max-h-[80vh] object-contain"
+              controls
+              autoPlay
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
