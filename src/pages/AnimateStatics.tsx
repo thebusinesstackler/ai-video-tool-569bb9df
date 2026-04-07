@@ -57,12 +57,16 @@ const AnimateStatics = () => {
     if (!user) return;
     const ext = file.name.split('.').pop();
     const path = `${user.id}/animate-${Date.now()}.${ext}`;
-    const { data, error } = await supabase.storage.from('project-files').upload(path, file);
+    const { data, error } = await supabase.storage.from('reels').upload(path, file);
     if (error) {
       toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
       return;
     }
-    const { data: { publicUrl } } = supabase.storage.from('project-files').getPublicUrl(data.path);
+    const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(data.path);
+    
+    // Save to gallery so it appears in the user's image library
+    await saveImage({ imageUrl: publicUrl, source: 'upload' });
+    
     handleImageSelect(publicUrl);
   };
 
