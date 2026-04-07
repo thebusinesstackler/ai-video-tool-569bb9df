@@ -390,11 +390,11 @@ const LifestyleStories = () => {
           setCompletedVideoUrl(finalVideoUrl);
           setProductionStatus(prev => ({ ...prev, video: 'done' }));
 
-          if (storyId) {
+          if (currentStoryId) {
             await supabase.from('lifestyle_stories' as any).update({
               video_url: finalVideoUrl,
               status: 'completed',
-            }).eq('id', storyId);
+            }).eq('id', currentStoryId);
           }
 
           toast({ title: 'Video complete!', description: 'Your lifestyle story video is ready to view.' });
