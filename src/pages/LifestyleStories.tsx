@@ -626,6 +626,7 @@ const LifestyleStories = () => {
 
         {/* Step 1: URL Input */}
         {step === 'url' && (
+          <>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
