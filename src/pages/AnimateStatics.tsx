@@ -81,7 +81,9 @@ const AnimateStatics = () => {
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.userMessage || data.error);
-      setAnalysis(data as Analysis);
+      const analysisData = data as Analysis;
+      setAnalysis(analysisData);
+      setCustomPrompt(analysisData.directorPrompt || '');
     } catch (e: any) {
       toast({ title: 'Analysis failed', description: e.message, variant: 'destructive' });
       setStep(0);
