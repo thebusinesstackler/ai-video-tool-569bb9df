@@ -827,11 +827,14 @@ Then provide a final **VIDEO PROMPT** block:
           </p>
         </div>
 
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history')} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'import')} className="flex-1 flex flex-col min-h-0">
           <div className="flex justify-center px-4">
             <TabsList>
               <TabsTrigger value="create" className="gap-1.5">
                 <Play className="w-3.5 h-3.5" /> Create
+              </TabsTrigger>
+              <TabsTrigger value="import" className="gap-1.5">
+                <Upload className="w-3.5 h-3.5" /> Import
               </TabsTrigger>
               <TabsTrigger value="history" className="gap-1.5">
                 <History className="w-3.5 h-3.5" /> History
