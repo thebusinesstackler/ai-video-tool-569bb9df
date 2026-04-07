@@ -9,9 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { getFriendlyError } from '@/lib/errorClassifier';
+import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import {
   Globe, Sparkles, Play, Clock, Film, Music, Mic, Loader2, CheckCircle2,
-  ArrowRight, RefreshCw, ChevronRight, Wand2
+  ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +52,7 @@ interface VideoConcept {
 }
 
 type Step = 'url' | 'analysis' | 'concepts' | 'production';
+type StageStatus = 'queued' | 'in_progress' | 'done' | 'failed' | 'partial';
 
 const DURATIONS = [
   { value: 15, label: '15s', desc: 'Quick hook' },
@@ -65,16 +67,20 @@ const LifestyleStories = () => {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [brandAnalysis, setBrandAnalysis] = useState<BrandAnalysis | null>(null);
+  const [editedProductType, setEditedProductType] = useState('');
   const [selectedVideoTypes, setSelectedVideoTypes] = useState<string[]>([]);
   const [duration, setDuration] = useState(30);
   const [conceptCount, setConceptCount] = useState(3);
   const [concepts, setConcepts] = useState<VideoConcept[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<number | null>(null);
   const [generatingVideo, setGeneratingVideo] = useState(false);
-  const [productionStatus, setProductionStatus] = useState<Record<string, string>>({ scenes: 'queued', voiceover: 'queued', music: 'queued' });
+  const [productionStatus, setProductionStatus] = useState<Record<string, StageStatus>>({ scenes: 'queued', voiceover: 'queued', music: 'queued', video: 'queued' });
+  const [productionErrors, setProductionErrors] = useState<Record<string, string>>({});
   const [completedScenes, setCompletedScenes] = useState<any[]>([]);
   const [completedVoiceover, setCompletedVoiceover] = useState<string | null>(null);
   const [completedMusic, setCompletedMusic] = useState<string | null>(null);
+  const [completedVideoUrl, setCompletedVideoUrl] = useState<string | null>(null);
+  const [assemblingVideo, setAssemblingVideo] = useState(false);
 
   const analyzeBrand = async () => {
     if (!url.trim()) {
@@ -89,6 +95,7 @@ const LifestyleStories = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setBrandAnalysis(data.analysis);
+      setEditedProductType(data.analysis.product_type || '');
       setStep('analysis');
       toast({ title: 'Brand Analyzed!', description: `Found insights for ${data.analysis.brand_name}` });
     } catch (err: any) {
@@ -103,9 +110,11 @@ const LifestyleStories = () => {
     if (!brandAnalysis) return;
     setLoading(true);
     try {
+      // Use edited product type
+      const adjustedAnalysis = { ...brandAnalysis, product_type: editedProductType };
       const { data, error } = await supabase.functions.invoke('generate-lifestyle-concepts', {
         body: {
-          brandAnalysis,
+          brandAnalysis: adjustedAnalysis,
           duration,
           videoTypes: selectedVideoTypes,
           count: conceptCount,
@@ -131,7 +140,12 @@ const LifestyleStories = () => {
 
     setGeneratingVideo(true);
     setStep('production');
-    setProductionStatus({ scenes: 'in_progress', voiceover: 'queued', music: 'queued' });
+    setProductionStatus({ scenes: 'in_progress', voiceover: 'queued', music: 'queued', video: 'queued' });
+    setProductionErrors({});
+    setCompletedScenes([]);
+    setCompletedVoiceover(null);
+    setCompletedMusic(null);
+    setCompletedVideoUrl(null);
 
     try {
       // Save to database
@@ -169,9 +183,20 @@ const LifestyleStories = () => {
         }
       }
 
-      setProductionStatus(prev => ({ ...prev, scenes: 'done', voiceover: 'in_progress' }));
+      const successfulScenes = sceneResults.filter(s => s.image_url);
+      if (successfulScenes.length === 0) {
+        setProductionStatus(prev => ({ ...prev, scenes: 'failed' }));
+        setProductionErrors(prev => ({ ...prev, scenes: 'All scene images failed to generate' }));
+      } else if (successfulScenes.length < concept.scenes.length) {
+        setProductionStatus(prev => ({ ...prev, scenes: 'partial' }));
+        setProductionErrors(prev => ({ ...prev, scenes: `${successfulScenes.length}/${concept.scenes.length} scenes generated` }));
+      } else {
+        setProductionStatus(prev => ({ ...prev, scenes: 'done' }));
+      }
+      setCompletedScenes(sceneResults);
 
       // Generate voiceover
+      setProductionStatus(prev => ({ ...prev, voiceover: 'in_progress' }));
       let voiceoverUrl: string | null = null;
       try {
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
@@ -182,28 +207,35 @@ const LifestyleStories = () => {
         });
         if (ttsError) throw ttsError;
         voiceoverUrl = ttsData?.audioUrl || null;
-      } catch (err) {
+        if (!voiceoverUrl) throw new Error('No audio URL returned');
+        setProductionStatus(prev => ({ ...prev, voiceover: 'done' }));
+      } catch (err: any) {
         console.error('Voiceover generation failed:', err);
+        setProductionStatus(prev => ({ ...prev, voiceover: 'failed' }));
+        setProductionErrors(prev => ({ ...prev, voiceover: err.message || 'Voiceover failed' }));
       }
+      setCompletedVoiceover(voiceoverUrl);
 
-      setProductionStatus(prev => ({ ...prev, voiceover: 'done', music: 'in_progress' }));
-
-      // Generate background music
+      // Generate background music — pass mood not prompt
+      setProductionStatus(prev => ({ ...prev, music: 'in_progress' }));
       let musicUrl: string | null = null;
       try {
         const { data: musicData, error: musicError } = await supabase.functions.invoke('generate-music', {
           body: {
-            prompt: `${concept.music_mood} background music for a ${concept.type} video, ${duration} seconds`,
+            mood: `${concept.music_mood} background music for a ${concept.type} video`,
             duration,
           },
         });
         if (musicError) throw musicError;
         musicUrl = musicData?.audioUrl || null;
-      } catch (err) {
+        if (!musicUrl) throw new Error('No music URL returned');
+        setProductionStatus(prev => ({ ...prev, music: 'done' }));
+      } catch (err: any) {
         console.error('Music generation failed:', err);
+        setProductionStatus(prev => ({ ...prev, music: 'failed' }));
+        setProductionErrors(prev => ({ ...prev, music: err.message || 'Music generation failed' }));
       }
-
-      setProductionStatus(prev => ({ ...prev, music: 'done' }));
+      setCompletedMusic(musicUrl);
 
       // Update DB record
       if (storyId) {
@@ -211,23 +243,153 @@ const LifestyleStories = () => {
           scenes: sceneResults,
           voiceover_url: voiceoverUrl,
           music_url: musicUrl,
-          status: 'completed',
+          status: successfulScenes.length > 0 ? 'assets_ready' : 'failed',
         }).eq('id', storyId);
       }
 
-      setCompletedScenes(sceneResults);
-      setCompletedVoiceover(voiceoverUrl);
-      setCompletedMusic(musicUrl);
-
+      const hasFailures = successfulScenes.length < concept.scenes.length || !voiceoverUrl || !musicUrl;
       toast({
-        title: 'Production Complete!',
-        description: `${sceneResults.filter(s => s.image_url).length} scenes generated with voiceover and music.`,
+        title: hasFailures ? 'Production Partially Complete' : 'Assets Ready!',
+        description: hasFailures
+          ? `${successfulScenes.length}/${concept.scenes.length} scenes ready. ${voiceoverUrl ? '✓' : '✗'} Voiceover. ${musicUrl ? '✓' : '✗'} Music.`
+          : 'All assets generated. Click "Generate Video" to assemble the final video.',
+        variant: hasFailures ? 'destructive' : 'default',
       });
     } catch (err: any) {
       const friendly = getFriendlyError(err);
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setGeneratingVideo(false);
+    }
+  };
+
+  const retryStage = async (stage: string) => {
+    if (!selectedConcept || !concepts[selectedConcept]) return;
+    const concept = concepts[selectedConcept];
+
+    if (stage === 'music') {
+      setProductionStatus(prev => ({ ...prev, music: 'in_progress' }));
+      setProductionErrors(prev => { const n = { ...prev }; delete n.music; return n; });
+      try {
+        const { data: musicData, error: musicError } = await supabase.functions.invoke('generate-music', {
+          body: {
+            mood: `${concept.music_mood} background music for a ${concept.type} video`,
+            duration,
+          },
+        });
+        if (musicError) throw musicError;
+        const musicUrl = musicData?.audioUrl || null;
+        if (!musicUrl) throw new Error('No music URL returned');
+        setCompletedMusic(musicUrl);
+        setProductionStatus(prev => ({ ...prev, music: 'done' }));
+        toast({ title: 'Music generated!' });
+      } catch (err: any) {
+        setProductionStatus(prev => ({ ...prev, music: 'failed' }));
+        setProductionErrors(prev => ({ ...prev, music: err.message || 'Music generation failed' }));
+      }
+    }
+
+    if (stage === 'voiceover') {
+      setProductionStatus(prev => ({ ...prev, voiceover: 'in_progress' }));
+      setProductionErrors(prev => { const n = { ...prev }; delete n.voiceover; return n; });
+      try {
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+          body: { text: concept.voiceover_script, voice: 'alloy' },
+        });
+        if (ttsError) throw ttsError;
+        const voiceoverUrl = ttsData?.audioUrl || null;
+        if (!voiceoverUrl) throw new Error('No audio URL returned');
+        setCompletedVoiceover(voiceoverUrl);
+        setProductionStatus(prev => ({ ...prev, voiceover: 'done' }));
+        toast({ title: 'Voiceover generated!' });
+      } catch (err: any) {
+        setProductionStatus(prev => ({ ...prev, voiceover: 'failed' }));
+        setProductionErrors(prev => ({ ...prev, voiceover: err.message || 'Voiceover failed' }));
+      }
+    }
+  };
+
+  const assembleVideo = async () => {
+    if (!user || selectedConcept === null) return;
+    const concept = concepts[selectedConcept];
+    const scenesWithImages = completedScenes.filter(s => s.image_url);
+    if (scenesWithImages.length === 0) {
+      toast({ title: 'No scenes available', description: 'Generate scene images first.', variant: 'destructive' });
+      return;
+    }
+
+    setAssemblingVideo(true);
+    setProductionStatus(prev => ({ ...prev, video: 'in_progress' }));
+    setProductionErrors(prev => { const n = { ...prev }; delete n.video; return n; });
+
+    try {
+      // Animate each scene image into a video clip
+      const videoClips: string[] = [];
+      for (const scene of scenesWithImages) {
+        try {
+          const taskId = await createWaveSpeedVideo({
+            prompt: scene.visual_prompt,
+            imageUrls: [scene.image_url],
+            model: 'wan-2.5-i2v',
+            aspectRatio: '16:9',
+            duration: Math.min(scene.duration_seconds || 5, 10),
+            userId: user.id,
+            source: 'lifestyle',
+          });
+
+          // Poll for completion
+          let job = await getWaveSpeedVideoJob(taskId);
+          let attempts = 0;
+          while (job.status !== 'completed' && job.status !== 'failed' && attempts < 60) {
+            await new Promise(r => setTimeout(r, 5000));
+            job = await getWaveSpeedVideoJob(taskId);
+            attempts++;
+          }
+
+          if (job.status === 'completed' && job.videoUrl) {
+            videoClips.push(job.videoUrl);
+          } else {
+            console.error(`Scene ${scene.scene_number} video failed:`, job.error);
+          }
+        } catch (err) {
+          console.error(`Scene ${scene.scene_number} video error:`, err);
+        }
+      }
+
+      if (videoClips.length === 0) {
+        throw new Error('No video clips were generated');
+      }
+
+      // Stitch clips together with audio
+      const audioTracks: string[] = [];
+      if (completedVoiceover) audioTracks.push(completedVoiceover);
+      if (completedMusic) audioTracks.push(completedMusic);
+
+      const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+        body: {
+          clips: videoClips.map((url, i) => ({
+            url,
+            duration: scenesWithImages[i]?.duration_seconds || 5,
+          })),
+          audioUrls: audioTracks,
+          aspectRatio: '16:9',
+        },
+      });
+
+      if (stitchError) throw stitchError;
+      const finalVideoUrl = stitchData?.videoUrl || stitchData?.url || null;
+      if (!finalVideoUrl) throw new Error('No video URL returned from stitching');
+
+      setCompletedVideoUrl(finalVideoUrl);
+      setProductionStatus(prev => ({ ...prev, video: 'done' }));
+      toast({ title: 'Video assembled!', description: 'Your lifestyle story video is ready.' });
+    } catch (err: any) {
+      console.error('Video assembly failed:', err);
+      setProductionStatus(prev => ({ ...prev, video: 'failed' }));
+      setProductionErrors(prev => ({ ...prev, video: err.message || 'Video assembly failed' }));
+      toast({ title: 'Video assembly failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setAssemblingVideo(false);
     }
   };
 
@@ -247,6 +409,26 @@ const LifestyleStories = () => {
     };
     return colors[type] || 'bg-muted text-muted-foreground';
   };
+
+  const getStageIcon = (status: StageStatus, FallbackIcon: any) => {
+    if (status === 'in_progress') return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
+    if (status === 'done') return <CheckCircle2 className="w-4 h-4 text-primary" />;
+    if (status === 'failed') return <AlertCircle className="w-4 h-4 text-destructive" />;
+    if (status === 'partial') return <AlertCircle className="w-4 h-4 text-amber-500" />;
+    return <FallbackIcon className="w-4 h-4 text-muted-foreground" />;
+  };
+
+  const getStageLabel = (status: StageStatus, errorMsg?: string) => {
+    if (status === 'in_progress') return 'In progress';
+    if (status === 'done') return 'Done';
+    if (status === 'failed') return errorMsg || 'Failed';
+    if (status === 'partial') return errorMsg || 'Partial';
+    return 'Queued';
+  };
+
+  const allDone = !generatingVideo && completedScenes.length > 0;
+  const hasAnyFailure = Object.values(productionStatus).some(s => s === 'failed' || s === 'partial');
+  const scenesReady = completedScenes.filter(s => s.image_url).length > 0;
 
   return (
     <Layout>
@@ -342,16 +524,25 @@ const LifestyleStories = () => {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
-                    { label: 'Brand Tone', value: brandAnalysis.brand_tone },
-                    { label: 'Product Type', value: brandAnalysis.product_type },
-                    { label: 'Target Audience', value: brandAnalysis.target_audience },
-                    { label: 'Visual Style', value: brandAnalysis.visual_style },
+                    { label: 'Brand Tone', value: brandAnalysis.brand_tone, editable: false },
+                    { label: 'Target Audience', value: brandAnalysis.target_audience, editable: false },
+                    { label: 'Visual Style', value: brandAnalysis.visual_style, editable: false },
                   ].map(item => (
                     <div key={item.label} className="p-3 rounded-lg bg-muted/50">
                       <p className="text-xs font-medium text-muted-foreground mb-1">{item.label}</p>
                       <p className="text-sm font-medium capitalize">{item.value}</p>
                     </div>
                   ))}
+                  {/* Editable Product Type */}
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Product Type (editable)</p>
+                    <Input
+                      value={editedProductType}
+                      onChange={(e) => setEditedProductType(e.target.value)}
+                      placeholder="e.g. skincare serum, running shoes..."
+                      className="h-8 text-sm"
+                    />
+                  </div>
                   <div className="p-3 rounded-lg bg-muted/50 md:col-span-2">
                     <p className="text-xs font-medium text-muted-foreground mb-2">Key Benefits</p>
                     <div className="flex flex-wrap gap-1.5">
@@ -484,7 +675,6 @@ const LifestyleStories = () => {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Hook & CTA */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="p-3 rounded-lg bg-muted/50">
                           <p className="text-xs font-medium text-muted-foreground mb-1">🎣 Hook</p>
@@ -496,7 +686,6 @@ const LifestyleStories = () => {
                         </div>
                       </div>
 
-                      {/* Voiceover Script */}
                       <div className="p-3 rounded-lg bg-muted/50">
                         <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
                           <Mic className="w-3 h-3" /> Voiceover Script
@@ -504,14 +693,12 @@ const LifestyleStories = () => {
                         <p className="text-sm">{concept.voiceover_script}</p>
                       </div>
 
-                      {/* Music Mood */}
                       <div className="flex items-center gap-2">
                         <Music className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Music mood:</span>
                         <Badge variant="outline">{concept.music_mood}</Badge>
                       </div>
 
-                      {/* Scene Timeline */}
                       <div>
                         <p className="text-sm font-medium mb-3">Scene Breakdown</p>
                         <div className="space-y-2">
@@ -533,7 +720,6 @@ const LifestyleStories = () => {
                         </div>
                       </div>
 
-                      {/* Generate Button */}
                       <Button
                         onClick={() => selectConceptAndGenerate(i)}
                         disabled={generatingVideo}
@@ -572,34 +758,52 @@ const LifestyleStories = () => {
                 <div className="flex items-center gap-3 p-6 rounded-lg bg-muted/50 justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   <p className="text-sm text-muted-foreground">
-                    Video production pipeline is running. Each scene will be generated and stitched together with voiceover and music.
+                    Generating assets… Each scene image, voiceover, and music track will be created.
                   </p>
                 </div>
-              ) : (
+              ) : hasAnyFailure ? (
+                <div className="flex items-center gap-3 p-6 rounded-lg bg-destructive/10 justify-center">
+                  <AlertCircle className="w-6 h-6 text-destructive" />
+                  <p className="text-sm font-medium text-destructive">Some stages failed. Use the retry buttons below.</p>
+                </div>
+              ) : allDone && !completedVideoUrl ? (
                 <div className="flex items-center gap-3 p-6 rounded-lg bg-primary/10 justify-center">
                   <CheckCircle2 className="w-6 h-6 text-primary" />
-                  <p className="text-sm font-medium">Production complete!</p>
+                  <p className="text-sm font-medium">Assets ready! Generate the final video below.</p>
                 </div>
-              )}
+              ) : completedVideoUrl ? (
+                <div className="flex items-center gap-3 p-6 rounded-lg bg-primary/10 justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-primary" />
+                  <p className="text-sm font-medium">Video complete!</p>
+                </div>
+              ) : null}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Stage cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 {[
-                  { icon: Film, label: 'Scene Generation', status: productionStatus.scenes },
-                  { icon: Mic, label: 'Voiceover', status: productionStatus.voiceover },
-                  { icon: Music, label: 'Background Music', status: productionStatus.music },
+                  { icon: Film, label: 'Scenes', key: 'scenes' },
+                  { icon: Mic, label: 'Voiceover', key: 'voiceover' },
+                  { icon: Music, label: 'Music', key: 'music' },
+                  { icon: Video, label: 'Video', key: 'video' },
                 ].map(item => (
-                  <div key={item.label} className="flex items-center gap-2 p-3 rounded-lg border border-border">
-                    {item.status === 'in_progress' ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    ) : item.status === 'done' ? (
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                    ) : (
-                      <item.icon className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <div>
+                  <div key={item.key} className="flex items-center gap-2 p-3 rounded-lg border border-border">
+                    {getStageIcon(productionStatus[item.key] as StageStatus, item.icon)}
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{item.label}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{item.status === 'in_progress' ? 'In progress' : item.status}</p>
+                      <p className={cn(
+                        "text-xs truncate",
+                        productionStatus[item.key] === 'failed' ? 'text-destructive' :
+                        productionStatus[item.key] === 'partial' ? 'text-amber-500' :
+                        'text-muted-foreground'
+                      )}>
+                        {getStageLabel(productionStatus[item.key] as StageStatus, productionErrors[item.key])}
+                      </p>
                     </div>
+                    {(productionStatus[item.key] === 'failed') && (item.key === 'music' || item.key === 'voiceover') && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => retryStage(item.key)}>
+                        <RefreshCw className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -615,7 +819,7 @@ const LifestyleStories = () => {
                           <img src={scene.image_url} alt={`Scene ${i + 1}`} className="w-full aspect-video object-cover" />
                         ) : (
                           <div className="w-full aspect-video bg-muted flex items-center justify-center">
-                            <Film className="w-5 h-5 text-muted-foreground" />
+                            <AlertCircle className="w-5 h-5 text-destructive" />
                           </div>
                         )}
                         <p className="text-xs p-2 text-muted-foreground truncate">{scene.narration}</p>
@@ -639,7 +843,32 @@ const LifestyleStories = () => {
                 </div>
               )}
 
-              {!generatingVideo && (
+              {/* Generate Video Button */}
+              {!generatingVideo && scenesReady && !completedVideoUrl && productionStatus.video !== 'in_progress' && (
+                <Button
+                  onClick={assembleVideo}
+                  disabled={assemblingVideo}
+                  className="w-full"
+                  size="lg"
+                >
+                  {assemblingVideo ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Video className="w-4 h-4 mr-2" />
+                  )}
+                  {assemblingVideo ? 'Assembling Video…' : 'Generate Video'}
+                </Button>
+              )}
+
+              {/* Final video player */}
+              {completedVideoUrl && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Final Video</p>
+                  <video src={completedVideoUrl} controls className="w-full rounded-lg" />
+                </div>
+              )}
+
+              {!generatingVideo && !assemblingVideo && (
                 <Button onClick={() => setStep('concepts')} variant="outline" className="w-full">
                   <ArrowRight className="w-4 h-4 mr-2" />
                   Back to Concepts
