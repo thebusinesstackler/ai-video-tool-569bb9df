@@ -582,6 +582,128 @@ Then provide a final **VIDEO PROMPT** block:
     }
   };
 
+  // === Import tab handlers ===
+  const resetImport = () => {
+    if (importVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(importVideoUrl);
+    setImportFile(null);
+    setImportVideoUrl(null);
+    setImportFrames([]);
+    setIsImportAnalyzing(false);
+    setImportAnalysis(null);
+    setImportSuggestedPrompt('');
+    setImportModel('');
+    setImportTaskId('');
+    setImportCustomName('');
+  };
+
+  const handleImportVideo = async (file: File) => {
+    resetImport();
+    const objectUrl = URL.createObjectURL(file);
+    setImportFile(file);
+    setImportVideoUrl(objectUrl);
+    setImportCustomName(file.name.replace(/\.[^.]+$/, ''));
+
+    // Extract frames
+    setIsImportAnalyzing(true);
+    try {
+      const frames = await extractVideoFrames(file, 6);
+      setImportFrames(frames);
+
+      // Call AI analysis
+      const { data, error } = await supabase.functions.invoke('analyze-repurpose-video', {
+        body: {
+          action: 'analyze',
+          platform: 'TikTok',
+          frames,
+        },
+      });
+
+      if (error) throw new Error('AI analysis failed');
+
+      const analysis = data?.analysis || data;
+      setImportAnalysis(analysis);
+
+      // Build a suggested prompt from the analysis
+      const hook = analysis?.hook?.text || '';
+      const topic = analysis?.messaging?.coreTopic || '';
+      const formula = analysis?.creativeDirection?.winningFormula || '';
+      const suggested = [hook, topic, formula].filter(Boolean).join('. ');
+      setImportSuggestedPrompt(suggested || 'AI-generated video');
+
+      toast({ title: 'Analysis complete!', description: 'Review the details and save to your library.' });
+    } catch (err: any) {
+      console.error('Import analysis error:', err);
+      toast({ title: 'Analysis failed', description: err.message, variant: 'destructive' });
+      setImportSuggestedPrompt('');
+    } finally {
+      setIsImportAnalyzing(false);
+    }
+  };
+
+  const handleImportDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImportDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('video/')) {
+      handleImportVideo(file);
+    } else {
+      toast({ title: 'Invalid file', description: 'Please drop a video file.', variant: 'destructive' });
+    }
+  };
+
+  const handleImportFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImportVideo(file);
+    e.target.value = '';
+  };
+
+  const saveImportedVideo = async () => {
+    if (!user || !importFile) return;
+    setIsImportSaving(true);
+    try {
+      // Upload video to storage
+      const videoUrl = await uploadFileToStorage(importFile, 'imports');
+
+      // Insert into video_repo_projects
+      const { error } = await supabase.from('video_repo_projects').insert({
+        user_id: user.id,
+        prompt: importSuggestedPrompt || null,
+        generated_video_url: videoUrl,
+        analysis_text: importAnalysis ? JSON.stringify(importAnalysis) : null,
+        video_prompt: importSuggestedPrompt || null,
+        status: 'completed',
+        custom_name: importCustomName || null,
+        model: importModel || null,
+        external_task_id: importTaskId || null,
+      } as any);
+
+      if (error) throw error;
+
+      toast({ title: 'Video imported!', description: 'Saved to your library. Find it in History.' });
+      resetImport();
+      fetchHistory();
+      setMainTab('history');
+    } catch (err: any) {
+      console.error('Save import error:', err);
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsImportSaving(false);
+    }
+  };
+
+  const handleRemixProject = (project: VideoRepoProject) => {
+    // Pre-populate the Create tab with data from this project
+    if (project.video_prompt) setPrompt(project.video_prompt);
+    if (project.generated_video_url) {
+      setReferenceVideoUrl(project.generated_video_url);
+      setReferenceVideoName(project.custom_name || 'Imported video');
+    }
+    setSelectedProject(null);
+    setMainTab('create');
+    toast({ title: 'Remix loaded', description: 'The prompt and reference video have been loaded into the Create tab.' });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
