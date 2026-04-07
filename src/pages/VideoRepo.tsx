@@ -21,6 +21,10 @@ import {
   Calendar,
   X,
   Link,
+  Upload,
+  Save,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,7 +53,22 @@ interface VideoRepoProject {
   status: string;
   created_at: string;
   updated_at: string;
+  model?: string | null;
+  external_task_id?: string | null;
+  custom_name?: string | null;
 }
+
+const MODEL_OPTIONS = [
+  'openai/sora-2/image-to-video',
+  'openai/sora-2/text-to-video',
+  'wan-2.5-i2v',
+  'wan-2.5-t2v',
+  'veo3',
+  'kling-1.5',
+  'runway-gen3',
+  'pika-1.0',
+  'other',
+];
 
 const statusColors: Record<string, string> = {
   analyzing: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30',
@@ -61,7 +80,7 @@ const statusColors: Record<string, string> = {
 const VideoRepo = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [mainTab, setMainTab] = useState<'create' | 'history'>('create');
+  const [mainTab, setMainTab] = useState<'create' | 'history' | 'import'>('create');
   const [activeTab, setActiveTab] = useState<'ad' | 'motion'>('ad');
   const [mode, setMode] = useState<'guided' | 'freeform'>('guided');
   const [prompt, setPrompt] = useState('');
@@ -87,6 +106,20 @@ const VideoRepo = () => {
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
+
+  // Import tab state
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importVideoUrl, setImportVideoUrl] = useState<string | null>(null);
+  const [importFrames, setImportFrames] = useState<string[]>([]);
+  const [isImportAnalyzing, setIsImportAnalyzing] = useState(false);
+  const [importAnalysis, setImportAnalysis] = useState<any>(null);
+  const [importSuggestedPrompt, setImportSuggestedPrompt] = useState('');
+  const [importModel, setImportModel] = useState('');
+  const [importTaskId, setImportTaskId] = useState('');
+  const [importCustomName, setImportCustomName] = useState('');
+  const [isImportSaving, setIsImportSaving] = useState(false);
+  const [importDragOver, setImportDragOver] = useState(false);
+  const importVideoInputRef = useRef<HTMLInputElement>(null);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isExtractingFrames;
@@ -549,6 +582,128 @@ Then provide a final **VIDEO PROMPT** block:
     }
   };
 
+  // === Import tab handlers ===
+  const resetImport = () => {
+    if (importVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(importVideoUrl);
+    setImportFile(null);
+    setImportVideoUrl(null);
+    setImportFrames([]);
+    setIsImportAnalyzing(false);
+    setImportAnalysis(null);
+    setImportSuggestedPrompt('');
+    setImportModel('');
+    setImportTaskId('');
+    setImportCustomName('');
+  };
+
+  const handleImportVideo = async (file: File) => {
+    resetImport();
+    const objectUrl = URL.createObjectURL(file);
+    setImportFile(file);
+    setImportVideoUrl(objectUrl);
+    setImportCustomName(file.name.replace(/\.[^.]+$/, ''));
+
+    // Extract frames
+    setIsImportAnalyzing(true);
+    try {
+      const frames = await extractVideoFrames(file, 6);
+      setImportFrames(frames);
+
+      // Call AI analysis
+      const { data, error } = await supabase.functions.invoke('analyze-repurpose-video', {
+        body: {
+          action: 'analyze',
+          platform: 'TikTok',
+          frames,
+        },
+      });
+
+      if (error) throw new Error('AI analysis failed');
+
+      const analysis = data?.analysis || data;
+      setImportAnalysis(analysis);
+
+      // Build a suggested prompt from the analysis
+      const hook = analysis?.hook?.text || '';
+      const topic = analysis?.messaging?.coreTopic || '';
+      const formula = analysis?.creativeDirection?.winningFormula || '';
+      const suggested = [hook, topic, formula].filter(Boolean).join('. ');
+      setImportSuggestedPrompt(suggested || 'AI-generated video');
+
+      toast({ title: 'Analysis complete!', description: 'Review the details and save to your library.' });
+    } catch (err: any) {
+      console.error('Import analysis error:', err);
+      toast({ title: 'Analysis failed', description: err.message, variant: 'destructive' });
+      setImportSuggestedPrompt('');
+    } finally {
+      setIsImportAnalyzing(false);
+    }
+  };
+
+  const handleImportDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImportDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('video/')) {
+      handleImportVideo(file);
+    } else {
+      toast({ title: 'Invalid file', description: 'Please drop a video file.', variant: 'destructive' });
+    }
+  };
+
+  const handleImportFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImportVideo(file);
+    e.target.value = '';
+  };
+
+  const saveImportedVideo = async () => {
+    if (!user || !importFile) return;
+    setIsImportSaving(true);
+    try {
+      // Upload video to storage
+      const videoUrl = await uploadFileToStorage(importFile, 'imports');
+
+      // Insert into video_repo_projects
+      const { error } = await supabase.from('video_repo_projects').insert({
+        user_id: user.id,
+        prompt: importSuggestedPrompt || null,
+        generated_video_url: videoUrl,
+        analysis_text: importAnalysis ? JSON.stringify(importAnalysis) : null,
+        video_prompt: importSuggestedPrompt || null,
+        status: 'completed',
+        custom_name: importCustomName || null,
+        model: importModel || null,
+        external_task_id: importTaskId || null,
+      } as any);
+
+      if (error) throw error;
+
+      toast({ title: 'Video imported!', description: 'Saved to your library. Find it in History.' });
+      resetImport();
+      fetchHistory();
+      setMainTab('history');
+    } catch (err: any) {
+      console.error('Save import error:', err);
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsImportSaving(false);
+    }
+  };
+
+  const handleRemixProject = (project: VideoRepoProject) => {
+    // Pre-populate the Create tab with data from this project
+    if (project.video_prompt) setPrompt(project.video_prompt);
+    if (project.generated_video_url) {
+      setReferenceVideoUrl(project.generated_video_url);
+      setReferenceVideoName(project.custom_name || 'Imported video');
+    }
+    setSelectedProject(null);
+    setMainTab('create');
+    toast({ title: 'Remix loaded', description: 'The prompt and reference video have been loaded into the Create tab.' });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -649,6 +804,12 @@ Then provide a final **VIDEO PROMPT** block:
               </CardContent>
             </Card>
           )}
+
+          <div className="flex gap-2">
+            <Button onClick={() => handleRemixProject(selectedProject)} className="gap-1.5">
+              <RefreshCw className="w-4 h-4" /> Remix This Video
+            </Button>
+          </div>
         </div>
       </Layout>
     );
@@ -666,11 +827,14 @@ Then provide a final **VIDEO PROMPT** block:
           </p>
         </div>
 
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history')} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'import')} className="flex-1 flex flex-col min-h-0">
           <div className="flex justify-center px-4">
             <TabsList>
               <TabsTrigger value="create" className="gap-1.5">
                 <Play className="w-3.5 h-3.5" /> Create
+              </TabsTrigger>
+              <TabsTrigger value="import" className="gap-1.5">
+                <Upload className="w-3.5 h-3.5" /> Import
               </TabsTrigger>
               <TabsTrigger value="history" className="gap-1.5">
                 <History className="w-3.5 h-3.5" /> History
@@ -874,6 +1038,200 @@ Then provide a final **VIDEO PROMPT** block:
                 Upload a product image and a reference video, then press send. We'll extract key frames, study the hook, pacing, and composition, and build a new ad around your product.
               </div>
             )}
+          </TabsContent>
+
+          {/* Import Tab */}
+          <TabsContent value="import" className="flex-1 px-4 overflow-y-auto mt-4">
+            <div className="max-w-3xl mx-auto space-y-6">
+              <input
+                ref={importVideoInputRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={handleImportFileInput}
+              />
+
+              {!importVideoUrl ? (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(false); }}
+                  onDrop={handleImportDrop}
+                  onClick={() => importVideoInputRef.current?.click()}
+                  className={`relative border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer flex flex-col items-center justify-center gap-4 ${
+                    importDragOver
+                      ? 'border-primary bg-primary/10 scale-[1.02]'
+                      : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5'
+                  }`}
+                >
+                  <div className={`p-5 rounded-full transition-colors ${importDragOver ? 'bg-primary/20' : 'bg-muted'}`}>
+                    <Upload className={`w-10 h-10 transition-colors ${importDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-lg font-medium transition-colors ${importDragOver ? 'text-primary' : 'text-foreground'}`}>
+                      {importDragOver ? 'Drop your video here' : 'Drag & drop a video'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">or click to browse • MP4, MOV, WebM</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    AI will analyze your video and suggest prompts for remixing
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Video Preview */}
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-muted-foreground uppercase">Uploaded Video</p>
+                        <Button variant="ghost" size="sm" onClick={resetImport} className="text-xs gap-1">
+                          <X className="w-3 h-3" /> Remove
+                        </Button>
+                      </div>
+                      <video
+                        src={importVideoUrl}
+                        controls
+                        className="w-full rounded-lg max-h-[300px] bg-black"
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* AI Analysis Status */}
+                  {isImportAnalyzing && (
+                    <Card className="border-primary/30">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-primary/10">
+                          <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">AI is analyzing your video...</p>
+                          <p className="text-xs text-muted-foreground">Extracting frames and studying hook, pacing, and visual style</p>
+                        </div>
+                        <Loader2 className="w-5 h-5 animate-spin text-primary ml-auto" />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Extracted Frames */}
+                  {importFrames.length > 0 && !isImportAnalyzing && (
+                    <Card>
+                      <CardContent className="p-4 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase">Extracted Key Frames</p>
+                        <div className="grid grid-cols-6 gap-2">
+                          {importFrames.map((frame, i) => (
+                            <img key={i} src={frame} alt={`Frame ${i + 1}`} className="w-full aspect-video object-cover rounded-lg border border-border" />
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Analysis Summary */}
+                  {importAnalysis && !isImportAnalyzing && (
+                    <Card className="border-primary/20">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <p className="text-xs font-medium text-muted-foreground uppercase">AI Analysis</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {importAnalysis.hook && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Hook</p>
+                              <p className="text-foreground">{importAnalysis.hook.text || 'N/A'}</p>
+                              <Badge variant="secondary" className="text-[10px]">{importAnalysis.hook.strength || 'unknown'}</Badge>
+                            </div>
+                          )}
+                          {importAnalysis.messaging && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Core Topic</p>
+                              <p className="text-foreground">{importAnalysis.messaging.coreTopic || 'N/A'}</p>
+                            </div>
+                          )}
+                          {importAnalysis.pacing && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Pacing</p>
+                              <p className="text-foreground">{importAnalysis.pacing.overall || 'N/A'}</p>
+                            </div>
+                          )}
+                          {importAnalysis.overallScore !== undefined && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Performance Score</p>
+                              <p className="text-foreground font-bold">{importAnalysis.overallScore}/100</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Metadata Form */}
+                  {!isImportAnalyzing && (
+                    <Card>
+                      <CardContent className="p-4 space-y-4">
+                        <p className="text-xs font-medium text-muted-foreground uppercase">Video Details</p>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Name</label>
+                          <Input
+                            value={importCustomName}
+                            onChange={(e) => setImportCustomName(e.target.value)}
+                            placeholder="Give this video a name"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Prompt / Description</label>
+                          <Textarea
+                            value={importSuggestedPrompt}
+                            onChange={(e) => setImportSuggestedPrompt(e.target.value)}
+                            placeholder="The prompt used to generate this video, or describe what it shows"
+                            rows={3}
+                          />
+                          {importAnalysis && (
+                            <p className="text-xs text-muted-foreground">✨ AI-suggested based on video analysis. Feel free to edit.</p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Model</label>
+                            <Select value={importModel} onValueChange={setImportModel}>
+                              <SelectTrigger><SelectValue placeholder="Select model used" /></SelectTrigger>
+                              <SelectContent>
+                                {MODEL_OPTIONS.map((m) => (
+                                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Task / Job ID</label>
+                            <Input
+                              value={importTaskId}
+                              onChange={(e) => setImportTaskId(e.target.value)}
+                              placeholder="e.g. 3a45a1c7dd43..."
+                            />
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={saveImportedVideo}
+                          disabled={isImportSaving}
+                          className="w-full gap-2"
+                        >
+                          {isImportSaving ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                          ) : (
+                            <><Save className="w-4 h-4" /> Save to Library</>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
