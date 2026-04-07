@@ -667,6 +667,49 @@ const LifestyleStories = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Saved Drafts */}
+          {drafts.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Recent Drafts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {drafts.map(draft => (
+                    <button
+                      key={draft.id}
+                      onClick={() => resumeDraft(draft)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-accent/50 transition-colors text-left"
+                    >
+                      <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{draft.title || 'Untitled'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{draft.brand_url}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                        {draft.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {formatDistanceToNow(new Date(draft.updated_at), { addSuffix: true })}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 flex-shrink-0"
+                        onClick={(e) => deleteDraft(draft.id, e)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         )}
 
         {/* Step 2: Brand Analysis Results */}
