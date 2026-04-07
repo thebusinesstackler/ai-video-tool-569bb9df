@@ -102,27 +102,26 @@ const AnimateStatics = () => {
       } else {
         next.add(idx);
       }
-      // Rebuild prompt from director brief + all selected suggestions
-      const directorBase = analysis.directorPrompt || '';
-      const selectedPrompts: string[] = [];
-      next.forEach(i => selectedPrompts.push(analysis.suggestions[i].prompt));
-      setCustomPrompt(selectedPrompts.length > 0 
-        ? selectedPrompts.join('. ')
-        : directorBase
-      );
+      // When suggestions are selected, use their prompts; otherwise fall back to director prompt
+      if (next.size > 0) {
+        const selectedPrompts: string[] = [];
+        next.forEach(i => selectedPrompts.push(analysis.suggestions[i].prompt));
+        setCustomPrompt(selectedPrompts.join(' '));
+      } else {
+        setCustomPrompt(analysis.directorPrompt || '');
+      }
       return next;
     });
   };
 
   const buildFinalPrompt = () => {
-    const parts: string[] = [];
-    if (customPrompt.trim()) parts.push(customPrompt.trim());
-    if (analysis) {
-      selectedSuggestions.forEach(idx => {
-        parts.push(analysis.suggestions[idx].prompt);
-      });
-    }
-    return parts.join('. ') || 'Subtle cinematic motion with slow zoom and gentle parallax';
+    // customPrompt already contains the active prompt (either director or selected suggestions)
+    // Prepend detected objects as preservation anchors for the video model
+    const preservationPrefix = analysis?.objects?.length
+      ? `[PRESERVE EXACTLY: ${analysis.objects.join('; ')}] `
+      : '';
+    const prompt = customPrompt.trim() || analysis?.directorPrompt || 'Subtle cinematic motion with slow zoom and gentle parallax';
+    return preservationPrefix + prompt;
   };
 
   const startGeneration = async () => {
