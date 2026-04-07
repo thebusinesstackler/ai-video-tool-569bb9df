@@ -22,6 +22,7 @@ interface ProductImage {
 }
 
 const Gallery = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const { images, isUploading, uploadImages, fetchImages } = useImageGallery();
@@ -48,6 +49,9 @@ const Gallery = () => {
   const [isGeneratingVideoReport, setIsGeneratingVideoReport] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
   const [editVideoPrompt, setEditVideoPrompt] = useState('');
+  const [videoDragOver, setVideoDragOver] = useState(false);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const [isAddingCharacter, setIsAddingCharacter] = useState<string | null>(null);
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
