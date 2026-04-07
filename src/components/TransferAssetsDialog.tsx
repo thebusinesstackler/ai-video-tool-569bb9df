@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowRightLeft, Loader2, AlertTriangle } from 'lucide-react';
+import { Share2, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -67,26 +67,26 @@ export const TransferAssetsDialog = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
-          <ArrowRightLeft className="w-4 h-4" />
-          Transfer Assets
+          <Share2 className="w-4 h-4" />
+          Share Assets
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="w-5 h-5 text-primary" />
-            Transfer Assets to Another Account
+            <Share2 className="w-5 h-5 text-primary" />
+            Share Assets with Another Account
           </DialogTitle>
           <DialogDescription>
-            Move your content to another user's account on this platform.
+            Share a copy of your content with another user. You'll keep your originals.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
-            <p className="text-xs text-destructive">
-              This action is permanent. Transferred assets will be removed from your account and moved to the target account.
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-start gap-2">
+            <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              A copy of the selected assets will be added to the recipient's account. Your originals remain untouched.
             </p>
           </div>
 
@@ -136,12 +136,11 @@ export const TransferAssetsDialog = () => {
             onClick={handleTransfer}
             disabled={isTransferring || !email || email !== confirmEmail || selected.length === 0}
             className="w-full"
-            variant="destructive"
           >
             {isTransferring ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Transferring...</>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sharing...</>
             ) : (
-              'Transfer Selected Assets'
+              'Share Selected Assets'
             )}
           </Button>
         </div>
