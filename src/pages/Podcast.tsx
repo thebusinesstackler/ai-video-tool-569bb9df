@@ -321,154 +321,172 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <Mic className="w-7 h-7 text-primary" />
-            <h1 className="text-3xl font-bold gradient-text">Podcast Talking Head</h1>
-          </div>
-          <p className="text-muted-foreground">Pick a character, write your message, generate.</p>
+      <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row overflow-hidden">
+        {/* Left Panel — AI Creative Director */}
+        <div className="lg:w-[420px] xl:w-[460px] border-r border-border flex flex-col bg-background order-2 lg:order-1 min-h-[300px] lg:min-h-0 lg:h-full">
+          <PodcastAIDirector
+            onUseScript={(script) => setMessage(script)}
+            selectedCharacterName={selectedTwin?.name}
+          />
         </div>
 
-        {/* If video is ready, show it */}
-        {videoUrl ? (
-          <Card>
-            <CardContent className="p-4 space-y-4">
-              <VideoPlayer videoUrl={videoUrl} title="Podcast Talking Head" className="rounded-lg w-full max-w-sm mx-auto aspect-[9/16]" />
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" size="sm" asChild>
-                  <a href={videoUrl} download target="_blank" rel="noopener noreferrer">
-                    <Download className="w-4 h-4 mr-1" /> Download
-                  </a>
-                </Button>
-                <Button variant="outline" size="sm" onClick={reset}>
-                  <RotateCcw className="w-4 h-4 mr-1" /> New Video
-                </Button>
+        {/* Right Panel — Production Controls */}
+        <div className="flex-1 overflow-y-auto order-1 lg:order-2">
+          <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+            {/* Header */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Mic className="w-6 h-6 text-primary" />
+                <h1 className="text-2xl font-bold">Podcast Talking Head</h1>
               </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            {/* Step 1: Character */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <User className="w-4 h-4" /> Choose Character
-                </Label>
-                {loadingTwins ? (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Loading characters...
-                  </div>
-                ) : twins.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No AI Twins found. <a href="/ai-twin" className="text-primary underline">Create one first</a>.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {twins.map(twin => (
-                      <button
-                        key={twin.id}
-                        onClick={() => setSelectedTwinId(twin.id)}
-                        disabled={isGenerating}
-                        className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all text-left ${
-                          selectedTwinId === twin.id
-                            ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
-                            : 'border-border hover:border-primary/40 hover:bg-accent'
-                        } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <Avatar className="w-10 h-10 flex-shrink-0">
-                          {twin.reference_images[0] ? (
-                            <img src={twin.reference_images[0]} alt={twin.name} className="object-cover" />
-                          ) : (
-                            <AvatarFallback><User className="w-5 h-5" /></AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{twin.name}</p>
-                          {twin.voice_cloning_key && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">Cloned Voice</Badge>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              <p className="text-sm text-muted-foreground">Select a character, craft your script, and generate a professional talking-head video.</p>
+            </div>
 
-            {/* AI Creative Director */}
-            <PodcastAIDirector
-              onUseScript={(script) => setMessage(script)}
-              selectedCharacterName={selectedTwin?.name}
-            />
-
-            {/* Step 2: Message + Duration */}
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">What should they say?</Label>
-                  <Textarea
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                    placeholder="E.g. Talk about the benefits of our new product launch, highlight the 3 key features, and end with a call to action..."
-                    className="min-h-[120px] resize-y"
-                    disabled={isGenerating}
-                  />
-                  {message.trim() && (
-                    <p className="text-xs text-muted-foreground">
-                      ~{message.trim().split(/\s+/).length} words → est. {Math.round(message.trim().split(/\s+/).length / 2.5)}s
-                    </p>
+            {/* Video Result */}
+            {videoUrl ? (
+              <Card className="border-primary/20">
+                <CardContent className="p-5 space-y-4">
+                  <VideoPlayer videoUrl={videoUrl} title="Podcast Talking Head" className="rounded-xl w-full max-w-xs mx-auto aspect-[9/16]" />
+                  <div className="flex gap-2 justify-center">
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={videoUrl} download target="_blank" rel="noopener noreferrer">
+                        <Download className="w-4 h-4 mr-1" /> Download
+                      </a>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={reset}>
+                      <RotateCcw className="w-4 h-4 mr-1" /> New Video
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Step 1: Character Selection */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" /> 1. Choose Character
+                  </Label>
+                  {loadingTwins ? (
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Loading characters...
+                    </div>
+                  ) : twins.length === 0 ? (
+                    <Card className="border-dashed">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground">
+                          No AI Twins found. <a href="/ai-twin" className="text-primary underline font-medium">Create one first →</a>
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {twins.map(twin => (
+                        <button
+                          key={twin.id}
+                          onClick={() => setSelectedTwinId(twin.id)}
+                          disabled={isGenerating}
+                          className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left ${
+                            selectedTwinId === twin.id
+                              ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+                              : 'border-border hover:border-muted-foreground/30 hover:bg-accent/50'
+                          } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <Avatar className="w-10 h-10 flex-shrink-0">
+                            {twin.reference_images[0] ? (
+                              <img src={twin.reference_images[0]} alt={twin.name} className="object-cover" />
+                            ) : (
+                              <AvatarFallback><User className="w-5 h-5" /></AvatarFallback>
+                            )}
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{twin.name}</p>
+                            {twin.voice_cloning_key && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Cloned</Badge>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
 
-                <div className="space-y-2">
+                {/* Step 2: Script */}
+                <div className="space-y-3">
                   <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Duration
+                    <Sparkles className="w-4 h-4 text-primary" /> 2. Your Script
                   </Label>
-                  <Select value={duration} onValueChange={setDuration} disabled={isGenerating}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATION_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Textarea
+                    value={message}
+                    onChange={e => setMessage(e.target.value)}
+                    placeholder="What should they say? Describe the topic or paste a script. Use the AI Director on the left to generate ideas..."
+                    className="min-h-[140px] resize-y rounded-xl text-sm"
+                    disabled={isGenerating}
+                  />
+                  <div className="flex items-center justify-between">
+                    {message.trim() ? (
+                      <p className="text-xs text-muted-foreground">
+                        ~{message.trim().split(/\s+/).length} words • est. {Math.round(message.trim().split(/\s+/).length / 2.5)}s
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">💡 Tip: Use the AI Director to brainstorm content ideas</p>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Generate Button */}
-            <Button
-              className="w-full h-12 text-base font-semibold"
-              size="lg"
-              onClick={generate}
-              disabled={isGenerating || !selectedTwinId || !message.trim()}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  {progressStatus || 'Generating...'}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Generate Talking Head
-                </>
-              )}
-            </Button>
+                {/* Step 3: Duration */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" /> 3. Duration
+                  </Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {DURATION_OPTIONS.map(o => (
+                      <button
+                        key={o.value}
+                        onClick={() => setDuration(o.value)}
+                        disabled={isGenerating}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                          duration === o.value
+                            ? 'border-primary bg-primary/10 text-foreground'
+                            : 'border-border text-muted-foreground hover:border-muted-foreground/30 hover:bg-accent/50'
+                        } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Progress */}
-            {isGenerating && (
-              <div className="space-y-2">
-                <Progress value={progress} className="h-2" />
-                <p className="text-xs text-center text-muted-foreground">{progressStatus}</p>
-              </div>
+                {/* Generate Button */}
+                <Button
+                  className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20"
+                  size="lg"
+                  onClick={generate}
+                  disabled={isGenerating || !selectedTwinId || !message.trim()}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      {progressStatus || 'Generating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      Generate Talking Head
+                    </>
+                  )}
+                </Button>
+
+                {/* Progress */}
+                {isGenerating && (
+                  <div className="space-y-2">
+                    <Progress value={progress} className="h-2 rounded-full" />
+                    <p className="text-xs text-center text-muted-foreground">{progressStatus}</p>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+        </div>
       </div>
     </Layout>
   );
