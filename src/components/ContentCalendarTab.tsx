@@ -408,13 +408,22 @@ export const ContentCalendarTab = ({ projects }: ContentCalendarTabProps) => {
                             src={`${(project.generated_video_url || project.reference_video_url)}#t=0.5`}
                             muted
                             playsInline
-                            crossOrigin="anonymous"
                             preload="metadata"
                             className="w-28 h-24 object-cover rounded-lg bg-black"
-                            onLoadedMetadata={(e) => { const v = e.target as HTMLVideoElement; if (isFinite(0.5)) v.currentTime = 0.5; }}
+                            onLoadedMetadata={(e) => { const v = e.target as HTMLVideoElement; v.currentTime = 0.5; }}
                             onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
                             onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0.5; }}
+                            onError={(e) => {
+                              // If video fails to load, show fallback
+                              const el = e.target as HTMLVideoElement;
+                              el.style.display = 'none';
+                              const fallback = el.parentElement?.querySelector('.video-fallback') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
                           />
+                          <div className="video-fallback w-28 h-24 bg-muted rounded-lg items-center justify-center hidden absolute inset-0">
+                            <Video className="w-5 h-5 text-muted-foreground" />
+                          </div>
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                             <Play className="w-5 h-5 text-white" />
                           </div>
