@@ -319,13 +319,13 @@ const LifestyleStories = () => {
       setCompletedMusic(musicUrl);
 
       // Update DB record
-      if (storyId) {
+      if (currentStoryId) {
         await supabase.from('lifestyle_stories' as any).update({
           scenes: sceneResults,
           voiceover_url: voiceoverUrl,
           music_url: musicUrl,
           status: successfulScenes.length > 0 ? 'assets_ready' : 'failed',
-        }).eq('id', storyId);
+        }).eq('id', currentStoryId);
       }
 
       // Auto-proceed to video assembly if we have scenes
