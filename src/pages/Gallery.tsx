@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import { ImageDropZone } from '@/components/ImageDropZone';
-import { VideoPlayer } from '@/components/VideoPlayer';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 
 interface ProductImage {
@@ -52,6 +52,7 @@ const Gallery = () => {
   const [videoDragOver, setVideoDragOver] = useState(false);
   const videoFileInputRef = useRef<HTMLInputElement>(null);
   const [isAddingCharacter, setIsAddingCharacter] = useState<string | null>(null);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
@@ -734,15 +735,14 @@ const Gallery = () => {
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
                         <div className="flex gap-2">
-                          <VideoPlayer
-                            videoUrl={entry.image_url}
-                            title={entry.prompt || 'Video'}
-                            trigger={
-                              <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full">
-                                <Play className="w-4 h-4" />
-                              </Button>
-                            }
-                          />
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => setPreviewVideoUrl(entry.image_url)}
+                          >
+                            <Play className="w-4 h-4" />
+                          </Button>
                           <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
                             <a href={entry.image_url} download>
                               <Download className="w-4 h-4" />
@@ -888,6 +888,20 @@ const Gallery = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Video Preview Dialog */}
+      <Dialog open={!!previewVideoUrl} onOpenChange={(open) => { if (!open) setPreviewVideoUrl(null); }}>
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-black border-none [&>button]:text-white [&>button]:bg-black/50 [&>button]:rounded-full [&>button]:hover:bg-black/80">
+          {previewVideoUrl && (
+            <video
+              src={previewVideoUrl}
+              className="w-full max-h-[80vh] object-contain"
+              controls
+              autoPlay
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
