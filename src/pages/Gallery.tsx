@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { ImageGallery } from '@/components/ImageGallery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download, Calendar, FileDown, Pencil, Check, X } from 'lucide-react';
+import { Loader2, Database, CheckCircle, AlertCircle, Package, Upload, Trash2, Image as ImageIcon, Video, Play, Download, Calendar, FileDown, Pencil, Check, X, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
@@ -21,6 +22,7 @@ interface ProductImage {
 }
 
 const Gallery = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const { images, isUploading, uploadImages, fetchImages } = useImageGallery();
@@ -47,6 +49,9 @@ const Gallery = () => {
   const [isGeneratingVideoReport, setIsGeneratingVideoReport] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
   const [editVideoPrompt, setEditVideoPrompt] = useState('');
+  const [videoDragOver, setVideoDragOver] = useState(false);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const [isAddingCharacter, setIsAddingCharacter] = useState<string | null>(null);
 
   const fetchVideoRepoEntries = async () => {
     if (!user) return;
@@ -284,6 +289,75 @@ const Gallery = () => {
       toast({ title: 'Video Deleted' });
     } catch (error: any) {
       toast({ title: 'Delete Failed', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleVideoDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setVideoDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleVideoUpload(files);
+    }
+  }, [user]);
+
+  const addVideoAsCharacter = async (entry: { id: string; image_url: string; prompt: string | null }) => {
+    if (!user) return;
+    setIsAddingCharacter(entry.id);
+    try {
+      // Extract a frame from the video to use as character reference image
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.preload = 'auto';
+      video.muted = true;
+      video.src = entry.image_url;
+
+      const frameUrl = await new Promise<string>((resolve, reject) => {
+        video.onloadeddata = () => {
+          video.currentTime = Math.min(1, video.duration * 0.3);
+        };
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(video.videoWidth, 640);
+          canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (!blob) { reject(new Error('Frame capture failed')); return; }
+            const file = new File([blob], 'character-frame.jpg', { type: 'image/jpeg' });
+            const ext = 'jpg';
+            const fileName = `${user.id}/characters/${crypto.randomUUID()}.${ext}`;
+            supabase.storage.from('reels').upload(fileName, file, { contentType: 'image/jpeg' })
+              .then(({ error }) => {
+                if (error) { reject(error); return; }
+                const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
+                resolve(publicUrl);
+              });
+          }, 'image/jpeg', 0.85);
+        };
+        video.onerror = () => reject(new Error('Failed to load video'));
+      });
+
+      // Create character with reference image
+      const charName = entry.prompt
+        ? entry.prompt.substring(0, 30).replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Video Character'
+        : 'Video Character';
+
+      const { error } = await supabase.from('characters').insert({
+        user_id: user.id,
+        name: charName,
+        description: entry.prompt || 'Character extracted from video',
+        reference_images: [frameUrl],
+      });
+
+      if (error) throw error;
+      toast({ title: 'Character Created!', description: `"${charName}" added to your Characters library.` });
+    } catch (err: any) {
+      console.error('Add character error:', err);
+      toast({ title: 'Failed to add character', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsAddingCharacter(null);
     }
   };
 
@@ -591,35 +665,43 @@ const Gallery = () => {
           </TabsContent>
 
           <TabsContent value="video-repo" className="space-y-6 mt-4">
-            {/* Video upload zone */}
-            <Card className="border-dashed border-2 border-muted-foreground/25">
-              <CardContent className="p-6">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <Video className="w-10 h-10 text-muted-foreground/50" />
-                  <div>
-                    <p className="font-medium text-foreground">Upload Videos</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Add MP4, MOV or WebM videos to your Lifecykel library (max 100MB each)
-                    </p>
-                  </div>
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
-                      multiple
-                      onChange={(e) => e.target.files && handleVideoUpload(e.target.files)}
-                    />
-                    <Button asChild variant="default" size="sm" disabled={isUploadingVideo}>
-                      <span>
-                        {isUploadingVideo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                        {isUploadingVideo ? 'Uploading...' : 'Upload Videos'}
-                      </span>
-                    </Button>
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Drag & drop video upload zone */}
+            <input
+              ref={videoFileInputRef}
+              type="file"
+              className="hidden"
+              accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+              multiple
+              onChange={(e) => e.target.files && handleVideoUpload(e.target.files)}
+            />
+            <div
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setVideoDragOver(true); }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setVideoDragOver(false); }}
+              onDrop={handleVideoDrop}
+              onClick={() => !isUploadingVideo && videoFileInputRef.current?.click()}
+              className={`relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
+                videoDragOver
+                  ? 'border-primary bg-primary/10 scale-[1.01]'
+                  : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5'
+              } ${isUploadingVideo ? 'pointer-events-none opacity-60' : ''}`}
+            >
+              <div className={`p-4 rounded-full transition-colors ${videoDragOver ? 'bg-primary/20' : 'bg-muted'}`}>
+                {isUploadingVideo ? (
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                ) : (
+                  <Upload className={`w-8 h-8 transition-colors ${videoDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+                )}
+              </div>
+              <div className="text-center">
+                <p className={`font-medium transition-colors ${videoDragOver ? 'text-primary' : 'text-foreground'}`}>
+                  {isUploadingVideo ? 'Uploading...' : videoDragOver ? 'Drop videos here' : 'Drag & drop videos'}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">or click to browse • MP4, MOV, WebM (max 100MB)</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add your prompt after upload so the AI Director can remix with the same character
+              </p>
+            </div>
 
             {/* Download report button */}
             {videoRepoEntries.length > 0 && (
@@ -650,23 +732,48 @@ const Gallery = () => {
                         muted
                         preload="metadata"
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
-                        <VideoPlayer
-                          videoUrl={entry.image_url}
-                          title={entry.prompt || 'Video'}
-                          trigger={
-                            <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full">
-                              <Play className="w-4 h-4" />
-                            </Button>
-                          }
-                        />
-                        <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
-                          <a href={entry.image_url} download>
-                            <Download className="w-4 h-4" />
-                          </a>
-                        </Button>
-                        <Button variant="destructive" size="icon" className="h-10 w-10 rounded-full" onClick={() => deleteVideoEntry(entry.id)}>
-                          <Trash2 className="w-4 h-4" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                        <div className="flex gap-2">
+                          <VideoPlayer
+                            videoUrl={entry.image_url}
+                            title={entry.prompt || 'Video'}
+                            trigger={
+                              <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full">
+                                <Play className="w-4 h-4" />
+                              </Button>
+                            }
+                          />
+                          <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full" asChild>
+                            <a href={entry.image_url} download>
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => { setEditingVideoId(entry.id); setEditVideoPrompt(entry.prompt || ''); }}
+                            title="Edit prompt"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button variant="destructive" size="icon" className="h-10 w-10 rounded-full" onClick={() => deleteVideoEntry(entry.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="rounded-full gap-1.5 text-xs"
+                          onClick={() => addVideoAsCharacter(entry)}
+                          disabled={isAddingCharacter === entry.id}
+                        >
+                          {isAddingCharacter === entry.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <UserPlus className="w-3 h-3" />
+                          )}
+                          Add as Character
                         </Button>
                       </div>
                     </div>
