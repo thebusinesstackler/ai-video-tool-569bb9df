@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,10 @@ import { getFriendlyError } from '@/lib/errorClassifier';
 import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import {
   Globe, Sparkles, Play, Clock, Film, Music, Mic, Loader2, CheckCircle2,
-  ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video
+  ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video, FileText, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 
 interface BrandAnalysis {
   brand_name: string;
