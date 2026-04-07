@@ -397,6 +397,12 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
               </CardContent>
             </Card>
 
+            {/* AI Creative Director */}
+            <PodcastAIDirector
+              onUseScript={(script) => setMessage(script)}
+              selectedCharacterName={selectedTwin?.name}
+            />
+
             {/* Step 2: Message + Duration */}
             <Card>
               <CardContent className="p-4 space-y-4">
