@@ -24,8 +24,20 @@ import {
   Eye,
   EyeOff,
   Volume2,
+  VolumeX,
   Trash2,
   Link2,
+  Magnet,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  RatioIcon,
+  Captions,
+  Music,
+  Layers,
+  Video,
+  SkipBack,
+  SkipForward,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
@@ -271,6 +283,18 @@ const ChatcutAI = () => {
     }
   }
 
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, a1: true });
+  const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
+
+  const toggleTrackVisibility = (track: 'v1' | 'v2' | 'a1') => {
+    setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
+  };
+
+  const toggleTrackMute = (track: 'v1' | 'v2' | 'a1') => {
+    setTrackMuted(prev => ({ ...prev, [track]: !prev[track] }));
+  };
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
@@ -294,7 +318,7 @@ const ChatcutAI = () => {
                 ✓ Transcribed
               </Badge>
             )}
-            <Button variant="default" size="sm" className="text-xs">
+            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4">
               Export
             </Button>
           </div>
@@ -451,26 +475,54 @@ const ChatcutAI = () => {
             )}
 
             {/* Transport controls */}
-            <div className="flex items-center gap-3 px-4 py-2 bg-card border-t border-border">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={togglePlay}>
+            <div className="flex items-center gap-1 px-3 py-1.5 bg-card border-t border-border">
+              {/* Left: editing tools */}
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Split at playhead">
                 <Scissors className="w-3.5 h-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Snap">
                 <Link2 className="w-3.5 h-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={togglePlay}>
-                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+
+              <div className="w-px h-5 bg-border mx-1" />
+
+              {/* Playback controls */}
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => seekTo(Math.max(0, currentTime - 5))}>
+                <SkipBack className="w-3.5 h-3.5" />
               </Button>
-              <span className="text-xs font-mono text-muted-foreground">
-                {formatTime(currentTime)} / {formatTime(duration)}
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={togglePlay}>
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => seekTo(Math.min(duration, currentTime + 5))}>
+                <SkipForward className="w-3.5 h-3.5" />
+              </Button>
+
+              {/* Time display - amber accent */}
+              <span className="text-xs font-mono text-amber-500 ml-2 tabular-nums">
+                {formatTime(currentTime)}
               </span>
+              <span className="text-xs text-muted-foreground mx-1">/</span>
+              <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                {formatTime(duration)}
+              </span>
+
               <div className="flex-1" />
-              <Slider
-                value={[50]}
-                max={100}
-                step={1}
-                className="w-20"
-              />
+
+              {/* Right: zoom & view controls */}
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.max(50, z - 25))}>
+                <ZoomOut className="w-3.5 h-3.5" />
+              </Button>
+              <span className="text-[10px] text-muted-foreground font-mono w-8 text-center">{zoomLevel}%</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.min(200, z + 25))}>
+                <ZoomIn className="w-3.5 h-3.5" />
+              </Button>
+              <div className="w-px h-5 bg-border mx-1" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Captions">
+                <Captions className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen">
+                <Maximize className="w-3.5 h-3.5" />
+              </Button>
             </div>
           </div>
 
@@ -484,117 +536,216 @@ const ChatcutAI = () => {
             </div>
 
             <ScrollArea className="flex-1 p-3">
-              {videoFile ? (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Videos {timelineClips.length}</p>
-                  <div className="space-y-2">
-                    {timelineClips.map((clip) => (
-                      <div key={clip.id} className="relative rounded-lg overflow-hidden cursor-pointer group border border-border">
-                        <video src={clip.url} className="w-full aspect-video object-cover" />
-                        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">
-                          {formatTimeShort(clip.duration)}
-                        </div>
-                        <p className="text-xs text-foreground/80 p-1.5 truncate">{clip.name}</p>
-                      </div>
-                    ))}
+              <div className="space-y-4">
+                {/* Videos section */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Video className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Videos</span>
+                    {timelineClips.length > 0 && (
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{timelineClips.length}</Badge>
+                    )}
                   </div>
+                  {timelineClips.length > 0 ? (
+                    <div className="space-y-2">
+                      {timelineClips.map((clip) => (
+                        <div key={clip.id} className="relative rounded-lg overflow-hidden cursor-pointer group border border-border hover:border-primary/50 transition-colors">
+                          <video src={clip.url} className="w-full aspect-video object-cover" />
+                          <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                            {formatTimeShort(clip.duration)}
+                          </div>
+                          <p className="text-xs text-foreground/80 p-1.5 truncate">{clip.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/60 text-center py-3">No videos</p>
+                  )}
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground text-center py-6">No media uploaded</p>
-              )}
+
+                {/* Audio section */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Music className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Audios</span>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">0</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 text-center py-3">No audio files</p>
+                </div>
+
+                {/* Motion Graphics section */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Layers className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Motion Graphics</span>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">0</Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 text-center py-3">No motion graphics</p>
+                </div>
+              </div>
             </ScrollArea>
           </div>
         </div>
 
-        {/* Bottom: Timeline */}
+        {/* Bottom: Multi-Track Timeline */}
         <div className="border-t border-border bg-card">
+          {/* Timeline ruler */}
+          <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30">
+            <div className="absolute inset-0 px-[72px]">
+              {timelineTicks.map((t) => (
+                <div
+                  key={t}
+                  className="absolute flex flex-col items-center"
+                  style={{ left: `${(t / Math.max(duration, 1)) * 100}%` }}
+                >
+                  <span className="text-[9px] text-muted-foreground font-mono mt-1">{formatTimeShort(t)}</span>
+                  <div className="w-px h-2 bg-border" />
+                </div>
+              ))}
+            </div>
+            {/* Playhead triangle */}
+            {duration > 0 && (
+              <div
+                className="absolute top-0 bottom-0 z-20"
+                style={{ left: `calc(72px + ${(currentTime / duration) * (100 - 10)}%)` }}
+              >
+                <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-amber-500 -ml-[5px]" />
+                <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
+              </div>
+            )}
+          </div>
+
           {timelineClips.length > 0 ? (
             <div className="flex flex-col">
-              {/* Timeline ruler */}
-              <div className="relative h-5 border-b border-border overflow-hidden">
-                <div className="absolute inset-0 flex items-end px-12">
-                  {timelineTicks.map((t) => (
-                    <div
-                      key={t}
-                      className="absolute text-[9px] text-muted-foreground font-mono"
-                      style={{ left: `${(t / duration) * 100}%` }}
-                    >
-                      {formatTimeShort(t)}
-                    </div>
-                  ))}
+              {/* V2 Track - Overlays */}
+              <div className="flex items-center h-10 border-b border-border/50 group hover:bg-muted/20">
+                <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
+                  <span className="text-[10px] font-semibold text-pink-400 w-5">V2</span>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
+                    {trackVisibility.v2 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                  </Button>
                 </div>
-                {/* Playhead */}
-                {duration > 0 && (
-                  <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-primary z-10"
-                    style={{ left: `calc(48px + ${(currentTime / duration) * (100)}%)` }}
-                  >
-                    <div className="w-2 h-3 bg-primary -ml-[3px] rounded-b" />
-                  </div>
-                )}
+                <div className="flex-1 relative h-7 mx-1">
+                  {/* Empty overlay track - placeholder blocks */}
+                  <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
+                </div>
+                <div className="w-12 flex-shrink-0" />
               </div>
 
-              {/* Track V1 */}
-              <div className="flex items-center h-14 px-2">
-                <div className="w-10 flex-shrink-0 flex items-center gap-1 text-xs text-muted-foreground font-medium">
-                  V1
+              {/* V1 Track - Video */}
+              <div className="flex items-center h-12 border-b border-border/50 group hover:bg-muted/20">
+                <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
+                  <span className="text-[10px] font-semibold text-primary w-5">V1</span>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v1')}>
+                    {trackVisibility.v1 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('v1')}>
+                    {trackMuted.v1 ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
+                  </Button>
                 </div>
-                <div className="flex-1 relative h-10">
+                <div className="flex-1 relative h-9 mx-1">
                   {timelineClips.map((clip) => (
                     <div
                       key={clip.id}
-                      className="absolute inset-y-0 rounded bg-primary/30 border border-primary/50 overflow-hidden flex items-center cursor-pointer"
+                      className="absolute inset-y-0 rounded bg-primary/25 border border-primary/40 overflow-hidden flex items-center cursor-pointer hover:bg-primary/35 transition-colors"
                       style={{
-                        left: `${(clip.startAt / duration) * 100}%`,
-                        width: `${(clip.duration / duration) * 100}%`,
+                        left: `${(clip.startAt / Math.max(duration, 1)) * 100}%`,
+                        width: `${(clip.duration / Math.max(duration, 1)) * 100}%`,
                       }}
                       onClick={() => seekTo(clip.startAt)}
                     >
-                      <span className="text-[10px] text-primary-foreground font-medium px-2 truncate">
+                      {/* Fake thumbnail frames */}
+                      <div className="absolute inset-0 flex">
+                        {Array.from({ length: 8 }).map((_, fi) => (
+                          <div key={fi} className="flex-1 border-r border-primary/10 bg-gradient-to-b from-primary/10 to-primary/5" />
+                        ))}
+                      </div>
+                      <span className="relative text-[10px] text-foreground font-medium px-2 truncate z-10">
                         {clip.name}
                       </span>
                     </div>
                   ))}
 
-                  {/* Cut markers */}
+                  {/* Cut markers on V1 */}
                   {cuts.filter(c => c.accepted).map((cut, i) => (
                     <div
                       key={`cut-${i}`}
-                      className="absolute inset-y-0 bg-destructive/20 border-l border-r border-destructive/50 cursor-pointer"
+                      className="absolute inset-y-0 bg-destructive/25 border-l border-r border-destructive/50 cursor-pointer hover:bg-destructive/35"
                       style={{
-                        left: `${(cut.start / duration) * 100}%`,
-                        width: `${((cut.end - cut.start) / duration) * 100}%`,
+                        left: `${(cut.start / Math.max(duration, 1)) * 100}%`,
+                        width: `${((cut.end - cut.start) / Math.max(duration, 1)) * 100}%`,
                       }}
                       title={cut.reason}
                     />
                   ))}
                 </div>
-                <div className="w-16 flex-shrink-0 flex items-center justify-end gap-0.5">
-                  <Button variant="ghost" size="icon" className="h-5 w-5">
-                    <Eye className="w-3 h-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-5 w-5">
-                    <Volume2 className="w-3 h-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-5 w-5">
-                    <Trash2 className="w-3 h-3" />
+                <div className="w-12 flex-shrink-0 flex items-center justify-center">
+                  <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
+                    <Trash2 className="w-2.5 h-2.5" />
                   </Button>
                 </div>
               </div>
 
-              {/* Drop zone for more media */}
-              <div className="h-8 flex items-center justify-center text-[10px] text-muted-foreground border-t border-border">
-                Drop media here or add from Media
+              {/* A1 Track - Audio */}
+              <div className="flex items-center h-10 group hover:bg-muted/20">
+                <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
+                  <span className="text-[10px] font-semibold text-cyan-400 w-5">A1</span>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('a1')}>
+                    {trackMuted.a1 ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
+                  </Button>
+                </div>
+                <div className="flex-1 relative h-7 mx-1">
+                  {timelineClips.map((clip) => (
+                    <div
+                      key={`a-${clip.id}`}
+                      className="absolute inset-y-0 rounded bg-cyan-500/15 border border-cyan-500/30 overflow-hidden"
+                      style={{
+                        left: `${(clip.startAt / Math.max(duration, 1)) * 100}%`,
+                        width: `${(clip.duration / Math.max(duration, 1)) * 100}%`,
+                      }}
+                    >
+                      {/* Fake waveform */}
+                      <div className="absolute inset-0 flex items-center gap-px px-1">
+                        {Array.from({ length: 40 }).map((_, wi) => (
+                          <div
+                            key={wi}
+                            className="flex-1 bg-cyan-400/40 rounded-full"
+                            style={{ height: `${20 + Math.random() * 60}%` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="w-12 flex-shrink-0 flex items-center justify-center">
+                  <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
+                    <Trash2 className="w-2.5 h-2.5" />
+                  </Button>
+                </div>
               </div>
+
+              {/* Playhead line spanning all tracks */}
+              {duration > 0 && (
+                <div
+                  className="absolute bottom-0 z-20 pointer-events-none"
+                  style={{
+                    left: `calc(72px + ${(currentTime / duration) * (100 - 10)}%)`,
+                    height: 'calc(100%)',
+                    top: 0,
+                  }}
+                >
+                  <div className="w-0.5 h-full bg-amber-500" />
+                </div>
+              )}
             </div>
           ) : (
             <div
-              className="h-24 flex items-center justify-center text-sm text-muted-foreground cursor-pointer"
+              className="h-28 flex items-center justify-center text-sm text-muted-foreground cursor-pointer"
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
               onClick={() => fileInputRef.current?.click()}
             >
-              Drop media here or add from Media
+              Drop media here or add from Media panel
             </div>
           )}
         </div>
