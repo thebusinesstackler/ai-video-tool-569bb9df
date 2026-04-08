@@ -221,9 +221,18 @@ const ChatcutAI = () => {
           }]);
           toast({ title: 'Cut added', description: act.reason || `${act.start}s — ${act.end}s` });
           break;
-        case 'add_captions':
-          setCaptions({ enabled: true, preset: act.preset || 'tiktok', source: act.source || 'v1' });
-          toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} preset applied` });
+        case 'add_captions': {
+          const presetMap: Record<string, Partial<CaptionSettings>> = {
+            tiktok: { style: 'wordPop', background: 'solid', fontFamily: 'Montserrat', fontSize: 'large', fontColor: '#ffffff' },
+            minimal: { style: 'karaoke', background: 'glass', fontFamily: 'Inter', fontSize: 'medium', fontColor: '#ffffff' },
+            cinematic: { style: 'spotlight', background: 'gradient', fontFamily: 'Oswald', fontSize: 'xl', fontColor: '#ffffff' },
+            youtube: { style: 'typewriter', background: 'solid', fontFamily: 'Poppins', fontSize: 'medium', fontColor: '#facc15' },
+          };
+          const presetSettings = presetMap[act.preset || 'tiktok'] || presetMap.tiktok;
+          setCaptionSettings(prev => ({ ...prev, ...presetSettings, enabled: true }));
+          toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} style applied` });
+          break;
+        }
           break;
         case 'add_music': {
           const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
