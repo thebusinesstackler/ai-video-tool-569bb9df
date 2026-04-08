@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
+import { KaraokeCaption, CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCaption';
+import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
 import {
   Scissors,
   Upload,
@@ -64,11 +66,7 @@ interface TimelineClip {
   startAt: number;
 }
 
-interface CaptionState {
-  enabled: boolean;
-  preset: string;
-  source: string;
-}
+// CaptionState replaced by CaptionSettings from KaraokeCaption
 
 interface MusicTrack {
   id: string;
@@ -114,7 +112,7 @@ const ChatcutAI = () => {
   const [duration, setDuration] = useState(0);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
   const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai');
-  const [captions, setCaptions] = useState<CaptionState>({ enabled: false, preset: '', source: '' });
+  const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -223,9 +221,18 @@ const ChatcutAI = () => {
           }]);
           toast({ title: 'Cut added', description: act.reason || `${act.start}s — ${act.end}s` });
           break;
-        case 'add_captions':
-          setCaptions({ enabled: true, preset: act.preset || 'tiktok', source: act.source || 'v1' });
-          toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} preset applied` });
+        case 'add_captions': {
+          const presetMap: Record<string, Partial<CaptionSettings>> = {
+            tiktok: { style: 'wordPop', background: 'solid', fontFamily: 'Montserrat', fontSize: 'large', fontColor: '#ffffff' },
+            minimal: { style: 'karaoke', background: 'glass', fontFamily: 'Inter', fontSize: 'medium', fontColor: '#ffffff' },
+            cinematic: { style: 'spotlight', background: 'gradient', fontFamily: 'Oswald', fontSize: 'xl', fontColor: '#ffffff' },
+            youtube: { style: 'typewriter', background: 'solid', fontFamily: 'Poppins', fontSize: 'medium', fontColor: '#facc15' },
+          };
+          const presetSettings = presetMap[act.preset || 'tiktok'] || presetMap.tiktok;
+          setCaptionSettings(prev => ({ ...prev, ...presetSettings, enabled: true }));
+          toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} style applied` });
+          break;
+        }
           break;
         case 'add_music': {
           const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
@@ -556,13 +563,51 @@ const ChatcutAI = () => {
               <div className="h-full flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
-                  <div className="flex-1 flex items-center justify-center min-h-0">
+                  <div className="flex-1 flex items-center justify-center min-h-0 relative">
                     <video
                       ref={videoRef}
                       src={videoUrl}
                       className="max-h-full max-w-full"
                       onClick={togglePlay}
                     />
+                    {/* Live caption overlay */}
+                    {captionSettings.enabled && transcript && (
+                      <div className="absolute bottom-8 left-4 right-4 pointer-events-none z-10">
+                        <KaraokeCaption
+                          text={(() => {
+                            const segs = transcript.segments || transcript.words || [];
+                            const activeSeg = segs.find((s: any, i: number) => {
+                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                              return currentTime >= s.start && currentTime < segEnd;
+                            });
+                            return activeSeg?.text || activeSeg?.word || '';
+                          })()}
+                          currentTime={(() => {
+                            const segs = transcript.segments || transcript.words || [];
+                            const activeSeg = segs.find((s: any, i: number) => {
+                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                              return currentTime >= s.start && currentTime < segEnd;
+                            });
+                            return activeSeg ? currentTime - activeSeg.start : 0;
+                          })()}
+                          duration={(() => {
+                            const segs = transcript.segments || transcript.words || [];
+                            const activeIdx = segs.findIndex((s: any, i: number) => {
+                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                              return currentTime >= s.start && currentTime < segEnd;
+                            });
+                            if (activeIdx < 0) return 1;
+                            const s = segs[activeIdx];
+                            return (s.end ?? (segs[activeIdx + 1]?.start ?? duration)) - s.start;
+                          })()}
+                          style={captionSettings.style}
+                          background={captionSettings.background}
+                          fontFamily={captionSettings.fontFamily}
+                          fontSize={captionSettings.fontSize}
+                          fontColor={captionSettings.fontColor}
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div
@@ -689,7 +734,7 @@ const ChatcutAI = () => {
                           <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
                             {trackVisibility.v2 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
                           </Button>
-                          {captions.enabled && (
+                          {captionSettings.enabled && (
                             <Badge className="text-[8px] px-1 py-0 h-3.5 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
                           )}
                         </div>
@@ -708,10 +753,10 @@ const ChatcutAI = () => {
                                 <span className="text-[9px] text-pink-300 truncate">{ov.text}</span>
                               </div>
                             ))
-                          ) : captions.enabled ? (
+                          ) : captionSettings.enabled ? (
                             <div className="absolute inset-y-0 left-0 right-0 rounded bg-pink-500/15 border border-pink-500/30 flex items-center px-2">
                               <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
-                              <span className="text-[9px] text-pink-300">Captions — {captions.preset.toUpperCase()}</span>
+                              <span className="text-[9px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
                             </div>
                           ) : (
                             <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
@@ -948,6 +993,18 @@ const ChatcutAI = () => {
                       ) : (
                         <p className="text-[10px] text-muted-foreground/60 text-center py-3">No motion graphics</p>
                       )}
+                    </div>
+
+                    {/* Caption Style */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Captions className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Caption Style</span>
+                      </div>
+                      <CaptionStyleSelector
+                        settings={captionSettings}
+                        onChange={setCaptionSettings}
+                      />
                     </div>
                   </div>
                 </ScrollArea>
