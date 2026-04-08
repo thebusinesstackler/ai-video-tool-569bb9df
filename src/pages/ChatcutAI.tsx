@@ -851,27 +851,54 @@ const ChatcutAI = () => {
                   </Button>
                 </div>
                 <div className="flex-1 relative h-7 mx-1">
-                  {timelineClips.map((clip) => (
-                    <div
-                      key={`a-${clip.id}`}
-                      className="absolute inset-y-0 rounded bg-cyan-500/15 border border-cyan-500/30 overflow-hidden"
-                      style={{
-                        left: `${(clip.startAt / Math.max(duration, 1)) * 100}%`,
-                        width: `${(clip.duration / Math.max(duration, 1)) * 100}%`,
-                      }}
-                    >
-                      {/* Fake waveform */}
-                      <div className="absolute inset-0 flex items-center gap-px px-1">
-                        {Array.from({ length: 40 }).map((_, wi) => (
-                          <div
-                            key={wi}
-                            className="flex-1 bg-cyan-400/40 rounded-full"
-                            style={{ height: `${20 + Math.random() * 60}%` }}
-                          />
-                        ))}
+                  {/* Show music tracks if any, otherwise show video audio */}
+                  {musicTracks.length > 0 ? (
+                    musicTracks.map((track) => (
+                      <div
+                        key={track.id}
+                        className="absolute inset-y-0 rounded bg-cyan-500/20 border border-cyan-500/40 overflow-hidden flex items-center cursor-pointer hover:bg-cyan-500/30 transition-colors"
+                        style={{
+                          left: `${(track.startAt / Math.max(duration, 1)) * 100}%`,
+                          width: `${(track.duration / Math.max(duration, 1)) * 100}%`,
+                        }}
+                      >
+                        {/* Waveform visualization */}
+                        <div className="absolute inset-0 flex items-center gap-px px-1 opacity-50">
+                          {Array.from({ length: 50 }).map((_, wi) => (
+                            <div
+                              key={wi}
+                              className="flex-1 bg-cyan-400/50 rounded-full"
+                              style={{ height: `${15 + Math.random() * 65}%` }}
+                            />
+                          ))}
+                        </div>
+                        <span className="relative text-[9px] text-cyan-300 font-medium px-2 truncate z-10">
+                          {track.name}
+                        </span>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    timelineClips.map((clip) => (
+                      <div
+                        key={`a-${clip.id}`}
+                        className="absolute inset-y-0 rounded bg-cyan-500/15 border border-cyan-500/30 overflow-hidden"
+                        style={{
+                          left: `${(clip.startAt / Math.max(duration, 1)) * 100}%`,
+                          width: `${(clip.duration / Math.max(duration, 1)) * 100}%`,
+                        }}
+                      >
+                        <div className="absolute inset-0 flex items-center gap-px px-1">
+                          {Array.from({ length: 40 }).map((_, wi) => (
+                            <div
+                              key={wi}
+                              className="flex-1 bg-cyan-400/40 rounded-full"
+                              style={{ height: `${20 + Math.random() * 60}%` }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <div className="w-12 flex-shrink-0 flex items-center justify-center">
                   <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
