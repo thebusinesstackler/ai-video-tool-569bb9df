@@ -22,6 +22,7 @@ import {
   Presentation,
   ChevronDown,
   Wand2,
+  Scissors,
   FolderOpen,
   Layers,
   Zap,
@@ -82,6 +83,7 @@ const navGroups: NavGroup[] = [
       { name: 'Testimonial Ads', href: '/testimonial-commercial', icon: MessageSquareQuote, beta: true },
       { name: 'Lifestyle Stories', href: '/lifestyle-stories', icon: Film, beta: true },
       { name: 'Animate Statics', href: '/animate-statics', icon: Wand2, beta: true },
+      { name: 'Chatcut AI', href: '/chatcut-ai', icon: Scissors, beta: true },
     ],
   },
   {
