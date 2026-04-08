@@ -200,12 +200,74 @@ const ChatcutAI = () => {
     else toast({ title: 'Invalid file', description: 'Please upload a video file.', variant: 'destructive' });
   }, [uploadVideo, toast]);
 
-  const parseCuts = (content: string): CutSuggestion[] => {
-    const match = content.match(/```cuts\n([\s\S]*?)\n```/);
-    if (!match) return [];
-    try {
-      return JSON.parse(match[1]).map((c: any) => ({ ...c, accepted: true }));
-    } catch { return []; }
+  const parseActions = (content: string): TimelineAction[] => {
+    // Support both ```actions and legacy ```cuts format
+    const actionsMatch = content.match(/```actions\n([\s\S]*?)\n```/);
+    const cutsMatch = content.match(/```cuts\n([\s\S]*?)\n```/);
+    
+    if (actionsMatch) {
+      try { return JSON.parse(actionsMatch[1]); } catch { return []; }
+    }
+    if (cutsMatch) {
+      try {
+        return JSON.parse(cutsMatch[1]).map((c: any) => ({ ...c, action: 'cut' }));
+      } catch { return []; }
+    }
+    return [];
+  };
+
+  const executeActions = (actions: TimelineAction[]) => {
+    for (const act of actions) {
+      switch (act.action) {
+        case 'cut':
+          setCuts(prev => [...prev, {
+            start: act.start,
+            end: act.end,
+            reason: act.reason || 'AI cut',
+            type: act.type || 'other',
+            accepted: true,
+          }]);
+          toast({ title: 'Cut added', description: act.reason || `${act.start}s — ${act.end}s` });
+          break;
+
+        case 'add_captions':
+          setCaptions({ enabled: true, preset: act.preset || 'tiktok', source: act.source || 'v1' });
+          toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} preset applied` });
+          break;
+
+        case 'add_music': {
+          const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
+          setMusicTracks(prev => [...prev, {
+            id: crypto.randomUUID(),
+            genre: act.genre || 'ambient',
+            mood: act.mood || 'calm',
+            volume: act.volume ?? 0.3,
+            fadeIn: act.fadeIn ?? true,
+            fadeOut: act.fadeOut ?? true,
+            name: musicName.charAt(0).toUpperCase() + musicName.slice(1),
+            duration: duration || 60,
+            startAt: 0,
+          }]);
+          toast({ title: 'Music added', description: `${musicName} added to A1 track` });
+          break;
+        }
+
+        case 'add_overlay':
+          setOverlays(prev => [...prev, {
+            id: crypto.randomUUID(),
+            type: act.type || 'lower_third',
+            text: act.text || '',
+            start: act.start || 0,
+            duration: act.duration || 5,
+          }]);
+          toast({ title: 'Overlay added', description: `"${act.text}" on V2 track` });
+          break;
+
+        case 'split':
+          toast({ title: 'Split', description: `Clip split at ${act.time}s on ${act.track || 'V1'}` });
+          break;
+      }
+    }
   };
 
   const sendMessage = async (text?: string) => {
@@ -274,8 +336,9 @@ const ChatcutAI = () => {
         }
       }
 
-      const newCuts = parseCuts(assistantSoFar);
-      if (newCuts.length > 0) setCuts(newCuts);
+      // Parse and execute any actions from the response
+      const actions = parseActions(assistantSoFar);
+      if (actions.length > 0) executeActions(actions);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
