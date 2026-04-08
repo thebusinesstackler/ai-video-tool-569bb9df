@@ -469,62 +469,36 @@ const ChatcutAI = () => {
                         <div ref={scrollRef} />
                       </div>
                     </ScrollArea>
-
-                    {/* Chat input — pinned at bottom */}
-                    <div className="p-3 border-t border-border mt-auto">
-                      <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="space-y-2">
-                        <Input
-                          value={input}
-                          onChange={(e) => setInput(e.target.value)}
-                          placeholder="Tell AI what changes to make..."
-                          disabled={isLoading}
-                          className="text-sm bg-muted/30"
-                        />
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Button type="button" variant="ghost" size="sm" className="text-xs gap-1 h-7 text-muted-foreground">
-                              <Sparkles className="w-3 h-3" /> Agent
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()}>
-                              <Plus className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button type="submit" disabled={isLoading || !input.trim()} size="icon" className="h-7 w-7 rounded-full bg-primary">
-                              <Send className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </form>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="video/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) uploadVideo(f);
-                        }}
-                      />
-                    </div>
                   </TabsContent>
 
                   <TabsContent value="transcript" className="flex-1 overflow-hidden m-0 p-0">
                     <ScrollArea className="h-full px-3 py-2">
                       {transcript ? (
                         <div className="space-y-1 text-sm">
-                          {(transcript.segments || transcript.words || []).map((seg: any, i: number) => (
-                            <p
-                              key={i}
-                              className="text-foreground/80 cursor-pointer hover:text-primary transition-colors"
-                              onClick={() => seekTo(seg.start)}
-                            >
-                              <span className="text-xs text-muted-foreground font-mono mr-2">
-                                {formatTimeShort(seg.start)}
-                              </span>
-                              {seg.text || seg.word}
-                            </p>
-                          ))}
+                          {(transcript.segments || transcript.words || []).map((seg: any, i: number, arr: any[]) => {
+                            const segEnd = seg.end ?? (arr[i + 1]?.start ?? duration);
+                            const isActive = currentTime >= seg.start && currentTime < segEnd;
+                            return (
+                              <p
+                                key={i}
+                                className={cn(
+                                  "cursor-pointer transition-colors rounded px-1.5 py-0.5 -mx-1.5",
+                                  isActive
+                                    ? "bg-primary/15 text-primary font-medium"
+                                    : "text-foreground/60 hover:text-foreground hover:bg-muted/50"
+                                )}
+                                onClick={() => seekTo(seg.start)}
+                              >
+                                <span className={cn(
+                                  "text-xs font-mono mr-2",
+                                  isActive ? "text-primary" : "text-muted-foreground"
+                                )}>
+                                  {formatTimeShort(seg.start)}
+                                </span>
+                                {seg.text || seg.word}
+                              </p>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground text-center py-8">
@@ -534,6 +508,44 @@ const ChatcutAI = () => {
                     </ScrollArea>
                   </TabsContent>
                 </Tabs>
+
+                {/* Chat input — always visible at bottom regardless of tab */}
+                <div className="p-3 border-t border-border mt-auto flex-shrink-0">
+                  <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="space-y-2">
+                    <Input
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Tell AI what changes to make..."
+                      disabled={isLoading}
+                      className="text-sm bg-muted/30"
+                    />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="sm" className="text-xs gap-1 h-7 text-muted-foreground">
+                          <Sparkles className="w-3 h-3" /> Agent
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()}>
+                          <Plus className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button type="submit" disabled={isLoading || !input.trim()} size="icon" className="h-7 w-7 rounded-full bg-primary">
+                          <Send className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadVideo(f);
+                    }}
+                  />
+                </div>
               </div>
             </ResizablePanel>
 
