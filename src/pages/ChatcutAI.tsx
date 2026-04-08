@@ -63,6 +63,37 @@ interface TimelineClip {
   startAt: number;
 }
 
+interface CaptionState {
+  enabled: boolean;
+  preset: string;
+  source: string;
+}
+
+interface MusicTrack {
+  id: string;
+  genre: string;
+  mood: string;
+  volume: number;
+  fadeIn: boolean;
+  fadeOut: boolean;
+  name: string;
+  duration: number;
+  startAt: number;
+}
+
+interface OverlayItem {
+  id: string;
+  type: string;
+  text: string;
+  start: number;
+  duration: number;
+}
+
+type TimelineAction = {
+  action: string;
+  [key: string]: any;
+};
+
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatcut-director`;
 
 const ChatcutAI = () => {
@@ -82,6 +113,9 @@ const ChatcutAI = () => {
   const [duration, setDuration] = useState(0);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
   const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai');
+  const [captions, setCaptions] = useState<CaptionState>({ enabled: false, preset: '', source: '' });
+  const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
+  const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -166,12 +200,74 @@ const ChatcutAI = () => {
     else toast({ title: 'Invalid file', description: 'Please upload a video file.', variant: 'destructive' });
   }, [uploadVideo, toast]);
 
-  const parseCuts = (content: string): CutSuggestion[] => {
-    const match = content.match(/```cuts\n([\s\S]*?)\n```/);
-    if (!match) return [];
-    try {
-      return JSON.parse(match[1]).map((c: any) => ({ ...c, accepted: true }));
-    } catch { return []; }
+  const parseActions = (content: string): TimelineAction[] => {
+    // Support both ```actions and legacy ```cuts format
+    const actionsMatch = content.match(/```actions\n([\s\S]*?)\n```/);
+    const cutsMatch = content.match(/```cuts\n([\s\S]*?)\n```/);
+    
+    if (actionsMatch) {
+      try { return JSON.parse(actionsMatch[1]); } catch { return []; }
+    }
+    if (cutsMatch) {
+      try {
+        return JSON.parse(cutsMatch[1]).map((c: any) => ({ ...c, action: 'cut' }));
+      } catch { return []; }
+    }
+    return [];
+  };
+
+  const executeActions = (actions: TimelineAction[]) => {
+    for (const act of actions) {
+      switch (act.action) {
+        case 'cut':
+          setCuts(prev => [...prev, {
+            start: act.start,
+            end: act.end,
+            reason: act.reason || 'AI cut',
+            type: act.type || 'other',
+            accepted: true,
+          }]);
+          toast({ title: 'Cut added', description: act.reason || `${act.start}s — ${act.end}s` });
+          break;
+
+        case 'add_captions':
+          setCaptions({ enabled: true, preset: act.preset || 'tiktok', source: act.source || 'v1' });
+          toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} preset applied` });
+          break;
+
+        case 'add_music': {
+          const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
+          setMusicTracks(prev => [...prev, {
+            id: crypto.randomUUID(),
+            genre: act.genre || 'ambient',
+            mood: act.mood || 'calm',
+            volume: act.volume ?? 0.3,
+            fadeIn: act.fadeIn ?? true,
+            fadeOut: act.fadeOut ?? true,
+            name: musicName.charAt(0).toUpperCase() + musicName.slice(1),
+            duration: duration || 60,
+            startAt: 0,
+          }]);
+          toast({ title: 'Music added', description: `${musicName} added to A1 track` });
+          break;
+        }
+
+        case 'add_overlay':
+          setOverlays(prev => [...prev, {
+            id: crypto.randomUUID(),
+            type: act.type || 'lower_third',
+            text: act.text || '',
+            start: act.start || 0,
+            duration: act.duration || 5,
+          }]);
+          toast({ title: 'Overlay added', description: `"${act.text}" on V2 track` });
+          break;
+
+        case 'split':
+          toast({ title: 'Split', description: `Clip split at ${act.time}s on ${act.track || 'V1'}` });
+          break;
+      }
+    }
   };
 
   const sendMessage = async (text?: string) => {
@@ -240,8 +336,9 @@ const ChatcutAI = () => {
         }
       }
 
-      const newCuts = parseCuts(assistantSoFar);
-      if (newCuts.length > 0) setCuts(newCuts);
+      // Parse and execute any actions from the response
+      const actions = parseActions(assistantSoFar);
+      if (actions.length > 0) executeActions(actions);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -568,9 +665,25 @@ const ChatcutAI = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <Music className="w-3 h-3 text-muted-foreground" />
                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Audios</span>
-                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">0</Badge>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{musicTracks.length}</Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/60 text-center py-3">No audio files</p>
+                  {musicTracks.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {musicTracks.map((track) => (
+                        <div key={track.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-cyan-500/50 cursor-pointer transition-colors">
+                          <div className="w-8 h-8 rounded bg-cyan-500/20 flex items-center justify-center">
+                            <Music className="w-4 h-4 text-cyan-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-foreground truncate">{track.name}</p>
+                            <p className="text-[9px] text-muted-foreground">{track.genre} · {Math.round(track.volume * 100)}%</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/60 text-center py-3">No audio files</p>
+                  )}
                 </div>
 
                 {/* Motion Graphics section */}
@@ -578,9 +691,25 @@ const ChatcutAI = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <Layers className="w-3 h-3 text-muted-foreground" />
                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Motion Graphics</span>
-                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">0</Badge>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{overlays.length}</Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/60 text-center py-3">No motion graphics</p>
+                  {overlays.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {overlays.map((ov) => (
+                        <div key={ov.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-pink-500/50 cursor-pointer transition-colors">
+                          <div className="w-8 h-8 rounded bg-pink-500/20 flex items-center justify-center">
+                            <Layers className="w-4 h-4 text-pink-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-foreground truncate">{ov.text || ov.type}</p>
+                            <p className="text-[9px] text-muted-foreground">{ov.duration}s</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/60 text-center py-3">No motion graphics</p>
+                  )}
                 </div>
               </div>
             </ScrollArea>
@@ -624,10 +753,37 @@ const ChatcutAI = () => {
                   <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
                     {trackVisibility.v2 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
                   </Button>
+                  {captions.enabled && (
+                    <Badge className="text-[8px] px-1 py-0 h-3.5 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
+                  )}
                 </div>
                 <div className="flex-1 relative h-7 mx-1">
-                  {/* Empty overlay track - placeholder blocks */}
-                  <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
+                  {overlays.length > 0 ? (
+                    <>
+                      {overlays.map((ov) => (
+                        <div
+                          key={ov.id}
+                          className="absolute inset-y-0 rounded bg-pink-500/20 border border-pink-500/40 flex items-center px-2 cursor-pointer hover:bg-pink-500/30 transition-colors"
+                          style={{
+                            left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
+                            width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
+                          }}
+                        >
+                          <Sparkles className="w-2.5 h-2.5 text-pink-400 mr-1 flex-shrink-0" />
+                          <span className="text-[9px] text-pink-300 truncate">{ov.text}</span>
+                        </div>
+                      ))}
+                    </>
+                  ) : captions.enabled ? (
+                    <div
+                      className="absolute inset-y-0 left-0 right-0 rounded bg-pink-500/15 border border-pink-500/30 flex items-center px-2"
+                    >
+                      <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
+                      <span className="text-[9px] text-pink-300">Captions — {captions.preset.toUpperCase()}</span>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
+                  )}
                 </div>
                 <div className="w-12 flex-shrink-0" />
               </div>
@@ -695,27 +851,54 @@ const ChatcutAI = () => {
                   </Button>
                 </div>
                 <div className="flex-1 relative h-7 mx-1">
-                  {timelineClips.map((clip) => (
-                    <div
-                      key={`a-${clip.id}`}
-                      className="absolute inset-y-0 rounded bg-cyan-500/15 border border-cyan-500/30 overflow-hidden"
-                      style={{
-                        left: `${(clip.startAt / Math.max(duration, 1)) * 100}%`,
-                        width: `${(clip.duration / Math.max(duration, 1)) * 100}%`,
-                      }}
-                    >
-                      {/* Fake waveform */}
-                      <div className="absolute inset-0 flex items-center gap-px px-1">
-                        {Array.from({ length: 40 }).map((_, wi) => (
-                          <div
-                            key={wi}
-                            className="flex-1 bg-cyan-400/40 rounded-full"
-                            style={{ height: `${20 + Math.random() * 60}%` }}
-                          />
-                        ))}
+                  {/* Show music tracks if any, otherwise show video audio */}
+                  {musicTracks.length > 0 ? (
+                    musicTracks.map((track) => (
+                      <div
+                        key={track.id}
+                        className="absolute inset-y-0 rounded bg-cyan-500/20 border border-cyan-500/40 overflow-hidden flex items-center cursor-pointer hover:bg-cyan-500/30 transition-colors"
+                        style={{
+                          left: `${(track.startAt / Math.max(duration, 1)) * 100}%`,
+                          width: `${(track.duration / Math.max(duration, 1)) * 100}%`,
+                        }}
+                      >
+                        {/* Waveform visualization */}
+                        <div className="absolute inset-0 flex items-center gap-px px-1 opacity-50">
+                          {Array.from({ length: 50 }).map((_, wi) => (
+                            <div
+                              key={wi}
+                              className="flex-1 bg-cyan-400/50 rounded-full"
+                              style={{ height: `${15 + Math.random() * 65}%` }}
+                            />
+                          ))}
+                        </div>
+                        <span className="relative text-[9px] text-cyan-300 font-medium px-2 truncate z-10">
+                          {track.name}
+                        </span>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    timelineClips.map((clip) => (
+                      <div
+                        key={`a-${clip.id}`}
+                        className="absolute inset-y-0 rounded bg-cyan-500/15 border border-cyan-500/30 overflow-hidden"
+                        style={{
+                          left: `${(clip.startAt / Math.max(duration, 1)) * 100}%`,
+                          width: `${(clip.duration / Math.max(duration, 1)) * 100}%`,
+                        }}
+                      >
+                        <div className="absolute inset-0 flex items-center gap-px px-1">
+                          {Array.from({ length: 40 }).map((_, wi) => (
+                            <div
+                              key={wi}
+                              className="flex-1 bg-cyan-400/40 rounded-full"
+                              style={{ height: `${20 + Math.random() * 60}%` }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <div className="w-12 flex-shrink-0 flex items-center justify-center">
                   <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
