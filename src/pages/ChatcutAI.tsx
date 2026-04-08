@@ -24,8 +24,20 @@ import {
   Eye,
   EyeOff,
   Volume2,
+  VolumeX,
   Trash2,
   Link2,
+  Magnet,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  RatioIcon,
+  Captions,
+  Music,
+  Layers,
+  Video,
+  SkipBack,
+  SkipForward,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
