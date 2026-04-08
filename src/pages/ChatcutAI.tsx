@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
+import { KaraokeCaption, CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCaption';
+import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
 import {
   Scissors,
   Upload,
