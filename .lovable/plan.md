@@ -1,29 +1,42 @@
 
 
-# Fix Text Garbling in Animate Statics Prompts
+# Logo Resize + New Chatcut AI Page
 
-## Problem
-The AI video model (WaveSpeed Wan 2.5 i2v) cannot reliably render text. When given any prompt, it regenerates text from scratch and misspells it (e.g., "One drop. Three mushrooms." becomes "Sne soft imgluct pwcath."). The current prompts don't explicitly instruct the model to leave text untouched — they only say elements should "remain frozen," which the video model interprets as keeping position, not preserving the actual rendered characters.
+## 1. Make logos 2x smaller
 
-## Root Cause
-AI video models are notoriously bad at generating text. The `[PRESERVE EXACTLY: ...]` prefix lists objects but doesn't specifically tell the model to **not regenerate or alter any text/lettering**. The model sees text areas and attempts to re-render them each frame, resulting in garbled output.
+**Landing page (`src/pages/Landing.tsx`)**: Change `h-60 max-w-[600px]` → `h-30 max-w-[300px]`
 
-## Fix
+**Auth page (`src/pages/Auth.tsx`)**: Change `w-[480px]` → `w-[240px]`
 
-### 1. Edge function prompt update (`supabase/functions/analyze-animate-image/index.ts`)
+## 2. Create Chatcut AI page
 
-Add a dedicated **TEXT PRESERVATION** section to the system prompt:
-- Add rule: "The video model CANNOT accurately regenerate text. All prompts MUST instruct the model to treat text areas as static textures — do NOT re-render, redraw, or alter any lettering, words, or characters."
-- Add to every prompt format: "All text, lettering, and typography in the image must be treated as a fixed texture — do not regenerate, redraw, or alter any characters."
-- In the objects list instruction: "For every text element, transcribe the EXACT wording (e.g., 'Text: One drop. Three mushrooms. All for her.')"
+A new page at `/chatcut-ai` with a chat-based video editing interface. The user uploads raw footage, and the AI analyzes it to automatically detect and remove filler words ("um", "uh", "like") and suggest scene cuts.
 
-### 2. Preservation anchor update (`src/pages/AnimateStatics.tsx`)
+### Core features
+- Chat interface with message history (user/assistant bubbles, markdown rendering)
+- Video upload dropzone (drag & drop or click to upload raw footage)
+- Video player to preview uploaded footage
+- "Auto-Clean" button that triggers analysis: transcribes the video, detects filler words and awkward pauses, and returns a list of suggested cuts
+- Cut list displayed as timeline markers the user can approve/reject
+- Export button to apply cuts and download the cleaned video
 
-Update `buildFinalPrompt()` to extract text-specific objects from the analysis and add a stronger text-freeze instruction:
-- Filter `analysis.objects` for items starting with "Text:" and build a separate text anchor
-- Append: `[TEXT FREEZE: All visible text and lettering must remain exactly as shown — treat as fixed texture, do not regenerate any characters.]`
+### Implementation
+- **New file**: `src/pages/ChatcutAI.tsx` — full page with chat UI + video upload + processing flow
+- Uses existing `transcribe-video` edge function for transcription
+- New edge function `chatcut-director` that takes the transcript + user chat messages and returns cut suggestions (filler words, dead air, scene boundaries) as structured JSON actions
+- Chat messages sent to `chatcut-director` with full conversation history + transcript context
+- Video upload via Supabase Storage (`raw-footage` bucket)
 
-### Files Modified
-- `supabase/functions/analyze-animate-image/index.ts` — add text preservation rules to system prompt and tool descriptions
-- `src/pages/AnimateStatics.tsx` — enhance `buildFinalPrompt()` with text-freeze anchor
+### Navigation & routing
+- **`src/components/Navigation.tsx`**: Add `{ name: 'Chatcut AI', href: '/chatcut-ai', icon: Scissors, beta: true }` under the "AI Tools" group
+- **`src/App.tsx`**: Add route `<Route path="/chatcut-ai" element={<ProtectedRoute><ChatcutAI /></ProtectedRoute>} />`
+
+### Files modified/created
+- `src/pages/Landing.tsx` — logo size
+- `src/pages/Auth.tsx` — logo size
+- `src/pages/ChatcutAI.tsx` — new page
+- `src/components/Navigation.tsx` — add nav item
+- `src/App.tsx` — add route
+- `supabase/functions/chatcut-director/index.ts` — new edge function for chat-based cut analysis
+- Database migration: create `raw-footage` storage bucket with RLS
 
