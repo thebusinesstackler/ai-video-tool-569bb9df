@@ -665,9 +665,25 @@ const ChatcutAI = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <Music className="w-3 h-3 text-muted-foreground" />
                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Audios</span>
-                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">0</Badge>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{musicTracks.length}</Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/60 text-center py-3">No audio files</p>
+                  {musicTracks.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {musicTracks.map((track) => (
+                        <div key={track.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-cyan-500/50 cursor-pointer transition-colors">
+                          <div className="w-8 h-8 rounded bg-cyan-500/20 flex items-center justify-center">
+                            <Music className="w-4 h-4 text-cyan-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-foreground truncate">{track.name}</p>
+                            <p className="text-[9px] text-muted-foreground">{track.genre} · {Math.round(track.volume * 100)}%</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/60 text-center py-3">No audio files</p>
+                  )}
                 </div>
 
                 {/* Motion Graphics section */}
@@ -675,9 +691,25 @@ const ChatcutAI = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <Layers className="w-3 h-3 text-muted-foreground" />
                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Motion Graphics</span>
-                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">0</Badge>
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{overlays.length}</Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/60 text-center py-3">No motion graphics</p>
+                  {overlays.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {overlays.map((ov) => (
+                        <div key={ov.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-pink-500/50 cursor-pointer transition-colors">
+                          <div className="w-8 h-8 rounded bg-pink-500/20 flex items-center justify-center">
+                            <Layers className="w-4 h-4 text-pink-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-foreground truncate">{ov.text || ov.type}</p>
+                            <p className="text-[9px] text-muted-foreground">{ov.duration}s</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/60 text-center py-3">No motion graphics</p>
+                  )}
                 </div>
               </div>
             </ScrollArea>
