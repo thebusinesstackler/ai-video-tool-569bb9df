@@ -696,7 +696,7 @@ const ChatcutAI = () => {
                           <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
                             {trackVisibility.v2 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
                           </Button>
-                          {captions.enabled && (
+                          {captionSettings.enabled && (
                             <Badge className="text-[8px] px-1 py-0 h-3.5 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
                           )}
                         </div>
@@ -715,10 +715,10 @@ const ChatcutAI = () => {
                                 <span className="text-[9px] text-pink-300 truncate">{ov.text}</span>
                               </div>
                             ))
-                          ) : captions.enabled ? (
+                          ) : captionSettings.enabled ? (
                             <div className="absolute inset-y-0 left-0 right-0 rounded bg-pink-500/15 border border-pink-500/30 flex items-center px-2">
                               <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
-                              <span className="text-[9px] text-pink-300">Captions — {captions.preset.toUpperCase()}</span>
+                              <span className="text-[9px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
                             </div>
                           ) : (
                             <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
