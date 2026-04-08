@@ -63,6 +63,37 @@ interface TimelineClip {
   startAt: number;
 }
 
+interface CaptionState {
+  enabled: boolean;
+  preset: string;
+  source: string;
+}
+
+interface MusicTrack {
+  id: string;
+  genre: string;
+  mood: string;
+  volume: number;
+  fadeIn: boolean;
+  fadeOut: boolean;
+  name: string;
+  duration: number;
+  startAt: number;
+}
+
+interface OverlayItem {
+  id: string;
+  type: string;
+  text: string;
+  start: number;
+  duration: number;
+}
+
+type TimelineAction = {
+  action: string;
+  [key: string]: any;
+};
+
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatcut-director`;
 
 const ChatcutAI = () => {
