@@ -1,42 +1,38 @@
 
 
-# Logo Resize + New Chatcut AI Page
+# Redesign Chatcut AI to Match Reference Layout
 
-## 1. Make logos 2x smaller
+## Overview
+Update the Chatcut AI page to match the professional NLE (non-linear editor) design shown in the reference images, with multi-track timeline, richer transport controls, and proper media categorization.
 
-**Landing page (`src/pages/Landing.tsx`)**: Change `h-60 max-w-[600px]` → `h-30 max-w-[300px]`
+## Changes
 
-**Auth page (`src/pages/Auth.tsx`)**: Change `w-[480px]` → `w-[240px]`
+### 1. Enhanced Transport Controls (`src/pages/ChatcutAI.tsx`)
+- Add scissors (split at playhead), magnet (snap), play/pause, zoom +/-, aspect ratio toggle, closed captions, and fullscreen buttons
+- Style the playhead and time display with amber/gold accent color
+- Show time as `00:06.13 / 02:33.00` format
 
-## 2. Create Chatcut AI page
+### 2. Multi-Track Timeline
+- **V1** track: main video clip with thumbnail frames background
+- **V2** track: overlay/motion graphics clips (pink/magenta blocks with diamond markers)
+- **A1** track: audio waveform track (teal/cyan color)
+- Each track gets visibility (eye), volume, and delete controls
+- Amber playhead spanning all tracks with triangle marker at top
+- Time ruler with `00:00`, `00:30`, `01:00` labels
 
-A new page at `/chatcut-ai` with a chat-based video editing interface. The user uploads raw footage, and the AI analyzes it to automatically detect and remove filler words ("um", "uh", "like") and suggest scene cuts.
+### 3. Media Panel Redesign (Right Sidebar)
+- Section headers: **Videos**, **Audios**, **Motion Graphics** with count badges
+- Video thumbnails with duration overlays
+- Audio items shown with waveform icon/thumbnail
+- Motion graphics items section
+- `+` button at top to add media
 
-### Core features
-- Chat interface with message history (user/assistant bubbles, markdown rendering)
-- Video upload dropzone (drag & drop or click to upload raw footage)
-- Video player to preview uploaded footage
-- "Auto-Clean" button that triggers analysis: transcribes the video, detects filler words and awkward pauses, and returns a list of suggested cuts
-- Cut list displayed as timeline markers the user can approve/reject
-- Export button to apply cuts and download the cleaned video
+### 4. Styling & Color
+- Dark background for video preview area (already present)
+- Amber/gold accent for playhead, export button highlight
+- Export button styled as prominent red/orange CTA at top-right
+- Card-style backgrounds for panels matching the dark editor aesthetic
 
-### Implementation
-- **New file**: `src/pages/ChatcutAI.tsx` — full page with chat UI + video upload + processing flow
-- Uses existing `transcribe-video` edge function for transcription
-- New edge function `chatcut-director` that takes the transcript + user chat messages and returns cut suggestions (filler words, dead air, scene boundaries) as structured JSON actions
-- Chat messages sent to `chatcut-director` with full conversation history + transcript context
-- Video upload via Supabase Storage (`raw-footage` bucket)
-
-### Navigation & routing
-- **`src/components/Navigation.tsx`**: Add `{ name: 'Chatcut AI', href: '/chatcut-ai', icon: Scissors, beta: true }` under the "AI Tools" group
-- **`src/App.tsx`**: Add route `<Route path="/chatcut-ai" element={<ProtectedRoute><ChatcutAI /></ProtectedRoute>} />`
-
-### Files modified/created
-- `src/pages/Landing.tsx` — logo size
-- `src/pages/Auth.tsx` — logo size
-- `src/pages/ChatcutAI.tsx` — new page
-- `src/components/Navigation.tsx` — add nav item
-- `src/App.tsx` — add route
-- `supabase/functions/chatcut-director/index.ts` — new edge function for chat-based cut analysis
-- Database migration: create `raw-footage` storage bucket with RLS
+### Files Modified
+- `src/pages/ChatcutAI.tsx` — full redesign of transport bar, timeline (multi-track V1/V2/A1), media panel sections, and transport controls
 
