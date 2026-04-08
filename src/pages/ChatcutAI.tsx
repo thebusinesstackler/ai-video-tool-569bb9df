@@ -456,9 +456,47 @@ const ChatcutAI = () => {
                           </div>
                         ) : (
                           <div className="text-sm text-foreground">
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            </div>
+                            {/* Strip action/cuts code blocks from display */}
+                            {(() => {
+                              const cleanContent = msg.content
+                                .replace(/```actions\n[\s\S]*?\n```/g, '')
+                                .replace(/```cuts\n[\s\S]*?\n```/g, '')
+                                .trim();
+                              const hasActions = msg.content.includes('```actions') || msg.content.includes('```cuts');
+                              return (
+                                <>
+                                  {cleanContent && (
+                                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                                      <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                                    </div>
+                                  )}
+                                  {hasActions && (
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                      {msg.content.includes('"add_captions"') && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] bg-pink-500/10 text-pink-400 border border-pink-500/20 rounded-full px-2 py-0.5">
+                                          <Captions className="w-3 h-3" /> Captions enabled
+                                        </span>
+                                      )}
+                                      {msg.content.includes('"add_music"') && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-full px-2 py-0.5">
+                                          <Music className="w-3 h-3" /> Music added
+                                        </span>
+                                      )}
+                                      {msg.content.includes('"cut"') && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] bg-destructive/10 text-destructive border border-destructive/20 rounded-full px-2 py-0.5">
+                                          <Scissors className="w-3 h-3" /> Cuts applied
+                                        </span>
+                                      )}
+                                      {msg.content.includes('"add_overlay"') && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5">
+                                          <Layers className="w-3 h-3" /> Overlay added
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
