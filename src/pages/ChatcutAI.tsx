@@ -113,6 +113,9 @@ const ChatcutAI = () => {
   const [duration, setDuration] = useState(0);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
   const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai');
+  const [captions, setCaptions] = useState<CaptionState>({ enabled: false, preset: '', source: '' });
+  const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
+  const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
