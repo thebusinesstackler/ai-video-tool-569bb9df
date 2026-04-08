@@ -1,43 +1,38 @@
 
 
-# Chatcut AI Layout Redesign — Resizable Panels, Chat at Bottom
+# Redesign Chatcut AI to Match Reference Layout
 
 ## Overview
-Restructure the Chatcut AI page to match the reference: resizable 3-panel layout with the chat pinned to the bottom-left, video filling its space, and the right media panel draggable smaller.
+Update the Chatcut AI page to match the professional NLE (non-linear editor) design shown in the reference images, with multi-track timeline, richer transport controls, and proper media categorization.
 
-## Changes (all in `src/pages/ChatcutAI.tsx`)
+## Changes
 
-### 1. Use Resizable Panels
-Import `ResizablePanelGroup`, `ResizablePanel`, `ResizableHandle` from `@/components/ui/resizable`. Replace the fixed `flex` 3-column layout with a horizontal `ResizablePanelGroup` so all three columns (chat, video+timeline, media) can be resized by dragging handles.
+### 1. Enhanced Transport Controls (`src/pages/ChatcutAI.tsx`)
+- Add scissors (split at playhead), magnet (snap), play/pause, zoom +/-, aspect ratio toggle, closed captions, and fullscreen buttons
+- Style the playhead and time display with amber/gold accent color
+- Show time as `00:06.13 / 02:33.00` format
 
-### 2. Layout Structure
-```text
-┌──────────────┬─────────────────────────────┬──────────┐
-│              │                             │          │
-│   AI Chat    │      Video Preview          │  Media   │
-│  (scrollable │                             │  Panel   │
-│   messages)  ├─────────────────────────────┤ (resize- │
-│              │  Transport + Timeline       │  able)   │
-│──────────────│  (V3, V2, V1, A1 tracks)   │          │
-│  Chat Input  │                             │          │
-│  (pinned     │                             │          │
-│   bottom)    │                             │          │
-└──────────────┴─────────────────────────────┴──────────┘
-```
+### 2. Multi-Track Timeline
+- **V1** track: main video clip with thumbnail frames background
+- **V2** track: overlay/motion graphics clips (pink/magenta blocks with diamond markers)
+- **A1** track: audio waveform track (teal/cyan color)
+- Each track gets visibility (eye), volume, and delete controls
+- Amber playhead spanning all tracks with triangle marker at top
+- Time ruler with `00:00`, `00:30`, `01:00` labels
 
-- **Left panel** (~30% default, min 20%): AI/Transcript tabs with scrollable messages; chat input form pinned at the absolute bottom
-- **Center panel** (~50% default): Video preview on top taking available space, transport bar, then multi-track timeline at bottom
-- **Right panel** (~20% default, min 10%): Media sections (Videos, Audios, Motion Graphics) — can be dragged smaller
+### 3. Media Panel Redesign (Right Sidebar)
+- Section headers: **Videos**, **Audios**, **Motion Graphics** with count badges
+- Video thumbnails with duration overlays
+- Audio items shown with waveform icon/thumbnail
+- Motion graphics items section
+- `+` button at top to add media
 
-### 3. Add V3 Track
-Reference shows 4 tracks: V3, V2, V1, A1. Add a V3 track for motion graphics overlay (currently overlays are on V2). Shift V2 to show the main video thumbnails and V1 to show additional overlay/marker content matching the reference layout.
-
-### 4. Visual Polish
-- Drag handles styled as thin vertical lines between panels
-- Chat messages use full `prose` markdown rendering with table support (reference shows a table with Time/Word/Moment columns)
-- Video fills center panel without excess padding
-- Dark backgrounds match reference
+### 4. Styling & Color
+- Dark background for video preview area (already present)
+- Amber/gold accent for playhead, export button highlight
+- Export button styled as prominent red/orange CTA at top-right
+- Card-style backgrounds for panels matching the dark editor aesthetic
 
 ### Files Modified
-- `src/pages/ChatcutAI.tsx` — replace flex layout with ResizablePanelGroup, add V3 track, pin chat input to bottom
+- `src/pages/ChatcutAI.tsx` — full redesign of transport bar, timeline (multi-track V1/V2/A1), media panel sections, and transport controls
 
