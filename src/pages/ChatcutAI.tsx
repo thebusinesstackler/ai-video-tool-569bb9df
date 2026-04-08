@@ -563,13 +563,51 @@ const ChatcutAI = () => {
               <div className="h-full flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
-                  <div className="flex-1 flex items-center justify-center min-h-0">
+                  <div className="flex-1 flex items-center justify-center min-h-0 relative">
                     <video
                       ref={videoRef}
                       src={videoUrl}
                       className="max-h-full max-w-full"
                       onClick={togglePlay}
                     />
+                    {/* Live caption overlay */}
+                    {captionSettings.enabled && transcript && (
+                      <div className="absolute bottom-8 left-4 right-4 pointer-events-none z-10">
+                        <KaraokeCaption
+                          text={(() => {
+                            const segs = transcript.segments || transcript.words || [];
+                            const activeSeg = segs.find((s: any, i: number) => {
+                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                              return currentTime >= s.start && currentTime < segEnd;
+                            });
+                            return activeSeg?.text || activeSeg?.word || '';
+                          })()}
+                          currentTime={(() => {
+                            const segs = transcript.segments || transcript.words || [];
+                            const activeSeg = segs.find((s: any, i: number) => {
+                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                              return currentTime >= s.start && currentTime < segEnd;
+                            });
+                            return activeSeg ? currentTime - activeSeg.start : 0;
+                          })()}
+                          duration={(() => {
+                            const segs = transcript.segments || transcript.words || [];
+                            const activeIdx = segs.findIndex((s: any, i: number) => {
+                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                              return currentTime >= s.start && currentTime < segEnd;
+                            });
+                            if (activeIdx < 0) return 1;
+                            const s = segs[activeIdx];
+                            return (s.end ?? (segs[activeIdx + 1]?.start ?? duration)) - s.start;
+                          })()}
+                          style={captionSettings.style}
+                          background={captionSettings.background}
+                          fontFamily={captionSettings.fontFamily}
+                          fontSize={captionSettings.fontSize}
+                          fontColor={captionSettings.fontColor}
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div
