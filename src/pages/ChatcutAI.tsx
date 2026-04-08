@@ -994,6 +994,18 @@ const ChatcutAI = () => {
                         <p className="text-[10px] text-muted-foreground/60 text-center py-3">No motion graphics</p>
                       )}
                     </div>
+
+                    {/* Caption Style */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Captions className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Caption Style</span>
+                      </div>
+                      <CaptionStyleSelector
+                        settings={captionSettings}
+                        onChange={setCaptionSettings}
+                      />
+                    </div>
                   </div>
                 </ScrollArea>
               </div>
