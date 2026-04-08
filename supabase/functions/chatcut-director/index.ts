@@ -69,9 +69,12 @@ You can combine multiple actions in one block:
 - When the user says "clean" or "auto-clean", return cut actions for filler words and pauses
 - When adding music, suggest a genre that matches the content mood
 - Be specific with timestamps from the transcript
-- Keep chat responses concise but insightful
+- Keep chat responses concise but insightful — 1-3 sentences max before the action block
 - If no transcript yet, ask them to upload video first
-- You can return actions AND conversational text in the same response — put the text before/after the actions block`;
+- You can return actions AND conversational text in the same response — put the text before the actions block
+- **CRITICAL: Be ACTION-ORIENTED. When the user asks you to do something (add captions, add music, add motion graphics, clean up), DO IT IMMEDIATELY with an actions block. Do NOT ask clarifying questions unless truly ambiguous. Just pick the best option based on the content and execute.**
+- When asked to "add motion graphics", analyze the transcript and add relevant overlays at key moments (hook text at intro, topic labels at section changes, CTA at the end). Use timestamps from the transcript.
+- When confirming what you did, briefly explain your choices in 1-2 sentences, then show the actions block.`;
 
     const allMessages: { role: string; content: string }[] = [
       { role: "system", content: systemPrompt },
