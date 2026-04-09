@@ -257,7 +257,18 @@ const ChatcutAI = () => {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onTime = () => setCurrentTime(video.currentTime);
+    const onTime = () => {
+      const t = video.currentTime;
+      // Skip over accepted cut regions during playback
+      if (!video.paused) {
+        const activeCut = cuts.find(c => c.accepted && t >= c.start && t < c.end);
+        if (activeCut) {
+          video.currentTime = activeCut.end;
+          return;
+        }
+      }
+      setCurrentTime(t);
+    };
     const onMeta = () => setDuration(video.duration);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
@@ -271,7 +282,16 @@ const ChatcutAI = () => {
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
     };
-  }, [videoUrl]);
+  }, [videoUrl, cuts]);
+
+  // Listen for fullscreen exit
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setIsFullscreen(false);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   // Sync background video with main video playback
   useEffect(() => {
