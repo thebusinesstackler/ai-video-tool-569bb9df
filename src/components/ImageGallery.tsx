@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -387,6 +388,12 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
                   <Download className="w-4 h-4 mr-2" />
                   Download
                 </Button>
+
+                <ExportToDriveButton
+                  fileUrl={selectedImage.image_url}
+                  fileName={`image-${selectedImage.id.slice(0, 8)}`}
+                  mimeType="image/png"
+                />
                 
                 {/* Upscale dropdown */}
                 <DropdownMenu>
