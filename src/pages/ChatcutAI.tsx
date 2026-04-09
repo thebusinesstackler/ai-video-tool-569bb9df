@@ -705,7 +705,73 @@ const ChatcutAI = () => {
   };
 
   const toggleTrackMute = (track: 'v1' | 'v2' | 'a1') => {
-    setTrackMuted(prev => ({ ...prev, [track]: !prev[track] }));
+    setTrackMuted(prev => {
+      const next = { ...prev, [track]: !prev[track] };
+      // Actually mute/unmute the video element
+      if (track === 'v1' && videoRef.current) {
+        videoRef.current.muted = next.v1;
+      }
+      return next;
+    });
+  };
+
+  const deleteClip = (clipId: string) => {
+    setTimelineClips(prev => prev.filter(c => c.id !== clipId));
+    toast({ title: 'Clip removed', description: 'Segment deleted from timeline' });
+  };
+
+  const deleteCut = (index: number) => {
+    setCuts(prev => prev.filter((_, i) => i !== index));
+    toast({ title: 'Cut removed', description: 'Cut region restored' });
+  };
+
+  const deleteOverlay = (id: string) => {
+    setOverlays(prev => prev.filter(o => o.id !== id));
+    toast({ title: 'Overlay removed' });
+  };
+
+  const deleteBRoll = (id: string) => {
+    setBRollClips(prev => prev.filter(b => b.id !== id));
+    toast({ title: 'B-Roll removed' });
+  };
+
+  const deleteMusicTrack = (id: string) => {
+    const audioEl = musicAudioRefs.current.get(id);
+    if (audioEl) { audioEl.pause(); audioEl.src = ''; musicAudioRefs.current.delete(id); }
+    setMusicTracks(prev => prev.filter(t => t.id !== id));
+    toast({ title: 'Music track removed' });
+  };
+
+  const handleExport = async () => {
+    if (!videoUrl) {
+      toast({ title: 'Nothing to export', description: 'Upload a video first', variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Exporting...', description: 'Preparing your video with all timeline edits. This may take a moment.' });
+    try {
+      const exportData = {
+        videoUrl,
+        cuts: cuts.filter(c => c.accepted),
+        captionSettings: captionSettings.enabled ? captionSettings : null,
+        transcript: captionSettings.enabled ? transcript : null,
+        overlays,
+        bRollClips: bRollClips.filter(b => b.imageUrl && b.imageStatus === 'ready'),
+        musicTracks: musicTracks.filter(t => t.audioUrl),
+        duration,
+      };
+      const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
+        body: exportData,
+      });
+      if (error) throw error;
+      if (data?.videoUrl) {
+        toast({ title: 'Export complete! 🎬', description: 'Your video is ready for download.' });
+        window.open(data.videoUrl, '_blank');
+      } else {
+        toast({ title: 'Export submitted', description: 'Your video is being rendered. Check back in a few minutes.' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Export failed', description: err.message || 'Please try again', variant: 'destructive' });
+    }
   };
 
   const cleanMessageContent = (content: string) => {
@@ -813,7 +879,7 @@ const ChatcutAI = () => {
               {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Save
             </Button>
-            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4">
+            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4" onClick={handleExport} disabled={!videoUrl}>
               Export
             </Button>
             {videoUrl && (
@@ -1223,13 +1289,13 @@ const ChatcutAI = () => {
                     onClick={(e) => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
-                      const offsetX = e.clientX - rect.left - 72;
-                      const trackWidth = rect.width - 72;
+                      const offsetX = e.clientX - rect.left - 80;
+                      const trackWidth = rect.width - 80;
                       if (offsetX < 0 || trackWidth <= 0) return;
                       const ratio = Math.max(0, Math.min(1, offsetX / trackWidth));
                       seekTo(ratio * duration);
                     }}>
-                    <div className="absolute inset-0 px-[72px]">
+                    <div className="absolute inset-0 px-[80px]">
                       {timelineTicks.map((t) => (
                         <div
                           key={t}
@@ -1244,7 +1310,7 @@ const ChatcutAI = () => {
                     {duration > 0 && (
                       <div
                         className="absolute top-0 bottom-0 z-20"
-                        style={{ left: `calc(72px + ${(currentTime / duration) * (100 - 10)}%)` }}
+                        style={{ left: `calc(80px + ${(currentTime / duration) * (100 - 10)}%)` }}
                       >
                         <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-amber-500 -ml-[5px]" />
                         <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
@@ -1263,12 +1329,13 @@ const ChatcutAI = () => {
 
                   {timelineClips.length > 0 ? (
                     <div className="flex flex-col relative">
-                      {/* V3 Track - Motion Graphics */}
+                      {/* Graphics Track */}
+                      {trackVisibility.v3 && (
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
-                        <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
-                          <span className="text-[10px] font-semibold text-purple-400 w-5">V3</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v3')}>
-                            {trackVisibility.v3 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Motion graphics & animated text overlays">
+                          <span className="text-[9px] font-semibold text-purple-400 truncate">Graphics</span>
+                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v3')}>
+                            <EyeOff className="w-2.5 h-2.5" />
                           </Button>
                         </div>
                         <div className="flex-1 relative h-6 mx-1">
@@ -1277,7 +1344,7 @@ const ChatcutAI = () => {
                               <div
                                 key={ov.id}
                                 className={cn(
-                                  "absolute inset-y-0 rounded border flex items-center px-2 cursor-pointer transition-colors",
+                                  "absolute inset-y-0 rounded border flex items-center px-1 cursor-pointer transition-colors group/clip",
                                   ov.imageStatus === 'generating'
                                     ? "bg-purple-500/10 border-purple-500/30 animate-pulse"
                                     : ov.imageStatus === 'ready'
@@ -1288,6 +1355,7 @@ const ChatcutAI = () => {
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
                                   width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
+                                onClick={() => seekTo(ov.start)}
                               >
                                 {ov.imageStatus === 'generating' ? (
                                   <Loader2 className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0 animate-spin" />
@@ -1296,7 +1364,10 @@ const ChatcutAI = () => {
                                 ) : (
                                   <Layers className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0" />
                                 )}
-                                <span className="text-[9px] text-purple-300 truncate">{ov.text}</span>
+                                <span className="text-[9px] text-purple-300 truncate flex-1">{ov.text}</span>
+                                <button className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 ml-0.5" onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}>
+                                  <Trash2 className="w-2 h-2 text-white" />
+                                </button>
                               </div>
                             ))
                           ) : (
@@ -1305,16 +1376,18 @@ const ChatcutAI = () => {
                         </div>
                         <div className="w-10 flex-shrink-0" />
                       </div>
+                      )}
 
-                      {/* V2 Track - Overlays / Captions */}
+                      {/* Overlays / Captions Track */}
+                      {trackVisibility.v2 && (
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
-                        <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
-                          <span className="text-[10px] font-semibold text-pink-400 w-5">V2</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
-                            {trackVisibility.v2 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Text overlays, lower thirds & captions">
+                          <span className="text-[9px] font-semibold text-pink-400 truncate">Overlay</span>
+                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
+                            <EyeOff className="w-2.5 h-2.5" />
                           </Button>
                           {captionSettings.enabled && (
-                            <Badge className="text-[8px] px-1 py-0 h-3.5 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
+                            <Badge className="text-[7px] px-1 py-0 h-3 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
                           )}
                         </div>
                         <div className="flex-1 relative h-6 mx-1">
@@ -1322,14 +1395,18 @@ const ChatcutAI = () => {
                             overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text').map((ov) => (
                               <div
                                 key={ov.id}
-                                className="absolute inset-y-0 rounded bg-pink-500/20 border border-pink-500/40 flex items-center px-2 cursor-pointer hover:bg-pink-500/30 transition-colors"
+                                className="absolute inset-y-0 rounded bg-pink-500/20 border border-pink-500/40 flex items-center px-1 cursor-pointer hover:bg-pink-500/30 transition-colors group/clip"
                                 style={{
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
                                   width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
+                                onClick={() => seekTo(ov.start)}
                               >
                                 <Sparkles className="w-2.5 h-2.5 text-pink-400 mr-1 flex-shrink-0" />
-                                <span className="text-[9px] text-pink-300 truncate">{ov.text}</span>
+                                <span className="text-[9px] text-pink-300 truncate flex-1">{ov.text}</span>
+                                <button className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 ml-0.5" onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}>
+                                  <Trash2 className="w-2 h-2 text-white" />
+                                </button>
                               </div>
                             ))
                           ) : captionSettings.enabled ? (
@@ -1343,14 +1420,12 @@ const ChatcutAI = () => {
                         </div>
                         <div className="w-10 flex-shrink-0" />
                       </div>
+                      )}
 
                       {/* B-Roll Track */}
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
-                        <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
-                          <span className="text-[10px] font-semibold text-green-400 w-5">BR</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
-                            <Eye className="w-2.5 h-2.5" />
-                          </Button>
+                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
+                          <span className="text-[9px] font-semibold text-green-400 truncate">B-Roll</span>
                         </div>
                         <div className="flex-1 relative h-6 mx-1">
                           {bRollClips.length > 0 ? (
@@ -1358,7 +1433,7 @@ const ChatcutAI = () => {
                               <div
                                 key={br.id}
                                 className={cn(
-                                  "absolute inset-y-0 rounded border flex items-center px-2 cursor-pointer transition-colors",
+                                  "absolute inset-y-0 rounded border flex items-center px-1 cursor-pointer transition-colors group/clip",
                                   br.imageStatus === 'generating'
                                     ? "bg-green-500/10 border-green-500/30 animate-pulse"
                                     : br.imageStatus === 'ready'
@@ -1378,7 +1453,10 @@ const ChatcutAI = () => {
                                 ) : (
                                   <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
                                 )}
-                                <span className="text-[9px] text-green-300 truncate">{br.name}</span>
+                                <span className="text-[9px] text-green-300 truncate flex-1">{br.name}</span>
+                                <button className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 ml-0.5" onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}>
+                                  <Trash2 className="w-2 h-2 text-white" />
+                                </button>
                               </div>
                             ))
                           ) : (
@@ -1388,14 +1466,11 @@ const ChatcutAI = () => {
                         <div className="w-10 flex-shrink-0" />
                       </div>
 
-                      {/* V1 Track - Video */}
+                      {/* Video Track */}
                       <div className="flex items-center h-11 border-b border-border/50 group hover:bg-muted/20">
-                        <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
-                          <span className="text-[10px] font-semibold text-primary w-5">V1</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v1')}>
-                            {trackVisibility.v1 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('v1')}>
+                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Main video track">
+                          <span className="text-[9px] font-semibold text-primary truncate">Video</span>
+                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('v1')}>
                             {trackMuted.v1 ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
                           </Button>
                         </div>
@@ -1403,7 +1478,7 @@ const ChatcutAI = () => {
                           {timelineClips.map((clip) => (
                             <div
                               key={clip.id}
-                              className="absolute inset-y-0 rounded bg-primary/25 border border-primary/40 overflow-hidden flex items-center cursor-pointer hover:bg-primary/35 transition-colors"
+                              className="absolute inset-y-0 rounded bg-primary/25 border border-primary/40 overflow-hidden flex items-center cursor-pointer hover:bg-primary/35 transition-colors group/clip"
                               style={{
                                 left: `${(clip.startAt / Math.max(duration, 1)) * 100}%`,
                                 width: `${(clip.duration / Math.max(duration, 1)) * 100}%`,
@@ -1415,35 +1490,40 @@ const ChatcutAI = () => {
                                   <div key={fi} className="flex-1 border-r border-primary/10 bg-gradient-to-b from-primary/10 to-primary/5" />
                                 ))}
                               </div>
-                              <span className="relative text-[10px] text-foreground font-medium px-2 truncate z-10">
+                              <span className="relative text-[10px] text-foreground font-medium px-2 truncate z-10 flex-1">
                                 {clip.name}
                               </span>
+                              {timelineClips.length > 1 && (
+                                <button className="hidden group-hover/clip:flex relative z-10 w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1" onClick={(e) => { e.stopPropagation(); deleteClip(clip.id); }}>
+                                  <Trash2 className="w-2 h-2 text-white" />
+                                </button>
+                              )}
                             </div>
                           ))}
                           {cuts.filter(c => c.accepted).map((cut, i) => (
                             <div
                               key={`cut-${i}`}
-                              className="absolute inset-y-0 bg-destructive/25 border-l border-r border-destructive/50 cursor-pointer hover:bg-destructive/35"
+                              className="absolute inset-y-0 bg-destructive/25 border-l border-r border-destructive/50 cursor-pointer hover:bg-destructive/35 group/cut"
                               style={{
                                 left: `${(cut.start / Math.max(duration, 1)) * 100}%`,
                                 width: `${((cut.end - cut.start) / Math.max(duration, 1)) * 100}%`,
                               }}
-                              title={cut.reason}
-                            />
+                              title={`${cut.reason} — click ✕ to remove cut`}
+                            >
+                              <button className="absolute top-0.5 right-0.5 hidden group-hover/cut:flex w-3 h-3 items-center justify-center rounded-full bg-destructive text-white z-10" onClick={(e) => { e.stopPropagation(); deleteCut(i); }}>
+                                <span className="text-[8px] leading-none">✕</span>
+                              </button>
+                            </div>
                           ))}
                         </div>
-                        <div className="w-10 flex-shrink-0 flex items-center justify-center">
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
-                            <Trash2 className="w-2.5 h-2.5" />
-                          </Button>
-                        </div>
+                        <div className="w-10 flex-shrink-0" />
                       </div>
 
-                      {/* A1 Track - Audio */}
+                      {/* Music Track */}
                       <div className="flex items-center h-9 group hover:bg-muted/20">
-                        <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
-                          <span className="text-[10px] font-semibold text-cyan-400 w-5">A1</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('a1')}>
+                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Music & audio tracks">
+                          <span className="text-[9px] font-semibold text-cyan-400 truncate">Music</span>
+                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('a1')}>
                             {trackMuted.a1 ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
                           </Button>
                         </div>
@@ -1452,7 +1532,7 @@ const ChatcutAI = () => {
                             musicTracks.map((track) => (
                               <div
                                 key={track.id}
-                                className="absolute inset-y-0 rounded bg-cyan-500/20 border border-cyan-500/40 overflow-hidden flex items-center cursor-pointer hover:bg-cyan-500/30 transition-colors"
+                                className="absolute inset-y-0 rounded bg-cyan-500/20 border border-cyan-500/40 overflow-hidden flex items-center cursor-pointer hover:bg-cyan-500/30 transition-colors group/clip"
                                 style={{
                                   left: `${(track.startAt / Math.max(duration, 1)) * 100}%`,
                                   width: `${(track.duration / Math.max(duration, 1)) * 100}%`,
@@ -1467,9 +1547,12 @@ const ChatcutAI = () => {
                                     />
                                   ))}
                                 </div>
-                                <span className="relative text-[9px] text-cyan-300 font-medium px-2 truncate z-10">
+                                <span className="relative text-[9px] text-cyan-300 font-medium px-2 truncate z-10 flex-1">
                                   {track.name}
                                 </span>
+                                <button className="hidden group-hover/clip:flex relative z-10 w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1" onClick={(e) => { e.stopPropagation(); deleteMusicTrack(track.id); }}>
+                                  <Trash2 className="w-2 h-2 text-white" />
+                                </button>
                               </div>
                             ))
                           ) : (
@@ -1495,18 +1578,31 @@ const ChatcutAI = () => {
                             ))
                           )}
                         </div>
-                        <div className="w-10 flex-shrink-0 flex items-center justify-center">
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
-                            <Trash2 className="w-2.5 h-2.5" />
-                          </Button>
-                        </div>
+                        <div className="w-10 flex-shrink-0" />
                       </div>
+
+                      {/* Hidden track toggles — show buttons to restore hidden tracks */}
+                      {(!trackVisibility.v3 || !trackVisibility.v2) && (
+                        <div className="flex items-center gap-1 px-2 py-1 border-t border-border/30">
+                          <span className="text-[9px] text-muted-foreground mr-1">Hidden:</span>
+                          {!trackVisibility.v3 && (
+                            <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5 text-purple-400 hover:text-purple-300" onClick={() => toggleTrackVisibility('v3')}>
+                              <Eye className="w-2.5 h-2.5 mr-0.5" /> Graphics
+                            </Button>
+                          )}
+                          {!trackVisibility.v2 && (
+                            <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5 text-pink-400 hover:text-pink-300" onClick={() => toggleTrackVisibility('v2')}>
+                              <Eye className="w-2.5 h-2.5 mr-0.5" /> Overlay
+                            </Button>
+                          )}
+                        </div>
+                      )}
 
                       {/* Playhead line spanning all tracks */}
                       {duration > 0 && (
                         <div
                           className="absolute bottom-0 top-0 z-20 pointer-events-none"
-                          style={{ left: `calc(72px + ${(currentTime / duration) * (100 - 10)}%)` }}
+                          style={{ left: `calc(80px + ${(currentTime / duration) * (100 - 10)}%)` }}
                         >
                           <div className="w-0.5 h-full bg-amber-500" />
                         </div>
