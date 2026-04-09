@@ -130,6 +130,7 @@ const ChatcutAI = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [cuts, setCuts] = useState<CutSuggestion[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
@@ -164,30 +165,62 @@ const ChatcutAI = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Sync music audio with video playback
+  // Track user interaction for autoplay policy
+  useEffect(() => {
+    if (hasInteracted) return;
+    const markInteracted = () => setHasInteracted(true);
+    document.addEventListener('click', markInteracted, { once: true });
+    document.addEventListener('keydown', markInteracted, { once: true });
+    return () => {
+      document.removeEventListener('click', markInteracted);
+      document.removeEventListener('keydown', markInteracted);
+    };
+  }, [hasInteracted]);
+
+  // Create/destroy audio elements when musicTracks change
+  useEffect(() => {
+    const currentIds = new Set(musicTracks.filter(t => t.audioUrl).map(t => t.id));
+    // Remove stale audio elements
+    musicAudioRefs.current.forEach((el, id) => {
+      if (!currentIds.has(id)) {
+        el.pause();
+        el.src = '';
+        musicAudioRefs.current.delete(id);
+      }
+    });
+    // Create new audio elements
+    musicTracks.forEach(track => {
+      if (!track.audioUrl) return;
+      if (!musicAudioRefs.current.has(track.id)) {
+        const audioEl = new Audio(track.audioUrl);
+        audioEl.preload = 'auto';
+        musicAudioRefs.current.set(track.id, audioEl);
+      }
+    });
+  }, [musicTracks]);
+
+  // Sync music audio with video playback (only play/pause/seek/volume)
   useEffect(() => {
     musicTracks.forEach(track => {
       if (!track.audioUrl) return;
-      let audioEl = musicAudioRefs.current.get(track.id);
-      if (!audioEl) {
-        audioEl = new Audio(track.audioUrl);
-        audioEl.loop = true;
-        musicAudioRefs.current.set(track.id, audioEl);
-      }
+      const audioEl = musicAudioRefs.current.get(track.id);
+      if (!audioEl) return;
       audioEl.volume = trackMuted.a1 ? 0 : track.volume;
 
       const inRange = currentTime >= track.startAt && currentTime < track.startAt + track.duration;
-      if (isPlaying && inRange) {
+      if (isPlaying && inRange && hasInteracted) {
         const expectedTime = currentTime - track.startAt;
         if (Math.abs(audioEl.currentTime - expectedTime) > 0.5) {
           audioEl.currentTime = expectedTime;
         }
-        if (audioEl.paused) audioEl.play().catch(() => {});
+        if (audioEl.paused) {
+          audioEl.play().catch(err => console.warn('Music play blocked:', err.message));
+        }
       } else {
         if (!audioEl.paused) audioEl.pause();
       }
     });
-  }, [isPlaying, currentTime, musicTracks, trackMuted.a1]);
+  }, [isPlaying, currentTime, musicTracks, trackMuted.a1, hasInteracted]);
 
   // Cleanup music audio on unmount
   useEffect(() => {
@@ -486,10 +519,20 @@ const ChatcutAI = () => {
 
       setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageUrl: imgUrl, imageStatus: 'ready' } : o));
       toast({ title: 'Motion graphic ready', description: `"${text}" generated successfully` });
+      // Notify user in chat
+      const overlay = overlays.find(o => o.id === overlayId) || { start: 0 };
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `✅ Your motion graphic **"${text}"** is ready! It's on the timeline at **${overlay.start.toFixed(1)}s**. Take a look and let me know if you'd like any changes! 🎨`,
+      }]);
     } catch (err: any) {
       console.error('Motion graphic gen error:', err);
       setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'failed' } : o));
-    }
+      toast({ title: 'Motion graphic failed', description: `Could not generate "${text}"`, variant: 'destructive' });
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `⚠️ Heads up — the graphic for **"${text}"** didn't generate. Want me to retry with a different style? 🔄`,
+      }]);
   }, [toast]);
 
   const executeActions = useCallback((actions: TimelineAction[]) => {
@@ -1521,11 +1564,28 @@ const ChatcutAI = () => {
 
                       {/* Music Track */}
                       <div className="flex items-center h-9 group hover:bg-muted/20">
-                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Music & audio tracks">
+                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-1" title="Music & audio tracks">
                           <span className="text-[9px] font-semibold text-cyan-400 truncate">Music</span>
-                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('a1')}>
+                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100 flex-shrink-0" onClick={() => toggleTrackMute('a1')}>
                             {trackMuted.a1 ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
                           </Button>
+                          {musicTracks.length > 0 && (
+                            <Slider
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={[trackMuted.a1 ? 0 : Math.round((musicTracks[0]?.volume ?? 0.3) * 100)]}
+                              onValueChange={([val]) => {
+                                if (val === 0) {
+                                  setTrackMuted(prev => ({ ...prev, a1: true }));
+                                } else {
+                                  setTrackMuted(prev => ({ ...prev, a1: false }));
+                                  setMusicTracks(prev => prev.map(t => ({ ...t, volume: val / 100 })));
+                                }
+                              }}
+                              className="w-12 flex-shrink-0"
+                            />
+                          )}
                         </div>
                         <div className="flex-1 relative h-6 mx-1">
                           {musicTracks.length > 0 ? (
