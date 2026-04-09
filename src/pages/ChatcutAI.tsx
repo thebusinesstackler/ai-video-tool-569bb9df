@@ -705,7 +705,73 @@ const ChatcutAI = () => {
   };
 
   const toggleTrackMute = (track: 'v1' | 'v2' | 'a1') => {
-    setTrackMuted(prev => ({ ...prev, [track]: !prev[track] }));
+    setTrackMuted(prev => {
+      const next = { ...prev, [track]: !prev[track] };
+      // Actually mute/unmute the video element
+      if (track === 'v1' && videoRef.current) {
+        videoRef.current.muted = next.v1;
+      }
+      return next;
+    });
+  };
+
+  const deleteClip = (clipId: string) => {
+    setTimelineClips(prev => prev.filter(c => c.id !== clipId));
+    toast({ title: 'Clip removed', description: 'Segment deleted from timeline' });
+  };
+
+  const deleteCut = (index: number) => {
+    setCuts(prev => prev.filter((_, i) => i !== index));
+    toast({ title: 'Cut removed', description: 'Cut region restored' });
+  };
+
+  const deleteOverlay = (id: string) => {
+    setOverlays(prev => prev.filter(o => o.id !== id));
+    toast({ title: 'Overlay removed' });
+  };
+
+  const deleteBRoll = (id: string) => {
+    setBRollClips(prev => prev.filter(b => b.id !== id));
+    toast({ title: 'B-Roll removed' });
+  };
+
+  const deleteMusicTrack = (id: string) => {
+    const audioEl = musicAudioRefs.current.get(id);
+    if (audioEl) { audioEl.pause(); audioEl.src = ''; musicAudioRefs.current.delete(id); }
+    setMusicTracks(prev => prev.filter(t => t.id !== id));
+    toast({ title: 'Music track removed' });
+  };
+
+  const handleExport = async () => {
+    if (!videoUrl) {
+      toast({ title: 'Nothing to export', description: 'Upload a video first', variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Exporting...', description: 'Preparing your video with all timeline edits. This may take a moment.' });
+    try {
+      const exportData = {
+        videoUrl,
+        cuts: cuts.filter(c => c.accepted),
+        captionSettings: captionSettings.enabled ? captionSettings : null,
+        transcript: captionSettings.enabled ? transcript : null,
+        overlays,
+        bRollClips: bRollClips.filter(b => b.imageUrl && b.imageStatus === 'ready'),
+        musicTracks: musicTracks.filter(t => t.audioUrl),
+        duration,
+      };
+      const { data, error } = await supabase.functions.invoke('creatomate-stitch', {
+        body: exportData,
+      });
+      if (error) throw error;
+      if (data?.videoUrl) {
+        toast({ title: 'Export complete! 🎬', description: 'Your video is ready for download.' });
+        window.open(data.videoUrl, '_blank');
+      } else {
+        toast({ title: 'Export submitted', description: 'Your video is being rendered. Check back in a few minutes.' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Export failed', description: err.message || 'Please try again', variant: 'destructive' });
+    }
   };
 
   const cleanMessageContent = (content: string) => {
