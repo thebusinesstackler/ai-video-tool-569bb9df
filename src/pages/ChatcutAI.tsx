@@ -1043,6 +1043,32 @@ const ChatcutAI = () => {
                       )}
                     </div>
 
+                    {/* B-Roll */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Film className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">B-Roll</span>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{bRollClips.length}</Badge>
+                      </div>
+                      {bRollClips.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {bRollClips.map((br) => (
+                            <div key={br.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-green-500/50 cursor-pointer transition-colors">
+                              <div className="w-8 h-8 rounded bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                                <Film className="w-4 h-4 text-green-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] text-foreground truncate">{br.name}</p>
+                                <p className="text-[9px] text-muted-foreground">{br.duration}s</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/60 text-center py-3">No b-roll</p>
+                      )}
+                    </div>
+
                     {/* Audios */}
                     <div>
                       <div className="flex items-center gap-2 mb-2">
