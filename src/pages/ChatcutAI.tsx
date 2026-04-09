@@ -417,6 +417,7 @@ const ChatcutAI = () => {
     if (content.includes('"add_music"')) badges.push({ label: '✓ Music added', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' });
     if (content.includes('"add_overlay"')) badges.push({ label: '✓ Overlay added', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' });
     if (content.includes('"cut"')) badges.push({ label: '✓ Cuts applied', color: 'bg-destructive/20 text-destructive border-destructive/30' });
+    if (content.includes('"add_broll"')) badges.push({ label: '✓ B-Roll added', color: 'bg-green-500/20 text-green-400 border-green-500/30' });
     return badges;
   };
 
