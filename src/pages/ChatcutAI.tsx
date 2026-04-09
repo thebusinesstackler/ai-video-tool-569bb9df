@@ -1328,17 +1328,25 @@ const ChatcutAI = () => {
                       {/* V2 text overlays on video */}
                       {trackVisibility.v2 && overlays
                         .filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text' && currentTime >= o.start && currentTime < o.start + o.duration)
-                        .map(ov => (
-                          <div key={ov.id} className="absolute bottom-20 left-0 right-0 pointer-events-none z-10 flex justify-center">
-                            {ov.imageUrl && ov.imageStatus === 'ready' ? (
-                              <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[20%] object-contain" />
-                            ) : (
-                              <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-md border border-pink-500/30">
-                                <span className="text-pink-100 text-xs">{ov.text}</span>
-                              </div>
-                            )}
-                          </div>
-                        ))
+                        .map(ov => {
+                          const pos = ov.position || { x: 50, y: 80 };
+                          return (
+                            <div
+                              key={ov.id}
+                              className={cn("absolute z-10 cursor-grab active:cursor-grabbing", draggingOverlayId === ov.id && "opacity-80")}
+                              style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                              onMouseDown={(e) => handleOverlayMouseDown(e, ov.id)}
+                            >
+                              {ov.imageUrl && ov.imageStatus === 'ready' ? (
+                                <img src={ov.imageUrl} alt={ov.text} className="max-w-[30vw] max-h-[12vh] object-contain pointer-events-none" />
+                              ) : (
+                                <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-md border border-pink-500/30 pointer-events-none">
+                                  <span className="text-pink-100 text-xs">{ov.text}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       }
 
                       {/* B-Roll generating indicator */}
