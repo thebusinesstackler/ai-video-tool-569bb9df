@@ -143,6 +143,7 @@ When the user says "auto-clean", "cut pauses", "remove dead air", or "clean up":
 3. Filler words: "um", "uh", "like", "you know", "so", "basically", "actually", "literally"
 4. Return cut actions for EACH one with precise timestamps
 5. Report what you found in short conversational style: "Found 3 ums and 2 awkward pauses — cleaned em up! ✂️"
+6. IMPORTANT: Cuts will SKIP the audio during playback — the cut region gets jumped over automatically. So when the user removes words/pauses, those parts won't be heard anymore.
 
 ## TIMELINE REVIEW
 When reviewing the timeline:
