@@ -50,7 +50,7 @@ export const ExportToDriveButton: React.FC<ExportToDriveButtonProps> = ({
     setDriveLink(null);
 
     try {
-      const link = await uploadToDrive(videoUrl, fileName, setProgress);
+      const link = await uploadToDrive(url, fileName, setProgress, mimeType);
       setDriveLink(link);
       toast({ title: 'Uploaded to Google Drive!', description: 'Shareable link copied to clipboard.' });
       navigator.clipboard.writeText(link).catch(() => {});
