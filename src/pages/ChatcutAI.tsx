@@ -486,7 +486,39 @@ const ChatcutAI = () => {
     return [];
   };
 
-  // Generate B-roll image via generate-scene-image
+  // Poll WaveSpeed video task for B-roll animation
+  const pollBRollVideo = useCallback(async (clipId: string, taskId: string) => {
+    const maxAttempts = 60; // 5min max
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      try {
+        const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId },
+        });
+        if (error) continue;
+        if (data?.status === 'completed' && data?.videoUrl) {
+          setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoUrl: data.videoUrl, videoStatus: 'ready' } : b));
+          const clip = bRollClips.find(b => b.id === clipId);
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `🎬 Your animated B-roll${clip ? ` **"${clip.name}"**` : ''} is ready at **${clip?.start?.toFixed(1) || '0'}s**! It's now playing on the timeline. How's it looking?`,
+          }]);
+          return;
+        }
+        if (data?.status === 'failed') {
+          setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `⚠️ The B-roll animation didn't render — the still image is still on the timeline though. Want me to retry? 🔄`,
+          }]);
+          return;
+        }
+      } catch { /* retry */ }
+    }
+    setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+  }, [bRollClips]);
+
+  // Generate B-roll image via generate-scene-image, then animate to video
   const generateBRollImage = useCallback(async (clipId: string, prompt: string) => {
     setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating' } : b));
     try {
@@ -494,13 +526,36 @@ const ChatcutAI = () => {
         body: { prompt },
       });
       if (error || !data?.imageUrl) throw new Error(error?.message || 'No image generated');
-      setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready' } : b));
-      toast({ title: 'B-Roll ready', description: 'Image generated and added to timeline' });
+      setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready', videoStatus: 'generating' } : b));
+      toast({ title: 'B-Roll image ready', description: 'Now animating into video clip...' });
+
+      // Chain: animate the still image into a video via WaveSpeed
+      try {
+        const { data: vidData, error: vidError } = await supabase.functions.invoke('wavespeed-video', {
+          body: {
+            action: 'create',
+            model: 'wan-2.5-i2v',
+            imageUrls: [data.imageUrl],
+            prompt: `Cinematic slow motion: ${prompt}`,
+            duration: 4,
+            aspectRatio: '16:9',
+          },
+        });
+        if (vidError || !vidData?.taskId) {
+          setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+          return;
+        }
+        setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoTaskId: vidData.taskId } : b));
+        // Start background polling
+        pollBRollVideo(clipId, vidData.taskId);
+      } catch {
+        setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+      }
     } catch (err: any) {
       console.error('B-roll gen error:', err);
       setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'failed' } : b));
     }
-  }, [toast]);
+  }, [toast, pollBRollVideo]);
 
   // Generate motion graphic image via Lovable AI Gateway
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
