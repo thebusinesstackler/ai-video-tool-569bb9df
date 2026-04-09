@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, transcript, mode } = await req.json();
+    const { messages, transcript, mode, timelineState } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -52,6 +52,7 @@ Genres: wellness, upbeat, corporate, cinematic, lofi, energetic, ambient
 [{"action":"add_overlay","type":"motion_graphic","text":"Product Name","start":0,"duration":5}]
 \`\`\`
 Types: "lower_third", "motion_graphic", "animated_text", "title_card"
+IMPORTANT: For motion_graphic and animated_text, the system will generate a professional graphic image using AI. Write the text field as EXACTLY what should appear on screen (keep it short: 2-6 words).
 
 5. **split** — Split clip at a timestamp:
 \`\`\`actions
@@ -60,8 +61,21 @@ Types: "lower_third", "motion_graphic", "animated_text", "title_card"
 
 6. **add_broll** — Add B-Roll footage to the B-Roll track:
 \`\`\`actions
-[{"action":"add_broll","description":"Product close-up shot","prompt":"Close-up cinematic shot of the product","start":5,"duration":4}]
+[{"action":"add_broll","description":"Product close-up shot","prompt":"Cinematic close-up of a sleek wellness product bottle on a marble surface, soft natural lighting, shallow depth of field, 4K product photography","start":5,"duration":4}]
 \`\`\`
+IMPORTANT B-ROLL RULES:
+- The "prompt" field is used to GENERATE a real image via AI. Write it as a detailed, cinematic image generation prompt.
+- Analyze the transcript to understand the product/brand/subject and write prompts that match the video's content.
+- Include visual style details: lighting, angle, mood, setting.
+- Match the B-roll to what's being discussed at that timestamp in the transcript.
+- Examples: If someone talks about skincare at 5s, generate "Close-up of luxurious skincare serum drops on clean skin, golden hour lighting, macro lens"
+- If someone talks about fitness at 12s, generate "Dynamic wide shot of a modern gym with morning sunlight streaming through windows, cinematic color grading"
+
+7. **review** — Review the current timeline and suggest improvements:
+\`\`\`actions
+[{"action":"review"}]
+\`\`\`
+Use this when the user asks you to review, check, or evaluate the timeline. Look at what tracks have content and what's missing, then make specific suggestions.
 
 You can combine multiple actions in one block:
 \`\`\`actions
@@ -70,6 +84,23 @@ You can combine multiple actions in one block:
   {"action":"add_music","genre":"lofi","mood":"chill","volume":0.25,"fadeIn":true,"fadeOut":true}
 ]
 \`\`\`
+
+## PAUSE & DEAD AIR DETECTION
+When the user says "auto-clean", "cut pauses", "remove dead air", or "clean up":
+1. Analyze the word-level transcript timestamps carefully
+2. Look for gaps > 0.8 seconds between consecutive words — these are pauses/dead air
+3. Look for filler words: "um", "uh", "like", "you know", "so", "basically", "actually", "literally"
+4. Return cut actions for EACH pause/filler found with precise timestamps
+5. Tell the user exactly how many cuts you found and what types (e.g., "Found 3 filler words and 2 dead air gaps")
+
+## TIMELINE REVIEW
+When reviewing the timeline (you'll receive the current state as context):
+- Check which tracks have content (V1, V2, V3, A1, B-Roll)
+- If video exists but no captions → suggest adding them
+- If video + captions but no music → suggest adding a complementary track
+- If there are long sections without B-roll → suggest adding visual variety
+- If cuts have been made → confirm they look good and suggest next steps
+- Be specific: "I see you have captions and music, but the section from 8-15s could use some B-roll to keep viewers engaged"
 
 ## IMPORTANT BEHAVIOR RULES
 1. After executing actions, ALWAYS confirm what you did specifically: "Done! I added TikTok captions and a chill lo-fi beat 🎵"
@@ -90,7 +121,14 @@ You can combine multiple actions in one block:
     if (transcript) {
       allMessages.push({
         role: "system",
-        content: `Here is the video transcript (use this to understand the product, brand, and content):\n\n${JSON.stringify(transcript)}`,
+        content: `Here is the video transcript (use this to understand the product, brand, and content. Analyze word timestamps for pause detection):\n\n${JSON.stringify(transcript)}`,
+      });
+    }
+
+    if (timelineState) {
+      allMessages.push({
+        role: "system",
+        content: `Here is the CURRENT TIMELINE STATE (use this to review what's already on each track and make smart suggestions):\n\n${JSON.stringify(timelineState)}`,
       });
     }
 

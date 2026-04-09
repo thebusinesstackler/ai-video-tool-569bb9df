@@ -227,6 +227,42 @@ export type Database = {
         }
         Relationships: []
       }
+      chatcut_drafts: {
+        Row: {
+          chat_history: Json
+          created_at: string | null
+          id: string
+          name: string
+          timeline_state: Json
+          transcript: Json | null
+          updated_at: string | null
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          chat_history?: Json
+          created_at?: string | null
+          id?: string
+          name?: string
+          timeline_state?: Json
+          transcript?: Json | null
+          updated_at?: string | null
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          chat_history?: Json
+          created_at?: string | null
+          id?: string
+          name?: string
+          timeline_state?: Json
+          transcript?: Json | null
+          updated_at?: string | null
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       generated_images: {
         Row: {
           created_at: string
