@@ -880,11 +880,10 @@ const ChatcutAI = () => {
             </div>
             <h1 className="text-sm font-semibold text-foreground">Chatcut AI</h1>
             <div className="w-px h-5 bg-border" />
-            <Input
+            <ProjectNameInput
               value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              className="h-7 text-xs w-40 bg-muted/30 border-0 focus-visible:ring-1"
-              placeholder="Project name..."
+              onSave={setDraftName}
+            />
             />
           </div>
           <div className="flex items-center gap-2">
