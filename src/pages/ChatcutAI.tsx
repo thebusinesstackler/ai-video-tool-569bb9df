@@ -46,6 +46,8 @@ import {
   FilePlus,
   FolderOpen,
   Image as ImageIcon,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
@@ -1216,24 +1218,8 @@ const ChatcutAI = () => {
 
                 {/* Multi-Track Timeline */}
                 <div className={cn("border-t border-border bg-card flex-shrink-0 relative", timelineCollapsed && "h-8 overflow-hidden")}>
-                  {/* Collapse toggle */}
-                  <button
-                    className="absolute top-0 right-2 z-30 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors py-1 px-1.5"
-                    onClick={() => setTimelineCollapsed(prev => !prev)}
-                    title={timelineCollapsed ? 'Expand timeline' : 'Collapse timeline'}
-                  >
-                    {timelineCollapsed ? (
-                      <>
-                        <ZoomIn className="w-3 h-3" /> Show Timeline
-                      </>
-                    ) : (
-                      <>
-                        <ZoomOut className="w-3 h-3" /> Hide
-                      </>
-                    )}
-                  </button>
-                  {/* Timeline ruler */}
-                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer"
+                  {/* Timeline ruler with inline collapse toggle */}
+                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer flex items-center"
                     onClick={(e) => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
