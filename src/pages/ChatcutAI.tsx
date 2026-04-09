@@ -303,12 +303,19 @@ const ChatcutAI = () => {
       if (main.paused && !bg.paused) bg.pause();
       if (!main.paused && bg.paused) bg.play().catch(() => {});
     };
+    const onPlay = () => bg.play().catch(() => {});
+    const onPause = () => bg.pause();
     const interval = setInterval(sync, 200);
-    main.addEventListener('play', () => bg.play().catch(() => {}));
-    main.addEventListener('pause', () => bg.pause());
+    main.addEventListener('play', onPlay);
+    main.addEventListener('pause', onPause);
     main.addEventListener('seeked', sync);
+    // Initial sync
+    sync();
     return () => {
       clearInterval(interval);
+      main.removeEventListener('play', onPlay);
+      main.removeEventListener('pause', onPause);
+      main.removeEventListener('seeked', sync);
     };
   }, [pipEnabled, bgVideoUrl]);
 
@@ -842,6 +849,10 @@ const ChatcutAI = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+
+  // Pre-compute stable waveform heights so they don't re-randomize on every render
+  const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
+  const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
