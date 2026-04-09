@@ -521,10 +521,11 @@ const ChatcutAI = () => {
                     <ScrollArea className="flex-1 px-3 py-2">
                       <div className="space-y-3">
                         {messages.length === 0 && (
-                          <div className="text-center py-8">
-                            <Scissors className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-                            <p className="text-sm text-muted-foreground">
-                              Upload footage and tell AI what changes to make
+                          <div className="text-center py-6">
+                            <img src={agentAvatar} alt={AGENT_NAME} className="w-16 h-16 rounded-full mx-auto mb-3 ring-2 ring-primary/30" loading="lazy" width={64} height={64} />
+                            <p className="text-sm font-semibold text-foreground mb-1">Hey! I'm {AGENT_NAME} 👋</p>
+                            <p className="text-xs text-muted-foreground">
+                              Your AI video editor. Upload some footage and let's make it shine!
                             </p>
                           </div>
                         )}
@@ -541,7 +542,9 @@ const ChatcutAI = () => {
                                 )}
                               </div>
                             ) : (
-                              <div className="text-sm text-foreground">
+                              <div className="flex gap-2 text-sm text-foreground">
+                                <img src={agentAvatar} alt={AGENT_NAME} className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 ring-1 ring-primary/20" loading="lazy" width={28} height={28} />
+                                <div className="min-w-0 flex-1">
                                 <div className="prose prose-sm dark:prose-invert max-w-none [&_table]:text-xs [&_th]:px-2 [&_td]:px-2 [&_th]:py-1 [&_td]:py-1">
                                   <ReactMarkdown>{cleanMessageContent(msg.content)}</ReactMarkdown>
                                 </div>
