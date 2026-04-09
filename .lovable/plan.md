@@ -1,58 +1,28 @@
 
 
-# Export to Google Drive
+# Fix Chatcut AI: Sidebar Jumping, Timeline Button Overlap, Collapsible Media Panel
 
-## The Challenge
-There's no Google Drive connector available in the standard connectors catalog, so we need to implement Google Drive integration using the Google Picker/OAuth flow directly in the browser — no edge function needed for the upload itself.
+## Issues
 
-## Approach: Google Drive API via Browser OAuth
+1. **Sidebar jumping during playback** — Navigation links use `transition-all duration-200` which animates *every* CSS property. When the video plays and triggers re-renders, any computed style change causes visible layout shifts.
 
-Use the **Google Identity Services (GIS)** library to let users sign in with their Google account and upload videos directly to their Drive from the browser. This avoids needing server-side credentials for the upload.
+2. **"Hide Timeline" button overlaps text** — The collapse toggle is absolutely positioned at `top-0 right-2` inside the timeline, sitting on top of the ruler ticks and other elements.
 
-### How It Works
-1. User clicks "Export to Drive" button on the Chatcut AI page (or video player)
-2. A Google OAuth popup asks them to grant Drive file upload permission
-3. The video is fetched as a blob and uploaded to their Google Drive via the Drive API v3
-4. User gets a shareable Google Drive link back
+3. **Media panel can't be hidden** — The right "Media" panel is always visible with no toggle to collapse it.
 
-### Implementation
+## Changes
 
-**Step 1 — Add Google API script to `index.html`**
-- Add the Google Identity Services script tag
+### File: `src/components/Navigation.tsx`
+- Change `transition-all duration-200` on nav link items to `transition-colors duration-200` — only color changes need animating, not layout properties
 
-**Step 2 — Create `src/lib/googleDrive.ts`**
-- Helper module that handles:
-  - Initializing Google OAuth with `drive.file` scope (minimal — only access files the app creates)
-  - `uploadToDrive(videoUrl, fileName)` — fetches the video blob and uploads via `POST https://www.googleapis.com/upload/drive/v3/files`
-  - Returns a shareable link
+### File: `src/pages/ChatcutAI.tsx`
+- **Timeline toggle button**: Move it out of the absolute overlay position. Place it as a proper inline button in the timeline header bar (next to the ruler), so it doesn't overlap any text
+- **Collapsible media panel**: Add a `mediaPanelVisible` state. Add a toggle button (e.g. a sidebar icon) in the media panel header. When hidden, the media `ResizablePanel` and its `ResizableHandle` are conditionally removed, giving the center panel full remaining width. Add a small floating button on the right edge to bring it back
 
-**Step 3 — Create `src/components/ExportToDriveButton.tsx`**
-- Button component with Google Drive icon
-- Shows auth popup on first use, then uploads
-- Progress indicator during upload
-- Copies shareable link to clipboard on success
+### Summary
 
-**Step 4 — Add the button to Chatcut AI**
-- Place an "Export to Drive" button next to the existing download/save controls on the video preview area
-- Only visible when a video is loaded
-
-### Google OAuth Client ID
-Since this needs a Google OAuth Client ID with Drive scope, we have two options:
-- **Option A**: Use a project-level secret for a Google OAuth Client ID (user provides their own from Google Cloud Console)
-- **Option B**: Use the existing Lovable Cloud Google OAuth but request additional Drive scopes
-
-We'll go with **Option A** — store the Google Client ID as a `VITE_` env variable (it's a public/publishable key) so it's available client-side.
-
-### Files
 | File | Change |
 |------|--------|
-| `index.html` | Add Google Identity Services script |
-| `src/lib/googleDrive.ts` | New — Google auth + Drive upload helper |
-| `src/components/ExportToDriveButton.tsx` | New — UI button with upload flow |
-| `src/pages/ChatcutAI.tsx` | Add ExportToDriveButton to video area |
-
-### Security
-- Uses `drive.file` scope (most restrictive — only files created by the app)
-- OAuth token stays in browser memory, never stored
-- No server-side credentials needed
+| `src/components/Navigation.tsx` | Replace `transition-all` with `transition-colors` on nav links |
+| `src/pages/ChatcutAI.tsx` | Fix timeline toggle positioning; add media panel show/hide toggle |
 
