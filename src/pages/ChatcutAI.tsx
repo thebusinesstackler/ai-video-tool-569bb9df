@@ -340,6 +340,8 @@ const ChatcutAI = () => {
   // Load drafts on mount
   useEffect(() => {
     if (!user) return;
+    // Don't show draft picker if user already has a video loaded
+    if (videoUrl) return;
     supabase
       .from('chatcut_drafts')
       .select('id, name, updated_at, video_url')
@@ -979,8 +981,17 @@ const ChatcutAI = () => {
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
         {/* Draft picker overlay */}
         {showDraftPicker && savedDrafts.length > 0 && (
-          <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-            <Card className="w-full max-w-md">
+          <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDraftPicker(false)}>
+            <Card className="w-full max-w-md relative" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 h-7 w-7 z-10"
+                onClick={() => setShowDraftPicker(false)}
+              >
+                <span className="sr-only">Close</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </Button>
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center gap-3">
                   <img src={agentAvatar} alt={AGENT_NAME} className="w-10 h-10 rounded-full ring-2 ring-primary/30" />
