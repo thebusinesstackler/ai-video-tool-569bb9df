@@ -42,6 +42,10 @@ import {
   Video,
   SkipBack,
   SkipForward,
+  Save,
+  FilePlus,
+  FolderOpen,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
@@ -69,8 +73,6 @@ interface TimelineClip {
   startAt: number;
 }
 
-// CaptionState replaced by CaptionSettings from KaraokeCaption
-
 interface MusicTrack {
   id: string;
   genre: string;
@@ -90,6 +92,8 @@ interface OverlayItem {
   text: string;
   start: number;
   duration: number;
+  imageUrl?: string;
+  imageStatus?: 'generating' | 'ready' | 'failed';
 }
 
 interface BRollClip {
@@ -98,6 +102,8 @@ interface BRollClip {
   prompt: string;
   start: number;
   duration: number;
+  imageUrl?: string;
+  imageStatus?: 'generating' | 'ready' | 'failed';
 }
 
 type TimelineAction = {
@@ -131,6 +137,13 @@ const ChatcutAI = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
+  // Draft state
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState('Untitled Project');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showDraftPicker, setShowDraftPicker] = useState(false);
+  const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
+
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -193,6 +206,114 @@ const ChatcutAI = () => {
     };
   }, [videoUrl]);
 
+  // Load drafts on mount
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('chatcut_drafts')
+      .select('id, name, updated_at, video_url')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setSavedDrafts(data);
+          setShowDraftPicker(true);
+        }
+      });
+  }, [user]);
+
+  const resetProject = useCallback(() => {
+    setMessages([]);
+    setVideoUrl(null);
+    setVideoFile(null);
+    setTranscript(null);
+    setCuts([]);
+    setTimelineClips([]);
+    setMusicTracks([]);
+    setOverlays([]);
+    setBRollClips([]);
+    setCaptionSettings({ ...defaultCaptionSettings, enabled: false });
+    setDraftId(null);
+    setDraftName('Untitled Project');
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+    setShowDraftPicker(false);
+    musicAudioRefs.current.forEach(el => { el.pause(); el.src = ''; });
+    musicAudioRefs.current.clear();
+  }, []);
+
+  const getTimelineState = useCallback(() => ({
+    clips: timelineClips.map(c => ({ name: c.name, startAt: c.startAt, duration: c.duration })),
+    cuts: cuts.filter(c => c.accepted),
+    musicTracks: musicTracks.map(t => ({ name: t.name, genre: t.genre, mood: t.mood, volume: t.volume, startAt: t.startAt, duration: t.duration, hasAudio: !!t.audioUrl })),
+    overlays: overlays.map(o => ({ type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl })),
+    bRollClips: bRollClips.map(b => ({ name: b.name, start: b.start, duration: b.duration, hasImage: !!b.imageUrl })),
+    captionsEnabled: captionSettings.enabled,
+    captionStyle: captionSettings.style,
+  }), [timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings]);
+
+  const saveDraft = useCallback(async () => {
+    if (!user) return;
+    setIsSaving(true);
+    try {
+      const timelineState = {
+        clips: timelineClips,
+        cuts,
+        musicTracks: musicTracks.map(({ ...t }) => ({ ...t })),
+        overlays,
+        bRollClips,
+        captionSettings,
+      };
+      const payload = {
+        user_id: user.id,
+        name: draftName,
+        video_url: videoUrl,
+        transcript,
+        timeline_state: timelineState,
+        chat_history: messages,
+      };
+      if (draftId) {
+        await supabase.from('chatcut_drafts').update(payload).eq('id', draftId);
+      } else {
+        const { data } = await supabase.from('chatcut_drafts').insert(payload).select('id').single();
+        if (data) setDraftId(data.id);
+      }
+      toast({ title: 'Draft saved', description: `"${draftName}" saved successfully` });
+    } catch (err: any) {
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast]);
+
+  const loadDraft = useCallback(async (id: string) => {
+    if (!user) return;
+    const { data, error } = await supabase.from('chatcut_drafts').select('*').eq('id', id).single();
+    if (error || !data) {
+      toast({ title: 'Load failed', description: 'Could not load draft', variant: 'destructive' });
+      return;
+    }
+    resetProject();
+    setDraftId(data.id);
+    setDraftName(data.name);
+    setVideoUrl(data.video_url);
+    setTranscript(data.transcript);
+    const ts = data.timeline_state as any;
+    if (ts) {
+      setTimelineClips(ts.clips || []);
+      setCuts(ts.cuts || []);
+      setMusicTracks(ts.musicTracks || []);
+      setOverlays(ts.overlays || []);
+      setBRollClips(ts.bRollClips || []);
+      if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
+    }
+    const ch = data.chat_history as any;
+    if (Array.isArray(ch)) setMessages(ch);
+    setShowDraftPicker(false);
+    toast({ title: 'Draft loaded', description: `Resumed "${data.name}"` });
+  }, [user, toast, resetProject]);
+
   const uploadVideo = useCallback(async (file: File) => {
     if (!user) return;
     setIsUploading(true);
@@ -230,7 +351,7 @@ const ChatcutAI = () => {
 
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: `Hey! 👋 I'm ${AGENT_NAME}, your video editor. I just finished uploading and transcribing your footage — looking good!\n\nHere's what I can do for you:\n- **"auto-clean"** — I'll remove filler words and awkward pauses\n- **"add captions"** — TikTok, cinematic, minimal styles\n- **"add music"** — I'll generate a custom track that fits your vibe\n- **"add b-roll"** — lifestyle shots, product close-ups, you name it\n\nWhat would you like me to work on first? 🎬` },
+        { role: 'assistant', content: `Hey! 👋 I'm ${AGENT_NAME}, your video editor. I just finished uploading and transcribing your footage — looking good!\n\nHere's what I can do for you:\n- **"auto-clean"** — I'll remove filler words and awkward pauses\n- **"add captions"** — TikTok, cinematic, minimal styles\n- **"add music"** — I'll generate a custom track that fits your vibe\n- **"add b-roll"** — I'll generate contextual visuals based on what's being discussed\n- **"add motion graphics"** — AI-generated title cards and lower thirds\n- **"review timeline"** — I'll check everything and suggest improvements\n\nWhat would you like me to work on first? 🎬` },
       ]);
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -262,7 +383,61 @@ const ChatcutAI = () => {
     return [];
   };
 
-  const executeActions = (actions: TimelineAction[]) => {
+  // Generate B-roll image via generate-scene-image
+  const generateBRollImage = useCallback(async (clipId: string, prompt: string) => {
+    setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating' } : b));
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+        body: { prompt },
+      });
+      if (error || !data?.imageUrl) throw new Error(error?.message || 'No image generated');
+      setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready' } : b));
+      toast({ title: 'B-Roll ready', description: 'Image generated and added to timeline' });
+    } catch (err: any) {
+      console.error('B-roll gen error:', err);
+      setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'failed' } : b));
+    }
+  }, [toast]);
+
+  // Generate motion graphic image via Lovable AI Gateway
+  const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string) => {
+    setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
+    try {
+      const stylePrompts: Record<string, string> = {
+        motion_graphic: `Professional broadcast-quality motion graphic overlay with the text "${text}" in bold modern sans-serif font, dark translucent glass background with subtle gradient, clean minimal design, suitable for video overlay, transparent edges, on a clean dark background`,
+        animated_text: `Cinematic animated text graphic showing "${text}" in elegant typography, film-quality title card, subtle glow effects, professional broadcast design, on a clean dark background`,
+        lower_third: `Professional lower-third graphic overlay with name "${text}", modern broadcast news style, sleek dark glass bar with accent color stripe, clean typography, on a clean dark background`,
+        title_card: `Professional title card graphic showing "${text}" in bold cinematic typography, centered composition, film-quality design with subtle texture, on a clean dark background`,
+      };
+      const imagePrompt = stylePrompts[type] || stylePrompts.motion_graphic;
+
+      const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-3.1-flash-image-preview',
+          messages: [{ role: 'user', content: imagePrompt }],
+          modalities: ['image', 'text'],
+        }),
+      });
+
+      if (!resp.ok) throw new Error('Image generation failed');
+      const data = await resp.json();
+      const imgUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!imgUrl) throw new Error('No image in response');
+
+      setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageUrl: imgUrl, imageStatus: 'ready' } : o));
+      toast({ title: 'Motion graphic ready', description: `"${text}" generated successfully` });
+    } catch (err: any) {
+      console.error('Motion graphic gen error:', err);
+      setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'failed' } : o));
+    }
+  }, [toast]);
+
+  const executeActions = useCallback((actions: TimelineAction[]) => {
     for (const act of actions) {
       switch (act.action) {
         case 'cut':
@@ -295,7 +470,6 @@ const ChatcutAI = () => {
           };
           setMusicTracks(prev => [...prev, newTrack]);
           toast({ title: '🎵 Generating music...', description: `${musicName} — this takes ~15s` });
-          // Actually generate music audio
           setIsGeneratingMusic(true);
           supabase.functions.invoke('generate-music', {
             body: { mood: `${act.mood || 'calm'} ${act.genre || 'ambient'} background music for a video`, duration: Math.min(duration || 30, 60) },
@@ -310,13 +484,20 @@ const ChatcutAI = () => {
           });
           break;
         }
-        case 'add_overlay':
-          setOverlays(prev => [...prev, {
-            id: crypto.randomUUID(), type: act.type || 'lower_third',
+        case 'add_overlay': {
+          const overlayId = crypto.randomUUID();
+          const newOverlay: OverlayItem = {
+            id: overlayId, type: act.type || 'lower_third',
             text: act.text || '', start: act.start || 0, duration: act.duration || 5,
-          }]);
-          toast({ title: 'Overlay added', description: `"${act.text}" on V2 track` });
+          };
+          setOverlays(prev => [...prev, newOverlay]);
+          toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
+          // Generate motion graphic image for motion_graphic and animated_text types
+          if (['motion_graphic', 'animated_text', 'lower_third', 'title_card'].includes(act.type || '')) {
+            generateMotionGraphic(overlayId, act.text || '', act.type || 'motion_graphic');
+          }
           break;
+        }
         case 'split':
           if (timelineClips.length > 0) {
             const splitTime = act.time ?? currentTime;
@@ -334,20 +515,28 @@ const ChatcutAI = () => {
           toast({ title: 'Split', description: `Clip split at ${(act.time ?? currentTime).toFixed(1)}s` });
           break;
         case 'add_broll': {
+          const brollId = crypto.randomUUID();
           const broll: BRollClip = {
-            id: crypto.randomUUID(),
+            id: brollId,
             name: act.description || act.prompt || 'B-Roll',
             prompt: act.prompt || act.description || '',
             start: act.start ?? currentTime,
             duration: act.duration ?? 5,
           };
           setBRollClips(prev => [...prev, broll]);
-          toast({ title: 'B-Roll added', description: `"${broll.name}" on B-Roll track` });
+          toast({ title: 'B-Roll added', description: `"${broll.name}" — generating image...` });
+          // Generate real B-roll image
+          if (broll.prompt) {
+            generateBRollImage(brollId, broll.prompt);
+          }
           break;
         }
+        case 'review':
+          // Review is handled conversationally by the AI
+          break;
       }
     }
-  };
+  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
@@ -365,7 +554,11 @@ const ChatcutAI = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: allMessages, transcript }),
+        body: JSON.stringify({
+          messages: allMessages,
+          transcript,
+          timelineState: getTimelineState(),
+        }),
       });
       if (!resp.ok || !resp.body) {
         if (resp.status === 429) throw new Error('Rate limit exceeded. Please wait a moment.');
@@ -449,7 +642,6 @@ const ChatcutAI = () => {
 
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
-  // trackMuted moved above effects
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
@@ -476,9 +668,43 @@ const ChatcutAI = () => {
     return badges;
   };
 
+  // Find active B-roll clip at current time
+  const activeBRoll = bRollClips.find(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageUrl && br.imageStatus === 'ready');
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+        {/* Draft picker overlay */}
+        {showDraftPicker && savedDrafts.length > 0 && (
+          <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <img src={agentAvatar} alt={AGENT_NAME} className="w-10 h-10 rounded-full ring-2 ring-primary/30" />
+                  <div>
+                    <h3 className="font-semibold text-foreground">Welcome back! 👋</h3>
+                    <p className="text-sm text-muted-foreground">Resume a draft or start fresh?</p>
+                  </div>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {savedDrafts.map(d => (
+                    <Button key={d.id} variant="outline" className="w-full justify-start gap-2 text-left" onClick={() => loadDraft(d.id)}>
+                      <FolderOpen className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{d.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(d.updated_at).toLocaleDateString()}</p>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+                <Button className="w-full gap-2" onClick={() => { resetProject(); }}>
+                  <FilePlus className="w-4 h-4" /> Start New Project
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
           <div className="flex items-center gap-3">
@@ -486,6 +712,13 @@ const ChatcutAI = () => {
               <Scissors className="w-4 h-4 text-primary" />
             </div>
             <h1 className="text-sm font-semibold text-foreground">Chatcut AI</h1>
+            <div className="w-px h-5 bg-border" />
+            <Input
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              className="h-7 text-xs w-40 bg-muted/30 border-0 focus-visible:ring-1"
+              placeholder="Project name..."
+            />
           </div>
           <div className="flex items-center gap-2">
             {isTranscribing && (
@@ -499,6 +732,30 @@ const ChatcutAI = () => {
                 ✓ Transcribed
               </Badge>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs gap-1 h-7"
+              onClick={() => {
+                if (videoUrl || messages.length > 0) {
+                  if (confirm('Start a new project? Unsaved changes will be lost.')) resetProject();
+                } else {
+                  resetProject();
+                }
+              }}
+            >
+              <FilePlus className="w-3.5 h-3.5" /> New
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1 h-7"
+              disabled={isSaving || (!videoUrl && messages.length === 0)}
+              onClick={saveDraft}
+            >
+              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Save
+            </Button>
             <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4">
               Export
             </Button>
@@ -668,10 +925,19 @@ const ChatcutAI = () => {
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
                     <div className="relative inline-block max-h-full max-w-full" style={{ lineHeight: 0 }}>
+                      {/* B-Roll image overlay when active */}
+                      {activeBRoll && (
+                        <img
+                          src={activeBRoll.imageUrl}
+                          alt={activeBRoll.name}
+                          className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-5"
+                          style={{ maxHeight: 'calc(100vh - 300px)' }}
+                        />
+                      )}
                       <video
                         ref={videoRef}
                         src={videoUrl}
-                        className="max-h-[100%] max-w-[100%] block"
+                        className={cn("max-h-[100%] max-w-[100%] block", activeBRoll && "opacity-0")}
                         style={{ maxHeight: 'calc(100vh - 300px)' }}
                         onClick={togglePlay}
                       />
@@ -681,9 +947,18 @@ const ChatcutAI = () => {
                         .filter(o => (o.type === 'motion_graphic' || o.type === 'animated_text') && currentTime >= o.start && currentTime < o.start + o.duration)
                         .map(ov => (
                           <div key={ov.id} className="absolute top-4 left-0 right-0 pointer-events-none z-10 flex justify-center">
-                            <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
-                              <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
-                            </div>
+                            {ov.imageUrl && ov.imageStatus === 'ready' ? (
+                              <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[30%] object-contain rounded-lg" />
+                            ) : ov.imageStatus === 'generating' ? (
+                              <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2">
+                                <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                                <span className="text-purple-200 text-sm">Generating graphic...</span>
+                              </div>
+                            ) : (
+                              <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
+                                <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
+                              </div>
+                            )}
                           </div>
                         ))
                       }
@@ -693,15 +968,28 @@ const ChatcutAI = () => {
                         .filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text' && currentTime >= o.start && currentTime < o.start + o.duration)
                         .map(ov => (
                           <div key={ov.id} className="absolute bottom-20 left-0 right-0 pointer-events-none z-10 flex justify-center">
-                            <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-md border border-pink-500/30">
-                              <span className="text-pink-100 text-xs">{ov.text}</span>
-                            </div>
+                            {ov.imageUrl && ov.imageStatus === 'ready' ? (
+                              <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[20%] object-contain" />
+                            ) : (
+                              <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-md border border-pink-500/30">
+                                <span className="text-pink-100 text-xs">{ov.text}</span>
+                              </div>
+                            )}
                           </div>
                         ))
                       }
 
-                      {/* B-Roll indicator on video */}
-                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration) && (
+                      {/* B-Roll generating indicator */}
+                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageStatus === 'generating') && (
+                        <div className="absolute top-2 right-2 pointer-events-none z-10">
+                          <div className="bg-green-500/80 px-2 py-0.5 rounded text-[10px] font-bold text-white flex items-center gap-1">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> GENERATING B-ROLL
+                          </div>
+                        </div>
+                      )}
+
+                      {/* B-Roll badge for clips without image */}
+                      {!activeBRoll && bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageStatus !== 'generating') && (
                         <div className="absolute top-2 right-2 pointer-events-none z-10">
                           <div className="bg-green-500/80 px-2 py-0.5 rounded text-[10px] font-bold text-white">B-ROLL</div>
                         </div>
@@ -870,13 +1158,26 @@ const ChatcutAI = () => {
                             overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text').map((ov) => (
                               <div
                                 key={ov.id}
-                                className="absolute inset-y-0 rounded bg-purple-500/20 border border-purple-500/40 flex items-center px-2 cursor-pointer hover:bg-purple-500/30 transition-colors"
+                                className={cn(
+                                  "absolute inset-y-0 rounded border flex items-center px-2 cursor-pointer transition-colors",
+                                  ov.imageStatus === 'generating'
+                                    ? "bg-purple-500/10 border-purple-500/30 animate-pulse"
+                                    : ov.imageStatus === 'ready'
+                                    ? "bg-purple-500/25 border-purple-500/50 hover:bg-purple-500/35"
+                                    : "bg-purple-500/20 border-purple-500/40 hover:bg-purple-500/30"
+                                )}
                                 style={{
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
                                   width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
                               >
-                                <Layers className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0" />
+                                {ov.imageStatus === 'generating' ? (
+                                  <Loader2 className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0 animate-spin" />
+                                ) : ov.imageUrl ? (
+                                  <ImageIcon className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0" />
+                                ) : (
+                                  <Layers className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0" />
+                                )}
                                 <span className="text-[9px] text-purple-300 truncate">{ov.text}</span>
                               </div>
                             ))
@@ -938,14 +1239,27 @@ const ChatcutAI = () => {
                             bRollClips.map((br) => (
                               <div
                                 key={br.id}
-                                className="absolute inset-y-0 rounded bg-green-500/20 border border-green-500/40 flex items-center px-2 cursor-pointer hover:bg-green-500/30 transition-colors"
+                                className={cn(
+                                  "absolute inset-y-0 rounded border flex items-center px-2 cursor-pointer transition-colors",
+                                  br.imageStatus === 'generating'
+                                    ? "bg-green-500/10 border-green-500/30 animate-pulse"
+                                    : br.imageStatus === 'ready'
+                                    ? "bg-green-500/25 border-green-500/50 hover:bg-green-500/35"
+                                    : "bg-green-500/20 border-green-500/40 hover:bg-green-500/30"
+                                )}
                                 style={{
                                   left: `${(br.start / Math.max(duration, 1)) * 100}%`,
                                   width: `${(br.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
                                 onClick={() => seekTo(br.start)}
                               >
-                                <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                {br.imageStatus === 'generating' ? (
+                                  <Loader2 className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-spin" />
+                                ) : br.imageUrl ? (
+                                  <ImageIcon className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                ) : (
+                                  <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                )}
                                 <span className="text-[9px] text-green-300 truncate">{br.name}</span>
                               </div>
                             ))
@@ -1144,13 +1458,21 @@ const ChatcutAI = () => {
                       {bRollClips.length > 0 ? (
                         <div className="space-y-1.5">
                           {bRollClips.map((br) => (
-                            <div key={br.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-green-500/50 cursor-pointer transition-colors">
-                              <div className="w-8 h-8 rounded bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                                <Film className="w-4 h-4 text-green-400" />
-                              </div>
+                            <div key={br.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-green-500/50 cursor-pointer transition-colors" onClick={() => seekTo(br.start)}>
+                              {br.imageUrl && br.imageStatus === 'ready' ? (
+                                <img src={br.imageUrl} alt={br.name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                                  {br.imageStatus === 'generating' ? (
+                                    <Loader2 className="w-4 h-4 text-green-400 animate-spin" />
+                                  ) : (
+                                    <Film className="w-4 h-4 text-green-400" />
+                                  )}
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] text-foreground truncate">{br.name}</p>
-                                <p className="text-[9px] text-muted-foreground">{br.duration}s</p>
+                                <p className="text-[9px] text-muted-foreground">{br.duration}s{br.imageStatus === 'generating' ? ' · generating...' : br.imageStatus === 'ready' ? ' · ✓' : ''}</p>
                               </div>
                             </div>
                           ))}
@@ -1196,13 +1518,21 @@ const ChatcutAI = () => {
                       {overlays.length > 0 ? (
                         <div className="space-y-1.5">
                           {overlays.map((ov) => (
-                            <div key={ov.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-pink-500/50 cursor-pointer transition-colors">
-                              <div className="w-8 h-8 rounded bg-pink-500/20 flex items-center justify-center flex-shrink-0">
-                                <Layers className="w-4 h-4 text-pink-400" />
-                              </div>
+                            <div key={ov.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-pink-500/50 cursor-pointer transition-colors" onClick={() => seekTo(ov.start)}>
+                              {ov.imageUrl && ov.imageStatus === 'ready' ? (
+                                <img src={ov.imageUrl} alt={ov.text} className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded bg-pink-500/20 flex items-center justify-center flex-shrink-0">
+                                  {ov.imageStatus === 'generating' ? (
+                                    <Loader2 className="w-4 h-4 text-pink-400 animate-spin" />
+                                  ) : (
+                                    <Layers className="w-4 h-4 text-pink-400" />
+                                  )}
+                                </div>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] text-foreground truncate">{ov.text || ov.type}</p>
-                                <p className="text-[9px] text-muted-foreground">{ov.duration}s</p>
+                                <p className="text-[9px] text-muted-foreground">{ov.duration}s{ov.imageStatus === 'generating' ? ' · generating...' : ov.imageStatus === 'ready' ? ' · ✓' : ''}</p>
                               </div>
                             </div>
                           ))}
