@@ -599,39 +599,75 @@ const ChatcutAI = () => {
               <div className="h-full flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
-                  <div className="flex-1 flex items-center justify-center min-h-0 relative">
-                    <video
-                      ref={videoRef}
-                      src={videoUrl}
-                      className="max-h-full max-w-full"
-                      onClick={togglePlay}
-                    />
-                    {/* Live caption overlay */}
-                    {captionSettings.enabled && transcript && (() => {
-                      const segs = transcript.segments || transcript.words || [];
-                      const activeSeg = segs.find((s: any, i: number) => {
-                        const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
-                        return currentTime >= s.start && currentTime < segEnd;
-                      });
-                      const activeText = activeSeg?.text || activeSeg?.word || '';
-                      if (!activeText) return null;
-                      const activeIdx = segs.indexOf(activeSeg);
-                      const segDuration = (activeSeg.end ?? (segs[activeIdx + 1]?.start ?? duration)) - activeSeg.start;
-                      return (
-                        <div className="absolute bottom-8 left-4 right-4 pointer-events-none z-10">
-                          <KaraokeCaption
-                            text={activeText}
-                            currentTime={currentTime - activeSeg.start}
-                            duration={segDuration}
-                            style={captionSettings.style}
-                            background={captionSettings.background}
-                            fontFamily={captionSettings.fontFamily}
-                            fontSize={captionSettings.fontSize}
-                            fontColor={captionSettings.fontColor}
-                          />
+                  <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
+                    {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
+                    <div className="relative inline-block max-h-full max-w-full" style={{ lineHeight: 0 }}>
+                      <video
+                        ref={videoRef}
+                        src={videoUrl}
+                        className="max-h-[100%] max-w-[100%] block"
+                        style={{ maxHeight: 'calc(100vh - 300px)' }}
+                        onClick={togglePlay}
+                      />
+
+                      {/* Motion graphics / overlay visuals on video */}
+                      {trackVisibility.v3 && overlays
+                        .filter(o => (o.type === 'motion_graphic' || o.type === 'animated_text') && currentTime >= o.start && currentTime < o.start + o.duration)
+                        .map(ov => (
+                          <div key={ov.id} className="absolute top-4 left-0 right-0 pointer-events-none z-10 flex justify-center">
+                            <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
+                              <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
+                            </div>
+                          </div>
+                        ))
+                      }
+
+                      {/* V2 text overlays on video */}
+                      {trackVisibility.v2 && overlays
+                        .filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text' && currentTime >= o.start && currentTime < o.start + o.duration)
+                        .map(ov => (
+                          <div key={ov.id} className="absolute bottom-20 left-0 right-0 pointer-events-none z-10 flex justify-center">
+                            <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-md border border-pink-500/30">
+                              <span className="text-pink-100 text-xs">{ov.text}</span>
+                            </div>
+                          </div>
+                        ))
+                      }
+
+                      {/* B-Roll indicator on video */}
+                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration) && (
+                        <div className="absolute top-2 right-2 pointer-events-none z-10">
+                          <div className="bg-green-500/80 px-2 py-0.5 rounded text-[10px] font-bold text-white">B-ROLL</div>
                         </div>
-                      );
-                    })()}
+                      )}
+
+                      {/* Live caption overlay – constrained to video bounds */}
+                      {captionSettings.enabled && transcript && (() => {
+                        const segs = transcript.segments || transcript.words || [];
+                        const activeSeg = segs.find((s: any, i: number) => {
+                          const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                          return currentTime >= s.start && currentTime < segEnd;
+                        });
+                        const activeText = activeSeg?.text || activeSeg?.word || '';
+                        if (!activeText) return null;
+                        const activeIdx = segs.indexOf(activeSeg);
+                        const segDuration = (activeSeg.end ?? (segs[activeIdx + 1]?.start ?? duration)) - activeSeg.start;
+                        return (
+                          <div className="absolute bottom-6 left-2 right-2 pointer-events-none z-10">
+                            <KaraokeCaption
+                              text={activeText}
+                              currentTime={currentTime - activeSeg.start}
+                              duration={segDuration}
+                              style={captionSettings.style}
+                              background={captionSettings.background}
+                              fontFamily={captionSettings.fontFamily}
+                              fontSize={captionSettings.fontSize}
+                              fontColor={captionSettings.fontColor}
+                            />
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 ) : (
                   <div
