@@ -1183,7 +1183,7 @@ const ChatcutAI = () => {
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div ref={videoWrapperRef} className="relative inline-block max-h-full max-w-full overflow-visible" style={{ lineHeight: 0 }}>
+                    <div ref={videoWrapperRef} className={cn("relative inline-block max-h-full max-w-full overflow-visible", isFullscreen && "w-full h-full flex items-center justify-center bg-black")} style={{ lineHeight: 0 }}>
                       {/* Background video (when PiP mode is active) */}
                       {pipEnabled && bgVideoUrl && (
                         <video
@@ -1417,13 +1417,13 @@ const ChatcutAI = () => {
                   </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
                     onClick={() => {
-                      const vid = pipEnabled ? bgVideoRef.current : videoRef.current;
-                      if (!vid) return;
+                      const wrapper = videoWrapperRef.current;
+                      if (!wrapper) return;
                       if (document.fullscreenElement) {
                         document.exitFullscreen();
                         setIsFullscreen(false);
                       } else {
-                        vid.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+                        wrapper.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
                       }
                     }}>
                     <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
