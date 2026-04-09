@@ -731,7 +731,16 @@ const ChatcutAI = () => {
                 {/* Multi-Track Timeline */}
                 <div className="border-t border-border bg-card flex-shrink-0 relative">
                   {/* Timeline ruler */}
-                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30">
+                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer"
+                    onClick={(e) => {
+                      if (duration <= 0) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const offsetX = e.clientX - rect.left - 72;
+                      const trackWidth = rect.width - 72;
+                      if (offsetX < 0 || trackWidth <= 0) return;
+                      const ratio = Math.max(0, Math.min(1, offsetX / trackWidth));
+                      seekTo(ratio * duration);
+                    }}>
                     <div className="absolute inset-0 px-[72px]">
                       {timelineTicks.map((t) => (
                         <div
@@ -818,6 +827,37 @@ const ChatcutAI = () => {
                               <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
                               <span className="text-[9px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
                             </div>
+                          ) : (
+                            <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
+                          )}
+                        </div>
+                        <div className="w-10 flex-shrink-0" />
+                      </div>
+
+                      {/* B-Roll Track */}
+                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                        <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
+                          <span className="text-[10px] font-semibold text-green-400 w-5">BR</span>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
+                            <Eye className="w-2.5 h-2.5" />
+                          </Button>
+                        </div>
+                        <div className="flex-1 relative h-6 mx-1">
+                          {bRollClips.length > 0 ? (
+                            bRollClips.map((br) => (
+                              <div
+                                key={br.id}
+                                className="absolute inset-y-0 rounded bg-green-500/20 border border-green-500/40 flex items-center px-2 cursor-pointer hover:bg-green-500/30 transition-colors"
+                                style={{
+                                  left: `${(br.start / Math.max(duration, 1)) * 100}%`,
+                                  width: `${(br.duration / Math.max(duration, 1)) * 100}%`,
+                                }}
+                                onClick={() => seekTo(br.start)}
+                              >
+                                <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                <span className="text-[9px] text-green-300 truncate">{br.name}</span>
+                              </div>
+                            ))
                           ) : (
                             <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
                           )}
