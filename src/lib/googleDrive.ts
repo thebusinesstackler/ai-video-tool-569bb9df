@@ -2,7 +2,7 @@
 
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-let tokenClient: google.accounts.oauth2.TokenClient | null = null;
+let tokenClient: any = null;
 let accessToken: string | null = null;
 
 declare global {
