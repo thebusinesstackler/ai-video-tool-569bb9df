@@ -1300,17 +1300,23 @@ const ChatcutAI = () => {
                             : entrance === 'slide-left' ? 'animate-[slideLeft_0.5s_ease-out]'
                             : 'animate-[fadeIn_0.4s_ease-out]'
                             : isExiting ? 'animate-[fadeOut_0.4s_ease-in_forwards]' : '';
+                          const pos = ov.position || { x: 50, y: 30 };
                           return (
-                            <div key={ov.id} className={cn("absolute top-4 left-0 right-0 pointer-events-none z-10 flex justify-center", animClass)}>
+                            <div
+                              key={ov.id}
+                              className={cn("absolute z-10 cursor-grab active:cursor-grabbing", animClass, draggingOverlayId === ov.id && "opacity-80")}
+                              style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                              onMouseDown={(e) => handleOverlayMouseDown(e, ov.id)}
+                            >
                               {ov.imageUrl && ov.imageStatus === 'ready' ? (
-                                <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[30%] object-contain rounded-lg" />
+                                <img src={ov.imageUrl} alt={ov.text} className="max-w-[40vw] max-h-[20vh] object-contain rounded-lg pointer-events-none" />
                               ) : ov.imageStatus === 'generating' ? (
-                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2">
+                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
                                   <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
                                   <span className="text-purple-200 text-sm">Generating graphic...</span>
                                 </div>
                               ) : (
-                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
+                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 pointer-events-none">
                                   <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
                                 </div>
                               )}
