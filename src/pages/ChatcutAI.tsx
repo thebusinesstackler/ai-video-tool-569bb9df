@@ -1873,7 +1873,7 @@ const ChatcutAI = () => {
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] text-foreground truncate">{br.name}</p>
-                                <p className="text-[9px] text-muted-foreground">{br.duration}s{br.imageStatus === 'generating' ? ' · generating...' : br.imageStatus === 'ready' ? ' · ✓' : ''}</p>
+                                <p className="text-[9px] text-muted-foreground">{br.duration}s{br.videoStatus === 'generating' ? ' · animating...' : br.videoStatus === 'ready' ? ' · 🎬 video' : br.imageStatus === 'generating' ? ' · generating...' : br.imageStatus === 'ready' ? ' · ✓ image' : ''}</p>
                               </div>
                             </div>
                           ))}
