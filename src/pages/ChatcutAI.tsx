@@ -980,7 +980,20 @@ const ChatcutAI = () => {
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div className="relative inline-block max-h-full max-w-full" style={{ lineHeight: 0 }}>
+                    <div ref={videoWrapperRef} className="relative inline-block max-h-full max-w-full" style={{ lineHeight: 0 }}>
+                      {/* Background video (when PiP mode is active) */}
+                      {pipEnabled && bgVideoUrl && (
+                        <video
+                          ref={bgVideoRef}
+                          src={bgVideoUrl}
+                          className="max-h-[100%] max-w-[100%] block"
+                          style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          muted
+                          loop
+                          playsInline
+                          onClick={togglePlay}
+                        />
+                      )}
                       {/* B-Roll image overlay when active */}
                       {activeBRoll && (
                         <img
@@ -990,13 +1003,27 @@ const ChatcutAI = () => {
                           style={{ maxHeight: 'calc(100vh - 300px)' }}
                         />
                       )}
+                      {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
                       <video
                         ref={videoRef}
                         src={videoUrl}
-                        className={cn("max-h-[100%] max-w-[100%] block", activeBRoll && "opacity-0")}
+                        className={cn(
+                          "max-h-[100%] max-w-[100%] block",
+                          activeBRoll && "opacity-0",
+                          pipEnabled && bgVideoUrl && "hidden" // Hide original; PiP component shows it
+                        )}
                         style={{ maxHeight: 'calc(100vh - 300px)' }}
                         onClick={togglePlay}
                       />
+
+                      {/* PiP overlay for main video */}
+                      {pipEnabled && bgVideoUrl && (
+                        <PiPOverlay
+                          videoRef={videoRef}
+                          containerRef={videoWrapperRef}
+                          enabled={pipEnabled}
+                        />
+                      )}
 
                       {/* Motion graphics / overlay visuals on video */}
                       {trackVisibility.v3 && overlays
