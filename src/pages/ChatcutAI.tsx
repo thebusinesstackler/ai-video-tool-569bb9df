@@ -564,8 +564,15 @@ const ChatcutAI = () => {
                         ))}
                         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <img src={agentAvatar} alt={AGENT_NAME} className="w-6 h-6 rounded-full flex-shrink-0 animate-pulse" loading="lazy" width={24} height={24} />
                             <Loader2 className="w-3 h-3 animate-spin" />
-                            Processing your media — your prompt will run when ready...
+                            {AGENT_NAME} is working on it...
+                          </div>
+                        )}
+                        {isGeneratingMusic && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                            <Music className="w-3 h-3 animate-bounce" />
+                            Generating custom music track...
                           </div>
                         )}
                         <div ref={scrollRef} />
