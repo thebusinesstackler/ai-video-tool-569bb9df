@@ -1,13 +1,10 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Move, Minimize2, Maximize2 } from 'lucide-react';
+import { Move } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PiPOverlayProps {
-  /** The main video element (AI Twin) to render as PiP */
   videoRef: React.RefObject<HTMLVideoElement>;
-  /** Container element to constrain dragging within */
   containerRef: React.RefObject<HTMLDivElement>;
-  /** Whether PiP mode is active */
   enabled: boolean;
 }
 
@@ -19,13 +16,59 @@ const SIZES = [
 
 export const PiPOverlay: React.FC<PiPOverlayProps> = ({ videoRef, containerRef, enabled }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ x: 16, y: 16 }); // bottom-right offset from corner
-  const [sizeIndex, setSizeIndex] = useState(1); // default M
+  const pipVideoRef = useRef<HTMLVideoElement>(null);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [position, setPosition] = useState({ x: 16, y: 16 });
+  const [sizeIndex, setSizeIndex] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
-  const [corner, setCorner] = useState<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('bottom-right');
+  const [corner, setCorner] = useState<'top-left' | 'bottom-right'>('bottom-right');
 
   const scale = SIZES[sizeIndex].scale;
+
+  // Sync PiP video with main video
+  useEffect(() => {
+    if (!enabled) return;
+    const main = videoRef.current;
+    const pip = pipVideoRef.current;
+    if (!main || !pip) return;
+
+    // Set same src
+    if (pip.src !== main.src) {
+      pip.src = main.src;
+    }
+
+    const sync = () => {
+      if (!main || !pip) return;
+      // Sync time
+      if (Math.abs(pip.currentTime - main.currentTime) > 0.3) {
+        pip.currentTime = main.currentTime;
+      }
+      // Sync play/pause state
+      if (main.paused && !pip.paused) pip.pause();
+      if (!main.paused && pip.paused) pip.play().catch(() => {});
+    };
+
+    const onPlay = () => pip.play().catch(() => {});
+    const onPause = () => pip.pause();
+    const onSeeked = () => { pip.currentTime = main.currentTime; };
+
+    syncIntervalRef.current = setInterval(sync, 500);
+    main.addEventListener('play', onPlay);
+    main.addEventListener('pause', onPause);
+    main.addEventListener('seeked', onSeeked);
+
+    // Initial sync
+    pip.currentTime = main.currentTime;
+    if (main.paused) pip.pause();
+
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+      main.removeEventListener('play', onPlay);
+      main.removeEventListener('pause', onPause);
+      main.removeEventListener('seeked', onSeeked);
+    };
+  }, [enabled, videoRef]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -34,39 +77,24 @@ export const PiPOverlay: React.FC<PiPOverlayProps> = ({ videoRef, containerRef, 
     const overlay = overlayRef.current;
     if (!overlay) return;
     const rect = overlay.getBoundingClientRect();
-    dragStart.current = {
-      x: e.clientX,
-      y: e.clientY,
-      posX: rect.left,
-      posY: rect.top,
-    };
+    dragStart.current = { x: e.clientX, y: e.clientY, posX: rect.left, posY: rect.top };
   }, []);
 
   useEffect(() => {
     if (!isDragging) return;
-
     const handleMouseMove = (e: MouseEvent) => {
       const container = containerRef.current;
       const overlay = overlayRef.current;
       if (!container || !overlay) return;
-
       const containerRect = container.getBoundingClientRect();
-      const overlayW = overlay.offsetWidth;
-      const overlayH = overlay.offsetHeight;
-
       let newX = dragStart.current.posX + (e.clientX - dragStart.current.x) - containerRect.left;
       let newY = dragStart.current.posY + (e.clientY - dragStart.current.y) - containerRect.top;
-
-      // Clamp within container
-      newX = Math.max(0, Math.min(containerRect.width - overlayW, newX));
-      newY = Math.max(0, Math.min(containerRect.height - overlayH, newY));
-
+      newX = Math.max(0, Math.min(containerRect.width - overlay.offsetWidth, newX));
+      newY = Math.max(0, Math.min(containerRect.height - overlay.offsetHeight, newY));
       setPosition({ x: newX, y: newY });
-      setCorner('top-left'); // Switch to absolute positioning once dragged
+      setCorner('top-left');
     };
-
     const handleMouseUp = () => setIsDragging(false);
-
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
@@ -94,44 +122,15 @@ export const PiPOverlay: React.FC<PiPOverlayProps> = ({ videoRef, containerRef, 
         isDragging && "cursor-grabbing opacity-90",
         "group/pip"
       )}
-      style={{
-        width: `${scale * 100}%`,
-        ...positionStyle,
-      }}
+      style={{ width: `${scale * 100}%`, ...positionStyle }}
       onMouseDown={handleMouseDown}
     >
-      {/* Mirror the main video into PiP via a cloned video element */}
       <video
-        src={videoRef.current?.src || ''}
+        ref={pipVideoRef}
         className="w-full h-full object-cover pointer-events-none"
         muted
-        autoPlay
-        loop
         playsInline
-        ref={(el) => {
-          if (!el || !videoRef.current) return;
-          // Sync time with main video
-          const sync = () => {
-            if (videoRef.current && el) {
-              if (Math.abs(el.currentTime - videoRef.current.currentTime) > 0.3) {
-                el.currentTime = videoRef.current.currentTime;
-              }
-              if (videoRef.current.paused && !el.paused) el.pause();
-              if (!videoRef.current.paused && el.paused) el.play().catch(() => {});
-            }
-          };
-          const interval = setInterval(sync, 200);
-          el.dataset.syncInterval = String(interval);
-          el.onloadeddata = sync;
-          // Cleanup on unmount handled by React
-          const origSrc = el.src;
-          const observer = new MutationObserver(() => {
-            if (el.src !== origSrc) clearInterval(interval);
-          });
-        }}
       />
-
-      {/* Controls overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover/pip:opacity-100 transition-opacity pointer-events-none" />
       <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover/pip:opacity-100 transition-opacity">
         <button
