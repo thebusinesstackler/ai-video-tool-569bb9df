@@ -54,6 +54,11 @@ Genres: wellness, upbeat, corporate, cinematic, lofi, energetic, ambient
 [{"action":"split","time":15.5,"track":"v1"}]
 \`\`\`
 
+6. **add_broll** — Add B-Roll footage to the B-Roll track:
+\`\`\`actions
+[{"action":"add_broll","description":"Product close-up shot","prompt":"Close-up cinematic shot of the product","start":5,"duration":4}]
+\`\`\`
+
 You can combine multiple actions in one block:
 \`\`\`actions
 [

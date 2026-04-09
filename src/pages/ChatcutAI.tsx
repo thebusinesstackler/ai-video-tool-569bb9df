@@ -88,6 +88,14 @@ interface OverlayItem {
   duration: number;
 }
 
+interface BRollClip {
+  id: string;
+  name: string;
+  prompt: string;
+  start: number;
+  duration: number;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
@@ -115,6 +123,9 @@ const ChatcutAI = () => {
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
+  const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -233,7 +244,6 @@ const ChatcutAI = () => {
           toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} style applied` });
           break;
         }
-          break;
         case 'add_music': {
           const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
           setMusicTracks(prev => [...prev, {
@@ -253,8 +263,33 @@ const ChatcutAI = () => {
           toast({ title: 'Overlay added', description: `"${act.text}" on V2 track` });
           break;
         case 'split':
-          toast({ title: 'Split', description: `Clip split at ${act.time}s on ${act.track || 'V1'}` });
+          if (timelineClips.length > 0) {
+            const splitTime = act.time ?? currentTime;
+            const clipIdx = timelineClips.findIndex(c => splitTime >= c.startAt && splitTime < c.startAt + c.duration);
+            if (clipIdx >= 0) {
+              const clip = timelineClips[clipIdx];
+              const relTime = splitTime - clip.startAt;
+              if (relTime > 0.1 && relTime < clip.duration - 0.1) {
+                const left: TimelineClip = { ...clip, id: crypto.randomUUID(), duration: relTime };
+                const right: TimelineClip = { ...clip, id: crypto.randomUUID(), startAt: splitTime, duration: clip.duration - relTime };
+                setTimelineClips(prev => [...prev.slice(0, clipIdx), left, right, ...prev.slice(clipIdx + 1)]);
+              }
+            }
+          }
+          toast({ title: 'Split', description: `Clip split at ${(act.time ?? currentTime).toFixed(1)}s` });
           break;
+        case 'add_broll': {
+          const broll: BRollClip = {
+            id: crypto.randomUUID(),
+            name: act.description || act.prompt || 'B-Roll',
+            prompt: act.prompt || act.description || '',
+            start: act.start ?? currentTime,
+            duration: act.duration ?? 5,
+          };
+          setBRollClips(prev => [...prev, broll]);
+          toast({ title: 'B-Roll added', description: `"${broll.name}" on B-Roll track` });
+          break;
+        }
       }
     }
   };
@@ -382,6 +417,7 @@ const ChatcutAI = () => {
     if (content.includes('"add_music"')) badges.push({ label: '✓ Music added', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' });
     if (content.includes('"add_overlay"')) badges.push({ label: '✓ Overlay added', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' });
     if (content.includes('"cut"')) badges.push({ label: '✓ Cuts applied', color: 'bg-destructive/20 text-destructive border-destructive/30' });
+    if (content.includes('"add_broll"')) badges.push({ label: '✓ B-Roll added', color: 'bg-green-500/20 text-green-400 border-green-500/30' });
     return badges;
   };
 
@@ -632,7 +668,21 @@ const ChatcutAI = () => {
 
                 {/* Transport controls */}
                 <div className="flex items-center gap-1 px-3 py-1.5 bg-card border-t border-border flex-shrink-0">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Split at playhead">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Split at playhead"
+                    onClick={() => {
+                      if (timelineClips.length === 0 || duration === 0) return;
+                      const clipIdx = timelineClips.findIndex(c => currentTime >= c.startAt && currentTime < c.startAt + c.duration);
+                      if (clipIdx >= 0) {
+                        const clip = timelineClips[clipIdx];
+                        const relTime = currentTime - clip.startAt;
+                        if (relTime > 0.1 && relTime < clip.duration - 0.1) {
+                          const left: TimelineClip = { ...clip, id: crypto.randomUUID(), duration: relTime };
+                          const right: TimelineClip = { ...clip, id: crypto.randomUUID(), startAt: currentTime, duration: clip.duration - relTime };
+                          setTimelineClips(prev => [...prev.slice(0, clipIdx), left, right, ...prev.slice(clipIdx + 1)]);
+                          toast({ title: 'Split', description: `Clip split at ${formatTime(currentTime)}` });
+                        }
+                      }
+                    }}>
                     <Scissors className="w-3.5 h-3.5" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Snap">
@@ -660,18 +710,38 @@ const ChatcutAI = () => {
                     <ZoomIn className="w-3.5 h-3.5" />
                   </Button>
                   <div className="w-px h-5 bg-border mx-1" />
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Captions">
-                    <Captions className="w-3.5 h-3.5" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Captions"
+                    onClick={() => setCaptionSettings(prev => ({ ...prev, enabled: !prev.enabled }))}>
+                    <Captions className={cn("w-3.5 h-3.5", captionSettings.enabled && "text-pink-400")} />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen">
-                    <Maximize className="w-3.5 h-3.5" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
+                    onClick={() => {
+                      const vid = videoRef.current;
+                      if (!vid) return;
+                      if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                        setIsFullscreen(false);
+                      } else {
+                        vid.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+                      }
+                    }}>
+                    <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
                   </Button>
                 </div>
 
                 {/* Multi-Track Timeline */}
                 <div className="border-t border-border bg-card flex-shrink-0 relative">
                   {/* Timeline ruler */}
-                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30">
+                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer"
+                    onClick={(e) => {
+                      if (duration <= 0) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const offsetX = e.clientX - rect.left - 72;
+                      const trackWidth = rect.width - 72;
+                      if (offsetX < 0 || trackWidth <= 0) return;
+                      const ratio = Math.max(0, Math.min(1, offsetX / trackWidth));
+                      seekTo(ratio * duration);
+                    }}>
                     <div className="absolute inset-0 px-[72px]">
                       {timelineTicks.map((t) => (
                         <div
@@ -758,6 +828,37 @@ const ChatcutAI = () => {
                               <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
                               <span className="text-[9px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
                             </div>
+                          ) : (
+                            <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
+                          )}
+                        </div>
+                        <div className="w-10 flex-shrink-0" />
+                      </div>
+
+                      {/* B-Roll Track */}
+                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                        <div className="w-[72px] flex-shrink-0 flex items-center gap-1 px-2">
+                          <span className="text-[10px] font-semibold text-green-400 w-5">BR</span>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100">
+                            <Eye className="w-2.5 h-2.5" />
+                          </Button>
+                        </div>
+                        <div className="flex-1 relative h-6 mx-1">
+                          {bRollClips.length > 0 ? (
+                            bRollClips.map((br) => (
+                              <div
+                                key={br.id}
+                                className="absolute inset-y-0 rounded bg-green-500/20 border border-green-500/40 flex items-center px-2 cursor-pointer hover:bg-green-500/30 transition-colors"
+                                style={{
+                                  left: `${(br.start / Math.max(duration, 1)) * 100}%`,
+                                  width: `${(br.duration / Math.max(duration, 1)) * 100}%`,
+                                }}
+                                onClick={() => seekTo(br.start)}
+                              >
+                                <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                <span className="text-[9px] text-green-300 truncate">{br.name}</span>
+                              </div>
+                            ))
                           ) : (
                             <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
                           )}
@@ -940,6 +1041,32 @@ const ChatcutAI = () => {
                         </div>
                       ) : (
                         <p className="text-[10px] text-muted-foreground/60 text-center py-3">No videos</p>
+                      )}
+                    </div>
+
+                    {/* B-Roll */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Film className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">B-Roll</span>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{bRollClips.length}</Badge>
+                      </div>
+                      {bRollClips.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {bRollClips.map((br) => (
+                            <div key={br.id} className="flex items-center gap-2 p-1.5 rounded border border-border hover:border-green-500/50 cursor-pointer transition-colors">
+                              <div className="w-8 h-8 rounded bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                                <Film className="w-4 h-4 text-green-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] text-foreground truncate">{br.name}</p>
+                                <p className="text-[9px] text-muted-foreground">{br.duration}s</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/60 text-center py-3">No b-roll</p>
                       )}
                     </div>
 
