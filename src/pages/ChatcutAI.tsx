@@ -1291,10 +1291,11 @@ const ChatcutAI = () => {
                       }
 
                       {/* B-Roll generating indicator */}
-                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageStatus === 'generating') && (
+                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && (br.imageStatus === 'generating' || br.videoStatus === 'generating')) && (
                         <div className="absolute top-2 right-2 pointer-events-none z-10">
                           <div className="bg-green-500/80 px-2 py-0.5 rounded text-[10px] font-bold text-white flex items-center gap-1">
-                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> GENERATING B-ROLL
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.videoStatus === 'generating') ? 'ANIMATING B-ROLL' : 'GENERATING B-ROLL'}
                           </div>
                         </div>
                       )}
