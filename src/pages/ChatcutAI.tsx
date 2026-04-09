@@ -1681,6 +1681,13 @@ const ChatcutAI = () => {
                 </ScrollArea>
               </div>
             </ResizablePanel>
+            ) : (
+              <div className="w-8 flex-shrink-0 bg-card border-l border-border flex flex-col items-center pt-2">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMediaPanelVisible(true)} title="Show media panel">
+                  <PanelRightOpen className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </ResizablePanelGroup>
         </div>
       </div>
