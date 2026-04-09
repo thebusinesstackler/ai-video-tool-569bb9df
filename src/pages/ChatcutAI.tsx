@@ -128,14 +128,49 @@ const ChatcutAI = () => {
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const musicAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Sync music audio with video playback
+  useEffect(() => {
+    musicTracks.forEach(track => {
+      if (!track.audioUrl) return;
+      let audioEl = musicAudioRefs.current.get(track.id);
+      if (!audioEl) {
+        audioEl = new Audio(track.audioUrl);
+        audioEl.loop = true;
+        musicAudioRefs.current.set(track.id, audioEl);
+      }
+      audioEl.volume = trackMuted.a1 ? 0 : track.volume;
+
+      const inRange = currentTime >= track.startAt && currentTime < track.startAt + track.duration;
+      if (isPlaying && inRange) {
+        const expectedTime = currentTime - track.startAt;
+        if (Math.abs(audioEl.currentTime - expectedTime) > 0.5) {
+          audioEl.currentTime = expectedTime;
+        }
+        if (audioEl.paused) audioEl.play().catch(() => {});
+      } else {
+        if (!audioEl.paused) audioEl.pause();
+      }
+    });
+  }, [isPlaying, currentTime, musicTracks, trackMuted.a1]);
+
+  // Cleanup music audio on unmount
+  useEffect(() => {
+    return () => {
+      musicAudioRefs.current.forEach(el => { el.pause(); el.src = ''; });
+      musicAudioRefs.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
