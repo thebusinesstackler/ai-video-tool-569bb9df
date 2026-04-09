@@ -98,6 +98,8 @@ interface OverlayItem {
   duration: number;
   imageUrl?: string;
   imageStatus?: 'generating' | 'ready' | 'failed';
+  animation?: OverlayAnimation;
+  style?: string;
 }
 
 interface BRollClip {
@@ -108,6 +110,14 @@ interface BRollClip {
   duration: number;
   imageUrl?: string;
   imageStatus?: 'generating' | 'ready' | 'failed';
+  videoUrl?: string;
+  videoStatus?: 'generating' | 'ready' | 'failed';
+  videoTaskId?: string;
+}
+
+interface OverlayAnimation {
+  entrance: 'slide-up' | 'fade-in' | 'scale-pop' | 'slide-left' | 'none';
+  exit: 'fade-out' | 'scale-out' | 'slide-down' | 'none';
 }
 
 type TimelineAction = {
@@ -476,7 +486,39 @@ const ChatcutAI = () => {
     return [];
   };
 
-  // Generate B-roll image via generate-scene-image
+  // Poll WaveSpeed video task for B-roll animation
+  const pollBRollVideo = useCallback(async (clipId: string, taskId: string) => {
+    const maxAttempts = 60; // 5min max
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      try {
+        const { data, error } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId },
+        });
+        if (error) continue;
+        if (data?.status === 'completed' && data?.videoUrl) {
+          setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoUrl: data.videoUrl, videoStatus: 'ready' } : b));
+          const clip = bRollClips.find(b => b.id === clipId);
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `🎬 Your animated B-roll${clip ? ` **"${clip.name}"**` : ''} is ready at **${clip?.start?.toFixed(1) || '0'}s**! It's now playing on the timeline. How's it looking?`,
+          }]);
+          return;
+        }
+        if (data?.status === 'failed') {
+          setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `⚠️ The B-roll animation didn't render — the still image is still on the timeline though. Want me to retry? 🔄`,
+          }]);
+          return;
+        }
+      } catch { /* retry */ }
+    }
+    setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+  }, [bRollClips]);
+
+  // Generate B-roll image via generate-scene-image, then animate to video
   const generateBRollImage = useCallback(async (clipId: string, prompt: string) => {
     setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating' } : b));
     try {
@@ -484,13 +526,36 @@ const ChatcutAI = () => {
         body: { prompt },
       });
       if (error || !data?.imageUrl) throw new Error(error?.message || 'No image generated');
-      setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready' } : b));
-      toast({ title: 'B-Roll ready', description: 'Image generated and added to timeline' });
+      setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready', videoStatus: 'generating' } : b));
+      toast({ title: 'B-Roll image ready', description: 'Now animating into video clip...' });
+
+      // Chain: animate the still image into a video via WaveSpeed
+      try {
+        const { data: vidData, error: vidError } = await supabase.functions.invoke('wavespeed-video', {
+          body: {
+            action: 'create',
+            model: 'wan-2.5-i2v',
+            imageUrls: [data.imageUrl],
+            prompt: `Cinematic slow motion: ${prompt}`,
+            duration: 4,
+            aspectRatio: '16:9',
+          },
+        });
+        if (vidError || !vidData?.taskId) {
+          setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+          return;
+        }
+        setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoTaskId: vidData.taskId } : b));
+        // Start background polling
+        pollBRollVideo(clipId, vidData.taskId);
+      } catch {
+        setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
+      }
     } catch (err: any) {
       console.error('B-roll gen error:', err);
       setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'failed' } : b));
     }
-  }, [toast]);
+  }, [toast, pollBRollVideo]);
 
   // Generate motion graphic image via Lovable AI Gateway
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
@@ -599,9 +664,21 @@ const ChatcutAI = () => {
         }
         case 'add_overlay': {
           const overlayId = crypto.randomUUID();
+          // Map style to animation preset
+          const styleAnimationMap: Record<string, OverlayAnimation> = {
+            glass: { entrance: 'fade-in', exit: 'fade-out' },
+            bold: { entrance: 'scale-pop', exit: 'scale-out' },
+            minimal: { entrance: 'fade-in', exit: 'fade-out' },
+            neon: { entrance: 'scale-pop', exit: 'fade-out' },
+            broadcast: { entrance: 'slide-left', exit: 'fade-out' },
+          };
+          const animation = act.animation
+            ? { entrance: act.animation, exit: 'fade-out' as const }
+            : styleAnimationMap[act.style || 'glass'] || { entrance: 'slide-up' as const, exit: 'fade-out' as const };
           const newOverlay: OverlayItem = {
             id: overlayId, type: act.type || 'lower_third',
             text: act.text || '', start: act.start || 0, duration: act.duration || 5,
+            animation, style: act.style,
           };
           setOverlays(prev => [...prev, newOverlay]);
           toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
@@ -849,8 +926,8 @@ const ChatcutAI = () => {
     return badges;
   };
 
-  // Find active B-roll clip at current time
-  const activeBRoll = bRollClips.find(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageUrl && br.imageStatus === 'ready');
+  // Find active B-roll clip at current time — prefer video over still image
+  const activeBRoll = bRollClips.find(br => currentTime >= br.start && currentTime < br.start + br.duration && ((br.videoUrl && br.videoStatus === 'ready') || (br.imageUrl && br.imageStatus === 'ready')));
 
   return (
     <Layout>
@@ -1120,14 +1197,26 @@ const ChatcutAI = () => {
                           onClick={togglePlay}
                         />
                       )}
-                      {/* B-Roll image overlay when active */}
+                      {/* B-Roll overlay when active — prefer video over still */}
                       {activeBRoll && (
-                        <img
-                          src={activeBRoll.imageUrl}
-                          alt={activeBRoll.name}
-                          className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
-                          style={{ maxHeight: 'calc(100vh - 300px)' }}
-                        />
+                        activeBRoll.videoUrl && activeBRoll.videoStatus === 'ready' ? (
+                          <video
+                            src={activeBRoll.videoUrl}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
+                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          />
+                        ) : (
+                          <img
+                            src={activeBRoll.imageUrl}
+                            alt={activeBRoll.name}
+                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
+                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          />
+                        )
                       )}
                       {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
                       <video
@@ -1151,25 +1240,38 @@ const ChatcutAI = () => {
                         />
                       )}
 
-                      {/* Motion graphics / overlay visuals on video */}
+                      {/* Motion graphics / overlay visuals on video — with entrance animations */}
                       {trackVisibility.v3 && overlays
                         .filter(o => (o.type === 'motion_graphic' || o.type === 'animated_text') && currentTime >= o.start && currentTime < o.start + o.duration)
-                        .map(ov => (
-                          <div key={ov.id} className="absolute top-4 left-0 right-0 pointer-events-none z-10 flex justify-center">
-                            {ov.imageUrl && ov.imageStatus === 'ready' ? (
-                              <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[30%] object-contain rounded-lg" />
-                            ) : ov.imageStatus === 'generating' ? (
-                              <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2">
-                                <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
-                                <span className="text-purple-200 text-sm">Generating graphic...</span>
-                              </div>
-                            ) : (
-                              <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
-                                <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
-                              </div>
-                            )}
-                          </div>
-                        ))
+                        .map(ov => {
+                          const elapsed = currentTime - ov.start;
+                          const remaining = ov.duration - elapsed;
+                          const entrance = ov.animation?.entrance || 'fade-in';
+                          const isEntering = elapsed < 0.5;
+                          const isExiting = remaining < 0.5;
+                          const animClass = isEntering
+                            ? entrance === 'slide-up' ? 'animate-[slideUp_0.5s_ease-out]'
+                            : entrance === 'scale-pop' ? 'animate-[scalePop_0.4s_ease-out]'
+                            : entrance === 'slide-left' ? 'animate-[slideLeft_0.5s_ease-out]'
+                            : 'animate-[fadeIn_0.4s_ease-out]'
+                            : isExiting ? 'animate-[fadeOut_0.4s_ease-in_forwards]' : '';
+                          return (
+                            <div key={ov.id} className={cn("absolute top-4 left-0 right-0 pointer-events-none z-10 flex justify-center", animClass)}>
+                              {ov.imageUrl && ov.imageStatus === 'ready' ? (
+                                <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[30%] object-contain rounded-lg" />
+                              ) : ov.imageStatus === 'generating' ? (
+                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2">
+                                  <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                                  <span className="text-purple-200 text-sm">Generating graphic...</span>
+                                </div>
+                              ) : (
+                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
+                                  <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       }
 
                       {/* V2 text overlays on video */}
@@ -1189,10 +1291,11 @@ const ChatcutAI = () => {
                       }
 
                       {/* B-Roll generating indicator */}
-                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageStatus === 'generating') && (
+                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && (br.imageStatus === 'generating' || br.videoStatus === 'generating')) && (
                         <div className="absolute top-2 right-2 pointer-events-none z-10">
                           <div className="bg-green-500/80 px-2 py-0.5 rounded text-[10px] font-bold text-white flex items-center gap-1">
-                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> GENERATING B-ROLL
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.videoStatus === 'generating') ? 'ANIMATING B-ROLL' : 'GENERATING B-ROLL'}
                           </div>
                         </div>
                       )}
@@ -1490,8 +1593,10 @@ const ChatcutAI = () => {
                                 key={br.id}
                                 className={cn(
                                   "absolute inset-y-0 rounded border flex items-center px-1 cursor-pointer transition-colors group/clip",
-                                  br.imageStatus === 'generating'
+                                  br.imageStatus === 'generating' || br.videoStatus === 'generating'
                                     ? "bg-green-500/10 border-green-500/30 animate-pulse"
+                                    : br.videoStatus === 'ready'
+                                    ? "bg-green-500/30 border-green-500/60 hover:bg-green-500/40"
                                     : br.imageStatus === 'ready'
                                     ? "bg-green-500/25 border-green-500/50 hover:bg-green-500/35"
                                     : "bg-green-500/20 border-green-500/40 hover:bg-green-500/30"
@@ -1504,6 +1609,10 @@ const ChatcutAI = () => {
                               >
                                 {br.imageStatus === 'generating' ? (
                                   <Loader2 className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-spin" />
+                                ) : br.videoStatus === 'generating' ? (
+                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-pulse" />
+                                ) : br.videoStatus === 'ready' ? (
+                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
                                 ) : br.imageUrl ? (
                                   <ImageIcon className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
                                 ) : (
@@ -1765,7 +1874,7 @@ const ChatcutAI = () => {
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] text-foreground truncate">{br.name}</p>
-                                <p className="text-[9px] text-muted-foreground">{br.duration}s{br.imageStatus === 'generating' ? ' · generating...' : br.imageStatus === 'ready' ? ' · ✓' : ''}</p>
+                                <p className="text-[9px] text-muted-foreground">{br.duration}s{br.videoStatus === 'generating' ? ' · animating...' : br.videoStatus === 'ready' ? ' · 🎬 video' : br.imageStatus === 'generating' ? ' · generating...' : br.imageStatus === 'ready' ? ' · ✓ image' : ''}</p>
                               </div>
                             </div>
                           ))}
