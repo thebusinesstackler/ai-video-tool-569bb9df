@@ -129,6 +129,7 @@ const ChatcutAI = () => {
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
+  const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -432,7 +433,7 @@ const ChatcutAI = () => {
 
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
-  const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
+  // trackMuted moved above effects
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
