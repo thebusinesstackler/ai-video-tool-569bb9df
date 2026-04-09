@@ -48,6 +48,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
+import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 
@@ -138,6 +139,12 @@ const ChatcutAI = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
+  // PiP state
+  const [bgVideoUrl, setBgVideoUrl] = useState<string | null>(null);
+  const [pipEnabled, setPipEnabled] = useState(false);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
+  const videoWrapperRef = useRef<HTMLDivElement>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
   // Draft state
   const [draftId, setDraftId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('Untitled Project');
@@ -206,6 +213,42 @@ const ChatcutAI = () => {
       video.removeEventListener('pause', onPause);
     };
   }, [videoUrl]);
+
+  // Sync background video with main video playback
+  useEffect(() => {
+    const bg = bgVideoRef.current;
+    const main = videoRef.current;
+    if (!bg || !main || !pipEnabled || !bgVideoUrl) return;
+    const sync = () => {
+      if (Math.abs(bg.currentTime - main.currentTime) > 0.3) bg.currentTime = main.currentTime;
+      if (main.paused && !bg.paused) bg.pause();
+      if (!main.paused && bg.paused) bg.play().catch(() => {});
+    };
+    const interval = setInterval(sync, 200);
+    main.addEventListener('play', () => bg.play().catch(() => {}));
+    main.addEventListener('pause', () => bg.pause());
+    main.addEventListener('seeked', sync);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [pipEnabled, bgVideoUrl]);
+
+  // Upload background video
+  const uploadBgVideo = useCallback(async (file: File) => {
+    if (!user) return;
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/bg-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('raw-footage').upload(path, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('raw-footage').getPublicUrl(path);
+      setBgVideoUrl(urlData.publicUrl);
+      setPipEnabled(true);
+      toast({ title: 'Background video added', description: 'Your main video is now a PiP overlay. Drag to reposition, click size to resize.' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    }
+  }, [user, toast]);
 
   // Load drafts on mount
   useEffect(() => {
@@ -937,7 +980,20 @@ const ChatcutAI = () => {
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div className="relative inline-block max-h-full max-w-full" style={{ lineHeight: 0 }}>
+                    <div ref={videoWrapperRef} className="relative inline-block max-h-full max-w-full" style={{ lineHeight: 0 }}>
+                      {/* Background video (when PiP mode is active) */}
+                      {pipEnabled && bgVideoUrl && (
+                        <video
+                          ref={bgVideoRef}
+                          src={bgVideoUrl}
+                          className="max-h-[100%] max-w-[100%] block"
+                          style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          muted
+                          loop
+                          playsInline
+                          onClick={togglePlay}
+                        />
+                      )}
                       {/* B-Roll image overlay when active */}
                       {activeBRoll && (
                         <img
@@ -947,13 +1003,27 @@ const ChatcutAI = () => {
                           style={{ maxHeight: 'calc(100vh - 300px)' }}
                         />
                       )}
+                      {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
                       <video
                         ref={videoRef}
                         src={videoUrl}
-                        className={cn("max-h-[100%] max-w-[100%] block", activeBRoll && "opacity-0")}
+                        className={cn(
+                          "max-h-[100%] max-w-[100%] block",
+                          activeBRoll && "opacity-0",
+                          pipEnabled && bgVideoUrl && "hidden" // Hide original; PiP component shows it
+                        )}
                         style={{ maxHeight: 'calc(100vh - 300px)' }}
                         onClick={togglePlay}
                       />
+
+                      {/* PiP overlay for main video */}
+                      {pipEnabled && bgVideoUrl && (
+                        <PiPOverlay
+                          videoRef={videoRef}
+                          containerRef={videoWrapperRef}
+                          enabled={pipEnabled}
+                        />
+                      )}
 
                       {/* Motion graphics / overlay visuals on video */}
                       {trackVisibility.v3 && overlays
@@ -1105,9 +1175,20 @@ const ChatcutAI = () => {
                     onClick={() => setCaptionSettings(prev => ({ ...prev, enabled: !prev.enabled }))}>
                     <Captions className={cn("w-3.5 h-3.5", captionSettings.enabled && "text-pink-400")} />
                   </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Picture-in-Picture"
+                    onClick={() => {
+                      if (pipEnabled) {
+                        setPipEnabled(false);
+                        setBgVideoUrl(null);
+                      } else {
+                        bgFileInputRef.current?.click();
+                      }
+                    }}>
+                    <Layers className={cn("w-3.5 h-3.5", pipEnabled && "text-green-400")} />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
                     onClick={() => {
-                      const vid = videoRef.current;
+                      const vid = pipEnabled ? bgVideoRef.current : videoRef.current;
                       if (!vid) return;
                       if (document.fullscreenElement) {
                         document.exitFullscreen();
@@ -1118,6 +1199,17 @@ const ChatcutAI = () => {
                     }}>
                     <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
                   </Button>
+                  {/* Hidden file input for background video */}
+                  <input
+                    ref={bgFileInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadBgVideo(f);
+                    }}
+                  />
                 </div>
 
                 {/* Multi-Track Timeline */}
