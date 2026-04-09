@@ -72,7 +72,7 @@ export const ExportToDriveButton: React.FC<ExportToDriveButtonProps> = ({
     return (
       <div className={className}>
         <Button size="sm" variant="outline" className="text-xs gap-1 h-7" onClick={copyLink}>
-          <Check className="w-3.5 h-3.5 text-green-500" />
+          <Check className="w-3.5 h-3.5 text-primary" />
           <Copy className="w-3 h-3" />
           Drive Link
         </Button>
