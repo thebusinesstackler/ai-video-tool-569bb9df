@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import { KaraokeCaption, CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCaption';
 import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
+import agentAvatar from '@/assets/chatcut-agent.png';
 import {
   Scissors,
   Upload,
@@ -44,6 +45,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+
+const AGENT_NAME = 'Marco';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -78,6 +81,8 @@ interface MusicTrack {
   name: string;
   duration: number;
   startAt: number;
+  audioUrl?: string;
+}
 }
 
 interface OverlayItem {
