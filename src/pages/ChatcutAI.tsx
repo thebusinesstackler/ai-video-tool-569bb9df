@@ -607,43 +607,31 @@ const ChatcutAI = () => {
                       onClick={togglePlay}
                     />
                     {/* Live caption overlay */}
-                    {captionSettings.enabled && transcript && (
-                      <div className="absolute bottom-8 left-4 right-4 pointer-events-none z-10">
-                        <KaraokeCaption
-                          text={(() => {
-                            const segs = transcript.segments || transcript.words || [];
-                            const activeSeg = segs.find((s: any, i: number) => {
-                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
-                              return currentTime >= s.start && currentTime < segEnd;
-                            });
-                            return activeSeg?.text || activeSeg?.word || '';
-                          })()}
-                          currentTime={(() => {
-                            const segs = transcript.segments || transcript.words || [];
-                            const activeSeg = segs.find((s: any, i: number) => {
-                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
-                              return currentTime >= s.start && currentTime < segEnd;
-                            });
-                            return activeSeg ? currentTime - activeSeg.start : 0;
-                          })()}
-                          duration={(() => {
-                            const segs = transcript.segments || transcript.words || [];
-                            const activeIdx = segs.findIndex((s: any, i: number) => {
-                              const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
-                              return currentTime >= s.start && currentTime < segEnd;
-                            });
-                            if (activeIdx < 0) return 1;
-                            const s = segs[activeIdx];
-                            return (s.end ?? (segs[activeIdx + 1]?.start ?? duration)) - s.start;
-                          })()}
-                          style={captionSettings.style}
-                          background={captionSettings.background}
-                          fontFamily={captionSettings.fontFamily}
-                          fontSize={captionSettings.fontSize}
-                          fontColor={captionSettings.fontColor}
-                        />
-                      </div>
-                    )}
+                    {captionSettings.enabled && transcript && (() => {
+                      const segs = transcript.segments || transcript.words || [];
+                      const activeSeg = segs.find((s: any, i: number) => {
+                        const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
+                        return currentTime >= s.start && currentTime < segEnd;
+                      });
+                      const activeText = activeSeg?.text || activeSeg?.word || '';
+                      if (!activeText) return null;
+                      const activeIdx = segs.indexOf(activeSeg);
+                      const segDuration = (activeSeg.end ?? (segs[activeIdx + 1]?.start ?? duration)) - activeSeg.start;
+                      return (
+                        <div className="absolute bottom-8 left-4 right-4 pointer-events-none z-10">
+                          <KaraokeCaption
+                            text={activeText}
+                            currentTime={currentTime - activeSeg.start}
+                            duration={segDuration}
+                            style={captionSettings.style}
+                            background={captionSettings.background}
+                            fontFamily={captionSettings.fontFamily}
+                            fontSize={captionSettings.fontSize}
+                            fontColor={captionSettings.fontColor}
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div
