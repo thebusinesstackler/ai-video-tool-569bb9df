@@ -117,6 +117,20 @@ type TimelineAction = {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatcut-director`;
 
+const ProjectNameInput = ({ value, onSave }: { value: string; onSave: (v: string) => void }) => {
+  const [local, setLocal] = useState(value);
+  useEffect(() => { setLocal(value); }, [value]);
+  return (
+    <Input
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => onSave(local)}
+      className="h-7 text-xs w-40 bg-muted/30 border-0 focus-visible:ring-1"
+      placeholder="Project name..."
+    />
+  );
+};
+
 const ChatcutAI = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -880,11 +894,9 @@ const ChatcutAI = () => {
             </div>
             <h1 className="text-sm font-semibold text-foreground">Chatcut AI</h1>
             <div className="w-px h-5 bg-border" />
-            <Input
+            <ProjectNameInput
               value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              className="h-7 text-xs w-40 bg-muted/30 border-0 focus-visible:ring-1"
-              placeholder="Project name..."
+              onSave={setDraftName}
             />
           </div>
           <div className="flex items-center gap-2">
