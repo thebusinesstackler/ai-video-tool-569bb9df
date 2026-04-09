@@ -46,6 +46,8 @@ import {
   FilePlus,
   FolderOpen,
   Image as ImageIcon,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
@@ -696,6 +698,7 @@ const ChatcutAI = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
@@ -1215,24 +1218,8 @@ const ChatcutAI = () => {
 
                 {/* Multi-Track Timeline */}
                 <div className={cn("border-t border-border bg-card flex-shrink-0 relative", timelineCollapsed && "h-8 overflow-hidden")}>
-                  {/* Collapse toggle */}
-                  <button
-                    className="absolute top-0 right-2 z-30 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors py-1 px-1.5"
-                    onClick={() => setTimelineCollapsed(prev => !prev)}
-                    title={timelineCollapsed ? 'Expand timeline' : 'Collapse timeline'}
-                  >
-                    {timelineCollapsed ? (
-                      <>
-                        <ZoomIn className="w-3 h-3" /> Show Timeline
-                      </>
-                    ) : (
-                      <>
-                        <ZoomOut className="w-3 h-3" /> Hide
-                      </>
-                    )}
-                  </button>
-                  {/* Timeline ruler */}
-                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer"
+                  {/* Timeline ruler with inline collapse toggle */}
+                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer flex items-center"
                     onClick={(e) => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
@@ -1263,6 +1250,15 @@ const ChatcutAI = () => {
                         <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
                       </div>
                     )}
+                    {/* Inline collapse toggle */}
+                    <button
+                      className="absolute right-1 top-0 bottom-0 z-30 flex items-center gap-0.5 text-[9px] text-muted-foreground hover:text-foreground transition-colors px-1.5 bg-muted/60 hover:bg-muted rounded"
+                      onClick={(e) => { e.stopPropagation(); setTimelineCollapsed(prev => !prev); }}
+                      title={timelineCollapsed ? 'Expand timeline' : 'Collapse timeline'}
+                    >
+                      {timelineCollapsed ? <ZoomIn className="w-3 h-3" /> : <ZoomOut className="w-3 h-3" />}
+                      <span className="hidden sm:inline">{timelineCollapsed ? 'Show' : 'Hide'}</span>
+                    </button>
                   </div>
 
                   {timelineClips.length > 0 ? (
@@ -1530,16 +1526,22 @@ const ChatcutAI = () => {
               </div>
             </ResizablePanel>
 
-            <ResizableHandle withHandle />
+            {mediaPanelVisible && <ResizableHandle withHandle />}
 
             {/* Right Panel: Media */}
+            {mediaPanelVisible ? (
             <ResizablePanel defaultSize={20} minSize={10} maxSize={30}>
               <div className="h-full flex flex-col bg-card border-l border-border">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-border flex-shrink-0">
                   <span className="text-xs font-semibold text-foreground">Media</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => fileInputRef.current?.click()}>
-                    <Plus className="w-3.5 h-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => fileInputRef.current?.click()}>
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setMediaPanelVisible(false)} title="Hide media panel">
+                      <PanelRightClose className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <ScrollArea className="flex-1 p-3">
@@ -1679,6 +1681,13 @@ const ChatcutAI = () => {
                 </ScrollArea>
               </div>
             </ResizablePanel>
+            ) : (
+              <div className="w-8 flex-shrink-0 bg-card border-l border-border flex flex-col items-center pt-2">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMediaPanelVisible(true)} title="Show media panel">
+                  <PanelRightOpen className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </ResizablePanelGroup>
         </div>
       </div>
