@@ -1592,8 +1592,10 @@ const ChatcutAI = () => {
                                 key={br.id}
                                 className={cn(
                                   "absolute inset-y-0 rounded border flex items-center px-1 cursor-pointer transition-colors group/clip",
-                                  br.imageStatus === 'generating'
+                                  br.imageStatus === 'generating' || br.videoStatus === 'generating'
                                     ? "bg-green-500/10 border-green-500/30 animate-pulse"
+                                    : br.videoStatus === 'ready'
+                                    ? "bg-green-500/30 border-green-500/60 hover:bg-green-500/40"
                                     : br.imageStatus === 'ready'
                                     ? "bg-green-500/25 border-green-500/50 hover:bg-green-500/35"
                                     : "bg-green-500/20 border-green-500/40 hover:bg-green-500/30"
@@ -1606,6 +1608,10 @@ const ChatcutAI = () => {
                               >
                                 {br.imageStatus === 'generating' ? (
                                   <Loader2 className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-spin" />
+                                ) : br.videoStatus === 'generating' ? (
+                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-pulse" />
+                                ) : br.videoStatus === 'ready' ? (
+                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
                                 ) : br.imageUrl ? (
                                   <ImageIcon className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
                                 ) : (
