@@ -1469,12 +1469,12 @@ const ChatcutAI = () => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const offsetX = e.clientX - rect.left - 80;
-                      const trackWidth = rect.width - 80;
+                      const trackWidth = rect.width - 80 - 10;
                       if (offsetX < 0 || trackWidth <= 0) return;
                       const ratio = Math.max(0, Math.min(1, offsetX / trackWidth));
                       seekTo(ratio * duration);
                     }}>
-                    <div className="absolute inset-0 px-[80px]">
+                    <div className="absolute inset-0 px-[80px] pr-[10px]">
                       {timelineTicks.map((t) => (
                         <div
                           key={t}
@@ -1489,7 +1489,7 @@ const ChatcutAI = () => {
                     {duration > 0 && (
                       <div
                         className="absolute top-0 bottom-0 z-20"
-                        style={{ left: `calc(80px + ${(currentTime / duration) * (100 - 10)}%)` }}
+                        style={{ left: `calc(80px + ${(currentTime / duration) * 100}% * (1 - 90px / 100%))`, marginLeft: `${(currentTime / duration) * -90}px` }}
                       >
                         <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-amber-500 -ml-[5px]" />
                         <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
@@ -1507,7 +1507,7 @@ const ChatcutAI = () => {
                   </div>
 
                   {timelineClips.length > 0 ? (
-                    <div className="flex flex-col relative">
+                    <div className="flex flex-col relative overflow-x-auto" style={{ minWidth: `${zoomLevel}%` }}>
                       {/* Graphics Track */}
                       {trackVisibility.v3 && (
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
