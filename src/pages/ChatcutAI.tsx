@@ -48,6 +48,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
+import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 
@@ -138,6 +139,12 @@ const ChatcutAI = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
+  // PiP state
+  const [bgVideoUrl, setBgVideoUrl] = useState<string | null>(null);
+  const [pipEnabled, setPipEnabled] = useState(false);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
+  const videoWrapperRef = useRef<HTMLDivElement>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
   // Draft state
   const [draftId, setDraftId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('Untitled Project');
