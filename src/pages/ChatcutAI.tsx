@@ -1197,14 +1197,26 @@ const ChatcutAI = () => {
                           onClick={togglePlay}
                         />
                       )}
-                      {/* B-Roll image overlay when active */}
+                      {/* B-Roll overlay when active — prefer video over still */}
                       {activeBRoll && (
-                        <img
-                          src={activeBRoll.imageUrl}
-                          alt={activeBRoll.name}
-                          className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
-                          style={{ maxHeight: 'calc(100vh - 300px)' }}
-                        />
+                        activeBRoll.videoUrl && activeBRoll.videoStatus === 'ready' ? (
+                          <video
+                            src={activeBRoll.videoUrl}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
+                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          />
+                        ) : (
+                          <img
+                            src={activeBRoll.imageUrl}
+                            alt={activeBRoll.name}
+                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
+                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          />
+                        )
                       )}
                       {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
                       <video
@@ -1228,25 +1240,38 @@ const ChatcutAI = () => {
                         />
                       )}
 
-                      {/* Motion graphics / overlay visuals on video */}
+                      {/* Motion graphics / overlay visuals on video — with entrance animations */}
                       {trackVisibility.v3 && overlays
                         .filter(o => (o.type === 'motion_graphic' || o.type === 'animated_text') && currentTime >= o.start && currentTime < o.start + o.duration)
-                        .map(ov => (
-                          <div key={ov.id} className="absolute top-4 left-0 right-0 pointer-events-none z-10 flex justify-center">
-                            {ov.imageUrl && ov.imageStatus === 'ready' ? (
-                              <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[30%] object-contain rounded-lg" />
-                            ) : ov.imageStatus === 'generating' ? (
-                              <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2">
-                                <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
-                                <span className="text-purple-200 text-sm">Generating graphic...</span>
-                              </div>
-                            ) : (
-                              <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
-                                <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
-                              </div>
-                            )}
-                          </div>
-                        ))
+                        .map(ov => {
+                          const elapsed = currentTime - ov.start;
+                          const remaining = ov.duration - elapsed;
+                          const entrance = ov.animation?.entrance || 'fade-in';
+                          const isEntering = elapsed < 0.5;
+                          const isExiting = remaining < 0.5;
+                          const animClass = isEntering
+                            ? entrance === 'slide-up' ? 'animate-[slideUp_0.5s_ease-out]'
+                            : entrance === 'scale-pop' ? 'animate-[scalePop_0.4s_ease-out]'
+                            : entrance === 'slide-left' ? 'animate-[slideLeft_0.5s_ease-out]'
+                            : 'animate-[fadeIn_0.4s_ease-out]'
+                            : isExiting ? 'animate-[fadeOut_0.4s_ease-in_forwards]' : '';
+                          return (
+                            <div key={ov.id} className={cn("absolute top-4 left-0 right-0 pointer-events-none z-10 flex justify-center", animClass)}>
+                              {ov.imageUrl && ov.imageStatus === 'ready' ? (
+                                <img src={ov.imageUrl} alt={ov.text} className="max-w-[80%] max-h-[30%] object-contain rounded-lg" />
+                              ) : ov.imageStatus === 'generating' ? (
+                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2">
+                                  <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                                  <span className="text-purple-200 text-sm">Generating graphic...</span>
+                                </div>
+                              ) : (
+                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40">
+                                  <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       }
 
                       {/* V2 text overlays on video */}
