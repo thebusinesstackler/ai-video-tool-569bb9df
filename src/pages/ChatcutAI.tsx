@@ -1377,7 +1377,7 @@ const ChatcutAI = () => {
                         </div>
                       )}
 
-                      {/* Live caption overlay – constrained to video bounds */}
+                      {/* Live caption overlay – constrained to video bounds, always on top */}
                       {captionSettings.enabled && transcript && (() => {
                         const segs = transcript.segments || transcript.words || [];
                         const activeSeg = segs.find((s: any, i: number) => {
@@ -1389,7 +1389,7 @@ const ChatcutAI = () => {
                         const activeIdx = segs.indexOf(activeSeg);
                         const segDuration = (activeSeg.end ?? (segs[activeIdx + 1]?.start ?? duration)) - activeSeg.start;
                         return (
-                          <div className="absolute bottom-6 left-2 right-2 pointer-events-none z-10">
+                          <div className={cn("absolute left-2 right-2 pointer-events-none z-30", isFullscreen ? "bottom-16" : "bottom-6")}>
                             <KaraokeCaption
                               text={activeText}
                               currentTime={currentTime - activeSeg.start}
