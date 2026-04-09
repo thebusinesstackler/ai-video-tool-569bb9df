@@ -58,23 +58,28 @@ export function requestDriveAccess(): Promise<string> {
 }
 
 export async function uploadToDrive(
-  videoUrl: string,
+  fileUrl: string,
   fileName: string,
   onProgress?: (pct: number) => void,
+  mimeType?: string,
 ): Promise<string> {
   const token = await requestDriveAccess();
 
   onProgress?.(5);
 
-  // Fetch video blob
-  const res = await fetch(videoUrl);
+  // Fetch file blob
+  const res = await fetch(fileUrl);
   const blob = await res.blob();
   onProgress?.(30);
 
+  const detectedMime = mimeType || blob.type || 'application/octet-stream';
+  const ext = detectedMime.startsWith('image/') ? detectedMime.split('/')[1] : 'mp4';
+  const finalName = fileName.includes('.') ? fileName : `${fileName}.${ext}`;
+
   // Metadata
   const metadata = {
-    name: fileName.endsWith('.mp4') ? fileName : `${fileName}.mp4`,
-    mimeType: 'video/mp4',
+    name: finalName,
+    mimeType: detectedMime,
   };
 
   // Build multipart body
@@ -92,7 +97,7 @@ export async function uploadToDrive(
 
   // Combine parts
   const encoder = new TextEncoder();
-  const metaBytes = encoder.encode(metadataPart + delimiter + 'Content-Type: video/mp4\r\n\r\n');
+  const metaBytes = encoder.encode(metadataPart + delimiter + `Content-Type: ${detectedMime}\r\n\r\n`);
   const closeBytes = encoder.encode(closeDelimiter);
   const body = new Uint8Array(metaBytes.length + arrayBuf.byteLength + closeBytes.length);
   body.set(metaBytes, 0);

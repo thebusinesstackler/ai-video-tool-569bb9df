@@ -15,16 +15,21 @@ const DriveIcon = () => (
 );
 
 interface ExportToDriveButtonProps {
-  videoUrl: string;
+  videoUrl?: string;
+  fileUrl?: string;
   fileName?: string;
+  mimeType?: string;
   className?: string;
 }
 
 export const ExportToDriveButton: React.FC<ExportToDriveButtonProps> = ({
   videoUrl,
-  fileName = 'Chatcut-Export',
+  fileUrl,
+  fileName = 'Export',
+  mimeType,
   className,
 }) => {
+  const url = fileUrl || videoUrl || '';
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [driveLink, setDriveLink] = useState<string | null>(null);
