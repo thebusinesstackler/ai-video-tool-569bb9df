@@ -850,8 +850,32 @@ const ChatcutAI = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [draggingOverlayId, setDraggingOverlayId] = useState<string | null>(null);
 
-  // Pre-compute stable waveform heights so they don't re-randomize on every render
+  const handleOverlayMouseDown = useCallback((e: React.MouseEvent, overlayId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingOverlayId(overlayId);
+  }, []);
+
+  useEffect(() => {
+    if (!draggingOverlayId) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const wrapper = videoWrapperRef.current;
+      if (!wrapper) return;
+      const rect = wrapper.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      setOverlays(prev => prev.map(o => o.id === draggingOverlayId ? { ...o, position: { x, y } } : o));
+    };
+    const handleMouseUp = () => setDraggingOverlayId(null);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingOverlayId]);
   const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
   const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
@@ -1204,7 +1228,7 @@ const ChatcutAI = () => {
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div ref={videoWrapperRef} className={cn("relative inline-block max-h-full max-w-full overflow-visible", isFullscreen && "w-full h-full flex items-center justify-center bg-black")} style={{ lineHeight: 0 }}>
+                    <div ref={videoWrapperRef} className={cn("relative inline-block max-h-full max-w-full overflow-hidden", isFullscreen && "w-full h-full flex items-center justify-center bg-black")} style={{ lineHeight: 0 }}>
                       {/* Background video (when PiP mode is active) */}
                       {pipEnabled && bgVideoUrl && (
                         <video
