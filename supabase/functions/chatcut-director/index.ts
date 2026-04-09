@@ -84,10 +84,15 @@ IMPORTANT: You ALWAYS choose the best type and style automatically based on the 
 [{"action":"split","time":15.5,"track":"v1"}]
 \`\`\`
 
-6. **add_broll** — Add B-Roll footage to the B-Roll track:
+6. **add_broll** — Add B-Roll footage to the B-Roll track (generates ANIMATED VIDEO, not just a still):
 \`\`\`actions
 [{"action":"add_broll","description":"Product close-up shot","prompt":"...","start":5,"duration":4,"broll_type":"product"}]
 \`\`\`
+
+The system will:
+1. Generate a cinematic still frame from your prompt
+2. Automatically animate it into a short video clip (takes ~30-60s)
+3. Notify you when the animated B-roll is ready
 
 B-ROLL TYPE SYSTEM — You MUST choose the right type automatically:
 - "product" → Close-up/hero shots of the product itself. Use when speaker mentions the product name, features, or holds it up.
@@ -99,11 +104,11 @@ B-ROLL TYPE SYSTEM — You MUST choose the right type automatically:
 
 B-ROLL PROMPT RULES:
 - Analyze the transcript to understand EXACTLY what's being discussed at that timestamp
-- Write a detailed cinematic prompt (40-80 words) matching the content
-- Include: subject, camera angle, lighting, mood, color palette, setting
-- Match the energy: calm transcript → soft lighting, gentle movement; energetic → dynamic angles, bold colors
+- Write a detailed cinematic prompt (40-80 words) matching the content — focus on MOTION and MOVEMENT since it will be animated
+- Include: subject, camera angle, lighting, mood, color palette, setting, and camera movement (dolly, pan, slow zoom)
+- Match the energy: calm transcript → soft lighting, gentle dolly; energetic → dynamic angles, bold colors, fast movement
 - If the user asks to switch B-roll, regenerate with a different broll_type and explain why
-- Example: Transcript says "our serum absorbs instantly" → broll_type: "detail", prompt: "Extreme macro close-up of clear serum droplets absorbing into smooth skin, golden hour side lighting, shallow depth of field, warm amber tones, clinical yet luxurious setting"
+- Example: Transcript says "our serum absorbs instantly" → broll_type: "detail", prompt: "Extreme macro close-up of clear serum droplets slowly absorbing into smooth skin, gentle camera dolly forward, golden hour side lighting, shallow depth of field, warm amber tones, clinical yet luxurious setting"
 
 7. **review** — Review the current timeline and suggest improvements:
 \`\`\`actions
