@@ -88,6 +88,14 @@ interface OverlayItem {
   duration: number;
 }
 
+interface BRollClip {
+  id: string;
+  name: string;
+  prompt: string;
+  start: number;
+  duration: number;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
