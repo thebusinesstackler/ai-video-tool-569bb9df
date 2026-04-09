@@ -265,18 +265,18 @@ const ChatcutAI = () => {
         bRollClips,
         captionSettings,
       };
-      const payload = {
+      const payload: Record<string, unknown> = {
         user_id: user.id,
         name: draftName,
         video_url: videoUrl,
-        transcript,
-        timeline_state: timelineState,
-        chat_history: messages,
+        transcript: transcript as unknown,
+        timeline_state: timelineState as unknown,
+        chat_history: messages as unknown,
       };
       if (draftId) {
-        await supabase.from('chatcut_drafts').update(payload).eq('id', draftId);
+        await supabase.from('chatcut_drafts').update(payload as any).eq('id', draftId);
       } else {
-        const { data } = await supabase.from('chatcut_drafts').insert(payload).select('id').single();
+        const { data } = await supabase.from('chatcut_drafts').insert(payload as any).select('id').single();
         if (data) setDraftId(data.id);
       }
       toast({ title: 'Draft saved', description: `"${draftName}" saved successfully` });
