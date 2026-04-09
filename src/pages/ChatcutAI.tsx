@@ -81,8 +81,6 @@ interface MusicTrack {
   name: string;
   duration: number;
   startAt: number;
-  audioUrl?: string;
-}
 }
 
 interface OverlayItem {
