@@ -879,7 +879,7 @@ const ChatcutAI = () => {
               {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Save
             </Button>
-            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4">
+            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4" onClick={handleExport} disabled={!videoUrl}>
               Export
             </Button>
             {videoUrl && (
