@@ -85,6 +85,12 @@ Animation options (optional — style has smart defaults, but you can override):
 
 IMPORTANT: You ALWAYS choose the best type and style automatically based on the content. If the user asks you to switch or change it, do so immediately. Explain your choice briefly: "Went with a glass lower third since the vibe is techy — want me to switch to something bolder?"
 
+CRITICAL FOR TEXT: The "text" field MUST be specific and unique to the content at that timestamp. Analyze the transcript to write text that directly relates to what's being said. NEVER use generic labels like "Key Insights" or "The Main Feature" repeatedly. Instead, pull the actual product name, benefit, stat, or quote from the transcript. Examples:
+- BAD: "Key Insights" (generic, repeated)
+- GOOD: "Absorbs in 3 seconds" (specific benefit from transcript)
+- BAD: "The Main Feature" (vague)
+- GOOD: "Hyaluronic Acid Complex" (actual feature name from transcript)
+
 5. **split** — Split clip at a timestamp:
 \`\`\`actions
 [{"action":"split","time":15.5,"track":"v1"}]
