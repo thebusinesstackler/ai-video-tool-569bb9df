@@ -533,7 +533,8 @@ const ChatcutAI = () => {
         role: 'assistant',
         content: `⚠️ Heads up — the graphic for **"${text}"** didn't generate. Want me to retry with a different style? 🔄`,
       }]);
-  }, [toast]);
+    }
+  }, [toast, overlays]);
 
   const executeActions = useCallback((actions: TimelineAction[]) => {
     for (const act of actions) {
