@@ -351,7 +351,7 @@ const ChatcutAI = () => {
 
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: `Hey! 👋 I'm ${AGENT_NAME}, your video editor. I just finished uploading and transcribing your footage — looking good!\n\nHere's what I can do for you:\n- **"auto-clean"** — I'll remove filler words and awkward pauses\n- **"add captions"** — TikTok, cinematic, minimal styles\n- **"add music"** — I'll generate a custom track that fits your vibe\n- **"add b-roll"** — I'll generate contextual visuals based on what's being discussed\n- **"add motion graphics"** — AI-generated title cards and lower thirds\n- **"review timeline"** — I'll check everything and suggest improvements\n\nWhat would you like me to work on first? 🎬` },
+        { role: 'assistant', content: `Hey! 👋 I'm ${AGENT_NAME}, your video editor.\n\nJust finished uploading and transcribing your footage — looking good!\n\nI can auto-clean, add captions, music, B-roll, motion graphics, or review the whole timeline. What should we start with? 🎬` },
       ]);
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -403,11 +403,20 @@ const ChatcutAI = () => {
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
     try {
+      const style = act.style || 'glass';
+      const styleDesc: Record<string, string> = {
+        glass: 'modern translucent glass background with subtle blur',
+        bold: 'high-contrast bold background with strong colors',
+        minimal: 'clean minimal design with thin elegant lines',
+        neon: 'glowing neon edges with vibrant color highlights',
+        broadcast: 'professional news broadcast style with accent bar',
+      };
+      const styleText = styleDesc[style] || styleDesc.glass;
       const stylePrompts: Record<string, string> = {
-        motion_graphic: `Professional broadcast-quality motion graphic overlay with the text "${text}" in bold modern sans-serif font, dark translucent glass background with subtle gradient, clean minimal design, suitable for video overlay, transparent edges, on a clean dark background`,
-        animated_text: `Cinematic animated text graphic showing "${text}" in elegant typography, film-quality title card, subtle glow effects, professional broadcast design, on a clean dark background`,
-        lower_third: `Professional lower-third graphic overlay with name "${text}", modern broadcast news style, sleek dark glass bar with accent color stripe, clean typography, on a clean dark background`,
-        title_card: `Professional title card graphic showing "${text}" in bold cinematic typography, centered composition, film-quality design with subtle texture, on a clean dark background`,
+        motion_graphic: `Professional broadcast-quality motion graphic overlay with the text "${text}" in bold modern sans-serif font, ${styleText}, clean design, suitable for video overlay, transparent edges, on a clean dark background`,
+        animated_text: `Cinematic animated text graphic showing "${text}" in elegant typography, ${styleText}, film-quality title card, subtle glow effects, on a clean dark background`,
+        lower_third: `Professional lower-third graphic overlay with name "${text}", ${styleText}, sleek bar design, clean typography, on a clean dark background`,
+        title_card: `Professional title card graphic showing "${text}" in bold cinematic typography, ${styleText}, centered composition, film-quality design, on a clean dark background`,
       };
       const imagePrompt = stylePrompts[type] || stylePrompts.motion_graphic;
 
