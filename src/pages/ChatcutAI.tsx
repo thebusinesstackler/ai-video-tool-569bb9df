@@ -1741,11 +1741,11 @@ const ChatcutAI = () => {
                                 }}
                               >
                                 <div className="absolute inset-0 flex items-center gap-px px-1 opacity-50">
-                                  {Array.from({ length: 50 }).map((_, wi) => (
+                                  {musicWaveHeights.map((h, wi) => (
                                     <div
                                       key={wi}
                                       className="flex-1 bg-cyan-400/50 rounded-full"
-                                      style={{ height: `${15 + Math.random() * 65}%` }}
+                                      style={{ height: `${h}%` }}
                                     />
                                   ))}
                                 </div>
@@ -1768,11 +1768,11 @@ const ChatcutAI = () => {
                                 }}
                               >
                                 <div className="absolute inset-0 flex items-center gap-px px-1">
-                                  {Array.from({ length: 40 }).map((_, wi) => (
+                                  {audioWaveHeights.map((h, wi) => (
                                     <div
                                       key={wi}
                                       className="flex-1 bg-cyan-400/40 rounded-full"
-                                      style={{ height: `${20 + Math.random() * 60}%` }}
+                                      style={{ height: `${h}%` }}
                                     />
                                   ))}
                                 </div>
