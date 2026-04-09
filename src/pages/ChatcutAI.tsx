@@ -696,6 +696,7 @@ const ChatcutAI = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
