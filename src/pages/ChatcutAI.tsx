@@ -1175,9 +1175,20 @@ const ChatcutAI = () => {
                     onClick={() => setCaptionSettings(prev => ({ ...prev, enabled: !prev.enabled }))}>
                     <Captions className={cn("w-3.5 h-3.5", captionSettings.enabled && "text-pink-400")} />
                   </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Picture-in-Picture"
+                    onClick={() => {
+                      if (pipEnabled) {
+                        setPipEnabled(false);
+                        setBgVideoUrl(null);
+                      } else {
+                        bgFileInputRef.current?.click();
+                      }
+                    }}>
+                    <Layers className={cn("w-3.5 h-3.5", pipEnabled && "text-green-400")} />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
                     onClick={() => {
-                      const vid = videoRef.current;
+                      const vid = pipEnabled ? bgVideoRef.current : videoRef.current;
                       if (!vid) return;
                       if (document.fullscreenElement) {
                         document.exitFullscreen();
@@ -1188,6 +1199,17 @@ const ChatcutAI = () => {
                     }}>
                     <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
                   </Button>
+                  {/* Hidden file input for background video */}
+                  <input
+                    ref={bgFileInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadBgVideo(f);
+                    }}
+                  />
                 </div>
 
                 {/* Multi-Track Timeline */}
