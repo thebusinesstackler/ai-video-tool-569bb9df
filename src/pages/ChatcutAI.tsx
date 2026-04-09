@@ -664,9 +664,21 @@ const ChatcutAI = () => {
         }
         case 'add_overlay': {
           const overlayId = crypto.randomUUID();
+          // Map style to animation preset
+          const styleAnimationMap: Record<string, OverlayAnimation> = {
+            glass: { entrance: 'fade-in', exit: 'fade-out' },
+            bold: { entrance: 'scale-pop', exit: 'scale-out' },
+            minimal: { entrance: 'fade-in', exit: 'fade-out' },
+            neon: { entrance: 'scale-pop', exit: 'fade-out' },
+            broadcast: { entrance: 'slide-left', exit: 'fade-out' },
+          };
+          const animation = act.animation
+            ? { entrance: act.animation, exit: 'fade-out' as const }
+            : styleAnimationMap[act.style || 'glass'] || { entrance: 'slide-up' as const, exit: 'fade-out' as const };
           const newOverlay: OverlayItem = {
             id: overlayId, type: act.type || 'lower_third',
             text: act.text || '', start: act.start || 0, duration: act.duration || 5,
+            animation, style: act.style,
           };
           setOverlays(prev => [...prev, newOverlay]);
           toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
@@ -914,8 +926,8 @@ const ChatcutAI = () => {
     return badges;
   };
 
-  // Find active B-roll clip at current time
-  const activeBRoll = bRollClips.find(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageUrl && br.imageStatus === 'ready');
+  // Find active B-roll clip at current time — prefer video over still image
+  const activeBRoll = bRollClips.find(br => currentTime >= br.start && currentTime < br.start + br.duration && ((br.videoUrl && br.videoStatus === 'ready') || (br.imageUrl && br.imageStatus === 'ready')));
 
   return (
     <Layout>
