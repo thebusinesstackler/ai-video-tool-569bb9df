@@ -695,6 +695,7 @@ const ChatcutAI = () => {
 
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
+  const [timelineCollapsed, setTimelineCollapsed] = useState(false);
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
@@ -980,7 +981,7 @@ const ChatcutAI = () => {
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div ref={videoWrapperRef} className="relative inline-block max-h-full max-w-full" style={{ lineHeight: 0 }}>
+                    <div ref={videoWrapperRef} className="relative inline-block max-h-full max-w-full overflow-visible" style={{ lineHeight: 0 }}>
                       {/* Background video (when PiP mode is active) */}
                       {pipEnabled && bgVideoUrl && (
                         <video
@@ -999,7 +1000,7 @@ const ChatcutAI = () => {
                         <img
                           src={activeBRoll.imageUrl}
                           alt={activeBRoll.name}
-                          className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-5"
+                          className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
                           style={{ maxHeight: 'calc(100vh - 300px)' }}
                         />
                       )}
@@ -1213,7 +1214,23 @@ const ChatcutAI = () => {
                 </div>
 
                 {/* Multi-Track Timeline */}
-                <div className="border-t border-border bg-card flex-shrink-0 relative">
+                <div className={cn("border-t border-border bg-card flex-shrink-0 relative", timelineCollapsed && "h-8 overflow-hidden")}>
+                  {/* Collapse toggle */}
+                  <button
+                    className="absolute top-0 right-2 z-30 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors py-1 px-1.5"
+                    onClick={() => setTimelineCollapsed(prev => !prev)}
+                    title={timelineCollapsed ? 'Expand timeline' : 'Collapse timeline'}
+                  >
+                    {timelineCollapsed ? (
+                      <>
+                        <ZoomIn className="w-3 h-3" /> Show Timeline
+                      </>
+                    ) : (
+                      <>
+                        <ZoomOut className="w-3 h-3" /> Hide
+                      </>
+                    )}
+                  </button>
                   {/* Timeline ruler */}
                   <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer"
                     onClick={(e) => {
