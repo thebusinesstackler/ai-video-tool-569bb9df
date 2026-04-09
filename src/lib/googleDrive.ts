@@ -145,6 +145,95 @@ export async function uploadToDrive(
   return result.webViewLink || `https://drive.google.com/file/d/${result.id}/view`;
 }
 
+export async function createDriveFolder(
+  folderName: string,
+): Promise<string> {
+  const token = await requestDriveAccess();
+  const res = await fetch(
+    'https://www.googleapis.com/drive/v3/files?fields=id,webViewLink',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+      }),
+    },
+  );
+  if (!res.ok) throw new Error('Failed to create Drive folder');
+  const folder = await res.json();
+
+  // Make folder shareable
+  await fetch(`https://www.googleapis.com/drive/v3/files/${folder.id}/permissions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+  });
+
+  return folder.id;
+}
+
+export async function uploadToDriveFolder(
+  fileUrl: string,
+  fileName: string,
+  folderId: string,
+  mimeType?: string,
+): Promise<string> {
+  const token = await requestDriveAccess();
+  const res = await fetch(fileUrl);
+  const blob = await res.blob();
+  const detectedMime = mimeType || blob.type || 'application/octet-stream';
+
+  const metadata = {
+    name: fileName,
+    mimeType: detectedMime,
+    parents: [folderId],
+  };
+
+  const boundary = '----LoopAIDriveBoundary';
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelimiter = `\r\n--${boundary}--`;
+  const metadataPart =
+    delimiter +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata);
+
+  const arrayBuf = await blob.arrayBuffer();
+  const encoder = new TextEncoder();
+  const metaBytes = encoder.encode(metadataPart + delimiter + `Content-Type: ${detectedMime}\r\n\r\n`);
+  const closeBytes = encoder.encode(closeDelimiter);
+  const body = new Uint8Array(metaBytes.length + arrayBuf.byteLength + closeBytes.length);
+  body.set(metaBytes, 0);
+  body.set(new Uint8Array(arrayBuf), metaBytes.length);
+  body.set(closeBytes, metaBytes.length + arrayBuf.byteLength);
+
+  const uploadRes = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    },
+  );
+
+  if (!uploadRes.ok) {
+    if (uploadRes.status === 401) accessToken = null;
+    throw new Error(`Upload failed: ${await uploadRes.text()}`);
+  }
+
+  const result = await uploadRes.json();
+  return result.webViewLink || `https://drive.google.com/file/d/${result.id}/view`;
+}
+
 export function clearDriveToken() {
   accessToken = null;
 }
