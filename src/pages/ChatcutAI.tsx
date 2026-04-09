@@ -257,7 +257,18 @@ const ChatcutAI = () => {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onTime = () => setCurrentTime(video.currentTime);
+    const onTime = () => {
+      const t = video.currentTime;
+      // Skip over accepted cut regions during playback
+      if (!video.paused) {
+        const activeCut = cuts.find(c => c.accepted && t >= c.start && t < c.end);
+        if (activeCut) {
+          video.currentTime = activeCut.end;
+          return;
+        }
+      }
+      setCurrentTime(t);
+    };
     const onMeta = () => setDuration(video.duration);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
@@ -271,7 +282,16 @@ const ChatcutAI = () => {
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
     };
-  }, [videoUrl]);
+  }, [videoUrl, cuts]);
+
+  // Listen for fullscreen exit
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setIsFullscreen(false);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   // Sync background video with main video playback
   useEffect(() => {
@@ -1183,7 +1203,7 @@ const ChatcutAI = () => {
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div ref={videoWrapperRef} className="relative inline-block max-h-full max-w-full overflow-visible" style={{ lineHeight: 0 }}>
+                    <div ref={videoWrapperRef} className={cn("relative inline-block max-h-full max-w-full overflow-visible", isFullscreen && "w-full h-full flex items-center justify-center bg-black")} style={{ lineHeight: 0 }}>
                       {/* Background video (when PiP mode is active) */}
                       {pipEnabled && bgVideoUrl && (
                         <video
@@ -1417,13 +1437,13 @@ const ChatcutAI = () => {
                   </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
                     onClick={() => {
-                      const vid = pipEnabled ? bgVideoRef.current : videoRef.current;
-                      if (!vid) return;
+                      const wrapper = videoWrapperRef.current;
+                      if (!wrapper) return;
                       if (document.fullscreenElement) {
                         document.exitFullscreen();
                         setIsFullscreen(false);
                       } else {
-                        vid.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+                        wrapper.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
                       }
                     }}>
                     <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
@@ -1934,7 +1954,7 @@ const ChatcutAI = () => {
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] text-foreground truncate">{ov.text || ov.type}</p>
-                                <p className="text-[9px] text-muted-foreground">{ov.duration}s{ov.imageStatus === 'generating' ? ' · generating...' : ov.imageStatus === 'ready' ? ' · ✓' : ''}</p>
+                                <p className="text-[9px] text-muted-foreground">{ov.type.replace('_', ' ')} · {ov.duration}s · {ov.start.toFixed(1)}s{ov.imageStatus === 'generating' ? ' · generating...' : ov.imageStatus === 'ready' ? ' · ✓' : ''}</p>
                               </div>
                             </div>
                           ))}
