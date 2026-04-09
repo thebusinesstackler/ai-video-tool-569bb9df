@@ -1488,8 +1488,8 @@ const ChatcutAI = () => {
                     </div>
                     {duration > 0 && (
                       <div
-                        className="absolute top-0 bottom-0 z-20"
-                        style={{ left: `calc(80px + ${(currentTime / duration) * 100}% * (1 - 90px / 100%))`, marginLeft: `${(currentTime / duration) * -90}px` }}
+                        className="absolute top-0 bottom-0 z-20 pointer-events-none"
+                        style={{ left: `calc(80px + (100% - 90px) * ${currentTime / duration})` }}
                       >
                         <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-amber-500 -ml-[5px]" />
                         <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
@@ -1804,7 +1804,7 @@ const ChatcutAI = () => {
                       {duration > 0 && (
                         <div
                           className="absolute bottom-0 top-0 z-20 pointer-events-none"
-                          style={{ left: `calc(80px + ${(currentTime / duration) * (100 - 10)}%)` }}
+                          style={{ left: `calc(80px + (100% - 90px) * ${currentTime / duration})` }}
                         >
                           <div className="w-0.5 h-full bg-amber-500" />
                         </div>
