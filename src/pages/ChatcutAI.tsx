@@ -400,10 +400,10 @@ const ChatcutAI = () => {
   }, [toast]);
 
   // Generate motion graphic image via Lovable AI Gateway
-  const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string) => {
+  const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
     try {
-      const style = act.style || 'glass';
+      const style = styleHint || 'glass';
       const styleDesc: Record<string, string> = {
         glass: 'modern translucent glass background with subtle blur',
         bold: 'high-contrast bold background with strong colors',
