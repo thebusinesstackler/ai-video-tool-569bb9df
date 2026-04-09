@@ -667,7 +667,21 @@ const ChatcutAI = () => {
 
                 {/* Transport controls */}
                 <div className="flex items-center gap-1 px-3 py-1.5 bg-card border-t border-border flex-shrink-0">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Split at playhead">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Split at playhead"
+                    onClick={() => {
+                      if (timelineClips.length === 0 || duration === 0) return;
+                      const clipIdx = timelineClips.findIndex(c => currentTime >= c.startAt && currentTime < c.startAt + c.duration);
+                      if (clipIdx >= 0) {
+                        const clip = timelineClips[clipIdx];
+                        const relTime = currentTime - clip.startAt;
+                        if (relTime > 0.1 && relTime < clip.duration - 0.1) {
+                          const left: TimelineClip = { ...clip, id: crypto.randomUUID(), duration: relTime };
+                          const right: TimelineClip = { ...clip, id: crypto.randomUUID(), startAt: currentTime, duration: clip.duration - relTime };
+                          setTimelineClips(prev => [...prev.slice(0, clipIdx), left, right, ...prev.slice(clipIdx + 1)]);
+                          toast({ title: 'Split', description: `Clip split at ${formatTime(currentTime)}` });
+                        }
+                      }
+                    }}>
                     <Scissors className="w-3.5 h-3.5" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Snap">
@@ -695,11 +709,22 @@ const ChatcutAI = () => {
                     <ZoomIn className="w-3.5 h-3.5" />
                   </Button>
                   <div className="w-px h-5 bg-border mx-1" />
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Captions">
-                    <Captions className="w-3.5 h-3.5" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Captions"
+                    onClick={() => setCaptionSettings(prev => ({ ...prev, enabled: !prev.enabled }))}>
+                    <Captions className={cn("w-3.5 h-3.5", captionSettings.enabled && "text-pink-400")} />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen">
-                    <Maximize className="w-3.5 h-3.5" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
+                    onClick={() => {
+                      const vid = videoRef.current;
+                      if (!vid) return;
+                      if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                        setIsFullscreen(false);
+                      } else {
+                        vid.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+                      }
+                    }}>
+                    <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
                   </Button>
                 </div>
 
