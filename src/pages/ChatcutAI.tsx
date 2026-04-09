@@ -100,6 +100,7 @@ interface OverlayItem {
   imageStatus?: 'generating' | 'ready' | 'failed';
   animation?: OverlayAnimation;
   style?: string;
+  position?: { x: number; y: number };
 }
 
 interface BRollClip {
