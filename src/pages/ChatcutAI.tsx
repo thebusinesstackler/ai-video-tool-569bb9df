@@ -230,7 +230,7 @@ const ChatcutAI = () => {
 
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: '✅ Video uploaded and transcribed! I\'ve added it to the timeline.\n\nYou can now:\n- Type **"auto-clean"** to automatically detect filler words and pauses\n- Ask me anything about your footage\n- Tell me specific parts you want to cut' },
+        { role: 'assistant', content: `Hey! 👋 I'm ${AGENT_NAME}, your video editor. I just finished uploading and transcribing your footage — looking good!\n\nHere's what I can do for you:\n- **"auto-clean"** — I'll remove filler words and awkward pauses\n- **"add captions"** — TikTok, cinematic, minimal styles\n- **"add music"** — I'll generate a custom track that fits your vibe\n- **"add b-roll"** — lifestyle shots, product close-ups, you name it\n\nWhat would you like me to work on first? 🎬` },
       ]);
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -286,13 +286,28 @@ const ChatcutAI = () => {
         }
         case 'add_music': {
           const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
-          setMusicTracks(prev => [...prev, {
-            id: crypto.randomUUID(), genre: act.genre || 'ambient', mood: act.mood || 'calm',
+          const trackId = crypto.randomUUID();
+          const newTrack: MusicTrack = {
+            id: trackId, genre: act.genre || 'ambient', mood: act.mood || 'calm',
             volume: act.volume ?? 0.3, fadeIn: act.fadeIn ?? true, fadeOut: act.fadeOut ?? true,
             name: musicName.charAt(0).toUpperCase() + musicName.slice(1),
             duration: duration || 60, startAt: 0,
-          }]);
-          toast({ title: 'Music added', description: `${musicName} added to A1 track` });
+          };
+          setMusicTracks(prev => [...prev, newTrack]);
+          toast({ title: '🎵 Generating music...', description: `${musicName} — this takes ~15s` });
+          // Actually generate music audio
+          setIsGeneratingMusic(true);
+          supabase.functions.invoke('generate-music', {
+            body: { mood: `${act.mood || 'calm'} ${act.genre || 'ambient'} background music for a video`, duration: Math.min(duration || 30, 60) },
+          }).then(({ data, error }) => {
+            setIsGeneratingMusic(false);
+            if (error || !data?.audioUrl) {
+              toast({ title: 'Music generation failed', description: 'Track added to timeline without audio', variant: 'destructive' });
+              return;
+            }
+            setMusicTracks(prev => prev.map(t => t.id === trackId ? { ...t, audioUrl: data.audioUrl } : t));
+            toast({ title: '🎵 Music ready!', description: `${musicName} is now playing with your video` });
+          });
           break;
         }
         case 'add_overlay':
