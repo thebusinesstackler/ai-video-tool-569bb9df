@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import { KaraokeCaption, CaptionSettings, defaultCaptionSettings } from '@/components/KaraokeCaption';
 import { CaptionStyleSelector } from '@/components/CaptionStyleSelector';
+import agentAvatar from '@/assets/chatcut-agent.png';
 import {
   Scissors,
   Upload,
@@ -44,6 +45,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+
+const AGENT_NAME = 'Marco';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -78,6 +81,7 @@ interface MusicTrack {
   name: string;
   duration: number;
   startAt: number;
+  audioUrl?: string;
 }
 
 interface OverlayItem {
@@ -125,14 +129,50 @@ const ChatcutAI = () => {
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
+  const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const musicAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Sync music audio with video playback
+  useEffect(() => {
+    musicTracks.forEach(track => {
+      if (!track.audioUrl) return;
+      let audioEl = musicAudioRefs.current.get(track.id);
+      if (!audioEl) {
+        audioEl = new Audio(track.audioUrl);
+        audioEl.loop = true;
+        musicAudioRefs.current.set(track.id, audioEl);
+      }
+      audioEl.volume = trackMuted.a1 ? 0 : track.volume;
+
+      const inRange = currentTime >= track.startAt && currentTime < track.startAt + track.duration;
+      if (isPlaying && inRange) {
+        const expectedTime = currentTime - track.startAt;
+        if (Math.abs(audioEl.currentTime - expectedTime) > 0.5) {
+          audioEl.currentTime = expectedTime;
+        }
+        if (audioEl.paused) audioEl.play().catch(() => {});
+      } else {
+        if (!audioEl.paused) audioEl.pause();
+      }
+    });
+  }, [isPlaying, currentTime, musicTracks, trackMuted.a1]);
+
+  // Cleanup music audio on unmount
+  useEffect(() => {
+    return () => {
+      musicAudioRefs.current.forEach(el => { el.pause(); el.src = ''; });
+      musicAudioRefs.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -190,7 +230,7 @@ const ChatcutAI = () => {
 
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: '✅ Video uploaded and transcribed! I\'ve added it to the timeline.\n\nYou can now:\n- Type **"auto-clean"** to automatically detect filler words and pauses\n- Ask me anything about your footage\n- Tell me specific parts you want to cut' },
+        { role: 'assistant', content: `Hey! 👋 I'm ${AGENT_NAME}, your video editor. I just finished uploading and transcribing your footage — looking good!\n\nHere's what I can do for you:\n- **"auto-clean"** — I'll remove filler words and awkward pauses\n- **"add captions"** — TikTok, cinematic, minimal styles\n- **"add music"** — I'll generate a custom track that fits your vibe\n- **"add b-roll"** — lifestyle shots, product close-ups, you name it\n\nWhat would you like me to work on first? 🎬` },
       ]);
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -246,13 +286,28 @@ const ChatcutAI = () => {
         }
         case 'add_music': {
           const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
-          setMusicTracks(prev => [...prev, {
-            id: crypto.randomUUID(), genre: act.genre || 'ambient', mood: act.mood || 'calm',
+          const trackId = crypto.randomUUID();
+          const newTrack: MusicTrack = {
+            id: trackId, genre: act.genre || 'ambient', mood: act.mood || 'calm',
             volume: act.volume ?? 0.3, fadeIn: act.fadeIn ?? true, fadeOut: act.fadeOut ?? true,
             name: musicName.charAt(0).toUpperCase() + musicName.slice(1),
             duration: duration || 60, startAt: 0,
-          }]);
-          toast({ title: 'Music added', description: `${musicName} added to A1 track` });
+          };
+          setMusicTracks(prev => [...prev, newTrack]);
+          toast({ title: '🎵 Generating music...', description: `${musicName} — this takes ~15s` });
+          // Actually generate music audio
+          setIsGeneratingMusic(true);
+          supabase.functions.invoke('generate-music', {
+            body: { mood: `${act.mood || 'calm'} ${act.genre || 'ambient'} background music for a video`, duration: Math.min(duration || 30, 60) },
+          }).then(({ data, error }) => {
+            setIsGeneratingMusic(false);
+            if (error || !data?.audioUrl) {
+              toast({ title: 'Music generation failed', description: 'Track added to timeline without audio', variant: 'destructive' });
+              return;
+            }
+            setMusicTracks(prev => prev.map(t => t.id === trackId ? { ...t, audioUrl: data.audioUrl } : t));
+            toast({ title: '🎵 Music ready!', description: `${musicName} is now playing with your video` });
+          });
           break;
         }
         case 'add_overlay':
@@ -394,7 +449,7 @@ const ChatcutAI = () => {
 
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
-  const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
+  // trackMuted moved above effects
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
@@ -466,10 +521,11 @@ const ChatcutAI = () => {
                     <ScrollArea className="flex-1 px-3 py-2">
                       <div className="space-y-3">
                         {messages.length === 0 && (
-                          <div className="text-center py-8">
-                            <Scissors className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
-                            <p className="text-sm text-muted-foreground">
-                              Upload footage and tell AI what changes to make
+                          <div className="text-center py-6">
+                            <img src={agentAvatar} alt={AGENT_NAME} className="w-16 h-16 rounded-full mx-auto mb-3 ring-2 ring-primary/30" loading="lazy" width={64} height={64} />
+                            <p className="text-sm font-semibold text-foreground mb-1">Hey! I'm {AGENT_NAME} 👋</p>
+                            <p className="text-xs text-muted-foreground">
+                              Your AI video editor. Upload some footage and let's make it shine!
                             </p>
                           </div>
                         )}
@@ -486,7 +542,9 @@ const ChatcutAI = () => {
                                 )}
                               </div>
                             ) : (
-                              <div className="text-sm text-foreground">
+                              <div className="flex gap-2 text-sm text-foreground">
+                                <img src={agentAvatar} alt={AGENT_NAME} className="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 ring-1 ring-primary/20" loading="lazy" width={28} height={28} />
+                                <div className="min-w-0 flex-1">
                                 <div className="prose prose-sm dark:prose-invert max-w-none [&_table]:text-xs [&_th]:px-2 [&_td]:px-2 [&_th]:py-1 [&_td]:py-1">
                                   <ReactMarkdown>{cleanMessageContent(msg.content)}</ReactMarkdown>
                                 </div>
@@ -499,14 +557,22 @@ const ChatcutAI = () => {
                                     ))}
                                   </div>
                                 )}
+                                </div>
                               </div>
                             )}
                           </div>
                         ))}
                         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <img src={agentAvatar} alt={AGENT_NAME} className="w-6 h-6 rounded-full flex-shrink-0 animate-pulse" loading="lazy" width={24} height={24} />
                             <Loader2 className="w-3 h-3 animate-spin" />
-                            Processing your media — your prompt will run when ready...
+                            {AGENT_NAME} is working on it...
+                          </div>
+                        )}
+                        {isGeneratingMusic && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+                            <Music className="w-3 h-3 animate-bounce" />
+                            Generating custom music track...
                           </div>
                         )}
                         <div ref={scrollRef} />
