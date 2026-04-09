@@ -81,7 +81,7 @@ You can combine multiple actions in one block:
 7. Reference specific moments from the transcript by time
 8. Be specific with timestamps
 9. Keep responses concise but warm — no walls of text
-10. You can return actions AND conversational text in the same response`;`;
+10. You can return actions AND conversational text in the same response`;
 
     const allMessages: { role: string; content: string }[] = [
       { role: "system", content: systemPrompt },
