@@ -1,69 +1,34 @@
 
 
-# Plan: Animated B-Roll Video Generation + Motion Graphics Pipeline
+# Fix: Motion Graphics Overflowing Video Bounds
 
-## Current State
+## Problem
 
-- **B-Roll**: Marco suggests B-roll → `generate-scene-image` creates a **static image** → placed on timeline
-- **Motion Graphics**: Marco suggests overlays → Gemini Flash Image generates a **static PNG** → placed on timeline
-- **No video generation** is wired into the Chatcut timeline for either feature
+The video wrapper has `overflow-visible` and the generated motion graphic images are full-frame poster images (not overlay-sized), causing them to spill outside the video area. The overlay containers also use absolute positioning with `left-0 right-0` which spans the full wrapper width regardless of the actual video dimensions.
 
-## What We'll Build
+## Changes
 
-### 1. Animated B-Roll via WaveSpeed (Image-to-Video)
+### 1. Constrain overlays to video bounds (`src/pages/ChatcutAI.tsx`)
 
-When Marco adds B-roll, instead of stopping at a static image, we'll chain a second step that animates it into a short video clip using the existing `wavespeed-video` edge function with the `wan-2.5-i2v` (image-to-video) model.
+- Change video wrapper from `overflow-visible` to `overflow-hidden` so nothing escapes the video area
+- Reduce motion graphic image size from `max-w-[80%] max-h-[30%]` to `max-w-[50%] max-h-[25%]` so they look like overlays, not posters
+- Reduce V2 overlay images from `max-w-[80%]` to `max-w-[50%] max-h-[15%]`
+- Add `overflow-hidden` to overlay container divs as a safety net
 
-**Flow:**
-```text
-Marco suggests B-roll
-  → generate-scene-image (static frame)
-  → wavespeed-video (wan-2.5-i2v, animate the frame into 4s video)
-  → Poll for completion
-  → Place video URL on timeline + notify in chat
-```
+### 2. Improve motion graphic prompt (`supabase/functions/generate-motion-graphic/index.ts`)
 
-**Changes in `src/pages/ChatcutAI.tsx`:**
-- Update `generateBRollImage` to chain into a video generation step after the image is ready
-- Add a `videoUrl` and `videoStatus` field to the `BRollClip` type
-- Show generation progress on the B-roll timeline clip (spinner → checkmark)
-- When video is ready, append a Marco chat message: "Your B-roll video is ready at Xs! 🎬"
-- On failure, notify in chat with retry offer
+- Prepend sizing instructions to every prompt: "Create a small, compact overlay graphic suitable for placing on top of video. The graphic should be a contained element (like a badge, lower-third bar, or small title card), NOT a full-screen poster or background. Use transparent or minimal background."
+- This ensures Gemini generates appropriately sized graphics rather than full-frame images
 
-### 2. Motion Graphics with Animated Entrance
+### 3. Make overlays draggable (`src/pages/ChatcutAI.tsx`)
 
-Motion graphics currently render as static images. We'll add CSS-based entrance animations (slide-in, fade, scale) to the overlay renderer so they feel like real motion graphics during playback.
-
-**Changes in `src/pages/ChatcutAI.tsx`:**
-- Add an `animation` property to overlay objects (e.g., `slide-up`, `fade-in`, `scale-pop`)
-- Marco's system prompt already specifies styles — map each style to an animation preset
-- In the video preview overlay renderer, apply CSS keyframe animations that trigger when `currentTime` enters the overlay's time range
-- The overlay image (already generated) gets animated entrance/exit
-
-### 3. Background Job Tracking for Video Generation
-
-B-roll video generation takes 30-90 seconds. We need non-blocking progress tracking.
-
-**Changes in `src/pages/ChatcutAI.tsx`:**
-- Create an async polling function that checks `wavespeed-video` task status every 5 seconds
-- Track active generation jobs in state: `{ clipId, taskId, status }`
-- Show a subtle pulsing indicator on the B-roll clip while generating
-- When done, update the clip with the video URL and send a chat notification
-
-### 4. Update Marco's System Prompt
-
-**Changes in `supabase/functions/chatcut-director/index.ts`:**
-- Update the `add_broll` action docs to mention that B-roll now generates as animated video clips (not stills)
-- Add an `animation` field to `add_overlay` action so Marco can specify entrance animations
-
-## Summary
+- Add `position: { x: number, y: number }` to the `OverlayItem` type with defaults (centered for motion graphics, bottom for lower thirds)
+- Remove `pointer-events-none` from overlay containers
+- Add mouse drag handlers so users can click and drag overlays to reposition them on the video
+- Store position in state so it persists
 
 | File | Change |
 |------|--------|
-| `src/pages/ChatcutAI.tsx` | Chain B-roll image → video generation via `wavespeed-video`, add polling, chat notifications, overlay CSS animations, progress indicators |
-| `supabase/functions/chatcut-director/index.ts` | Update Marco's prompt to reflect animated B-roll and motion graphic animation options |
-
-## What This Does NOT Include
-- External meme/clip library (would need a third-party API like Giphy/Tenor — can add later if wanted)
-- Full video compositing/export with B-roll baked in (that's a separate render pipeline task)
+| `src/pages/ChatcutAI.tsx` | `overflow-hidden` on wrapper, smaller overlay sizes, draggable positioning |
+| `supabase/functions/generate-motion-graphic/index.ts` | Prepend overlay-sizing instructions to prompt |
 
