@@ -19,7 +19,9 @@ serve(async (req) => {
       });
     }
 
-    const { prompt } = await req.json();
+    const { prompt: rawPrompt } = await req.json();
+    const sizePrefix = "Create a small, compact overlay graphic suitable for placing on top of video. The graphic should be a contained element (like a badge, lower-third bar, or small title card), NOT a full-screen poster or background. Use transparent or minimal background. ";
+    const prompt = sizePrefix + (rawPrompt || "");
     if (!prompt || typeof prompt !== "string") {
       return new Response(JSON.stringify({ error: "Prompt is required" }), {
         status: 400,
