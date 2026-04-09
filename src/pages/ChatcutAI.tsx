@@ -1954,7 +1954,7 @@ const ChatcutAI = () => {
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] text-foreground truncate">{ov.text || ov.type}</p>
-                                <p className="text-[9px] text-muted-foreground">{ov.duration}s{ov.imageStatus === 'generating' ? ' · generating...' : ov.imageStatus === 'ready' ? ' · ✓' : ''}</p>
+                                <p className="text-[9px] text-muted-foreground">{ov.type.replace('_', ' ')} · {ov.duration}s · {ov.start.toFixed(1)}s{ov.imageStatus === 'generating' ? ' · generating...' : ov.imageStatus === 'ready' ? ' · ✓' : ''}</p>
                               </div>
                             </div>
                           ))}
