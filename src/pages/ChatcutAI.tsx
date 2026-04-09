@@ -303,12 +303,19 @@ const ChatcutAI = () => {
       if (main.paused && !bg.paused) bg.pause();
       if (!main.paused && bg.paused) bg.play().catch(() => {});
     };
+    const onPlay = () => bg.play().catch(() => {});
+    const onPause = () => bg.pause();
     const interval = setInterval(sync, 200);
-    main.addEventListener('play', () => bg.play().catch(() => {}));
-    main.addEventListener('pause', () => bg.pause());
+    main.addEventListener('play', onPlay);
+    main.addEventListener('pause', onPause);
     main.addEventListener('seeked', sync);
+    // Initial sync
+    sync();
     return () => {
       clearInterval(interval);
+      main.removeEventListener('play', onPlay);
+      main.removeEventListener('pause', onPause);
+      main.removeEventListener('seeked', sync);
     };
   }, [pipEnabled, bgVideoUrl]);
 
@@ -842,6 +849,10 @@ const ChatcutAI = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+
+  // Pre-compute stable waveform heights so they don't re-randomize on every render
+  const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
+  const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
@@ -1458,12 +1469,12 @@ const ChatcutAI = () => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const offsetX = e.clientX - rect.left - 80;
-                      const trackWidth = rect.width - 80;
+                      const trackWidth = rect.width - 80 - 10;
                       if (offsetX < 0 || trackWidth <= 0) return;
                       const ratio = Math.max(0, Math.min(1, offsetX / trackWidth));
                       seekTo(ratio * duration);
                     }}>
-                    <div className="absolute inset-0 px-[80px]">
+                    <div className="absolute inset-0 px-[80px] pr-[10px]">
                       {timelineTicks.map((t) => (
                         <div
                           key={t}
@@ -1477,8 +1488,8 @@ const ChatcutAI = () => {
                     </div>
                     {duration > 0 && (
                       <div
-                        className="absolute top-0 bottom-0 z-20"
-                        style={{ left: `calc(80px + ${(currentTime / duration) * (100 - 10)}%)` }}
+                        className="absolute top-0 bottom-0 z-20 pointer-events-none"
+                        style={{ left: `calc(80px + (100% - 90px) * ${currentTime / duration})` }}
                       >
                         <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-amber-500 -ml-[5px]" />
                         <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
@@ -1496,7 +1507,7 @@ const ChatcutAI = () => {
                   </div>
 
                   {timelineClips.length > 0 ? (
-                    <div className="flex flex-col relative">
+                    <div className="flex flex-col relative overflow-x-auto" style={{ minWidth: `${zoomLevel}%` }}>
                       {/* Graphics Track */}
                       {trackVisibility.v3 && (
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
@@ -1730,11 +1741,11 @@ const ChatcutAI = () => {
                                 }}
                               >
                                 <div className="absolute inset-0 flex items-center gap-px px-1 opacity-50">
-                                  {Array.from({ length: 50 }).map((_, wi) => (
+                                  {musicWaveHeights.map((h, wi) => (
                                     <div
                                       key={wi}
                                       className="flex-1 bg-cyan-400/50 rounded-full"
-                                      style={{ height: `${15 + Math.random() * 65}%` }}
+                                      style={{ height: `${h}%` }}
                                     />
                                   ))}
                                 </div>
@@ -1757,11 +1768,11 @@ const ChatcutAI = () => {
                                 }}
                               >
                                 <div className="absolute inset-0 flex items-center gap-px px-1">
-                                  {Array.from({ length: 40 }).map((_, wi) => (
+                                  {audioWaveHeights.map((h, wi) => (
                                     <div
                                       key={wi}
                                       className="flex-1 bg-cyan-400/40 rounded-full"
-                                      style={{ height: `${20 + Math.random() * 60}%` }}
+                                      style={{ height: `${h}%` }}
                                     />
                                   ))}
                                 </div>
@@ -1793,7 +1804,7 @@ const ChatcutAI = () => {
                       {duration > 0 && (
                         <div
                           className="absolute bottom-0 top-0 z-20 pointer-events-none"
-                          style={{ left: `calc(80px + ${(currentTime / duration) * (100 - 10)}%)` }}
+                          style={{ left: `calc(80px + (100% - 90px) * ${currentTime / duration})` }}
                         >
                           <div className="w-0.5 h-full bg-amber-500" />
                         </div>
