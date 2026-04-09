@@ -551,10 +551,21 @@ const Gallery = () => {
           <TabsContent value="gallery" className="space-y-6 mt-4">
             <ImageDropZone onFilesSelected={handleFilesSelected} isUploading={isUploading} />
             <div className="flex items-center justify-between">
-              <Button onClick={downloadPdf} disabled={isGeneratingPdf || images.length === 0} variant="outline" size="sm">
-                {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
-                {isGeneratingPdf ? 'Generating PDF...' : `Download PDF (${images.length})`}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={downloadPdf} disabled={isGeneratingPdf || images.length === 0} variant="outline" size="sm">
+                  {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                  {isGeneratingPdf ? 'Generating PDF...' : `Download PDF (${images.length})`}
+                </Button>
+                <BulkDriveExport
+                  items={images.map((img, i) => ({
+                    url: img.image_url,
+                    name: `image-${i + 1}.${img.image_url.split('.').pop()?.split('?')[0] || 'png'}`,
+                    mimeType: 'image/png',
+                  }))}
+                  folderName={`Lifecykel Images — ${new Date().toLocaleDateString()}`}
+                  label={`Export ${images.length} to Drive`}
+                />
+              </div>
               <Card className="bg-muted/50 border-dashed">
                 <CardContent className="p-4 flex items-center gap-4">
                   <div className="flex-1">
@@ -707,11 +718,20 @@ const Gallery = () => {
 
             {/* Download report button */}
             {videoRepoEntries.length > 0 && (
-              <div className="flex justify-start">
+              <div className="flex items-center gap-2">
                 <Button onClick={downloadVideoReport} disabled={isGeneratingVideoReport} variant="outline" size="sm">
                   {isGeneratingVideoReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
                   {isGeneratingVideoReport ? 'Generating...' : `Download Report (${videoRepoEntries.length})`}
                 </Button>
+                <BulkDriveExport
+                  items={videoRepoEntries.map((entry, i) => ({
+                    url: entry.image_url,
+                    name: `${entry.prompt || `video-${i + 1}`}.${entry.image_url.split('.').pop()?.split('?')[0] || 'mp4'}`,
+                    mimeType: 'video/mp4',
+                  }))}
+                  folderName={`Lifecykel Videos — ${new Date().toLocaleDateString()}`}
+                  label={`Export ${videoRepoEntries.length} to Drive`}
+                />
               </div>
             )}
 
