@@ -503,7 +503,7 @@ const ChatcutAI = () => {
           toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
           // Generate motion graphic image for motion_graphic and animated_text types
           if (['motion_graphic', 'animated_text', 'lower_third', 'title_card'].includes(act.type || '')) {
-            generateMotionGraphic(overlayId, act.text || '', act.type || 'motion_graphic');
+            generateMotionGraphic(overlayId, act.text || '', act.type || 'motion_graphic', act.style);
           }
           break;
         }
