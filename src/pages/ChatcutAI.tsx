@@ -214,6 +214,42 @@ const ChatcutAI = () => {
     };
   }, [videoUrl]);
 
+  // Sync background video with main video playback
+  useEffect(() => {
+    const bg = bgVideoRef.current;
+    const main = videoRef.current;
+    if (!bg || !main || !pipEnabled || !bgVideoUrl) return;
+    const sync = () => {
+      if (Math.abs(bg.currentTime - main.currentTime) > 0.3) bg.currentTime = main.currentTime;
+      if (main.paused && !bg.paused) bg.pause();
+      if (!main.paused && bg.paused) bg.play().catch(() => {});
+    };
+    const interval = setInterval(sync, 200);
+    main.addEventListener('play', () => bg.play().catch(() => {}));
+    main.addEventListener('pause', () => bg.pause());
+    main.addEventListener('seeked', sync);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [pipEnabled, bgVideoUrl]);
+
+  // Upload background video
+  const uploadBgVideo = useCallback(async (file: File) => {
+    if (!user) return;
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/bg-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('raw-footage').upload(path, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('raw-footage').getPublicUrl(path);
+      setBgVideoUrl(urlData.publicUrl);
+      setPipEnabled(true);
+      toast({ title: 'Background video added', description: 'Your main video is now a PiP overlay. Drag to reposition, click size to resize.' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    }
+  }, [user, toast]);
+
   // Load drafts on mount
   useEffect(() => {
     if (!user) return;
