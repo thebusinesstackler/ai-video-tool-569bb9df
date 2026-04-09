@@ -1310,7 +1310,7 @@ const ChatcutAI = () => {
                     {duration > 0 && (
                       <div
                         className="absolute top-0 bottom-0 z-20"
-                        style={{ left: `calc(72px + ${(currentTime / duration) * (100 - 10)}%)` }}
+                        style={{ left: `calc(80px + ${(currentTime / duration) * (100 - 10)}%)` }}
                       >
                         <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-amber-500 -ml-[5px]" />
                         <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
