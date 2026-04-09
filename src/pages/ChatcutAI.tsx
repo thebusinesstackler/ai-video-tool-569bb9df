@@ -1250,6 +1250,15 @@ const ChatcutAI = () => {
                         <div className="w-0.5 h-full bg-amber-500 -ml-[1px]" />
                       </div>
                     )}
+                    {/* Inline collapse toggle */}
+                    <button
+                      className="absolute right-1 top-0 bottom-0 z-30 flex items-center gap-0.5 text-[9px] text-muted-foreground hover:text-foreground transition-colors px-1.5 bg-muted/60 hover:bg-muted rounded"
+                      onClick={(e) => { e.stopPropagation(); setTimelineCollapsed(prev => !prev); }}
+                      title={timelineCollapsed ? 'Expand timeline' : 'Collapse timeline'}
+                    >
+                      {timelineCollapsed ? <ZoomIn className="w-3 h-3" /> : <ZoomOut className="w-3 h-3" />}
+                      <span className="hidden sm:inline">{timelineCollapsed ? 'Show' : 'Hide'}</span>
+                    </button>
                   </div>
 
                   {timelineClips.length > 0 ? (
