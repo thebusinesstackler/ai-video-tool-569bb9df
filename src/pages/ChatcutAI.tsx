@@ -47,6 +47,7 @@ import {
   FolderOpen,
   Image as ImageIcon,
 } from 'lucide-react';
+import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 
@@ -768,6 +769,9 @@ const ChatcutAI = () => {
             <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4">
               Export
             </Button>
+            {videoUrl && (
+              <ExportToDriveButton videoUrl={videoUrl} fileName={draftName || 'Chatcut-Export'} />
+            )}
           </div>
         </div>
 
