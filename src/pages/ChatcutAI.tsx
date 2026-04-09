@@ -98,6 +98,8 @@ interface OverlayItem {
   duration: number;
   imageUrl?: string;
   imageStatus?: 'generating' | 'ready' | 'failed';
+  animation?: OverlayAnimation;
+  style?: string;
 }
 
 interface BRollClip {
@@ -108,6 +110,14 @@ interface BRollClip {
   duration: number;
   imageUrl?: string;
   imageStatus?: 'generating' | 'ready' | 'failed';
+  videoUrl?: string;
+  videoStatus?: 'generating' | 'ready' | 'failed';
+  videoTaskId?: string;
+}
+
+interface OverlayAnimation {
+  entrance: 'slide-up' | 'fade-in' | 'scale-pop' | 'slide-left' | 'none';
+  exit: 'fade-out' | 'scale-out' | 'slide-down' | 'none';
 }
 
 type TimelineAction = {
