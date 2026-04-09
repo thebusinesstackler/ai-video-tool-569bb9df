@@ -122,7 +122,7 @@ const ChatcutAI = () => {
   const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai');
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
-  const [overlays, setOverlays] = useState<OverlayItem[]>([]);
+  const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -241,7 +241,6 @@ const ChatcutAI = () => {
           toast({ title: 'Captions enabled', description: `${(act.preset || 'tiktok').toUpperCase()} style applied` });
           break;
         }
-          break;
         case 'add_music': {
           const musicName = `${act.mood || act.genre || 'Background'} ${act.genre || 'Music'}`;
           setMusicTracks(prev => [...prev, {
@@ -261,8 +260,33 @@ const ChatcutAI = () => {
           toast({ title: 'Overlay added', description: `"${act.text}" on V2 track` });
           break;
         case 'split':
-          toast({ title: 'Split', description: `Clip split at ${act.time}s on ${act.track || 'V1'}` });
+          if (timelineClips.length > 0) {
+            const splitTime = act.time ?? currentTime;
+            const clipIdx = timelineClips.findIndex(c => splitTime >= c.startAt && splitTime < c.startAt + c.duration);
+            if (clipIdx >= 0) {
+              const clip = timelineClips[clipIdx];
+              const relTime = splitTime - clip.startAt;
+              if (relTime > 0.1 && relTime < clip.duration - 0.1) {
+                const left: TimelineClip = { ...clip, id: crypto.randomUUID(), duration: relTime };
+                const right: TimelineClip = { ...clip, id: crypto.randomUUID(), startAt: splitTime, duration: clip.duration - relTime };
+                setTimelineClips(prev => [...prev.slice(0, clipIdx), left, right, ...prev.slice(clipIdx + 1)]);
+              }
+            }
+          }
+          toast({ title: 'Split', description: `Clip split at ${(act.time ?? currentTime).toFixed(1)}s` });
           break;
+        case 'add_broll': {
+          const broll: BRollClip = {
+            id: crypto.randomUUID(),
+            name: act.description || act.prompt || 'B-Roll',
+            prompt: act.prompt || act.description || '',
+            start: act.start ?? currentTime,
+            duration: act.duration ?? 5,
+          };
+          setBRollClips(prev => [...prev, broll]);
+          toast({ title: 'B-Roll added', description: `"${broll.name}" on B-Roll track` });
+          break;
+        }
       }
     }
   };
