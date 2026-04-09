@@ -1289,13 +1289,13 @@ const ChatcutAI = () => {
                     onClick={(e) => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
-                      const offsetX = e.clientX - rect.left - 72;
-                      const trackWidth = rect.width - 72;
+                      const offsetX = e.clientX - rect.left - 80;
+                      const trackWidth = rect.width - 80;
                       if (offsetX < 0 || trackWidth <= 0) return;
                       const ratio = Math.max(0, Math.min(1, offsetX / trackWidth));
                       seekTo(ratio * duration);
                     }}>
-                    <div className="absolute inset-0 px-[72px]">
+                    <div className="absolute inset-0 px-[80px]">
                       {timelineTicks.map((t) => (
                         <div
                           key={t}
