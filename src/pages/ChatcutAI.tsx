@@ -1526,16 +1526,22 @@ const ChatcutAI = () => {
               </div>
             </ResizablePanel>
 
-            <ResizableHandle withHandle />
+            {mediaPanelVisible && <ResizableHandle withHandle />}
 
             {/* Right Panel: Media */}
+            {mediaPanelVisible ? (
             <ResizablePanel defaultSize={20} minSize={10} maxSize={30}>
               <div className="h-full flex flex-col bg-card border-l border-border">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-border flex-shrink-0">
                   <span className="text-xs font-semibold text-foreground">Media</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => fileInputRef.current?.click()}>
-                    <Plus className="w-3.5 h-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => fileInputRef.current?.click()}>
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setMediaPanelVisible(false)} title="Hide media panel">
+                      <PanelRightClose className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <ScrollArea className="flex-1 p-3">
