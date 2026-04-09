@@ -286,7 +286,7 @@ export const Navigation = () => {
   return (
     <nav
       className={cn(
-        "fixed left-0 top-0 h-full bg-sidebar-background border-r border-sidebar-border z-50 backdrop-blur-xl transition-all duration-300",
+        "fixed left-0 top-0 h-full bg-sidebar-background border-r border-sidebar-border z-50 backdrop-blur-xl transition-[width] duration-300",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
