@@ -1360,22 +1360,39 @@ const ChatcutAI = () => {
                         })
                       }
 
-                      {/* B-Roll generating indicator */}
-                      {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && (br.imageStatus === 'generating' || br.videoStatus === 'generating')) && (
-                        <div className="absolute top-2 right-2 pointer-events-none z-10">
-                          <div className="bg-green-500/80 px-2 py-0.5 rounded text-[10px] font-bold text-white flex items-center gap-1">
-                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                            {bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.videoStatus === 'generating') ? 'ANIMATING B-ROLL' : 'GENERATING B-ROLL'}
+                      {/* B-Roll status indicators */}
+                      {bRollClips
+                        .filter(br => currentTime >= br.start && currentTime < br.start + br.duration)
+                        .filter(br => !activeBRoll || br.id !== activeBRoll.id)
+                        .map(br => (
+                          <div key={br.id} className="absolute inset-0 z-[4] flex items-center justify-center bg-black/60">
+                            {(br.imageStatus === 'generating' || br.videoStatus === 'generating') ? (
+                              <div className="flex flex-col items-center gap-2 text-white">
+                                <Loader2 className="w-6 h-6 animate-spin text-green-400" />
+                                <span className="text-xs font-medium">
+                                  {br.videoStatus === 'generating' ? 'Animating B-Roll...' : 'Generating B-Roll...'}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">{br.name}</span>
+                              </div>
+                            ) : br.imageStatus === 'failed' ? (
+                              <div className="flex flex-col items-center gap-2 text-white">
+                                <span className="text-sm">⚠️ B-Roll failed</span>
+                                <button
+                                  className="text-xs text-green-400 hover:text-green-300 underline"
+                                  onClick={() => generateBRollImage(br.id, br.prompt)}
+                                >
+                                  Retry generation
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-white/60">
+                                <Film className="w-6 h-6" />
+                                <span className="text-xs">B-Roll placeholder</span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
-
-                      {/* B-Roll badge for clips without image */}
-                      {!activeBRoll && bRollClips.some(br => currentTime >= br.start && currentTime < br.start + br.duration && br.imageStatus !== 'generating') && (
-                        <div className="absolute top-2 right-2 pointer-events-none z-10">
-                          <div className="bg-green-500/80 px-2 py-0.5 rounded text-[10px] font-bold text-white">B-ROLL</div>
-                        </div>
-                      )}
+                        ))
+                      }
 
                       {/* Live caption overlay – constrained to video bounds, always on top */}
                       {captionSettings.enabled && transcript && (() => {
