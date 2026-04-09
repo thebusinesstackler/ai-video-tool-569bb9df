@@ -598,23 +598,12 @@ const ChatcutAI = () => {
       };
       const imagePrompt = stylePrompts[type] || stylePrompts.motion_graphic;
 
-      const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-3.1-flash-image-preview',
-          messages: [{ role: 'user', content: imagePrompt }],
-          modalities: ['image', 'text'],
-        }),
+      const { data, error } = await supabase.functions.invoke('generate-motion-graphic', {
+        body: { prompt: imagePrompt },
       });
 
-      if (!resp.ok) throw new Error('Image generation failed');
-      const data = await resp.json();
-      const imgUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      if (!imgUrl) throw new Error('No image in response');
+      if (error || !data?.imageUrl) throw new Error(error?.message || 'Image generation failed');
+      const imgUrl = data.imageUrl;
 
       setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageUrl: imgUrl, imageStatus: 'ready' } : o));
       toast({ title: 'Motion graphic ready', description: `"${text}" generated successfully` });
