@@ -557,6 +557,7 @@ const ChatcutAI = () => {
                                     ))}
                                   </div>
                                 )}
+                                </div>
                               </div>
                             )}
                           </div>
