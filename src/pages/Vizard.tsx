@@ -15,6 +15,7 @@ import {
   Pencil, Check, X, Trash2, Plus, RefreshCw, Copy, Link2, Send
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { useNavigate } from 'react-router-dom';
 
 interface VizardClip {

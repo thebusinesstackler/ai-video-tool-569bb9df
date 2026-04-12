@@ -53,6 +53,7 @@ import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 
 const AGENT_NAME = 'Marco';
 
