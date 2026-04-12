@@ -1136,6 +1136,45 @@ export type Database = {
         }
         Relationships: []
       }
+      vizard_projects: {
+        Row: {
+          clips: Json
+          created_at: string
+          error: string | null
+          id: string
+          source_video_url: string | null
+          status: string
+          title: string
+          transcript: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clips?: Json
+          created_at?: string
+          error?: string | null
+          id?: string
+          source_video_url?: string | null
+          status?: string
+          title?: string
+          transcript?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clips?: Json
+          created_at?: string
+          error?: string | null
+          id?: string
+          source_video_url?: string | null
+          status?: string
+          title?: string
+          transcript?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
