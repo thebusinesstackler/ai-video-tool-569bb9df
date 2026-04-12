@@ -251,6 +251,41 @@ const Settings = () => {
                       onChange={(e) => setProfile(p => ({ ...p, brand_description: e.target.value }))}
                     />
                   </div>
+                  {/* Brand Guidelines PDF */}
+                  <div className="space-y-2">
+                    <Label>Brand Guidelines (PDF)</Label>
+                    <p className="text-xs text-muted-foreground">Upload your brand guidelines PDF. AI tools like Marco will reference it when creating videos.</p>
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadBrandPdf(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    {profile.brand_guidelines_url ? (
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                        <FileText className="w-5 h-5 text-primary shrink-0" />
+                        <span className="text-sm text-foreground truncate flex-1">
+                          {profile.brand_guidelines_url.split('/').pop()}
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={() => pdfInputRef.current?.click()} disabled={isUploadingPdf}>
+                          Replace
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={removeBrandPdf}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button variant="outline" onClick={() => pdfInputRef.current?.click()} disabled={isUploadingPdf}>
+                        {isUploadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileUp className="w-4 h-4 mr-2" />}
+                        Upload Brand Guidelines
+                      </Button>
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <Button onClick={saveProfile} disabled={isSaving}>
                       {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
