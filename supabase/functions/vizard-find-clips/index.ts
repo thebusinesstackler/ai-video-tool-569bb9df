@@ -43,7 +43,12 @@ serve(async (req) => {
         .join("\n");
     }
 
-    const systemPrompt = `You are a viral video clip strategist. Analyze this transcript from a long-form video and identify the 5-10 best moments that would make compelling short-form clips (15-60 seconds each).
+    // Scale clip count based on video duration
+    const durationMin = videoDuration ? Math.round(videoDuration / 60) : 10;
+    const minClips = Math.max(8, Math.round(durationMin * 1.2));
+    const maxClips = Math.max(15, Math.round(durationMin * 2));
+
+    const systemPrompt = `You are a viral video clip strategist. Analyze this transcript from a long-form video and identify the ${minClips}-${maxClips} best moments that would make compelling short-form clips (15-60 seconds each).
 
 For each clip, provide:
 - A catchy title
@@ -59,6 +64,8 @@ Focus on:
 - Controversial or debate-worthy moments
 - Funny or relatable moments
 - Complete thoughts (don't cut mid-sentence)
+
+Be thorough — for a ${durationMin}-minute video, you should find at LEAST ${minClips} clips. Cover the entire video from start to finish, not just the beginning.
 
 Video duration: ${videoDuration || "unknown"} seconds.`;
 

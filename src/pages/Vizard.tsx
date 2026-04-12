@@ -205,8 +205,17 @@ export default function Vizard() {
       await supabase.from('vizard_projects').update({ transcript, status: 'finding_clips' }).eq('id', project.id);
       setActiveProject(prev => prev ? { ...prev, transcript, status: 'finding_clips' } : prev);
 
+      // Get video duration for better clip count scaling
+      let videoDuration: number | null = null;
+      try {
+        const vid = videoRef.current;
+        if (vid && vid.duration && isFinite(vid.duration)) {
+          videoDuration = vid.duration;
+        }
+      } catch {}
+
       const { data: clipData, error: clipErr } = await supabase.functions.invoke('vizard-find-clips', {
-        body: { projectId: project.id, transcript, videoDuration: null },
+        body: { projectId: project.id, transcript, videoDuration },
       });
       if (clipErr) throw new Error(clipErr.message || 'Clip finding failed');
 

@@ -393,33 +393,31 @@ const ChatcutAI = () => {
           const loadVideo = async (url: string) => {
             setVideoUrl(url);
 
-            const tempVideo = document.createElement('video');
-            tempVideo.src = url;
-            tempVideo.addEventListener('loadedmetadata', () => {
-              setTimelineClips([{
-                id: crypto.randomUUID(),
-                name: payload.clipTitle || payload.title || 'Imported clip',
-                url,
-                duration: tempVideo.duration,
-                startAt: 0,
-              }]);
-              setDuration(tempVideo.duration);
-            }, { once: true });
+            // Wait for the actual video element to get metadata instead of a detached element
+            const waitForMeta = setInterval(() => {
+              const vid = videoRef.current;
+              if (vid && vid.readyState >= 1 && vid.duration > 0) {
+                clearInterval(waitForMeta);
+                setTimelineClips([{
+                  id: crypto.randomUUID(),
+                  name: payload.clipTitle || payload.title || 'Imported clip',
+                  url,
+                  duration: vid.duration,
+                  startAt: 0,
+                }]);
+                setDuration(vid.duration);
 
-            if (typeof payload.clipStart === 'number') {
-              const waitForVideo = setInterval(() => {
-                const vid = videoRef.current;
-                if (vid && vid.readyState >= 1) {
-                  clearInterval(waitForVideo);
+                if (typeof payload.clipStart === 'number') {
                   vid.currentTime = payload.clipStart;
+                  setCurrentTime(payload.clipStart);
                   toast({
                     title: 'Clip loaded from Vizard',
                     description: `Playing from ${Math.floor(payload.clipStart / 60)}:${String(Math.floor(payload.clipStart % 60)).padStart(2, '0')} to ${Math.floor(payload.clipEnd / 60)}:${String(Math.floor(payload.clipEnd % 60)).padStart(2, '0')}`,
                   });
                 }
-              }, 200);
-              setTimeout(() => clearInterval(waitForVideo), 10000);
-            }
+              }
+            }, 200);
+            setTimeout(() => clearInterval(waitForMeta), 15000);
           };
 
           if (isYT) {
@@ -925,8 +923,11 @@ const ChatcutAI = () => {
     else videoRef.current.play();
   };
 
-  const seekTo = (time: number) => {
-    if (videoRef.current) videoRef.current.currentTime = time;
+   const seekTo = (time: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
   };
 
   const formatTime = (s: number) => {
