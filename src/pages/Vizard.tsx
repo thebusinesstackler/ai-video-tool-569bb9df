@@ -318,6 +318,7 @@ export default function Vizard() {
     const payload: any = {
       videoUrl: activeProject.source_video_url,
       title: activeProject.title,
+      allClips: activeProject.clips, // Pass all clips
     };
     if (clip) {
       payload.clipStart = clip.start;
