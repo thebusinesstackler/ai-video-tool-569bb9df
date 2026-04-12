@@ -151,12 +151,14 @@ export default function Vizard() {
         const { data: dlData, error: dlErr } = await supabase.functions.invoke('download-video-url', {
           body: { url: youtubeUrl.trim() },
         });
-        if (!dlErr && dlData?.url) {
-          videoUrl = dlData.url;
+        if (!dlErr && dlData?.videoUrl) {
+          videoUrl = dlData.videoUrl;
           if (dlData.title) title = dlData.title;
+        } else if (!dlErr && dlData?.publicUrl && dlData?.clientDownload) {
+          // Client-side download fallback - use publicUrl after client downloads
+          videoUrl = dlData.publicUrl;
         }
       } catch {
-        // Fallback: use the YouTube URL directly for transcription
         console.log('Download failed, using URL directly for transcription');
       }
 

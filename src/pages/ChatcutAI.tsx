@@ -401,19 +401,22 @@ const ChatcutAI = () => {
           };
 
           if (isYT) {
-            // Try downloading the YouTube video to get a playable URL
             toast({ title: 'Downloading video...', description: 'Fetching playable URL from YouTube' });
             supabase.functions.invoke('download-video-url', {
               body: { url: payload.videoUrl },
             }).then(({ data, error }) => {
-              if (!error && data?.url) {
-                loadVideo(data.url);
+              if (!error && data?.videoUrl) {
+                loadVideo(data.videoUrl);
+              } else if (!error && data?.clientDownload && data?.downloadUrl) {
+                toast({ title: 'Downloading video...', description: 'Using alternative download method' });
+                fetch(data.downloadUrl)
+                  .then(r => r.ok ? r.blob() : Promise.reject('Download failed'))
+                  .then(blob => loadVideo(URL.createObjectURL(blob)))
+                  .catch(() => {
+                    toast({ title: 'Video download failed', description: 'Could not fetch a playable video. Try uploading the video file directly.', variant: 'destructive' });
+                  });
               } else {
-                toast({
-                  title: 'Video download failed',
-                  description: 'Could not fetch a playable video. Try uploading the video file directly.',
-                  variant: 'destructive',
-                });
+                toast({ title: 'Video download failed', description: 'Could not fetch a playable video. Try uploading the video file directly.', variant: 'destructive' });
               }
             });
           } else {
