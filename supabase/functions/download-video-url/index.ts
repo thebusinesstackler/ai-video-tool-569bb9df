@@ -240,23 +240,21 @@ Deno.serve(async (req) => {
     console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
 
     // Try server-side download with each URL and multiple header strategies
-    const headerStrategies = [
-      {
+    const buildHeaderStrategies = (dlUrl: string): Record<string, string>[] => {
+      const isTunnelUrl = dlUrl.includes('smvd.xyz');
+      const base: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': '*/*',
-        'Accept-Encoding': 'identity;q=1, *;q=0',
-        'Range': 'bytes=0-',
-        'Sec-Fetch-Dest': 'video',
-        'Sec-Fetch-Mode': 'no-cors',
-        'Sec-Fetch-Site': 'cross-site',
-        'Referer': 'https://www.youtube.com/',
-      },
-      {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'video/mp4,video/*,*/*',
-        'Referer': 'https://www.youtube.com/',
-      },
-    ];
+      };
+      // SMVD tunnel URLs require RapidAPI credentials
+      if (isTunnelUrl) {
+        base['X-RapidAPI-Key'] = rapidApiKey;
+        base['X-RapidAPI-Host'] = 'social-media-video-downloader.p.rapidapi.com';
+      }
+      return [
+        { ...base, 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0', 'Range': 'bytes=0-', 'Referer': 'https://www.youtube.com/' },
+        { ...base, 'Accept': 'video/mp4,video/*,*/*', 'Referer': 'https://www.youtube.com/' },
+      ];
+    };
 
     for (const dlUrl of downloadUrls) {
       const isTunnel = dlUrl.includes('smvd.xyz');
