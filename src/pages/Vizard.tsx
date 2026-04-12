@@ -190,7 +190,25 @@ export default function Vizard() {
       });
       if (txErr) throw new Error(txErr.message || 'Transcription failed');
 
-      const transcript = txData?.transcript || txData?.segments || txData;
+      // Normalize transcript — prefer segments array, fallback to full response
+      let transcript: any = null;
+      if (txData?.segments && Array.isArray(txData.segments) && txData.segments.length > 0) {
+        transcript = txData.segments;
+      } else if (txData?.transcript && Array.isArray(txData.transcript) && txData.transcript.length > 0) {
+        transcript = txData.transcript;
+      } else if (Array.isArray(txData) && txData.length > 0) {
+        transcript = txData;
+      } else if (txData?.text) {
+        // Plain text transcript — wrap into a single segment
+        transcript = [{ start: 0, end: 0, text: txData.text }];
+      } else {
+        transcript = txData;
+      }
+      
+      if (!transcript || (Array.isArray(transcript) && transcript.length === 0)) {
+        throw new Error('Transcription returned empty result');
+      }
+      
       await supabase.from('vizard_projects').update({ transcript, status: 'finding_clips' }).eq('id', project.id);
       setActiveProject(prev => prev ? { ...prev, transcript, status: 'finding_clips' } : prev);
 
@@ -320,10 +338,10 @@ export default function Vizard() {
             )}>
               <div className={cn(
                 "w-6 h-6 rounded-full flex items-center justify-center text-[10px] border-2",
-                i < currentIdx ? "bg-primary text-primary-foreground border-primary" :
+                i <= currentIdx && status !== 'failed' ? "bg-primary text-primary-foreground border-primary" :
                 i === currentIdx ? "border-primary text-primary" : "border-muted-foreground/30"
               )}>
-                {i < currentIdx ? '✓' : i + 1}
+                {i <= currentIdx && status !== 'failed' ? '✓' : i + 1}
               </div>
               <span>{STATUS_LABELS[step]}</span>
             </div>
@@ -338,13 +356,22 @@ export default function Vizard() {
 
   // ---- Transcript Viewer ----
   const TranscriptViewer = ({ transcript }: { transcript: any }) => {
+    if (!transcript) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
+    
+    // Handle string transcript
+    if (typeof transcript === 'string') {
+      return <div className="max-h-60 overflow-y-auto text-sm border rounded-lg p-3 bg-muted/30"><p>{transcript}</p></div>;
+    }
+    
     const segments = Array.isArray(transcript) ? transcript : transcript?.segments || [];
     if (!segments.length) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
     return (
       <div className="max-h-60 overflow-y-auto space-y-1 text-sm border rounded-lg p-3 bg-muted/30">
         {segments.map((seg: any, i: number) => (
           <p key={i}>
-            <span className="text-muted-foreground font-mono text-xs mr-2">[{formatTime(seg.start || 0)}]</span>
+            {seg.start !== undefined && (
+              <span className="text-muted-foreground font-mono text-xs mr-2">[{formatTime(seg.start || 0)}]</span>
+            )}
             {seg.text}
           </p>
         ))}
@@ -392,7 +419,6 @@ export default function Vizard() {
                     controls
                     controlsList="nodownload"
                     playsInline
-                    crossOrigin="anonymous"
                     className="w-full max-h-[400px] rounded-lg"
                     style={{ backgroundColor: 'hsl(var(--muted))' }}
                   />
@@ -401,7 +427,7 @@ export default function Vizard() {
             </Card>
           )}
 
-          {activeProject.transcript && (
+          {activeProject.transcript !== null && activeProject.transcript !== undefined && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Transcript</CardTitle>
