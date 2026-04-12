@@ -159,7 +159,7 @@ const ChatcutAI = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
-  const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'transcript' | 'clips'>('ai');
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
@@ -180,6 +180,7 @@ const ChatcutAI = () => {
   const [showDraftPicker, setShowDraftPicker] = useState(false);
   const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
   const [brandGuidelines, setBrandGuidelines] = useState<string | null>(null);
+  const [vizardClips, setVizardClips] = useState<Array<{id: string; title: string; description: string; start: number; end: number; score: number; tags: string[]}>>([]);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -379,6 +380,12 @@ const ChatcutAI = () => {
           vizardHandoffRef.current = true;
           setShowDraftPicker(false);
           setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
+          
+          // Store all clips from Vizard
+          if (payload.allClips && Array.isArray(payload.allClips) && payload.allClips.length > 0) {
+            setVizardClips(payload.allClips);
+            setActiveTab('clips'); // Auto-switch to clips tab
+          }
 
           const isYT = /youtube\.com|youtu\.be/.test(payload.videoUrl);
 
@@ -1173,10 +1180,16 @@ const ChatcutAI = () => {
             {/* Left Panel: AI Chat + Transcript */}
             <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
               <div className="h-full flex flex-col bg-card">
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ai' | 'transcript')} className="flex flex-col flex-1 overflow-hidden">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ai' | 'transcript' | 'clips')} className="flex flex-col flex-1 overflow-hidden">
                   <TabsList className="mx-3 mt-2 mb-0 bg-muted/50">
                     <TabsTrigger value="ai" className="text-xs">AI</TabsTrigger>
                     <TabsTrigger value="transcript" className="text-xs">Transcript</TabsTrigger>
+                    {vizardClips.length > 0 && (
+                      <TabsTrigger value="clips" className="text-xs">
+                        <Scissors className="w-3 h-3 mr-1" />
+                        Clips ({vizardClips.length})
+                      </TabsTrigger>
+                    )}
                   </TabsList>
 
                   <TabsContent value="ai" className="flex-1 flex flex-col overflow-hidden m-0 p-0">
@@ -1278,6 +1291,49 @@ const ChatcutAI = () => {
                       )}
                     </ScrollArea>
                   </TabsContent>
+
+                  {vizardClips.length > 0 && (
+                    <TabsContent value="clips" className="flex-1 overflow-hidden m-0 p-0">
+                      <ScrollArea className="h-full px-3 py-2">
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Clips identified by Vizard AI. Click to jump to that moment.
+                          </p>
+                          {vizardClips
+                            .sort((a, b) => b.score - a.score)
+                            .map((clip) => (
+                            <Card
+                              key={clip.id}
+                              className={cn(
+                                "cursor-pointer hover:border-primary/50 transition-colors",
+                                currentTime >= clip.start && currentTime < clip.end && "border-primary bg-primary/5"
+                              )}
+                              onClick={() => seekTo(clip.start)}
+                            >
+                              <CardContent className="p-3 space-y-1.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h4 className="text-sm font-medium leading-tight">{clip.title}</h4>
+                                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                                    ⭐ {clip.score}/10
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{clip.description}</p>
+                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                  <span className="font-mono">{formatTimeShort(clip.start)} – {formatTimeShort(clip.end)}</span>
+                                  <span>({Math.round(clip.end - clip.start)}s)</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {clip.tags.map(tag => (
+                                    <Badge key={tag} variant="outline" className="text-[9px] h-4 px-1">{tag}</Badge>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </TabsContent>
+                  )}
                 </Tabs>
 
                 {/* Chat input — always visible at bottom regardless of tab */}

@@ -190,6 +190,11 @@ export default function Vizard() {
       });
       if (txErr) throw new Error(txErr.message || 'Transcription failed');
 
+      // Check for explicit error in response
+      if (txData?.success === false || txData?.error) {
+        throw new Error(txData.error || 'Transcription failed');
+      }
+
       // Normalize transcript — prefer segments array, fallback to full response
       let transcript: any = null;
       if (txData?.segments && Array.isArray(txData.segments) && txData.segments.length > 0) {
@@ -198,15 +203,15 @@ export default function Vizard() {
         transcript = txData.transcript;
       } else if (Array.isArray(txData) && txData.length > 0) {
         transcript = txData;
-      } else if (txData?.text) {
+      } else if (txData?.text && txData.text.trim().length > 0) {
         // Plain text transcript — wrap into a single segment
         transcript = [{ start: 0, end: 0, text: txData.text }];
-      } else {
-        transcript = txData;
+      } else if (txData?.timestampedTranscript && txData.timestampedTranscript.trim().length > 0) {
+        transcript = [{ start: 0, end: 0, text: txData.timestampedTranscript }];
       }
       
       if (!transcript || (Array.isArray(transcript) && transcript.length === 0)) {
-        throw new Error('Transcription returned empty result');
+        throw new Error('Transcription returned empty result. The video may not have audio or could not be accessed.');
       }
       
       await supabase.from('vizard_projects').update({ transcript, status: 'finding_clips' }).eq('id', project.id);
@@ -313,6 +318,7 @@ export default function Vizard() {
     const payload: any = {
       videoUrl: activeProject.source_video_url,
       title: activeProject.title,
+      allClips: activeProject.clips, // Pass all clips
     };
     if (clip) {
       payload.clipStart = clip.start;
@@ -358,13 +364,45 @@ export default function Vizard() {
   const TranscriptViewer = ({ transcript }: { transcript: any }) => {
     if (!transcript) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
     
+    // Handle error in transcript object
+    if (transcript?.success === false || transcript?.error) {
+      return (
+        <div className="text-sm space-y-2">
+          <p className="text-destructive">Transcription failed: {transcript.error || 'Unknown error'}</p>
+          <Button size="sm" variant="outline" onClick={() => {
+            if (activeProject) {
+              setActiveProject({ ...activeProject, status: 'transcribing', transcript: null });
+              runPipeline(activeProject);
+            }
+          }}>
+            <RefreshCw className="w-4 h-4 mr-1" /> Re-transcribe
+          </Button>
+        </div>
+      );
+    }
+    
     // Handle string transcript
     if (typeof transcript === 'string') {
+      if (!transcript.trim()) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
       return <div className="max-h-60 overflow-y-auto text-sm border rounded-lg p-3 bg-muted/30"><p>{transcript}</p></div>;
     }
     
     const segments = Array.isArray(transcript) ? transcript : transcript?.segments || [];
-    if (!segments.length) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
+    if (!segments.length) {
+      return (
+        <div className="text-sm space-y-2">
+          <p className="text-muted-foreground">No transcript data available.</p>
+          <Button size="sm" variant="outline" onClick={() => {
+            if (activeProject) {
+              setActiveProject({ ...activeProject, status: 'transcribing', transcript: null });
+              runPipeline(activeProject);
+            }
+          }}>
+            <RefreshCw className="w-4 h-4 mr-1" /> Re-transcribe
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="max-h-60 overflow-y-auto space-y-1 text-sm border rounded-lg p-3 bg-muted/30">
         {segments.map((seg: any, i: number) => (
@@ -402,6 +440,21 @@ export default function Vizard() {
 
           <ProgressStepper status={activeProject.status} />
 
+          {['uploading', 'transcribing', 'finding_clips'].includes(activeProject.status) && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 flex items-center gap-3">
+                <RefreshCw className="w-5 h-5 text-primary animate-spin" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {activeProject.status === 'uploading' && 'Uploading your video...'}
+                    {activeProject.status === 'transcribing' && 'Transcribing audio — this may take a minute...'}
+                    {activeProject.status === 'finding_clips' && 'AI is analyzing the transcript for the best moments...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Please keep this page open</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {activeProject.source_video_url && (
             <Card>
               <CardContent className="p-4">
