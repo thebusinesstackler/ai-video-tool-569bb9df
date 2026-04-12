@@ -27,6 +27,7 @@ import LifestyleStories from "./pages/LifestyleStories";
 import NotFound from "./pages/NotFound";
 import AnimateStatics from "./pages/AnimateStatics";
 import ChatcutAI from "./pages/ChatcutAI";
+import Vizard from "./pages/Vizard";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient({
@@ -82,6 +83,7 @@ const App = () => (
               <Route path="/lifestyle-stories" element={<ProtectedRoute><LifestyleStories /></ProtectedRoute>} />
               <Route path="/animate-statics" element={<ProtectedRoute><AnimateStatics /></ProtectedRoute>} />
               <Route path="/chatcut-ai" element={<ProtectedRoute><ChatcutAI /></ProtectedRoute>} />
+              <Route path="/vizard" element={<ProtectedRoute><Vizard /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

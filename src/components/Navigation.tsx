@@ -84,6 +84,7 @@ const navGroups: NavGroup[] = [
       { name: 'Lifestyle Stories', href: '/lifestyle-stories', icon: Film, beta: true },
       { name: 'Animate Statics', href: '/animate-statics', icon: Wand2, beta: true },
       { name: 'Chatcut AI', href: '/chatcut-ai', icon: Scissors, beta: true },
+      { name: 'Vizard', href: '/vizard', icon: Film, beta: true },
     ],
   },
   {
