@@ -190,6 +190,11 @@ export default function Vizard() {
       });
       if (txErr) throw new Error(txErr.message || 'Transcription failed');
 
+      // Check for explicit error in response
+      if (txData?.success === false || txData?.error) {
+        throw new Error(txData.error || 'Transcription failed');
+      }
+
       // Normalize transcript — prefer segments array, fallback to full response
       let transcript: any = null;
       if (txData?.segments && Array.isArray(txData.segments) && txData.segments.length > 0) {
@@ -198,15 +203,15 @@ export default function Vizard() {
         transcript = txData.transcript;
       } else if (Array.isArray(txData) && txData.length > 0) {
         transcript = txData;
-      } else if (txData?.text) {
+      } else if (txData?.text && txData.text.trim().length > 0) {
         // Plain text transcript — wrap into a single segment
         transcript = [{ start: 0, end: 0, text: txData.text }];
-      } else {
-        transcript = txData;
+      } else if (txData?.timestampedTranscript && txData.timestampedTranscript.trim().length > 0) {
+        transcript = [{ start: 0, end: 0, text: txData.timestampedTranscript }];
       }
       
       if (!transcript || (Array.isArray(transcript) && transcript.length === 0)) {
-        throw new Error('Transcription returned empty result');
+        throw new Error('Transcription returned empty result. The video may not have audio or could not be accessed.');
       }
       
       await supabase.from('vizard_projects').update({ transcript, status: 'finding_clips' }).eq('id', project.id);
