@@ -364,13 +364,45 @@ export default function Vizard() {
   const TranscriptViewer = ({ transcript }: { transcript: any }) => {
     if (!transcript) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
     
+    // Handle error in transcript object
+    if (transcript?.success === false || transcript?.error) {
+      return (
+        <div className="text-sm space-y-2">
+          <p className="text-destructive">Transcription failed: {transcript.error || 'Unknown error'}</p>
+          <Button size="sm" variant="outline" onClick={() => {
+            if (activeProject) {
+              setActiveProject({ ...activeProject, status: 'transcribing', transcript: null });
+              runPipeline(activeProject);
+            }
+          }}>
+            <RefreshCw className="w-4 h-4 mr-1" /> Re-transcribe
+          </Button>
+        </div>
+      );
+    }
+    
     // Handle string transcript
     if (typeof transcript === 'string') {
+      if (!transcript.trim()) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
       return <div className="max-h-60 overflow-y-auto text-sm border rounded-lg p-3 bg-muted/30"><p>{transcript}</p></div>;
     }
     
     const segments = Array.isArray(transcript) ? transcript : transcript?.segments || [];
-    if (!segments.length) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
+    if (!segments.length) {
+      return (
+        <div className="text-sm space-y-2">
+          <p className="text-muted-foreground">No transcript data available.</p>
+          <Button size="sm" variant="outline" onClick={() => {
+            if (activeProject) {
+              setActiveProject({ ...activeProject, status: 'transcribing', transcript: null });
+              runPipeline(activeProject);
+            }
+          }}>
+            <RefreshCw className="w-4 h-4 mr-1" /> Re-transcribe
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="max-h-60 overflow-y-auto space-y-1 text-sm border rounded-lg p-3 bg-muted/30">
         {segments.map((seg: any, i: number) => (
