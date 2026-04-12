@@ -364,10 +364,40 @@ const ChatcutAI = () => {
     }
   }, [user, toast]);
 
-  // Load drafts on mount
+  // Check for Vizard handoff on mount
   useEffect(() => {
     if (!user) return;
-    // Don't show draft picker if user already has a video loaded
+    const raw = sessionStorage.getItem('vizard-to-chatcut');
+    if (raw) {
+      sessionStorage.removeItem('vizard-to-chatcut');
+      try {
+        const payload = JSON.parse(raw);
+        if (payload.videoUrl) {
+          setVideoUrl(payload.videoUrl);
+          setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
+          setShowDraftPicker(false);
+          // If clip timestamps provided, seek to start after video loads
+          if (typeof payload.clipStart === 'number') {
+            const waitForVideo = setInterval(() => {
+              const vid = videoRef.current;
+              if (vid && vid.readyState >= 1) {
+                clearInterval(waitForVideo);
+                vid.currentTime = payload.clipStart;
+                toast({
+                  title: 'Clip loaded from Vizard',
+                  description: `Playing from ${Math.floor(payload.clipStart / 60)}:${String(Math.floor(payload.clipStart % 60)).padStart(2, '0')} to ${Math.floor(payload.clipEnd / 60)}:${String(Math.floor(payload.clipEnd % 60)).padStart(2, '0')}`,
+                });
+              }
+            }, 200);
+            // Safety: clear after 10s
+            setTimeout(() => clearInterval(waitForVideo), 10000);
+          }
+          return; // Skip draft picker
+        }
+      } catch { /* ignore parse errors */ }
+    }
+
+    // Load drafts on mount (only if no Vizard handoff)
     if (videoUrl) return;
     supabase
       .from('chatcut_drafts')
