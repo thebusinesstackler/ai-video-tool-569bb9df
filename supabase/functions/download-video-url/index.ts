@@ -27,7 +27,7 @@ function detectPlatform(url: string): { platform: string; endpoint: string; para
     return {
       platform: 'youtube',
       endpoint: '/youtube/v3/video/details',
-      params: { videoId },
+      params: { videoId, renderableFormats: '720p' },
     };
   }
 
