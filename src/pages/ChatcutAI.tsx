@@ -377,23 +377,47 @@ const ChatcutAI = () => {
         const payload = JSON.parse(raw);
         if (payload.videoUrl) {
           vizardHandoffRef.current = true;
-          setVideoUrl(payload.videoUrl);
-          setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
           setShowDraftPicker(false);
-          // If clip timestamps provided, seek to start after video loads
-          if (typeof payload.clipStart === 'number') {
-            const waitForVideo = setInterval(() => {
-              const vid = videoRef.current;
-              if (vid && vid.readyState >= 1) {
-                clearInterval(waitForVideo);
-                vid.currentTime = payload.clipStart;
+          setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
+
+          const isYT = /youtube\.com|youtu\.be/.test(payload.videoUrl);
+
+          const loadVideo = async (url: string) => {
+            setVideoUrl(url);
+            if (typeof payload.clipStart === 'number') {
+              const waitForVideo = setInterval(() => {
+                const vid = videoRef.current;
+                if (vid && vid.readyState >= 1) {
+                  clearInterval(waitForVideo);
+                  vid.currentTime = payload.clipStart;
+                  toast({
+                    title: 'Clip loaded from Vizard',
+                    description: `Playing from ${Math.floor(payload.clipStart / 60)}:${String(Math.floor(payload.clipStart % 60)).padStart(2, '0')} to ${Math.floor(payload.clipEnd / 60)}:${String(Math.floor(payload.clipEnd % 60)).padStart(2, '0')}`,
+                  });
+                }
+              }, 200);
+              setTimeout(() => clearInterval(waitForVideo), 10000);
+            }
+          };
+
+          if (isYT) {
+            // Try downloading the YouTube video to get a playable URL
+            toast({ title: 'Downloading video...', description: 'Fetching playable URL from YouTube' });
+            supabase.functions.invoke('download-video-url', {
+              body: { url: payload.videoUrl },
+            }).then(({ data, error }) => {
+              if (!error && data?.url) {
+                loadVideo(data.url);
+              } else {
                 toast({
-                  title: 'Clip loaded from Vizard',
-                  description: `Playing from ${Math.floor(payload.clipStart / 60)}:${String(Math.floor(payload.clipStart % 60)).padStart(2, '0')} to ${Math.floor(payload.clipEnd / 60)}:${String(Math.floor(payload.clipEnd % 60)).padStart(2, '0')}`,
+                  title: 'Video download failed',
+                  description: 'Could not fetch a playable video. Try uploading the video file directly.',
+                  variant: 'destructive',
                 });
               }
-            }, 200);
-            setTimeout(() => clearInterval(waitForVideo), 10000);
+            });
+          } else {
+            loadVideo(payload.videoUrl);
           }
           return; // Skip draft picker
         }
