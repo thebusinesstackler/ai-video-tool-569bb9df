@@ -53,6 +53,7 @@ import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 
 const AGENT_NAME = 'Marco';
 
@@ -391,6 +392,20 @@ const ChatcutAI = () => {
 
           const loadVideo = async (url: string) => {
             setVideoUrl(url);
+
+            const tempVideo = document.createElement('video');
+            tempVideo.src = url;
+            tempVideo.addEventListener('loadedmetadata', () => {
+              setTimelineClips([{
+                id: crypto.randomUUID(),
+                name: payload.clipTitle || payload.title || 'Imported clip',
+                url,
+                duration: tempVideo.duration,
+                startAt: 0,
+              }]);
+              setDuration(tempVideo.duration);
+            }, { once: true });
+
             if (typeof payload.clipStart === 'number') {
               const waitForVideo = setInterval(() => {
                 const vid = videoRef.current;
@@ -408,24 +423,13 @@ const ChatcutAI = () => {
           };
 
           if (isYT) {
-            toast({ title: 'Downloading video...', description: 'Fetching playable URL from YouTube' });
-            supabase.functions.invoke('download-video-url', {
-              body: { url: payload.videoUrl },
-            }).then(({ data, error }) => {
-              if (!error && data?.videoUrl) {
-                loadVideo(data.videoUrl);
-              } else if (!error && data?.clientDownload && data?.downloadUrl) {
-                toast({ title: 'Downloading video...', description: 'Using alternative download method' });
-                fetch(data.downloadUrl)
-                  .then(r => r.ok ? r.blob() : Promise.reject('Download failed'))
-                  .then(blob => loadVideo(URL.createObjectURL(blob)))
-                  .catch(() => {
-                    toast({ title: 'Video download failed', description: 'Could not fetch a playable video. Try uploading the video file directly.', variant: 'destructive' });
-                  });
-              } else {
-                toast({ title: 'Video download failed', description: 'Could not fetch a playable video. Try uploading the video file directly.', variant: 'destructive' });
-              }
-            });
+            downloadSocialVideoToStorage(payload.videoUrl, (title, description, variant) => {
+              toast({ title, description, variant });
+            })
+              .then(loadVideo)
+              .catch((err: Error) => {
+                toast({ title: 'Video download failed', description: err.message, variant: 'destructive' });
+              });
           } else {
             loadVideo(payload.videoUrl);
           }

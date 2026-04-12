@@ -15,6 +15,7 @@ import {
   Pencil, Check, X, Trash2, Plus, RefreshCw, Copy, Link2, Send
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { useNavigate } from 'react-router-dom';
 
 interface VizardClip {
@@ -139,28 +140,15 @@ export default function Vizard() {
     if (!user || !youtubeUrl.trim()) return;
     setImportingUrl(true);
     try {
-      // Try to download the video via edge function
       let videoUrl = youtubeUrl.trim();
       let title = 'YouTube Video';
 
-      // Extract a title from the URL
       const urlMatch = youtubeUrl.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]+)/);
       if (urlMatch) title = `YouTube ${urlMatch[1]}`;
 
-      try {
-        const { data: dlData, error: dlErr } = await supabase.functions.invoke('download-video-url', {
-          body: { url: youtubeUrl.trim() },
-        });
-        if (!dlErr && dlData?.videoUrl) {
-          videoUrl = dlData.videoUrl;
-          if (dlData.title) title = dlData.title;
-        } else if (!dlErr && dlData?.publicUrl && dlData?.clientDownload) {
-          // Client-side download fallback - use publicUrl after client downloads
-          videoUrl = dlData.publicUrl;
-        }
-      } catch {
-        console.log('Download failed, using URL directly for transcription');
-      }
+      videoUrl = await downloadSocialVideoToStorage(youtubeUrl.trim(), (title, description, variant) => {
+        toast({ title, description, variant });
+      });
 
       const { data: row, error: insertErr } = await supabase
         .from('vizard_projects')
