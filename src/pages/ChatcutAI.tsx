@@ -380,6 +380,11 @@ const ChatcutAI = () => {
           vizardHandoffRef.current = true;
           setShowDraftPicker(false);
           setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
+          
+          // Store all clips from Vizard
+          if (payload.allClips && Array.isArray(payload.allClips)) {
+            setVizardClips(payload.allClips);
+          }
 
           const isYT = /youtube\.com|youtu\.be/.test(payload.videoUrl);
 
