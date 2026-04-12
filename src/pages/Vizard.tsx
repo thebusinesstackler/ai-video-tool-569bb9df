@@ -452,14 +452,16 @@ export default function Vizard() {
                             ))}
                           </div>
                           <div className="flex flex-wrap gap-2 pt-1">
-                            <Button size="sm" variant="outline" onClick={() => playingClipId === clip.id ? stopClip() : playClip(clip)}>
-                              {playingClipId === clip.id ? <Pause className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
-                              {playingClipId === clip.id ? 'Stop' : 'Preview'}
-                            </Button>
+                            {!isYoutubeUrl(activeProject.source_video_url || '') && (
+                              <Button size="sm" variant="outline" onClick={() => playingClipId === clip.id ? stopClip() : playClip(clip)}>
+                                {playingClipId === clip.id ? <Pause className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+                                {playingClipId === clip.id ? 'Stop' : 'Preview'}
+                              </Button>
+                            )}
                             <Button size="sm" variant="ghost" onClick={() => startEdit(clip)}><Pencil className="w-4 h-4" /></Button>
                             <Button size="sm" variant="ghost" onClick={() => copyTimestamps(clip)}><Copy className="w-4 h-4" /></Button>
-                            <Button size="sm" variant="outline" onClick={() => sendToChatcut(clip)}>
-                              <Send className="w-4 h-4 mr-1" />Chatcut
+                            <Button size="sm" onClick={() => sendToChatcut(clip)}>
+                              <Send className="w-4 h-4 mr-1" />Edit in Chatcut AI
                             </Button>
                             <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteClip(clip.id)}><Trash2 className="w-4 h-4" /></Button>
                           </div>
