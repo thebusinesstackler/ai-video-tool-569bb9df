@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
       const isTunnel = dlUrl.includes('smvd.xyz');
       console.log(`[download-video-url] Trying URL (tunnel=${isTunnel}): ${dlUrl.substring(0, 80)}`);
 
-      const headerStrategies = buildHeaderStrategies(dlUrl);
+      for (let s = 0; s < headerStrategies.length; s++) {
         try {
           const videoResponse = await fetch(dlUrl, {
             headers: headerStrategies[s],
