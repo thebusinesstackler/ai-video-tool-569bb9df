@@ -265,7 +265,13 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* Loop AI Voice Settings */}
+          <BrandGuidelinesChat
+            profile={{ brand_guidelines_url: profile.brand_guidelines_url }}
+            onUploadPdf={uploadBrandPdf}
+            onRemovePdf={removeBrandPdf}
+            isUploadingPdf={isUploadingPdf}
+          />
+
           <Card className="glass border-primary/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
