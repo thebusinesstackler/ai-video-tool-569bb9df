@@ -427,7 +427,7 @@ export default function Vizard() {
             </Card>
           )}
 
-          {activeProject.transcript && (
+          {activeProject.transcript !== null && activeProject.transcript !== undefined && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Transcript</CardTitle>
