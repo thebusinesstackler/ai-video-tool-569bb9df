@@ -440,6 +440,21 @@ export default function Vizard() {
 
           <ProgressStepper status={activeProject.status} />
 
+          {['uploading', 'transcribing', 'finding_clips'].includes(activeProject.status) && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 flex items-center gap-3">
+                <RefreshCw className="w-5 h-5 text-primary animate-spin" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {activeProject.status === 'uploading' && 'Uploading your video...'}
+                    {activeProject.status === 'transcribing' && 'Transcribing audio — this may take a minute...'}
+                    {activeProject.status === 'finding_clips' && 'AI is analyzing the transcript for the best moments...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Please keep this page open</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {activeProject.source_video_url && (
             <Card>
               <CardContent className="p-4">
