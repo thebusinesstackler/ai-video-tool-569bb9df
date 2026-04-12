@@ -3,17 +3,19 @@ import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Upload, Play, Pause, ArrowLeft, Scissors, Clock, Star,
-  Pencil, Check, X, Trash2, Plus, RefreshCw, Download, Copy
+  Pencil, Check, X, Trash2, Plus, RefreshCw, Copy, Link2, Send
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface VizardClip {
   id: string;
@@ -58,12 +60,14 @@ function formatTime(s: number): string {
 export default function Vizard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [view, setView] = useState<View>('list');
   const [projects, setProjects] = useState<VizardProject[]>([]);
   const [activeProject, setActiveProject] = useState<VizardProject | null>(null);
-  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [importingUrl, setImportingUrl] = useState(false);
 
   // Clip preview
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -84,13 +88,10 @@ export default function Vizard() {
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   function mapProject(row: any): VizardProject {
-    return {
-      ...row,
-      clips: Array.isArray(row.clips) ? row.clips : [],
-    };
+    return { ...row, clips: Array.isArray(row.clips) ? row.clips : [] };
   }
 
-  // ---- Upload & Pipeline ----
+  // ---- Upload File ----
   const handleUpload = async (file: File) => {
     if (!user) return;
     setUploading(true);
@@ -116,8 +117,6 @@ export default function Vizard() {
       setActiveProject(project);
       setView('detail');
       toast({ title: 'Video uploaded', description: 'Starting transcription...' });
-
-      // Start pipeline
       runPipeline(project);
     } catch (e: any) {
       toast({ title: 'Upload failed', description: e.message, variant: 'destructive' });
@@ -126,9 +125,55 @@ export default function Vizard() {
     }
   };
 
+  // ---- YouTube URL Import ----
+  const handleYoutubeImport = async () => {
+    if (!user || !youtubeUrl.trim()) return;
+    setImportingUrl(true);
+    try {
+      // Try to download the video via edge function
+      let videoUrl = youtubeUrl.trim();
+      let title = 'YouTube Video';
+
+      // Extract a title from the URL
+      const urlMatch = youtubeUrl.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]+)/);
+      if (urlMatch) title = `YouTube ${urlMatch[1]}`;
+
+      try {
+        const { data: dlData, error: dlErr } = await supabase.functions.invoke('download-video-url', {
+          body: { url: youtubeUrl.trim() },
+        });
+        if (!dlErr && dlData?.url) {
+          videoUrl = dlData.url;
+          if (dlData.title) title = dlData.title;
+        }
+      } catch {
+        // Fallback: use the YouTube URL directly for transcription
+        console.log('Download failed, using URL directly for transcription');
+      }
+
+      const { data: row, error: insertErr } = await supabase
+        .from('vizard_projects')
+        .insert({ user_id: user.id, title, source_video_url: videoUrl, status: 'transcribing' })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+
+      const project = mapProject(row);
+      setActiveProject(project);
+      setView('detail');
+      setYoutubeUrl('');
+      toast({ title: 'Video imported', description: 'Starting transcription...' });
+      runPipeline(project);
+    } catch (e: any) {
+      toast({ title: 'Import failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setImportingUrl(false);
+    }
+  };
+
+  // ---- Pipeline ----
   const runPipeline = async (project: VizardProject) => {
     try {
-      // Step 1: Transcribe
       const { data: txData, error: txErr } = await supabase.functions.invoke('transcribe-video', {
         body: { videoUrl: project.source_video_url },
       });
@@ -138,7 +183,6 @@ export default function Vizard() {
       await supabase.from('vizard_projects').update({ transcript, status: 'finding_clips' }).eq('id', project.id);
       setActiveProject(prev => prev ? { ...prev, transcript, status: 'finding_clips' } : prev);
 
-      // Step 2: Find clips
       const { data: clipData, error: clipErr } = await supabase.functions.invoke('vizard-find-clips', {
         body: { projectId: project.id, transcript, videoDuration: null },
       });
@@ -214,7 +258,6 @@ export default function Vizard() {
   const openProject = async (project: VizardProject) => {
     setActiveProject(project);
     setView('detail');
-    // If still processing, re-poll
     if (['uploading', 'transcribing', 'finding_clips'].includes(project.status)) {
       pollProject(project.id);
     }
@@ -233,6 +276,22 @@ export default function Vizard() {
   const copyTimestamps = (clip: VizardClip) => {
     navigator.clipboard.writeText(`${formatTime(clip.start)} - ${formatTime(clip.end)}`);
     toast({ title: 'Copied', description: `${formatTime(clip.start)} - ${formatTime(clip.end)}` });
+  };
+
+  // ---- Send to Chatcut AI ----
+  const sendToChatcut = (clip?: VizardClip) => {
+    if (!activeProject) return;
+    const payload: any = {
+      videoUrl: activeProject.source_video_url,
+      title: activeProject.title,
+    };
+    if (clip) {
+      payload.clipStart = clip.start;
+      payload.clipEnd = clip.end;
+      payload.clipTitle = clip.title;
+    }
+    sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
+    navigate('/chatcut-ai');
   };
 
   // ---- Progress Stepper ----
@@ -268,9 +327,7 @@ export default function Vizard() {
 
   // ---- Transcript Viewer ----
   const TranscriptViewer = ({ transcript }: { transcript: any }) => {
-    const segments = Array.isArray(transcript)
-      ? transcript
-      : transcript?.segments || [];
+    const segments = Array.isArray(transcript) ? transcript : transcript?.segments || [];
     if (!segments.length) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
     return (
       <div className="max-h-60 overflow-y-auto space-y-1 text-sm border rounded-lg p-3 bg-muted/30">
@@ -284,12 +341,12 @@ export default function Vizard() {
     );
   };
 
-  // ---- Views ----
+  // ---- Detail View ----
   if (view === 'detail' && activeProject) {
     return (
       <Layout>
         <div className="max-w-5xl mx-auto space-y-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Button variant="ghost" size="icon" onClick={() => { setView('list'); fetchProjects(); }}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
@@ -297,6 +354,12 @@ export default function Vizard() {
             <Badge variant={activeProject.status === 'ready' ? 'default' : activeProject.status === 'failed' ? 'destructive' : 'secondary'}>
               {STATUS_LABELS[activeProject.status] || activeProject.status}
             </Badge>
+            {activeProject.status === 'ready' && (
+              <Button size="sm" variant="outline" className="ml-auto" onClick={() => sendToChatcut()}>
+                <Send className="w-4 h-4 mr-2" />
+                Open in Chatcut AI
+              </Button>
+            )}
           </div>
 
           <ProgressStepper status={activeProject.status} />
@@ -308,7 +371,7 @@ export default function Vizard() {
                   ref={videoRef}
                   src={activeProject.source_video_url}
                   controls
-                  className="w-full max-h-[400px] rounded-lg bg-black"
+                  className="w-full max-h-[400px] rounded-lg bg-background"
                 />
               </CardContent>
             </Card>
@@ -352,7 +415,7 @@ export default function Vizard() {
                               <p className="text-sm text-muted-foreground">{clip.description}</p>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Star className="w-4 h-4 text-yellow-500" />
+                              <Star className="w-4 h-4 text-primary" />
                               <span className="text-sm font-medium">{clip.score}/10</span>
                             </div>
                           </div>
@@ -366,13 +429,16 @@ export default function Vizard() {
                               <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
                             ))}
                           </div>
-                          <div className="flex gap-2 pt-1">
+                          <div className="flex flex-wrap gap-2 pt-1">
                             <Button size="sm" variant="outline" onClick={() => playingClipId === clip.id ? stopClip() : playClip(clip)}>
                               {playingClipId === clip.id ? <Pause className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
                               {playingClipId === clip.id ? 'Stop' : 'Preview'}
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => startEdit(clip)}><Pencil className="w-4 h-4" /></Button>
                             <Button size="sm" variant="ghost" onClick={() => copyTimestamps(clip)}><Copy className="w-4 h-4" /></Button>
+                            <Button size="sm" variant="outline" onClick={() => sendToChatcut(clip)}>
+                              <Send className="w-4 h-4 mr-1" />Chatcut
+                            </Button>
                             <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteClip(clip.id)}><Trash2 className="w-4 h-4" /></Button>
                           </div>
                         </>
@@ -408,30 +474,55 @@ export default function Vizard() {
             <h1 className="text-3xl font-bold">Vizard</h1>
             <p className="text-muted-foreground">Turn long videos into viral short clips</p>
           </div>
-          <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-            {uploading ? 'Uploading...' : 'New Project'}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }}
-          />
         </div>
 
-        {/* Upload Drop Zone */}
-        <Card
-          className="border-dashed border-2 cursor-pointer hover:border-primary/50 transition-colors"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Upload className="w-12 h-12 mb-3" />
-            <p className="font-medium">Drop a video or click to upload</p>
-            <p className="text-sm">MP4, MOV, WEBM — up to 500MB</p>
-          </CardContent>
-        </Card>
+        {/* Import Options */}
+        <Tabs defaultValue="url" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="url"><Link2 className="w-4 h-4 mr-2" />Paste URL</TabsTrigger>
+            <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2" />Upload File</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="url">
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">Paste a YouTube, YouTube Shorts, TikTok, or Instagram URL</p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://youtu.be/... or https://youtube.com/shorts/..."
+                    value={youtubeUrl}
+                    onChange={e => setYoutubeUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleYoutubeImport()}
+                  />
+                  <Button onClick={handleYoutubeImport} disabled={importingUrl || !youtubeUrl.trim()}>
+                    {importingUrl ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Scissors className="w-4 h-4 mr-2" />}
+                    {importingUrl ? 'Importing...' : 'Analyze'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="upload">
+            <Card
+              className="border-dashed border-2 cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Upload className="w-12 h-12 mb-3" />
+                <p className="font-medium">{uploading ? 'Uploading...' : 'Drop a video or click to upload'}</p>
+                <p className="text-sm">MP4, MOV, WEBM — up to 500MB</p>
+              </CardContent>
+            </Card>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }}
+            />
+          </TabsContent>
+        </Tabs>
 
         {/* Project Cards */}
         {projects.length > 0 && (
