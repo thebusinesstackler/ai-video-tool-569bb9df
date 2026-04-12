@@ -57,6 +57,15 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
+function isYoutubeUrl(url: string): boolean {
+  return /youtube\.com|youtu\.be/.test(url);
+}
+
+function getYoutubeEmbedUrl(url: string): string | null {
+  const match = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]+)/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+}
+
 export default function Vizard() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -367,16 +376,25 @@ export default function Vizard() {
           {activeProject.source_video_url && (
             <Card>
               <CardContent className="p-4">
-                <video
-                  ref={videoRef}
-                  src={activeProject.source_video_url}
-                  controls
-                  controlsList="nodownload"
-                  playsInline
-                  crossOrigin="anonymous"
-                  className="w-full max-h-[400px] rounded-lg"
-                  style={{ backgroundColor: 'hsl(var(--muted))' }}
-                />
+                {isYoutubeUrl(activeProject.source_video_url) ? (
+                  <iframe
+                    src={getYoutubeEmbedUrl(activeProject.source_video_url) || ''}
+                    className="w-full aspect-video rounded-lg"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    ref={videoRef}
+                    src={activeProject.source_video_url}
+                    controls
+                    controlsList="nodownload"
+                    playsInline
+                    crossOrigin="anonymous"
+                    className="w-full max-h-[400px] rounded-lg"
+                    style={{ backgroundColor: 'hsl(var(--muted))' }}
+                  />
+                )}
               </CardContent>
             </Card>
           )}
