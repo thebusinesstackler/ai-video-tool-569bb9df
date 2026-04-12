@@ -540,6 +540,7 @@ export type Database = {
       profiles: {
         Row: {
           brand_description: string | null
+          brand_guidelines_url: string | null
           company_name: string | null
           content_goal: string | null
           created_at: string
@@ -552,6 +553,7 @@ export type Database = {
         }
         Insert: {
           brand_description?: string | null
+          brand_guidelines_url?: string | null
           company_name?: string | null
           content_goal?: string | null
           created_at?: string
@@ -564,6 +566,7 @@ export type Database = {
         }
         Update: {
           brand_description?: string | null
+          brand_guidelines_url?: string | null
           company_name?: string | null
           content_goal?: string | null
           created_at?: string
