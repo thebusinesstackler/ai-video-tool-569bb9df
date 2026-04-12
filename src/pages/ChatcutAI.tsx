@@ -159,7 +159,7 @@ const ChatcutAI = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
-  const [activeTab, setActiveTab] = useState<'ai' | 'transcript'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'transcript' | 'clips'>('ai');
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
@@ -1179,10 +1179,16 @@ const ChatcutAI = () => {
             {/* Left Panel: AI Chat + Transcript */}
             <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
               <div className="h-full flex flex-col bg-card">
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ai' | 'transcript')} className="flex flex-col flex-1 overflow-hidden">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ai' | 'transcript' | 'clips')} className="flex flex-col flex-1 overflow-hidden">
                   <TabsList className="mx-3 mt-2 mb-0 bg-muted/50">
                     <TabsTrigger value="ai" className="text-xs">AI</TabsTrigger>
                     <TabsTrigger value="transcript" className="text-xs">Transcript</TabsTrigger>
+                    {vizardClips.length > 0 && (
+                      <TabsTrigger value="clips" className="text-xs">
+                        <Scissors className="w-3 h-3 mr-1" />
+                        Clips ({vizardClips.length})
+                      </TabsTrigger>
+                    )}
                   </TabsList>
 
                   <TabsContent value="ai" className="flex-1 flex flex-col overflow-hidden m-0 p-0">
