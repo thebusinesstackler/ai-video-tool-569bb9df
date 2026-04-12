@@ -1290,6 +1290,49 @@ const ChatcutAI = () => {
                       )}
                     </ScrollArea>
                   </TabsContent>
+
+                  {vizardClips.length > 0 && (
+                    <TabsContent value="clips" className="flex-1 overflow-hidden m-0 p-0">
+                      <ScrollArea className="h-full px-3 py-2">
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Clips identified by Vizard AI. Click to jump to that moment.
+                          </p>
+                          {vizardClips
+                            .sort((a, b) => b.score - a.score)
+                            .map((clip) => (
+                            <Card
+                              key={clip.id}
+                              className={cn(
+                                "cursor-pointer hover:border-primary/50 transition-colors",
+                                currentTime >= clip.start && currentTime < clip.end && "border-primary bg-primary/5"
+                              )}
+                              onClick={() => seekTo(clip.start)}
+                            >
+                              <CardContent className="p-3 space-y-1.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h4 className="text-sm font-medium leading-tight">{clip.title}</h4>
+                                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                                    ⭐ {clip.score}/10
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{clip.description}</p>
+                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                  <span className="font-mono">{formatTimeShort(clip.start)} – {formatTimeShort(clip.end)}</span>
+                                  <span>({Math.round(clip.end - clip.start)}s)</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {clip.tags.map(tag => (
+                                    <Badge key={tag} variant="outline" className="text-[9px] h-4 px-1">{tag}</Badge>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </TabsContent>
+                  )}
                 </Tabs>
 
                 {/* Chat input — always visible at bottom regardless of tab */}
