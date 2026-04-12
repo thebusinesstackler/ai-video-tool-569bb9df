@@ -382,8 +382,9 @@ const ChatcutAI = () => {
           setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
           
           // Store all clips from Vizard
-          if (payload.allClips && Array.isArray(payload.allClips)) {
+          if (payload.allClips && Array.isArray(payload.allClips) && payload.allClips.length > 0) {
             setVizardClips(payload.allClips);
+            setActiveTab('clips'); // Auto-switch to clips tab
           }
 
           const isYT = /youtube\.com|youtu\.be/.test(payload.videoUrl);
