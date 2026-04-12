@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { SettingsIcon, ShieldCheckIcon, ServerIcon, Volume2, Clapperboard, UserIcon, Loader2 } from 'lucide-react';
+import { SettingsIcon, ShieldCheckIcon, ServerIcon, Volume2, Clapperboard, UserIcon, Loader2, FileUp, FileText, Trash2, ExternalLink } from 'lucide-react';
 import { TransferAssetsDialog } from '@/components/TransferAssetsDialog';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/AuthProvider';
@@ -31,9 +31,12 @@ const Settings = () => {
     phone: '',
     company_name: '',
     brand_description: '',
+    brand_guidelines_url: '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) loadProfile();
@@ -45,7 +48,7 @@ const Settings = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone, company_name, brand_description')
+        .select('first_name, last_name, phone, company_name, brand_description, brand_guidelines_url')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -57,6 +60,7 @@ const Settings = () => {
           phone: data.phone || '',
           company_name: data.company_name || '',
           brand_description: data.brand_description || '',
+          brand_guidelines_url: (data as any).brand_guidelines_url || '',
         });
       }
     } catch (error) {
@@ -66,16 +70,63 @@ const Settings = () => {
     }
   };
 
+  const uploadBrandPdf = async (file: File) => {
+    if (!user) return;
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('File too large. Max 20MB.');
+      return;
+    }
+    setIsUploadingPdf(true);
+    try {
+      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('brand-guidelines')
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('brand-guidelines')
+        .getPublicUrl(filePath);
+
+      // Store the path (not public URL since bucket is private)
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({ user_id: user.id, brand_guidelines_url: filePath } as any, { onConflict: 'user_id' });
+      if (updateError) throw updateError;
+
+      setProfile(p => ({ ...p, brand_guidelines_url: filePath }));
+      toast.success('Brand guidelines uploaded!');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload PDF');
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
+
+  const removeBrandPdf = async () => {
+    if (!user || !profile.brand_guidelines_url) return;
+    try {
+      await supabase.storage.from('brand-guidelines').remove([profile.brand_guidelines_url]);
+      await supabase.from('profiles').upsert({ user_id: user.id, brand_guidelines_url: null } as any, { onConflict: 'user_id' });
+      setProfile(p => ({ ...p, brand_guidelines_url: '' }));
+      toast.success('Brand guidelines removed');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove');
+    }
+  };
+
   const saveProfile = async () => {
     if (!user) return;
     setIsSaving(true);
     try {
+      const { brand_guidelines_url, ...profileData } = profile;
       const { error } = await supabase
         .from('profiles')
         .upsert({
           user_id: user.id,
-          ...profile,
-        }, { onConflict: 'user_id' });
+          ...profileData,
+        } as any, { onConflict: 'user_id' });
 
       if (error) throw error;
       toast.success('Profile saved successfully!');
@@ -199,6 +250,41 @@ const Settings = () => {
                       value={profile.brand_description}
                       onChange={(e) => setProfile(p => ({ ...p, brand_description: e.target.value }))}
                     />
+                  </div>
+                  {/* Brand Guidelines PDF */}
+                  <div className="space-y-2">
+                    <Label>Brand Guidelines (PDF)</Label>
+                    <p className="text-xs text-muted-foreground">Upload your brand guidelines PDF. AI tools like Marco will reference it when creating videos.</p>
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadBrandPdf(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    {profile.brand_guidelines_url ? (
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                        <FileText className="w-5 h-5 text-primary shrink-0" />
+                        <span className="text-sm text-foreground truncate flex-1">
+                          {profile.brand_guidelines_url.split('/').pop()}
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={() => pdfInputRef.current?.click()} disabled={isUploadingPdf}>
+                          Replace
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={removeBrandPdf}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button variant="outline" onClick={() => pdfInputRef.current?.click()} disabled={isUploadingPdf}>
+                        {isUploadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileUp className="w-4 h-4 mr-2" />}
+                        Upload Brand Guidelines
+                      </Button>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <Button onClick={saveProfile} disabled={isSaving}>

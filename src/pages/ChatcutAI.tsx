@@ -179,12 +179,39 @@ const ChatcutAI = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showDraftPicker, setShowDraftPicker] = useState(false);
   const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
+  const [brandGuidelines, setBrandGuidelines] = useState<string | null>(null);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const musicAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  // Fetch brand guidelines on mount
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('brand_guidelines_url')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (data && (data as any).brand_guidelines_url) {
+          const { data: fileData } = await supabase.storage
+            .from('brand-guidelines')
+            .download((data as any).brand_guidelines_url);
+          if (fileData) {
+            const text = await fileData.text();
+            // Take first 8000 chars to keep context manageable
+            setBrandGuidelines(text.slice(0, 8000));
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load brand guidelines:', e);
+      }
+    })();
+  }, [user]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -767,6 +794,7 @@ const ChatcutAI = () => {
           messages: allMessages,
           transcript,
           timelineState: getTimelineState(),
+          ...(brandGuidelines ? { brandGuidelines } : {}),
         }),
       });
       if (!resp.ok || !resp.body) {

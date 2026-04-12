@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, transcript, mode, timelineState } = await req.json();
+    const { messages, transcript, mode, timelineState, brandGuidelines } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -182,6 +182,13 @@ If the user says "switch the B-roll", "change the music", "different style", etc
       allMessages.push({
         role: "system",
         content: `Here is the CURRENT TIMELINE STATE (use this to review what's already on each track and make smart suggestions):\n\n${JSON.stringify(timelineState)}`,
+      });
+    }
+
+    if (brandGuidelines) {
+      allMessages.push({
+        role: "system",
+        content: `The user has uploaded brand guidelines. Here is the extracted content from their brand guidelines PDF. Use this to inform color choices, tone, visual style, and brand voice in all creative suggestions:\n\n${brandGuidelines}`,
       });
     }
 
