@@ -179,6 +179,7 @@ const ChatcutAI = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showDraftPicker, setShowDraftPicker] = useState(false);
   const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
+  const [brandGuidelines, setBrandGuidelines] = useState<string | null>(null);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
