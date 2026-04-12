@@ -364,6 +364,9 @@ const ChatcutAI = () => {
     }
   }, [user, toast]);
 
+  // Track whether we received a Vizard handoff to prevent draft picker from overriding
+  const vizardHandoffRef = useRef(false);
+
   // Check for Vizard handoff on mount
   useEffect(() => {
     if (!user) return;
@@ -373,6 +376,7 @@ const ChatcutAI = () => {
       try {
         const payload = JSON.parse(raw);
         if (payload.videoUrl) {
+          vizardHandoffRef.current = true;
           setVideoUrl(payload.videoUrl);
           setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
           setShowDraftPicker(false);
@@ -389,7 +393,6 @@ const ChatcutAI = () => {
                 });
               }
             }, 200);
-            // Safety: clear after 10s
             setTimeout(() => clearInterval(waitForVideo), 10000);
           }
           return; // Skip draft picker
@@ -405,6 +408,8 @@ const ChatcutAI = () => {
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .then(({ data }) => {
+        // Don't show draft picker if Vizard handoff already loaded a video
+        if (vizardHandoffRef.current) return;
         if (data && data.length > 0) {
           setSavedDrafts(data);
           setShowDraftPicker(true);

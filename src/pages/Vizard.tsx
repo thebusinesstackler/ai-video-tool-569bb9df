@@ -371,7 +371,11 @@ export default function Vizard() {
                   ref={videoRef}
                   src={activeProject.source_video_url}
                   controls
-                  className="w-full max-h-[400px] rounded-lg bg-background"
+                  controlsList="nodownload"
+                  playsInline
+                  crossOrigin="anonymous"
+                  className="w-full max-h-[400px] rounded-lg"
+                  style={{ backgroundColor: 'hsl(var(--muted))' }}
                 />
               </CardContent>
             </Card>
