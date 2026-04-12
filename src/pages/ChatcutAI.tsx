@@ -180,6 +180,7 @@ const ChatcutAI = () => {
   const [showDraftPicker, setShowDraftPicker] = useState(false);
   const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
   const [brandGuidelines, setBrandGuidelines] = useState<string | null>(null);
+  const [vizardClips, setVizardClips] = useState<Array<{id: string; title: string; description: string; start: number; end: number; score: number; tags: string[]}>>([]);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
