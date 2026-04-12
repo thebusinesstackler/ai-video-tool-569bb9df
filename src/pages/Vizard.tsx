@@ -356,13 +356,22 @@ export default function Vizard() {
 
   // ---- Transcript Viewer ----
   const TranscriptViewer = ({ transcript }: { transcript: any }) => {
+    if (!transcript) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
+    
+    // Handle string transcript
+    if (typeof transcript === 'string') {
+      return <div className="max-h-60 overflow-y-auto text-sm border rounded-lg p-3 bg-muted/30"><p>{transcript}</p></div>;
+    }
+    
     const segments = Array.isArray(transcript) ? transcript : transcript?.segments || [];
     if (!segments.length) return <p className="text-muted-foreground text-sm">No transcript data.</p>;
     return (
       <div className="max-h-60 overflow-y-auto space-y-1 text-sm border rounded-lg p-3 bg-muted/30">
         {segments.map((seg: any, i: number) => (
           <p key={i}>
-            <span className="text-muted-foreground font-mono text-xs mr-2">[{formatTime(seg.start || 0)}]</span>
+            {seg.start !== undefined && (
+              <span className="text-muted-foreground font-mono text-xs mr-2">[{formatTime(seg.start || 0)}]</span>
+            )}
             {seg.text}
           </p>
         ))}
