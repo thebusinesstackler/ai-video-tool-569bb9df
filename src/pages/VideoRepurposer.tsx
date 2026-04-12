@@ -239,6 +239,43 @@ const VideoRepurposer = () => {
     return /youtube\.com|youtu\.be|tiktok\.com|instagram\.com/i.test(url);
   };
 
+  const extractYouTubeId = (url: string): string | null => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === 'youtu.be') return parsed.pathname.slice(1).split('?')[0];
+      if (parsed.pathname.includes('/shorts/')) return parsed.pathname.split('/shorts/')[1]?.split(/[?/]/)[0] || null;
+      return parsed.searchParams.get('v');
+    } catch { return null; }
+  };
+
+  // Fetch YouTube thumbnails as base64 frames (fallback when download fails)
+  const getYouTubeThumbnailFrames = async (videoId: string): Promise<string[]> => {
+    const thumbUrls = [
+      `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/sddefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/1.jpg`,
+      `https://img.youtube.com/vi/${videoId}/2.jpg`,
+      `https://img.youtube.com/vi/${videoId}/3.jpg`,
+    ];
+    const frames: string[] = [];
+    for (const thumbUrl of thumbUrls) {
+      try {
+        const resp = await fetch(thumbUrl);
+        if (!resp.ok) continue;
+        const blob = await resp.blob();
+        if (blob.size < 2000) continue; // skip placeholder images
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        frames.push(base64);
+      } catch { /* skip */ }
+    }
+    return frames;
+  };
+
   const handleAnalyze = async () => {
     const source = getVideoSource();
     if (!source) { toast.error('Provide a video URL or upload a file'); return; }
@@ -254,31 +291,54 @@ const VideoRepurposer = () => {
 
     try {
       let analyzeUrl = source;
+      let youtubeThumbFrames: string[] = [];
 
-      // Step 1: If it's a social media URL, download it first
+      // Step 1: If it's a social media URL, try to download it
       if (isYouTubeOrSocialUrl(source)) {
         toast.info('Downloading video from URL...');
         setAnalyzeProgress(10);
-        analyzeUrl = await downloadVideoFromUrl(source);
-        toast.success('Video downloaded, extracting frames & transcribing...');
+        try {
+          analyzeUrl = await downloadVideoFromUrl(source);
+          toast.success('Video downloaded, extracting frames & transcribing...');
+        } catch (dlErr: any) {
+          console.warn('Video download failed:', dlErr?.message);
+          // For YouTube, use thumbnail fallback
+          const ytId = extractYouTubeId(source);
+          if (ytId) {
+            toast.info('Using YouTube thumbnails for analysis...');
+            youtubeThumbFrames = await getYouTubeThumbnailFrames(ytId);
+            analyzeUrl = source; // keep original URL for transcription
+          } else {
+            throw new Error('Could not download this video. Try uploading the file directly.');
+          }
+        }
       }
 
       setAnalyzeProgress(25);
 
       // Step 2: Extract frames and transcribe audio in parallel
-      let frames: string[] = [];
+      let frames: string[] = youtubeThumbFrames;
       let transcript = '';
 
-      // Try frame extraction
-      try {
-        frames = await extractVideoFrames(analyzeUrl, 6);
-        console.log(`Extracted ${frames.length} frames successfully`);
-      } catch (frameErr: any) {
-        console.warn('Frame extraction failed:', frameErr?.message);
-        toast.warning('Could not extract video frames — trying transcript only...');
+      // Try frame extraction from downloaded video (skip if we already have thumbnail frames)
+      if (frames.length === 0) {
+        try {
+          frames = await extractVideoFrames(analyzeUrl, 6);
+          console.log(`Extracted ${frames.length} frames successfully`);
+        } catch (frameErr: any) {
+          console.warn('Frame extraction failed:', frameErr?.message);
+          // Last resort: try YouTube thumbnails
+          const ytId = extractYouTubeId(source);
+          if (ytId && frames.length === 0) {
+            frames = await getYouTubeThumbnailFrames(ytId);
+          }
+          if (frames.length === 0) {
+            toast.warning('Could not extract video frames — trying transcript only...');
+          }
+        }
       }
 
-      // Try transcription (use the original social URL if analyzeUrl might be empty storage)
+      // Try transcription
       try {
         const transcriptResult = await supabase.functions.invoke('transcribe-video', { 
           body: { videoUrl: analyzeUrl } 
