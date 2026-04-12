@@ -925,8 +925,11 @@ const ChatcutAI = () => {
     else videoRef.current.play();
   };
 
-  const seekTo = (time: number) => {
-    if (videoRef.current) videoRef.current.currentTime = time;
+   const seekTo = (time: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
   };
 
   const formatTime = (s: number) => {
