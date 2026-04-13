@@ -112,6 +112,14 @@ interface OverlayItem {
   animation?: OverlayAnimation;
   style?: string;
   position?: { x: number; y: number };
+  scale?: number; // 1 = default, up to 5 = full screen
+}
+
+interface BrandSettings {
+  primaryColor: string;
+  textColor: string;
+  font: string;
+  logoUrl: string | null;
 }
 
 interface BRollClip {
@@ -192,6 +200,13 @@ const ChatcutAI = () => {
   const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
   const [brandGuidelines, setBrandGuidelines] = useState<string | null>(null);
   const [vizardClips, setVizardClips] = useState<VizardClip[]>([]);
+  const [brandSettings, setBrandSettings] = useState<BrandSettings>({
+    primaryColor: '#6366f1',
+    textColor: '#ffffff',
+    font: 'Inter',
+    logoUrl: null,
+  });
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
