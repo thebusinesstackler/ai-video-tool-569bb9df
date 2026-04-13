@@ -421,85 +421,45 @@ Deno.serve(async (req) => {
         console.log('[download-video-url] ytstream API error:', e);
       }
 
-      // ── Fallback 2: YouTube Media Downloader API ──
-      console.log('[download-video-url] Trying fallback YouTube API (media-downloader)...');
-      try {
-        const videoId = platformInfo.params.videoId || '';
-        const mdUrl = `https://youtube-media-downloader.p.rapidapi.com/v2/video/details?videoId=${videoId}`;
-        const mdResp = await fetch(mdUrl, {
-          headers: {
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'youtube-media-downloader.p.rapidapi.com',
-          },
-        });
-        if (mdResp.ok) {
-          const mdData = await mdResp.json();
-          console.log('[download-video-url] media-downloader response keys:', Object.keys(mdData));
-          const mdLinks: string[] = [];
-          // Extract from videos.items
-          if (mdData?.videos?.items) {
-            for (const item of mdData.videos.items) {
-              if (item.url) mdLinks.push(item.url);
-            }
-          }
-          // Extract from audios for combined
-          if (mdData?.videos?.items?.length === 0 && mdData?.audios?.items) {
-            // No combined streams, skip
-          }
-          console.log(`[download-video-url] media-downloader found ${mdLinks.length} links`);
-          const uploaded = await tryDownloadAndUpload(mdLinks, user.id, supabaseUrl, supabaseServiceKey);
-          if (uploaded) {
-            return new Response(JSON.stringify({ videoUrl: uploaded }), {
-              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-          }
-        } else {
-          console.log('[download-video-url] media-downloader failed:', mdResp.status);
-        }
-      } catch (e) {
-        console.log('[download-video-url] media-downloader API error:', e);
-      }
-
-      // ── Fallback 3: yt-video-download API ──
-      console.log('[download-video-url] Trying fallback YouTube API (yt-video-download)...');
-      try {
-        const videoId = platformInfo.params.videoId || '';
-        const ytdUrl = `https://yt-video-download.p.rapidapi.com/v1/video/info?videoId=${videoId}`;
-        const ytdResp = await fetch(ytdUrl, {
-          headers: {
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'yt-video-download.p.rapidapi.com',
-          },
-        });
-        if (ytdResp.ok) {
-          const ytdData = await ytdResp.json();
-          console.log('[download-video-url] yt-video-download response keys:', Object.keys(ytdData));
-          const ytdLinks: string[] = [];
-          if (ytdData?.download_url) ytdLinks.push(ytdData.download_url);
-          if (Array.isArray(ytdData?.formats)) {
-            for (const fmt of ytdData.formats) {
-              if (fmt.url && (fmt.type?.includes('video') || fmt.quality)) {
-                ytdLinks.push(fmt.url);
+      // ── Fallback 2: Piped API (open-source YouTube proxy) ──
+      const pipedInstances = [
+        'https://pipedapi.kavin.rocks',
+        'https://pipedapi.adminforge.de',
+        'https://api.piped.privacydev.net',
+      ];
+      for (const pipedBase of pipedInstances) {
+        console.log(`[download-video-url] Trying Piped API: ${pipedBase}...`);
+        try {
+          const videoId = platformInfo.params.videoId || '';
+          const pipedResp = await fetch(`${pipedBase}/streams/${videoId}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+          });
+          if (pipedResp.ok) {
+            const pipedData = await pipedResp.json();
+            const pipedLinks: string[] = [];
+            // videoStreams have both video+audio combined
+            if (Array.isArray(pipedData?.videoStreams)) {
+              // Sort by quality, prefer 720p or lower for size
+              const combined = pipedData.videoStreams
+                .filter((s: any) => s.url && s.videoOnly === false)
+                .sort((a: any, b: any) => (b.quality?.replace('p','') || 0) - (a.quality?.replace('p','') || 0));
+              for (const s of combined) {
+                pipedLinks.push(s.url);
               }
             }
-          }
-          if (Array.isArray(ytdData?.streams)) {
-            for (const s of ytdData.streams) {
-              if (s.url) ytdLinks.push(s.url);
+            console.log(`[download-video-url] Piped found ${pipedLinks.length} combined streams`);
+            const uploaded = await tryDownloadAndUpload(pipedLinks, user.id, supabaseUrl, supabaseServiceKey);
+            if (uploaded) {
+              return new Response(JSON.stringify({ videoUrl: uploaded }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
             }
+          } else {
+            console.log(`[download-video-url] Piped ${pipedBase} failed: ${pipedResp.status}`);
           }
-          console.log(`[download-video-url] yt-video-download found ${ytdLinks.length} links`);
-          const uploaded = await tryDownloadAndUpload(ytdLinks, user.id, supabaseUrl, supabaseServiceKey);
-          if (uploaded) {
-            return new Response(JSON.stringify({ videoUrl: uploaded }), {
-              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-          }
-        } else {
-          console.log('[download-video-url] yt-video-download failed:', ytdResp.status);
+        } catch (e) {
+          console.log(`[download-video-url] Piped ${pipedBase} error:`, e);
         }
-      } catch (e) {
-        console.log('[download-video-url] yt-video-download API error:', e);
       }
     }
 
