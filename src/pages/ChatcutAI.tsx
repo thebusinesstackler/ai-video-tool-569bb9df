@@ -112,6 +112,14 @@ interface OverlayItem {
   animation?: OverlayAnimation;
   style?: string;
   position?: { x: number; y: number };
+  scale?: number; // 1 = default, up to 5 = full screen
+}
+
+interface BrandSettings {
+  primaryColor: string;
+  textColor: string;
+  font: string;
+  logoUrl: string | null;
 }
 
 interface BRollClip {
@@ -192,6 +200,13 @@ const ChatcutAI = () => {
   const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
   const [brandGuidelines, setBrandGuidelines] = useState<string | null>(null);
   const [vizardClips, setVizardClips] = useState<VizardClip[]>([]);
+  const [brandSettings, setBrandSettings] = useState<BrandSettings>({
+    primaryColor: '#6366f1',
+    textColor: '#ffffff',
+    font: 'Inter',
+    logoUrl: null,
+  });
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -573,11 +588,17 @@ const ChatcutAI = () => {
     clips: timelineClips.map(c => ({ name: c.name, startAt: c.startAt, duration: c.duration })),
     cuts: cuts.filter(c => c.accepted),
     musicTracks: musicTracks.map(t => ({ name: t.name, genre: t.genre, mood: t.mood, volume: t.volume, startAt: t.startAt, duration: t.duration, hasAudio: !!t.audioUrl })),
-    overlays: overlays.map(o => ({ type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl })),
+    overlays: overlays.map(o => ({ type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl, scale: o.scale })),
     bRollClips: bRollClips.map(b => ({ name: b.name, start: b.start, duration: b.duration, hasImage: !!b.imageUrl })),
     captionsEnabled: captionSettings.enabled,
     captionStyle: captionSettings.style,
-  }), [timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings]);
+    brandSettings: {
+      primaryColor: brandSettings.primaryColor,
+      textColor: brandSettings.textColor,
+      font: brandSettings.font,
+      hasLogo: !!brandSettings.logoUrl,
+    },
+  }), [timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
 
   const saveDraft = useCallback(async () => {
     if (!user) return;
@@ -891,6 +912,7 @@ const ChatcutAI = () => {
             id: overlayId, type: act.type || 'lower_third',
             text: act.text || '', start: act.start || 0, duration: act.duration || 5,
             animation, style: act.style,
+            scale: act.scale || undefined,
           };
           setOverlays(prev => [...prev, newOverlay]);
           toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
@@ -961,6 +983,12 @@ const ChatcutAI = () => {
           transcript,
           timelineState: getTimelineState(),
           ...(brandGuidelines ? { brandGuidelines } : {}),
+          brandSettings: {
+            primaryColor: brandSettings.primaryColor,
+            textColor: brandSettings.textColor,
+            font: brandSettings.font,
+            hasLogo: !!brandSettings.logoUrl,
+          },
         }),
       });
       if (!resp.ok || !resp.body) {
@@ -1556,15 +1584,34 @@ const ChatcutAI = () => {
                             : 'animate-[fadeIn_0.4s_ease-out]'
                             : isExiting ? 'animate-[fadeOut_0.4s_ease-in_forwards]' : '';
                           const pos = ov.position || { x: 50, y: 30 };
+                          const scale = ov.scale || 1;
+                          const isFull = scale >= 4;
                           return (
                             <div
                               key={ov.id}
-                              className={cn("absolute z-10 cursor-grab active:cursor-grabbing", animClass, draggingOverlayId === ov.id && "opacity-80")}
-                              style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
-                              onMouseDown={(e) => handleOverlayMouseDown(e, ov.id)}
+                              className={cn(
+                                "absolute z-10 cursor-grab active:cursor-grabbing",
+                                animClass,
+                                draggingOverlayId === ov.id && "opacity-80",
+                                isFull && "inset-0 flex items-center justify-center"
+                              )}
+                              style={isFull ? {} : { left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                              onMouseDown={(e) => !isFull && handleOverlayMouseDown(e, ov.id)}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
+                              }}
                             >
                               {ov.imageUrl && ov.imageStatus === 'ready' ? (
-                                <img src={ov.imageUrl} alt={ov.text} className="max-w-[40vw] max-h-[20vh] object-contain rounded-lg pointer-events-none" />
+                                <img
+                                  src={ov.imageUrl}
+                                  alt={ov.text}
+                                  className="object-contain rounded-lg pointer-events-none"
+                                  style={isFull
+                                    ? { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 0 }
+                                    : { maxWidth: `${Math.min(scale * 20, 90)}vw`, maxHeight: `${Math.min(scale * 12, 80)}vh` }
+                                  }
+                                />
                               ) : ov.imageStatus === 'generating' ? (
                                 <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
                                   <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
@@ -1573,6 +1620,12 @@ const ChatcutAI = () => {
                               ) : (
                                 <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 pointer-events-none">
                                   <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
+                                </div>
+                              )}
+                              {/* Resize hint */}
+                              {!isFull && ov.imageUrl && ov.imageStatus === 'ready' && (
+                                <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[9px] text-muted-foreground whitespace-nowrap pointer-events-none">
+                                  Double-click to resize
                                 </div>
                               )}
                             </div>
@@ -1585,15 +1638,33 @@ const ChatcutAI = () => {
                         .filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text' && currentTime >= o.start && currentTime < o.start + o.duration)
                         .map(ov => {
                           const pos = ov.position || { x: 50, y: 80 };
+                          const scale = ov.scale || 1;
+                          const isFull = scale >= 4;
                           return (
                             <div
                               key={ov.id}
-                              className={cn("absolute z-10 cursor-grab active:cursor-grabbing", draggingOverlayId === ov.id && "opacity-80")}
-                              style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
-                              onMouseDown={(e) => handleOverlayMouseDown(e, ov.id)}
+                              className={cn(
+                                "absolute z-10 cursor-grab active:cursor-grabbing",
+                                draggingOverlayId === ov.id && "opacity-80",
+                                isFull && "inset-0 flex items-center justify-center"
+                              )}
+                              style={isFull ? {} : { left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                              onMouseDown={(e) => !isFull && handleOverlayMouseDown(e, ov.id)}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
+                              }}
                             >
                               {ov.imageUrl && ov.imageStatus === 'ready' ? (
-                                <img src={ov.imageUrl} alt={ov.text} className="max-w-[30vw] max-h-[12vh] object-contain pointer-events-none" />
+                                <img
+                                  src={ov.imageUrl}
+                                  alt={ov.text}
+                                  className="object-contain pointer-events-none"
+                                  style={isFull
+                                    ? { width: '100%', height: '100%', objectFit: 'cover' }
+                                    : { maxWidth: `${Math.min(scale * 15, 80)}vw`, maxHeight: `${Math.min(scale * 8, 60)}vh` }
+                                  }
+                                />
                               ) : (
                                 <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-md border border-pink-500/30 pointer-events-none">
                                   <span className="text-pink-100 text-xs">{ov.text}</span>
@@ -2267,6 +2338,20 @@ const ChatcutAI = () => {
                                 <p className="text-[10px] text-foreground truncate">{ov.text || ov.type}</p>
                                 <p className="text-[9px] text-muted-foreground">{ov.type.replace('_', ' ')} · {ov.duration}s · {ov.start.toFixed(1)}s{ov.imageStatus === 'generating' ? ' · generating...' : ov.imageStatus === 'ready' ? ' · ✓' : ''}</p>
                               </div>
+                              {/* Scale control */}
+                              <div className="flex items-center gap-0.5 flex-shrink-0">
+                                <button
+                                  className="w-5 h-5 rounded text-[9px] bg-muted hover:bg-muted/80 flex items-center justify-center"
+                                  onClick={(e) => { e.stopPropagation(); setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: Math.max(1, (o.scale || 1) - 1) } : o)); }}
+                                  title="Smaller"
+                                >−</button>
+                                <span className="text-[9px] text-muted-foreground w-4 text-center">{ov.scale || 1}x</span>
+                                <button
+                                  className="w-5 h-5 rounded text-[9px] bg-muted hover:bg-muted/80 flex items-center justify-center"
+                                  onClick={(e) => { e.stopPropagation(); setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: Math.min(5, (o.scale || 1) + 1) } : o)); }}
+                                  title="Larger (5 = full screen)"
+                                >+</button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -2285,6 +2370,100 @@ const ChatcutAI = () => {
                         settings={captionSettings}
                         onChange={setCaptionSettings}
                       />
+                    </div>
+
+                    {/* Brand Settings */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <RatioIcon className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Brand</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {/* Primary Color */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Primary Color</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={brandSettings.primaryColor}
+                              onChange={(e) => setBrandSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                              className="w-6 h-6 rounded cursor-pointer border border-border"
+                            />
+                            <span className="text-[9px] font-mono text-muted-foreground">{brandSettings.primaryColor}</span>
+                          </div>
+                        </div>
+                        {/* Text Color */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Text Color</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={brandSettings.textColor}
+                              onChange={(e) => setBrandSettings(prev => ({ ...prev, textColor: e.target.value }))}
+                              className="w-6 h-6 rounded cursor-pointer border border-border"
+                            />
+                            <span className="text-[9px] font-mono text-muted-foreground">{brandSettings.textColor}</span>
+                          </div>
+                        </div>
+                        {/* Font */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Font</span>
+                          <select
+                            value={brandSettings.font}
+                            onChange={(e) => setBrandSettings(prev => ({ ...prev, font: e.target.value }))}
+                            className="text-[10px] bg-muted border border-border rounded px-1.5 py-1 text-foreground"
+                          >
+                            {['Inter', 'Montserrat', 'Poppins', 'Oswald', 'Roboto', 'Playfair Display', 'DM Sans', 'Space Grotesk', 'Bebas Neue', 'Raleway'].map(f => (
+                              <option key={f} value={f}>{f}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Logo */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Logo</span>
+                          <div className="flex items-center gap-1.5">
+                            {brandSettings.logoUrl ? (
+                              <div className="flex items-center gap-1">
+                                <img src={brandSettings.logoUrl} alt="Logo" className="w-6 h-6 object-contain rounded" />
+                                <button
+                                  className="text-[9px] text-destructive hover:underline"
+                                  onClick={() => setBrandSettings(prev => ({ ...prev, logoUrl: null }))}
+                                >✕</button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-[10px] px-2"
+                                onClick={() => logoInputRef.current?.click()}
+                              >
+                                Upload
+                              </Button>
+                            )}
+                            <input
+                              ref={logoInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file || !user) return;
+                                try {
+                                  const ext = file.name.split('.').pop();
+                                  const path = `${user.id}/brand-logo-${Date.now()}.${ext}`;
+                                  const { error } = await supabase.storage.from('raw-footage').upload(path, file);
+                                  if (error) throw error;
+                                  const { data: urlData } = supabase.storage.from('raw-footage').getPublicUrl(path);
+                                  setBrandSettings(prev => ({ ...prev, logoUrl: urlData.publicUrl }));
+                                  toast({ title: 'Logo uploaded', description: 'Your brand logo is set.' });
+                                } catch (err: any) {
+                                  toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </ScrollArea>
