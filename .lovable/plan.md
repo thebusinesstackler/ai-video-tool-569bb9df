@@ -1,35 +1,28 @@
 
 
-## YouTube Searcher — Plan
+## Fix Video Upscaler — Use WaveSpeed Ultimate Video Upscaler
 
-### What we're building
-A new "YouTube Search" page under the **AI Tools** nav group that lets users search YouTube videos by keyword, with filters for duration, upload date, and sort order. Results show thumbnails, titles, channel names, view counts, and durations — with a button to send a video URL directly to Vizard or Chatcut AI for processing.
+### Problem
+The current `upscale-video` edge function is a **stub** — it calls Claude to *describe* what upscaling would do, then returns the original video URL unchanged. No actual upscaling happens.
 
-### API Approach
-We'll use the **YouTube Data API v3** (`search.list` + `videos.list` for duration/stats). This requires a Google API key.
+### Solution
+Rewrite the edge function to use the **WaveSpeed Ultimate Video Upscaler API**, which supports 720p, 1080p, 2K, and 4K output. The `WAVESPEED_API_KEY` is already configured.
 
-- Create a backend function `youtube-search` that proxies requests to YouTube Data API
-- Need a `YOUTUBE_API_KEY` secret (free tier gives 10,000 quota units/day)
+### Changes
 
-### Steps
+**1. Rewrite `supabase/functions/upscale-video/index.ts`**
+- **Submit**: POST to `https://api.wavespeed.ai/api/v3/wavespeed-ai/ultimate-video-upscaler` with `{ video: videoUrl, target_resolution: "4k" | "2k" | "1080p" }`
+- **Poll**: GET `https://api.wavespeed.ai/api/v3/predictions/{taskId}/result` until status is `completed` or `failed`
+- Map the UI modes: `2x` → `1080p`, `4x` → `4k`, `enhance` → `2k`
+- Return the upscaled video URL from `data.outputs[0]`
+- Status polling returns real progress from WaveSpeed
 
-1. **Add secret**: Request `YOUTUBE_API_KEY` from user
-2. **Create Edge Function** (`supabase/functions/youtube-search/index.ts`):
-   - Accepts `query`, `duration` (short/medium/long/any), `order` (relevance/date/viewCount), `pageToken`, `maxResults`
-   - Calls YouTube Data API `search.list` (type=video) then `videos.list` for contentDetails (duration) and statistics
-   - Returns formatted results with pagination token
-3. **Create page** (`src/pages/YouTubeSearch.tsx`):
-   - Search bar with keyword input
-   - Filter row: duration dropdown (Any, Short <4min, Medium 4-20min, Long >20min), sort dropdown (Relevance, Upload Date, View Count)
-   - Results grid with video thumbnails, title, channel, views, duration badge
-   - "Load More" pagination
-   - Action buttons on each result: "Open in Vizard", "Open in Chatcut AI" (navigates with video URL)
-4. **Add route** in `App.tsx`: `/youtube-search` → protected
-5. **Add nav item** in `Navigation.tsx` under AI Tools group with `Search` icon
+**2. Update `src/components/VideoUpscaler.tsx`**
+- Update the upscale options to show actual target resolutions (1080p, 2K, 4K) instead of abstract "2x/4x" labels
+- Keep the existing polling logic — it already handles `taskId` + status checks correctly
 
 ### Technical Details
-- YouTube duration filter maps to `videoDuration` param: `any`, `short`, `medium`, `long`
-- ISO 8601 duration (PT12M34S) parsed to human-readable format
-- Results cached in React Query to avoid redundant API calls
-- 25 results per page
+- WaveSpeed API: submit task → get `data.id` → poll `predictions/{id}/result` → `data.outputs[0]` is the result URL
+- Max 10 min video per job
+- Pricing: $0.10–$0.40 per 5 seconds depending on resolution
 
