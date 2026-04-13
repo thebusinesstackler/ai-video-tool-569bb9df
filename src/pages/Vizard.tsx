@@ -547,13 +547,13 @@ export default function Vizard() {
                   return (
                     <Card key={video.videoId} className="overflow-hidden">
                       <CardContent className="p-0">
-                        {/* Video preview */}
+                        {/* Video preview — native aspect ratio */}
                         <video
                           src={video.videoUrl}
                           controls
                           playsInline
-                          className="w-full aspect-video"
-                          style={{ backgroundColor: 'hsl(var(--muted))' }}
+                          className="w-full"
+                          style={{ backgroundColor: 'hsl(var(--muted))', maxHeight: '500px' }}
                         />
                         <div className="p-4 space-y-3">
                           {editingClipId === clip?.id ? (
@@ -571,7 +571,7 @@ export default function Vizard() {
                                 <div className="flex-1 min-w-0">
                                   <h3 className="font-semibold text-sm">{video.title}</h3>
                                   {video.viralReason && (
-                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{video.viralReason}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{video.viralReason}</p>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1 ml-2">
