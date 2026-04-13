@@ -192,7 +192,18 @@ export default function Vizard() {
       const url = youtubeUrl.trim();
       const videoType = detectVideoType(url);
       const urlMatch = url.match(/(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]+)/);
-      const title = urlMatch ? `YouTube ${urlMatch[1]}` : 'Video Import';
+      let title = urlMatch ? `YouTube ${urlMatch[1]}` : 'Video Import';
+
+      // Try to fetch actual YouTube title via oEmbed
+      if (urlMatch) {
+        try {
+          const oembedResp = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${urlMatch[1]}&format=json`);
+          if (oembedResp.ok) {
+            const oembedData = await oembedResp.json();
+            if (oembedData.title) title = oembedData.title;
+          }
+        } catch (_) { /* fallback to ID-based title */ }
+      }
 
       // Create local project row
       const { data: row, error: insertErr } = await supabase
@@ -771,7 +782,9 @@ export default function Vizard() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-2.5 py-1.5 overflow-hidden">
                         <Link2 className="w-3.5 h-3.5 shrink-0" />
                         <a
-                          href={p.source_video_url}
+                          href={isYoutubeUrl(p.source_video_url)
+                            ? p.source_video_url.replace(/^(?!https?:\/\/)/, 'https://')
+                            : p.source_video_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="truncate hover:text-primary transition-colors hover:underline"
