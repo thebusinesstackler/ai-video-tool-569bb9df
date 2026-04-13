@@ -32,6 +32,7 @@ import type { AITwin } from '@/types/aiTwin';
 interface GeneratedScript {
   narration: string;
   visualDescription: string;
+  performanceDirection: string;
   cameraAngle: string;
   setting: string;
   mood: string;
@@ -338,14 +339,15 @@ Each variation should:
           messages: [
             {
               role: 'system',
-              content: `You are a scriptwriter for talking-head spokesperson videos. Write a natural, conversational monologue.
+              content: `You are a scriptwriter AND performance director for talking-head spokesperson videos. Write a natural, conversational monologue AND a creative performance direction.
 
 Target: ${dur} seconds (~${wordTarget} words).
 Character: ${selectedTwin.face_description || selectedTwin.name}
 Setting: ${selectedSettingData?.prompt || 'professional studio'}
 Mood/Tone: ${selectedMoodData?.prompt || 'confident'}
+Camera: ${selectedAngle?.promptModifier || 'slight low angle'}
 
-Rules:
+SCRIPT Rules:
 - Write naturally, as a real person talks on camera
 - Short sentences (8-15 words). Vary length for rhythm
 - Hook the viewer in the first sentence
@@ -354,10 +356,20 @@ Rules:
 - NO stage directions, NO speaker labels, NO scene breakdowns
 - This is ONE continuous monologue — no cuts, no B-roll directions
 
+PERFORMANCE DIRECTION Rules:
+Write a vivid, cinematic performance direction (80-120 words) that makes the video feel alive and not boring. Include:
+- Camera movement (slow push-in, gentle orbit, subtle drift, handheld micro-shakes)
+- Hand gestures and body language (counting on fingers, leaning forward for emphasis, open palm gestures, pointing at camera)
+- Facial expressions at key moments (eyebrow raises, knowing smiles, intense eye contact, thoughtful pauses)
+- Natural pauses and rhythm changes (beat after the hook, slow down for key point, speed up for excitement)
+- Environmental interaction (adjusting collar, picking up product, shifting weight, turning slightly)
+- Energy arc (start calm → build energy → peak at key message → warm close)
+
 Return ONLY a JSON object:
 {
   "narration": "The full script text...",
-  "visualDescription": "Brief visual direction for the character portrait"
+  "visualDescription": "Brief visual direction for the character portrait",
+  "performanceDirection": "Cinematic performance direction describing camera movement, gestures, expressions, and energy..."
 }`
             },
             {
@@ -535,7 +547,7 @@ Return ONLY a JSON object:
     return imgUrl.startsWith('data:') ? portraitImage : imgUrl;
   };
 
-  // Generate the full video — single continuous clip via infinitetalk-hd
+  // Generate the full video — single continuous clip via avatar-omni-human-1.5
   const generateVideo = async () => {
     if (!generatedScript || !selectedTwin) return;
     
@@ -554,27 +566,27 @@ Return ONLY a JSON object:
       setAudioUrl(ttsUrl);
       setProgress(25);
 
-      // Step 2: Generate character portrait (iPhone selfie style)
+      // Step 2: Generate character portrait
       setProgressStatus('Creating character portrait...');
-      const imgPrompt = `Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
+      const imgPrompt = `Photorealistic portrait of this EXACT person, half-body shot from waist up showing hands.
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
-CAMERA: iPhone front-facing camera, ${selectedAngle?.promptModifier || 'slight low angle'}, arm's length distance
+CAMERA: ${selectedAngle?.promptModifier || 'slight low angle'}, medium shot, natural framing
 SETTING: ${setting?.prompt || 'professional studio'}, natural light
-EXPRESSION: Mid-sentence speaking, ${mood?.prompt || 'confident'}, looking directly at camera
-QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
+EXPRESSION: Mid-sentence speaking, ${mood?.prompt || 'confident'}, looking directly at camera, one hand slightly raised in a natural gesture
+QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.
+IMPORTANT: Show arms and hands visible in the frame — not just a headshot.`;
       const sceneImg = await generateSceneImage(imgPrompt, selectedTwin);
       setProgress(45);
 
-      // Step 3: Create single lip-sync video with infinitetalk-hd
-      setProgressStatus('Rendering continuous video with lip-sync...');
+      // Step 3: Create single expressive video with avatar-omni-human-1.5
+      setProgressStatus('Rendering expressive spokesperson video...');
       const { data: videoData, error: videoErr } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'infinitetalk-hd',
+          model: 'avatar-omni-human-1.5',
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
-          prompt: `Real person talking naturally to camera. Wide fluid mouth movements with visible jaw and lip motion. Natural head movements — slight tilts, nods, eyebrow raises. ${mood?.prompt || 'Confident delivery'}. ${setting?.prompt || 'Professional studio'}. Subtle camera micro-movements. Authentic energy. Continuous single take — no cuts.`,
           aspectRatio: '9:16',
         }
       });
