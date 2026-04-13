@@ -135,6 +135,47 @@ function getDownloadHeaders(rapidApiKey: string, url?: string): Record<string, s
   return headers;
 }
 
+async function tryDownloadAndUpload(links: string[], userId: string, supabaseUrl: string, supabaseServiceKey: string): Promise<string | null> {
+  for (const link of links) {
+    try {
+      const vResp = await fetch(link, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*',
+          'Referer': 'https://www.youtube.com/',
+        },
+        redirect: 'follow',
+      });
+      if (vResp.ok || vResp.status === 206) {
+        const ct = vResp.headers.get('content-type') || '';
+        const cl = parseInt(vResp.headers.get('content-length') || '0');
+        if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
+          const buf = await vResp.arrayBuffer();
+          if (buf.byteLength > 10000 && buf.byteLength <= 100 * 1024 * 1024) {
+            console.log(`[download-video-url] Fallback download succeeded: ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB`);
+            const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+            const storagePath = `${userId}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+            const { error: uploadError } = await adminClient.storage
+              .from('reels')
+              .upload(storagePath, buf, { contentType: 'video/mp4', upsert: false });
+            if (!uploadError) {
+              const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+              console.log('[download-video-url] Fallback success! Stored at:', publicUrl);
+              return publicUrl;
+            }
+          }
+        }
+        await vResp.arrayBuffer().catch(() => {});
+      } else {
+        await vResp.arrayBuffer().catch(() => {});
+      }
+    } catch (e) {
+      console.log('[download-video-url] Fallback link error:', e);
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -252,22 +293,103 @@ Deno.serve(async (req) => {
 
     console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
 
-    // Try server-side download with each URL
+    // ── Strategy A: Piped API first (most reliable for YouTube) ──
+    if (platformInfo.platform === 'youtube') {
+      // Try multiple Piped instances
+      const pipedInstances = [
+        'https://pipedapi.kavin.rocks',
+        'https://pipedapi.r4fo.com',
+        'https://pipedapi.in.projectsegfau.lt',
+      ];
+      // Also try Invidious instances with API enabled
+      const invidiousInstances = [
+        'https://inv.nadeko.net',
+        'https://invidious.nerdvpn.de',
+      ];
+      for (const pipedBase of pipedInstances) {
+        console.log(`[download-video-url] Trying Piped API: ${pipedBase}...`);
+        try {
+          const videoId = platformInfo.params.videoId || '';
+          const pipedResp = await fetch(`${pipedBase}/streams/${videoId}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+          });
+          if (pipedResp.ok) {
+            const pipedData = await pipedResp.json();
+            const pipedLinks: string[] = [];
+            if (Array.isArray(pipedData?.videoStreams)) {
+              const combined = pipedData.videoStreams
+                .filter((s: any) => s.url && s.videoOnly === false)
+                .sort((a: any, b: any) => {
+                  const aq = parseInt(a.quality?.replace('p','') || '0');
+                  const bq = parseInt(b.quality?.replace('p','') || '0');
+                  return bq - aq;
+                });
+              for (const s of combined.slice(0, 3)) {
+                pipedLinks.push(s.url);
+              }
+            }
+            console.log(`[download-video-url] Piped found ${pipedLinks.length} combined streams`);
+            const uploaded = await tryDownloadAndUpload(pipedLinks, user.id, supabaseUrl, supabaseServiceKey);
+            if (uploaded) {
+              return new Response(JSON.stringify({ videoUrl: uploaded }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          } else {
+            console.log(`[download-video-url] Piped ${pipedBase} failed: ${pipedResp.status}`);
+          }
+        } catch (e) {
+          console.log(`[download-video-url] Piped ${pipedBase} error:`, e);
+        }
+      }
+
+      // Try Invidious API instances
+      for (const invBase of invidiousInstances) {
+        console.log(`[download-video-url] Trying Invidious API: ${invBase}...`);
+        try {
+          const videoId = platformInfo.params.videoId || '';
+          const invResp = await fetch(`${invBase}/api/v1/videos/${videoId}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+          });
+          if (invResp.ok) {
+            const invData = await invResp.json();
+            const invLinks: string[] = [];
+            // formatStreams have combined audio+video
+            if (Array.isArray(invData?.formatStreams)) {
+              for (const s of invData.formatStreams) {
+                if (s.url) invLinks.push(s.url);
+              }
+            }
+            console.log(`[download-video-url] Invidious found ${invLinks.length} format streams`);
+            const uploaded = await tryDownloadAndUpload(invLinks.slice(0, 3), user.id, supabaseUrl, supabaseServiceKey);
+            if (uploaded) {
+              return new Response(JSON.stringify({ videoUrl: uploaded }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          } else {
+            console.log(`[download-video-url] Invidious ${invBase} failed: ${invResp.status}`);
+          }
+        } catch (e) {
+          console.log(`[download-video-url] Invidious ${invBase} error:`, e);
+        }
+      }
+    }
+
+    // ── Strategy B: Try SMVD download URLs (max 3 to save memory) ──
     const buildHeaderStrategies = (dlUrl: string, isTunnel: boolean): Record<string, string>[] => {
       const base: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       };
       return [
-        // Strategy 1: RapidAPI auth (for tunnel URLs rewritten to rapidapi proxy)
         { ...base, 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com', 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0' },
-        // Strategy 2: Plain download with YouTube referer
         { ...base, 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0', 'Referer': 'https://www.youtube.com/' },
-        // Strategy 3: Minimal headers
         { ...base, 'Accept': 'video/mp4,video/*,*/*' },
       ];
     };
 
-    for (const { url: rawDlUrl, isTunnel } of downloadUrls) {
+    // Only try first 3 SMVD URLs to avoid memory issues
+    for (const { url: rawDlUrl, isTunnel } of downloadUrls.slice(0, 3)) {
       // For tunnel URLs, try both the rewritten RapidAPI proxy URL and the original
       const urlsToTry = isTunnel
         ? [rewriteTunnelUrl(rawDlUrl), rawDlUrl]
@@ -337,82 +459,32 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Fallback: try alternate YouTube downloader API ──
+    // ── Fallback: ytstream API ──
     if (platformInfo.platform === 'youtube') {
-      console.log('[download-video-url] Trying fallback YouTube API...');
+      console.log('[download-video-url] Trying ytstream fallback...');
       try {
         const videoId = platformInfo.params.videoId || '';
-        const fallbackUrl = `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`;
-        const fallbackResp = await fetch(fallbackUrl, {
-          headers: {
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'ytstream-download-youtube-videos.p.rapidapi.com',
-          },
+        const fallbackResp = await fetch(`https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`, {
+          headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'ytstream-download-youtube-videos.p.rapidapi.com' },
         });
         if (fallbackResp.ok) {
           const fbData = await fallbackResp.json();
-          console.log('[download-video-url] Fallback API response status:', fbData.status);
-          // Extract video links from the response
           const fbLinks: string[] = [];
           if (fbData.link) fbLinks.push(fbData.link);
           if (Array.isArray(fbData.formats)) {
             for (const fmt of fbData.formats) {
-              if (fmt.url && (fmt.mimeType?.includes('video') || fmt.qualityLabel)) {
-                fbLinks.push(fmt.url);
-              }
+              if (fmt.url && (fmt.mimeType?.includes('video') || fmt.qualityLabel)) fbLinks.push(fmt.url);
             }
           }
-          if (Array.isArray(fbData.adaptiveFormats)) {
-            for (const fmt of fbData.adaptiveFormats) {
-              if (fmt.url && fmt.mimeType?.includes('video')) {
-                fbLinks.push(fmt.url);
-              }
-            }
-          }
-          console.log(`[download-video-url] Fallback found ${fbLinks.length} links`);
-
-          for (const fbLink of fbLinks) {
-            try {
-              const vResp = await fetch(fbLink, {
-                headers: {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                  'Accept': '*/*',
-                  'Referer': 'https://www.youtube.com/',
-                },
-                redirect: 'follow',
-              });
-              if (vResp.ok || vResp.status === 206) {
-                const ct = vResp.headers.get('content-type') || '';
-                const cl = parseInt(vResp.headers.get('content-length') || '0');
-                if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
-                  const buf = await vResp.arrayBuffer();
-                  if (buf.byteLength > 10000 && buf.byteLength <= 100 * 1024 * 1024) {
-                    console.log(`[download-video-url] Fallback download succeeded: ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB`);
-                    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-                    const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
-                    const { error: uploadError } = await adminClient.storage
-                      .from('reels')
-                      .upload(storagePath, buf, { contentType: 'video/mp4', upsert: false });
-                    if (!uploadError) {
-                      const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
-                      console.log('[download-video-url] Fallback success! Stored at:', publicUrl);
-                      return new Response(JSON.stringify({ videoUrl: publicUrl }), {
-                        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                      });
-                    }
-                  }
-                }
-                await vResp.arrayBuffer().catch(() => {});
-              } else {
-                await vResp.arrayBuffer().catch(() => {});
-              }
-            } catch (e) {
-              console.log('[download-video-url] Fallback link error:', e);
-            }
+          const uploaded = await tryDownloadAndUpload(fbLinks.slice(0, 3), user.id, supabaseUrl, supabaseServiceKey);
+          if (uploaded) {
+            return new Response(JSON.stringify({ videoUrl: uploaded }), {
+              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
         }
       } catch (e) {
-        console.log('[download-video-url] Fallback API error:', e);
+        console.log('[download-video-url] ytstream error:', e);
       }
     }
 

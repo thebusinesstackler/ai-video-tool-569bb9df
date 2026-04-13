@@ -52,7 +52,7 @@ export async function downloadSocialVideoToStorage(url: string, notify?: (title:
     }
 
     if (!videoBlob) {
-      throw new Error('Could not download this video from the server. Please upload the video file manually instead.');
+      throw new Error('YouTube blocked this download. Please download the video to your device first, then drag & drop it here to upload.');
     }
 
     if (videoBlob.size > 100 * 1024 * 1024) {
@@ -73,5 +73,5 @@ export async function downloadSocialVideoToStorage(url: string, notify?: (title:
     return data.publicUrl;
   }
 
-  throw new Error('No video URL returned from download service');
+  throw new Error('YouTube blocked this download. Please download the video to your device first, then drag & drop it here to upload.');
 }
