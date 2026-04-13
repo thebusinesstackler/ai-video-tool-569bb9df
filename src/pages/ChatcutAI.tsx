@@ -78,6 +78,16 @@ interface TimelineClip {
   startAt: number;
 }
 
+interface VizardClip {
+  id: string;
+  title: string;
+  description: string;
+  start: number;
+  end: number;
+  score: number;
+  tags: string[];
+}
+
 interface MusicTrack {
   id: string;
   genre: string;
@@ -181,7 +191,7 @@ const ChatcutAI = () => {
   const [showDraftPicker, setShowDraftPicker] = useState(false);
   const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
   const [brandGuidelines, setBrandGuidelines] = useState<string | null>(null);
-  const [vizardClips, setVizardClips] = useState<Array<{id: string; title: string; description: string; start: number; end: number; score: number; tags: string[]}>>([]);
+  const [vizardClips, setVizardClips] = useState<VizardClip[]>([]);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -284,6 +294,78 @@ const ChatcutAI = () => {
     };
   }, []);
 
+  const transcriptSegments = useMemo(() => {
+    if (!transcript) return [];
+    if (Array.isArray(transcript)) return transcript;
+    if (Array.isArray(transcript.segments)) return transcript.segments;
+    if (Array.isArray(transcript.words)) return transcript.words;
+    if (typeof transcript.text === 'string' && transcript.text.trim()) {
+      return [{ start: 0, end: duration || undefined, text: transcript.text }];
+    }
+    return [];
+  }, [transcript, duration]);
+
+  const sortedVizardClips = useMemo(
+    () => [...vizardClips].sort((a, b) => b.score - a.score),
+    [vizardClips]
+  );
+
+  const applyVizardClipToBuilder = useCallback((clip: VizardClip, options?: { sourceUrl?: string; totalDuration?: number; showToast?: boolean }) => {
+    const sourceUrl = options?.sourceUrl || videoUrl;
+    if (!sourceUrl) return;
+
+    const detectedDuration = videoRef.current && Number.isFinite(videoRef.current.duration)
+      ? videoRef.current.duration
+      : 0;
+    const totalDuration = options?.totalDuration
+      ?? (Number.isFinite(duration) && duration > 0 ? duration : detectedDuration);
+    const clipStart = Math.max(0, clip.start || 0);
+    const rawClipEnd = clip.end > clipStart ? clip.end : clipStart + 1;
+    const clipEnd = totalDuration > 0 ? Math.min(totalDuration, rawClipEnd) : rawClipEnd;
+
+    const nextCuts: CutSuggestion[] = [];
+    if (clipStart > 0.05) {
+      nextCuts.push({
+        start: 0,
+        end: clipStart,
+        reason: 'Trimmed before selected Vizard clip',
+        type: 'other',
+        accepted: true,
+      });
+    }
+    if (totalDuration > 0 && clipEnd < totalDuration - 0.05) {
+      nextCuts.push({
+        start: clipEnd,
+        end: totalDuration,
+        reason: 'Trimmed after selected Vizard clip',
+        type: 'other',
+        accepted: true,
+      });
+    }
+
+    setTimelineClips([{
+      id: crypto.randomUUID(),
+      name: clip.title || 'Vizard Clip',
+      url: sourceUrl,
+      duration: Math.max(clipEnd - clipStart, 0.1),
+      startAt: clipStart,
+    }]);
+    setCuts(nextCuts);
+    setDraftName(clip.title || 'Vizard Clip');
+
+    if (videoRef.current) {
+      videoRef.current.currentTime = clipStart;
+    }
+    setCurrentTime(clipStart);
+
+    if (options?.showToast !== false) {
+      toast({
+        title: 'Clip loaded into builder',
+        description: `${clip.title || 'Selected clip'} is ready on the timeline.`,
+      });
+    }
+  }, [videoUrl, duration, toast]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -381,6 +463,10 @@ const ChatcutAI = () => {
           vizardHandoffRef.current = true;
           setShowDraftPicker(false);
           setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
+
+          if (payload.transcript) {
+            setTranscript(payload.transcript);
+          }
           
           // Store all clips from Vizard
           if (payload.allClips && Array.isArray(payload.allClips) && payload.allClips.length > 0) {
@@ -398,22 +484,30 @@ const ChatcutAI = () => {
               const vid = videoRef.current;
               if (vid && vid.readyState >= 1 && vid.duration > 0) {
                 clearInterval(waitForMeta);
-                setTimelineClips([{
-                  id: crypto.randomUUID(),
-                  name: payload.clipTitle || payload.title || 'Imported clip',
-                  url,
-                  duration: vid.duration,
-                  startAt: 0,
-                }]);
                 setDuration(vid.duration);
 
-                if (typeof payload.clipStart === 'number') {
-                  vid.currentTime = payload.clipStart;
-                  setCurrentTime(payload.clipStart);
-                  toast({
-                    title: 'Clip loaded from Vizard',
-                    description: `Playing from ${Math.floor(payload.clipStart / 60)}:${String(Math.floor(payload.clipStart % 60)).padStart(2, '0')} to ${Math.floor(payload.clipEnd / 60)}:${String(Math.floor(payload.clipEnd % 60)).padStart(2, '0')}`,
+                const matchedClip = Array.isArray(payload.allClips)
+                  ? payload.allClips.find((clip: VizardClip) =>
+                      clip.id === payload.selectedClipId ||
+                      (clip.start === payload.clipStart && clip.end === payload.clipEnd)
+                    )
+                  : null;
+
+                if (matchedClip) {
+                  applyVizardClipToBuilder(matchedClip, {
+                    sourceUrl: url,
+                    totalDuration: vid.duration,
+                    showToast: true,
                   });
+                } else {
+                  setTimelineClips([{
+                    id: crypto.randomUUID(),
+                    name: payload.title || 'Imported clip',
+                    url,
+                    duration: vid.duration,
+                    startAt: 0,
+                  }]);
+                  setCuts([]);
                 }
               }
             }, 200);
@@ -451,7 +545,7 @@ const ChatcutAI = () => {
           setShowDraftPicker(true);
         }
       });
-  }, [user]);
+  }, [user, applyVizardClipToBuilder]);
 
   const resetProject = useCallback(() => {
     setMessages([]);
@@ -463,6 +557,7 @@ const ChatcutAI = () => {
     setMusicTracks([]);
     setOverlays([]);
     setBRollClips([]);
+    setVizardClips([]);
     setCaptionSettings({ ...defaultCaptionSettings, enabled: false });
     setDraftId(null);
     setDraftName('Untitled Project');
@@ -1262,9 +1357,9 @@ const ChatcutAI = () => {
 
                   <TabsContent value="transcript" className="flex-1 overflow-hidden m-0 p-0">
                     <ScrollArea className="h-full px-3 py-2">
-                      {transcript ? (
+                      {transcriptSegments.length > 0 ? (
                         <div className="space-y-1 text-sm">
-                          {(transcript.segments || transcript.words || []).map((seg: any, i: number, arr: any[]) => {
+                          {transcriptSegments.map((seg: any, i: number, arr: any[]) => {
                             const segEnd = seg.end ?? (arr[i + 1]?.start ?? duration);
                             const isActive = currentTime >= seg.start && currentTime < segEnd;
                             return (
@@ -1302,18 +1397,16 @@ const ChatcutAI = () => {
                       <ScrollArea className="h-full px-3 py-2">
                         <div className="space-y-2">
                           <p className="text-xs text-muted-foreground mb-2">
-                            Clips identified by Vizard AI. Click to jump to that moment.
+                            Clips identified by Vizard AI. Click a clip to load that range into the builder.
                           </p>
-                          {vizardClips
-                            .sort((a, b) => b.score - a.score)
-                            .map((clip) => (
+                          {sortedVizardClips.map((clip) => (
                             <Card
                               key={clip.id}
                               className={cn(
                                 "cursor-pointer hover:border-primary/50 transition-colors",
                                 currentTime >= clip.start && currentTime < clip.end && "border-primary bg-primary/5"
                               )}
-                              onClick={() => seekTo(clip.start)}
+                              onClick={() => applyVizardClipToBuilder(clip)}
                             >
                               <CardContent className="p-3 space-y-1.5">
                                 <div className="flex items-start justify-between gap-2">
@@ -1546,8 +1639,8 @@ const ChatcutAI = () => {
                       }
 
                       {/* Live caption overlay – constrained to video bounds, always on top */}
-                      {captionSettings.enabled && transcript && (() => {
-                        const segs = transcript.segments || transcript.words || [];
+                      {captionSettings.enabled && transcriptSegments.length > 0 && (() => {
+                        const segs = transcriptSegments;
                         const activeSeg = segs.find((s: any, i: number) => {
                           const segEnd = s.end ?? (segs[i + 1]?.start ?? duration);
                           return currentTime >= s.start && currentTime < segEnd;

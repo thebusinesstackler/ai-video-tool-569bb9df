@@ -44,7 +44,11 @@ serve(async (req) => {
     }
 
     // Scale clip count based on video duration
-    const durationMin = videoDuration ? Math.round(videoDuration / 60) : 10;
+    const resolvedDuration =
+      typeof videoDuration === "number" && Number.isFinite(videoDuration) && videoDuration > 0
+        ? videoDuration
+        : estimateTranscriptDuration(transcript);
+    const durationMin = Math.max(1, Math.round(resolvedDuration / 60));
     const minClips = Math.max(8, Math.round(durationMin * 1.2));
     const maxClips = Math.max(15, Math.round(durationMin * 2));
 
@@ -65,7 +69,7 @@ Focus on:
 - Funny or relatable moments
 - Complete thoughts (don't cut mid-sentence)
 
-Be thorough — for a ${durationMin}-minute video, you should find at LEAST ${minClips} clips. Cover the entire video from start to finish, not just the beginning.
+Be thorough — for a ${durationMin}-minute video, you should find at LEAST ${minClips} clips. If the strongest moments are fewer than that, include secondary but still complete moments so you never return fewer than ${minClips}. Cover the entire video from start to finish, not just the beginning.
 
 Video duration: ${videoDuration || "unknown"} seconds.`;
 
@@ -169,4 +173,28 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function estimateTranscriptDuration(transcript: any): number {
+  const segments = Array.isArray(transcript)
+    ? transcript
+    : Array.isArray(transcript?.segments)
+      ? transcript.segments
+      : [];
+
+  if (segments.length > 0) {
+    const maxEnd = segments.reduce((max: number, seg: any) => {
+      const end = Number(seg?.end ?? seg?.start ?? 0);
+      return Number.isFinite(end) ? Math.max(max, end) : max;
+    }, 0);
+
+    if (maxEnd > 0) return maxEnd;
+  }
+
+  if (typeof transcript === "string") {
+    const words = transcript.trim().split(/\s+/).filter(Boolean).length;
+    if (words > 0) return Math.max(60, Math.round(words / 2.5));
+  }
+
+  return 600;
 }

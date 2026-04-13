@@ -101,6 +101,42 @@ export default function Vizard() {
     return { ...row, clips: Array.isArray(row.clips) ? row.clips : [] };
   }
 
+  const getVideoDuration = useCallback((url: string) => {
+    return new Promise<number | null>((resolve) => {
+      const tempVideo = document.createElement('video');
+      let settled = false;
+
+      const cleanup = () => {
+        tempVideo.removeEventListener('loadedmetadata', onLoadedMetadata);
+        tempVideo.removeEventListener('error', onError);
+        tempVideo.src = '';
+        tempVideo.load();
+      };
+
+      const finish = (value: number | null) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      };
+
+      const onLoadedMetadata = () => {
+        finish(Number.isFinite(tempVideo.duration) && tempVideo.duration > 0 ? tempVideo.duration : null);
+      };
+
+      const onError = () => finish(null);
+
+      tempVideo.preload = 'metadata';
+      tempVideo.playsInline = true;
+      tempVideo.muted = true;
+      tempVideo.addEventListener('loadedmetadata', onLoadedMetadata);
+      tempVideo.addEventListener('error', onError);
+      tempVideo.src = url;
+
+      window.setTimeout(() => finish(null), 10000);
+    });
+  }, []);
+
   // ---- Upload File ----
   const handleUpload = async (file: File) => {
     if (!user) return;
@@ -209,8 +245,10 @@ export default function Vizard() {
       let videoDuration: number | null = null;
       try {
         const vid = videoRef.current;
-        if (vid && vid.duration && isFinite(vid.duration)) {
+        if (vid && Number.isFinite(vid.duration) && vid.duration > 0) {
           videoDuration = vid.duration;
+        } else if (project.source_video_url) {
+          videoDuration = await getVideoDuration(project.source_video_url);
         }
       } catch {}
 
@@ -316,8 +354,10 @@ export default function Vizard() {
       videoUrl: activeProject.source_video_url,
       title: activeProject.title,
       allClips: activeProject.clips, // Pass all clips
+        transcript: activeProject.transcript,
     };
     if (clip) {
+        payload.selectedClipId = clip.id;
       payload.clipStart = clip.start;
       payload.clipEnd = clip.end;
       payload.clipTitle = clip.title;
