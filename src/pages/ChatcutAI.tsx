@@ -588,11 +588,17 @@ const ChatcutAI = () => {
     clips: timelineClips.map(c => ({ name: c.name, startAt: c.startAt, duration: c.duration })),
     cuts: cuts.filter(c => c.accepted),
     musicTracks: musicTracks.map(t => ({ name: t.name, genre: t.genre, mood: t.mood, volume: t.volume, startAt: t.startAt, duration: t.duration, hasAudio: !!t.audioUrl })),
-    overlays: overlays.map(o => ({ type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl })),
+    overlays: overlays.map(o => ({ type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl, scale: o.scale })),
     bRollClips: bRollClips.map(b => ({ name: b.name, start: b.start, duration: b.duration, hasImage: !!b.imageUrl })),
     captionsEnabled: captionSettings.enabled,
     captionStyle: captionSettings.style,
-  }), [timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings]);
+    brandSettings: {
+      primaryColor: brandSettings.primaryColor,
+      textColor: brandSettings.textColor,
+      font: brandSettings.font,
+      hasLogo: !!brandSettings.logoUrl,
+    },
+  }), [timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
 
   const saveDraft = useCallback(async () => {
     if (!user) return;
