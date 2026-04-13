@@ -356,6 +356,10 @@ Each variation should:
       const dur = parseInt(selectedDuration);
       const wordTarget = Math.round(dur * 2.5);
 
+      const profileContext = userProfile
+        ? `\n\nSPEAKER CONTEXT:${userProfile.first_name ? `\n- Name: ${userProfile.first_name}` : ''}${userProfile.company_name ? `\n- Company: ${userProfile.company_name}` : ''}${userProfile.brand_description ? `\n- About the brand: ${userProfile.brand_description}` : ''}${userProfile.content_goal ? `\n- Content goal: ${userProfile.content_goal}` : ''}\n\nUse this context to make the script authentic to who this person is and what their brand does. Reference their products, brand values, or expertise naturally when relevant.`
+        : '';
+
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
           messages: [
@@ -367,6 +371,7 @@ Target: ${dur} seconds (~${wordTarget} words).
 Character: ${selectedTwin.face_description || selectedTwin.name}
 Setting: ${selectedSettingData?.prompt || 'professional studio'}
 Mood/Tone: ${selectedMoodData?.prompt || 'confident'}
+${profileContext}
 
 Rules:
 - Write naturally, as a real person talks on camera
