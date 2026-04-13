@@ -400,6 +400,7 @@ Return ONLY a JSON object:
         parsed = {
           narration: content.replace(/```[\s\S]*?```/g, '').trim(),
           visualDescription: `${selectedAngle?.promptModifier}. ${selectedTwin.face_description}. ${selectedSettingData?.prompt}`,
+          performanceDirection: `Person speaking expressively to camera with natural hand gestures, gentle camera push-in, ${selectedMoodData?.prompt || 'confident'} energy throughout.`,
           cameraAngle: selectedCameraAngle,
           setting: selectedSetting,
           mood: selectedMood
