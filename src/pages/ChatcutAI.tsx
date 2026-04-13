@@ -912,6 +912,7 @@ const ChatcutAI = () => {
             id: overlayId, type: act.type || 'lower_third',
             text: act.text || '', start: act.start || 0, duration: act.duration || 5,
             animation, style: act.style,
+            scale: act.scale || undefined,
           };
           setOverlays(prev => [...prev, newOverlay]);
           toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
