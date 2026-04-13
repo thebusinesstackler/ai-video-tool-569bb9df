@@ -734,28 +734,76 @@ export default function Vizard() {
 
         {/* Project Cards */}
         {projects.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <h2 className="text-lg font-semibold">Your Projects</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {projects.map(p => (
-                <Card key={p.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openProject(p)}>
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium truncate">{p.title}</h3>
-                      <Badge variant={p.status === 'ready' ? 'default' : p.status === 'failed' ? 'destructive' : 'secondary'} className="text-[10px]">
+                <Card key={p.id} className="group hover:shadow-lg transition-all duration-200 border-border/60 hover:border-primary/30">
+                  <CardContent className="p-5 space-y-3">
+                    {/* Header: title + status */}
+                    <div className="flex items-start justify-between gap-2">
+                      {renamingProjectId === p.id ? (
+                        <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
+                          <Input
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') renameProject(p.id, renameValue); if (e.key === 'Escape') setRenamingProjectId(null); }}
+                            className="h-8 text-sm"
+                            autoFocus
+                          />
+                          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => renameProject(p.id, renameValue)}><Check className="w-3.5 h-3.5" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => setRenamingProjectId(null)}><X className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      ) : (
+                        <h3
+                          className="font-semibold truncate cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => openProject(p)}
+                          title={p.title}
+                        >{p.title}</h3>
+                      )}
+                      <Badge variant={p.status === 'ready' ? 'default' : p.status === 'failed' ? 'destructive' : 'secondary'} className="text-[10px] shrink-0">
                         {STATUS_LABELS[p.status] || p.status}
                       </Badge>
                     </div>
+
+                    {/* Source URL */}
+                    {p.source_video_url && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-2.5 py-1.5 overflow-hidden">
+                        <Link2 className="w-3.5 h-3.5 shrink-0" />
+                        <a
+                          href={p.source_video_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate hover:text-primary transition-colors hover:underline"
+                          onClick={e => e.stopPropagation()}
+                          title={p.source_video_url}
+                        >{p.source_video_url}</a>
+                      </div>
+                    )}
+
+                    {/* Meta row */}
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>{(p.vizard_videos?.length || p.clips.length)} clips</span>
-                      <span>{new Date(p.created_at).toLocaleDateString()}</span>
+                      {(p.vizard_videos?.length || p.clips.length) > 0 && (
+                        <span className="flex items-center gap-1"><Scissors className="w-3 h-3" />{p.vizard_videos?.length || p.clips.length} clips</span>
+                      )}
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(p.created_at).toLocaleDateString()}</span>
                     </div>
-                    <Button
-                      size="sm" variant="ghost" className="text-destructive p-0 h-auto"
-                      onClick={e => { e.stopPropagation(); deleteProject(p.id); }}
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />Delete
-                    </Button>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 pt-1 border-t border-border/40">
+                      <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => openProject(p)}>
+                        <Play className="w-3.5 h-3.5 mr-1" />Open
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-xs h-8" onClick={e => { e.stopPropagation(); setRenamingProjectId(p.id); setRenameValue(p.title); }}>
+                        <Pencil className="w-3.5 h-3.5 mr-1" />Rename
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost" className="text-xs h-8 text-destructive hover:text-destructive ml-auto"
+                        onClick={e => { e.stopPropagation(); deleteProject(p.id); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />Delete
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
