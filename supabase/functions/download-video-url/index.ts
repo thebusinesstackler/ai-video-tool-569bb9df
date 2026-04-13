@@ -337,9 +337,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Fallback: try alternate YouTube downloader API ──
+    // ── Fallback 1: try ytstream YouTube downloader API ──
     if (platformInfo.platform === 'youtube') {
-      console.log('[download-video-url] Trying fallback YouTube API...');
+      console.log('[download-video-url] Trying fallback YouTube API (ytstream)...');
       try {
         const videoId = platformInfo.params.videoId || '';
         const fallbackUrl = `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`;
@@ -351,8 +351,7 @@ Deno.serve(async (req) => {
         });
         if (fallbackResp.ok) {
           const fbData = await fallbackResp.json();
-          console.log('[download-video-url] Fallback API response status:', fbData.status);
-          // Extract video links from the response
+          console.log('[download-video-url] ytstream response status:', fbData.status);
           const fbLinks: string[] = [];
           if (fbData.link) fbLinks.push(fbData.link);
           if (Array.isArray(fbData.formats)) {
@@ -369,50 +368,97 @@ Deno.serve(async (req) => {
               }
             }
           }
-          console.log(`[download-video-url] Fallback found ${fbLinks.length} links`);
-
-          for (const fbLink of fbLinks) {
-            try {
-              const vResp = await fetch(fbLink, {
-                headers: {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                  'Accept': '*/*',
-                  'Referer': 'https://www.youtube.com/',
-                },
-                redirect: 'follow',
-              });
-              if (vResp.ok || vResp.status === 206) {
-                const ct = vResp.headers.get('content-type') || '';
-                const cl = parseInt(vResp.headers.get('content-length') || '0');
-                if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
-                  const buf = await vResp.arrayBuffer();
-                  if (buf.byteLength > 10000 && buf.byteLength <= 100 * 1024 * 1024) {
-                    console.log(`[download-video-url] Fallback download succeeded: ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB`);
-                    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-                    const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
-                    const { error: uploadError } = await adminClient.storage
-                      .from('reels')
-                      .upload(storagePath, buf, { contentType: 'video/mp4', upsert: false });
-                    if (!uploadError) {
-                      const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
-                      console.log('[download-video-url] Fallback success! Stored at:', publicUrl);
-                      return new Response(JSON.stringify({ videoUrl: publicUrl }), {
-                        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                      });
-                    }
-                  }
-                }
-                await vResp.arrayBuffer().catch(() => {});
-              } else {
-                await vResp.arrayBuffer().catch(() => {});
-              }
-            } catch (e) {
-              console.log('[download-video-url] Fallback link error:', e);
-            }
+          console.log(`[download-video-url] ytstream found ${fbLinks.length} links`);
+          const uploaded = await tryDownloadAndUpload(fbLinks, user.id, supabaseUrl, supabaseServiceKey);
+          if (uploaded) {
+            return new Response(JSON.stringify({ videoUrl: uploaded }), {
+              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
         }
       } catch (e) {
-        console.log('[download-video-url] Fallback API error:', e);
+        console.log('[download-video-url] ytstream API error:', e);
+      }
+
+      // ── Fallback 2: YouTube Media Downloader API ──
+      console.log('[download-video-url] Trying fallback YouTube API (media-downloader)...');
+      try {
+        const videoId = platformInfo.params.videoId || '';
+        const mdUrl = `https://youtube-media-downloader.p.rapidapi.com/v2/video/details?videoId=${videoId}`;
+        const mdResp = await fetch(mdUrl, {
+          headers: {
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'youtube-media-downloader.p.rapidapi.com',
+          },
+        });
+        if (mdResp.ok) {
+          const mdData = await mdResp.json();
+          console.log('[download-video-url] media-downloader response keys:', Object.keys(mdData));
+          const mdLinks: string[] = [];
+          // Extract from videos.items
+          if (mdData?.videos?.items) {
+            for (const item of mdData.videos.items) {
+              if (item.url) mdLinks.push(item.url);
+            }
+          }
+          // Extract from audios for combined
+          if (mdData?.videos?.items?.length === 0 && mdData?.audios?.items) {
+            // No combined streams, skip
+          }
+          console.log(`[download-video-url] media-downloader found ${mdLinks.length} links`);
+          const uploaded = await tryDownloadAndUpload(mdLinks, user.id, supabaseUrl, supabaseServiceKey);
+          if (uploaded) {
+            return new Response(JSON.stringify({ videoUrl: uploaded }), {
+              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        } else {
+          console.log('[download-video-url] media-downloader failed:', mdResp.status);
+        }
+      } catch (e) {
+        console.log('[download-video-url] media-downloader API error:', e);
+      }
+
+      // ── Fallback 3: yt-video-download API ──
+      console.log('[download-video-url] Trying fallback YouTube API (yt-video-download)...');
+      try {
+        const videoId = platformInfo.params.videoId || '';
+        const ytdUrl = `https://yt-video-download.p.rapidapi.com/v1/video/info?videoId=${videoId}`;
+        const ytdResp = await fetch(ytdUrl, {
+          headers: {
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'yt-video-download.p.rapidapi.com',
+          },
+        });
+        if (ytdResp.ok) {
+          const ytdData = await ytdResp.json();
+          console.log('[download-video-url] yt-video-download response keys:', Object.keys(ytdData));
+          const ytdLinks: string[] = [];
+          if (ytdData?.download_url) ytdLinks.push(ytdData.download_url);
+          if (Array.isArray(ytdData?.formats)) {
+            for (const fmt of ytdData.formats) {
+              if (fmt.url && (fmt.type?.includes('video') || fmt.quality)) {
+                ytdLinks.push(fmt.url);
+              }
+            }
+          }
+          if (Array.isArray(ytdData?.streams)) {
+            for (const s of ytdData.streams) {
+              if (s.url) ytdLinks.push(s.url);
+            }
+          }
+          console.log(`[download-video-url] yt-video-download found ${ytdLinks.length} links`);
+          const uploaded = await tryDownloadAndUpload(ytdLinks, user.id, supabaseUrl, supabaseServiceKey);
+          if (uploaded) {
+            return new Response(JSON.stringify({ videoUrl: uploaded }), {
+              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        } else {
+          console.log('[download-video-url] yt-video-download failed:', ytdResp.status);
+        }
+      } catch (e) {
+        console.log('[download-video-url] yt-video-download API error:', e);
       }
     }
 
