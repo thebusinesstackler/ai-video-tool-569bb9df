@@ -982,6 +982,12 @@ const ChatcutAI = () => {
           transcript,
           timelineState: getTimelineState(),
           ...(brandGuidelines ? { brandGuidelines } : {}),
+          brandSettings: {
+            primaryColor: brandSettings.primaryColor,
+            textColor: brandSettings.textColor,
+            font: brandSettings.font,
+            hasLogo: !!brandSettings.logoUrl,
+          },
         }),
       });
       if (!resp.ok || !resp.body) {
