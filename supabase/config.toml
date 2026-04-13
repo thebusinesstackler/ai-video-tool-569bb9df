@@ -109,3 +109,6 @@ verify_jwt = true
 
 [functions.transfer-assets]
 verify_jwt = true
+
+[functions.vizard-api]
+verify_jwt = true
