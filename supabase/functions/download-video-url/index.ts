@@ -342,6 +342,38 @@ Deno.serve(async (req) => {
           console.log(`[download-video-url] Piped ${pipedBase} error:`, e);
         }
       }
+
+      // Try Invidious API instances
+      for (const invBase of invidiousInstances) {
+        console.log(`[download-video-url] Trying Invidious API: ${invBase}...`);
+        try {
+          const videoId = platformInfo.params.videoId || '';
+          const invResp = await fetch(`${invBase}/api/v1/videos/${videoId}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+          });
+          if (invResp.ok) {
+            const invData = await invResp.json();
+            const invLinks: string[] = [];
+            // formatStreams have combined audio+video
+            if (Array.isArray(invData?.formatStreams)) {
+              for (const s of invData.formatStreams) {
+                if (s.url) invLinks.push(s.url);
+              }
+            }
+            console.log(`[download-video-url] Invidious found ${invLinks.length} format streams`);
+            const uploaded = await tryDownloadAndUpload(invLinks.slice(0, 3), user.id, supabaseUrl, supabaseServiceKey);
+            if (uploaded) {
+              return new Response(JSON.stringify({ videoUrl: uploaded }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          } else {
+            console.log(`[download-video-url] Invidious ${invBase} failed: ${invResp.status}`);
+          }
+        } catch (e) {
+          console.log(`[download-video-url] Invidious ${invBase} error:`, e);
+        }
+      }
     }
 
     // ── Strategy B: Try SMVD download URLs (max 3 to save memory) ──
