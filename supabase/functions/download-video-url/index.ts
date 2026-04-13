@@ -295,10 +295,16 @@ Deno.serve(async (req) => {
 
     // ── Strategy A: Piped API first (most reliable for YouTube) ──
     if (platformInfo.platform === 'youtube') {
+      // Try multiple Piped instances
       const pipedInstances = [
         'https://pipedapi.kavin.rocks',
-        'https://pipedapi.adminforge.de',
-        'https://api.piped.privacydev.net',
+        'https://pipedapi.r4fo.com',
+        'https://pipedapi.in.projectsegfau.lt',
+      ];
+      // Also try Invidious instances with API enabled
+      const invidiousInstances = [
+        'https://inv.nadeko.net',
+        'https://invidious.nerdvpn.de',
       ];
       for (const pipedBase of pipedInstances) {
         console.log(`[download-video-url] Trying Piped API: ${pipedBase}...`);
