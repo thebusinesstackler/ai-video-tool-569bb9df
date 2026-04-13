@@ -2364,6 +2364,100 @@ const ChatcutAI = () => {
                         onChange={setCaptionSettings}
                       />
                     </div>
+
+                    {/* Brand Settings */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <RatioIcon className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Brand</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {/* Primary Color */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Primary Color</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={brandSettings.primaryColor}
+                              onChange={(e) => setBrandSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                              className="w-6 h-6 rounded cursor-pointer border border-border"
+                            />
+                            <span className="text-[9px] font-mono text-muted-foreground">{brandSettings.primaryColor}</span>
+                          </div>
+                        </div>
+                        {/* Text Color */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Text Color</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={brandSettings.textColor}
+                              onChange={(e) => setBrandSettings(prev => ({ ...prev, textColor: e.target.value }))}
+                              className="w-6 h-6 rounded cursor-pointer border border-border"
+                            />
+                            <span className="text-[9px] font-mono text-muted-foreground">{brandSettings.textColor}</span>
+                          </div>
+                        </div>
+                        {/* Font */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Font</span>
+                          <select
+                            value={brandSettings.font}
+                            onChange={(e) => setBrandSettings(prev => ({ ...prev, font: e.target.value }))}
+                            className="text-[10px] bg-muted border border-border rounded px-1.5 py-1 text-foreground"
+                          >
+                            {['Inter', 'Montserrat', 'Poppins', 'Oswald', 'Roboto', 'Playfair Display', 'DM Sans', 'Space Grotesk', 'Bebas Neue', 'Raleway'].map(f => (
+                              <option key={f} value={f}>{f}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Logo */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">Logo</span>
+                          <div className="flex items-center gap-1.5">
+                            {brandSettings.logoUrl ? (
+                              <div className="flex items-center gap-1">
+                                <img src={brandSettings.logoUrl} alt="Logo" className="w-6 h-6 object-contain rounded" />
+                                <button
+                                  className="text-[9px] text-destructive hover:underline"
+                                  onClick={() => setBrandSettings(prev => ({ ...prev, logoUrl: null }))}
+                                >✕</button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-[10px] px-2"
+                                onClick={() => logoInputRef.current?.click()}
+                              >
+                                Upload
+                              </Button>
+                            )}
+                            <input
+                              ref={logoInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file || !user) return;
+                                try {
+                                  const ext = file.name.split('.').pop();
+                                  const path = `${user.id}/brand-logo-${Date.now()}.${ext}`;
+                                  const { error } = await supabase.storage.from('raw-footage').upload(path, file);
+                                  if (error) throw error;
+                                  const { data: urlData } = supabase.storage.from('raw-footage').getPublicUrl(path);
+                                  setBrandSettings(prev => ({ ...prev, logoUrl: urlData.publicUrl }));
+                                  toast({ title: 'Logo uploaded', description: 'Your brand logo is set.' });
+                                } catch (err: any) {
+                                  toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </ScrollArea>
               </div>
