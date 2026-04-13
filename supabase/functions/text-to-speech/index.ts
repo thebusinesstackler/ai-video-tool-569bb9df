@@ -259,6 +259,46 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'openai' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
+      console.log('OpenAI TTS failed, trying Google Cloud TTS fallback');
+    }
+
+    // Priority 4: Google Cloud standard TTS fallback
+    const googleFallbackKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
+    if (googleFallbackKey) {
+      try {
+        const genderLower = (gender || '').toLowerCase();
+        const isFemale = genderLower === 'female' || genderLower === 'woman';
+        const googleVoiceName = isFemale ? 'en-US-Journey-F' : 'en-US-Journey-D';
+        console.log(`Using Google Cloud TTS fallback with voice: ${googleVoiceName}`);
+        
+        const gResp = await fetch(
+          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleFallbackKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+              voice: { languageCode: 'en-US', name: googleVoiceName },
+              audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed },
+            }),
+          }
+        );
+        if (gResp.ok) {
+          const gData = await gResp.json();
+          if (gData.audioContent) {
+            return new Response(JSON.stringify({
+              audioContent: gData.audioContent,
+              audioUrl: `data:audio/mp3;base64,${gData.audioContent}`,
+              isClonedVoice: false,
+              provider: 'google-fallback',
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+        } else {
+          console.error('Google TTS fallback error:', gResp.status, await gResp.text());
+        }
+      } catch (e) {
+        console.error('Google TTS fallback exception:', e);
+      }
     }
     
     throw new Error('No TTS engine available or all attempts failed');
