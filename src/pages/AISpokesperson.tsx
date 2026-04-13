@@ -110,7 +110,30 @@ const AISpokesperson = () => {
   const scriptFromDraft = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // User profile context
+  const [userProfile, setUserProfile] = useState<{
+    first_name?: string | null;
+    company_name?: string | null;
+    brand_description?: string | null;
+    content_goal?: string | null;
+  } | null>(null);
+
   const { saveDraft, loadDraft, clearDraft } = useSpokespersonDraft();
+
+  // Load user profile for AI context
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('first_name, company_name, brand_description, content_goal')
+          .eq('user_id', user.id)
+          .single();
+        if (data) setUserProfile(data);
+      } catch {}
+    })();
+  }, [user?.id]);
 
   // Auto-estimate duration from word count
   useEffect(() => {
