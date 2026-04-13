@@ -1,66 +1,35 @@
 
 
-## Vizard — Long Video to Short Clips Page
+## YouTube Searcher — Plan
 
-### What it does
-A new `/vizard` page where users upload a long-form video, the system transcribes it, uses AI to find the best viral-worthy moments, generates short clips with timestamps, and lets users preview, edit titles/descriptions, and export clips.
+### What we're building
+A new "YouTube Search" page under the **AI Tools** nav group that lets users search YouTube videos by keyword, with filters for duration, upload date, and sort order. Results show thumbnails, titles, channel names, view counts, and durations — with a button to send a video URL directly to Vizard or Chatcut AI for processing.
 
-### Database
+### API Approach
+We'll use the **YouTube Data API v3** (`search.list` + `videos.list` for duration/stats). This requires a Google API key.
 
-**New table: `vizard_projects`**
-- `id` (uuid, PK)
-- `user_id` (uuid, NOT NULL)
-- `title` (text, default 'Untitled')
-- `status` (text, default 'uploading') — uploading | transcribing | finding_clips | ready | failed
-- `source_video_url` (text)
-- `transcript` (jsonb) — full timestamped transcript from transcribe-video
-- `clips` (jsonb, default '[]') — array of `{id, title, description, start, end, score, tags, exported}`
-- `error` (text)
-- `created_at`, `updated_at` (timestamptz)
+- Create a backend function `youtube-search` that proxies requests to YouTube Data API
+- Need a `YOUTUBE_API_KEY` secret (free tier gives 10,000 quota units/day)
 
-RLS: standard user_id-based CRUD for authenticated users.
+### Steps
 
-### New Edge Function: `vizard-find-clips`
-- Receives `projectId` + transcript + video duration
-- Uses Gemini via Lovable AI Gateway to analyze the transcript and identify the top 5-10 best moments (viral hooks, emotional peaks, key insights)
-- Returns clips array with start/end timestamps, suggested titles, descriptions, and virality scores
-- Updates the `vizard_projects` row with clips and sets status to `ready`
-
-### Frontend: `src/pages/Vizard.tsx`
-
-**Layout**: Uses existing `<Layout>` wrapper. Three views:
-
-1. **Project List** — cards showing past projects with status badges, click to open
-2. **Upload View** — drag-and-drop or file picker for video upload (to `raw-footage` bucket), starts processing pipeline
-3. **Project Detail** — shows:
-   - Progress stepper (uploading → transcribing → finding clips → ready)
-   - Full transcript with timestamps (scrollable)
-   - Clips grid: each clip card shows title, time range, score badge, preview button, edit button, export/download button
-   - Clip preview: plays source video from start to end timestamp using `<video>` element with `currentTime`
-   - Inline editing of clip title/description
-   - Export: downloads the clip time range (client-side trim via canvas or link to full video with timestamps)
-
-### Processing Pipeline (client-driven polling)
-1. Upload video to `raw-footage` bucket → save URL to `vizard_projects` → status: `uploading` → `transcribing`
-2. Call `transcribe-video` edge function → save transcript → status: `finding_clips`
-3. Call `vizard-find-clips` edge function → save clips → status: `ready`
-4. UI polls project status and updates progress stepper in real-time
-
-### Routing
-- Add `/vizard` route to `App.tsx` (protected)
-- Add nav item to `Navigation.tsx` under the Tools/Create group
+1. **Add secret**: Request `YOUTUBE_API_KEY` from user
+2. **Create Edge Function** (`supabase/functions/youtube-search/index.ts`):
+   - Accepts `query`, `duration` (short/medium/long/any), `order` (relevance/date/viewCount), `pageToken`, `maxResults`
+   - Calls YouTube Data API `search.list` (type=video) then `videos.list` for contentDetails (duration) and statistics
+   - Returns formatted results with pagination token
+3. **Create page** (`src/pages/YouTubeSearch.tsx`):
+   - Search bar with keyword input
+   - Filter row: duration dropdown (Any, Short <4min, Medium 4-20min, Long >20min), sort dropdown (Relevance, Upload Date, View Count)
+   - Results grid with video thumbnails, title, channel, views, duration badge
+   - "Load More" pagination
+   - Action buttons on each result: "Open in Vizard", "Open in Chatcut AI" (navigates with video URL)
+4. **Add route** in `App.tsx`: `/youtube-search` → protected
+5. **Add nav item** in `Navigation.tsx` under AI Tools group with `Search` icon
 
 ### Technical Details
-- Video upload reuses existing `raw-footage` storage bucket (public)
-- Transcription reuses existing `transcribe-video` edge function (Whisper + Gemini fallback)
-- Clip preview uses HTML5 `<video>` with `currentTime` + `timeupdate` event to constrain playback to clip boundaries
-- Export uses canvas-based trim (`canvasStitch.ts` pattern) or provides a "copy timestamp" fallback
-- All AI calls go through Lovable AI Gateway using `LOVABLE_API_KEY`
-
-### Files to create/modify
-- **Create**: `src/pages/Vizard.tsx` — main page
-- **Create**: `supabase/functions/vizard-find-clips/index.ts` — AI clip finder
-- **Modify**: `src/App.tsx` — add route
-- **Modify**: `src/components/Navigation.tsx` — add nav link
-- **Migration**: create `vizard_projects` table with RLS
+- YouTube duration filter maps to `videoDuration` param: `any`, `short`, `medium`, `long`
+- ISO 8601 duration (PT12M34S) parsed to human-readable format
+- Results cached in React Query to avoid redundant API calls
+- 25 results per page
 
