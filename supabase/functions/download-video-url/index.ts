@@ -135,6 +135,47 @@ function getDownloadHeaders(rapidApiKey: string, url?: string): Record<string, s
   return headers;
 }
 
+async function tryDownloadAndUpload(links: string[], userId: string, supabaseUrl: string, supabaseServiceKey: string): Promise<string | null> {
+  for (const link of links) {
+    try {
+      const vResp = await fetch(link, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*',
+          'Referer': 'https://www.youtube.com/',
+        },
+        redirect: 'follow',
+      });
+      if (vResp.ok || vResp.status === 206) {
+        const ct = vResp.headers.get('content-type') || '';
+        const cl = parseInt(vResp.headers.get('content-length') || '0');
+        if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
+          const buf = await vResp.arrayBuffer();
+          if (buf.byteLength > 10000 && buf.byteLength <= 100 * 1024 * 1024) {
+            console.log(`[download-video-url] Fallback download succeeded: ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB`);
+            const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+            const storagePath = `${userId}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+            const { error: uploadError } = await adminClient.storage
+              .from('reels')
+              .upload(storagePath, buf, { contentType: 'video/mp4', upsert: false });
+            if (!uploadError) {
+              const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+              console.log('[download-video-url] Fallback success! Stored at:', publicUrl);
+              return publicUrl;
+            }
+          }
+        }
+        await vResp.arrayBuffer().catch(() => {});
+      } else {
+        await vResp.arrayBuffer().catch(() => {});
+      }
+    } catch (e) {
+      console.log('[download-video-url] Fallback link error:', e);
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
