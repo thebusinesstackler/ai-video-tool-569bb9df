@@ -1148,6 +1148,9 @@ export type Database = {
           transcript: Json | null
           updated_at: string
           user_id: string
+          vizard_api_project_id: number | null
+          vizard_share_link: string | null
+          vizard_videos: Json | null
         }
         Insert: {
           clips?: Json
@@ -1160,6 +1163,9 @@ export type Database = {
           transcript?: Json | null
           updated_at?: string
           user_id: string
+          vizard_api_project_id?: number | null
+          vizard_share_link?: string | null
+          vizard_videos?: Json | null
         }
         Update: {
           clips?: Json
@@ -1172,6 +1178,9 @@ export type Database = {
           transcript?: Json | null
           updated_at?: string
           user_id?: string
+          vizard_api_project_id?: number | null
+          vizard_share_link?: string | null
+          vizard_videos?: Json | null
         }
         Relationships: []
       }
