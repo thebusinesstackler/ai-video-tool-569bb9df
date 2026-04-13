@@ -392,6 +392,14 @@ export default function Vizard() {
     if (activeProject?.id === id) { setActiveProject(null); setView('list'); }
   };
 
+  const renameProject = async (id: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    await supabase.from('vizard_projects').update({ title: newTitle.trim() }).eq('id', id);
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, title: newTitle.trim() } : p));
+    if (activeProject?.id === id) setActiveProject(prev => prev ? { ...prev, title: newTitle.trim() } : prev);
+    setRenamingProjectId(null);
+  };
+
   const copyTimestamps = (clip: VizardClip) => {
     navigator.clipboard.writeText(`${formatTime(clip.start)} - ${formatTime(clip.end)}`);
     toast({ title: 'Copied', description: `${formatTime(clip.start)} - ${formatTime(clip.end)}` });
