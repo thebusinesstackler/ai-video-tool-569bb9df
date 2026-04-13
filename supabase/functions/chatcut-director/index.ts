@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, transcript, mode, timelineState, brandGuidelines } = await req.json();
+    const { messages, transcript, mode, timelineState, brandGuidelines, brandSettings } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -82,6 +82,13 @@ Animation options (optional — style has smart defaults, but you can override):
 - "fade-in" → Gentle fade. Great for minimal/glass styles.
 - "scale-pop" → Pops in with a bounce. Great for bold/neon.
 - "slide-left" → Slides in from the left. Great for broadcast.
+
+### Overlay sizing:
+You can include a "scale" property (1-5) in add_overlay actions:
+- 1 = small (default)
+- 2-3 = medium
+- 4 = large
+- 5 = full screen (fills the entire video frame — great for outros, title cards, end screens)
 
 IMPORTANT: You ALWAYS choose the best type and style automatically based on the content. If the user asks you to switch or change it, do so immediately. Explain your choice briefly: "Went with a glass lower third since the vibe is techy — want me to switch to something bolder?"
 
