@@ -20,32 +20,40 @@ function isImageRequest(body: any): boolean {
 }
 
 async function generateImageWithGateway(prompt: string, apiKey: string): Promise<string> {
-  console.log('Generating image with Lovable AI Gateway');
-  const response = await fetch(GATEWAY_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: IMAGE_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      modalities: ['image', 'text'],
-    }),
-  });
+  const models = [IMAGE_MODEL, 'google/gemini-2.5-flash-image'];
+  for (const model of models) {
+    try {
+      console.log(`Generating image with model: ${model}`);
+      const response = await fetch(GATEWAY_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          modalities: ['image', 'text'],
+        }),
+      });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('AI Gateway image error:', response.status, errorText);
-    throw new Error(`Image generation failed: ${response.status}`);
-  }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`AI Gateway image error (${model}):`, response.status, errorText);
+        continue; // try next model
+      }
 
-  const data = await response.json();
-  const images = data.choices?.[0]?.message?.images;
-  if (images?.length > 0) {
-    return images[0].image_url?.url || '';
+      const data = await response.json();
+      const images = data.choices?.[0]?.message?.images;
+      if (images?.length > 0) {
+        return images[0].image_url?.url || '';
+      }
+      console.error(`No image in response for model ${model}`);
+    } catch (e) {
+      console.error(`Image generation exception (${model}):`, e);
+    }
   }
-  throw new Error('No image in AI Gateway response');
+  throw new Error('Image generation failed after all model attempts');
 }
 
 serve(async (req) => {
@@ -129,8 +137,11 @@ serve(async (req) => {
         });
       } catch (error) {
         console.error('Image generation failed:', error);
-        return new Response(JSON.stringify({ error: 'Failed to generate image' }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return new Response(JSON.stringify({ 
+          error: 'Image generation is temporarily unavailable. Please try again in a moment.',
+          userMessage: 'Image generation is temporarily unavailable. Please try again in a moment.',
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
