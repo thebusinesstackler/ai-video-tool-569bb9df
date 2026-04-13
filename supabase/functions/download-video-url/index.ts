@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
 
     console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
 
-    // Try server-side download with each URL and multiple header strategies
+    // Try server-side download with each URL
     const buildHeaderStrategies = (dlUrl: string, isTunnel: boolean): Record<string, string>[] => {
       const base: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -337,8 +337,86 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Fallback: try alternate YouTube downloader API ──
+    if (platformInfo.platform === 'youtube') {
+      console.log('[download-video-url] Trying fallback YouTube API...');
+      try {
+        const videoId = platformInfo.params.videoId || '';
+        const fallbackUrl = `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`;
+        const fallbackResp = await fetch(fallbackUrl, {
+          headers: {
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'ytstream-download-youtube-videos.p.rapidapi.com',
+          },
+        });
+        if (fallbackResp.ok) {
+          const fbData = await fallbackResp.json();
+          console.log('[download-video-url] Fallback API response status:', fbData.status);
+          // Extract video links from the response
+          const fbLinks: string[] = [];
+          if (fbData.link) fbLinks.push(fbData.link);
+          if (Array.isArray(fbData.formats)) {
+            for (const fmt of fbData.formats) {
+              if (fmt.url && (fmt.mimeType?.includes('video') || fmt.qualityLabel)) {
+                fbLinks.push(fmt.url);
+              }
+            }
+          }
+          if (Array.isArray(fbData.adaptiveFormats)) {
+            for (const fmt of fbData.adaptiveFormats) {
+              if (fmt.url && fmt.mimeType?.includes('video')) {
+                fbLinks.push(fmt.url);
+              }
+            }
+          }
+          console.log(`[download-video-url] Fallback found ${fbLinks.length} links`);
+
+          for (const fbLink of fbLinks) {
+            try {
+              const vResp = await fetch(fbLink, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  'Accept': '*/*',
+                  'Referer': 'https://www.youtube.com/',
+                },
+                redirect: 'follow',
+              });
+              if (vResp.ok || vResp.status === 206) {
+                const ct = vResp.headers.get('content-type') || '';
+                const cl = parseInt(vResp.headers.get('content-length') || '0');
+                if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
+                  const buf = await vResp.arrayBuffer();
+                  if (buf.byteLength > 10000 && buf.byteLength <= 100 * 1024 * 1024) {
+                    console.log(`[download-video-url] Fallback download succeeded: ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB`);
+                    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+                    const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+                    const { error: uploadError } = await adminClient.storage
+                      .from('reels')
+                      .upload(storagePath, buf, { contentType: 'video/mp4', upsert: false });
+                    if (!uploadError) {
+                      const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+                      console.log('[download-video-url] Fallback success! Stored at:', publicUrl);
+                      return new Response(JSON.stringify({ videoUrl: publicUrl }), {
+                        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                      });
+                    }
+                  }
+                }
+                await vResp.arrayBuffer().catch(() => {});
+              } else {
+                await vResp.arrayBuffer().catch(() => {});
+              }
+            } catch (e) {
+              console.log('[download-video-url] Fallback link error:', e);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('[download-video-url] Fallback API error:', e);
+      }
+    }
+
     // All server-side attempts failed — return client-side fallback with first URL
-    // For tunnel URLs, provide the rewritten proxy URL for the client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
 
