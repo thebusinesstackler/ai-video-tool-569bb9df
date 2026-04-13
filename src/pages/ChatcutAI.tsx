@@ -2331,6 +2331,20 @@ const ChatcutAI = () => {
                                 <p className="text-[10px] text-foreground truncate">{ov.text || ov.type}</p>
                                 <p className="text-[9px] text-muted-foreground">{ov.type.replace('_', ' ')} · {ov.duration}s · {ov.start.toFixed(1)}s{ov.imageStatus === 'generating' ? ' · generating...' : ov.imageStatus === 'ready' ? ' · ✓' : ''}</p>
                               </div>
+                              {/* Scale control */}
+                              <div className="flex items-center gap-0.5 flex-shrink-0">
+                                <button
+                                  className="w-5 h-5 rounded text-[9px] bg-muted hover:bg-muted/80 flex items-center justify-center"
+                                  onClick={(e) => { e.stopPropagation(); setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: Math.max(1, (o.scale || 1) - 1) } : o)); }}
+                                  title="Smaller"
+                                >−</button>
+                                <span className="text-[9px] text-muted-foreground w-4 text-center">{ov.scale || 1}x</span>
+                                <button
+                                  className="w-5 h-5 rounded text-[9px] bg-muted hover:bg-muted/80 flex items-center justify-center"
+                                  onClick={(e) => { e.stopPropagation(); setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: Math.min(5, (o.scale || 1) + 1) } : o)); }}
+                                  title="Larger (5 = full screen)"
+                                >+</button>
+                              </div>
                             </div>
                           ))}
                         </div>
