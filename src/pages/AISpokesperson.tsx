@@ -411,6 +411,7 @@ Return ONLY a JSON object:
       parsed.cameraAngle = parsed.cameraAngle || selectedCameraAngle;
       parsed.setting = parsed.setting || selectedSetting;
       parsed.mood = parsed.mood || selectedMood;
+      parsed.performanceDirection = parsed.performanceDirection || `Person speaking expressively to camera with natural hand gestures, gentle camera push-in, ${selectedMoodData?.prompt || 'confident'} energy throughout.`;
 
       setGeneratedScript(parsed);
       toast({ title: 'Script Generated!', description: 'Review and generate your spokesperson video.' });
