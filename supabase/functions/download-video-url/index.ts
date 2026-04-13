@@ -293,22 +293,65 @@ Deno.serve(async (req) => {
 
     console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
 
-    // Try server-side download with each URL
+    // ── Strategy A: Piped API first (most reliable for YouTube) ──
+    if (platformInfo.platform === 'youtube') {
+      const pipedInstances = [
+        'https://pipedapi.kavin.rocks',
+        'https://pipedapi.adminforge.de',
+        'https://api.piped.privacydev.net',
+      ];
+      for (const pipedBase of pipedInstances) {
+        console.log(`[download-video-url] Trying Piped API: ${pipedBase}...`);
+        try {
+          const videoId = platformInfo.params.videoId || '';
+          const pipedResp = await fetch(`${pipedBase}/streams/${videoId}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+          });
+          if (pipedResp.ok) {
+            const pipedData = await pipedResp.json();
+            const pipedLinks: string[] = [];
+            if (Array.isArray(pipedData?.videoStreams)) {
+              const combined = pipedData.videoStreams
+                .filter((s: any) => s.url && s.videoOnly === false)
+                .sort((a: any, b: any) => {
+                  const aq = parseInt(a.quality?.replace('p','') || '0');
+                  const bq = parseInt(b.quality?.replace('p','') || '0');
+                  return bq - aq;
+                });
+              for (const s of combined.slice(0, 3)) {
+                pipedLinks.push(s.url);
+              }
+            }
+            console.log(`[download-video-url] Piped found ${pipedLinks.length} combined streams`);
+            const uploaded = await tryDownloadAndUpload(pipedLinks, user.id, supabaseUrl, supabaseServiceKey);
+            if (uploaded) {
+              return new Response(JSON.stringify({ videoUrl: uploaded }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          } else {
+            console.log(`[download-video-url] Piped ${pipedBase} failed: ${pipedResp.status}`);
+          }
+        } catch (e) {
+          console.log(`[download-video-url] Piped ${pipedBase} error:`, e);
+        }
+      }
+    }
+
+    // ── Strategy B: Try SMVD download URLs (max 3 to save memory) ──
     const buildHeaderStrategies = (dlUrl: string, isTunnel: boolean): Record<string, string>[] => {
       const base: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       };
       return [
-        // Strategy 1: RapidAPI auth (for tunnel URLs rewritten to rapidapi proxy)
         { ...base, 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com', 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0' },
-        // Strategy 2: Plain download with YouTube referer
         { ...base, 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0', 'Referer': 'https://www.youtube.com/' },
-        // Strategy 3: Minimal headers
         { ...base, 'Accept': 'video/mp4,video/*,*/*' },
       ];
     };
 
-    for (const { url: rawDlUrl, isTunnel } of downloadUrls) {
+    // Only try first 3 SMVD URLs to avoid memory issues
+    for (const { url: rawDlUrl, isTunnel } of downloadUrls.slice(0, 3)) {
       // For tunnel URLs, try both the rewritten RapidAPI proxy URL and the original
       const urlsToTry = isTunnel
         ? [rewriteTunnelUrl(rawDlUrl), rawDlUrl]
