@@ -199,6 +199,13 @@ If the user says "switch the B-roll", "change the music", "different style", etc
       });
     }
 
+    if (brandSettings) {
+      allMessages.push({
+        role: "system",
+        content: `The user has configured brand settings in the editor. Use these for all overlays, motion graphics, and creative decisions:\n- Primary Brand Color: ${brandSettings.primaryColor}\n- Text Color: ${brandSettings.textColor}\n- Brand Font: ${brandSettings.font}\n- Has Logo: ${brandSettings.hasLogo ? 'Yes (uploaded)' : 'No'}\n\nWhen generating overlays or title cards, mention using these brand colors. When the user asks for an outro, make it scale: 5 (full screen) by default.`,
+      });
+    }
+
     if (messages && Array.isArray(messages)) {
       allMessages.push(...messages);
     }
