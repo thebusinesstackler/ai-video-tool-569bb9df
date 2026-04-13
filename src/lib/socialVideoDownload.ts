@@ -20,69 +20,40 @@ export async function downloadSocialVideoToStorage(url: string, notify?: (title:
   if (data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl && data?.publicUrl) {
     notify?.('Downloading video...', 'Browser is fetching the video directly.');
 
-    const videoBlob = await new Promise<Blob>((resolve, reject) => {
-      fetch(data.downloadUrl)
-        .then(resp => {
-          if (!resp.ok) throw new Error('fetch failed');
-          return resp.blob();
-        })
-        .then(blob => {
-          if (blob.size < 1000) throw new Error('Downloaded file too small');
-          resolve(blob);
-        })
-        .catch(() => {
-          const video = document.createElement('video');
-          video.muted = true;
-          video.playsInline = true;
-          video.preload = 'auto';
-          video.crossOrigin = 'anonymous';
-          video.src = data.downloadUrl;
+    // Build fetch headers — include RapidAPI key if provided (for tunnel URLs)
+    const fetchHeaders: Record<string, string> = {};
+    if (data.rapidApiKey) {
+      fetchHeaders['X-RapidAPI-Key'] = data.rapidApiKey;
+      fetchHeaders['X-RapidAPI-Host'] = 'social-media-video-downloader.p.rapidapi.com';
+    }
 
-          video.onerror = () => {
-            video.removeAttribute('crossorigin');
-            video.src = '';
-            video.src = data.downloadUrl;
-            video.onerror = () => reject(new Error('Could not download this video. Please upload the file manually.'));
-            video.onloadeddata = () => {
-              try {
-                const stream = (video as HTMLVideoElement & { captureStream?: () => MediaStream; mozCaptureStream?: () => MediaStream }).captureStream?.()
-                  || (video as HTMLVideoElement & { mozCaptureStream?: () => MediaStream }).mozCaptureStream?.();
-                if (!stream) throw new Error('captureStream not supported');
-                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                const chunks: Blob[] = [];
-                recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-                recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
-                recorder.start();
-                video.play();
-                video.onended = () => recorder.stop();
-                setTimeout(() => { try { recorder.stop(); } catch {} }, 120000);
-              } catch {
-                reject(new Error('Could not capture video. Please upload the file manually.'));
-              }
-            };
-          };
+    let videoBlob: Blob | null = null;
 
-          video.onloadeddata = () => {
-            try {
-              const stream = (video as HTMLVideoElement & { captureStream?: () => MediaStream; mozCaptureStream?: () => MediaStream }).captureStream?.()
-                || (video as HTMLVideoElement & { mozCaptureStream?: () => MediaStream }).mozCaptureStream?.();
-              if (!stream) throw new Error('captureStream not supported');
-              const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-              const chunks: Blob[] = [];
-              recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-              recorder.onstop = () => resolve(new Blob(chunks, { type: 'video/webm' }));
-              recorder.start();
-              video.play();
-              video.onended = () => recorder.stop();
-              setTimeout(() => { try { recorder.stop(); } catch {} }, 120000);
-            } catch {
-              reject(new Error('Could not capture video. Please upload the file manually.'));
-            }
-          };
+    // Attempt 1: Direct fetch (with optional RapidAPI auth)
+    try {
+      const resp = await fetch(data.downloadUrl, { headers: fetchHeaders });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        if (blob.size > 1000) {
+          videoBlob = blob;
+        }
+      }
+    } catch {
+      // Attempt 2: Try without extra headers
+      try {
+        const resp = await fetch(data.downloadUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          if (blob.size > 1000) {
+            videoBlob = blob;
+          }
+        }
+      } catch { /* continue to error */ }
+    }
 
-          video.load();
-        });
-    });
+    if (!videoBlob) {
+      throw new Error('Could not download this video from the server. Please upload the video file manually instead.');
+    }
 
     if (videoBlob.size > 100 * 1024 * 1024) {
       throw new Error('Video is too large (max 100MB)');

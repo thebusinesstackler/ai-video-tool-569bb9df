@@ -60,8 +60,8 @@ function detectPlatform(url: string): { platform: string; endpoint: string; para
   return null;
 }
 
-function extractDownloadUrl(platform: string, data: any): string[] {
-  const urls: string[] = [];
+function extractDownloadUrl(platform: string, data: any): { url: string; isTunnel: boolean }[] {
+  const urls: { url: string; isTunnel: boolean }[] = [];
   try {
     let contents = data?.contents;
     if (Array.isArray(contents)) {
@@ -73,17 +73,16 @@ function extractDownloadUrl(platform: string, data: any): string[] {
       const renderables = contents?.renderableVideos;
       if (renderables?.length > 0) {
         for (const rv of renderables) {
-          if (rv.renderConfig?.url) urls.push(rv.renderConfig.url);
+          if (rv.renderConfig?.url) urls.push({ url: rv.renderConfig.url, isTunnel: rv.renderConfig.url.includes('smvd.xyz') });
         }
       }
       // Then regular videos
       const videos = contents?.videos;
       if (videos?.length > 0) {
-        // Prefer non-tunnel URLs
-        const nonTunnel = videos.filter((v: any) => v.url && !v.url.includes('smvd.xyz'));
-        const tunnel = videos.filter((v: any) => v.url && v.url.includes('smvd.xyz'));
+        const nonTunnel = videos.filter((v: any) => v.url && !v.url.includes('smvd'));
+        const tunnel = videos.filter((v: any) => v.url && v.url.includes('smvd'));
         for (const v of [...nonTunnel, ...tunnel]) {
-          if (v.url) urls.push(v.url);
+          if (v.url) urls.push({ url: v.url, isTunnel: v.url.includes('smvd') });
         }
       }
     }
@@ -91,7 +90,7 @@ function extractDownloadUrl(platform: string, data: any): string[] {
     if (platform === 'tiktok' || platform === 'instagram') {
       if (contents?.videos?.length > 0) {
         for (const v of contents.videos) {
-          if (v.url) urls.push(v.url);
+          if (v.url) urls.push({ url: v.url, isTunnel: v.url.includes('smvd') });
         }
       }
     }
@@ -99,6 +98,20 @@ function extractDownloadUrl(platform: string, data: any): string[] {
     console.error('[download-video-url] Error extracting URL:', e);
   }
   return urls;
+}
+
+// Rewrite SMVD direct-domain tunnel URLs to go through the RapidAPI proxy
+function rewriteTunnelUrl(tunnelUrl: string): string {
+  try {
+    const parsed = new URL(tunnelUrl);
+    // e.g. https://api-v3.smvd.xyz/youtube/utils/redirector/tunnel/stream?url_token=...
+    // Rewrite to: https://social-media-video-downloader.p.rapidapi.com/youtube/utils/redirector/tunnel/stream?url_token=...
+    if (parsed.hostname.includes('smvd.xyz') || parsed.hostname.includes('smvd.io')) {
+      parsed.hostname = 'social-media-video-downloader.p.rapidapi.com';
+      return parsed.toString();
+    }
+  } catch { /* */ }
+  return tunnelUrl;
 }
 
 function getDownloadHeaders(rapidApiKey: string, url?: string): Record<string, string> {
@@ -239,80 +252,167 @@ Deno.serve(async (req) => {
 
     console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
 
-    // Try server-side download with each URL and multiple header strategies
-    const buildHeaderStrategies = (dlUrl: string): Record<string, string>[] => {
-      const isTunnelUrl = dlUrl.includes('smvd.xyz');
+    // Try server-side download with each URL
+    const buildHeaderStrategies = (dlUrl: string, isTunnel: boolean): Record<string, string>[] => {
       const base: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       };
-      // SMVD tunnel URLs require RapidAPI credentials
-      if (isTunnelUrl) {
-        base['X-RapidAPI-Key'] = rapidApiKey;
-        base['X-RapidAPI-Host'] = 'social-media-video-downloader.p.rapidapi.com';
-      }
       return [
-        { ...base, 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0', 'Range': 'bytes=0-', 'Referer': 'https://www.youtube.com/' },
-        { ...base, 'Accept': 'video/mp4,video/*,*/*', 'Referer': 'https://www.youtube.com/' },
+        // Strategy 1: RapidAPI auth (for tunnel URLs rewritten to rapidapi proxy)
+        { ...base, 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'social-media-video-downloader.p.rapidapi.com', 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0' },
+        // Strategy 2: Plain download with YouTube referer
+        { ...base, 'Accept': '*/*', 'Accept-Encoding': 'identity;q=1, *;q=0', 'Referer': 'https://www.youtube.com/' },
+        // Strategy 3: Minimal headers
+        { ...base, 'Accept': 'video/mp4,video/*,*/*' },
       ];
     };
 
-    for (const dlUrl of downloadUrls) {
-      const isTunnel = dlUrl.includes('smvd.xyz');
-      console.log(`[download-video-url] Trying URL (tunnel=${isTunnel}): ${dlUrl.substring(0, 80)}`);
+    for (const { url: rawDlUrl, isTunnel } of downloadUrls) {
+      // For tunnel URLs, try both the rewritten RapidAPI proxy URL and the original
+      const urlsToTry = isTunnel
+        ? [rewriteTunnelUrl(rawDlUrl), rawDlUrl]
+        : [rawDlUrl];
 
-      const headerStrategies = buildHeaderStrategies(dlUrl);
-      for (let s = 0; s < headerStrategies.length; s++) {
-        try {
-          const videoResponse = await fetch(dlUrl, {
-            headers: headerStrategies[s],
-            redirect: 'follow',
-          });
+      for (const dlUrl of urlsToTry) {
+        const isProxyUrl = dlUrl.includes('rapidapi.com');
+        console.log(`[download-video-url] Trying URL (tunnel=${isTunnel}, proxy=${isProxyUrl}): ${dlUrl.substring(0, 100)}`);
 
-          if (videoResponse.ok || videoResponse.status === 206) {
-            const ct = videoResponse.headers.get('content-type') || '';
-            const cl = parseInt(videoResponse.headers.get('content-length') || '0');
-            if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
-              const videoBuffer = await videoResponse.arrayBuffer();
-              if (videoBuffer.byteLength < 10000) {
-                console.log(`[download-video-url] Response too small (${videoBuffer.byteLength}b), skipping`);
-                continue;
-              }
-              console.log(`[download-video-url] Download succeeded: ${(videoBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
+        const headerStrategies = buildHeaderStrategies(dlUrl, isTunnel);
+        // For proxy URLs only use strategy 1 (RapidAPI auth); for non-proxy try all
+        const strategiesToTry = isProxyUrl ? [headerStrategies[0]] : headerStrategies;
 
-              if (videoBuffer.byteLength > 100 * 1024 * 1024) {
-                return new Response(JSON.stringify({ error: 'Video is too large (max 100MB)' }), {
-                  status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        for (let s = 0; s < strategiesToTry.length; s++) {
+          try {
+            const videoResponse = await fetch(dlUrl, {
+              headers: strategiesToTry[s],
+              redirect: 'follow',
+            });
+
+            if (videoResponse.ok || videoResponse.status === 206) {
+              const ct = videoResponse.headers.get('content-type') || '';
+              const cl = parseInt(videoResponse.headers.get('content-length') || '0');
+              if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
+                const videoBuffer = await videoResponse.arrayBuffer();
+                if (videoBuffer.byteLength < 10000) {
+                  console.log(`[download-video-url] Response too small (${videoBuffer.byteLength}b), skipping`);
+                  continue;
+                }
+                console.log(`[download-video-url] Download succeeded: ${(videoBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
+
+                if (videoBuffer.byteLength > 100 * 1024 * 1024) {
+                  return new Response(JSON.stringify({ error: 'Video is too large (max 100MB)' }), {
+                    status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                  });
+                }
+
+                const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+                const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+
+                const { error: uploadError } = await adminClient.storage
+                  .from('reels')
+                  .upload(storagePath, videoBuffer, { contentType: 'video/mp4', upsert: false });
+
+                if (uploadError) {
+                  console.error('[download-video-url] Upload error:', uploadError);
+                  return new Response(JSON.stringify({ error: 'Failed to store video' }), {
+                    status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                  });
+                }
+
+                const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+                console.log('[download-video-url] Success! Stored at:', publicUrl);
+                return new Response(JSON.stringify({ videoUrl: publicUrl }), {
+                  status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
               }
-
-              const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-              const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
-
-              const { error: uploadError } = await adminClient.storage
-                .from('reels')
-                .upload(storagePath, videoBuffer, { contentType: 'video/mp4', upsert: false });
-
-              if (uploadError) {
-                console.error('[download-video-url] Upload error:', uploadError);
-                return new Response(JSON.stringify({ error: 'Failed to store video' }), {
-                  status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                });
-              }
-
-              const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
-              console.log('[download-video-url] Success! Stored at:', publicUrl);
-              return new Response(JSON.stringify({ videoUrl: publicUrl }), {
-                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
+              await videoResponse.arrayBuffer();
+            } else {
+              console.log(`[download-video-url] Strategy ${s + 1} failed: ${videoResponse.status}`);
+              await videoResponse.arrayBuffer();
             }
-            await videoResponse.arrayBuffer();
-          } else {
-            console.log(`[download-video-url] Strategy ${s + 1} failed: ${videoResponse.status}`);
-            await videoResponse.arrayBuffer();
+          } catch (e) {
+            console.log(`[download-video-url] Strategy ${s + 1} error:`, e);
           }
-        } catch (e) {
-          console.log(`[download-video-url] Strategy ${s + 1} error:`, e);
         }
+      }
+    }
+
+    // ── Fallback: try alternate YouTube downloader API ──
+    if (platformInfo.platform === 'youtube') {
+      console.log('[download-video-url] Trying fallback YouTube API...');
+      try {
+        const videoId = platformInfo.params.videoId || '';
+        const fallbackUrl = `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`;
+        const fallbackResp = await fetch(fallbackUrl, {
+          headers: {
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'ytstream-download-youtube-videos.p.rapidapi.com',
+          },
+        });
+        if (fallbackResp.ok) {
+          const fbData = await fallbackResp.json();
+          console.log('[download-video-url] Fallback API response status:', fbData.status);
+          // Extract video links from the response
+          const fbLinks: string[] = [];
+          if (fbData.link) fbLinks.push(fbData.link);
+          if (Array.isArray(fbData.formats)) {
+            for (const fmt of fbData.formats) {
+              if (fmt.url && (fmt.mimeType?.includes('video') || fmt.qualityLabel)) {
+                fbLinks.push(fmt.url);
+              }
+            }
+          }
+          if (Array.isArray(fbData.adaptiveFormats)) {
+            for (const fmt of fbData.adaptiveFormats) {
+              if (fmt.url && fmt.mimeType?.includes('video')) {
+                fbLinks.push(fmt.url);
+              }
+            }
+          }
+          console.log(`[download-video-url] Fallback found ${fbLinks.length} links`);
+
+          for (const fbLink of fbLinks) {
+            try {
+              const vResp = await fetch(fbLink, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  'Accept': '*/*',
+                  'Referer': 'https://www.youtube.com/',
+                },
+                redirect: 'follow',
+              });
+              if (vResp.ok || vResp.status === 206) {
+                const ct = vResp.headers.get('content-type') || '';
+                const cl = parseInt(vResp.headers.get('content-length') || '0');
+                if (ct.includes('video') || ct.includes('octet-stream') || cl > 100000) {
+                  const buf = await vResp.arrayBuffer();
+                  if (buf.byteLength > 10000 && buf.byteLength <= 100 * 1024 * 1024) {
+                    console.log(`[download-video-url] Fallback download succeeded: ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB`);
+                    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+                    const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+                    const { error: uploadError } = await adminClient.storage
+                      .from('reels')
+                      .upload(storagePath, buf, { contentType: 'video/mp4', upsert: false });
+                    if (!uploadError) {
+                      const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+                      console.log('[download-video-url] Fallback success! Stored at:', publicUrl);
+                      return new Response(JSON.stringify({ videoUrl: publicUrl }), {
+                        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                      });
+                    }
+                  }
+                }
+                await vResp.arrayBuffer().catch(() => {});
+              } else {
+                await vResp.arrayBuffer().catch(() => {});
+              }
+            } catch (e) {
+              console.log('[download-video-url] Fallback link error:', e);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('[download-video-url] Fallback API error:', e);
       }
     }
 
@@ -333,10 +433,16 @@ Deno.serve(async (req) => {
 
     const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
 
+    // Provide the best URL for client-side fallback
+    const clientUrl = downloadUrls[0].isTunnel
+      ? rewriteTunnelUrl(downloadUrls[0].url)
+      : downloadUrls[0].url;
+
     console.log('[download-video-url] Returning client-side download fallback');
     return new Response(JSON.stringify({
       clientDownload: true,
-      downloadUrl: downloadUrls[0],
+      downloadUrl: clientUrl,
+      rapidApiKey: downloadUrls[0].isTunnel ? rapidApiKey : undefined,
       signedUploadUrl: signedData.signedUrl,
       uploadToken: signedData.token,
       storagePath,
