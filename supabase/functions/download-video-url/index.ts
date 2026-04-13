@@ -421,39 +421,24 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Fallback 1: try ytstream YouTube downloader API ──
+    // ── Fallback: ytstream API ──
     if (platformInfo.platform === 'youtube') {
-      console.log('[download-video-url] Trying fallback YouTube API (ytstream)...');
+      console.log('[download-video-url] Trying ytstream fallback...');
       try {
         const videoId = platformInfo.params.videoId || '';
-        const fallbackUrl = `https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`;
-        const fallbackResp = await fetch(fallbackUrl, {
-          headers: {
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'ytstream-download-youtube-videos.p.rapidapi.com',
-          },
+        const fallbackResp = await fetch(`https://ytstream-download-youtube-videos.p.rapidapi.com/dl?id=${videoId}`, {
+          headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'ytstream-download-youtube-videos.p.rapidapi.com' },
         });
         if (fallbackResp.ok) {
           const fbData = await fallbackResp.json();
-          console.log('[download-video-url] ytstream response status:', fbData.status);
           const fbLinks: string[] = [];
           if (fbData.link) fbLinks.push(fbData.link);
           if (Array.isArray(fbData.formats)) {
             for (const fmt of fbData.formats) {
-              if (fmt.url && (fmt.mimeType?.includes('video') || fmt.qualityLabel)) {
-                fbLinks.push(fmt.url);
-              }
+              if (fmt.url && (fmt.mimeType?.includes('video') || fmt.qualityLabel)) fbLinks.push(fmt.url);
             }
           }
-          if (Array.isArray(fbData.adaptiveFormats)) {
-            for (const fmt of fbData.adaptiveFormats) {
-              if (fmt.url && fmt.mimeType?.includes('video')) {
-                fbLinks.push(fmt.url);
-              }
-            }
-          }
-          console.log(`[download-video-url] ytstream found ${fbLinks.length} links`);
-          const uploaded = await tryDownloadAndUpload(fbLinks, user.id, supabaseUrl, supabaseServiceKey);
+          const uploaded = await tryDownloadAndUpload(fbLinks.slice(0, 3), user.id, supabaseUrl, supabaseServiceKey);
           if (uploaded) {
             return new Response(JSON.stringify({ videoUrl: uploaded }), {
               status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -461,48 +446,7 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
-        console.log('[download-video-url] ytstream API error:', e);
-      }
-
-      // ── Fallback 2: Piped API (open-source YouTube proxy) ──
-      const pipedInstances = [
-        'https://pipedapi.kavin.rocks',
-        'https://pipedapi.adminforge.de',
-        'https://api.piped.privacydev.net',
-      ];
-      for (const pipedBase of pipedInstances) {
-        console.log(`[download-video-url] Trying Piped API: ${pipedBase}...`);
-        try {
-          const videoId = platformInfo.params.videoId || '';
-          const pipedResp = await fetch(`${pipedBase}/streams/${videoId}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-          });
-          if (pipedResp.ok) {
-            const pipedData = await pipedResp.json();
-            const pipedLinks: string[] = [];
-            // videoStreams have both video+audio combined
-            if (Array.isArray(pipedData?.videoStreams)) {
-              // Sort by quality, prefer 720p or lower for size
-              const combined = pipedData.videoStreams
-                .filter((s: any) => s.url && s.videoOnly === false)
-                .sort((a: any, b: any) => (b.quality?.replace('p','') || 0) - (a.quality?.replace('p','') || 0));
-              for (const s of combined) {
-                pipedLinks.push(s.url);
-              }
-            }
-            console.log(`[download-video-url] Piped found ${pipedLinks.length} combined streams`);
-            const uploaded = await tryDownloadAndUpload(pipedLinks, user.id, supabaseUrl, supabaseServiceKey);
-            if (uploaded) {
-              return new Response(JSON.stringify({ videoUrl: uploaded }), {
-                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
-            }
-          } else {
-            console.log(`[download-video-url] Piped ${pipedBase} failed: ${pipedResp.status}`);
-          }
-        } catch (e) {
-          console.log(`[download-video-url] Piped ${pipedBase} error:`, e);
-        }
+        console.log('[download-video-url] ytstream error:', e);
       }
     }
 
