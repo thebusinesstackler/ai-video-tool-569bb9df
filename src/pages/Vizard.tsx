@@ -122,6 +122,10 @@ export default function Vizard() {
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
+  // Project rename
+  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
   const fetchProjects = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
