@@ -48,6 +48,7 @@ const PLATFORMS = [
   { value: 'tiktok', label: 'TikTok' },
   { value: 'instagram-reels', label: 'Instagram Reels' },
   { value: 'youtube-shorts', label: 'YouTube Shorts' },
+  { value: 'youtube', label: 'YouTube (Wide)' },
   { value: 'paid-social', label: 'Paid Social Ads' },
 ];
 
