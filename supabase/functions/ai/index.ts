@@ -137,8 +137,11 @@ serve(async (req) => {
         });
       } catch (error) {
         console.error('Image generation failed:', error);
-        return new Response(JSON.stringify({ error: 'Failed to generate image' }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return new Response(JSON.stringify({ 
+          error: 'Image generation is temporarily unavailable. Please try again in a moment.',
+          userMessage: 'Image generation is temporarily unavailable. Please try again in a moment.',
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
