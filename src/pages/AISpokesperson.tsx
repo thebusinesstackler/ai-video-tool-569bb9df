@@ -847,7 +847,21 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                         "{generatedScript.narration}"
                       </p>
                     </div>
-                  </div>
+                    </div>
+
+                  {/* Performance Direction */}
+                  {generatedScript.performanceDirection && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Film className="w-4 h-4 text-primary" /> Performance Direction
+                      </Label>
+                      <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {generatedScript.performanceDirection}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Production settings summary */}
                   <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-1 text-xs text-muted-foreground">
@@ -855,7 +869,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                     <p><span className="font-medium text-foreground">Mood:</span> {MOODS.find(m => m.id === (generatedScript.mood || selectedMood))?.name}</p>
                     <p><span className="font-medium text-foreground">Camera:</span> {CAMERA_ANGLES.find(a => a.id === (generatedScript.cameraAngle || selectedCameraAngle))?.name}</p>
                     <p><span className="font-medium text-foreground">Duration:</span> ~{selectedDuration}s</p>
-                    <p><span className="font-medium text-foreground">Output:</span> Single continuous talking-head clip</p>
+                    <p><span className="font-medium text-foreground">Model:</span> Avatar Omni Human 1.5 (expressive)</p>
                   </div>
                 </div>
               </div>
