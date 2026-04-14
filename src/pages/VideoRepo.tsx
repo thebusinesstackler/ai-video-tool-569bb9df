@@ -639,7 +639,200 @@ Then provide a final **VIDEO PROMPT** block:
     }
   };
 
-  // === Import tab handlers ===
+  // === Follow-up chat handler ===
+  const handleFollowUp = async () => {
+    const trimmed = followUpPrompt.trim();
+    if (!trimmed && !followUpImageUrl) return;
+    if (isAnalyzing || isGenerating) return;
+
+    // Upload new product image if provided
+    let newImageUrl: string | null = lastPersistentImageUrl;
+    if (followUpImageFile) {
+      try {
+        newImageUrl = await uploadFileToStorage(followUpImageFile, 'images');
+        setLastPersistentImageUrl(newImageUrl);
+      } catch (err: any) {
+        toast({ title: 'Image upload failed', description: err.message, variant: 'destructive' });
+        return;
+      }
+    }
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmed || 'Update the video with the new product image.',
+      attachments: followUpImageUrl ? [{ type: 'image' as const, url: followUpImageUrl, name: followUpImageName }] : [],
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setFollowUpPrompt('');
+    setFollowUpImageFile(null);
+    setFollowUpImageUrl(null);
+    setFollowUpImageName('');
+    setIsAnalyzing(true);
+    scrollToBottom('auto');
+
+    try {
+      // Build conversation history for AI context
+      const conversationHistory = messages.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+      const contentParts: any[] = [];
+      if (newImageUrl && followUpImageFile) {
+        contentParts.push({ type: 'text', text: 'The user has provided a new product image to use:' });
+        contentParts.push({ type: 'image_url', image_url: { url: newImageUrl } });
+      }
+      contentParts.push({
+        type: 'text',
+        text: `User feedback: "${trimmed}"
+
+Previous video prompt was:
+\`\`\`
+${lastVideoPrompt || 'N/A'}
+\`\`\`
+
+Based on the user's feedback, revise the script and provide an updated **VIDEO PROMPT** block:
+
+\`\`\`video-prompt
+[Your revised detailed video generation prompt — 80-150 words. Incorporate the user's requested changes.]
+\`\`\``,
+      });
+
+      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
+
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...conversationHistory,
+            { role: 'user', content: contentParts.length > 1 ? contentParts : contentParts[contentParts.length - 1].text },
+          ],
+        },
+      });
+
+      if (aiError) throw new Error(typeof aiError === 'object' && 'message' in aiError ? aiError.message : 'AI analysis failed');
+      if (!aiData?.response) throw new Error('No response from AI');
+
+      const responseText = aiData.response;
+      const videoPromptMatch = responseText.match(/```video-prompt\n([\s\S]*?)```/);
+
+      if (videoPromptMatch) {
+        const newVideoPrompt = videoPromptMatch[1].trim();
+        setLastVideoPrompt(newVideoPrompt);
+
+        // Update DB
+        if (currentProjectId) {
+          await supabase.from('video_repo_projects').update({
+            video_prompt: newVideoPrompt,
+            product_image_url: newImageUrl,
+            status: 'generating',
+          }).eq('id', currentProjectId);
+        }
+      }
+
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: responseText,
+      };
+      setMessages(prev => [...prev, assistantMsg]);
+      setIsAnalyzing(false);
+
+      // Auto-generate if video prompt found
+      if (videoPromptMatch) {
+        const newVideoPrompt = videoPromptMatch[1].trim();
+        setIsGenerating(true);
+
+        const generatingMsg: ChatMessage = {
+          id: `assistant-gen-${Date.now()}`,
+          role: 'assistant',
+          content: '🎬 Regenerating your video with the updated script...',
+        };
+        setMessages(prev => [...prev, generatingMsg]);
+
+        try {
+          const taskId = await createWaveSpeedVideo({
+            prompt: newVideoPrompt,
+            model: 'sora-2',
+            aspectRatio: '9:16',
+            duration: 10,
+            userId: user?.id,
+            source: 'video-repo',
+            ...(newImageUrl ? { imageUrls: [newImageUrl] } : {}),
+          });
+
+          let attempts = 0;
+          const maxAttempts = 120;
+          while (attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 5000));
+            const job = await getWaveSpeedVideoJob(taskId);
+            if (job.status === 'completed' && job.videoUrl) {
+              if (currentProjectId) {
+                await supabase.from('video_repo_projects').update({
+                  generated_video_url: job.videoUrl,
+                  status: 'completed',
+                }).eq('id', currentProjectId);
+              }
+
+              const resultMsg: ChatMessage = {
+                id: `result-${Date.now()}`,
+                role: 'assistant',
+                content: '✅ Updated video is ready! Review it below — feel free to send more feedback to iterate further.',
+                videoResult: { url: job.videoUrl, status: 'completed' },
+              };
+              setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(resultMsg));
+              fetchHistory();
+              break;
+            }
+            if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
+            attempts++;
+          }
+          if (attempts >= maxAttempts) throw new Error('Generation timed out');
+        } catch (genErr: any) {
+          if (currentProjectId) {
+            await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', currentProjectId);
+          }
+          const errorMsg: ChatMessage = {
+            id: `error-${Date.now()}`,
+            role: 'assistant',
+            content: `⚠️ Regeneration failed: ${genErr.message}. You can try again with different feedback.`,
+          };
+          setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(errorMsg));
+        }
+        setIsGenerating(false);
+      }
+      fetchHistory();
+    } catch (err: any) {
+      console.error('[VideoRepo] Follow-up error:', err);
+      const errorMsg: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: `❌ ${err.message}. Please try again.`,
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      setIsAnalyzing(false);
+      setIsGenerating(false);
+    }
+  };
+
+  const handleFollowUpImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFollowUpImageName(file.name);
+    setFollowUpImageFile(file);
+    const url = await fileToDataUrl(file);
+    if (url) setFollowUpImageUrl(url);
+    e.target.value = '';
+  };
+
+  const handleFollowUpKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleFollowUp();
+    }
+  };
+
   const resetImport = () => {
     if (importVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(importVideoUrl);
     setImportFile(null);
