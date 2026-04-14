@@ -73,7 +73,7 @@ serve(async (req) => {
 
     for (const style of styles) {
       const basePrompt = STYLE_PROMPTS[style] || STYLE_PROMPTS.lifestyle;
-      const contextPrompt = `Product: "${productName || "product"}"${productDescription ? `. Description: ${productDescription}` : ""}. ${basePrompt}`;
+      const contextPrompt = `This image contains a product called "${productName || "product"}"${productDescription ? ` — ${productDescription}` : ""}. IMPORTANT: You must keep the product/bottle EXACTLY the same (same label, colors, shape, branding) but change everything else about the scene. ${basePrompt}`;
 
       console.log(`Generating ${style} variation for product ${productId}`);
 
