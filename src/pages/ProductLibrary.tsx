@@ -654,6 +654,7 @@ export default function ProductLibrary() {
         </div>
       </Layout>
     );
+  }
 
   // Products list for a brand
   if (selectedBrand) {
