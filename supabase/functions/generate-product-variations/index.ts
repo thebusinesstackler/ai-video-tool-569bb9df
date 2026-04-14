@@ -73,7 +73,7 @@ serve(async (req) => {
 
     for (const style of styles) {
       const basePrompt = STYLE_PROMPTS[style] || STYLE_PROMPTS.lifestyle;
-      const contextPrompt = `This image contains a product called "${productName || "product"}"${productDescription ? ` — ${productDescription}` : ""}. IMPORTANT: You must keep the product/bottle EXACTLY the same (same label, colors, shape, branding) but change everything else about the scene. ${basePrompt}`;
+      const contextPrompt = `The image below contains a product called "${productName || "product"}"${productDescription ? ` (${productDescription})` : ""}. CRITICAL INSTRUCTION: The product/bottle in this image must remain EXACTLY as-is — preserve every pixel of the label, text, colors, shape, and branding. Do NOT regenerate, redraw, or approximate the product. Only modify the environment around it. Output a high-resolution, sharp, photorealistic image. ${basePrompt}`;
 
       console.log(`Generating ${style} variation for product ${productId}`);
 
