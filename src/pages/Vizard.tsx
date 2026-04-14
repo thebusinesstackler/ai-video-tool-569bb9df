@@ -535,14 +535,18 @@ export default function Vizard() {
                   return (
                     <Card key={video.videoId} className="overflow-hidden">
                       <CardContent className="p-0">
-                        {/* Video preview — native aspect ratio */}
+                        {/* Video preview — native aspect ratio, HD source */}
                         <video
-                          src={video.videoUrl}
+                          src={`${video.videoUrl}#t=0.5`}
                           controls
                           playsInline
                           preload="metadata"
-                          className="w-full"
+                          className="w-full cursor-pointer"
                           style={{ backgroundColor: 'hsl(var(--muted))' }}
+                          onDoubleClick={(e) => {
+                            const vid = e.currentTarget;
+                            if (vid.requestFullscreen) vid.requestFullscreen();
+                          }}
                         />
                         <div className="p-4 space-y-3">
                           {editingClipId === clip?.id ? (
