@@ -147,7 +147,7 @@ export default function ProductLibrary() {
   const createProduct = async () => {
     if (!user || !selectedBrand || !productForm.name.trim()) return;
     const benefits = productForm.benefits.split(',').map(b => b.trim()).filter(Boolean);
-    const { error } = await supabase.from('products').insert({
+    const { data: inserted, error } = await supabase.from('products').insert({
       user_id: user.id,
       brand_id: selectedBrand.id,
       name: productForm.name.trim(),
@@ -156,13 +156,19 @@ export default function ProductLibrary() {
       benefits: benefits.length > 0 ? benefits : null,
       target_audience: productForm.target_audience.trim() || null,
       youtube_short_url: productForm.youtube_short_url.trim() || null,
-    } as any);
+    } as any).select().single();
     if (error) { toast.error('Failed to create product'); return; }
-    toast.success(`Product "${productForm.name}" created`);
+    toast.success(`Product "${productForm.name}" created — upload images now`);
     setProductForm({ name: '', description: '', category: '', benefits: '', target_audience: '', youtube_short_url: '' });
     setShowNewProduct(false);
-    loadProducts(selectedBrand.id);
     loadBrands(); // refresh counts
+
+    // Auto-navigate to the new product detail so user can upload images
+    if (inserted) {
+      setSelectedProduct(inserted as Product);
+    } else {
+      loadProducts(selectedBrand.id);
+    }
   };
 
   const deleteProduct = async (id: string, e: React.MouseEvent) => {
