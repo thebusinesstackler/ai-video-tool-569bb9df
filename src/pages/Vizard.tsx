@@ -530,10 +530,16 @@ export default function Vizard() {
               </a>
             )}
             {activeProject.status === 'ready' && (
-              <Button size="sm" variant="outline" className="ml-auto" onClick={() => sendToChatcut()}>
-                <Send className="w-4 h-4 mr-2" />
-                Open in Chatcut AI
-              </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button size="sm" variant="ghost" onClick={() => refreshVizardUrls(activeProject)} disabled={refreshingUrls}>
+                  <RefreshCw className={cn("w-4 h-4 mr-1", refreshingUrls && "animate-spin")} />
+                  {refreshingUrls ? 'Refreshing…' : 'Refresh'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => sendToChatcut()}>
+                  <Send className="w-4 h-4 mr-2" />
+                  Open in Chatcut AI
+                </Button>
+              </div>
             )}
           </div>
 
