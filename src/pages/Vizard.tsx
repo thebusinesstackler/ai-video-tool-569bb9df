@@ -504,7 +504,7 @@ export default function Vizard() {
                     Vizard AI is processing your video — this may take a few minutes...
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Polling every 30 seconds. You can leave and come back.
+                    You'll be notified automatically when clips are ready. You can leave and come back.
                   </p>
                 </div>
               </CardContent>
