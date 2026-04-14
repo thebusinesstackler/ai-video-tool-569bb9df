@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import {
   Package, Plus, Trash2, ArrowLeft, Image as ImageIcon, Loader2,
   Building2, Upload, ChevronRight, Star, Youtube, Edit2,
-  Sparkles, Wand2,
+  Sparkles, Wand2, Palette,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,15 @@ interface GalleryImage {
   is_primary: boolean;
 }
 
+interface GraphicImage {
+  id: string;
+  product_id: string;
+  image_url: string;
+  label: string | null;
+  source_style: string | null;
+  is_original: boolean;
+}
+
 const VARIATION_STYLES = [
   { key: 'lifestyle', label: 'Lifestyle Setting', icon: '🏡', desc: 'Warm home setting' },
   { key: 'white_bg', label: 'White Background', icon: '⬜', desc: 'Clean e-commerce shot' },
@@ -59,11 +68,14 @@ export default function ProductLibrary() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [graphics, setGraphics] = useState<GraphicImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showNewBrand, setShowNewBrand] = useState(false);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingGraphic, setIsUploadingGraphic] = useState(false);
   const [viewingImage, setViewingImage] = useState<GalleryImage | null>(null);
+  const [viewingGraphic, setViewingGraphic] = useState<GraphicImage | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
   const [isSavingLabel, setIsSavingLabel] = useState(false);
   const [generatingVariation, setGeneratingVariation] = useState<string | null>(null); // style key or 'all'
@@ -119,9 +131,25 @@ export default function ProductLibrary() {
     setGallery((data || []) as GalleryImage[]);
   }, [user]);
 
+  const loadGraphics = useCallback(async (productId: string) => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('product_graphics')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('product_id', productId)
+      .order('is_original', { ascending: false });
+    setGraphics((data || []) as GraphicImage[]);
+  }, [user]);
+
   useEffect(() => { loadBrands(); }, [loadBrands]);
   useEffect(() => { if (selectedBrand) loadProducts(selectedBrand.id); }, [selectedBrand, loadProducts]);
-  useEffect(() => { if (selectedProduct) loadGallery(selectedProduct.id); }, [selectedProduct, loadGallery]);
+  useEffect(() => {
+    if (selectedProduct) {
+      loadGallery(selectedProduct.id);
+      loadGraphics(selectedProduct.id);
+    }
+  }, [selectedProduct, loadGallery, loadGraphics]);
 
   const createBrand = async () => {
     if (!user || !brandForm.name.trim()) return;
@@ -176,7 +204,7 @@ export default function ProductLibrary() {
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) { toast.error('Failed to delete product'); return; }
     toast.success('Product deleted');
-    if (selectedProduct?.id === id) { setSelectedProduct(null); setGallery([]); }
+    if (selectedProduct?.id === id) { setSelectedProduct(null); setGallery([]); setGraphics([]); }
     if (selectedBrand) loadProducts(selectedBrand.id);
     loadBrands();
   };
@@ -243,8 +271,42 @@ export default function ProductLibrary() {
     setIsSavingLabel(false);
   };
 
-  // Generate variations
-  const generateVariation = async (sourceImage: GalleryImage, styles: string[]) => {
+  // Upload graphic
+  const uploadGraphic = async (file: File) => {
+    if (!user || !selectedProduct) return;
+    setIsUploadingGraphic(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/graphics/${selectedProduct.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('project-files').upload(path, file);
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path);
+      const imageUrl = urlData.publicUrl;
+
+      const { error } = await supabase.from('product_graphics').insert({
+        user_id: user.id, product_id: selectedProduct.id, image_url: imageUrl, is_original: true,
+      } as any);
+      if (error) throw error;
+      toast.success('Graphic uploaded');
+      loadGraphics(selectedProduct.id);
+    } catch (err: any) {
+      toast.error('Upload failed');
+      console.error(err);
+    } finally {
+      setIsUploadingGraphic(false);
+    }
+  };
+
+  const deleteGraphic = async (id: string) => {
+    const { error } = await supabase.from('product_graphics').delete().eq('id', id);
+    if (error) { toast.error('Failed to delete graphic'); return; }
+    toast.success('Graphic deleted');
+    if (selectedProduct) loadGraphics(selectedProduct.id);
+  };
+
+  // Generate variations from a graphic
+  const generateVariation = async (sourceImage: GraphicImage, styles: string[]) => {
     if (!selectedProduct || !user) return;
     const styleKey = styles.length === 1 ? styles[0] : 'all';
     setGeneratingVariation(styleKey);
@@ -258,6 +320,7 @@ export default function ProductLibrary() {
           productDescription: selectedProduct.description,
           variationStyle: styles.length === 1 ? styles[0] : styles,
           productId: selectedProduct.id,
+          targetTable: 'product_graphics',
         },
       });
 
@@ -271,7 +334,7 @@ export default function ProductLibrary() {
       const count = data?.results?.length || 0;
       if (count > 0) {
         toast.success(`${count} variation${count > 1 ? 's' : ''} generated!`);
-        loadGallery(selectedProduct.id);
+        loadGraphics(selectedProduct.id);
       } else {
         toast.error('No variations generated — try again');
       }
@@ -294,7 +357,7 @@ export default function ProductLibrary() {
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => { setSelectedProduct(null); setGallery([]); }}>
+            <Button variant="ghost" size="icon" onClick={() => { setSelectedProduct(null); setGallery([]); setGraphics([]); }}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
@@ -340,7 +403,7 @@ export default function ProductLibrary() {
               </Card>
             </div>
 
-            {/* Right: Image Gallery */}
+            {/* Right: Reference Images */}
             <div className="space-y-4">
               <Card>
                 <CardHeader className="pb-2">
@@ -348,43 +411,26 @@ export default function ProductLibrary() {
                     <CardTitle className="text-sm flex items-center gap-2">
                       <ImageIcon className="h-4 w-4" /> Product Images
                       <Badge variant="secondary" className="text-[10px]">{gallery.length}</Badge>
+                      <span className="text-[10px] text-muted-foreground font-normal">(reference)</span>
                     </CardTitle>
-                    <div className="flex gap-1.5">
-                      {primaryImage && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 text-xs"
-                          disabled={!!generatingVariation}
-                          onClick={() => generateVariation(primaryImage, VARIATION_STYLES.map(s => s.key))}
-                        >
-                          {generatingVariation === 'all' ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-3 w-3" />
-                          )}
-                          Generate All
-                        </Button>
-                      )}
-                      <label className="cursor-pointer">
-                        <input type="file" accept="image/*" className="hidden" multiple onChange={(e) => {
-                          Array.from(e.target.files || []).forEach(uploadImage);
-                        }} />
-                        <Button variant="outline" size="sm" className="gap-1 text-xs pointer-events-none" asChild>
-                          <span>{isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload</span>
-                        </Button>
-                      </label>
-                    </div>
+                    <label className="cursor-pointer">
+                      <input type="file" accept="image/*" className="hidden" multiple onChange={(e) => {
+                        Array.from(e.target.files || []).forEach(uploadImage);
+                      }} />
+                      <Button variant="outline" size="sm" className="gap-1 text-xs pointer-events-none" asChild>
+                        <span>{isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload</span>
+                      </Button>
+                    </label>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {gallery.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                      <p className="text-xs">No images yet. Upload product photos.</p>
+                    <div className="text-center py-6 text-muted-foreground">
+                      <ImageIcon className="h-6 w-6 mx-auto mb-2 opacity-30" />
+                      <p className="text-xs">Upload product reference photos.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {gallery.map(img => (
                         <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden border cursor-pointer"
                           onClick={() => openImageViewer(img)}>
@@ -394,23 +440,7 @@ export default function ProductLibrary() {
                               <Star className="h-2 w-2 mr-0.5" /> Primary
                             </Badge>
                           )}
-                          {img.label && (
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
-                              <p className="text-[9px] text-white truncate">{img.label}</p>
-                            </div>
-                          )}
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
-                            <Button size="icon" variant="secondary" className="h-7 w-7"
-                              onClick={(e) => { e.stopPropagation(); setShowVariationPicker(img.id); }}
-                              disabled={!!generatingVariation}
-                              title="Generate variations"
-                            >
-                              {generatingVariation && showVariationPicker === img.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Wand2 className="h-3 w-3" />
-                              )}
-                            </Button>
                             {!img.is_primary && (
                               <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPrimary(img.id); }}>
                                 <Star className="h-3 w-3" />
@@ -429,6 +459,94 @@ export default function ProductLibrary() {
             </div>
           </div>
 
+          {/* Product Graphics Section - full width below */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Palette className="h-4 w-4" /> Product Graphics
+                  <Badge variant="secondary" className="text-[10px]">{graphics.length}</Badge>
+                </CardTitle>
+                <div className="flex gap-1.5">
+                  {graphics.filter(g => g.is_original).length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-xs"
+                      disabled={!!generatingVariation}
+                      onClick={() => {
+                        const original = graphics.find(g => g.is_original);
+                        if (original) generateVariation(original, VARIATION_STYLES.map(s => s.key));
+                      }}
+                    >
+                      {generatingVariation === 'all' ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                      Generate All
+                    </Button>
+                  )}
+                  <label className="cursor-pointer">
+                    <input type="file" accept="image/*" className="hidden" multiple onChange={(e) => {
+                      Array.from(e.target.files || []).forEach(uploadGraphic);
+                    }} />
+                    <Button variant="outline" size="sm" className="gap-1 text-xs pointer-events-none" asChild>
+                      <span>{isUploadingGraphic ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload Graphic</span>
+                    </Button>
+                  </label>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {graphics.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Palette className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-xs">Upload product graphics to generate variations.</p>
+                  <p className="text-[10px] mt-1">These are your marketing graphics — upload them and click Generate to create lifestyle, studio, flat lay, and more.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {graphics.map(gfx => (
+                    <div key={gfx.id} className="relative group aspect-square rounded-lg overflow-hidden border cursor-pointer"
+                      onClick={() => setViewingGraphic(gfx)}>
+                      <img src={gfx.image_url} alt={gfx.label || 'Graphic'} className="w-full h-full object-cover" />
+                      {gfx.is_original && (
+                        <Badge className="absolute top-1 left-1 text-[8px] h-4 bg-primary/80">Original</Badge>
+                      )}
+                      {gfx.source_style && !gfx.is_original && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
+                          <p className="text-[9px] text-white truncate">{gfx.source_style}</p>
+                        </div>
+                      )}
+                      {gfx.label && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
+                          <p className="text-[9px] text-white truncate">{gfx.label}</p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                        <Button size="icon" variant="secondary" className="h-7 w-7"
+                          onClick={(e) => { e.stopPropagation(); setShowVariationPicker(gfx.id); }}
+                          disabled={!!generatingVariation}
+                          title="Generate variations"
+                        >
+                          {generatingVariation && showVariationPicker === gfx.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Wand2 className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <Button size="icon" variant="destructive" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); deleteGraphic(gfx.id); }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Variation Style Picker Dialog */}
           <Dialog open={!!showVariationPicker} onOpenChange={(open) => { if (!open) setShowVariationPicker(null); }}>
             <DialogContent className="max-w-sm">
@@ -439,7 +557,7 @@ export default function ProductLibrary() {
               </DialogHeader>
               <div className="grid grid-cols-2 gap-2">
                 {VARIATION_STYLES.map(style => {
-                  const sourceImg = gallery.find(g => g.id === showVariationPicker);
+                  const sourceImg = graphics.find(g => g.id === showVariationPicker);
                   return (
                     <Button
                       key={style.key}
@@ -465,7 +583,7 @@ export default function ProductLibrary() {
                 className="w-full gap-1.5 mt-1"
                 disabled={!!generatingVariation}
                 onClick={() => {
-                  const sourceImg = gallery.find(g => g.id === showVariationPicker);
+                  const sourceImg = graphics.find(g => g.id === showVariationPicker);
                   if (sourceImg) generateVariation(sourceImg, VARIATION_STYLES.map(s => s.key));
                 }}
               >
@@ -475,11 +593,11 @@ export default function ProductLibrary() {
             </DialogContent>
           </Dialog>
 
-          {/* Image Viewer Dialog */}
+          {/* Image Viewer Dialog (reference images) */}
           <Dialog open={!!viewingImage} onOpenChange={(open) => { if (!open) setViewingImage(null); }}>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle className="text-sm">Product Image</DialogTitle>
+                <DialogTitle className="text-sm">Product Image (Reference)</DialogTitle>
               </DialogHeader>
               {viewingImage && (
                 <div className="space-y-4">
@@ -499,6 +617,22 @@ export default function ProductLibrary() {
                       Rename
                     </Button>
                   </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Graphic Viewer Dialog */}
+          <Dialog open={!!viewingGraphic} onOpenChange={(open) => { if (!open) setViewingGraphic(null); }}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-sm">Product Graphic</DialogTitle>
+              </DialogHeader>
+              {viewingGraphic && (
+                <div className="space-y-4">
+                  <div className="rounded-lg overflow-hidden border bg-muted flex items-center justify-center max-h-[60vh]">
+                    <img src={viewingGraphic.image_url} alt={viewingGraphic.label || 'Graphic'} className="max-w-full max-h-[60vh] object-contain" />
+                  </div>
                   <div className="flex gap-1.5">
                     <Button
                       variant="outline"
@@ -506,8 +640,8 @@ export default function ProductLibrary() {
                       className="gap-1 text-xs"
                       disabled={!!generatingVariation}
                       onClick={() => {
-                        setViewingImage(null);
-                        setTimeout(() => setShowVariationPicker(viewingImage.id), 200);
+                        setViewingGraphic(null);
+                        setTimeout(() => setShowVariationPicker(viewingGraphic.id), 200);
                       }}
                     >
                       <Wand2 className="h-3 w-3" /> Generate Variations

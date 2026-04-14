@@ -51,7 +51,7 @@ serve(async (req) => {
       });
     }
 
-    const { imageUrl, productName, productDescription, variationStyle, productId } = await req.json();
+    const { imageUrl, productName, productDescription, variationStyle, productId, targetTable } = await req.json();
 
     if (!imageUrl || !variationStyle || !productId) {
       return new Response(
@@ -147,15 +147,27 @@ serve(async (req) => {
 
       const publicUrl = urlData.publicUrl;
 
-      // Insert into product_gallery
+      // Insert into appropriate table
       const styleLabel = style.charAt(0).toUpperCase() + style.slice(1).replace(/_/g, " ") + " Variation";
-      await supabase.from("product_gallery").insert({
-        user_id: user.id,
-        product_id: productId,
-        image_url: publicUrl,
-        label: styleLabel,
-        is_primary: false,
-      });
+      
+      if (targetTable === "product_graphics") {
+        await supabase.from("product_graphics").insert({
+          user_id: user.id,
+          product_id: productId,
+          image_url: publicUrl,
+          label: styleLabel,
+          source_style: style,
+          is_original: false,
+        });
+      } else {
+        await supabase.from("product_gallery").insert({
+          user_id: user.id,
+          product_id: productId,
+          image_url: publicUrl,
+          label: styleLabel,
+          is_primary: false,
+        });
+      }
 
       results.push({ style, imageUrl: publicUrl });
       console.log(`✅ ${style} variation saved: ${publicUrl}`);

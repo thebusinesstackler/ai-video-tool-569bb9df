@@ -463,6 +463,47 @@ export type Database = {
           },
         ]
       }
+      product_graphics: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          is_original: boolean
+          label: string | null
+          product_id: string
+          source_style: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          is_original?: boolean
+          label?: string | null
+          product_id: string
+          source_style?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          is_original?: boolean
+          label?: string | null
+          product_id?: string
+          source_style?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_graphics_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_images: {
         Row: {
           created_at: string
