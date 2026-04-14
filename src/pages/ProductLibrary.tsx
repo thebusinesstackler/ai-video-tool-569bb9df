@@ -43,6 +43,15 @@ interface GalleryImage {
   is_primary: boolean;
 }
 
+interface GraphicImage {
+  id: string;
+  product_id: string;
+  image_url: string;
+  label: string | null;
+  source_style: string | null;
+  is_original: boolean;
+}
+
 const VARIATION_STYLES = [
   { key: 'lifestyle', label: 'Lifestyle Setting', icon: '🏡', desc: 'Warm home setting' },
   { key: 'white_bg', label: 'White Background', icon: '⬜', desc: 'Clean e-commerce shot' },
