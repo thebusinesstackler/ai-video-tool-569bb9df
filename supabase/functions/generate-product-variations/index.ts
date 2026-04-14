@@ -9,17 +9,17 @@ const corsHeaders = {
 
 const STYLE_PROMPTS: Record<string, string> = {
   lifestyle:
-    "Recreate this product shot with a DIFFERENT person in a completely different lifestyle setting. Keep the exact same product/bottle but place it with a new person — maybe someone cooking in a bright kitchen, reading in a sunlit living room, or doing yoga at home. Change the person's look, outfit, and background entirely. The product must look identical to the original.",
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Only change the background and surroundings. Replace the current background with a warm lifestyle scene — a bright kitchen counter, a cozy living room shelf, or a sunny breakfast table. Add a different person nearby interacting naturally with the scene. The product must remain crisp, sharp, and identical to the input image.",
   white_bg:
-    "Take just the product/bottle from this image and place it on a clean pure white background. Professional e-commerce product photography. Remove all people and backgrounds. Only the product, perfectly lit with soft studio lighting, centered, sharp focus.",
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Remove everything except the product. Place it on a pure white background with professional studio lighting. Soft shadows, clean composition, e-commerce ready. The product must remain crisp, sharp, and identical to the input image.",
   ugc:
-    "Recreate this as a totally different UGC-style photo. Show a DIFFERENT person (different age, ethnicity, style) casually holding or using this exact same product in a different everyday setting — maybe at a desk, in a car, at a café, or on a couch. Shot on iPhone, natural lighting, authentic and relatable. The product must be the same bottle/item.",
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Only change the background and surroundings. Change the scene to look like a casual iPhone photo — someone holding or displaying this product at a café table, in a car, or on a couch. Natural lighting, authentic UGC style. The product must remain crisp, sharp, and identical to the input image.",
   flat_lay:
-    "Take this exact product/bottle and arrange it in a beautiful flat lay composition shot from directly above on a clean surface. Surround it with complementary lifestyle props (plants, books, candles, fruits, fabric textures) that match the product's wellness/health vibe. No people. The product must look identical.",
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Only change the background and surroundings. Create a top-down flat lay composition on a clean marble or wood surface. Add complementary lifestyle props around it (plants, books, fabric textures). No people. The product must remain crisp, sharp, and identical to the input image.",
   nature:
-    "Take this exact product/bottle and place it in a completely different natural outdoor setting — maybe on a mossy rock by a stream, on a wooden table in a garden, or nestled among wildflowers. Golden hour lighting, lush greenery, organic feel. No people. The product must be clearly recognizable and identical.",
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Only change the background and surroundings. Place the product in a lush natural outdoor setting — on a mossy rock, a garden table, or among wildflowers. Golden hour lighting. No people. The product must remain crisp, sharp, and identical to the input image.",
   studio:
-    "Take this exact product/bottle and photograph it with dramatic studio lighting on a dark, moody background. Rim lighting, subtle color glow, luxury premium feel. Cinematic and bold. No people. The product must look identical to the original.",
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Only change the background and surroundings. Add dramatic studio lighting with a dark moody background. Rim lighting, subtle color glow, luxury premium feel. No people. The product must remain crisp, sharp, and identical to the input image.",
 };
 
 serve(async (req) => {
