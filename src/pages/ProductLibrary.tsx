@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import {
   Package, Plus, Trash2, ArrowLeft, Image as ImageIcon, Loader2,
   Building2, Upload, ChevronRight, Star, Youtube, Edit2,
-  Sparkles, Wand2,
+  Sparkles, Wand2, Palette,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
