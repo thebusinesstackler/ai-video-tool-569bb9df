@@ -293,7 +293,6 @@ Deno.serve(async (req) => {
       // ── Try Cobalt API first (most reliable) ──
       const cobaltInstances = [
         'https://api.cobalt.tools',
-        'https://co.wuk.sh',
       ];
       const videoId = platformInfo.params.videoId || '';
       const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -301,28 +300,36 @@ Deno.serve(async (req) => {
       for (const cobaltBase of cobaltInstances) {
         console.log(`[download-video-url] Trying Cobalt API: ${cobaltBase}...`);
         try {
-          const cobaltResp = await fetch(`${cobaltBase}/api/json`, {
+          const cobaltResp = await fetch(`${cobaltBase}/`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
-            body: JSON.stringify({ url: ytUrl, vQuality: '720', filenamePattern: 'basic' }),
+            body: JSON.stringify({ url: ytUrl, videoQuality: '720', filenameStyle: 'basic' }),
           });
-          if (cobaltResp.ok) {
-            const cobaltData = await cobaltResp.json();
-            if (cobaltData.url) {
-              console.log(`[download-video-url] Cobalt returned direct URL`);
-              const uploaded = await tryDownloadAndUpload([cobaltData.url], user.id, supabaseUrl, supabaseServiceKey);
+          const cobaltData = await cobaltResp.json();
+          console.log(`[download-video-url] Cobalt response status=${cobaltResp.status} keys=${JSON.stringify(Object.keys(cobaltData))}`);
+          if (cobaltData.url) {
+            console.log(`[download-video-url] Cobalt returned direct URL`);
+            const uploaded = await tryDownloadAndUpload([cobaltData.url], user.id, supabaseUrl, supabaseServiceKey);
+            if (uploaded) {
+              return new Response(JSON.stringify({ videoUrl: uploaded }), {
+                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          }
+          // Cobalt v7 may return a "tunnel" or "redirect" status
+          if (cobaltData.status === 'tunnel' || cobaltData.status === 'redirect') {
+            const tunnelUrl = cobaltData.url || cobaltData.tunnel;
+            if (tunnelUrl) {
+              const uploaded = await tryDownloadAndUpload([tunnelUrl], user.id, supabaseUrl, supabaseServiceKey);
               if (uploaded) {
                 return new Response(JSON.stringify({ videoUrl: uploaded }), {
                   status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
               }
             }
-          } else {
-            console.log(`[download-video-url] Cobalt ${cobaltBase} failed: ${cobaltResp.status}`);
-            await cobaltResp.text().catch(() => {});
           }
         } catch (e) {
           console.log(`[download-video-url] Cobalt ${cobaltBase} error:`, e);
