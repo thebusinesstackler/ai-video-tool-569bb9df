@@ -557,6 +557,36 @@ export default function ProductLibrary() {
             </CardContent>
           </Card>
 
+          {/* Generation Progress Bar */}
+          {generatingVariation && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">
+                      Generating {generatingStyleCount > 1 ? `${generatingStyleCount} variations` : `${generatingVariation.replace(/_/g, ' ')} variation`}…
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {generationProgress < 30
+                        ? 'Analyzing your product graphic…'
+                        : generationProgress < 60
+                        ? 'AI is creating new scenes with your product…'
+                        : generationProgress < 90
+                        ? 'Almost done — finishing up…'
+                        : 'Saving to your gallery…'}
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono text-muted-foreground">{Math.round(generationProgress)}%</span>
+                </div>
+                <Progress value={generationProgress} className="h-2" />
+                <p className="text-[10px] text-muted-foreground">
+                  Estimated: ~{generatingStyleCount > 1 ? `${generatingStyleCount * 20}s` : '20s'} per variation
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* AI Generated Graphics */}
           {graphics.filter(g => !g.is_original).length > 0 && (
             <Card>
