@@ -303,7 +303,7 @@ const VideoRepo = () => {
 
       // Set as reference video
       if (referenceVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(referenceVideoUrl);
-      setReferenceVideoUrl(data.videoUrl);
+      setReferenceVideoUrl(finalVideoUrl);
       try {
         const hostname = new URL(trimmed).hostname.replace('www.', '');
         setReferenceVideoName(`${hostname} import`);
