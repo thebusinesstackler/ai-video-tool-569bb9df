@@ -1259,111 +1259,238 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                 </button>
               </div>
 
-              <div className="px-4 py-3 border-b border-border/50 bg-background/70">
-                <div className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Prompt</div>
-                <Textarea
-                  placeholder="Upload your product image or reference video and describe your idea"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="min-h-[88px] rounded-2xl border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
-                  rows={3}
-                />
-              </div>
-
-              <div className="px-4 py-3 space-y-3 bg-background/60">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Uploads</div>
-
-                {(referenceVideoUrl || productImageUrl || statusLabel) && (
-                  <div className="space-y-2">
-                    {(referenceVideoUrl || productImageUrl) && (
-                      <div className="flex gap-2 flex-wrap">
-                        {productImageUrl && (
-                          <Badge variant="outline" className="text-xs gap-1 bg-background">
-                            <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
-                            <button type="button" onClick={clearProductImage} className="ml-1 hover:text-destructive">×</button>
-                          </Badge>
-                        )}
-                        {referenceVideoUrl && (
-                          <Badge variant="outline" className="text-xs gap-1 bg-background">
-                            <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} {videoFrames.length > 0 ? `(${videoFrames.length} frames)` : ''}
-                            <button type="button" onClick={clearReferenceVideo} className="ml-1 hover:text-destructive">×</button>
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                    {referenceVideoUrl && videoFrames.length > 0 && !statusLabel && (
-                      <p className="text-xs text-muted-foreground">
-                        We'll analyze {videoFrames.length} key frames from your reference video to learn the hook, pacing, camera style, and product placement before generating your new ad.
-                      </p>
-                    )}
-                    {statusLabel && (
-                      <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>{statusLabel}</span>
-                      </div>
-                    )}
+              {activeTab === 'motion' ? (
+                <>
+                  {/* Motion Video Composer */}
+                  <div className="px-4 py-3 border-b border-border/50 bg-background/70">
+                    <div className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Describe the motion</div>
+                    <Textarea
+                      placeholder="Describe the motion or transition between your start and end frames..."
+                      value={motionPrompt}
+                      onChange={(e) => setMotionPrompt(e.target.value)}
+                      className="min-h-[72px] rounded-2xl border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
+                      rows={2}
+                    />
                   </div>
-                )}
 
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
-                    <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
-                    <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => fileInputRef.current?.click()}>
-                      <ImagePlus className="w-3.5 h-3.5" /> Add Image & Link
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => videoInputRef.current?.click()}>
-                      <Video className="w-3.5 h-3.5" /> Reference Video
-                    </Button>
-                    <div className="flex items-center gap-1.5">
-                      <div className="relative">
-                        <Link className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                        <Input
-                          type="url"
-                          placeholder="Paste TikTok or YouTube URL"
-                          value={urlInput}
-                          onChange={(e) => setUrlInput(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleUrlImport(); } }}
-                          className="h-8 text-xs rounded-full pl-8 pr-2 w-[200px] md:w-[240px] bg-background"
-                          disabled={isDownloadingUrl}
-                        />
+                  <div className="px-4 py-3 space-y-4 bg-background/60">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Keyframes</div>
+
+                    {/* Dual image upload */}
+                    <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
+                      {/* Start Frame */}
+                      <div
+                        onClick={() => motionStartRef.current?.click()}
+                        className="relative border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 min-h-[140px]"
+                      >
+                        <input ref={motionStartRef} type="file" accept="image/*" className="hidden" onChange={handleMotionStartFrame} />
+                        {motionStartFramePreview ? (
+                          <div className="relative w-full">
+                            <img src={motionStartFramePreview} alt="Start frame" className="w-full h-28 object-cover rounded-lg" />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setMotionStartFrame(null); setMotionStartFramePreview(null); }}
+                              className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                            >×</button>
+                            <p className="text-[10px] text-muted-foreground text-center mt-1">Start Frame</p>
+                          </div>
+                        ) : (
+                          <>
+                            <ImagePlus className="w-6 h-6 text-muted-foreground" />
+                            <p className="text-xs font-medium text-muted-foreground">Start Frame</p>
+                            <p className="text-[10px] text-muted-foreground">Required</p>
+                          </>
+                        )}
                       </div>
-                      {urlInput.trim() && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs rounded-full gap-1"
-                          onClick={handleUrlImport}
-                          disabled={isDownloadingUrl}
-                        >
-                          {isDownloadingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                          {isDownloadingUrl ? 'Importing...' : 'Import'}
-                        </Button>
-                      )}
+
+                      {/* Arrow */}
+                      <div className="flex flex-col items-center gap-1">
+                        <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                        <span className="text-[10px] text-muted-foreground">interpolate</span>
+                      </div>
+
+                      {/* End Frame */}
+                      <div
+                        onClick={() => motionEndRef.current?.click()}
+                        className="relative border-2 border-dashed rounded-xl p-4 cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 min-h-[140px]"
+                      >
+                        <input ref={motionEndRef} type="file" accept="image/*" className="hidden" onChange={handleMotionEndFrame} />
+                        {motionEndFramePreview ? (
+                          <div className="relative w-full">
+                            <img src={motionEndFramePreview} alt="End frame" className="w-full h-28 object-cover rounded-lg" />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setMotionEndFrame(null); setMotionEndFramePreview(null); }}
+                              className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                            >×</button>
+                            <p className="text-[10px] text-muted-foreground text-center mt-1">End Frame</p>
+                          </div>
+                        ) : (
+                          <>
+                            <ImagePlus className="w-6 h-6 text-muted-foreground" />
+                            <p className="text-xs font-medium text-muted-foreground">End Frame</p>
+                            <p className="text-[10px] text-muted-foreground">{motionModel === 'vidu-start-end' ? 'Required' : 'Optional'}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Model selector + duration */}
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase">Model</p>
+                          <Select value={motionModel} onValueChange={(v: any) => setMotionModel(v)}>
+                            <SelectTrigger className="h-8 text-xs w-[180px] rounded-full bg-background"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="keyframe-interpolation">Kling 2.6 Pro</SelectItem>
+                              <SelectItem value="vidu-start-end">VIDU 2.0</SelectItem>
+                              <SelectItem value="seedance-i2v">Seedance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {motionModel === 'keyframe-interpolation' && (
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase">Duration</p>
+                            <RadioGroup
+                              value={String(motionDuration)}
+                              onValueChange={(v) => setMotionDuration(Number(v) as 5 | 10)}
+                              className="flex gap-3"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <RadioGroupItem value="5" id="dur-5" />
+                                <Label htmlFor="dur-5" className="text-xs cursor-pointer">5s</Label>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <RadioGroupItem value="10" id="dur-10" />
+                                <Label htmlFor="dur-10" className="text-xs cursor-pointer">10s</Label>
+                              </div>
+                            </RadioGroup>
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        className="rounded-full gap-1.5"
+                        onClick={generateMotionVideo}
+                        disabled={isMotionGenerating || !motionStartFrame}
+                      >
+                        {isMotionGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                        Generate Motion
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 justify-between md:justify-end">
-                    <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
-                      <SelectTrigger className="h-8 text-xs w-[130px] rounded-full bg-background"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="guided">Guided Mode</SelectItem>
-                        <SelectItem value="freeform">Freeform</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="icon"
-                      aria-label="Send prompt"
-                      className="h-9 w-9 rounded-full"
-                      onClick={analyzeAndGenerate}
-                      disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
-                    >
-                      {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                    </Button>
+                </>
+              ) : (
+                <>
+                  {/* Ad Video Composer */}
+                  <div className="px-4 py-3 border-b border-border/50 bg-background/70">
+                    <div className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Prompt</div>
+                    <Textarea
+                      placeholder="Upload your product image or reference video and describe your idea"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="min-h-[88px] rounded-2xl border border-border bg-background px-4 py-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
+                      rows={3}
+                    />
                   </div>
-                </div>
-              </div>
-            </Card>
+
+                  <div className="px-4 py-3 space-y-3 bg-background/60">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Uploads</div>
+
+                    {(referenceVideoUrl || productImageUrl || statusLabel) && (
+                      <div className="space-y-2">
+                        {(referenceVideoUrl || productImageUrl) && (
+                          <div className="flex gap-2 flex-wrap">
+                            {productImageUrl && (
+                              <Badge variant="outline" className="text-xs gap-1 bg-background">
+                                <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
+                                <button type="button" onClick={clearProductImage} className="ml-1 hover:text-destructive">×</button>
+                              </Badge>
+                            )}
+                            {referenceVideoUrl && (
+                              <Badge variant="outline" className="text-xs gap-1 bg-background">
+                                <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} {videoFrames.length > 0 ? `(${videoFrames.length} frames)` : ''}
+                                <button type="button" onClick={clearReferenceVideo} className="ml-1 hover:text-destructive">×</button>
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {referenceVideoUrl && videoFrames.length > 0 && !statusLabel && (
+                          <p className="text-xs text-muted-foreground">
+                            We'll analyze {videoFrames.length} key frames from your reference video to learn the hook, pacing, camera style, and product placement before generating your new ad.
+                          </p>
+                        )}
+                        {statusLabel && (
+                          <div className="flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>{statusLabel}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
+                        <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
+                        <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => fileInputRef.current?.click()}>
+                          <ImagePlus className="w-3.5 h-3.5" /> Add Image & Link
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-full bg-background" onClick={() => videoInputRef.current?.click()}>
+                          <Video className="w-3.5 h-3.5" /> Reference Video
+                        </Button>
+                        <div className="flex items-center gap-1.5">
+                          <div className="relative">
+                            <Link className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                            <Input
+                              type="url"
+                              placeholder="Paste TikTok or YouTube URL"
+                              value={urlInput}
+                              onChange={(e) => setUrlInput(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleUrlImport(); } }}
+                              className="h-8 text-xs rounded-full pl-8 pr-2 w-[200px] md:w-[240px] bg-background"
+                              disabled={isDownloadingUrl}
+                            />
+                          </div>
+                          {urlInput.trim() && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs rounded-full gap-1"
+                              onClick={handleUrlImport}
+                              disabled={isDownloadingUrl}
+                            >
+                              {isDownloadingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                              {isDownloadingUrl ? 'Importing...' : 'Import'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 justify-between md:justify-end">
+                        <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
+                          <SelectTrigger className="h-8 text-xs w-[130px] rounded-full bg-background"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="guided">Guided Mode</SelectItem>
+                            <SelectItem value="freeform">Freeform</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="icon"
+                          aria-label="Send prompt"
+                          className="h-9 w-9 rounded-full"
+                          onClick={analyzeAndGenerate}
+                          disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
+                        >
+                          {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
             {/* Conversation area */}
             {showConversation ? (
