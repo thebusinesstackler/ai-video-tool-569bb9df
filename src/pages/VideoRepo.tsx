@@ -102,6 +102,16 @@ const VideoRepo = () => {
   const [urlInput, setUrlInput] = useState('');
   const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
 
+  // Iterative chat state
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [followUpPrompt, setFollowUpPrompt] = useState('');
+  const [followUpImageFile, setFollowUpImageFile] = useState<File | null>(null);
+  const [followUpImageUrl, setFollowUpImageUrl] = useState<string | null>(null);
+  const [followUpImageName, setFollowUpImageName] = useState('');
+  const [lastVideoPrompt, setLastVideoPrompt] = useState<string | null>(null);
+  const [lastPersistentImageUrl, setLastPersistentImageUrl] = useState<string | null>(null);
+  const followUpFileRef = useRef<HTMLInputElement>(null);
+
   // History state
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -122,6 +132,9 @@ const VideoRepo = () => {
   const importVideoInputRef = useRef<HTMLInputElement>(null);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
+  const hasFollowUpInput = Boolean(followUpPrompt.trim() || followUpImageUrl);
+  const conversationComplete = messages.some(m => m.videoResult) || messages.some(m => m.content.includes('```video-prompt'));
+  const showFollowUpComposer = conversationComplete && !isAnalyzing && !isGenerating;
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isExtractingFrames;
   const statusLabel = isExtractingFrames
     ? 'Extracting key frames from your reference video...'
@@ -417,7 +430,7 @@ const VideoRepo = () => {
           .select('id')
           .single();
         if (insertErr) console.error('Insert error:', insertErr);
-        else projectId = insertedRow.id;
+        else { projectId = insertedRow.id; setCurrentProjectId(insertedRow.id); }
       } catch (err) {
         console.error('DB insert error:', err);
       }
@@ -516,6 +529,8 @@ Then provide a final **VIDEO PROMPT** block:
       const videoPromptMatch = analysisText.match(/```video-prompt\n([\s\S]*?)```/);
       if (videoPromptMatch) {
         const videoPrompt = videoPromptMatch[1].trim();
+        setLastVideoPrompt(videoPrompt);
+        setLastPersistentImageUrl(persistentImageUrl);
 
         // Update DB with video prompt
         if (projectId) {
@@ -624,7 +639,200 @@ Then provide a final **VIDEO PROMPT** block:
     }
   };
 
-  // === Import tab handlers ===
+  // === Follow-up chat handler ===
+  const handleFollowUp = async () => {
+    const trimmed = followUpPrompt.trim();
+    if (!trimmed && !followUpImageUrl) return;
+    if (isAnalyzing || isGenerating) return;
+
+    // Upload new product image if provided
+    let newImageUrl: string | null = lastPersistentImageUrl;
+    if (followUpImageFile) {
+      try {
+        newImageUrl = await uploadFileToStorage(followUpImageFile, 'images');
+        setLastPersistentImageUrl(newImageUrl);
+      } catch (err: any) {
+        toast({ title: 'Image upload failed', description: err.message, variant: 'destructive' });
+        return;
+      }
+    }
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmed || 'Update the video with the new product image.',
+      attachments: followUpImageUrl ? [{ type: 'image' as const, url: followUpImageUrl, name: followUpImageName }] : [],
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setFollowUpPrompt('');
+    setFollowUpImageFile(null);
+    setFollowUpImageUrl(null);
+    setFollowUpImageName('');
+    setIsAnalyzing(true);
+    scrollToBottom('auto');
+
+    try {
+      // Build conversation history for AI context
+      const conversationHistory = messages.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+      const contentParts: any[] = [];
+      if (newImageUrl && followUpImageFile) {
+        contentParts.push({ type: 'text', text: 'The user has provided a new product image to use:' });
+        contentParts.push({ type: 'image_url', image_url: { url: newImageUrl } });
+      }
+      contentParts.push({
+        type: 'text',
+        text: `User feedback: "${trimmed}"
+
+Previous video prompt was:
+\`\`\`
+${lastVideoPrompt || 'N/A'}
+\`\`\`
+
+Based on the user's feedback, revise the script and provide an updated **VIDEO PROMPT** block:
+
+\`\`\`video-prompt
+[Your revised detailed video generation prompt — 80-150 words. Incorporate the user's requested changes.]
+\`\`\``,
+      });
+
+      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
+
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...conversationHistory,
+            { role: 'user', content: contentParts.length > 1 ? contentParts : contentParts[contentParts.length - 1].text },
+          ],
+        },
+      });
+
+      if (aiError) throw new Error(typeof aiError === 'object' && 'message' in aiError ? aiError.message : 'AI analysis failed');
+      if (!aiData?.response) throw new Error('No response from AI');
+
+      const responseText = aiData.response;
+      const videoPromptMatch = responseText.match(/```video-prompt\n([\s\S]*?)```/);
+
+      if (videoPromptMatch) {
+        const newVideoPrompt = videoPromptMatch[1].trim();
+        setLastVideoPrompt(newVideoPrompt);
+
+        // Update DB
+        if (currentProjectId) {
+          await supabase.from('video_repo_projects').update({
+            video_prompt: newVideoPrompt,
+            product_image_url: newImageUrl,
+            status: 'generating',
+          }).eq('id', currentProjectId);
+        }
+      }
+
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: responseText,
+      };
+      setMessages(prev => [...prev, assistantMsg]);
+      setIsAnalyzing(false);
+
+      // Auto-generate if video prompt found
+      if (videoPromptMatch) {
+        const newVideoPrompt = videoPromptMatch[1].trim();
+        setIsGenerating(true);
+
+        const generatingMsg: ChatMessage = {
+          id: `assistant-gen-${Date.now()}`,
+          role: 'assistant',
+          content: '🎬 Regenerating your video with the updated script...',
+        };
+        setMessages(prev => [...prev, generatingMsg]);
+
+        try {
+          const taskId = await createWaveSpeedVideo({
+            prompt: newVideoPrompt,
+            model: 'sora-2',
+            aspectRatio: '9:16',
+            duration: 10,
+            userId: user?.id,
+            source: 'video-repo',
+            ...(newImageUrl ? { imageUrls: [newImageUrl] } : {}),
+          });
+
+          let attempts = 0;
+          const maxAttempts = 120;
+          while (attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 5000));
+            const job = await getWaveSpeedVideoJob(taskId);
+            if (job.status === 'completed' && job.videoUrl) {
+              if (currentProjectId) {
+                await supabase.from('video_repo_projects').update({
+                  generated_video_url: job.videoUrl,
+                  status: 'completed',
+                }).eq('id', currentProjectId);
+              }
+
+              const resultMsg: ChatMessage = {
+                id: `result-${Date.now()}`,
+                role: 'assistant',
+                content: '✅ Updated video is ready! Review it below — feel free to send more feedback to iterate further.',
+                videoResult: { url: job.videoUrl, status: 'completed' },
+              };
+              setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(resultMsg));
+              fetchHistory();
+              break;
+            }
+            if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
+            attempts++;
+          }
+          if (attempts >= maxAttempts) throw new Error('Generation timed out');
+        } catch (genErr: any) {
+          if (currentProjectId) {
+            await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', currentProjectId);
+          }
+          const errorMsg: ChatMessage = {
+            id: `error-${Date.now()}`,
+            role: 'assistant',
+            content: `⚠️ Regeneration failed: ${genErr.message}. You can try again with different feedback.`,
+          };
+          setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(errorMsg));
+        }
+        setIsGenerating(false);
+      }
+      fetchHistory();
+    } catch (err: any) {
+      console.error('[VideoRepo] Follow-up error:', err);
+      const errorMsg: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: `❌ ${err.message}. Please try again.`,
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      setIsAnalyzing(false);
+      setIsGenerating(false);
+    }
+  };
+
+  const handleFollowUpImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFollowUpImageName(file.name);
+    setFollowUpImageFile(file);
+    const url = await fileToDataUrl(file);
+    if (url) setFollowUpImageUrl(url);
+    e.target.value = '';
+  };
+
+  const handleFollowUpKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleFollowUp();
+    }
+  };
+
   const resetImport = () => {
     if (importVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(importVideoUrl);
     setImportFile(null);
@@ -1018,7 +1226,8 @@ Then provide a final **VIDEO PROMPT** block:
 
             {/* Conversation area */}
             {showConversation ? (
-              <ScrollArea className="w-full max-w-3xl mb-6 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
+              <>
+              <ScrollArea className="w-full max-w-3xl mb-4 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
                 <div className="space-y-4 py-4">
                   {messages.map((msg) => (
                     <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -1075,6 +1284,55 @@ Then provide a final **VIDEO PROMPT** block:
                   <div ref={chatEndRef} />
                 </div>
               </ScrollArea>
+
+              {/* Follow-up composer for iterating on the video */}
+              {showFollowUpComposer && (
+                <Card className="w-full max-w-3xl border-2 border-primary/20 rounded-2xl overflow-hidden mb-4">
+                  <div className="px-4 py-3 space-y-3 bg-background/60">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Iterate on your video</span>
+                    </div>
+                    <Textarea
+                      placeholder="Describe changes — e.g. 'Make the hook longer', 'Use the Lion's Mane bottle instead', 'Add more product close-ups'..."
+                      value={followUpPrompt}
+                      onChange={(e) => setFollowUpPrompt(e.target.value)}
+                      onKeyDown={handleFollowUpKeyDown}
+                      className="min-h-[72px] rounded-xl border border-border bg-background px-4 py-3 text-sm"
+                      rows={2}
+                    />
+                    {followUpImageUrl && (
+                      <Badge variant="outline" className="text-xs gap-1 bg-background">
+                        <ImagePlus className="w-3 h-3" /> {followUpImageName || 'New image'}
+                        <button type="button" onClick={() => { setFollowUpImageFile(null); setFollowUpImageUrl(null); setFollowUpImageName(''); }} className="ml-1 hover:text-destructive">×</button>
+                      </Badge>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input ref={followUpFileRef} type="file" accept="image/*" className="hidden" onChange={handleFollowUpImage} />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs gap-1.5 rounded-full"
+                          onClick={() => followUpFileRef.current?.click()}
+                        >
+                          <ImagePlus className="w-3.5 h-3.5" /> Swap Product Image
+                        </Button>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="rounded-full gap-1.5"
+                        onClick={handleFollowUp}
+                        disabled={isAnalyzing || isGenerating || !hasFollowUpInput}
+                      >
+                        {isAnalyzing || isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUp className="w-3.5 h-3.5" />}
+                        Regenerate
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+              </>
             ) : (
               <div className="w-full max-w-3xl mb-6 min-h-[220px] rounded-2xl border border-dashed border-border/80 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center shadow-card">
                 Upload a product image and a reference video, then press send. We'll extract key frames, study the hook, pacing, and composition, and build a new ad around your product.
