@@ -9,17 +9,17 @@ const corsHeaders = {
 
 const STYLE_PROMPTS: Record<string, string> = {
   lifestyle:
-    "Place this exact product in a cozy, warm home setting with natural lighting streaming through a window. Style: lifestyle product photography, editorial, aspirational. Keep the product clearly visible and recognizable as the hero element.",
+    "Recreate this product shot with a DIFFERENT person in a completely different lifestyle setting. Keep the exact same product/bottle but place it with a new person — maybe someone cooking in a bright kitchen, reading in a sunlit living room, or doing yoga at home. Change the person's look, outfit, and background entirely. The product must look identical to the original.",
   white_bg:
-    "Place this exact product on a clean, pure white background. Studio product photography with soft even lighting, no shadows. Professional e-commerce style photo. Keep the product perfectly sharp and centered.",
+    "Take just the product/bottle from this image and place it on a clean pure white background. Professional e-commerce product photography. Remove all people and backgrounds. Only the product, perfectly lit with soft studio lighting, centered, sharp focus.",
   ugc:
-    "Show a real person casually holding this exact product, shot in the style of an iPhone selfie / UGC content. Natural, authentic, relatable. The person should look like a genuine customer, not a model.",
+    "Recreate this as a totally different UGC-style photo. Show a DIFFERENT person (different age, ethnicity, style) casually holding or using this exact same product in a different everyday setting — maybe at a desk, in a car, at a café, or on a couch. Shot on iPhone, natural lighting, authentic and relatable. The product must be the same bottle/item.",
   flat_lay:
-    "Arrange this exact product in a beautiful flat lay composition shot from directly above. Include complementary lifestyle props (notebook, coffee, plant, etc.) that match the product's vibe. Clean, Instagram-worthy aesthetic.",
+    "Take this exact product/bottle and arrange it in a beautiful flat lay composition shot from directly above on a clean surface. Surround it with complementary lifestyle props (plants, books, candles, fruits, fabric textures) that match the product's wellness/health vibe. No people. The product must look identical.",
   nature:
-    "Place this exact product in a lush natural outdoor setting with greenery, soft sunlight, and organic textures. The product should be the focal point with a dreamy, fresh, wellness-inspired feel.",
+    "Take this exact product/bottle and place it in a completely different natural outdoor setting — maybe on a mossy rock by a stream, on a wooden table in a garden, or nestled among wildflowers. Golden hour lighting, lush greenery, organic feel. No people. The product must be clearly recognizable and identical.",
   studio:
-    "Dramatic studio lighting on a dark, moody background. This exact product lit with rim lighting and a subtle gradient. Luxury, premium, high-end product shot. Cinematic and bold.",
+    "Take this exact product/bottle and photograph it with dramatic studio lighting on a dark, moody background. Rim lighting, subtle color glow, luxury premium feel. Cinematic and bold. No people. The product must look identical to the original.",
 };
 
 serve(async (req) => {
@@ -73,7 +73,7 @@ serve(async (req) => {
 
     for (const style of styles) {
       const basePrompt = STYLE_PROMPTS[style] || STYLE_PROMPTS.lifestyle;
-      const contextPrompt = `Product: "${productName || "product"}"${productDescription ? `. Description: ${productDescription}` : ""}. ${basePrompt}`;
+      const contextPrompt = `This image contains a product called "${productName || "product"}"${productDescription ? ` — ${productDescription}` : ""}. IMPORTANT: You must keep the product/bottle EXACTLY the same (same label, colors, shape, branding) but change everything else about the scene. ${basePrompt}`;
 
       console.log(`Generating ${style} variation for product ${productId}`);
 
