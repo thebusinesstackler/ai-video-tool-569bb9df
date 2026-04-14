@@ -121,6 +121,7 @@ export default function Vizard() {
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [refreshingUrls, setRefreshingUrls] = useState(false);
 
   // Project rename
   const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
@@ -364,12 +365,43 @@ export default function Vizard() {
     }
   }
 
+  // ---- Refresh video URLs from Vizard (they expire after 7 days) ----
+  const refreshVizardUrls = async (project: VizardProject) => {
+    if (!project.vizard_api_project_id || project.status !== 'ready') return;
+    setRefreshingUrls(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vizard-api', {
+        body: { action: 'query', vizardProjectId: project.vizard_api_project_id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.code === 2000 && data?.videos?.length > 0) {
+        const freshVideos: VizardVideo[] = data.videos;
+        // Update stored videos with fresh URLs
+        await supabase.from('vizard_projects').update({
+          vizard_videos: freshVideos as any,
+        }).eq('id', project.id);
+        setActiveProject(prev => prev?.id === project.id ? {
+          ...prev,
+          vizard_videos: freshVideos,
+        } : prev);
+      }
+    } catch (e: any) {
+      console.error('Failed to refresh Vizard URLs:', e);
+    } finally {
+      setRefreshingUrls(false);
+    }
+  };
+
   // ---- Resume polling on page load for processing projects ----
   const openProject = async (project: VizardProject) => {
     setActiveProject(project);
     setView('detail');
     if (project.status === 'processing' && project.vizard_api_project_id) {
       pollVizardApi(project.id, project.vizard_api_project_id);
+    }
+    // Auto-refresh video URLs for ready projects (they expire after 7 days)
+    if (project.status === 'ready' && project.vizard_api_project_id) {
+      refreshVizardUrls(project);
     }
   };
 
@@ -498,10 +530,16 @@ export default function Vizard() {
               </a>
             )}
             {activeProject.status === 'ready' && (
-              <Button size="sm" variant="outline" className="ml-auto" onClick={() => sendToChatcut()}>
-                <Send className="w-4 h-4 mr-2" />
-                Open in Chatcut AI
-              </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button size="sm" variant="ghost" onClick={() => refreshVizardUrls(activeProject)} disabled={refreshingUrls}>
+                  <RefreshCw className={cn("w-4 h-4 mr-1", refreshingUrls && "animate-spin")} />
+                  {refreshingUrls ? 'Refreshing…' : 'Refresh'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => sendToChatcut()}>
+                  <Send className="w-4 h-4 mr-2" />
+                  Open in Chatcut AI
+                </Button>
+              </div>
             )}
           </div>
 
@@ -541,13 +579,13 @@ export default function Vizard() {
                 <Scissors className="w-5 h-5" />
                 Vizard AI Clips ({vizardVideos.length})
               </h2>
-              <div className="grid gap-6 grid-cols-1">
+              <div className="grid gap-4 md:grid-cols-2">
                 {vizardVideos.map((video, idx) => {
                   const clip = activeProject.clips[idx];
                   return (
                     <Card key={video.videoId} className="overflow-hidden">
                       <CardContent className="p-0">
-                        {/* Video preview — full width, native aspect ratio */}
+                        {/* Video preview — native aspect ratio */}
                         <video
                           src={video.videoUrl}
                           controls
