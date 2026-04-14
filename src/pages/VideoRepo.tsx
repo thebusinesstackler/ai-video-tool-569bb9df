@@ -317,7 +317,7 @@ const VideoRepo = () => {
       // Extract frames from the downloaded video
       setIsExtractingFrames(true);
       try {
-        const videoResp = await fetch(data.videoUrl);
+        const videoResp = await fetch(finalVideoUrl);
         const blob = await videoResp.blob();
         const file = new File([blob], 'imported.mp4', { type: 'video/mp4' });
         const frames = await extractVideoFrames(file, 6);
