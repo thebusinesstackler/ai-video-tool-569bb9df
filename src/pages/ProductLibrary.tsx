@@ -79,8 +79,10 @@ export default function ProductLibrary() {
   const [viewingGraphic, setViewingGraphic] = useState<GraphicImage | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
   const [isSavingLabel, setIsSavingLabel] = useState(false);
-  const [generatingVariation, setGeneratingVariation] = useState<string | null>(null); // style key or 'all'
-  const [showVariationPicker, setShowVariationPicker] = useState<string | null>(null); // image id
+  const [generatingVariation, setGeneratingVariation] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generatingStyleCount, setGeneratingStyleCount] = useState(0);
+  const [showVariationPicker, setShowVariationPicker] = useState<string | null>(null);
 
   // Form states
   const [brandForm, setBrandForm] = useState({ name: '', description: '' });
