@@ -121,6 +121,7 @@ export default function Vizard() {
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [refreshingUrls, setRefreshingUrls] = useState(false);
 
   // Project rename
   const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
