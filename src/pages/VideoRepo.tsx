@@ -1491,6 +1491,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                   </div>
                 </>
               )}
+            </Card>
 
             {/* Conversation area */}
             {showConversation ? (
