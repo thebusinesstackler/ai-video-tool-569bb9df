@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
@@ -78,8 +79,10 @@ export default function ProductLibrary() {
   const [viewingGraphic, setViewingGraphic] = useState<GraphicImage | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
   const [isSavingLabel, setIsSavingLabel] = useState(false);
-  const [generatingVariation, setGeneratingVariation] = useState<string | null>(null); // style key or 'all'
-  const [showVariationPicker, setShowVariationPicker] = useState<string | null>(null); // image id
+  const [generatingVariation, setGeneratingVariation] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generatingStyleCount, setGeneratingStyleCount] = useState(0);
+  const [showVariationPicker, setShowVariationPicker] = useState<string | null>(null);
 
   // Form states
   const [brandForm, setBrandForm] = useState({ name: '', description: '' });
@@ -310,7 +313,18 @@ export default function ProductLibrary() {
     if (!selectedProduct || !user) return;
     const styleKey = styles.length === 1 ? styles[0] : 'all';
     setGeneratingVariation(styleKey);
+    setGeneratingStyleCount(styles.length);
+    setGenerationProgress(0);
     setShowVariationPicker(null);
+
+    // Animate progress — ~20s per style, cap at 90% until done
+    const estTotal = styles.length * 20000;
+    const startTime = Date.now();
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(90, (elapsed / estTotal) * 100);
+      setGenerationProgress(pct);
+    }, 500);
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-product-variations', {
@@ -324,6 +338,8 @@ export default function ProductLibrary() {
         },
       });
 
+      clearInterval(progressInterval);
+
       if (error) throw error;
 
       if (data?.error) {
@@ -331,6 +347,7 @@ export default function ProductLibrary() {
         return;
       }
 
+      setGenerationProgress(100);
       const count = data?.results?.length || 0;
       if (count > 0) {
         toast.success(`${count} variation${count > 1 ? 's' : ''} generated!`);
@@ -339,10 +356,15 @@ export default function ProductLibrary() {
         toast.error('No variations generated — try again');
       }
     } catch (err: any) {
+      clearInterval(progressInterval);
       console.error('Variation error:', err);
       toast.error(err.message || 'Failed to generate variations');
     } finally {
-      setGeneratingVariation(null);
+      setTimeout(() => {
+        setGeneratingVariation(null);
+        setGenerationProgress(0);
+        setGeneratingStyleCount(0);
+      }, 1000);
     }
   };
 
@@ -534,6 +556,36 @@ export default function ProductLibrary() {
               )}
             </CardContent>
           </Card>
+
+          {/* Generation Progress Bar */}
+          {generatingVariation && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">
+                      Generating {generatingStyleCount > 1 ? `${generatingStyleCount} variations` : `${generatingVariation.replace(/_/g, ' ')} variation`}…
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {generationProgress < 30
+                        ? 'Analyzing your product graphic…'
+                        : generationProgress < 60
+                        ? 'AI is creating new scenes with your product…'
+                        : generationProgress < 90
+                        ? 'Almost done — finishing up…'
+                        : 'Saving to your gallery…'}
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono text-muted-foreground">{Math.round(generationProgress)}%</span>
+                </div>
+                <Progress value={generationProgress} className="h-2" />
+                <p className="text-[10px] text-muted-foreground">
+                  Estimated: ~{generatingStyleCount > 1 ? `${generatingStyleCount * 20}s` : '20s'} per variation
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* AI Generated Graphics */}
           {graphics.filter(g => !g.is_original).length > 0 && (
