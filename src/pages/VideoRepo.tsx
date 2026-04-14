@@ -529,6 +529,8 @@ Then provide a final **VIDEO PROMPT** block:
       const videoPromptMatch = analysisText.match(/```video-prompt\n([\s\S]*?)```/);
       if (videoPromptMatch) {
         const videoPrompt = videoPromptMatch[1].trim();
+        setLastVideoPrompt(videoPrompt);
+        setLastPersistentImageUrl(persistentImageUrl);
 
         // Update DB with video prompt
         if (projectId) {
