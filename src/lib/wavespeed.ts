@@ -6,7 +6,7 @@ export interface WaveSpeedVideoParams {
   imageUrls?: string[];
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'wan-2.6-i2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'infinitetalk-hd' | 'wan-animate' | 'video-face-swap' | 'sora-2' | 'alibaba/wan-2.7/video-edit' | 'alibaba/wan-2.5/video-extend';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'wan-2.6-i2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'infinitetalk-hd' | 'wan-animate' | 'video-face-swap' | 'sora-2' | 'alibaba/wan-2.7/video-edit' | 'alibaba/wan-2.5/video-extend' | 'keyframe-interpolation' | 'vidu-start-end' | 'seedance-i2v';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -14,6 +14,8 @@ export interface WaveSpeedVideoParams {
   characterId?: string;
   duration?: number;
   resolution?: '480p' | '720p' | '1080p';
+  startFrameUrl?: string;
+  endFrameUrl?: string;
   // Task tracking metadata
   userId?: string;
   source?: string;
