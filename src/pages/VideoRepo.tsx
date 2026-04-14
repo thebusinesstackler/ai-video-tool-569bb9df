@@ -102,6 +102,16 @@ const VideoRepo = () => {
   const [urlInput, setUrlInput] = useState('');
   const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
 
+  // Iterative chat state
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [followUpPrompt, setFollowUpPrompt] = useState('');
+  const [followUpImageFile, setFollowUpImageFile] = useState<File | null>(null);
+  const [followUpImageUrl, setFollowUpImageUrl] = useState<string | null>(null);
+  const [followUpImageName, setFollowUpImageName] = useState('');
+  const [lastVideoPrompt, setLastVideoPrompt] = useState<string | null>(null);
+  const [lastPersistentImageUrl, setLastPersistentImageUrl] = useState<string | null>(null);
+  const followUpFileRef = useRef<HTMLInputElement>(null);
+
   // History state
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -122,6 +132,9 @@ const VideoRepo = () => {
   const importVideoInputRef = useRef<HTMLInputElement>(null);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
+  const hasFollowUpInput = Boolean(followUpPrompt.trim() || followUpImageUrl);
+  const conversationComplete = messages.some(m => m.videoResult) || messages.some(m => m.content.includes('```video-prompt'));
+  const showFollowUpComposer = conversationComplete && !isAnalyzing && !isGenerating;
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isExtractingFrames;
   const statusLabel = isExtractingFrames
     ? 'Extracting key frames from your reference video...'
