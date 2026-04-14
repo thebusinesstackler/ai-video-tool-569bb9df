@@ -264,9 +264,7 @@ export default function Vizard() {
       } : prev);
 
       toast({ title: 'Submitted to Vizard AI', description: 'Processing your video — this may take a few minutes...' });
-
-      // Start polling
-      pollVizardApi(project.id, vizardProjectId);
+      // Webhook will notify us when processing completes
     } catch (e: any) {
       console.error('Vizard API submit error:', e);
       await supabase.from('vizard_projects').update({ status: 'failed', error: e.message }).eq('id', project.id);
@@ -350,9 +348,7 @@ export default function Vizard() {
   const openProject = async (project: VizardProject) => {
     setActiveProject(project);
     setView('detail');
-    if (project.status === 'processing' && project.vizard_api_project_id) {
-      pollVizardApi(project.id, project.vizard_api_project_id);
-    }
+    // Realtime subscription handles status updates from webhook
     // Auto-refresh video URLs for ready projects (they expire after 7 days)
     if (project.status === 'ready' && project.vizard_api_project_id) {
       refreshVizardUrls(project);
