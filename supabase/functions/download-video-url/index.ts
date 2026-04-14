@@ -285,10 +285,7 @@ Deno.serve(async (req) => {
     const downloadUrls = extractDownloadUrl(platformInfo.platform, smvdData);
 
     if (downloadUrls.length === 0) {
-      console.error('[download-video-url] No download URL found');
-      return new Response(JSON.stringify({ error: 'Could not extract video from this URL. The video may be private or not contain downloadable video content.' }), {
-        status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.warn('[download-video-url] No SMVD download URLs found, trying alternative APIs...');
     }
 
     console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
