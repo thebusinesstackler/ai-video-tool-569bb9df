@@ -1332,6 +1332,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                   </div>
                 </Card>
               )}
+              </>
             ) : (
               <div className="w-full max-w-3xl mb-6 min-h-[220px] rounded-2xl border border-dashed border-border/80 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center shadow-card">
                 Upload a product image and a reference video, then press send. We'll extract key frames, study the hook, pacing, and composition, and build a new ad around your product.
