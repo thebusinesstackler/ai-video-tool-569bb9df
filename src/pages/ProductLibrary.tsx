@@ -131,9 +131,25 @@ export default function ProductLibrary() {
     setGallery((data || []) as GalleryImage[]);
   }, [user]);
 
+  const loadGraphics = useCallback(async (productId: string) => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('product_graphics')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('product_id', productId)
+      .order('is_original', { ascending: false });
+    setGraphics((data || []) as GraphicImage[]);
+  }, [user]);
+
   useEffect(() => { loadBrands(); }, [loadBrands]);
   useEffect(() => { if (selectedBrand) loadProducts(selectedBrand.id); }, [selectedBrand, loadProducts]);
-  useEffect(() => { if (selectedProduct) loadGallery(selectedProduct.id); }, [selectedProduct, loadGallery]);
+  useEffect(() => {
+    if (selectedProduct) {
+      loadGallery(selectedProduct.id);
+      loadGraphics(selectedProduct.id);
+    }
+  }, [selectedProduct, loadGallery, loadGraphics]);
 
   const createBrand = async () => {
     if (!user || !brandForm.name.trim()) return;
