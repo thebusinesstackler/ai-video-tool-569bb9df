@@ -257,7 +257,49 @@ const VideoRepo = () => {
         body: { url: trimmed },
       });
       if (error) throw new Error(typeof error === 'object' && 'message' in error ? error.message : 'Download failed');
-      if (!data?.videoUrl) throw new Error(data?.error || 'No video returned');
+      
+      let finalVideoUrl = data?.videoUrl;
+      
+      // Handle client-side download fallback
+      if (!finalVideoUrl && data?.clientDownload && data?.downloadUrl && data?.signedUploadUrl && data?.publicUrl) {
+        toast({ title: 'Downloading video...', description: 'Browser is fetching the video directly.' });
+        
+        const fetchHeaders: Record<string, string> = {};
+        if (data.rapidApiKey) {
+          fetchHeaders['X-RapidAPI-Key'] = data.rapidApiKey;
+          fetchHeaders['X-RapidAPI-Host'] = 'social-media-video-downloader.p.rapidapi.com';
+        }
+        
+        let videoBlob: Blob | null = null;
+        try {
+          const resp = await fetch(data.downloadUrl, { headers: fetchHeaders });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            if (blob.size > 1000) videoBlob = blob;
+          }
+        } catch {
+          try {
+            const resp = await fetch(data.downloadUrl);
+            if (resp.ok) {
+              const blob = await resp.blob();
+              if (blob.size > 1000) videoBlob = blob;
+            }
+          } catch { /* continue */ }
+        }
+        
+        if (videoBlob && videoBlob.size <= 100 * 1024 * 1024) {
+          const uploadResp = await fetch(data.signedUploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': videoBlob.type || 'video/mp4' },
+            body: videoBlob,
+          });
+          if (uploadResp.ok) {
+            finalVideoUrl = data.publicUrl;
+          }
+        }
+      }
+      
+      if (!finalVideoUrl) throw new Error(data?.error || 'YouTube blocked this download. Please download the video to your device first, then drag & drop it here.');
 
       // Set as reference video
       if (referenceVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(referenceVideoUrl);
