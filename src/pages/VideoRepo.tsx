@@ -115,6 +115,19 @@ const VideoRepo = () => {
   const [lastPersistentImageUrl, setLastPersistentImageUrl] = useState<string | null>(null);
   const followUpFileRef = useRef<HTMLInputElement>(null);
 
+  // Motion tab state
+  const [motionStartFrame, setMotionStartFrame] = useState<File | null>(null);
+  const [motionStartFramePreview, setMotionStartFramePreview] = useState<string | null>(null);
+  const [motionEndFrame, setMotionEndFrame] = useState<File | null>(null);
+  const [motionEndFramePreview, setMotionEndFramePreview] = useState<string | null>(null);
+  const [motionModel, setMotionModel] = useState<'keyframe-interpolation' | 'vidu-start-end' | 'seedance-i2v'>('keyframe-interpolation');
+  const [motionPrompt, setMotionPrompt] = useState('');
+  const [motionDuration, setMotionDuration] = useState<5 | 10>(5);
+  const [isMotionGenerating, setIsMotionGenerating] = useState(false);
+  const motionStartRef = useRef<HTMLInputElement>(null);
+  const motionEndRef = useRef<HTMLInputElement>(null);
+
+
   // History state
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
