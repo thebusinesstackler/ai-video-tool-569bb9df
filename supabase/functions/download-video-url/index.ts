@@ -285,27 +285,21 @@ Deno.serve(async (req) => {
     const downloadUrls = extractDownloadUrl(platformInfo.platform, smvdData);
 
     if (downloadUrls.length === 0) {
-      console.error('[download-video-url] No download URL found');
-      return new Response(JSON.stringify({ error: 'Could not extract video from this URL. The video may be private or not contain downloadable video content.' }), {
-        status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.warn('[download-video-url] No SMVD download URLs found, trying alternative APIs...');
     }
 
-    console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
-
-    // ── Strategy A: Piped API first (most reliable for YouTube) ──
+    // ── Strategy A: Piped / Invidious APIs first (most reliable for YouTube) ──
     if (platformInfo.platform === 'youtube') {
-      // Try multiple Piped instances
       const pipedInstances = [
         'https://pipedapi.kavin.rocks',
         'https://pipedapi.r4fo.com',
         'https://pipedapi.in.projectsegfau.lt',
       ];
-      // Also try Invidious instances with API enabled
       const invidiousInstances = [
         'https://inv.nadeko.net',
         'https://invidious.nerdvpn.de',
       ];
+
       for (const pipedBase of pipedInstances) {
         console.log(`[download-video-url] Trying Piped API: ${pipedBase}...`);
         try {
@@ -343,7 +337,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Try Invidious API instances
       for (const invBase of invidiousInstances) {
         console.log(`[download-video-url] Trying Invidious API: ${invBase}...`);
         try {
@@ -354,7 +347,6 @@ Deno.serve(async (req) => {
           if (invResp.ok) {
             const invData = await invResp.json();
             const invLinks: string[] = [];
-            // formatStreams have combined audio+video
             if (Array.isArray(invData?.formatStreams)) {
               for (const s of invData.formatStreams) {
                 if (s.url) invLinks.push(s.url);
@@ -376,7 +368,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Strategy B: Try SMVD download URLs (max 3 to save memory) ──
+    // If SMVD returned no URLs, skip SMVD download strategies
+    if (downloadUrls.length === 0) {
+      // Jump straight to ytstream fallback below
+    } else {
     const buildHeaderStrategies = (dlUrl: string, isTunnel: boolean): Record<string, string>[] => {
       const base: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -457,7 +452,7 @@ Deno.serve(async (req) => {
           }
         }
       }
-    }
+    } // end else (downloadUrls.length > 0)
 
     // ── Fallback: ytstream API ──
     if (platformInfo.platform === 'youtube') {
@@ -488,39 +483,47 @@ Deno.serve(async (req) => {
       }
     }
 
-    // All server-side attempts failed — return client-side fallback with first URL
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+    // All server-side attempts failed
+    if (downloadUrls.length > 0) {
+      // Return client-side fallback with first URL
+      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+      const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
 
-    const { data: signedData, error: signError } = await adminClient.storage
-      .from('reels')
-      .createSignedUploadUrl(storagePath);
+      const { data: signedData, error: signError } = await adminClient.storage
+        .from('reels')
+        .createSignedUploadUrl(storagePath);
 
-    if (signError || !signedData) {
-      console.error('[download-video-url] Signed URL error:', signError);
-      return new Response(JSON.stringify({ error: 'Failed to prepare upload' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (signError || !signedData) {
+        console.error('[download-video-url] Signed URL error:', signError);
+        return new Response(JSON.stringify({ error: 'Failed to prepare upload' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+
+      const clientUrl = downloadUrls[0].isTunnel
+        ? rewriteTunnelUrl(downloadUrls[0].url)
+        : downloadUrls[0].url;
+
+      console.log('[download-video-url] Returning client-side download fallback');
+      return new Response(JSON.stringify({
+        clientDownload: true,
+        downloadUrl: clientUrl,
+        rapidApiKey: downloadUrls[0].isTunnel ? rapidApiKey : undefined,
+        signedUploadUrl: signedData.signedUrl,
+        uploadToken: signedData.token,
+        storagePath,
+        publicUrl,
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
-
-    // Provide the best URL for client-side fallback
-    const clientUrl = downloadUrls[0].isTunnel
-      ? rewriteTunnelUrl(downloadUrls[0].url)
-      : downloadUrls[0].url;
-
-    console.log('[download-video-url] Returning client-side download fallback');
-    return new Response(JSON.stringify({
-      clientDownload: true,
-      downloadUrl: clientUrl,
-      rapidApiKey: downloadUrls[0].isTunnel ? rapidApiKey : undefined,
-      signedUploadUrl: signedData.signedUrl,
-      uploadToken: signedData.token,
-      storagePath,
-      publicUrl,
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // No URLs at all — all strategies exhausted
+    console.error('[download-video-url] All download strategies exhausted');
+    return new Response(JSON.stringify({ error: 'Could not download this video. Please download it manually and drag & drop it to upload.' }), {
+      status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
