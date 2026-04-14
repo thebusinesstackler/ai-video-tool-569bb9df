@@ -275,86 +275,40 @@ export default function Vizard() {
     }
   };
 
-  // ---- Poll Vizard.ai API for results ----
-  const pollVizardApi = useCallback((localProjectId: string, vizardProjectId: number) => {
-    let attempts = 0;
-    const maxAttempts = 120; // ~60 minutes at 30s intervals
+  // ---- Realtime subscription for project updates (via webhook) ----
+  useEffect(() => {
+    if (!user) return;
 
-    const poll = setInterval(async () => {
-      attempts++;
-      if (attempts > maxAttempts) {
-        clearInterval(poll);
-        await supabase.from('vizard_projects').update({ status: 'failed', error: 'Timed out waiting for Vizard processing' }).eq('id', localProjectId);
-        setActiveProject(prev => prev?.id === localProjectId ? { ...prev, status: 'failed', error: 'Timed out' } : prev);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.functions.invoke('vizard-api', {
-          body: { action: 'query', vizardProjectId },
-        });
-
-        if (error) {
-          console.error('Poll error:', error);
-          return; // keep polling
+    const channel = supabase
+      .channel('vizard-projects-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'vizard_projects',
+        },
+        (payload) => {
+          const updated = mapProject(payload.new);
+          // Update project list
+          setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+          // Update active project if viewing it
+          setActiveProject(prev => {
+            if (prev?.id !== updated.id) return prev;
+            if (updated.status === 'ready' && prev.status !== 'ready') {
+              toast({ title: 'Clips ready!', description: `Vizard found ${updated.clips.length} clips.` });
+            }
+            if (updated.status === 'failed' && prev.status !== 'failed') {
+              toast({ title: 'Processing failed', description: updated.error || 'Unknown error', variant: 'destructive' });
+            }
+            return updated;
+          });
         }
+      )
+      .subscribe();
 
-        const code = data?.code;
-
-        if (code === 1000) {
-          // Still processing
-          return;
-        }
-
-        if (code === 2000 && data?.videos?.length > 0) {
-          // Done! Convert to clips
-          clearInterval(poll);
-          const vizardVideos: VizardVideo[] = data.videos;
-          const clips: VizardClip[] = vizardVideos.map((v: VizardVideo, i: number) => ({
-            id: `clip_${i + 1}`,
-            title: v.title || `Clip ${i + 1}`,
-            description: v.viralReason || '',
-            start: 0,
-            end: (v.videoMsDuration || 0) / 1000,
-            score: parseInt(v.viralScore) || 0,
-            tags: parseRelatedTopics(v.relatedTopic),
-            exported: false,
-          }));
-
-          await supabase.from('vizard_projects').update({
-            clips: clips as any,
-            vizard_videos: vizardVideos as any,
-            status: 'ready',
-          }).eq('id', localProjectId);
-
-          setActiveProject(prev => prev?.id === localProjectId ? {
-            ...prev,
-            clips,
-            vizard_videos: vizardVideos,
-            status: 'ready',
-          } : prev);
-
-          toast({ title: 'Clips ready!', description: `Vizard found ${clips.length} clips.` });
-          return;
-        }
-
-        if (code === 4002 || code === 4004 || code === 4005 || code === 4008) {
-          clearInterval(poll);
-          const errMsg = data?.errMsg || `Vizard error code ${code}`;
-          await supabase.from('vizard_projects').update({ status: 'failed', error: errMsg }).eq('id', localProjectId);
-          setActiveProject(prev => prev?.id === localProjectId ? { ...prev, status: 'failed', error: errMsg } : prev);
-          toast({ title: 'Processing failed', description: errMsg, variant: 'destructive' });
-          return;
-        }
-
-        // Keep polling for other codes
-      } catch (e) {
-        console.error('Poll exception:', e);
-      }
-    }, 30000); // poll every 30s
-
-    return () => clearInterval(poll);
-  }, [toast]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user, toast]);
 
   function parseRelatedTopics(raw: string): string[] {
     try {
