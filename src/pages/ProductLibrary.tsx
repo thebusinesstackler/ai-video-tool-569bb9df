@@ -7,14 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
   Package, Plus, Trash2, ArrowLeft, Image as ImageIcon, Loader2,
-  Building2, Upload, ChevronRight, Star, LinkIcon, Youtube, Edit2,
-  X,
+  Building2, Upload, ChevronRight, Star, Youtube, Edit2,
+  Sparkles, Wand2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +43,15 @@ interface GalleryImage {
   is_primary: boolean;
 }
 
+const VARIATION_STYLES = [
+  { key: 'lifestyle', label: 'Lifestyle Setting', icon: '🏡', desc: 'Warm home setting' },
+  { key: 'white_bg', label: 'White Background', icon: '⬜', desc: 'Clean e-commerce shot' },
+  { key: 'ugc', label: 'In-Hand UGC', icon: '🤳', desc: 'Authentic selfie style' },
+  { key: 'flat_lay', label: 'Flat Lay', icon: '📐', desc: 'Top-down composition' },
+  { key: 'nature', label: 'Nature/Outdoor', icon: '🌿', desc: 'Fresh outdoor feel' },
+  { key: 'studio', label: 'Studio Dramatic', icon: '🎬', desc: 'Dark, premium lighting' },
+];
+
 export default function ProductLibrary() {
   const { user } = useAuth();
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -59,6 +66,8 @@ export default function ProductLibrary() {
   const [viewingImage, setViewingImage] = useState<GalleryImage | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
   const [isSavingLabel, setIsSavingLabel] = useState(false);
+  const [generatingVariation, setGeneratingVariation] = useState<string | null>(null); // style key or 'all'
+  const [showVariationPicker, setShowVariationPicker] = useState<string | null>(null); // image id
 
   // Form states
   const [brandForm, setBrandForm] = useState({ name: '', description: '' });
@@ -228,10 +237,52 @@ export default function ProductLibrary() {
     setIsSavingLabel(false);
   };
 
+  // Generate variations
+  const generateVariation = async (sourceImage: GalleryImage, styles: string[]) => {
+    if (!selectedProduct || !user) return;
+    const styleKey = styles.length === 1 ? styles[0] : 'all';
+    setGeneratingVariation(styleKey);
+    setShowVariationPicker(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-product-variations', {
+        body: {
+          imageUrl: sourceImage.image_url,
+          productName: selectedProduct.name,
+          productDescription: selectedProduct.description,
+          variationStyle: styles.length === 1 ? styles[0] : styles,
+          productId: selectedProduct.id,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      const count = data?.results?.length || 0;
+      if (count > 0) {
+        toast.success(`${count} variation${count > 1 ? 's' : ''} generated!`);
+        loadGallery(selectedProduct.id);
+      } else {
+        toast.error('No variations generated — try again');
+      }
+    } catch (err: any) {
+      console.error('Variation error:', err);
+      toast.error(err.message || 'Failed to generate variations');
+    } finally {
+      setGeneratingVariation(null);
+    }
+  };
+
   // === RENDER ===
 
   // Product detail view
   if (selectedProduct && selectedBrand) {
+    const primaryImage = gallery.find(g => g.is_primary) || gallery[0];
+
     return (
       <Layout>
         <div className="max-w-5xl mx-auto space-y-6">
@@ -292,14 +343,32 @@ export default function ProductLibrary() {
                       <ImageIcon className="h-4 w-4" /> Product Images
                       <Badge variant="secondary" className="text-[10px]">{gallery.length}</Badge>
                     </CardTitle>
-                    <label className="cursor-pointer">
-                      <input type="file" accept="image/*" className="hidden" multiple onChange={(e) => {
-                        Array.from(e.target.files || []).forEach(uploadImage);
-                      }} />
-                      <Button variant="outline" size="sm" className="gap-1 text-xs pointer-events-none" asChild>
-                        <span>{isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload</span>
-                      </Button>
-                    </label>
+                    <div className="flex gap-1.5">
+                      {primaryImage && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-xs"
+                          disabled={!!generatingVariation}
+                          onClick={() => generateVariation(primaryImage, VARIATION_STYLES.map(s => s.key))}
+                        >
+                          {generatingVariation === 'all' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3 w-3" />
+                          )}
+                          Generate All
+                        </Button>
+                      )}
+                      <label className="cursor-pointer">
+                        <input type="file" accept="image/*" className="hidden" multiple onChange={(e) => {
+                          Array.from(e.target.files || []).forEach(uploadImage);
+                        }} />
+                        <Button variant="outline" size="sm" className="gap-1 text-xs pointer-events-none" asChild>
+                          <span>{isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload</span>
+                        </Button>
+                      </label>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -324,7 +393,18 @@ export default function ProductLibrary() {
                               <p className="text-[9px] text-white truncate">{img.label}</p>
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                            <Button size="icon" variant="secondary" className="h-7 w-7"
+                              onClick={(e) => { e.stopPropagation(); setShowVariationPicker(img.id); }}
+                              disabled={!!generatingVariation}
+                              title="Generate variations"
+                            >
+                              {generatingVariation && showVariationPicker === img.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Wand2 className="h-3 w-3" />
+                              )}
+                            </Button>
                             {!img.is_primary && (
                               <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPrimary(img.id); }}>
                                 <Star className="h-3 w-3" />
@@ -342,6 +422,52 @@ export default function ProductLibrary() {
               </Card>
             </div>
           </div>
+
+          {/* Variation Style Picker Dialog */}
+          <Dialog open={!!showVariationPicker} onOpenChange={(open) => { if (!open) setShowVariationPicker(null); }}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="text-sm flex items-center gap-2">
+                  <Wand2 className="h-4 w-4" /> Generate Variation
+                </DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-2">
+                {VARIATION_STYLES.map(style => {
+                  const sourceImg = gallery.find(g => g.id === showVariationPicker);
+                  return (
+                    <Button
+                      key={style.key}
+                      variant="outline"
+                      className="h-auto py-3 flex flex-col items-center gap-1 text-xs"
+                      disabled={!!generatingVariation}
+                      onClick={() => {
+                        if (sourceImg) generateVariation(sourceImg, [style.key]);
+                      }}
+                    >
+                      {generatingVariation === style.key ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <span className="text-lg">{style.icon}</span>
+                      )}
+                      <span className="font-medium">{style.label}</span>
+                      <span className="text-muted-foreground text-[10px]">{style.desc}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+              <Button
+                className="w-full gap-1.5 mt-1"
+                disabled={!!generatingVariation}
+                onClick={() => {
+                  const sourceImg = gallery.find(g => g.id === showVariationPicker);
+                  if (sourceImg) generateVariation(sourceImg, VARIATION_STYLES.map(s => s.key));
+                }}
+              >
+                {generatingVariation === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                Generate All Styles
+              </Button>
+            </DialogContent>
+          </Dialog>
 
           {/* Image Viewer Dialog */}
           <Dialog open={!!viewingImage} onOpenChange={(open) => { if (!open) setViewingImage(null); }}>
@@ -365,6 +491,20 @@ export default function ProductLibrary() {
                     <Button size="sm" onClick={saveImageLabel} disabled={isSavingLabel || editingLabel === (viewingImage.label || '')}>
                       {isSavingLabel ? <Loader2 className="h-3 w-3 animate-spin" /> : <Edit2 className="h-3 w-3 mr-1" />}
                       Rename
+                    </Button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-xs"
+                      disabled={!!generatingVariation}
+                      onClick={() => {
+                        setViewingImage(null);
+                        setTimeout(() => setShowVariationPicker(viewingImage.id), 200);
+                      }}
+                    >
+                      <Wand2 className="h-3 w-3" /> Generate Variations
                     </Button>
                   </div>
                 </div>
