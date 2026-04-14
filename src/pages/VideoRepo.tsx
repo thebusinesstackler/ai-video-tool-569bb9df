@@ -1226,7 +1226,8 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 
             {/* Conversation area */}
             {showConversation ? (
-              <ScrollArea className="w-full max-w-3xl mb-6 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
+              <>
+              <ScrollArea className="w-full max-w-3xl mb-4 min-h-[280px] rounded-2xl border border-border/60 bg-background/20 px-4">
                 <div className="space-y-4 py-4">
                   {messages.map((msg) => (
                     <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
