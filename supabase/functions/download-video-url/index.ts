@@ -290,14 +290,54 @@ Deno.serve(async (req) => {
 
     // ── Strategy A: Piped / Invidious APIs first (most reliable for YouTube) ──
     if (platformInfo.platform === 'youtube') {
+      // ── Try Cobalt API first (most reliable) ──
+      const cobaltInstances = [
+        'https://api.cobalt.tools',
+        'https://co.wuk.sh',
+      ];
+      const videoId = platformInfo.params.videoId || '';
+      const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+      for (const cobaltBase of cobaltInstances) {
+        console.log(`[download-video-url] Trying Cobalt API: ${cobaltBase}...`);
+        try {
+          const cobaltResp = await fetch(`${cobaltBase}/api/json`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ url: ytUrl, vQuality: '720', filenamePattern: 'basic' }),
+          });
+          if (cobaltResp.ok) {
+            const cobaltData = await cobaltResp.json();
+            if (cobaltData.url) {
+              console.log(`[download-video-url] Cobalt returned direct URL`);
+              const uploaded = await tryDownloadAndUpload([cobaltData.url], user.id, supabaseUrl, supabaseServiceKey);
+              if (uploaded) {
+                return new Response(JSON.stringify({ videoUrl: uploaded }), {
+                  status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+              }
+            }
+          } else {
+            console.log(`[download-video-url] Cobalt ${cobaltBase} failed: ${cobaltResp.status}`);
+            await cobaltResp.text().catch(() => {});
+          }
+        } catch (e) {
+          console.log(`[download-video-url] Cobalt ${cobaltBase} error:`, e);
+        }
+      }
+
+      // ── Try Piped / Invidious ──
       const pipedInstances = [
         'https://pipedapi.kavin.rocks',
-        'https://pipedapi.r4fo.com',
-        'https://pipedapi.in.projectsegfau.lt',
+        'https://pipedapi.adminforge.de',
+        'https://api.piped.yt',
       ];
       const invidiousInstances = [
         'https://inv.nadeko.net',
-        'https://invidious.nerdvpn.de',
+        'https://vid.puffyan.us',
       ];
 
       for (const pipedBase of pipedInstances) {
