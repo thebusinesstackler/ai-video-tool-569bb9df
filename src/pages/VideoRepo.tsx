@@ -430,7 +430,7 @@ const VideoRepo = () => {
           .select('id')
           .single();
         if (insertErr) console.error('Insert error:', insertErr);
-        else projectId = insertedRow.id;
+        else { projectId = insertedRow.id; setCurrentProjectId(insertedRow.id); }
       } catch (err) {
         console.error('DB insert error:', err);
       }
