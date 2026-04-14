@@ -499,7 +499,7 @@ export default function ProductLibrary() {
               </div>
             </CardHeader>
             <CardContent>
-              {graphics.length === 0 ? (
+              {graphics.filter(g => g.is_original).length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Palette className="h-8 w-8 mx-auto mb-2 opacity-30" />
                   <p className="text-xs">Upload product graphics to generate variations.</p>
@@ -507,23 +507,11 @@ export default function ProductLibrary() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {graphics.map(gfx => (
+                  {graphics.filter(g => g.is_original).map(gfx => (
                     <div key={gfx.id} className="relative group aspect-square rounded-lg overflow-hidden border cursor-pointer"
                       onClick={() => setViewingGraphic(gfx)}>
                       <img src={gfx.image_url} alt={gfx.label || 'Graphic'} className="w-full h-full object-cover" />
-                      {gfx.is_original && (
-                        <Badge className="absolute top-1 left-1 text-[8px] h-4 bg-primary/80">Original</Badge>
-                      )}
-                      {gfx.source_style && !gfx.is_original && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
-                          <p className="text-[9px] text-white truncate">{gfx.source_style}</p>
-                        </div>
-                      )}
-                      {gfx.label && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
-                          <p className="text-[9px] text-white truncate">{gfx.label}</p>
-                        </div>
-                      )}
+                      <Badge className="absolute top-1 left-1 text-[8px] h-4 bg-primary/80">Original</Badge>
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
                         <Button size="icon" variant="secondary" className="h-7 w-7"
                           onClick={(e) => { e.stopPropagation(); setShowVariationPicker(gfx.id); }}
@@ -546,6 +534,50 @@ export default function ProductLibrary() {
               )}
             </CardContent>
           </Card>
+
+          {/* AI Generated Graphics */}
+          {graphics.filter(g => !g.is_original).length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" /> AI Generated Graphics
+                  <Badge variant="secondary" className="text-[10px]">{graphics.filter(g => !g.is_original).length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {graphics.filter(g => !g.is_original).map(gfx => (
+                    <div key={gfx.id} className="relative group aspect-square rounded-lg overflow-hidden border cursor-pointer"
+                      onClick={() => setViewingGraphic(gfx)}>
+                      <img src={gfx.image_url} alt={gfx.label || 'Graphic'} className="w-full h-full object-cover" />
+                      {gfx.source_style && (
+                        <Badge variant="secondary" className="absolute top-1 left-1 text-[8px] h-4">
+                          {gfx.source_style.replace(/_/g, ' ')}
+                        </Badge>
+                      )}
+                      {gfx.label && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
+                          <p className="text-[9px] text-white truncate">{gfx.label}</p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                        <Button size="icon" variant="secondary" className="h-7 w-7"
+                          onClick={(e) => { e.stopPropagation(); setShowVariationPicker(gfx.id); }}
+                          disabled={!!generatingVariation}
+                          title="Generate new variation from this"
+                        >
+                          <Wand2 className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="destructive" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); deleteGraphic(gfx.id); }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Variation Style Picker Dialog */}
           <Dialog open={!!showVariationPicker} onOpenChange={(open) => { if (!open) setShowVariationPicker(null); }}>
