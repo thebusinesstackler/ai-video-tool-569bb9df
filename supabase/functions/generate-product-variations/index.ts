@@ -51,7 +51,7 @@ serve(async (req) => {
       });
     }
 
-    const { imageUrl, productName, productDescription, variationStyle, productId } = await req.json();
+    const { imageUrl, productName, productDescription, variationStyle, productId, targetTable } = await req.json();
 
     if (!imageUrl || !variationStyle || !productId) {
       return new Response(
