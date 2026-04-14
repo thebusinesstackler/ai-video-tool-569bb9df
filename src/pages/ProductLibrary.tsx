@@ -313,7 +313,18 @@ export default function ProductLibrary() {
     if (!selectedProduct || !user) return;
     const styleKey = styles.length === 1 ? styles[0] : 'all';
     setGeneratingVariation(styleKey);
+    setGeneratingStyleCount(styles.length);
+    setGenerationProgress(0);
     setShowVariationPicker(null);
+
+    // Animate progress — ~20s per style, cap at 90% until done
+    const estTotal = styles.length * 20000;
+    const startTime = Date.now();
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(90, (elapsed / estTotal) * 100);
+      setGenerationProgress(pct);
+    }, 500);
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-product-variations', {
@@ -327,6 +338,8 @@ export default function ProductLibrary() {
         },
       });
 
+      clearInterval(progressInterval);
+
       if (error) throw error;
 
       if (data?.error) {
@@ -334,6 +347,7 @@ export default function ProductLibrary() {
         return;
       }
 
+      setGenerationProgress(100);
       const count = data?.results?.length || 0;
       if (count > 0) {
         toast.success(`${count} variation${count > 1 ? 's' : ''} generated!`);
@@ -342,10 +356,15 @@ export default function ProductLibrary() {
         toast.error('No variations generated — try again');
       }
     } catch (err: any) {
+      clearInterval(progressInterval);
       console.error('Variation error:', err);
       toast.error(err.message || 'Failed to generate variations');
     } finally {
-      setGeneratingVariation(null);
+      setTimeout(() => {
+        setGeneratingVariation(null);
+        setGenerationProgress(0);
+        setGeneratingStyleCount(0);
+      }, 1000);
     }
   };
 
