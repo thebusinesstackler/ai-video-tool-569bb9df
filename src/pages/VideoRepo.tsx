@@ -1283,6 +1283,54 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                   <div ref={chatEndRef} />
                 </div>
               </ScrollArea>
+
+              {/* Follow-up composer for iterating on the video */}
+              {showFollowUpComposer && (
+                <Card className="w-full max-w-3xl border-2 border-primary/20 rounded-2xl overflow-hidden mb-4">
+                  <div className="px-4 py-3 space-y-3 bg-background/60">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Iterate on your video</span>
+                    </div>
+                    <Textarea
+                      placeholder="Describe changes — e.g. 'Make the hook longer', 'Use the Lion's Mane bottle instead', 'Add more product close-ups'..."
+                      value={followUpPrompt}
+                      onChange={(e) => setFollowUpPrompt(e.target.value)}
+                      onKeyDown={handleFollowUpKeyDown}
+                      className="min-h-[72px] rounded-xl border border-border bg-background px-4 py-3 text-sm"
+                      rows={2}
+                    />
+                    {followUpImageUrl && (
+                      <Badge variant="outline" className="text-xs gap-1 bg-background">
+                        <ImagePlus className="w-3 h-3" /> {followUpImageName || 'New image'}
+                        <button type="button" onClick={() => { setFollowUpImageFile(null); setFollowUpImageUrl(null); setFollowUpImageName(''); }} className="ml-1 hover:text-destructive">×</button>
+                      </Badge>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input ref={followUpFileRef} type="file" accept="image/*" className="hidden" onChange={handleFollowUpImage} />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs gap-1.5 rounded-full"
+                          onClick={() => followUpFileRef.current?.click()}
+                        >
+                          <ImagePlus className="w-3.5 h-3.5" /> Swap Product Image
+                        </Button>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="rounded-full gap-1.5"
+                        onClick={handleFollowUp}
+                        disabled={isAnalyzing || isGenerating || !hasFollowUpInput}
+                      >
+                        {isAnalyzing || isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUp className="w-3.5 h-3.5" />}
+                        Regenerate
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
             ) : (
               <div className="w-full max-w-3xl mb-6 min-h-[220px] rounded-2xl border border-dashed border-border/80 bg-muted/20 px-6 py-8 text-center text-sm text-muted-foreground flex items-center justify-center shadow-card">
                 Upload a product image and a reference video, then press send. We'll extract key frames, study the hook, pacing, and composition, and build a new ad around your product.
