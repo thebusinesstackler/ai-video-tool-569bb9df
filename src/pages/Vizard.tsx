@@ -541,19 +541,20 @@ export default function Vizard() {
                 <Scissors className="w-5 h-5" />
                 Vizard AI Clips ({vizardVideos.length})
               </h2>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-6 grid-cols-1">
                 {vizardVideos.map((video, idx) => {
                   const clip = activeProject.clips[idx];
                   return (
                     <Card key={video.videoId} className="overflow-hidden">
                       <CardContent className="p-0">
-                        {/* Video preview — native aspect ratio */}
+                        {/* Video preview — full width, native aspect ratio */}
                         <video
                           src={video.videoUrl}
                           controls
                           playsInline
+                          preload="metadata"
                           className="w-full"
-                          style={{ backgroundColor: 'hsl(var(--muted))', maxHeight: '500px' }}
+                          style={{ backgroundColor: 'hsl(var(--muted))' }}
                         />
                         <div className="p-4 space-y-3">
                           {editingClipId === clip?.id ? (
