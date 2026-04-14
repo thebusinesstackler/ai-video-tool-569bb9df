@@ -849,6 +849,131 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     }
   };
 
+  // === Motion Video handlers ===
+  const handleMotionStartFrame = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMotionStartFrame(file);
+    setMotionStartFramePreview(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  const handleMotionEndFrame = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMotionEndFrame(file);
+    setMotionEndFramePreview(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  const generateMotionVideo = async () => {
+    if (!motionStartFrame) {
+      toast({ title: 'Start frame required', description: 'Please upload at least a start frame image.', variant: 'destructive' });
+      return;
+    }
+    if (motionModel === 'vidu-start-end' && !motionEndFrame) {
+      toast({ title: 'End frame required', description: 'VIDU requires both a start and end frame.', variant: 'destructive' });
+      return;
+    }
+    if (!user) return;
+
+    setIsMotionGenerating(true);
+
+    const userMsg: ChatMessage = {
+      id: `user-motion-${Date.now()}`,
+      role: 'user',
+      content: motionPrompt.trim() || `Generate a ${motionModel} motion video from keyframes`,
+      attachments: [
+        { type: 'image' as const, url: motionStartFramePreview!, name: 'Start Frame' },
+        ...(motionEndFramePreview ? [{ type: 'image' as const, url: motionEndFramePreview, name: 'End Frame' }] : []),
+      ],
+    };
+    setMessages(prev => [...prev, userMsg]);
+    scrollToBottom('auto');
+
+    try {
+      // Upload frames to storage
+      const startUrl = await uploadFileToStorage(motionStartFrame, 'motion-frames');
+      let endUrl: string | undefined;
+      if (motionEndFrame) {
+        endUrl = await uploadFileToStorage(motionEndFrame, 'motion-frames');
+      }
+
+      // Create DB record
+      let projectId: string | null = null;
+      const { data: insertedRow, error: insertErr } = await supabase
+        .from('video_repo_projects')
+        .insert({
+          user_id: user.id,
+          prompt: motionPrompt.trim() || 'Motion video from keyframes',
+          product_image_url: startUrl,
+          status: 'generating',
+          model: motionModel,
+        })
+        .select('id')
+        .single();
+      if (!insertErr) { projectId = insertedRow.id; setCurrentProjectId(insertedRow.id); }
+
+      const generatingMsg: ChatMessage = {
+        id: `assistant-motion-gen-${Date.now()}`,
+        role: 'assistant',
+        content: `🎬 Generating motion video with ${motionModel === 'keyframe-interpolation' ? 'Kling 2.6 Pro' : motionModel === 'vidu-start-end' ? 'VIDU 2.0' : 'Seedance'}... This may take a few minutes.`,
+      };
+      setMessages(prev => [...prev, generatingMsg]);
+
+      const taskId = await createWaveSpeedVideo({
+        prompt: motionPrompt.trim() || 'Smooth cinematic transition between keyframes',
+        model: motionModel,
+        startFrameUrl: startUrl,
+        endFrameUrl: endUrl,
+        aspectRatio: '16:9',
+        duration: motionModel === 'keyframe-interpolation' ? motionDuration : undefined,
+        userId: user.id,
+        source: 'video-repo-motion',
+      });
+
+      let attempts = 0;
+      const maxAttempts = 120;
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 5000));
+        const job = await getWaveSpeedVideoJob(taskId);
+
+        if (job.status === 'completed' && job.videoUrl) {
+          if (projectId) {
+            await supabase.from('video_repo_projects').update({
+              generated_video_url: job.videoUrl,
+              status: 'completed',
+            }).eq('id', projectId);
+          }
+
+          const resultMsg: ChatMessage = {
+            id: `result-motion-${Date.now()}`,
+            role: 'assistant',
+            content: '✅ Your motion video is ready!',
+            videoResult: { url: job.videoUrl, status: 'completed' },
+          };
+          setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(resultMsg));
+          fetchHistory();
+          break;
+        }
+        if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
+        attempts++;
+      }
+      if (attempts >= maxAttempts) throw new Error('Generation timed out');
+    } catch (err: any) {
+      console.error('[Motion Video] Error:', err);
+      const errorMsg: ChatMessage = {
+        id: `error-motion-${Date.now()}`,
+        role: 'assistant',
+        content: `❌ Motion video failed: ${err.message}`,
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      toast({ title: 'Motion video failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsMotionGenerating(false);
+    }
+  };
+
   const resetImport = () => {
     if (importVideoUrl?.startsWith('blob:')) URL.revokeObjectURL(importVideoUrl);
     setImportFile(null);
