@@ -1,42 +1,38 @@
 
 
-# Plan: Simplify AI Spokesperson to Single Continuous Video
+# Plan: Product Image Variations Generator
 
-## Problem
-AI Spokesperson splits scripts into multiple scenes (speaking + B-roll + transitions), generates separate videos for each, and stitches them via Creatomate. The user wants one continuous talking-head video for the full script — just the person on screen talking — identical to how Podcast mode works. B-roll will be added later in ChatCut.
-
-## Solution
-Replace the multi-scene `generateVideo` pipeline in AI Spokesperson with Podcast's single-clip approach: one TTS call, one portrait, one `infinitetalk-hd` render. No scene splitting, no B-roll, no stitching.
+## What You Get
+A "Generate Variations" button on the product detail page that takes any uploaded product image and generates alternative versions (different angles, backgrounds, lifestyle settings, flat lay, etc.) using AI image generation. One click to create multiple creative variations of your product photos.
 
 ## Changes
 
-### 1. Simplify `generateScript` prompt (`src/pages/AISpokesperson.tsx`)
-- Change the script generation prompt to request a **single narration block** (no scene breakdown, no B-roll directions)
-- Remove the multi-scene `scenes[]` structure from the prompt — just return `narration` and `visualDescription`
-- Keep duration/word-count targeting as-is
+### 1. Add "Generate Variations" UI to Product Detail (`src/pages/ProductLibrary.tsx`)
+- Add a "Generate Variations" button on each gallery image (in the hover overlay and in the image viewer dialog)
+- When clicked, show a small preset picker with variation styles: "Lifestyle Setting", "White Background", "In-Hand UGC", "Flat Lay", "Nature/Outdoor", "Studio Dramatic"
+- Show a generating state with spinner, then auto-add the new images to the product gallery
+- Also add a "Generate All Variations" bulk button that creates multiple styles at once
 
-### 2. Rewrite `generateVideo` to single-clip pipeline (`src/pages/AISpokesperson.tsx`)
-Replace the current multi-scene pipeline (lines ~650-900) with:
-1. Generate one TTS from the full `generatedScript.narration`
-2. Generate one character portrait using the existing `generateSceneImage` helper (iPhone selfie style, like Podcast)
-3. Submit one `infinitetalk-hd` task with the full audio + portrait
-4. Poll until complete — no Creatomate stitching
-5. Keep optional Wan 2.7 enhancement step
-6. Set final video URL
+### 2. Create `generate-product-variations` Edge Function
+- Accepts: `imageUrl`, `productName`, `productDescription`, `variationStyle` (or array of styles)
+- Uses the Lovable AI Gateway (`google/gemini-3.1-flash-image-preview`) for image editing/generation
+- For each style, sends the original product image with an editing prompt like:
+  - **Lifestyle**: "Place this product in a cozy home setting with warm natural lighting"
+  - **White BG**: "Place this product on a clean white background, studio product photography"
+  - **In-Hand UGC**: "Show someone casually holding this product, iPhone selfie style"
+  - **Flat Lay**: "Arrange this product in a flat lay composition with complementary props"
+  - **Nature**: "Place this product in a natural outdoor setting with greenery"
+  - **Studio**: "Dramatic studio lighting on dark background, luxury product shot"
+- Uploads generated images to `project-files` storage bucket
+- Returns the new image URLs
 
-This mirrors exactly what Podcast (`src/pages/Podcast.tsx` lines 262-299) does.
-
-### 3. Remove multi-scene UI elements (`src/pages/AISpokesperson.tsx`)
-- Remove/hide the scene gallery, scene shot cards, and multi-shot generation UI since there's only one continuous clip
-- Keep the script preview, settings (mood, setting, camera angle), and video player
-
-### 4. Update duration options
-- Extend duration options to support longer videos (up to 180s) matching Podcast's `DURATION_OPTIONS`
-- Currently limited to 15s; add 30s, 60s, 90s, 120s, 180s options
+### 3. Wire Up to Gallery
+- Generated variations are automatically inserted into `product_gallery` with a label like "Lifestyle Variation" 
+- The product name and description from the DB are passed to the edge function for context-aware prompts
 
 ## Technical Details
-- `infinitetalk-hd` already handles full-length audio up to 3 minutes in a single call (proven by Podcast mode)
-- No new edge functions needed — reuses existing `text-to-speech`, `ai`, and `wavespeed-video`
-- No database changes required
-- The scene-splitting logic, Creatomate stitching, and Sora-2 B-roll calls are all removed from the main flow
+- Uses `google/gemini-3.1-flash-image-preview` model via Lovable AI Gateway for image editing (no extra API keys needed)
+- New edge function: `supabase/functions/generate-product-variations/index.ts`
+- Modified file: `src/pages/ProductLibrary.tsx` (add variation UI + generation logic)
+- No database changes needed -- reuses existing `product_gallery` table
 
