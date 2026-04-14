@@ -271,8 +271,42 @@ export default function ProductLibrary() {
     setIsSavingLabel(false);
   };
 
-  // Generate variations
-  const generateVariation = async (sourceImage: GalleryImage, styles: string[]) => {
+  // Upload graphic
+  const uploadGraphic = async (file: File) => {
+    if (!user || !selectedProduct) return;
+    setIsUploadingGraphic(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/graphics/${selectedProduct.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('project-files').upload(path, file);
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage.from('project-files').getPublicUrl(path);
+      const imageUrl = urlData.publicUrl;
+
+      const { error } = await supabase.from('product_graphics').insert({
+        user_id: user.id, product_id: selectedProduct.id, image_url: imageUrl, is_original: true,
+      } as any);
+      if (error) throw error;
+      toast.success('Graphic uploaded');
+      loadGraphics(selectedProduct.id);
+    } catch (err: any) {
+      toast.error('Upload failed');
+      console.error(err);
+    } finally {
+      setIsUploadingGraphic(false);
+    }
+  };
+
+  const deleteGraphic = async (id: string) => {
+    const { error } = await supabase.from('product_graphics').delete().eq('id', id);
+    if (error) { toast.error('Failed to delete graphic'); return; }
+    toast.success('Graphic deleted');
+    if (selectedProduct) loadGraphics(selectedProduct.id);
+  };
+
+  // Generate variations from a graphic
+  const generateVariation = async (sourceImage: GraphicImage, styles: string[]) => {
     if (!selectedProduct || !user) return;
     const styleKey = styles.length === 1 ? styles[0] : 'all';
     setGeneratingVariation(styleKey);
@@ -286,6 +320,7 @@ export default function ProductLibrary() {
           productDescription: selectedProduct.description,
           variationStyle: styles.length === 1 ? styles[0] : styles,
           productId: selectedProduct.id,
+          targetTable: 'product_graphics',
         },
       });
 
@@ -299,7 +334,7 @@ export default function ProductLibrary() {
       const count = data?.results?.length || 0;
       if (count > 0) {
         toast.success(`${count} variation${count > 1 ? 's' : ''} generated!`);
-        loadGallery(selectedProduct.id);
+        loadGraphics(selectedProduct.id);
       } else {
         toast.error('No variations generated — try again');
       }
