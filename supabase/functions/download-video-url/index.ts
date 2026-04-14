@@ -483,39 +483,47 @@ Deno.serve(async (req) => {
       }
     }
 
-    // All server-side attempts failed — return client-side fallback with first URL
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-    const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
+    // All server-side attempts failed
+    if (downloadUrls.length > 0) {
+      // Return client-side fallback with first URL
+      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+      const storagePath = `${user.id}/video-repo/imports/${crypto.randomUUID()}.mp4`;
 
-    const { data: signedData, error: signError } = await adminClient.storage
-      .from('reels')
-      .createSignedUploadUrl(storagePath);
+      const { data: signedData, error: signError } = await adminClient.storage
+        .from('reels')
+        .createSignedUploadUrl(storagePath);
 
-    if (signError || !signedData) {
-      console.error('[download-video-url] Signed URL error:', signError);
-      return new Response(JSON.stringify({ error: 'Failed to prepare upload' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (signError || !signedData) {
+        console.error('[download-video-url] Signed URL error:', signError);
+        return new Response(JSON.stringify({ error: 'Failed to prepare upload' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
+
+      const clientUrl = downloadUrls[0].isTunnel
+        ? rewriteTunnelUrl(downloadUrls[0].url)
+        : downloadUrls[0].url;
+
+      console.log('[download-video-url] Returning client-side download fallback');
+      return new Response(JSON.stringify({
+        clientDownload: true,
+        downloadUrl: clientUrl,
+        rapidApiKey: downloadUrls[0].isTunnel ? rapidApiKey : undefined,
+        signedUploadUrl: signedData.signedUrl,
+        uploadToken: signedData.token,
+        storagePath,
+        publicUrl,
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const { data: { publicUrl } } = adminClient.storage.from('reels').getPublicUrl(storagePath);
-
-    // Provide the best URL for client-side fallback
-    const clientUrl = downloadUrls[0].isTunnel
-      ? rewriteTunnelUrl(downloadUrls[0].url)
-      : downloadUrls[0].url;
-
-    console.log('[download-video-url] Returning client-side download fallback');
-    return new Response(JSON.stringify({
-      clientDownload: true,
-      downloadUrl: clientUrl,
-      rapidApiKey: downloadUrls[0].isTunnel ? rapidApiKey : undefined,
-      signedUploadUrl: signedData.signedUrl,
-      uploadToken: signedData.token,
-      storagePath,
-      publicUrl,
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // No URLs at all — all strategies exhausted
+    console.error('[download-video-url] All download strategies exhausted');
+    return new Response(JSON.stringify({ error: 'Could not download this video. Please download it manually and drag & drop it to upload.' }), {
+      status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
