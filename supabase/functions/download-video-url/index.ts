@@ -288,21 +288,18 @@ Deno.serve(async (req) => {
       console.warn('[download-video-url] No SMVD download URLs found, trying alternative APIs...');
     }
 
-    console.log(`[download-video-url] Found ${downloadUrls.length} download URLs`);
-
-    // ── Strategy A: Piped API first (most reliable for YouTube) ──
+    // ── Strategy A: Piped / Invidious APIs first (most reliable for YouTube) ──
     if (platformInfo.platform === 'youtube') {
-      // Try multiple Piped instances
       const pipedInstances = [
         'https://pipedapi.kavin.rocks',
         'https://pipedapi.r4fo.com',
         'https://pipedapi.in.projectsegfau.lt',
       ];
-      // Also try Invidious instances with API enabled
       const invidiousInstances = [
         'https://inv.nadeko.net',
         'https://invidious.nerdvpn.de',
       ];
+
       for (const pipedBase of pipedInstances) {
         console.log(`[download-video-url] Trying Piped API: ${pipedBase}...`);
         try {
@@ -340,7 +337,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Try Invidious API instances
       for (const invBase of invidiousInstances) {
         console.log(`[download-video-url] Trying Invidious API: ${invBase}...`);
         try {
@@ -351,7 +347,6 @@ Deno.serve(async (req) => {
           if (invResp.ok) {
             const invData = await invResp.json();
             const invLinks: string[] = [];
-            // formatStreams have combined audio+video
             if (Array.isArray(invData?.formatStreams)) {
               for (const s of invData.formatStreams) {
                 if (s.url) invLinks.push(s.url);
@@ -373,7 +368,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Strategy B: Try SMVD download URLs (max 3 to save memory) ──
+    // If SMVD returned no URLs, skip SMVD download strategies
+    if (downloadUrls.length === 0) {
+      // Jump straight to ytstream fallback below
+    } else {
     const buildHeaderStrategies = (dlUrl: string, isTunnel: boolean): Record<string, string>[] => {
       const base: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
