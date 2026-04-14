@@ -25,8 +25,11 @@ import {
   Save,
   Sparkles,
   RefreshCw,
+  ArrowRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
