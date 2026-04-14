@@ -452,7 +452,7 @@ Deno.serve(async (req) => {
           }
         }
       }
-    }
+    } // end else (downloadUrls.length > 0)
 
     // ── Fallback: ytstream API ──
     if (platformInfo.platform === 'youtube') {
