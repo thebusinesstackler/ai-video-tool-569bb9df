@@ -204,7 +204,7 @@ export default function ProductLibrary() {
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) { toast.error('Failed to delete product'); return; }
     toast.success('Product deleted');
-    if (selectedProduct?.id === id) { setSelectedProduct(null); setGallery([]); }
+    if (selectedProduct?.id === id) { setSelectedProduct(null); setGallery([]); setGraphics([]); }
     if (selectedBrand) loadProducts(selectedBrand.id);
     loadBrands();
   };
@@ -357,7 +357,7 @@ export default function ProductLibrary() {
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => { setSelectedProduct(null); setGallery([]); }}>
+            <Button variant="ghost" size="icon" onClick={() => { setSelectedProduct(null); setGallery([]); setGraphics([]); }}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
