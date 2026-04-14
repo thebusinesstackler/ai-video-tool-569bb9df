@@ -68,11 +68,14 @@ export default function ProductLibrary() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [graphics, setGraphics] = useState<GraphicImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showNewBrand, setShowNewBrand] = useState(false);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingGraphic, setIsUploadingGraphic] = useState(false);
   const [viewingImage, setViewingImage] = useState<GalleryImage | null>(null);
+  const [viewingGraphic, setViewingGraphic] = useState<GraphicImage | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
   const [isSavingLabel, setIsSavingLabel] = useState(false);
   const [generatingVariation, setGeneratingVariation] = useState<string | null>(null); // style key or 'all'
