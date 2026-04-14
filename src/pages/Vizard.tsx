@@ -365,12 +365,43 @@ export default function Vizard() {
     }
   }
 
+  // ---- Refresh video URLs from Vizard (they expire after 7 days) ----
+  const refreshVizardUrls = async (project: VizardProject) => {
+    if (!project.vizard_api_project_id || project.status !== 'ready') return;
+    setRefreshingUrls(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vizard-api', {
+        body: { action: 'query', vizardProjectId: project.vizard_api_project_id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.code === 2000 && data?.videos?.length > 0) {
+        const freshVideos: VizardVideo[] = data.videos;
+        // Update stored videos with fresh URLs
+        await supabase.from('vizard_projects').update({
+          vizard_videos: freshVideos as any,
+        }).eq('id', project.id);
+        setActiveProject(prev => prev?.id === project.id ? {
+          ...prev,
+          vizard_videos: freshVideos,
+        } : prev);
+      }
+    } catch (e: any) {
+      console.error('Failed to refresh Vizard URLs:', e);
+    } finally {
+      setRefreshingUrls(false);
+    }
+  };
+
   // ---- Resume polling on page load for processing projects ----
   const openProject = async (project: VizardProject) => {
     setActiveProject(project);
     setView('detail');
     if (project.status === 'processing' && project.vizard_api_project_id) {
       pollVizardApi(project.id, project.vizard_api_project_id);
+    }
+    // Auto-refresh video URLs for ready projects (they expire after 7 days)
+    if (project.status === 'ready' && project.vizard_api_project_id) {
+      refreshVizardUrls(project);
     }
   };
 
