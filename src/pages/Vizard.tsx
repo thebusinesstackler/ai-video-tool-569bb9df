@@ -541,13 +541,13 @@ export default function Vizard() {
                 <Scissors className="w-5 h-5" />
                 Vizard AI Clips ({vizardVideos.length})
               </h2>
-              <div className="grid gap-6 grid-cols-1">
+              <div className="grid gap-4 md:grid-cols-2">
                 {vizardVideos.map((video, idx) => {
                   const clip = activeProject.clips[idx];
                   return (
                     <Card key={video.videoId} className="overflow-hidden">
                       <CardContent className="p-0">
-                        {/* Video preview — full width, native aspect ratio */}
+                        {/* Video preview — native aspect ratio */}
                         <video
                           src={video.videoUrl}
                           controls
