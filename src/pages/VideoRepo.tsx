@@ -703,6 +703,45 @@ Then provide a final **VIDEO PROMPT** block:
     e.target.value = '';
   };
 
+  const handleImportFromUrl = async () => {
+    const trimmed = importUrlInput.trim();
+    if (!trimmed || isImportingFromUrl) return;
+
+    setIsImportingFromUrl(true);
+    try {
+      toast({ title: 'Fetching video...', description: 'Downloading from the URL. This can take a moment.' });
+      const publicUrl = await downloadSocialVideoToStorage(trimmed, (title, description, variant) =>
+        toast({ title, description, variant })
+      );
+
+      // Fetch the stored video as a Blob so the existing analysis + save flow works unchanged
+      const resp = await fetch(publicUrl);
+      if (!resp.ok) throw new Error(`Could not load downloaded video (${resp.status})`);
+      const blob = await resp.blob();
+
+      let baseName = 'imported-video';
+      try {
+        const hostname = new URL(trimmed).hostname.replace('www.', '').split('.')[0];
+        baseName = `${hostname}-import`;
+      } catch { /* ignore */ }
+
+      const ext = (blob.type.split('/')[1] || 'mp4').split(';')[0];
+      const file = new File([blob], `${baseName}.${ext}`, { type: blob.type || 'video/mp4' });
+
+      setImportUrlInput('');
+      await handleImportVideo(file);
+    } catch (err: any) {
+      console.error('URL import error:', err);
+      toast({
+        title: 'Import failed',
+        description: err?.message || 'Could not import that URL. Try downloading it manually and dragging it in.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImportingFromUrl(false);
+    }
+  };
+
   const saveImportedVideo = async () => {
     if (!user || !importFile) return;
     setIsImportSaving(true);
