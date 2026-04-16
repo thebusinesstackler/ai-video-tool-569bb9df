@@ -120,6 +120,8 @@ const VideoRepo = () => {
   const [importCustomName, setImportCustomName] = useState('');
   const [isImportSaving, setIsImportSaving] = useState(false);
   const [importDragOver, setImportDragOver] = useState(false);
+  const [importUrlInput, setImportUrlInput] = useState('');
+  const [isImportingFromUrl, setIsImportingFromUrl] = useState(false);
   const importVideoInputRef = useRef<HTMLInputElement>(null);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
