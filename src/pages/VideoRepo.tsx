@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
+import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatMessage {
