@@ -34,6 +34,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
+import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatMessage {
@@ -145,6 +146,8 @@ const VideoRepo = () => {
   const [importCustomName, setImportCustomName] = useState('');
   const [isImportSaving, setIsImportSaving] = useState(false);
   const [importDragOver, setImportDragOver] = useState(false);
+  const [importUrlInput, setImportUrlInput] = useState('');
+  const [isImportingFromUrl, setIsImportingFromUrl] = useState(false);
   const importVideoInputRef = useRef<HTMLInputElement>(null);
 
   const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
@@ -1049,6 +1052,45 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     e.target.value = '';
   };
 
+  const handleImportFromUrl = async () => {
+    const trimmed = importUrlInput.trim();
+    if (!trimmed || isImportingFromUrl) return;
+
+    setIsImportingFromUrl(true);
+    try {
+      toast({ title: 'Fetching video...', description: 'Downloading from the URL. This can take a moment.' });
+      const publicUrl = await downloadSocialVideoToStorage(trimmed, (title, description, variant) =>
+        toast({ title, description, variant })
+      );
+
+      // Fetch the stored video as a Blob so the existing analysis + save flow works unchanged
+      const resp = await fetch(publicUrl);
+      if (!resp.ok) throw new Error(`Could not load downloaded video (${resp.status})`);
+      const blob = await resp.blob();
+
+      let baseName = 'imported-video';
+      try {
+        const hostname = new URL(trimmed).hostname.replace('www.', '').split('.')[0];
+        baseName = `${hostname}-import`;
+      } catch { /* ignore */ }
+
+      const ext = (blob.type.split('/')[1] || 'mp4').split(';')[0];
+      const file = new File([blob], `${baseName}.${ext}`, { type: blob.type || 'video/mp4' });
+
+      setImportUrlInput('');
+      await handleImportVideo(file);
+    } catch (err: any) {
+      console.error('URL import error:', err);
+      toast({
+        title: 'Import failed',
+        description: err?.message || 'Could not import that URL. Try downloading it manually and dragging it in.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImportingFromUrl(false);
+    }
+  };
+
   const saveImportedVideo = async () => {
     if (!user || !importFile) return;
     setIsImportSaving(true);
@@ -1628,7 +1670,55 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
               />
 
               {!importVideoUrl ? (
-                <div
+                <div className="space-y-4">
+                  {/* Paste URL row */}
+                  <Card className="border-primary/20">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Link className="w-4 h-4 text-primary" />
+                        <p className="text-sm font-medium text-foreground">Paste a YouTube Short, TikTok, or Reels link</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          type="url"
+                          inputMode="url"
+                          placeholder="https://youtube.com/shorts/..."
+                          value={importUrlInput}
+                          onChange={(e) => setImportUrlInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleImportFromUrl();
+                            }
+                          }}
+                          disabled={isImportingFromUrl}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={handleImportFromUrl}
+                          disabled={!importUrlInput.trim() || isImportingFromUrl}
+                          className="gap-2"
+                        >
+                          {isImportingFromUrl ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>
+                          ) : (
+                            <><Download className="w-4 h-4" /> Import</>
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        If a platform blocks the download, save the video to your device and drag-and-drop it below.
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">or upload a file</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+
+                  <div
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(true); }}
                   onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(false); }}
                   onDrop={handleImportDrop}
@@ -1651,6 +1741,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                   <p className="text-xs text-muted-foreground">
                     AI will analyze your video and suggest prompts for remixing
                   </p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
