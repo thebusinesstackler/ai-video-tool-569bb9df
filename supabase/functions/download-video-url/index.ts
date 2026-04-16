@@ -290,7 +290,52 @@ Deno.serve(async (req) => {
 
     // ── Strategy A: Piped / Invidious APIs first (most reliable for YouTube) ──
     if (platformInfo.platform === 'youtube') {
-      // ── Try Cobalt API first (most reliable) ──
+      const videoId = platformInfo.params.videoId || '';
+
+      // ── Strategy 0: youtube-media-downloader (most reliable RapidAPI provider) ──
+      console.log('[download-video-url] Trying youtube-media-downloader...');
+      try {
+        const ymdResp = await fetch(
+          `https://youtube-media-downloader.p.rapidapi.com/v2/video/details?videoId=${videoId}`,
+          {
+            headers: {
+              'X-RapidAPI-Key': rapidApiKey,
+              'X-RapidAPI-Host': 'youtube-media-downloader.p.rapidapi.com',
+            },
+          }
+        );
+        console.log(`[download-video-url] YMD status=${ymdResp.status}`);
+        if (ymdResp.ok) {
+          const ymdData = await ymdResp.json();
+          const ymdLinks: string[] = [];
+          // Prefer combined videos with audio (mp4)
+          const videos = ymdData?.videos?.items || [];
+          // Sort: prefer items WITH audio, then by descending quality (height)
+          const sorted = [...videos].sort((a: any, b: any) => {
+            const aHasAudio = a.hasAudio ? 1 : 0;
+            const bHasAudio = b.hasAudio ? 1 : 0;
+            if (aHasAudio !== bHasAudio) return bHasAudio - aHasAudio;
+            return (b.height || 0) - (a.height || 0);
+          });
+          for (const v of sorted) {
+            if (v.url && v.extension === 'mp4') ymdLinks.push(v.url);
+          }
+          console.log(`[download-video-url] YMD found ${ymdLinks.length} mp4 streams`);
+          const uploaded = await tryDownloadAndUpload(ymdLinks.slice(0, 4), user.id, supabaseUrl, supabaseServiceKey);
+          if (uploaded) {
+            return new Response(JSON.stringify({ videoUrl: uploaded }), {
+              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        } else {
+          const errBody = await ymdResp.text();
+          console.log(`[download-video-url] YMD error body: ${errBody.substring(0, 200)}`);
+        }
+      } catch (e) {
+        console.log('[download-video-url] YMD error:', e);
+      }
+
+      // ── Try Cobalt API ──
       const cobaltInstances = [
         'https://api.cobalt.tools',
       ];
