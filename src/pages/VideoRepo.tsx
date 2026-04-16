@@ -1136,7 +1136,55 @@ Then provide a final **VIDEO PROMPT** block:
               />
 
               {!importVideoUrl ? (
-                <div
+                <div className="space-y-4">
+                  {/* Paste URL row */}
+                  <Card className="border-primary/20">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Link className="w-4 h-4 text-primary" />
+                        <p className="text-sm font-medium text-foreground">Paste a YouTube Short, TikTok, or Reels link</p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          type="url"
+                          inputMode="url"
+                          placeholder="https://youtube.com/shorts/..."
+                          value={importUrlInput}
+                          onChange={(e) => setImportUrlInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleImportFromUrl();
+                            }
+                          }}
+                          disabled={isImportingFromUrl}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={handleImportFromUrl}
+                          disabled={!importUrlInput.trim() || isImportingFromUrl}
+                          className="gap-2"
+                        >
+                          {isImportingFromUrl ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>
+                          ) : (
+                            <><Download className="w-4 h-4" /> Import</>
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        If a platform blocks the download, save the video to your device and drag-and-drop it below.
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">or upload a file</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+
+                  <div
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(true); }}
                   onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setImportDragOver(false); }}
                   onDrop={handleImportDrop}
