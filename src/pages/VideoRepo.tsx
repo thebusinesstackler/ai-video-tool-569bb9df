@@ -1207,6 +1207,7 @@ Then provide a final **VIDEO PROMPT** block:
                   <p className="text-xs text-muted-foreground">
                     AI will analyze your video and suggest prompts for remixing
                   </p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
