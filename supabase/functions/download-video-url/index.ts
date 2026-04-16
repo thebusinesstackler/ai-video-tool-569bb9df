@@ -431,7 +431,6 @@ Deno.serve(async (req) => {
       for (const invBase of invidiousInstances) {
         console.log(`[download-video-url] Trying Invidious API: ${invBase}...`);
         try {
-          const videoId = platformInfo.params.videoId || '';
           const invResp = await fetch(`${invBase}/api/v1/videos/${videoId}`, {
             headers: { 'User-Agent': 'Mozilla/5.0' },
           });
