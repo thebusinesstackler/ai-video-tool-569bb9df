@@ -339,7 +339,6 @@ Deno.serve(async (req) => {
       const cobaltInstances = [
         'https://api.cobalt.tools',
       ];
-      const videoId = platformInfo.params.videoId || '';
       const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
       for (const cobaltBase of cobaltInstances) {
