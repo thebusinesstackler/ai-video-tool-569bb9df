@@ -627,6 +627,17 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
         {/* Right Panel — Production Controls */}
         <div className="flex-1 overflow-y-auto order-1 lg:order-2">
           <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+            <Tabs defaultValue="talking-head" className="w-full">
+              <TabsList className="grid grid-cols-2 w-full mb-4">
+                <TabsTrigger value="talking-head">
+                  <Mic className="w-4 h-4 mr-1" /> Talking Head
+                </TabsTrigger>
+                <TabsTrigger value="from-content">
+                  <Headphones className="w-4 h-4 mr-1" /> Turn Into Podcast
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="talking-head" className="space-y-5 mt-0">
             {/* Header */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
