@@ -581,12 +581,12 @@ IMPORTANT: Show arms and hands visible in the frame — not just a headshot.`;
       const sceneImg = await generateSceneImage(imgPrompt, selectedTwin);
       setProgress(45);
 
-      // Step 3: Create single expressive video with avatar-omni-human-1.5
+      // Step 3: Create single expressive video with infinitetalk-hd (cost-efficient lip-sync)
       setProgressStatus('Rendering expressive spokesperson video...');
       const { data: videoData, error: videoErr } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
-          model: 'avatar-omni-human-1.5',
+          model: 'infinitetalk-hd',
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
           aspectRatio: '9:16',
