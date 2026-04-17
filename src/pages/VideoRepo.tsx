@@ -1619,14 +1619,37 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                           </SelectContent>
                         </Select>
                         <Select value={String(soraDuration)} onValueChange={(v) => setSoraDuration(Number(v) as 10 | 20)}>
-                          <SelectTrigger className="h-8 text-xs w-[110px] rounded-lg bg-background" title="Sora-2 video length">
+                          <SelectTrigger className="h-8 text-xs w-[110px] rounded-lg bg-background" title="Sora video length">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="10">10s (Sora)</SelectItem>
-                            <SelectItem value="20">20s (Sora)</SelectItem>
+                            <SelectItem value="10">10s</SelectItem>
+                            <SelectItem value="20">20s</SelectItem>
                           </SelectContent>
                         </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={useSoraPro ? 'default' : 'outline'}
+                          className="h-8 text-xs rounded-lg gap-1 px-2.5"
+                          title={useSoraPro
+                            ? `Sora 2 PRO ON — premium tier, ${soraProResolution}, physics-aware, native synchronized audio. Higher cost.`
+                            : 'Switch to Sora 2 PRO ⭐ — premium quality (720p/1080p), physics-aware motion, synchronized audio'}
+                          onClick={() => setUseSoraPro((v) => !v)}
+                        >
+                          ⭐ {useSoraPro ? 'Sora 2 Pro' : 'Pro'}
+                        </Button>
+                        {useSoraPro && (
+                          <Select value={soraProResolution} onValueChange={(v) => setSoraProResolution(v as '720p' | '1080p')}>
+                            <SelectTrigger className="h-8 text-xs w-[100px] rounded-lg bg-background" title="Sora 2 Pro resolution">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="720p">720p</SelectItem>
+                              <SelectItem value="1080p">1080p</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Button
                           type="button"
                           size="sm"
