@@ -456,21 +456,15 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
 
               <Button
                 onClick={cloneVoice}
-                disabled={isCloning || !isReadyToClone}
+                disabled
                 className="w-full"
               >
-                {isCloning ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Cloning Voice...
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="w-4 h-4 mr-2" />
-                    Clone Voice with Speechify
-                  </>
-                )}
+                <Volume2 className="w-4 h-4 mr-2" />
+                Clone Voice (Beta — Unavailable)
               </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Voice cloning unlocks once credits are added to your account.
+              </p>
             </CardContent>
           </Card>
         </div>
