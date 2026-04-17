@@ -153,6 +153,26 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   // Delete confirmation state
   const [imageToDelete, setImageToDelete] = useState<string | null>(null);
 
+  // Locked primary reference image — used as the "source of truth" for angle generation
+  const [primaryImageUrl, setPrimaryImageUrl] = useState<string | null>(
+    twin.reference_images?.[0] || null
+  );
+
+  // Keep primary in sync when twin prop changes (e.g. after add/delete refresh)
+  React.useEffect(() => {
+    if (!twin.reference_images || twin.reference_images.length === 0) {
+      setPrimaryImageUrl(null);
+      return;
+    }
+    // If current primary still exists in the list, keep it. Otherwise reset to first.
+    if (!primaryImageUrl || !twin.reference_images.includes(primaryImageUrl)) {
+      setPrimaryImageUrl(twin.reference_images[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [twin.reference_images]);
+
+  const activeReferenceImage = primaryImageUrl || twin.reference_images?.[0] || null;
+
   const POSE_PRESETS = [
     { id: 'standing', label: 'Standing', prompt: 'standing upright, full body visible' },
     { id: 'sitting', label: 'Sitting', prompt: 'sitting down comfortably' },
