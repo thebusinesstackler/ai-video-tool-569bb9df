@@ -479,9 +479,18 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
       allMessages.push(...cloned);
     }
 
-    // Use a multimodal model when frames are attached so vision actually works
+    // ── MODEL ROUTING ──────────────────────────────────────────────────────
+    // Director brain: top-tier reasoning model for shot decisions, motion-graphics
+    // planning, placement/treatment/subjectAction choices, and multi-tool orchestration.
+    // (Once "openai/gpt-5.4" is published on the Lovable AI Gateway, swap this one constant.)
+    const DIRECTOR_MODEL = "openai/gpt-5.2";
+    // Vision-capable fallback for the rare case the director model can't see images yet.
+    const VISION_FALLBACK_MODEL = "google/gemini-2.5-pro";
     const hasFrames = Array.isArray(videoFrames) && videoFrames.length > 0;
-    const modelToUse = hasFrames ? "google/gemini-2.5-pro" : "google/gemini-3-flash-preview";
+    const modelToUse = DIRECTOR_MODEL;
+    // Heavier reasoning when the user explicitly asks for a full-timeline direction pass.
+    const isDirectorPass = typeof mode === 'string' && /direct|commercial|polish|full[\s-]?pass/i.test(mode);
+    const reasoningEffort = isDirectorPass ? "high" : "medium";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -493,6 +502,7 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
         model: modelToUse,
         messages: allMessages,
         stream: true,
+        reasoning: { effort: reasoningEffort },
       }),
     });
 
