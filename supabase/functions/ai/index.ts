@@ -9,8 +9,8 @@ const corsHeaders = {
 const GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 const IMAGE_MODEL = 'google/gemini-3.1-flash-image-preview';
 
-const MAX_MESSAGE_LENGTH = 5000;
-const MAX_MESSAGES_COUNT = 50;
+const MAX_MESSAGE_LENGTH = 50000;
+const MAX_MESSAGES_COUNT = 100;
 
 function isImageRequest(body: any): boolean {
   if (body.modalities && Array.isArray(body.modalities) && body.modalities.includes('image')) return true;
