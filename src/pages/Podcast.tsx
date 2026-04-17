@@ -807,7 +807,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                                   <Badge className="text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20">{v.featuredProduct}</Badge>
                                 )}
                                 {v.showProduct && productImages.length > 0 && (
-                                  <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">📦 Show product</Badge>
+                                  <Badge className="text-[10px] bg-primary/15 text-primary border-primary/40">📦 Show product</Badge>
                                 )}
                               </div>
                               {isActive && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
