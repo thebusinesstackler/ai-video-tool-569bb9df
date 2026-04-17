@@ -1668,7 +1668,20 @@ const ChatcutAI = () => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
     setInput('');
-    const userMsg: ChatMessage = { role: 'user', content: messageText };
+    // If the user pinned a media reference, prepend it to the message so Marco knows EXACTLY
+    // which clip/frame/product to act on.
+    const ref = selectedReference;
+    let displayContent = messageText;
+    if (ref) {
+      const refLine = ref.kind === 'source-clip'
+        ? `📎 Reference: source-clip "${ref.label}" (${ref.durationSec.toFixed(1)}s, in-point ${ref.sourceStart.toFixed(1)}s)`
+        : ref.kind === 'product'
+        ? `📎 Reference: product image "${ref.label}"${ref.productName ? ` [productName="${ref.productName}", productId="${ref.productId || ''}"]` : ''}`
+        : `📎 Reference: saved frame "${ref.label}"`;
+      displayContent = `${refLine}\n${messageText}`;
+      setSelectedReference(null);
+    }
+    const userMsg: ChatMessage = { role: 'user', content: displayContent };
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
     let assistantSoFar = '';
