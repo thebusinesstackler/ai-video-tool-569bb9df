@@ -279,11 +279,28 @@ const Podcast = () => {
     return `data:audio/mp3;base64,${data.audioContent}`;
   };
 
-  // Helper: generate scene image
-  const generateSceneImage = async (prompt: string, twin: AITwin): Promise<string> => {
+  // Helper: generate scene image (optionally with a product reference image to feature in shot)
+  const generateSceneImage = async (prompt: string, twin: AITwin, productImageUrl?: string): Promise<string> => {
     const portrait = twin.reference_images[0];
     const { data: { session } } = await supabase.auth.getSession();
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+    const messageContent: any[] = [
+      { type: 'image_url', image_url: { url: portrait } },
+    ];
+    if (productImageUrl) {
+      messageContent.push({ type: 'image_url', image_url: { url: productImageUrl } });
+      messageContent.push({
+        type: 'text',
+        text: `Image 1 is the reference person. Image 2 is the product. Generate a NEW photo of the EXACT person from image 1 holding or visibly featuring the EXACT product from image 2 (preserve product label, colors, and shape pixel-perfect).\n\n${prompt}`,
+      });
+    } else {
+      messageContent.push({
+        type: 'text',
+        text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${prompt}`,
+      });
+    }
+
     const res = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
       method: 'POST',
       headers: {
@@ -291,13 +308,7 @@ const Podcast = () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: portrait } },
-            { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${prompt}` }
-          ]
-        }],
+        messages: [{ role: 'user', content: messageContent }],
         model: 'google/gemini-3.1-flash-image-preview',
         modalities: ['image', 'text']
       })
