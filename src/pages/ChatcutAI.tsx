@@ -57,6 +57,7 @@ import { Slider } from '@/components/ui/slider';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
 import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
+import { SmartOverlay } from '@/components/chatcut/SmartOverlay';
 
 const AGENT_NAME = 'Marco';
 
