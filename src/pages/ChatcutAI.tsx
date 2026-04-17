@@ -280,6 +280,22 @@ const ChatcutAI = () => {
   const [reelCropX, setReelCropX] = useState(50);
   const [isAutoCentering, setIsAutoCentering] = useState(false);
 
+  // B-Roll storyboard review state — populated when Marco runs review_broll
+  type BrollSuggestion = {
+    id: string;
+    time: number;
+    currentBrollId: string | null;
+    issue: string;
+    suggestionLabel: string;
+    suggestionPrompt: string;
+    productName: string | null;
+    productId: string | null;
+    brollType: string;
+  };
+  const [brollReview, setBrollReview] = useState<{ openedAt: number; suggestions: BrollSuggestion[] } | null>(null);
+  const [storyboardOpen, setStoryboardOpen] = useState(false);
+  useEffect(() => { if (brollReview) setStoryboardOpen(true); }, [brollReview]);
+
   // Track failed B-roll attempts so we only auto-retry once
   const brollRetryCount = useRef<Map<string, number>>(new Map());
 
