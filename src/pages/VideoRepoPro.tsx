@@ -1290,127 +1290,20 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
       }
 
       setIsGenerating(false);
-      setIsStitching(true);
-      setGenerationProgress('Stitching segments into one seamless video...');
-
-      if (projectId) {
-        await supabase.from('video_repo_projects').update({ status: 'stitching' as any }).eq('id', projectId);
-      }
-
-      setGenerationProgress('Downloading clips for analysis...');
-      const blobUrls: string[] = [];
-      const segmentUrls = [segment1Url, segment2Url];
-
-      for (let i = 0; i < segmentUrls.length; i++) {
-        const segUrl = segmentUrls[i];
-        setGenerationProgress(`Downloading clip ${i + 1}...`);
-        const resp = await fetch(segUrl);
-        if (!resp.ok) throw new Error(`Failed to download segment ${i + 1}: ${resp.status}`);
-        let blob = await resp.blob();
-
-        try {
-          setGenerationProgress(`Analyzing clip ${i + 1} audio for clean ending...`);
-          const tempUrl = await uploadBlobToStorage(blob, 'temp-analysis', 'mp4');
-
-          const { data: trimData, error: trimError } = await supabase.functions.invoke('analyze-audio-trim', {
-            body: { videoUrl: tempUrl },
-          });
-
-          if (trimError) {
-            console.warn(`[VideoRepoPro] Audio analysis failed for clip ${i + 1}:`, trimError);
-          } else if (trimData?.hasCutoff && trimData.trimTimestamp > 0) {
-            setGenerationProgress(`Trimming clip ${i + 1} to clean ending at ${trimData.trimTimestamp.toFixed(1)}s...`);
-            console.log(`[VideoRepoPro] Clip ${i + 1}: trimming to ${trimData.trimTimestamp}s — ${trimData.reason}`);
-            const trimmedBlob = await trimVideoToTimestamp(blob, trimData.trimTimestamp, (pct) => {
-              setGenerationProgress(`Trimming clip ${i + 1}... ${pct}%`);
-            });
-            blob = trimmedBlob;
-
-            try {
-              const originalDuration = 20;
-              const lostSeconds = originalDuration - trimData.trimTimestamp;
-              if (lostSeconds >= 3) {
-                setGenerationProgress(`Extending clip ${i + 1} by ${Math.round(lostSeconds)}s to recover trimmed content...`);
-                const trimmedUrl = await uploadBlobToStorage(blob, 'trimmed-for-extend', 'mp4');
-
-                const { data: extendResult, error: extendError } = await supabase.functions.invoke('wavespeed-video', {
-                  body: {
-                    action: 'create',
-                    model: 'alibaba/wan-2.5/video-extend',
-                    videoUrl: trimmedUrl,
-                    prompt: 'Continue the scene naturally — same character, same environment, smooth cinematic motion. Maintain the same speaking style and energy.',
-                    duration: Math.min(10, Math.round(lostSeconds)),
-                  },
-                });
-
-                if (!extendError && extendResult?.taskId) {
-                  let extendAttempts = 0;
-                  const maxExtendAttempts = 60;
-                  while (extendAttempts < maxExtendAttempts) {
-                    await new Promise(r => setTimeout(r, 5000));
-                    const extJob = await getWaveSpeedVideoJob(extendResult.taskId);
-                    if (extJob.status === 'completed' && extJob.videoUrl) {
-                      setGenerationProgress(`Clip ${i + 1} extended successfully ✓`);
-                      const extResp = await fetch(extJob.videoUrl);
-                      if (extResp.ok) {
-                        blob = await extResp.blob();
-                        console.log(`[VideoRepoPro] Clip ${i + 1}: extended by ${Math.round(lostSeconds)}s`);
-                      }
-                      break;
-                    }
-                    if (extJob.status === 'failed') {
-                      console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}:`, extJob.error);
-                      break;
-                    }
-                    extendAttempts++;
-                    setGenerationProgress(`Extending clip ${i + 1}... (${Math.round((extendAttempts / maxExtendAttempts) * 100)}%)`);
-                  }
-                }
-              } else {
-                console.log(`[VideoRepoPro] Clip ${i + 1}: only lost ${lostSeconds.toFixed(1)}s — too short to extend`);
-              }
-            } catch (extendErr) {
-              console.warn(`[VideoRepoPro] Video extend failed for clip ${i + 1}, using trimmed version:`, extendErr);
-            }
-          } else {
-            console.log(`[VideoRepoPro] Clip ${i + 1}: audio ends cleanly — no trim needed`);
-          }
-        } catch (trimErr) {
-          console.warn(`[VideoRepoPro] Audio trim step failed for clip ${i + 1}, using original:`, trimErr);
-        }
-
-        blobUrls.push(URL.createObjectURL(blob));
-      }
-
-      const stitchedBlob = await stitchVideosWithAudio({
-        videoUrls: blobUrls,
-        embeddedAudioIndices: [0, 1],
-        audioUrls: [],
-        onProgress: (pct) => setGenerationProgress(`Stitching... ${pct}%`),
-      });
-
-      blobUrls.forEach(u => URL.revokeObjectURL(u));
-
-      const finalVideoUrl = await uploadBlobToStorage(stitchedBlob, 'stitched');
-
-      // Also upload individual segments for later viewing
-      const seg1Blob = await fetch(blobUrls[0] || segment1Url!).then(r => r.blob()).catch(() => null);
-      const seg2Blob = await fetch(blobUrls[1] || segment2Url!).then(r => r.blob()).catch(() => null);
-      const seg1StoredUrl = segment1Url;
-      const seg2StoredUrl = segment2Url;
+      setGenerationProgress('');
 
       if (projectId) {
         await supabase.from('video_repo_projects').update({
-          generated_video_url: finalVideoUrl,
+          generated_video_url: segment1Url,
           status: 'completed',
-          segment_urls: [seg1StoredUrl, seg2StoredUrl].filter(Boolean),
+          segment_urls: [segment1Url, segment2Url],
         } as any).eq('id', projectId);
       }
 
       if (user) {
         await supabase.from('generated_images').insert({
           user_id: user.id,
-          image_url: finalVideoUrl,
+          image_url: segment1Url,
           prompt: `[PRO 30s] ${videoPrompt1.substring(0, 100)}...`,
           source: 'video-repo-pro',
           reference_image_url: persistentImageUrl,
@@ -1420,8 +1313,11 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
       const resultMsg: ChatMessage = {
         id: `result-${Date.now()}`,
         role: 'assistant',
-        content: '✅ Your full 30-second UGC ad video is ready! Two segments have been stitched into one seamless video.',
-        videoResult: { url: finalVideoUrl, status: 'completed' },
+        content: '✅ Both segments are ready! Review each one below. Want changes, or to add your product into a scene? Just tell me in the chat.',
+        videoResults: [
+          { url: segment1Url, label: 'Segment 1' },
+          { url: segment2Url, label: 'Segment 2' },
+        ],
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
       fetchHistory();
@@ -1430,24 +1326,22 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
         await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
       }
 
-      const segmentLinks: string[] = [];
-      if (segment1Url) segmentLinks.push(segment1Url);
-      if (segment2Url) segmentLinks.push(segment2Url);
+      const readySegments: { url: string; label: string }[] = [];
+      if (segment1Url) readySegments.push({ url: segment1Url, label: 'Segment 1' });
+      if (segment2Url) readySegments.push({ url: segment2Url, label: 'Segment 2' });
 
-      let errorContent = `⚠️ Video stitching failed: ${genErr.message}\n\n`;
-      if (segmentLinks.length > 0) {
-        errorContent += `Your individual segments were generated successfully. You can download them separately and combine them in any video editor:\n`;
-        segmentLinks.forEach((url, idx) => {
-          errorContent += `\n- [Download Segment ${idx + 1}](${url})`;
-        });
+      let errorContent = `⚠️ Generation issue: ${genErr.message}\n\n`;
+      if (readySegments.length > 0) {
+        errorContent += `${readySegments.length === 1 ? 'One segment is' : 'These segments are'} ready below. You can chat with me to retry the missing one or request changes.`;
       } else {
-        errorContent += 'You can retry or copy the video prompts above and try again.';
+        errorContent += 'You can retry, or copy the video prompts above and try again.';
       }
 
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
         role: 'assistant',
         content: errorContent,
+        videoResults: readySegments.length > 0 ? readySegments : undefined,
         retryable: true,
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
