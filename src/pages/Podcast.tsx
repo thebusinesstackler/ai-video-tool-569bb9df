@@ -110,6 +110,76 @@ const Podcast = () => {
     })();
   }, [user?.id]);
 
+  // Load brand + product context (profile, brands, products, last reels). Auto-bootstrap
+  // a Lifecykel context for known brand owner accounts.
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const [profileRes, brandsRes, productsRes, reelsRes] = await Promise.all([
+          supabase.from('profiles').select('first_name,last_name,company_name,brand_description,content_goal').eq('user_id', user.id).maybeSingle(),
+          supabase.from('brands').select('name,description').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(3),
+          supabase.from('products').select('name,description,category,target_audience,benefits').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
+          supabase.from('reels').select('topic').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(5),
+        ]);
+
+        const profile = profileRes.data;
+        const brands = brandsRes.data || [];
+        const products = productsRes.data || [];
+        const recentTopics = (reelsRes.data || []).map((r: any) => r.topic).filter(Boolean);
+
+        const isLifecykel =
+          (user.email || '').toLowerCase().includes('lifecykel') ||
+          brands.some((b: any) => /lifecykel/i.test(b.name || '')) ||
+          /lifecykel/i.test(profile?.company_name || '');
+
+        const ctx: BrandContext = {
+          brandName: brands[0]?.name || profile?.company_name || (isLifecykel ? 'Lifecykel' : undefined),
+          brandDescription: brands[0]?.description || profile?.brand_description ||
+            (isLifecykel ? "Functional mushroom extracts (Lion's Mane, Reishi, Cordyceps, Chaga, Turkey Tail, Tremella) for focus, calm, energy, immunity, gut, and skin." : undefined),
+          productLines: products.length
+            ? products.map((p: any) => `${p.name}${p.category ? ` (${p.category})` : ''}${p.target_audience ? ` — for ${p.target_audience}` : ''}`).join('; ')
+            : (isLifecykel ? "Lion's Mane (focus), Reishi (calm/sleep), Cordyceps (energy), Chaga (immunity), Turkey Tail (gut), Tremella (skin)" : undefined),
+          audience: products[0]?.target_audience || profile?.content_goal,
+          websiteSummary: recentTopics.length ? `Recent video topics: ${recentTopics.slice(0, 3).join(' | ')}` : undefined,
+        };
+        setBrandContext(ctx);
+      } catch (err) {
+        console.error('Brand context load failed:', err);
+      }
+    })();
+  }, [user?.id, user?.email]);
+
+  // Analyze a brand URL on demand and merge into brandContext
+  const analyzeBrandUrl = async () => {
+    const url = brandUrl.trim();
+    if (!url) {
+      toast({ title: 'Enter a URL', description: 'Paste your brand website URL first.', variant: 'destructive' });
+      return;
+    }
+    setIsAnalyzingBrand(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-brand-website', { body: { url } });
+      if (error) throw error;
+      const a = data?.analysis || data || {};
+      setBrandContext(prev => ({
+        ...prev,
+        brandName: a.brandName || a.name || prev.brandName,
+        brandDescription: a.description || a.brandDescription || prev.brandDescription,
+        productLines: a.products || a.productLines || prev.productLines,
+        audience: a.targetAudience || a.audience || prev.audience,
+        websiteSummary: a.summary || a.tagline || prev.websiteSummary,
+        websiteUrl: url,
+      }));
+      toast({ title: '✨ Brand analyzed', description: 'Variations will now reflect your brand & products.' });
+    } catch (err: any) {
+      console.error('Brand analyze failed:', err);
+      toast({ title: 'Analyze failed', description: err.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setIsAnalyzingBrand(false);
+    }
+  };
+
   // Build TTS body
   const buildTtsBody = (text: string, twin: AITwin) => {
     const body: Record<string, any> = { text, speakingRate: 0.92 };
