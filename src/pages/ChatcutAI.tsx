@@ -49,11 +49,16 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Undo2,
+  Smartphone,
+  Package,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
 import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
