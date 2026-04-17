@@ -1471,6 +1471,7 @@ const ChatcutAI = () => {
         case 'add_overlay':
         case 'add_text_card':
         case 'add_full_coverage':
+        case 'add_motion_graphic':
         case 'add_animated_graphic': {
           const overlayId = crypto.randomUUID();
           // Map style to animation preset
