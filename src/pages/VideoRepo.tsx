@@ -441,6 +441,9 @@ const VideoRepo = () => {
       }
       if (productImageFile) {
         persistentImageUrl = await uploadFileToStorage(productImageFile, 'images');
+      } else if (productImageUrl && !productImageUrl.startsWith('blob:')) {
+        // Remix / picked-from-gallery — image already lives at a public URL
+        persistentImageUrl = productImageUrl;
       }
     } catch (err: any) {
       console.error('Upload error:', err);
