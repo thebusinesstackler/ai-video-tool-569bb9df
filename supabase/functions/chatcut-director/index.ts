@@ -579,9 +579,8 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
     const VISION_FALLBACK_MODEL = "google/gemini-2.5-pro";
     const hasFrames = Array.isArray(videoFrames) && videoFrames.length > 0;
     const modelToUse = DIRECTOR_MODEL;
-    // Heavier reasoning when the user explicitly asks for a full-timeline direction pass.
-    const isDirectorPass = typeof mode === 'string' && /direct|commercial|polish|full[\s-]?pass/i.test(mode);
-    const reasoningEffort = isDirectorPass ? "high" : "medium";
+    // NOTE: Lovable AI Gateway does not currently accept the OpenAI `reasoning` parameter.
+    // Reasoning effort is implicit in the model tier (gpt-5.2 ≈ high). Re-enable when supported.
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -593,7 +592,6 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
         model: modelToUse,
         messages: allMessages,
         stream: true,
-        reasoning: { effort: reasoningEffort },
       }),
     });
 
