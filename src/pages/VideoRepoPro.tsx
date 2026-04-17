@@ -118,6 +118,8 @@ const VideoRepoPro = () => {
   const [historyPage, setHistoryPage] = useState(1);
   const HISTORY_PAGE_SIZE = 9;
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
+  const [useSoraPro, setUseSoraPro] = useState(false);
+  const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('1080p');
 
   // AI Script Director chat state
   const [hasAnalysis, setHasAnalysis] = useState(false);
@@ -1234,21 +1236,26 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
     try {
       setGenerationProgress('Starting Segment 1 & 2 generation...');
 
+      const proParams = useSoraPro ? { resolution: soraProResolution } : {};
+      const segmentModel: 'sora-2' | 'sora-2-pro' = useSoraPro ? 'sora-2-pro' : 'sora-2';
+
       const [taskId1, taskId2] = await Promise.all([
         createWaveSpeedVideo({
           prompt: videoPrompt1,
-          model: 'sora-2',
+          model: segmentModel,
           aspectRatio,
           duration: 20,
+          ...proParams,
           userId: user?.id,
           source: 'video-repo-pro',
           ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
         }),
         createWaveSpeedVideo({
           prompt: videoPrompt2,
-          model: 'sora-2',
+          model: segmentModel,
           aspectRatio,
           duration: 20,
+          ...proParams,
           userId: user?.id,
           source: 'video-repo-pro',
           ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
