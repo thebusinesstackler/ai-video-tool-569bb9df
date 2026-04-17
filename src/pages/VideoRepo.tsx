@@ -1195,6 +1195,8 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     toast({ title: 'Opening Chatcut AI…', description: 'Drag your product image onto the timeline to overlay it on the clip.' });
     navigate('/chatcut-ai');
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       analyzeAndGenerate();
