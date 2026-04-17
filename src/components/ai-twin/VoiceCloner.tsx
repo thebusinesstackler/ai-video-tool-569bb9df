@@ -321,10 +321,21 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h4 className="font-medium">Clone Your Voice (Optional)</h4>
+        <div className="flex items-center gap-2">
+          <h4 className="font-medium">Clone Your Voice (Optional)</h4>
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+            Beta
+          </Badge>
+        </div>
         <p className="text-sm text-muted-foreground">
-          Speechify voice cloning - record 30+ seconds of clear speech
+          AI Voice Cloning — record 30+ seconds of clear speech
         </p>
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-400">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>
+            AI Voice Cloning is in beta and temporarily unavailable. Cloning will unlock once voice credits are added to your account.
+          </span>
+        </div>
       </div>
 
       {/* Recording UI */}
@@ -410,7 +421,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
             <CardContent className="p-6 space-y-4">
               <h5 className="font-medium">Step 2: Consent Information</h5>
               <p className="text-sm text-muted-foreground">
-                Speechify requires consent information to clone your voice
+                We require consent information before cloning your voice
               </p>
               
               <div className="space-y-3">
@@ -445,21 +456,15 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
 
               <Button
                 onClick={cloneVoice}
-                disabled={isCloning || !isReadyToClone}
+                disabled
                 className="w-full"
               >
-                {isCloning ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Cloning Voice...
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="w-4 h-4 mr-2" />
-                    Clone Voice with Speechify
-                  </>
-                )}
+                <Volume2 className="w-4 h-4 mr-2" />
+                Clone Voice (Beta — Unavailable)
               </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Voice cloning unlocks once credits are added to your account.
+              </p>
             </CardContent>
           </Card>
         </div>
