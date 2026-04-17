@@ -214,6 +214,7 @@ const ChatcutAI = () => {
 
   // Saved B-roll frames + product images for media panel
   const [savedBrollFrames, setSavedBrollFrames] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
+  const [savedBrollClips, setSavedBrollClips] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
   const [isAutoExtracting, setIsAutoExtracting] = useState(false);
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; label: string | null; product_name?: string; product_id?: string }[]>([]);
   const [productLibrary, setProductLibrary] = useState<{ id: string; name: string; description: string | null; benefits: string[] | null; brand_name?: string; primary_image?: string }[]>([]);
@@ -264,6 +265,16 @@ const ChatcutAI = () => {
           .limit(60);
         if (frames) setSavedBrollFrames(frames as any);
       } catch (e) { console.warn('frames load failed', e); }
+      try {
+        const { data: clips } = await supabase
+          .from('generated_images')
+          .select('id, image_url, prompt')
+          .eq('user_id', user.id)
+          .eq('source', 'broll-clip')
+          .order('created_at', { ascending: false })
+          .limit(60);
+        if (clips) setSavedBrollClips(clips as any);
+      } catch (e) { console.warn('clips load failed', e); }
       try {
         const { data: pgal } = await supabase
           .from('product_gallery')
@@ -609,33 +620,37 @@ const ChatcutAI = () => {
                         .from('generated_images')
                         .select('id')
                         .eq('user_id', user.id)
-                        .eq('source', 'broll-frame')
+                        .in('source', ['broll-frame', 'broll-clip'])
                         .eq('project_id', payload.projectId)
                         .limit(1);
                       if (existing && existing.length > 0) return;
                       setIsAutoExtracting(true);
-                      toast({ title: 'Extracting B-roll…', description: 'Marco is grabbing 6 frames from your source.' });
+                      toast({ title: 'Extracting B-roll…', description: 'Marco is slicing 6 short clips from your source.' });
                       const saved = await extractBrollFrames({
                         videoUrl: url,
                         userId: user.id,
                         projectId: payload.projectId,
                         label: payload.sourceLabel || payload.title || 'Source',
                         count: 6,
+                        clipDuration: 3,
                       });
                       if (saved.length > 0) {
-                        const { data: refreshed } = await supabase
-                          .from('generated_images')
-                          .select('id, image_url, prompt')
-                          .eq('user_id', user.id)
-                          .eq('source', 'broll-frame')
-                          .order('created_at', { ascending: false })
-                          .limit(60);
-                        if (refreshed) setSavedBrollFrames(refreshed as any);
+                        const [framesRes, clipsRes] = await Promise.all([
+                          supabase.from('generated_images').select('id, image_url, prompt').eq('user_id', user.id).eq('source', 'broll-frame').order('created_at', { ascending: false }).limit(60),
+                          supabase.from('generated_images').select('id, image_url, prompt').eq('user_id', user.id).eq('source', 'broll-clip').order('created_at', { ascending: false }).limit(60),
+                        ]);
+                        if (framesRes.data) setSavedBrollFrames(framesRes.data as any);
+                        if (clipsRes.data) setSavedBrollClips(clipsRes.data as any);
+                        const clipCount = saved.filter(s => s.kind === 'clip').length;
+                        const frameCount = saved.length - clipCount;
+                        const desc = clipCount > 0
+                          ? `${clipCount} short B-roll clip${clipCount !== 1 ? 's' : ''}${frameCount ? ` and ${frameCount} still${frameCount !== 1 ? 's' : ''}` : ''}`
+                          : `${frameCount} B-roll frame${frameCount !== 1 ? 's' : ''}`;
                         setMessages((prev) => [
                           ...prev,
-                          { role: 'assistant', content: `I extracted ${saved.length} B-roll frames from your source — they're in the **Saved Frames** panel on the right. Tap any to drop it onto the timeline at the playhead.` },
+                          { role: 'assistant', content: `I extracted ${desc} from your source — they're in the **Source Clips** / **Saved Frames** panels on the right. Tap any to drop it onto the timeline at the playhead.` },
                         ]);
-                        toast({ title: `Extracted ${saved.length} frames`, description: 'Open the Media panel → Saved Frames.' });
+                        toast({ title: `Extracted ${saved.length} item${saved.length !== 1 ? 's' : ''}`, description: 'Open the Media panel.' });
                       }
                     } catch (err: any) {
                       console.warn('[ChatcutAI] auto-extract failed', err);
@@ -969,6 +984,23 @@ const ChatcutAI = () => {
       }
     })();
   }, [currentTime, toast, pollBRollVideo]);
+
+  // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation
+  const addBRollFromVideoClip = useCallback((videoUrl: string, label: string, durationSec: number = 3, startAt?: number) => {
+    const brollId = crypto.randomUUID();
+    const broll: BRollClip = {
+      id: brollId,
+      name: label,
+      prompt: label,
+      start: startAt ?? currentTime,
+      duration: durationSec,
+      videoUrl,
+      videoStatus: 'ready',
+      imageStatus: 'ready',
+    };
+    setBRollClips(prev => [...prev, broll]);
+    toast({ title: 'B-Roll clip added', description: `"${label}" — dropped at ${(startAt ?? currentTime).toFixed(1)}s` });
+  }, [currentTime, toast]);
 
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
@@ -2568,12 +2600,12 @@ const ChatcutAI = () => {
                       )}
                     </div>
 
-                    {/* Saved Frames Library — pick a frame from previous videos and animate as B-Roll */}
+                    {/* Source Clips Library — short video clips sliced from a source, ready to drop directly */}
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <ImageIcon className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Saved Frames</span>
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{savedBrollFrames.length}</Badge>
+                        <Scissors className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Source Clips</span>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{savedBrollClips.length}</Badge>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -2583,24 +2615,23 @@ const ChatcutAI = () => {
                             if (!videoUrl || !user) return;
                             try {
                               setIsAutoExtracting(true);
-                              toast({ title: 'Extracting 6 frames…' });
+                              toast({ title: 'Slicing 6 short clips…', description: 'Recording from your source video.' });
                               const saved = await extractBrollFrames({
                                 videoUrl,
                                 userId: user.id,
                                 projectId: null,
                                 label: draftName || 'Source',
                                 count: 6,
+                                clipDuration: 3,
                               });
                               if (saved.length) {
-                                const { data: refreshed } = await supabase
-                                  .from('generated_images')
-                                  .select('id, image_url, prompt')
-                                  .eq('user_id', user.id)
-                                  .eq('source', 'broll-frame')
-                                  .order('created_at', { ascending: false })
-                                  .limit(60);
-                                if (refreshed) setSavedBrollFrames(refreshed as any);
-                                toast({ title: `Saved ${saved.length} frames` });
+                                const [framesRes, clipsRes] = await Promise.all([
+                                  supabase.from('generated_images').select('id, image_url, prompt').eq('user_id', user.id).eq('source', 'broll-frame').order('created_at', { ascending: false }).limit(60),
+                                  supabase.from('generated_images').select('id, image_url, prompt').eq('user_id', user.id).eq('source', 'broll-clip').order('created_at', { ascending: false }).limit(60),
+                                ]);
+                                if (framesRes.data) setSavedBrollFrames(framesRes.data as any);
+                                if (clipsRes.data) setSavedBrollClips(clipsRes.data as any);
+                                toast({ title: `Saved ${saved.length} item${saved.length !== 1 ? 's' : ''}` });
                               }
                             } catch (e: any) {
                               toast({ title: 'Extract failed', description: e?.message, variant: 'destructive' });
@@ -2608,11 +2639,48 @@ const ChatcutAI = () => {
                               setIsAutoExtracting(false);
                             }
                           }}
-                          title="Extract 6 still frames from the current source video"
+                          title="Slice 6 short video clips from the current source"
                         >
                           {isAutoExtracting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Scissors className="w-2.5 h-2.5" />}
                           Extract
                         </Button>
+                      </div>
+                      {savedBrollClips.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {savedBrollClips.slice(0, 18).map((c) => (
+                            <button
+                              key={c.id}
+                              className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black"
+                              onClick={() => addBRollFromVideoClip(c.image_url, c.prompt || 'Source clip', 3)}
+                              title={`Drop as ready B-Roll clip @ ${currentTime.toFixed(1)}s`}
+                            >
+                              <video
+                                src={`${c.image_url}#t=0.3`}
+                                preload="metadata"
+                                muted
+                                playsInline
+                                className="w-full aspect-video object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                              </div>
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
+                                {c.prompt || 'clip'}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/60 text-center py-3">No source clips yet — hit Extract to slice short clips from the current video</p>
+                      )}
+                    </div>
+
+                    {/* Saved Frames Library — still frames (fallback / legacy) */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <ImageIcon className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Saved Frames</span>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{savedBrollFrames.length}</Badge>
                       </div>
                       {savedBrollFrames.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
@@ -2631,7 +2699,7 @@ const ChatcutAI = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-[10px] text-muted-foreground/60 text-center py-3">No saved frames yet — extract from any video to build your B-Roll library</p>
+                        <p className="text-[10px] text-muted-foreground/60 text-center py-3">No saved frames yet</p>
                       )}
                     </div>
 
