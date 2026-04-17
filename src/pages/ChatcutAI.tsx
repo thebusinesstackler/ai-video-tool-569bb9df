@@ -1515,20 +1515,28 @@ const ChatcutAI = () => {
           if (act.action === 'add_animated_graphic' || act.renderMode === 'video') renderMode = 'video';
           else if (act.renderMode === 'image') renderMode = 'image';
 
+          // For Commercial Director (`add_motion_graphic`), the treatment+placement carry the visual
+          // intent — force DOM render so SmartOverlay can apply the new layered treatments.
+          const isMotionGraphic = act.action === 'add_motion_graphic';
+          const finalRenderMode = isMotionGraphic ? 'dom' : renderMode;
           const newOverlay: OverlayItem = {
             id: overlayId, type: overlayType,
             text: act.text || '', start: act.start || 0,
-            duration: act.duration || (renderMode === 'video' ? 5 : isFullCoverage ? 4 : 5),
+            duration: act.duration || (finalRenderMode === 'video' ? 5 : isFullCoverage ? 4 : 5),
             animation, style: act.style || 'glass',
             scale: finalScale,
             position: finalPos,
-            renderMode,
+            renderMode: finalRenderMode,
             items: Array.isArray(act.items) ? act.items.slice(0, 8) : undefined,
             subtext: typeof act.subtext === 'string' ? act.subtext : undefined,
             fullCoverage: isFullCoverage,
-            imageStatus: renderMode === 'dom' ? 'ready' : 'generating',
-            videoStatus: renderMode === 'video' ? 'generating' : undefined,
+            imageStatus: finalRenderMode === 'dom' ? 'ready' : 'generating',
+            videoStatus: finalRenderMode === 'video' ? 'generating' : undefined,
             animationPrompt: act.animationPrompt,
+            intent: act.intent,
+            treatment: act.treatment,
+            placement: act.placement,
+            subjectAction: act.subjectAction,
           };
           setOverlays(prev => [...prev, newOverlay]);
           if (renderMode === 'dom') {
