@@ -209,7 +209,8 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
               {messages.map((msg, i) => (
                 <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : '')}>
                   {msg.role === 'assistant' && (
-                    <Avatar className="w-7 h-7 flex-shrink-0 mt-0.5 bg-gradient-to-br from-primary to-primary/60">
+                    <Avatar className="w-8 h-8 flex-shrink-0 mt-0.5 ring-2 ring-primary/20">
+                      <AvatarImage src={directorAvatar} alt="Director" />
                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xs">
                         <Wand2 className="w-3 h-3" />
                       </AvatarFallback>
