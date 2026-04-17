@@ -620,33 +620,37 @@ const ChatcutAI = () => {
                         .from('generated_images')
                         .select('id')
                         .eq('user_id', user.id)
-                        .eq('source', 'broll-frame')
+                        .in('source', ['broll-frame', 'broll-clip'])
                         .eq('project_id', payload.projectId)
                         .limit(1);
                       if (existing && existing.length > 0) return;
                       setIsAutoExtracting(true);
-                      toast({ title: 'Extracting B-roll…', description: 'Marco is grabbing 6 frames from your source.' });
+                      toast({ title: 'Extracting B-roll…', description: 'Marco is slicing 6 short clips from your source.' });
                       const saved = await extractBrollFrames({
                         videoUrl: url,
                         userId: user.id,
                         projectId: payload.projectId,
                         label: payload.sourceLabel || payload.title || 'Source',
                         count: 6,
+                        clipDuration: 3,
                       });
                       if (saved.length > 0) {
-                        const { data: refreshed } = await supabase
-                          .from('generated_images')
-                          .select('id, image_url, prompt')
-                          .eq('user_id', user.id)
-                          .eq('source', 'broll-frame')
-                          .order('created_at', { ascending: false })
-                          .limit(60);
-                        if (refreshed) setSavedBrollFrames(refreshed as any);
+                        const [framesRes, clipsRes] = await Promise.all([
+                          supabase.from('generated_images').select('id, image_url, prompt').eq('user_id', user.id).eq('source', 'broll-frame').order('created_at', { ascending: false }).limit(60),
+                          supabase.from('generated_images').select('id, image_url, prompt').eq('user_id', user.id).eq('source', 'broll-clip').order('created_at', { ascending: false }).limit(60),
+                        ]);
+                        if (framesRes.data) setSavedBrollFrames(framesRes.data as any);
+                        if (clipsRes.data) setSavedBrollClips(clipsRes.data as any);
+                        const clipCount = saved.filter(s => s.kind === 'clip').length;
+                        const frameCount = saved.length - clipCount;
+                        const desc = clipCount > 0
+                          ? `${clipCount} short B-roll clip${clipCount !== 1 ? 's' : ''}${frameCount ? ` and ${frameCount} still${frameCount !== 1 ? 's' : ''}` : ''}`
+                          : `${frameCount} B-roll frame${frameCount !== 1 ? 's' : ''}`;
                         setMessages((prev) => [
                           ...prev,
-                          { role: 'assistant', content: `I extracted ${saved.length} B-roll frames from your source — they're in the **Saved Frames** panel on the right. Tap any to drop it onto the timeline at the playhead.` },
+                          { role: 'assistant', content: `I extracted ${desc} from your source — they're in the **Source Clips** / **Saved Frames** panels on the right. Tap any to drop it onto the timeline at the playhead.` },
                         ]);
-                        toast({ title: `Extracted ${saved.length} frames`, description: 'Open the Media panel → Saved Frames.' });
+                        toast({ title: `Extracted ${saved.length} item${saved.length !== 1 ? 's' : ''}`, description: 'Open the Media panel.' });
                       }
                     } catch (err: any) {
                       console.warn('[ChatcutAI] auto-extract failed', err);
