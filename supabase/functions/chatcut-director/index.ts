@@ -98,6 +98,16 @@ Genres: wellness, upbeat, corporate, cinematic, lofi, energetic, ambient
 \`\`\`actions
 [{"action":"add_overlay","type":"motion_graphic","text":"Lion's Mane Mushroom","renderMode":"image","start":8,"duration":3,"style":"glass"}]
 \`\`\`
+
+5. **add_animated_graphic** — PREMIUM animated motion graphic via VEO 3.1. Use SPARINGLY (1-2 per video max) for HERO moments only. Pipeline: Nano Banana 2 generates start + end frames, VEO 3.1 animates the reveal. Takes ~30-60s to render but produces broadcast-quality motion. Examples: a hero stat dropping in with cinematic motion, an animated product reveal, a dramatic "before vs after" full-coverage transition, a logo sting at the outro. NEVER use for routine text cards (use add_text_card instead — it's instant + crisper). Optional \`animationPrompt\` describes the motion (e.g. "text scales up with golden glow, gradient sweeps left to right"). Optional \`fullCoverage:true\` for take-over moments. Optional \`aspectRatio:"9:16"\` (default matches reel preview).
+
+\`\`\`actions
+[{"action":"add_animated_graphic","type":"stat_callout","text":"97% Absorption","animationPrompt":"Number scales up dramatically with golden glow sweep, percentage symbol pops in last","start":4.2,"duration":5,"style":"bold"}]
+\`\`\`
+
+\`\`\`actions
+[{"action":"add_animated_graphic","type":"title_card","text":"Lion's Mane","subtext":"Focus & Memory","animationPrompt":"Brand colour gradient sweeps in from left, headline scales up with subtle glow","fullCoverage":true,"start":18,"duration":4,"style":"bold"}]
+\`\`\`
 (↑ only use renderMode:"image" when an illustrated graphic is genuinely needed — e.g. icon next to text, product chip with image. Default behaviour is DOM rendering.)
 
 ### Style options (auto-pairs with brand colours, you don't need to specify hex):
