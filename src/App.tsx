@@ -29,6 +29,7 @@ import AnimateStatics from "./pages/AnimateStatics";
 import ChatcutAI from "./pages/ChatcutAI";
 import Vizard from "./pages/Vizard";
 import YouTubeSearch from "./pages/YouTubeSearch";
+import BRollLibrary from "./pages/BRollLibrary";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient({
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="/chatcut-ai" element={<ProtectedRoute><ChatcutAI /></ProtectedRoute>} />
               <Route path="/vizard" element={<ProtectedRoute><Vizard /></ProtectedRoute>} />
               <Route path="/youtube-search" element={<ProtectedRoute><YouTubeSearch /></ProtectedRoute>} />
+              <Route path="/broll-library" element={<ProtectedRoute><BRollLibrary /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

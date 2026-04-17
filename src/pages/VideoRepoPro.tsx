@@ -34,6 +34,7 @@ import {
   Eye,
   Zap,
   Mic,
+  Scissors,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +46,7 @@ import { trimVideoToTimestamp } from '@/lib/canvasStitch';
 import ReactMarkdown from 'react-markdown';
 import { ContentCalendarTab } from '@/components/ContentCalendarTab';
 import { VideoRepoTimeline } from '@/components/VideoRepoTimeline';
+import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
 
 interface ChatMessage {
   id: string;
@@ -111,6 +113,7 @@ const VideoRepoPro = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [frameExtractor, setFrameExtractor] = useState<{ url: string; projectId: string; label: string } | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
 
   // AI Script Director chat state
@@ -2173,6 +2176,28 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                           {project.generated_video_url && (
                             <Tooltip>
                               <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFrameExtractor({
+                                      url: project.generated_video_url!,
+                                      projectId: project.id,
+                                      label: project.custom_name || project.prompt?.slice(0, 40) || 'Video',
+                                    });
+                                  }}
+                                >
+                                  <Scissors className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Extract B-Roll Frames</TooltipContent>
+                            </Tooltip>
+                          )}
+                          {project.generated_video_url && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
                                 <Button size="icon" variant="ghost" className="h-6 w-6" asChild>
                                   <a href={project.generated_video_url} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                                     <Download className="w-3 h-3" />
@@ -2196,6 +2221,15 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
           </TabsContent>
         </Tabs>
       </div>
+      {frameExtractor && (
+        <FrameExtractorDialog
+          open={!!frameExtractor}
+          onOpenChange={(o) => !o && setFrameExtractor(null)}
+          videoUrl={frameExtractor.url}
+          projectId={frameExtractor.projectId}
+          projectLabel={frameExtractor.label}
+        />
+      )}
     </Layout>
   );
 };

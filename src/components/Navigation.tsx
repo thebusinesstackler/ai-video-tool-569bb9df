@@ -95,6 +95,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'Product Library', href: '/products', icon: Package },
       { name: 'Image Gallery', href: '/gallery', icon: ImageIcon },
+      { name: 'B-Roll Library', href: '/broll-library', icon: Film, beta: true },
       { name: 'Characters', href: '/characters', icon: UsersIcon },
     ],
   },
