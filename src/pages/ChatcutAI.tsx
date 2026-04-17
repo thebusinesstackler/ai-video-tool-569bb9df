@@ -1716,7 +1716,7 @@ const ChatcutAI = () => {
         }
       }
     }
-  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage]);
+  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, generateAnimatedGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage, reelPreview]);
 
   // Self-ref so action cases can recurse (e.g. replace_broll_at_time → add_product_broll)
   const executeActionsRef = useRef<typeof executeActions | null>(null);
