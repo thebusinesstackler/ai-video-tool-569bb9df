@@ -1999,6 +1999,11 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
           </TabsContent>
         </Tabs>
       </div>
+      <ProductPickerDialog
+        open={productPickerOpen}
+        onOpenChange={setProductPickerOpen}
+        onSelect={handleProductPicked}
+      />
     </Layout>
   );
 };
