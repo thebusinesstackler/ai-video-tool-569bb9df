@@ -132,17 +132,20 @@ CRITICAL FOR TEXT: The "text" field MUST be specific and unique to the content a
 [{"action":"split","time":15.5,"track":"v1"}]
 \`\`\`
 
-6. **add_broll** — Add B-Roll footage to the B-Roll track (generates a 3-second 720p animated clip via alibaba/wan-2.5/image-to-video):
+6. **add_broll** — Add B-Roll footage to the B-Roll track. There are TWO modes:
+
+  (A) PREFERRED — Drop a saved Source Clip (instant, no generation). If the user has saved Source Clips, ALWAYS prefer them when the label/topic matches:
+\`\`\`actions
+[{"action":"add_broll","sourceClipId":"<id from savedSourceClips>","start":5,"description":"Lion's Mane pour"}]
+\`\`\`
+  The clip's exact in-point and length come from the saved metadata — no regeneration, no wait.
+
+  (B) Fallback — Generate a new 3-second 720p animated clip via alibaba/wan-2.5/image-to-video:
 \`\`\`actions
 [{"action":"add_broll","description":"Product close-up","prompt":"...","start":5,"duration":3,"broll_type":"product"}]
 \`\`\`
 
-The system will:
-1. Generate a still frame from your prompt that MATCHES the video's existing visual feel
-2. Animate it into a 3-second 720p clip via alibaba/wan-2.5/image-to-video (~30-60s)
-3. Notify you when the animated B-roll is ready
-
-IMPORTANT: B-roll duration is ALWAYS 3 seconds. Do not request other durations.
+IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceClipId clips, the saved duration is honored.
 
 B-ROLL TYPE SYSTEM — choose automatically:
 - "product" → Close-up/hero shots of the product. Use when the speaker mentions or holds it.
