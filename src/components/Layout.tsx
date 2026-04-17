@@ -18,6 +18,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
     return saved === 'true';
   });
+  const [hasMounted, setHasMounted] = useState(false);
+
+  // Enable transitions only after first paint to prevent initial flash
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setHasMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // Listen for localStorage changes to sync collapse state
   useEffect(() => {
