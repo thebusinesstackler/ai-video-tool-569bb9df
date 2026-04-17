@@ -283,6 +283,17 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
       });
     }
 
+    const currentBRoll = (context as any)?.currentBRoll;
+    if (Array.isArray(currentBRoll) && currentBRoll.length > 0) {
+      const list = currentBRoll
+        .map((b: any) => `- "${b.name}" @ ${b.start}s → ${b.end}s (${b.duration}s, audio ${b.audioEnabled ? 'ON' : 'OFF'}, ${b.ready ? 'ready' : 'pending'})`)
+        .join('\n');
+      allMessages.push({
+        role: "system",
+        content: `B-ROLL ALREADY ON THE TIMELINE (${currentBRoll.length}):\n${list}\n\nCRITICAL OVERLAP RULES:\n1. Before adding new b-roll, CHECK these windows. Never place new b-roll inside an existing one — always pick a "start" that lands in an empty gap.\n2. If the user asks for a new b-roll at a moment already covered, either replace the existing one (mention you'll do that) or pick the next empty gap and tell the user where you put it ("Your hero shot already runs 5–8s, so I dropped the new ingredient close-up at 8.2s").\n3. When the user asks "is this looking right?" or "review the b-roll", look at this list and the transcript and call out any clip that feels off (wrong moment, too long, audio left on when speaker is talking, etc.). Suggest specific fixes.\n4. If a b-roll has audioEnabled=true while the main speaker is talking at that timestamp, flag it — that usually clashes.`,
+      });
+    }
+
     if (messages && Array.isArray(messages)) {
       allMessages.push(...messages);
     }

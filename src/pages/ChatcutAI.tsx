@@ -2823,8 +2823,8 @@ const ChatcutAI = () => {
                         </Button>
                       </div>
                       {savedBrollClips.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {savedBrollClips.slice(0, 18).map((c) => {
+                        <div className="grid grid-cols-2 gap-2">
+                          {savedBrollClips.slice(0, 24).map((c) => {
                             const meta = parseBrollClipMeta(c);
                             const previewUrl = `${meta.sourceUrl}#t=${meta.sourceStart},${(meta.sourceStart + meta.duration).toFixed(2)}`;
                             return (
@@ -2843,7 +2843,7 @@ const ChatcutAI = () => {
                                   }));
                                   e.dataTransfer.effectAllowed = 'copy';
                                 }}
-                                className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black cursor-grab active:cursor-grabbing"
+                                className="relative group rounded-md overflow-hidden border border-border hover:border-primary/70 hover:shadow-md transition-all bg-black cursor-grab active:cursor-grabbing"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -2855,22 +2855,34 @@ const ChatcutAI = () => {
                                     sourceUrl: meta.sourceUrl,
                                   });
                                 }}
+                                onMouseEnter={(e) => {
+                                  const v = e.currentTarget.querySelector('video') as HTMLVideoElement | null;
+                                  if (v) { v.currentTime = meta.sourceStart; v.play().catch(() => {}); }
+                                }}
+                                onMouseLeave={(e) => {
+                                  const v = e.currentTarget.querySelector('video') as HTMLVideoElement | null;
+                                  if (v) { v.pause(); v.currentTime = meta.sourceStart + 0.05; }
+                                }}
                                 title={`Click or drag onto B-Roll track — ${meta.duration.toFixed(1)}s clip`}
                               >
                                 <video
                                   src={previewUrl}
                                   preload="metadata"
                                   muted
+                                  loop
                                   playsInline
-                                  className="w-full aspect-video object-cover pointer-events-none"
+                                  className="w-full aspect-video object-cover pointer-events-none bg-muted"
                                 />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors pointer-events-none">
-                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 pointer-events-none" />
+                                <div className="absolute inset-0 group-hover:bg-primary/10 flex items-center justify-center transition-colors pointer-events-none">
+                                  <div className="opacity-0 group-hover:opacity-100 bg-primary text-primary-foreground rounded-full p-1.5 shadow-lg transition-opacity">
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </div>
                                 </div>
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate pointer-events-none">
-                                  {meta.label}
+                                <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1 pointer-events-none">
+                                  <p className="text-[10px] font-medium text-white truncate drop-shadow">{meta.label}</p>
                                 </div>
-                                <div className="absolute top-0.5 right-0.5 bg-primary/80 text-primary-foreground text-[8px] px-1 rounded pointer-events-none">
+                                <div className="absolute top-1 right-1 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none shadow-sm">
                                   {meta.duration.toFixed(1)}s
                                 </div>
                               </div>
