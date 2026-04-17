@@ -146,13 +146,14 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
-        <Avatar className="w-9 h-9 bg-gradient-to-br from-primary to-primary/60">
+        <Avatar className="w-10 h-10 ring-2 ring-primary/30">
+          <AvatarImage src={directorAvatar} alt="AI Creative Director" />
           <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
             <Wand2 className="w-4 h-4" />
           </AvatarFallback>
         </Avatar>
         <div>
-          <h3 className="font-semibold text-sm">AI Creative Director</h3>
+          <h3 className="font-semibold text-sm">Marcus — AI Creative Director</h3>
           <p className="text-[11px] text-muted-foreground">Content • Scripts • Strategy • Direction</p>
         </div>
         {isStreaming && (
