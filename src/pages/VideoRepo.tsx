@@ -1576,8 +1576,16 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                           </SelectContent>
                         </Select>
                         <Button
-                          className="flex-1 rounded-xl gap-1.5"
-                          onClick={analyzeAndGenerate}
+                          type="button"
+                          size="sm"
+                          variant={lockProduct ? 'default' : 'outline'}
+                          className="h-8 text-xs rounded-lg gap-1 px-2.5"
+                          title={lockProduct ? 'Product Lock ON — Wan 2.5 i2v will be used when an image is attached for pixel-accurate product fidelity' : 'Turn on Product Lock to use Wan 2.5 i2v (stricter product fidelity than Sora-2)'}
+                          onClick={() => setLockProduct((v) => !v)}
+                        >
+                          <Lock className="w-3 h-3" />
+                          {lockProduct ? 'Product Locked' : 'Lock Product'}
+                        </Button>
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
                         >
                           {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
