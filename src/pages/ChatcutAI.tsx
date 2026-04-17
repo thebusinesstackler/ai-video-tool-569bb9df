@@ -138,6 +138,10 @@ interface BRollClip {
   /** When this b-roll references a window inside a longer source video, sourceStart marks the in-point. */
   sourceStart?: number;
   sourceUrl?: string;
+  /** When true, the b-roll's own audio plays and the main video is ducked. Default false (silent overlay). */
+  audioEnabled?: boolean;
+  /** Insertion order — higher wins when multiple b-rolls cover the same time (defensive tie-break). */
+  z?: number;
 }
 
 interface OverlayAnimation {
@@ -988,24 +992,45 @@ const ChatcutAI = () => {
     })();
   }, [currentTime, toast, pollBRollVideo]);
 
-  // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation
+  // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation.
+  // Auto-snaps the start time forward to avoid overlapping any existing b-roll on the track.
   const addBRollFromVideoClip = useCallback((opts: { videoUrl: string; label: string; durationSec?: number; startAt?: number; sourceStart?: number; sourceUrl?: string }) => {
     const { videoUrl: vUrl, label, durationSec = 3, startAt, sourceStart, sourceUrl } = opts;
+    const desiredStart = Math.max(0, startAt ?? currentTime);
+    const dur = Math.max(0.3, durationSec);
     const brollId = crypto.randomUUID();
-    const broll: BRollClip = {
-      id: brollId,
-      name: label,
-      prompt: label,
-      start: startAt ?? currentTime,
-      duration: durationSec,
-      videoUrl: sourceUrl || vUrl,
-      sourceStart,
-      sourceUrl: sourceUrl || vUrl,
-      videoStatus: 'ready',
-      imageStatus: 'ready',
-    };
-    setBRollClips(prev => [...prev, broll]);
-    toast({ title: 'B-Roll clip added', description: `"${label}" — dropped at ${(startAt ?? currentTime).toFixed(1)}s` });
+    setBRollClips(prev => {
+      // Find first non-overlapping slot at or after desiredStart
+      const sorted = [...prev].sort((a, b) => a.start - b.start);
+      let cursor = desiredStart;
+      for (const existing of sorted) {
+        const eStart = existing.start;
+        const eEnd = existing.start + existing.duration;
+        if (cursor + dur <= eStart) break; // fits before this clip
+        if (cursor < eEnd) cursor = eEnd; // bump past it
+      }
+      const broll: BRollClip = {
+        id: brollId,
+        name: label,
+        prompt: label,
+        start: +cursor.toFixed(2),
+        duration: dur,
+        videoUrl: sourceUrl || vUrl,
+        sourceStart,
+        sourceUrl: sourceUrl || vUrl,
+        videoStatus: 'ready',
+        imageStatus: 'ready',
+        audioEnabled: false,
+        z: Date.now(),
+      };
+      const wasBumped = Math.abs(cursor - desiredStart) > 0.01;
+      if (wasBumped) {
+        toast({ title: 'B-Roll auto-stacked', description: `"${label}" snapped to ${cursor.toFixed(1)}s to avoid overlapping the previous clip.` });
+      } else {
+        toast({ title: 'B-Roll clip added', description: `"${label}" — dropped at ${cursor.toFixed(1)}s` });
+      }
+      return [...prev, broll];
+    });
   }, [currentTime, toast]);
 
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
@@ -1243,6 +1268,15 @@ const ChatcutAI = () => {
             const meta = parseBrollClipMeta(c);
             return { id: c.id, label: meta.label, sourceStart: meta.sourceStart, duration: meta.duration };
           }),
+          currentBRoll: bRollClips.map((b) => ({
+            id: b.id,
+            name: b.name,
+            start: +b.start.toFixed(2),
+            end: +(b.start + b.duration).toFixed(2),
+            duration: +b.duration.toFixed(2),
+            audioEnabled: !!b.audioEnabled,
+            ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
+          })),
         }),
       });
       if (!resp.ok || !resp.body) {
@@ -1418,21 +1452,49 @@ const ChatcutAI = () => {
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientX - startX;
       const deltaSec = (deltaPx / trackRect.width) * total;
-      setBRollClips(prev => prev.map(b => {
-        if (b.id !== brId) return b;
-        if (mode === 'move') {
-          const newStart = Math.max(0, Math.min(total - startDuration, startStart + deltaSec));
-          return { ...b, start: newStart };
-        }
-        if (mode === 'resize-left') {
-          const maxShift = startDuration - 0.3;
-          const shift = Math.max(-startStart, Math.min(maxShift, deltaSec));
-          return { ...b, start: startStart + shift, duration: startDuration - shift };
-        }
-        // resize-right
-        const newDuration = Math.max(0.3, Math.min(total - startStart, startDuration + deltaSec));
-        return { ...b, duration: newDuration };
-      }));
+      setBRollClips(prev => {
+        const others = prev.filter(b => b.id !== brId).sort((a, b) => a.start - b.start);
+        return prev.map(b => {
+          if (b.id !== brId) return b;
+          if (mode === 'move') {
+            let newStart = Math.max(0, Math.min(total - startDuration, startStart + deltaSec));
+            const newEnd = newStart + startDuration;
+            // Prevent overlap: nudge to the closest free side of any neighbor we collide with.
+            for (const o of others) {
+              const oStart = o.start;
+              const oEnd = o.start + o.duration;
+              if (newStart < oEnd && newEnd > oStart) {
+                // collision — pick whichever side requires less travel
+                const moveLeft = oStart - startDuration;
+                const moveRight = oEnd;
+                newStart = Math.abs(newStart - moveLeft) < Math.abs(newStart - moveRight) ? Math.max(0, moveLeft) : moveRight;
+              }
+            }
+            newStart = Math.max(0, Math.min(total - startDuration, newStart));
+            return { ...b, start: newStart };
+          }
+          if (mode === 'resize-left') {
+            const maxShift = startDuration - 0.3;
+            let shift = Math.max(-startStart, Math.min(maxShift, deltaSec));
+            const proposedStart = startStart + shift;
+            // Block if it would overlap a neighbor on the left
+            const leftNeighbor = [...others].reverse().find(o => o.start + o.duration <= startStart + 0.001);
+            if (leftNeighbor) {
+              const minStart = leftNeighbor.start + leftNeighbor.duration;
+              if (proposedStart < minStart) shift = minStart - startStart;
+            }
+            return { ...b, start: startStart + shift, duration: startDuration - shift };
+          }
+          // resize-right
+          let newDuration = Math.max(0.3, Math.min(total - startStart, startDuration + deltaSec));
+          const rightNeighbor = others.find(o => o.start >= startStart + 0.001);
+          if (rightNeighbor) {
+            const maxDur = rightNeighbor.start - startStart;
+            if (newDuration > maxDur) newDuration = Math.max(0.3, maxDur);
+          }
+          return { ...b, duration: newDuration };
+        });
+      });
     };
     const onUp = () => {
       document.body.style.cursor = '';
@@ -1499,8 +1561,27 @@ const ChatcutAI = () => {
     return badges;
   };
 
-  // Find active B-roll clip at current time — prefer video over still image
-  const activeBRoll = bRollClips.find(br => currentTime >= br.start && currentTime < br.start + br.duration && ((br.videoUrl && br.videoStatus === 'ready') || (br.imageUrl && br.imageStatus === 'ready')));
+  // Find active B-roll clip at current time. When multiple cover this moment (overlap), pick the most recently added (highest z).
+  const activeBRoll = (() => {
+    const candidates = bRollClips.filter(br =>
+      currentTime >= br.start &&
+      currentTime < br.start + br.duration &&
+      ((br.videoUrl && br.videoStatus === 'ready') || (br.imageUrl && br.imageStatus === 'ready'))
+    );
+    if (candidates.length === 0) return undefined;
+    return candidates.reduce((winner, c) => ((c.z ?? 0) > (winner.z ?? 0) ? c : winner));
+  })();
+
+  // Mute main video while a b-roll with its own audio is active
+  useEffect(() => {
+    if (!videoRef.current) return;
+    const shouldMuteMain = !!(activeBRoll && activeBRoll.audioEnabled);
+    if (shouldMuteMain) {
+      videoRef.current.muted = true;
+    } else {
+      videoRef.current.muted = trackMuted.v1;
+    }
+  }, [activeBRoll, trackMuted.v1]);
 
   return (
     <Layout>
@@ -1847,7 +1928,7 @@ const ChatcutAI = () => {
                             key={activeBRoll.id}
                             src={activeBRoll.videoUrl}
                             autoPlay
-                            muted
+                            muted={!activeBRoll.audioEnabled}
                             loop={typeof activeBRoll.sourceStart !== 'number'}
                             playsInline
                             className="block absolute inset-0 w-full h-full object-cover z-[5]"
@@ -1872,6 +1953,31 @@ const ChatcutAI = () => {
                             className="block absolute inset-0 w-full h-full object-cover z-[5]"
                           />
                         )
+                      )}
+                      {/* Active B-Roll badge — shows which clip is on screen and lets user toggle its audio */}
+                      {activeBRoll && (
+                        <div className="absolute top-2 left-2 z-[6] flex items-center gap-1.5 bg-background/85 backdrop-blur px-2 py-1 rounded-md border border-border shadow-sm pointer-events-auto">
+                          <span className="text-[10px] font-medium text-foreground truncate max-w-[160px]">B-Roll: {activeBRoll.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBRollClips(prev => prev.map(b => b.id === activeBRoll.id ? { ...b, audioEnabled: !b.audioEnabled } : b));
+                              if (videoRef.current) {
+                                videoRef.current.muted = !activeBRoll.audioEnabled ? true : false;
+                              }
+                            }}
+                            className={cn(
+                              "h-5 w-5 rounded flex items-center justify-center transition-colors",
+                              activeBRoll.audioEnabled
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                            )}
+                            title={activeBRoll.audioEnabled ? 'B-Roll audio ON (main video muted)' : 'B-Roll audio OFF (main video plays)'}
+                          >
+                            {activeBRoll.audioEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                          </button>
+                        </div>
                       )}
                       {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
                       <video
@@ -2394,6 +2500,19 @@ const ChatcutAI = () => {
                                   <span className="text-[9px] text-green-300 truncate flex-1">{br.name}</span>
                                 </div>
                                 <button
+                                  className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-background/70 hover:bg-background flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBRollClips(prev => prev.map(b => b.id === br.id ? { ...b, audioEnabled: !b.audioEnabled } : b));
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title={br.audioEnabled ? 'B-Roll audio ON — click to mute' : 'B-Roll audio OFF — click to enable'}
+                                >
+                                  {br.audioEnabled
+                                    ? <Volume2 className="w-2 h-2 text-green-300" />
+                                    : <VolumeX className="w-2 h-2 text-muted-foreground" />}
+                                </button>
+                                <button
                                   className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1.5 z-10 relative"
                                   onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}
                                   onMouseDown={(e) => e.stopPropagation()}
@@ -2715,8 +2834,8 @@ const ChatcutAI = () => {
                         </Button>
                       </div>
                       {savedBrollClips.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {savedBrollClips.slice(0, 18).map((c) => {
+                        <div className="grid grid-cols-2 gap-2">
+                          {savedBrollClips.slice(0, 24).map((c) => {
                             const meta = parseBrollClipMeta(c);
                             const previewUrl = `${meta.sourceUrl}#t=${meta.sourceStart},${(meta.sourceStart + meta.duration).toFixed(2)}`;
                             return (
@@ -2735,7 +2854,7 @@ const ChatcutAI = () => {
                                   }));
                                   e.dataTransfer.effectAllowed = 'copy';
                                 }}
-                                className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black cursor-grab active:cursor-grabbing"
+                                className="relative group rounded-md overflow-hidden border border-border hover:border-primary/70 hover:shadow-md transition-all bg-black cursor-grab active:cursor-grabbing"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -2747,22 +2866,34 @@ const ChatcutAI = () => {
                                     sourceUrl: meta.sourceUrl,
                                   });
                                 }}
+                                onMouseEnter={(e) => {
+                                  const v = e.currentTarget.querySelector('video') as HTMLVideoElement | null;
+                                  if (v) { v.currentTime = meta.sourceStart; v.play().catch(() => {}); }
+                                }}
+                                onMouseLeave={(e) => {
+                                  const v = e.currentTarget.querySelector('video') as HTMLVideoElement | null;
+                                  if (v) { v.pause(); v.currentTime = meta.sourceStart + 0.05; }
+                                }}
                                 title={`Click or drag onto B-Roll track — ${meta.duration.toFixed(1)}s clip`}
                               >
                                 <video
                                   src={previewUrl}
                                   preload="metadata"
                                   muted
+                                  loop
                                   playsInline
-                                  className="w-full aspect-video object-cover pointer-events-none"
+                                  className="w-full aspect-video object-cover pointer-events-none bg-muted"
                                 />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors pointer-events-none">
-                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 pointer-events-none" />
+                                <div className="absolute inset-0 group-hover:bg-primary/10 flex items-center justify-center transition-colors pointer-events-none">
+                                  <div className="opacity-0 group-hover:opacity-100 bg-primary text-primary-foreground rounded-full p-1.5 shadow-lg transition-opacity">
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </div>
                                 </div>
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate pointer-events-none">
-                                  {meta.label}
+                                <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1 pointer-events-none">
+                                  <p className="text-[10px] font-medium text-white truncate drop-shadow">{meta.label}</p>
                                 </div>
-                                <div className="absolute top-0.5 right-0.5 bg-primary/80 text-primary-foreground text-[8px] px-1 rounded pointer-events-none">
+                                <div className="absolute top-1 right-1 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none shadow-sm">
                                   {meta.duration.toFixed(1)}s
                                 </div>
                               </div>
