@@ -283,14 +283,20 @@ Return ONLY valid JSON:
       const dur = parseInt(duration);
       const wordTarget = Math.round(dur * 2.5);
 
-      // Step 1: Generate script
-      setProgressStatus('Writing script...');
-      const { data: scriptData, error: scriptErr } = await supabase.functions.invoke('ai', {
-        body: {
-          messages: [
-            {
-              role: 'system',
-              content: `You are a scriptwriter for talking-head videos. Write a natural, conversational monologue.
+      // Step 1: Use preset script if provided, else generate one
+      let narration: string;
+      let visualDesc: string;
+      if (preset) {
+        narration = preset.narration;
+        visualDesc = preset.visualDescription;
+      } else {
+        setProgressStatus('Writing script...');
+        const { data: scriptData, error: scriptErr } = await supabase.functions.invoke('ai', {
+          body: {
+            messages: [
+              {
+                role: 'system',
+                content: `You are a scriptwriter for talking-head videos. Write a natural, conversational monologue.
 
 Target: ${dur} seconds (~${wordTarget} words).
 Character: ${selectedTwin.face_description || selectedTwin.name}
@@ -307,24 +313,22 @@ Return ONLY a JSON object:
   "narration": "The full script text...",
   "visualDescription": "Brief visual direction for the character in a professional studio setting"
 }`
-            },
-            { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${message}` }
-          ]
+              },
+              { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${message}` }
+            ]
+          }
+        });
+        if (scriptErr) throw scriptErr;
+        const content = scriptData?.response || scriptData?.choices?.[0]?.message?.content || scriptData?.content || (typeof scriptData === 'string' ? scriptData : '');
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+          narration = parsed.narration;
+          visualDesc = parsed.visualDescription || '';
+        } catch {
+          narration = content.replace(/```[\s\S]*?```/g, '').trim();
+          visualDesc = `Professional studio, ${selectedTwin.face_description || selectedTwin.name} speaking to camera`;
         }
-      });
-      if (scriptErr) throw scriptErr;
-
-      const content = scriptData?.response || scriptData?.choices?.[0]?.message?.content || scriptData?.content || (typeof scriptData === 'string' ? scriptData : '');
-      let narration: string;
-      let visualDesc: string;
-      try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
-        narration = parsed.narration;
-        visualDesc = parsed.visualDescription || '';
-      } catch {
-        narration = content.replace(/```[\s\S]*?```/g, '').trim();
-        visualDesc = `Professional studio, ${selectedTwin.face_description || selectedTwin.name} speaking to camera`;
       }
 
       setProgress(15);
