@@ -83,12 +83,21 @@ Animation options (optional — style has smart defaults, but you can override):
 - "scale-pop" → Pops in with a bounce. Great for bold/neon.
 - "slide-left" → Slides in from the left. Great for broadcast.
 
-### Overlay sizing:
-You can include a "scale" property (1-5) in add_overlay actions:
-- 1 = small (default)
-- 2-3 = medium
-- 4 = large
-- 5 = full screen (fills the entire video frame — great for outros, title cards, end screens)
+### Overlay sizing & positioning (CRITICAL — get this right):
+You can include "scale" (1-5) and "position" {x, y} (percent of video frame, 0-100) in add_overlay:
+- scale 1 = ~20% width (small badge / chip)
+- scale 2 = ~35% width (standard CTA button — DEFAULT for "Shop Now" / cta buttons)
+- scale 3 = ~55% width (large lower-third)
+- scale 4 = ~75% width (banner)
+- scale 5 = full screen (outros, title cards, end screens ONLY)
+
+Position defaults by type (use these unless user requests otherwise):
+- "lower_third" → position {x: 50, y: 85} (bottom-center, classic news lower third)
+- "motion_graphic" → position {x: 50, y: 25} (upper-third, draws eye to stat/benefit)
+- "animated_text" / Shop Now CTA button → position {x: 50, y: 80}, scale 2 (bottom-center, button-sized — never huge, never floating in middle)
+- "title_card" → scale 5, full screen (no position needed)
+
+ALWAYS include explicit position + scale in every add_overlay action. Buttons and CTAs MUST be scale 2 at {x:50, y:80} so they look like real broadcast/UGC CTAs — NOT giant floating text covering the whole frame.
 
 IMPORTANT: You ALWAYS choose the best type and style automatically based on the content. If the user asks you to switch or change it, do so immediately. Explain your choice briefly: "Went with a glass lower third since the vibe is techy — want me to switch to something bolder?"
 

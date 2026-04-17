@@ -21,9 +21,20 @@ serve(async (req) => {
 
     const { prompt: rawPrompt, brandPrimaryColor, brandTextColor, brandFont } = await req.json();
     const brandLine = brandPrimaryColor
-      ? ` BRAND COLORS (use these for the shape's fill/accent): primary fill ${brandPrimaryColor}, text color ${brandTextColor || '#ffffff'}${brandFont ? `, font style similar to ${brandFont}` : ''}.`
+      ? ` BRAND COLORS: the button/badge fill MUST be this exact solid hex color ${brandPrimaryColor} (100% opaque, no transparency, no gradient, no checkerboard). Text color inside the shape: ${brandTextColor || '#ffffff'}${brandFont ? `. Font: clean modern sans-serif similar to ${brandFont}` : ''}.`
       : '';
-    const sizePrefix = `Generate a single self-contained UI overlay element on a FULLY TRANSPARENT alpha-channel background (true PNG alpha = 0 around the design — NOT a checkerboard pattern, NOT dark, NOT white). The element MUST be a real designed SHAPE with its own filled color and rounded corners. For BUTTONS: render an actual pill / rounded-rectangle button shape filled with the brand color, with the text rendered INSIDE the button shape. For BADGES / LOWER-THIRDS / TITLE CHIPS: render the actual chip/bar shape filled with color, text inside it. DO NOT render bare floating text — the design must always have a visible filled shape behind/around the text. Pixels OUTSIDE the designed shape must be 100% transparent (alpha 0) — no surrounding rectangular padding box, no outer frame, no plate.${brandLine} Output: PNG with alpha channel. `;
+    const sizePrefix = `Generate a single finished UI element rendered as a flat vector-style graphic, output as a PNG with an alpha channel.
+
+CRITICAL RULES:
+1. The OUTSIDE of the designed shape (the area around it) must be 100% transparent (alpha = 0). NOT a checkerboard pattern, NOT white, NOT black, NOT gray.
+2. The INSIDE of the shape itself must be 100% OPAQUE solid color fill — completely filled in with the brand color, NO transparency, NO checkerboard pattern visible inside the button, NO see-through areas, NO glassmorphism unless explicitly asked.
+3. Render a real designed SHAPE: for BUTTONS use a solid-filled pill / rounded-rectangle (corner radius ~20-30px) with the text rendered cleanly INSIDE and centered. For BADGES / LOWER-THIRDS / TITLE CHIPS, use a solid-filled bar/chip with text inside.
+4. NEVER show a checkerboard pattern inside the button — that means you accidentally made the button itself transparent. The button fill must be 100% solid color.
+5. NEVER add a surrounding rectangular plate, padding box, drop shadow halo, or outer frame — the only visible pixels should be the button shape itself, on a fully transparent background.
+6. Aspect ratio: render the button at roughly 3:1 (wide pill button shape), tightly cropped to the shape with no extra padding.
+7. Multi-line text (e.g. "Shop Now\\nyourbrand.com"): render the URL on a second line in a smaller font size (about 60% of the main label size) inside the same single button.${brandLine}
+
+Output: a single PNG with the button shape solid-filled and opaque, surrounded by true alpha-zero transparency. `;
     const prompt = sizePrefix + (rawPrompt || "");
     if (!prompt || typeof prompt !== "string") {
       return new Response(JSON.stringify({ error: "Prompt is required" }), {
