@@ -1571,18 +1571,53 @@ const ChatcutAI = () => {
             break;
           }
           const brollId = crypto.randomUUID();
+          const isPremium = !!act.premium;
           const broll: BRollClip = {
             id: brollId,
-            name: act.description || act.prompt || 'B-Roll',
+            name: act.description || act.prompt || (isPremium ? 'Premium B-Roll' : 'B-Roll'),
             prompt: act.prompt || act.description || '',
             start: act.start ?? currentTime,
-            duration: act.duration ?? 5,
+            duration: act.duration ?? (isPremium ? 3 : 5),
+            premium: isPremium,
+            triggerPhrase: act.triggerPhrase,
           };
           setBRollClips(prev => [...prev, broll]);
-          toast({ title: 'B-Roll added', description: `"${broll.name}" — generating image...` });
+          toast({
+            title: isPremium ? '⭐ Premium B-Roll added' : 'B-Roll added',
+            description: `"${broll.name}"${act.triggerPhrase ? ` @ "${act.triggerPhrase}"` : ''} — generating image...`,
+          });
           // Generate real B-roll image
           if (broll.prompt) {
             generateBRollImage(brollId, broll.prompt);
+          }
+          break;
+        }
+        case 'add_premium_broll_auto': {
+          // Marco hands us a list of phrase→prompt mappings. We expand each into a generated
+          // 3-second premium b-roll via the existing add_broll pipeline. The b-rolls are
+          // queued in the background — generation happens asynchronously per clip.
+          const clips = Array.isArray(act.clips) ? act.clips : [];
+          if (clips.length === 0) break;
+          let queued = 0;
+          for (const c of clips) {
+            if (typeof c?.start !== 'number' || !c?.prompt) continue;
+            executeActionsRef.current?.([{
+              action: 'add_broll',
+              start: c.start,
+              duration: 3,
+              prompt: c.prompt,
+              description: c.phrase || c.label || 'Premium B-Roll',
+              broll_type: c.broll_type || 'lifestyle',
+              premium: true,
+              triggerPhrase: c.phrase,
+            }]);
+            queued++;
+          }
+          if (queued > 0) {
+            toast({
+              title: `⭐ ${queued} Premium B-Roll${queued === 1 ? '' : 's'} queued`,
+              description: 'Generating cinematic clips in the background — keep editing while they render.',
+            });
           }
           break;
         }
@@ -3573,8 +3608,11 @@ const ChatcutAI = () => {
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-[10px] text-foreground truncate">{br.name}</p>
-                                <p className="text-[9px] text-muted-foreground">{br.duration}s{br.videoStatus === 'generating' ? ' · animating...' : br.videoStatus === 'ready' ? ' · 🎬 video' : br.imageStatus === 'generating' ? ' · generating...' : br.imageStatus === 'ready' ? ' · ✓ image' : ''}</p>
+                                <p className="text-[10px] text-foreground truncate flex items-center gap-1">
+                                  {br.premium && <span title="Premium AI-generated B-Roll" className="text-[9px]">⭐</span>}
+                                  {br.name}
+                                </p>
+                                <p className="text-[9px] text-muted-foreground">{br.duration}s{br.premium ? ' · Premium' : ''}{br.videoStatus === 'generating' ? ' · animating...' : br.videoStatus === 'ready' ? ' · 🎬 video' : br.imageStatus === 'generating' ? ' · generating...' : br.imageStatus === 'ready' ? ' · ✓ image' : ''}</p>
                               </div>
                             </div>
                           ))}
