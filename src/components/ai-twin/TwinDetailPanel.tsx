@@ -1250,43 +1250,72 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-2">
-            {twin.reference_images?.map((img, idx) => (
-              <div 
-                key={idx}
-                className="relative group cursor-pointer"
-              >
-                <img 
-                  src={img}
-                  alt={`Reference ${idx + 1}`}
-                  className="w-full aspect-square object-cover rounded-lg hover:ring-2 hover:ring-primary transition-all"
-                  onClick={() => setVariationSourceImage(img)}
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="w-8 h-8 bg-white/20 hover:bg-white/40 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVariationSourceImage(img);
-                    }}
-                  >
-                    <Wand2 className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="w-8 h-8 bg-destructive/80 hover:bg-destructive text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImageToDelete(img);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+            {twin.reference_images?.map((img, idx) => {
+              const isPrimary = img === activeReferenceImage;
+              return (
+                <div 
+                  key={`${idx}-${img}`}
+                  className="relative group cursor-pointer"
+                >
+                  <img 
+                    src={img}
+                    alt={`Reference ${idx + 1}`}
+                    className={`w-full aspect-square object-cover rounded-lg transition-all ${
+                      isPrimary 
+                        ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-background' 
+                        : 'hover:ring-2 hover:ring-primary'
+                    }`}
+                    onClick={() => setPrimaryImageUrl(img)}
+                  />
+                  {isPrimary && (
+                    <div className="absolute top-1 left-1 bg-yellow-400 text-black rounded-full p-1 shadow-md pointer-events-none">
+                      <Star className="w-3 h-3 fill-current" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
+                    {!isPrimary && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Set as locked reference"
+                        className="w-8 h-8 bg-yellow-400/80 hover:bg-yellow-400 text-black"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPrimaryImageUrl(img);
+                          toast({ title: 'Reference locked', description: 'This image will be used to generate angles.' });
+                        }}
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Create variation"
+                      className="w-8 h-8 bg-white/20 hover:bg-white/40 text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVariationSourceImage(img);
+                      }}
+                    >
+                      <Wand2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Delete image"
+                      className="w-8 h-8 bg-destructive/80 hover:bg-destructive text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImageToDelete(img);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
