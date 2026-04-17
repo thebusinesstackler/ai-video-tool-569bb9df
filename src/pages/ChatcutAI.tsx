@@ -1148,7 +1148,52 @@ const ChatcutAI = () => {
     toast({ title: 'B-Roll removed' });
   };
 
-  const deleteMusicTrack = (id: string) => {
+  // Drag / resize a B-Roll clip on the timeline
+  const handleBRollDrag = (
+    e: React.MouseEvent<HTMLDivElement>,
+    brId: string,
+    mode: 'move' | 'resize-left' | 'resize-right'
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const trackEl = (e.currentTarget.closest('[data-broll-track]') || e.currentTarget.parentElement) as HTMLElement | null;
+    if (!trackEl) return;
+    const trackRect = trackEl.getBoundingClientRect();
+    const startX = e.clientX;
+    const br = bRollClips.find(b => b.id === brId);
+    if (!br) return;
+    const startStart = br.start;
+    const startDuration = br.duration;
+    const total = Math.max(duration, 1);
+    document.body.style.cursor = mode === 'move' ? 'grabbing' : 'ew-resize';
+
+    const onMove = (ev: MouseEvent) => {
+      const deltaPx = ev.clientX - startX;
+      const deltaSec = (deltaPx / trackRect.width) * total;
+      setBRollClips(prev => prev.map(b => {
+        if (b.id !== brId) return b;
+        if (mode === 'move') {
+          const newStart = Math.max(0, Math.min(total - startDuration, startStart + deltaSec));
+          return { ...b, start: newStart };
+        }
+        if (mode === 'resize-left') {
+          const maxShift = startDuration - 0.3;
+          const shift = Math.max(-startStart, Math.min(maxShift, deltaSec));
+          return { ...b, start: startStart + shift, duration: startDuration - shift };
+        }
+        // resize-right
+        const newDuration = Math.max(0.3, Math.min(total - startStart, startDuration + deltaSec));
+        return { ...b, duration: newDuration };
+      }));
+    };
+    const onUp = () => {
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
     const audioEl = musicAudioRefs.current.get(id);
     if (audioEl) { audioEl.pause(); audioEl.src = ''; musicAudioRefs.current.delete(id); }
     setMusicTracks(prev => prev.filter(t => t.id !== id));
