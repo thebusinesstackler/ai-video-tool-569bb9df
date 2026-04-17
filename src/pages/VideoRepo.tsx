@@ -2041,6 +2041,28 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                           </span>
                         </div>
                         <p className="text-xs text-foreground line-clamp-2">{project.prompt || 'No prompt'}</p>
+                        {project.generated_video_url && (
+                          <div className="flex gap-1.5 pt-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 flex-1"
+                              onClick={(e) => { e.stopPropagation(); handleSendToChatcut(project); }}
+                              title="Open in Chatcut AI for product overlay/replacement"
+                            >
+                              <Scissors className="w-3 h-3" /> Chatcut
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 flex-1"
+                              onClick={(e) => { e.stopPropagation(); handleRemixProject(project); }}
+                              title="Remix this video"
+                            >
+                              <RefreshCw className="w-3 h-3" /> Remix
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
