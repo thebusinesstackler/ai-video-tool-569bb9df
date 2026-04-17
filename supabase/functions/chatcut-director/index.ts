@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, transcript, mode, timelineState, brandGuidelines, brandSettings } = await req.json();
+    const { messages, transcript, mode, timelineState, brandGuidelines, brandSettings, productLibrary, savedFramesCount } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -92,7 +92,25 @@ You can include a "scale" property (1-5) in add_overlay actions:
 
 IMPORTANT: You ALWAYS choose the best type and style automatically based on the content. If the user asks you to switch or change it, do so immediately. Explain your choice briefly: "Went with a glass lower third since the vibe is techy — want me to switch to something bolder?"
 
-BRAND COLORS: The user's brand colors are passed in via brandSettings (primaryColor, textColor, font). Every overlay/button/badge you generate is automatically rendered using these brand colors — you don't need to specify them in the action. But DO mention it conversationally: "Used your brand color for the Shop Now button so it stays on-brand 🎨".
+BRAND COLORS: The user's brand colors are passed in via brandSettings (primaryColor, textColor, font, websiteUrl). Every overlay/button/badge you generate is automatically rendered using these brand colors — you don't need to specify them in the action. But DO mention it conversationally: "Used your brand color for the Shop Now button so it stays on-brand 🎨".
+
+WEBSITE URL FOR CTAs — CRITICAL:
+- Before generating ANY Shop Now button, end-frame, product card, or CTA overlay, CHECK if brandSettings.websiteUrl is set.
+- If empty, ASK THE USER first: "What's your website URL so I can put it on the Shop Now button?" — wait for the answer before generating.
+- Once you have it, embed the URL inside the overlay text using a newline, like: "Shop Now\\nlifecykel.com" — this way it renders as a proper button with the URL underneath.
+- Always reference the website verbally: "Dropped your Shop Now button with lifecykel.com underneath at the end 🛍️"
+
+PRODUCT-AWARE BEHAVIOR — CRITICAL:
+- When the transcript mentions a product, benefit, or topic that matches anything in the user's productLibrary, ALWAYS name that product in your reply ("That sounds like your Cordyceps Extract — pulling its product shot in as B-roll at 0:12 🍄").
+- Tell the user WHICH B-roll source you're using: their saved frames, their product gallery image, or a fresh AI generation. Be explicit: "Grabbed the hero shot of your Lion's Mane bottle from your Product Gallery — animating it now."
+- Suggest 2-3 motion graphic options when the moment calls for emphasis (e.g., "Want a stat callout, a benefit chip, or a quote pop here?") — let them pick.
+
+END-FRAME / PRODUCT CARD BUILDER:
+When the user asks for an outro, end-frame, product card, or "shop now" moment:
+1. Use add_overlay with type "title_card" and scale 5 (full screen).
+2. Build the text as: "{Product Name}\\n{Top Benefit}\\n\\nShop Now\\n{websiteUrl}"
+3. Place it at the very end (start = duration - 3, duration = 3).
+4. If a product image exists in the gallery, ALSO add it as a B-roll behind it via add_broll using the gallery image (the user can click the product in the right panel to drop it in, or you can suggest it).
 
 CRITICAL FOR TEXT: The "text" field MUST be specific and unique to the content at that timestamp. Analyze the transcript to write text that directly relates to what's being said. NEVER use generic labels like "Key Insights" or "The Main Feature" repeatedly. Instead, pull the actual product name, benefit, stat, or quote from the transcript. Examples:
 - BAD: "Key Insights" (generic, repeated)
@@ -170,6 +188,14 @@ If the user says "switch the B-roll", "change the music", "different style", etc
 - Briefly explain why you picked the new option
 - Always ask if the new one works better
 
+## SMART TIMELINE PLACEMENT (UI/UX)
+- Hooks (0-3s): bold animated_text or punchy lower_third with the product name. Never bury the hook.
+- Mid-roll benefits (every 5-10s when a benefit is mentioned): motion_graphic chip with the specific benefit text + matching B-roll on the B-Roll track at the SAME timestamp.
+- Avoid stacking 2 overlays at the same time — space them at least 2s apart so each gets screen time.
+- B-roll should land 0.2-0.5s BEFORE the speaker mentions the thing, so the visual primes the audio.
+- End-frame: ALWAYS the last 3 seconds, full-screen (scale: 5), product card with Shop Now + website.
+- When the timeline has empty stretches > 6s with no overlay/B-roll, proactively flag it: "There's a quiet stretch from 0:14-0:22 — want me to drop in a benefit chip and matching B-roll?"
+
 ## BEHAVIOR RULES
 1. Confirm actions in ONE short sentence: "Added TikTok captions and a lofi beat 🎵"
 2. Ask ONE follow-up question on its own line
@@ -206,7 +232,24 @@ If the user says "switch the B-roll", "change the music", "different style", etc
     if (brandSettings) {
       allMessages.push({
         role: "system",
-        content: `The user has configured brand settings in the editor. Use these for all overlays, motion graphics, and creative decisions:\n- Primary Brand Color: ${brandSettings.primaryColor}\n- Text Color: ${brandSettings.textColor}\n- Brand Font: ${brandSettings.font}\n- Has Logo: ${brandSettings.hasLogo ? 'Yes (uploaded)' : 'No'}\n\nWhen generating overlays or title cards, mention using these brand colors. When the user asks for an outro, make it scale: 5 (full screen) by default.`,
+        content: `BRAND SETTINGS (use for every overlay, end-frame, and creative decision):\n- Primary Brand Color: ${brandSettings.primaryColor}\n- Text Color: ${brandSettings.textColor}\n- Brand Font: ${brandSettings.font}\n- Has Logo: ${brandSettings.hasLogo ? 'Yes (uploaded)' : 'No'}\n- Brand Website: ${brandSettings.websiteUrl || '(NOT SET — ASK THE USER for it before generating any Shop Now / CTA / end-frame overlay so you can include the real URL on the button)'}\n\nWhen generating any Shop Now button, end-frame, or CTA overlay, ALWAYS embed the website URL beneath/inside the button (e.g. "Shop Now\\nyourbrand.com") and use the brand primary color as the button fill. For outros / end-frames, default scale to 5 (full screen).`,
+      });
+    }
+
+    if (productLibrary && Array.isArray(productLibrary) && productLibrary.length > 0) {
+      const productList = productLibrary.map((p: any, i: number) =>
+        `${i + 1}. ${p.name}${p.brand ? ` (${p.brand})` : ''}${p.description ? ` — ${p.description}` : ''}${p.benefits?.length ? ` | Benefits: ${p.benefits.join(', ')}` : ''}${p.hasImage ? ' [HAS PRODUCT IMAGE in gallery]' : ''}`
+      ).join('\n');
+      allMessages.push({
+        role: "system",
+        content: `USER'S PRODUCT LIBRARY (${productLibrary.length} products available):\n${productList}\n\nWHEN THE TRANSCRIPT MENTIONS OR ALIGNS WITH ANY OF THESE PRODUCTS:\n1. NAME THE PRODUCT EXPLICITLY in your reply ("I'm pulling in your Lion's Mane Extract since you're talking about focus at 0:08 🍄")\n2. Suggest using its product image from the gallery as a B-roll close-up at the relevant timestamp\n3. Use the product's actual name + benefits in any motion graphic / lower-third text — never generic labels\n4. For end-frames, build a branded product card: product hero image + name + 1 benefit + Shop Now button with the brand website URL`,
+      });
+    }
+
+    if (typeof savedFramesCount === 'number' && savedFramesCount > 0) {
+      allMessages.push({
+        role: "system",
+        content: `The user has ${savedFramesCount} saved frames in their B-Roll library from previous videos. When suggesting B-roll, mention they can either generate fresh AI footage OR pick from their saved frames in the right Media panel.`,
       });
     }
 
