@@ -28,11 +28,13 @@ interface BrandContext {
 
 interface ScriptVariation {
   id: string;
-  styleLabel: string;   // e.g. "Educational"
-  settingLabel: string; // e.g. "Home office"
-  hook: string;         // 1-line teaser
-  narration: string;    // full script
-  visualDescription: string; // setting/wardrobe/lighting prompt
+  styleLabel: string;
+  settingLabel: string;
+  hook: string;
+  narration: string;
+  visualDescription: string;
+  featuredProduct?: string;
+  audience?: string;
 }
 
 const DURATION_OPTIONS = [
