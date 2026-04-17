@@ -821,10 +821,10 @@ const ChatcutAI = () => {
       };
       const styleText = styleDesc[style] || styleDesc.glass;
       const stylePrompts: Record<string, string> = {
-        motion_graphic: `Professional broadcast-quality motion graphic overlay with the text "${text}" in bold modern sans-serif font, ${styleText}, clean design, suitable for video overlay, transparent edges, on a clean dark background`,
-        animated_text: `Cinematic animated text graphic showing "${text}" in elegant typography, ${styleText}, film-quality title card, subtle glow effects, on a clean dark background`,
-        lower_third: `Professional lower-third graphic overlay with name "${text}", ${styleText}, sleek bar design, clean typography, on a clean dark background`,
-        title_card: `Professional title card graphic showing "${text}" in bold cinematic typography, ${styleText}, centered composition, film-quality design, on a clean dark background`,
+        motion_graphic: `Compact overlay badge featuring the text "${text}" in bold modern sans-serif typography, ${styleText}. The design itself can have its own colored shape/badge/glow, but the AREA AROUND the badge MUST be 100% transparent (alpha 0). No surrounding rectangular dark frame, no padded box, no background plate.`,
+        animated_text: `Standalone cinematic title text "${text}" in elegant typography with subtle glow, ${styleText}. Render only the text glyphs and any tight decorative elements — everything around the text must be fully transparent (alpha 0). No rectangular background panel.`,
+        lower_third: `Slim lower-third bar graphic with the name "${text}", ${styleText}, sleek thin bar shape. The bar itself is the only visible element — area above/below/around the bar must be completely transparent (alpha 0).`,
+        title_card: `Compact title chip showing "${text}" in bold cinematic typography, ${styleText}, tight contained shape. Only the title chip is visible — surrounding area must be 100% transparent (alpha 0). No outer rectangle or padding box.`,
       };
       const imagePrompt = stylePrompts[type] || stylePrompts.motion_graphic;
 
