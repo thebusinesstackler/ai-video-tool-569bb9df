@@ -4197,6 +4197,32 @@ const ChatcutAI = () => {
               </div>
             )}
           </ResizablePanelGroup>
+
+          {/* Mobile: tabbed single-panel layout (video always on top) */}
+          <div className="flex-1 flex flex-col md:hidden overflow-hidden">
+            <Tabs defaultValue="video" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="mx-2 mt-2 mb-0 bg-muted/50 grid grid-cols-3 w-auto">
+                <TabsTrigger value="video" className="text-xs">Video</TabsTrigger>
+                <TabsTrigger value="ai" className="text-xs">AI Chat</TabsTrigger>
+                <TabsTrigger value="media" className="text-xs">Media</TabsTrigger>
+              </TabsList>
+              <TabsContent value="video" className="flex-1 overflow-hidden m-0 bg-black/95">
+                <p className="text-xs text-muted-foreground text-center p-4">
+                  📱 For full editing on mobile, rotate to landscape or use a tablet/desktop. The video, AI chat, and media panels are tabbed here for navigation.
+                </p>
+              </TabsContent>
+              <TabsContent value="ai" className="flex-1 overflow-hidden m-0">
+                <p className="text-xs text-muted-foreground text-center p-4">
+                  Open Chatcut on a larger screen to access the full AI Director, transcript, and timeline editor.
+                </p>
+              </TabsContent>
+              <TabsContent value="media" className="flex-1 overflow-hidden m-0">
+                <p className="text-xs text-muted-foreground text-center p-4">
+                  Media panel available on tablet/desktop.
+                </p>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
 
