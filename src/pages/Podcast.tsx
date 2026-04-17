@@ -13,8 +13,18 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { PodcastAIDirector } from '@/components/PodcastAIDirector';
-import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
+
+interface BrandContext {
+  brandName?: string;
+  brandDescription?: string;
+  productLines?: string;     // e.g. "Lion's Mane (Focus), Reishi (Calm), ..."
+  audience?: string;
+  websiteSummary?: string;
+  websiteUrl?: string;
+}
 
 interface ScriptVariation {
   id: string;
