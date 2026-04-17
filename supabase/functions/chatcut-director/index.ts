@@ -260,9 +260,18 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
 - Use them to: judge the aesthetic (UGC vs polished), spot the speaker's setting, see what props/products are physically present, and match B-roll color + lighting to the real scene.
 - When you reference a specific moment, tie it to the closest frame's timestamp.`;
 
-    const allMessages: { role: string; content: string }[] = [
+    const allMessages: { role: string; content: any }[] = [
       { role: "system", content: systemPrompt },
     ];
+
+    if (Array.isArray(brandVocabulary) && brandVocabulary.length > 0) {
+      const list = brandVocabulary.map((b: string) => `- "${b}"`).join('\n');
+      allMessages.push({
+        role: "system",
+        content: `BRAND VOCABULARY — these names MUST be spelled exactly as written, character-for-character. Whisper transcripts often "auto-correct" them into common English words (e.g. "Lifecykel" becomes "lifecycle"). When you see a phonetic mismatch in the transcript, silently re-map it back to the canonical spelling below before writing ANY caption, overlay, lower-third, motion-graphic text, image prompt, or chat reply:\n${list}`,
+      });
+    }
+
 
     if (transcript) {
       allMessages.push({
