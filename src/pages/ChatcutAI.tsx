@@ -1236,7 +1236,9 @@ const ChatcutAI = () => {
           });
           break;
         }
-        case 'add_overlay': {
+        case 'add_overlay':
+        case 'add_text_card':
+        case 'add_full_coverage': {
           const overlayId = crypto.randomUUID();
           // Map style to animation preset
           const styleAnimationMap: Record<string, OverlayAnimation> = {
@@ -1249,30 +1251,52 @@ const ChatcutAI = () => {
           const animation = act.animation
             ? { entrance: act.animation, exit: 'fade-out' as const }
             : styleAnimationMap[act.style || 'glass'] || { entrance: 'slide-up' as const, exit: 'fade-out' as const };
-          const overlayType = act.type || 'lower_third';
-          const isCTA = /shop now|buy|order|learn more|get yours|http|\.com|\.co|\.io/i.test(act.text || '');
+          const overlayType = act.type || (act.action === 'add_full_coverage' ? 'feature_grid' : 'lower_third');
+          const isCTA = overlayType === 'cta_button' || /shop now|buy|order|learn more|get yours|http|\.com|\.co|\.io/i.test(act.text || '');
           // Smart defaults for position + scale by type (safety net if Marco omits them)
           const defaultsByType: Record<string, { pos: { x: number; y: number }; scale: number }> = {
-            lower_third: { pos: { x: 50, y: 85 }, scale: 2 },
+            lower_third:    { pos: { x: 50, y: 85 }, scale: 2 },
             motion_graphic: { pos: { x: 50, y: 25 }, scale: 1 },
-            animated_text: { pos: { x: 50, y: 80 }, scale: 2 },
-            title_card: { pos: { x: 50, y: 50 }, scale: 5 },
+            animated_text:  { pos: { x: 50, y: 80 }, scale: 2 },
+            title_card:     { pos: { x: 50, y: 50 }, scale: 5 },
+            stat_callout:   { pos: { x: 78, y: 25 }, scale: 2 },
+            benefit_chip:   { pos: { x: 50, y: 22 }, scale: 1 },
+            benefit_list:   { pos: { x: 78, y: 50 }, scale: 2 },
+            numbered_list:  { pos: { x: 50, y: 50 }, scale: 5 },
+            feature_grid:   { pos: { x: 50, y: 50 }, scale: 5 },
+            quote_pop:      { pos: { x: 50, y: 30 }, scale: 2 },
+            comparison:     { pos: { x: 50, y: 50 }, scale: 5 },
+            cta_button:     { pos: { x: 50, y: 80 }, scale: 2 },
           };
           const def = defaultsByType[overlayType] || { pos: { x: 50, y: 80 }, scale: 2 };
-          // CTA buttons (Shop Now / contains URL) always get button-sized treatment
-          const finalScale = isCTA ? 2 : (act.scale || def.scale);
+          const isFullCoverage = act.action === 'add_full_coverage' || act.fullCoverage === true || ['numbered_list', 'feature_grid', 'comparison'].includes(overlayType);
+          const finalScale = isCTA ? 2 : (act.scale || (isFullCoverage ? 5 : def.scale));
           const finalPos = act.position || (isCTA ? { x: 50, y: 80 } : def.pos);
+
+          // ── RENDER-MODE DECISION ────────────────────────────────────────
+          // Default to crisp DOM rendering for all text/list/CTA cards (looks
+          // sharper, no transparency artifacts, scales perfectly).
+          // Only fall back to AI image when the user explicitly asks for an
+          // illustrative graphic (icon, product chip) via renderMode='image'.
+          const renderMode: 'dom' | 'image' = act.renderMode === 'image' ? 'image' : 'dom';
+
           const newOverlay: OverlayItem = {
             id: overlayId, type: overlayType,
-            text: act.text || '', start: act.start || 0, duration: act.duration || 5,
-            animation, style: act.style,
+            text: act.text || '', start: act.start || 0, duration: act.duration || (isFullCoverage ? 4 : 5),
+            animation, style: act.style || 'glass',
             scale: finalScale,
             position: finalPos,
+            renderMode,
+            items: Array.isArray(act.items) ? act.items.slice(0, 8) : undefined,
+            subtext: typeof act.subtext === 'string' ? act.subtext : undefined,
+            fullCoverage: isFullCoverage,
+            imageStatus: renderMode === 'image' ? 'generating' : 'ready',
           };
           setOverlays(prev => [...prev, newOverlay]);
-          toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
-          // Generate motion graphic image for motion_graphic and animated_text types
-          if (['motion_graphic', 'animated_text', 'lower_third', 'title_card'].includes(overlayType)) {
+          if (renderMode === 'dom') {
+            toast({ title: '✨ Graphic added', description: `"${act.text}" — rendered with your brand colors` });
+          } else {
+            toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
             generateMotionGraphic(overlayId, act.text || '', overlayType, act.style);
           }
           break;
