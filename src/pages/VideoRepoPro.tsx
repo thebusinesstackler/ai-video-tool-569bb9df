@@ -34,6 +34,7 @@ import {
   Eye,
   Zap,
   Mic,
+  Scissors,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +46,7 @@ import { trimVideoToTimestamp } from '@/lib/canvasStitch';
 import ReactMarkdown from 'react-markdown';
 import { ContentCalendarTab } from '@/components/ContentCalendarTab';
 import { VideoRepoTimeline } from '@/components/VideoRepoTimeline';
+import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
 
 interface ChatMessage {
   id: string;
