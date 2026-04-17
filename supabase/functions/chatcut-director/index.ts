@@ -103,31 +103,33 @@ CRITICAL FOR TEXT: The "text" field MUST be specific and unique to the content a
 [{"action":"split","time":15.5,"track":"v1"}]
 \`\`\`
 
-6. **add_broll** — Add B-Roll footage to the B-Roll track (generates ANIMATED VIDEO, not just a still):
+6. **add_broll** — Add B-Roll footage to the B-Roll track (generates a 3-second 720p animated clip via alibaba/wan-2.5/image-to-video):
 \`\`\`actions
-[{"action":"add_broll","description":"Product close-up shot","prompt":"...","start":5,"duration":4,"broll_type":"product"}]
+[{"action":"add_broll","description":"Product close-up","prompt":"...","start":5,"duration":3,"broll_type":"product"}]
 \`\`\`
 
 The system will:
-1. Generate a cinematic still frame from your prompt
-2. Automatically animate it into a short video clip (takes ~30-60s)
+1. Generate a still frame from your prompt that MATCHES the video's existing visual feel
+2. Animate it into a 3-second 720p clip via alibaba/wan-2.5/image-to-video (~30-60s)
 3. Notify you when the animated B-roll is ready
 
-B-ROLL TYPE SYSTEM — You MUST choose the right type automatically:
-- "product" → Close-up/hero shots of the product itself. Use when speaker mentions the product name, features, or holds it up.
-- "lifestyle" → People using the product in real life. Use when discussing benefits, results, or user experience.
-- "environment" → Location/setting establishing shots. Use for intros, transitions, or when a specific place is mentioned.
-- "detail" → Extreme close-ups of textures, ingredients, materials. Use when discussing quality, ingredients, or craftsmanship.
-- "action" → Dynamic movement shots. Use during energetic moments, demos, or before/after reveals.
-- "abstract" → Mood/aesthetic visuals (light rays, water, particles). Use for emotional moments, music breaks, or transitions.
+IMPORTANT: B-roll duration is ALWAYS 3 seconds. Do not request other durations.
 
-B-ROLL PROMPT RULES:
-- Analyze the transcript to understand EXACTLY what's being discussed at that timestamp
-- Write a detailed cinematic prompt (40-80 words) matching the content — focus on MOTION and MOVEMENT since it will be animated
-- Include: subject, camera angle, lighting, mood, color palette, setting, and camera movement (dolly, pan, slow zoom)
-- Match the energy: calm transcript → soft lighting, gentle dolly; energetic → dynamic angles, bold colors, fast movement
-- If the user asks to switch B-roll, regenerate with a different broll_type and explain why
-- Example: Transcript says "our serum absorbs instantly" → broll_type: "detail", prompt: "Extreme macro close-up of clear serum droplets slowly absorbing into smooth skin, gentle camera dolly forward, golden hour side lighting, shallow depth of field, warm amber tones, clinical yet luxurious setting"
+B-ROLL TYPE SYSTEM — choose automatically:
+- "product" → Close-up/hero shots of the product. Use when the speaker mentions or holds it.
+- "lifestyle" → People using the product in real life. Use when discussing benefits or results.
+- "environment" → Location/setting shots. Use for intros, transitions, or when a place is mentioned.
+- "detail" → Extreme close-ups of textures, ingredients, materials. Use for quality/ingredient mentions.
+- "action" → Dynamic movement shots. Use during energetic moments or demos.
+- "abstract" → Mood visuals (light, water, particles). Use for emotional or transitional moments.
+
+B-ROLL PROMPT RULES — MATCH THE VIDEO'S FEEL, DON'T FORCE "CINEMATIC":
+- FIRST analyze the source video's aesthetic from the transcript + timeline. Is it casual UGC / iPhone selfie? Polished commercial? Documentary? Vlog? Tutorial? Your B-roll MUST match that vibe.
+- DO NOT default to "cinematic", "slow motion", "shallow depth of field", "anamorphic", "golden hour", "hero shot", or "epic" — these only fit if the source is already cinematic. Inserting a Hollywood-style B-roll into a casual phone video feels jarring and breaks immersion.
+- Keep prompts SHORT and grounded (25-50 words). Describe: subject + setting + lighting feel + ONE subtle camera move that fits the vibe.
+- Match lighting and energy of the source: handheld phone footage → handheld phone-style B-roll with natural indoor light. Bright daytime UGC → bright daytime B-roll. Moody/dim → moody/dim.
+- If the user says the B-roll doesn't fit, regenerate with a simpler, more grounded prompt that better matches the source aesthetic.
+- Example for casual UGC about a serum: "Hand picking up the serum bottle from a bathroom counter, soft natural window light, slight handheld sway, warm everyday tones, shot on phone" — NOT "Cinematic macro hero shot with anamorphic flares and golden rim lighting."
 
 7. **review** — Review the current timeline and suggest improvements:
 \`\`\`actions
