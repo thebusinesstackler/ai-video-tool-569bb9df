@@ -20,7 +20,7 @@ serve(async (req) => {
     }
 
     const { prompt: rawPrompt } = await req.json();
-    const sizePrefix = "Create a small, compact overlay graphic suitable for placing on top of video. The graphic should be a contained element (like a badge, lower-third bar, or small title card), NOT a full-screen poster or background. Use transparent or minimal background. ";
+    const sizePrefix = "Generate a small, compact overlay graphic element on a FULLY TRANSPARENT background (alpha channel, NOT dark, NOT white, NOT colored — completely transparent so it can be composited over any video). The graphic must be a self-contained badge / lower-third / button / title chip with NO surrounding rectangular frame, NO solid background fill, NO padding box around it. Only the actual graphic shape (text + minimal decorative element) should be visible — everything outside the design must be transparent pixels. Output format: PNG with alpha. ";
     const prompt = sizePrefix + (rawPrompt || "");
     if (!prompt || typeof prompt !== "string") {
       return new Response(JSON.stringify({ error: "Prompt is required" }), {
