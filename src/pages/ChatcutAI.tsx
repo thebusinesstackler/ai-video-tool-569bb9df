@@ -138,6 +138,10 @@ interface BRollClip {
   /** When this b-roll references a window inside a longer source video, sourceStart marks the in-point. */
   sourceStart?: number;
   sourceUrl?: string;
+  /** When true, the b-roll's own audio plays and the main video is ducked. Default false (silent overlay). */
+  audioEnabled?: boolean;
+  /** Insertion order — higher wins when multiple b-rolls cover the same time (defensive tie-break). */
+  z?: number;
 }
 
 interface OverlayAnimation {
@@ -988,24 +992,45 @@ const ChatcutAI = () => {
     })();
   }, [currentTime, toast, pollBRollVideo]);
 
-  // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation
+  // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation.
+  // Auto-snaps the start time forward to avoid overlapping any existing b-roll on the track.
   const addBRollFromVideoClip = useCallback((opts: { videoUrl: string; label: string; durationSec?: number; startAt?: number; sourceStart?: number; sourceUrl?: string }) => {
     const { videoUrl: vUrl, label, durationSec = 3, startAt, sourceStart, sourceUrl } = opts;
+    const desiredStart = Math.max(0, startAt ?? currentTime);
+    const dur = Math.max(0.3, durationSec);
     const brollId = crypto.randomUUID();
-    const broll: BRollClip = {
-      id: brollId,
-      name: label,
-      prompt: label,
-      start: startAt ?? currentTime,
-      duration: durationSec,
-      videoUrl: sourceUrl || vUrl,
-      sourceStart,
-      sourceUrl: sourceUrl || vUrl,
-      videoStatus: 'ready',
-      imageStatus: 'ready',
-    };
-    setBRollClips(prev => [...prev, broll]);
-    toast({ title: 'B-Roll clip added', description: `"${label}" — dropped at ${(startAt ?? currentTime).toFixed(1)}s` });
+    setBRollClips(prev => {
+      // Find first non-overlapping slot at or after desiredStart
+      const sorted = [...prev].sort((a, b) => a.start - b.start);
+      let cursor = desiredStart;
+      for (const existing of sorted) {
+        const eStart = existing.start;
+        const eEnd = existing.start + existing.duration;
+        if (cursor + dur <= eStart) break; // fits before this clip
+        if (cursor < eEnd) cursor = eEnd; // bump past it
+      }
+      const broll: BRollClip = {
+        id: brollId,
+        name: label,
+        prompt: label,
+        start: +cursor.toFixed(2),
+        duration: dur,
+        videoUrl: sourceUrl || vUrl,
+        sourceStart,
+        sourceUrl: sourceUrl || vUrl,
+        videoStatus: 'ready',
+        imageStatus: 'ready',
+        audioEnabled: false,
+        z: Date.now(),
+      };
+      const wasBumped = Math.abs(cursor - desiredStart) > 0.01;
+      if (wasBumped) {
+        toast({ title: 'B-Roll auto-stacked', description: `"${label}" snapped to ${cursor.toFixed(1)}s to avoid overlapping the previous clip.` });
+      } else {
+        toast({ title: 'B-Roll clip added', description: `"${label}" — dropped at ${cursor.toFixed(1)}s` });
+      }
+      return [...prev, broll];
+    });
   }, [currentTime, toast]);
 
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
@@ -1418,21 +1443,49 @@ const ChatcutAI = () => {
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientX - startX;
       const deltaSec = (deltaPx / trackRect.width) * total;
-      setBRollClips(prev => prev.map(b => {
-        if (b.id !== brId) return b;
-        if (mode === 'move') {
-          const newStart = Math.max(0, Math.min(total - startDuration, startStart + deltaSec));
-          return { ...b, start: newStart };
-        }
-        if (mode === 'resize-left') {
-          const maxShift = startDuration - 0.3;
-          const shift = Math.max(-startStart, Math.min(maxShift, deltaSec));
-          return { ...b, start: startStart + shift, duration: startDuration - shift };
-        }
-        // resize-right
-        const newDuration = Math.max(0.3, Math.min(total - startStart, startDuration + deltaSec));
-        return { ...b, duration: newDuration };
-      }));
+      setBRollClips(prev => {
+        const others = prev.filter(b => b.id !== brId).sort((a, b) => a.start - b.start);
+        return prev.map(b => {
+          if (b.id !== brId) return b;
+          if (mode === 'move') {
+            let newStart = Math.max(0, Math.min(total - startDuration, startStart + deltaSec));
+            const newEnd = newStart + startDuration;
+            // Prevent overlap: nudge to the closest free side of any neighbor we collide with.
+            for (const o of others) {
+              const oStart = o.start;
+              const oEnd = o.start + o.duration;
+              if (newStart < oEnd && newEnd > oStart) {
+                // collision — pick whichever side requires less travel
+                const moveLeft = oStart - startDuration;
+                const moveRight = oEnd;
+                newStart = Math.abs(newStart - moveLeft) < Math.abs(newStart - moveRight) ? Math.max(0, moveLeft) : moveRight;
+              }
+            }
+            newStart = Math.max(0, Math.min(total - startDuration, newStart));
+            return { ...b, start: newStart };
+          }
+          if (mode === 'resize-left') {
+            const maxShift = startDuration - 0.3;
+            let shift = Math.max(-startStart, Math.min(maxShift, deltaSec));
+            const proposedStart = startStart + shift;
+            // Block if it would overlap a neighbor on the left
+            const leftNeighbor = [...others].reverse().find(o => o.start + o.duration <= startStart + 0.001);
+            if (leftNeighbor) {
+              const minStart = leftNeighbor.start + leftNeighbor.duration;
+              if (proposedStart < minStart) shift = minStart - startStart;
+            }
+            return { ...b, start: startStart + shift, duration: startDuration - shift };
+          }
+          // resize-right
+          let newDuration = Math.max(0.3, Math.min(total - startStart, startDuration + deltaSec));
+          const rightNeighbor = others.find(o => o.start >= startStart + 0.001);
+          if (rightNeighbor) {
+            const maxDur = rightNeighbor.start - startStart;
+            if (newDuration > maxDur) newDuration = Math.max(0.3, maxDur);
+          }
+          return { ...b, duration: newDuration };
+        });
+      });
     };
     const onUp = () => {
       document.body.style.cursor = '';
@@ -1499,8 +1552,16 @@ const ChatcutAI = () => {
     return badges;
   };
 
-  // Find active B-roll clip at current time — prefer video over still image
-  const activeBRoll = bRollClips.find(br => currentTime >= br.start && currentTime < br.start + br.duration && ((br.videoUrl && br.videoStatus === 'ready') || (br.imageUrl && br.imageStatus === 'ready')));
+  // Find active B-roll clip at current time. When multiple cover this moment (overlap), pick the most recently added (highest z).
+  const activeBRoll = (() => {
+    const candidates = bRollClips.filter(br =>
+      currentTime >= br.start &&
+      currentTime < br.start + br.duration &&
+      ((br.videoUrl && br.videoStatus === 'ready') || (br.imageUrl && br.imageStatus === 'ready'))
+    );
+    if (candidates.length === 0) return undefined;
+    return candidates.reduce((winner, c) => ((c.z ?? 0) > (winner.z ?? 0) ? c : winner));
+  })();
 
   return (
     <Layout>
