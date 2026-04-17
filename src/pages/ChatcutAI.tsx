@@ -2533,7 +2533,7 @@ const ChatcutAI = () => {
                         </div>
                       )}
 
-                      {pipEnabled && bgVideoUrl && (
+                      {pipEnabled && ((pipBgMode === 'video' && bgVideoUrl) || (pipBgMode === 'product-feed' && productImages.length > 0)) && (
                         <PiPOverlay
                           videoRef={videoRef}
                           containerRef={videoWrapperRef}
