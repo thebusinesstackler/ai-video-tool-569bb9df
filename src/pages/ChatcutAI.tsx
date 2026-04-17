@@ -54,6 +54,7 @@ import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
+import { extractBrollFrames } from '@/lib/extractBrollFrames';
 
 const AGENT_NAME = 'Marco';
 
