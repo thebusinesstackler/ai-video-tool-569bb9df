@@ -196,6 +196,19 @@ const ChatcutAI = () => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  // Media reference: when the user clicks the 🎯 button on a media tile, we pin it as
+  // a reference so the next chat message tells Marco EXACTLY which clip/frame/product to use.
+  type SelectedReference =
+    | { kind: 'source-clip'; id: string; label: string; thumbUrl?: string; sourceUrl: string; sourceStart: number; durationSec: number }
+    | { kind: 'saved-frame'; id: string; label: string; thumbUrl: string }
+    | { kind: 'product'; id: string; label: string; thumbUrl: string; productName?: string; productId?: string };
+  const [selectedReference, setSelectedReference] = useState<SelectedReference | null>(null);
+  // Background mode: 'video' uses the uploaded bg video; 'product-feed' renders a TikTok-style
+  // vertical scroll of the user's product images behind the speaker.
+  const [pipBgMode, setPipBgMode] = useState<'video' | 'product-feed'>('video');
+  // Cutout (beta): uses CSS mix-blend-mode to "remove" a flat backdrop (white or dark).
+  // Real per-frame ML segmentation is not done client-side — this is the lightweight alternative.
+  const [cutoutMode, setCutoutMode] = useState<'off' | 'white' | 'dark'>('off');
   const [isLoading, setIsLoading] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
