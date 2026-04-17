@@ -2617,11 +2617,17 @@ const ChatcutAI = () => {
                   <span className="text-xs text-muted-foreground mx-1">/</span>
                   <span className="text-xs font-mono text-muted-foreground tabular-nums">{formatTime(duration)}</span>
                   <div className="flex-1" />
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.max(50, z - 25))}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.max(25, z - 25))} title="Zoom out">
                     <ZoomOut className="w-3.5 h-3.5" />
                   </Button>
-                  <span className="text-[10px] text-muted-foreground font-mono w-8 text-center">{zoomLevel}%</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.min(200, z + 25))}>
+                  <button
+                    className="text-[10px] text-muted-foreground hover:text-foreground font-mono w-10 text-center transition-colors"
+                    onClick={() => setZoomLevel(50)}
+                    title="Fit timeline to screen"
+                  >
+                    {zoomLevel}%
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.min(400, z + 25))} title="Zoom in">
                     <ZoomIn className="w-3.5 h-3.5" />
                   </Button>
                   <div className="w-px h-5 bg-border mx-1" />
