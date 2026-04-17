@@ -1329,7 +1329,21 @@ const ChatcutAI = () => {
         }
       }
     }
-  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail]);
+  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail]);
+
+  // Undo whatever Marco's last action did. Restores the snapshot we captured right before executeActions ran.
+  const undoLastAIAction = useCallback(() => {
+    if (!aiUndoSnapshot) return;
+    setTimelineClips(aiUndoSnapshot.timelineClips);
+    setCuts(aiUndoSnapshot.cuts);
+    setMusicTracks(aiUndoSnapshot.musicTracks);
+    setOverlays(aiUndoSnapshot.overlays);
+    setBRollClips(aiUndoSnapshot.bRollClips);
+    setCaptionSettings(aiUndoSnapshot.captionSettings);
+    setThumbnail(aiUndoSnapshot.thumbnail);
+    setAiUndoSnapshot(null);
+    toast({ title: 'Reverted Marco\'s last change', description: aiUndoSnapshot.label || 'Timeline restored' });
+  }, [aiUndoSnapshot, toast]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
