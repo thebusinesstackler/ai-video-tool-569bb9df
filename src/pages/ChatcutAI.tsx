@@ -1354,6 +1354,24 @@ const ChatcutAI = () => {
     setIsLoading(true);
     let assistantSoFar = '';
     const allMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+
+    // Brand vocabulary so Marco never misspells unusual names (e.g. "Lifecykel" vs "Lifecycle")
+    const brandVocabulary = Array.from(new Set(
+      productLibrary
+        .flatMap((p) => [p.brand_name, p.name])
+        .filter((s): s is string => !!s && s.trim().length > 0)
+        .map((s) => s.trim()),
+    ));
+
+    // Extract 6 keyframes so Marco can SEE the source footage and match vibe / suggest camera moves
+    let videoFrames: Keyframe[] = [];
+    if (videoRef.current && videoUrl && duration > 0.5) {
+      try {
+        videoFrames = await extractKeyframesFromElement(videoRef.current, 6);
+      } catch (e) {
+        console.warn('[ChatcutAI] keyframe extraction failed', e);
+      }
+    }
     try {
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
