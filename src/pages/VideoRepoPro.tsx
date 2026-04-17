@@ -54,6 +54,7 @@ interface ChatMessage {
   content: string;
   attachments?: { type: 'image' | 'video'; url: string; name?: string }[];
   videoResult?: { url: string; status: string };
+  videoResults?: { url: string; label: string }[];
   retryable?: boolean;
 }
 
