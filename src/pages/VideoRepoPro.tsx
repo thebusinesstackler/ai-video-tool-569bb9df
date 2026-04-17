@@ -1517,9 +1517,9 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   projectId: selectedProject.id,
                   label: selectedProject.custom_name || 'Video',
                 })}
-                title="Save still frames to your B-Roll Library for use in Chatcut AI"
+                title="Save playable B-Roll clips to use in Chatcut AI"
               >
-                <Scissors className="w-3.5 h-3.5" /> Extract B-Roll
+                <Scissors className="w-3.5 h-3.5" /> Extract B-Roll Clips
               </Button>
             )}
             <Badge variant="outline" className={`${statusColors[selectedProject.status] || ''}`}>
@@ -1590,7 +1590,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                         label: selectedProject.custom_name || 'Video',
                       })}
                     >
-                      <Scissors className="w-3 h-3" /> Extract B-Roll Frames
+                      <Scissors className="w-3 h-3" /> Extract B-Roll Clips
                     </Button>
                   </div>
                 ) : (
@@ -2115,9 +2115,9 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       label: latest.custom_name || 'Latest video',
                     });
                   }}
-                  title="Extract still frames from your most recent generated video"
+                  title="Extract playable B-Roll clips from your most recent generated video"
                 >
-                  <Scissors className="w-3.5 h-3.5" /> Extract B-Roll (latest)
+                  <Scissors className="w-3.5 h-3.5" /> Extract Clips (latest)
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setHistoryPage(1); fetchHistory(); }} disabled={isLoadingHistory}>
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingHistory ? 'animate-spin' : ''}`} /> Sync from database
@@ -2238,7 +2238,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                                   <Scissors className="w-3 h-3" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Extract B-Roll Frames</TooltipContent>
+                              <TooltipContent>Extract B-Roll Clips</TooltipContent>
                             </Tooltip>
                           )}
                           {project.generated_video_url && (

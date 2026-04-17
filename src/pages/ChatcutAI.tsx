@@ -628,7 +628,7 @@ const ChatcutAI = () => {
                         .limit(1);
                       if (existing && existing.length > 0) return;
                       setIsAutoExtracting(true);
-                      toast({ title: 'Extracting B-roll…', description: 'Marco is slicing 6 short clips from your source.' });
+                      toast({ title: 'Extracting B-roll clips…', description: 'Marco is slicing 6 short playable clips from your source.' });
                       const saved = await extractBrollFrames({
                         videoUrl: url,
                         userId: user.id,
@@ -651,13 +651,13 @@ const ChatcutAI = () => {
                           : `${frameCount} B-roll frame${frameCount !== 1 ? 's' : ''}`;
                         setMessages((prev) => [
                           ...prev,
-                          { role: 'assistant', content: `I extracted ${desc} from your source — they're in the **Source Clips** / **Saved Frames** panels on the right. Tap any to drop it onto the timeline at the playhead.` },
+                          { role: 'assistant', content: `I extracted ${desc} from your source — open **Source Clips** on the right to preview them and drop them straight onto the timeline.` },
                         ]);
-                        toast({ title: `Extracted ${saved.length} item${saved.length !== 1 ? 's' : ''}`, description: 'Open the Media panel.' });
+                        toast({ title: `Extracted ${saved.length} clip${saved.length !== 1 ? 's' : ''}`, description: 'Open Source Clips to preview and add them.' });
                       }
                     } catch (err: any) {
                       console.warn('[ChatcutAI] auto-extract failed', err);
-                      toast({ title: 'Auto-extract failed', description: err?.message || 'Could not extract frames', variant: 'destructive' });
+                      toast({ title: 'Auto-extract failed', description: err?.message || 'Could not extract playable clips', variant: 'destructive' });
                     } finally {
                       setIsAutoExtracting(false);
                     }
@@ -2678,7 +2678,7 @@ const ChatcutAI = () => {
                             if (!videoUrl || !user) return;
                             try {
                               setIsAutoExtracting(true);
-                              toast({ title: 'Slicing 6 short clips…', description: 'Recording from your source video.' });
+                              toast({ title: 'Slicing 6 short clips…', description: 'Saving playable B-Roll clips from your source video.' });
                               const saved = await extractBrollFrames({
                                 videoUrl,
                                 userId: user.id,
@@ -2694,7 +2694,7 @@ const ChatcutAI = () => {
                                 ]);
                                 if (framesRes.data) setSavedBrollFrames(framesRes.data as any);
                                 if (clipsRes.data) setSavedBrollClips(clipsRes.data as any);
-                                toast({ title: `Saved ${saved.length} item${saved.length !== 1 ? 's' : ''}` });
+                                toast({ title: `Saved ${saved.length} clip${saved.length !== 1 ? 's' : ''}`, description: 'They are ready in Source Clips.' });
                               }
                             } catch (e: any) {
                               toast({ title: 'Extract failed', description: e?.message, variant: 'destructive' });

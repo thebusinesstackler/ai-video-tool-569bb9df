@@ -1199,7 +1199,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       autoExtractBroll: true,
     };
     sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
-    toast({ title: 'Opening Chatcut AI…', description: 'Marco will auto-extract B-roll frames if none exist for this clip.' });
+    toast({ title: 'Opening Chatcut AI…', description: 'Marco will auto-extract playable B-roll clips if none exist for this clip.' });
     navigate('/chatcut-ai');
   };
 
@@ -1326,9 +1326,9 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                   projectId: selectedProject.id,
                   label: selectedProject.custom_name || 'Video',
                 })}
-                title="Save still frames to your B-Roll Library for use in Chatcut AI"
+                title="Save playable B-Roll clips to use in Chatcut AI"
               >
-                <Sparkles className="w-4 h-4" /> Extract B-Roll Frames
+                <Sparkles className="w-4 h-4" /> Extract B-Roll Clips
               </Button>
             )}
           </div>
@@ -2029,9 +2029,9 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                       label: latest.custom_name || 'Latest video',
                     });
                   }}
-                  title="Extract still frames from your most recent generated video"
+                  title="Extract playable B-Roll clips from your most recent generated video"
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> Extract B-Roll (latest)
+                  <Sparkles className="w-3.5 h-3.5" /> Extract Clips (latest)
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setHistoryPage(1); fetchHistory(); }} disabled={isLoadingHistory}>
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingHistory ? 'animate-spin' : ''}`} /> Sync from database
@@ -2118,9 +2118,9 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                                   label: project.custom_name || project.prompt?.slice(0, 40) || 'Video',
                                 });
                               }}
-                              title="Extract still frames to use as B-Roll in Chatcut AI"
+                              title="Extract playable B-Roll clips to use in Chatcut AI"
                             >
-                              <Sparkles className="w-3 h-3" /> Extract B-Roll Frames
+                              <Sparkles className="w-3 h-3" /> Extract B-Roll Clips
                             </Button>
                           </div>
                         )}
