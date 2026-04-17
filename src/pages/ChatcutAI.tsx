@@ -2314,7 +2314,30 @@ const ChatcutAI = () => {
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
                           <span className="text-[9px] font-semibold text-green-400 truncate">B-Roll</span>
                         </div>
-                        <div className="flex-1 relative h-6 mx-1" data-broll-track>
+                        <div
+                          className="flex-1 relative h-6 mx-1"
+                          data-broll-track
+                          onDragOver={(e) => {
+                            if (Array.from(e.dataTransfer.types).includes('application/x-source-clip')) {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'copy';
+                            }
+                          }}
+                          onDrop={(e) => {
+                            const raw = e.dataTransfer.getData('application/x-source-clip');
+                            if (!raw) return;
+                            e.preventDefault();
+                            try {
+                              const data = JSON.parse(raw);
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                              const dropAt = +(ratio * Math.max(duration, 1)).toFixed(2);
+                              addBRollFromVideoClip({ ...data, startAt: dropAt });
+                            } catch (err) {
+                              console.warn('B-Roll drop parse failed', err);
+                            }
+                          }}
+                        >
                           {bRollClips.length > 0 ? (
                             bRollClips.map((br) => (
                               <div
