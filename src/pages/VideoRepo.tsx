@@ -1586,6 +1586,9 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                           <Lock className="w-3 h-3" />
                           {lockProduct ? 'Product Locked' : 'Lock Product'}
                         </Button>
+                        <Button
+                          className="flex-1 rounded-xl gap-1.5"
+                          onClick={analyzeAndGenerate}
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
                         >
                           {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
