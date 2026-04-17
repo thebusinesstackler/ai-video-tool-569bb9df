@@ -260,7 +260,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
         onVoiceCloningKeyChange(data.speechifyVoiceId);
         toast({
           title: 'Voice Cloned!',
-          description: 'Your voice has been successfully cloned with Speechify'
+          description: 'AI voice cloned successfully'
         });
       } else {
         throw new Error(data?.error || 'No voice ID returned');
