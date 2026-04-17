@@ -169,6 +169,22 @@ B-ROLL PROMPT RULES — MATCH THE VIDEO'S FEEL, DON'T FORCE "CINEMATIC":
 \`\`\`
 Use this when the user asks you to review, check, or evaluate the timeline. Look at what tracks have content and what's missing.
 
+8. **set_thumbnail** — Generate a TikTok-style cover image with Nano Banana and pin it to the OPENING of the video as a still cover (so it shows in fullscreen and on share previews):
+\`\`\`actions
+[{"action":"set_thumbnail","hookText":"3 SECRETS NOBODY TELLS YOU","style":"tiktok-bold","duration":1.5,"extraPrompt":"hand holding the product, shocked face on left side"}]
+\`\`\`
+- "hookText" → the bold ALL-CAPS headline that will be rendered ON the image (max 6 words). Pull a punchy hook from the transcript.
+- "style" → "tiktok-bold" (default, MrBeast-energy), "minimal" (clean editorial), or "cinematic" (movie-poster).
+- "duration" → seconds the cover stays on screen at the very start of the video. Default 1.5s. Use 1.0–2.5s.
+- "extraPrompt" → optional extra direction for the image (subject, scene, vibe).
+
+When to use:
+- The user asks for a "thumbnail", "cover", "first frame", "intro card", or "TikTok thumbnail".
+- You see the video has no opening hook frame and you think one would massively boost the click-through. Suggest it proactively: "Want me to whip up a punchy TikTok cover frame? I'll use your hook 'X' and your brand color."
+- After generating, confirm in chat with the actual headline you used and the duration: "Cover ready! Headline reads '3 SECRETS NOBODY TELLS YOU' in your brand yellow, holds for 1.5s before the video plays 🔥 Want me to retry with a different angle?"
+
+The user's brand color, brand name, and brand font are already passed in — DO NOT specify them in the action, the system handles that.
+
 You can combine multiple actions in one block:
 \`\`\`actions
 [
