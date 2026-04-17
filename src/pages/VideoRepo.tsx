@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,8 @@ import {
   RefreshCw,
   ArrowRight,
   Package,
+  Scissors,
+  Lock,
 } from 'lucide-react';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
 import { Input } from '@/components/ui/input';
@@ -86,6 +89,7 @@ const statusColors: Record<string, string> = {
 const VideoRepo = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [mainTab, setMainTab] = useState<'create' | 'history' | 'import'>('create');
   const [activeTab, setActiveTab] = useState<'ad' | 'motion'>('ad');
   const [mode, setMode] = useState<'guided' | 'freeform'>('guided');
@@ -100,6 +104,7 @@ const VideoRepo = () => {
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
+  const [lockProduct, setLockProduct] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -591,10 +596,15 @@ Then provide a final **VIDEO PROMPT** block:
         };
         setMessages((prev) => [...prev, generatingMsg]);
 
+        const useProductLock = lockProduct && !!persistentImageUrl;
+        const generationModel = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
+        if (useProductLock) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
+        }
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: videoPrompt,
-            model: 'sora-2',
+            model: generationModel,
             aspectRatio: '9:16',
             duration: soraDuration,
             userId: user?.id,
@@ -796,10 +806,12 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         };
         setMessages(prev => [...prev, generatingMsg]);
 
+        const useProductLockFollow = lockProduct && !!newImageUrl;
+        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : 'sora-2';
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
-            model: 'sora-2',
+            model: followModel,
             aspectRatio: '9:16',
             duration: soraDuration,
             userId: user?.id,
@@ -1168,6 +1180,22 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     toast({ title: 'Remix loaded', description: 'Prompt, reference video, and product image have been loaded. Choose a duration and generate.' });
   };
 
+  const handleSendToChatcut = (project: VideoRepoProject) => {
+    if (!project.generated_video_url) {
+      toast({ title: 'No generated video', description: 'This project has no generated video to send to Chatcut.', variant: 'destructive' });
+      return;
+    }
+    const payload = {
+      videoUrl: project.generated_video_url,
+      title: project.custom_name || 'Video Repo clip',
+      clipTitle: project.custom_name || 'Video Repo clip',
+      productImageUrl: project.product_image_url || null,
+    };
+    sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
+    toast({ title: 'Opening Chatcut AI…', description: 'Drag your product image onto the timeline to overlay it on the clip.' });
+    navigate('/chatcut-ai');
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -1269,9 +1297,18 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             </Card>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button onClick={() => handleRemixProject(selectedProject)} className="gap-1.5">
               <RefreshCw className="w-4 h-4" /> Remix This Video
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleSendToChatcut(selectedProject)}
+              disabled={!selectedProject.generated_video_url}
+              className="gap-1.5"
+              title="Open this video in Chatcut AI to overlay your product image as a PiP layer"
+            >
+              <Scissors className="w-4 h-4" /> Send to Chatcut AI
             </Button>
           </div>
         </div>
@@ -1563,6 +1600,17 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                             <SelectItem value="20">20s (Sora)</SelectItem>
                           </SelectContent>
                         </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={lockProduct ? 'default' : 'outline'}
+                          className="h-8 text-xs rounded-lg gap-1 px-2.5"
+                          title={lockProduct ? 'Product Lock ON — Wan 2.5 i2v will be used when an image is attached for pixel-accurate product fidelity' : 'Turn on Product Lock to use Wan 2.5 i2v (stricter product fidelity than Sora-2)'}
+                          onClick={() => setLockProduct((v) => !v)}
+                        >
+                          <Lock className="w-3 h-3" />
+                          {lockProduct ? 'Product Locked' : 'Lock Product'}
+                        </Button>
                         <Button
                           className="flex-1 rounded-xl gap-1.5"
                           onClick={analyzeAndGenerate}
@@ -1993,6 +2041,28 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                           </span>
                         </div>
                         <p className="text-xs text-foreground line-clamp-2">{project.prompt || 'No prompt'}</p>
+                        {project.generated_video_url && (
+                          <div className="flex gap-1.5 pt-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 flex-1"
+                              onClick={(e) => { e.stopPropagation(); handleSendToChatcut(project); }}
+                              title="Open in Chatcut AI for product overlay/replacement"
+                            >
+                              <Scissors className="w-3 h-3" /> Chatcut
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 flex-1"
+                              onClick={(e) => { e.stopPropagation(); handleRemixProject(project); }}
+                              title="Remix this video"
+                            >
+                              <RefreshCw className="w-3 h-3" /> Remix
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
