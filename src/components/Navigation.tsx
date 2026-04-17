@@ -157,10 +157,10 @@ export const Navigation = () => {
         key={item.name}
         to={item.href}
         className={cn(
-          "relative flex items-center gap-2.5 px-3 py-1.5 rounded-md transition-all duration-200",
+          "relative flex items-center gap-2.5 px-3 py-2.5 rounded-md transition-all duration-200",
           "hover:bg-sidebar-accent/70 group",
           isActive && "bg-gradient-accent shadow-sm",
-          collapsed && "justify-center px-2 py-2"
+          collapsed && "justify-center px-2 py-2.5"
         )}
       >
         {isActive && !collapsed && (
