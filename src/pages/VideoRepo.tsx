@@ -1297,9 +1297,18 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             </Card>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button onClick={() => handleRemixProject(selectedProject)} className="gap-1.5">
               <RefreshCw className="w-4 h-4" /> Remix This Video
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleSendToChatcut(selectedProject)}
+              disabled={!selectedProject.generated_video_url}
+              className="gap-1.5"
+              title="Open this video in Chatcut AI to overlay your product image as a PiP layer"
+            >
+              <Scissors className="w-4 h-4" /> Send to Chatcut AI
             </Button>
           </div>
         </div>
