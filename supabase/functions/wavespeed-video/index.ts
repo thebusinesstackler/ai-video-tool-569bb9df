@@ -389,6 +389,34 @@ serve(async (req) => {
         };
 
         console.log('Using Sora 2 for cinematic image-to-video generation');
+      } else if (params.model === 'sora-2-pro') {
+        // Sora 2 PRO — premium tier: 720p/1080p, durations 4/8/12/16/20s, native synchronized audio
+        const hasImage = !!(params.imageUrls && params.imageUrls.length > 0);
+        apiEndpoint = hasImage
+          ? 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video-pro'
+          : 'https://api.wavespeed.ai/api/v3/openai/sora-2/text-to-video-pro';
+
+        // Snap duration to allowed set; cap at 20 (API max). 25s+ requires chained extension (not supported by API).
+        const proDurations = [4, 8, 12, 16, 20];
+        const requestedDur = Math.min(20, Math.max(4, duration || 8));
+        const proDuration = proDurations.reduce(
+          (best, d) => Math.abs(d - requestedDur) < Math.abs(best - requestedDur) ? d : best,
+          8
+        );
+        const resolution = params.resolution === '1080p' ? '1080p' : '720p';
+        console.log(`Sora 2 PRO: requested ${duration}s @ ${resolution}, using ${proDuration}s (allowed: 4,8,12,16,20)`);
+
+        requestBody = {
+          prompt: params.prompt || 'Premium cinematic motion with synchronized audio, physics-aware, broadcast quality',
+          duration: proDuration,
+          resolution,
+          aspect_ratio: params.aspectRatio || '9:16',
+        };
+        if (hasImage) {
+          requestBody.image = params.imageUrls![0];
+        }
+
+        console.log(`Using Sora 2 PRO ${hasImage ? 'image-to-video' : 'text-to-video'} (${resolution}, ${proDuration}s)`);
       } else if (params.model === 'wan-2.6-i2v') {
         // Wan 2.6 Image-to-Video — supports 5, 10, or 15 second durations
         apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.6/image-to-video';
