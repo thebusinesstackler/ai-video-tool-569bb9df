@@ -145,6 +145,8 @@ const VideoRepo = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
   const [frameExtractor, setFrameExtractor] = useState<{ url: string; projectId: string; label: string } | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PAGE_SIZE = 9;
 
   // Import tab state
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -1192,9 +1194,12 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       title: project.custom_name || 'Video Repo clip',
       clipTitle: project.custom_name || 'Video Repo clip',
       productImageUrl: project.product_image_url || null,
+      projectId: project.id,
+      sourceLabel: project.custom_name || project.prompt?.slice(0, 40) || 'Video Repo clip',
+      autoExtractBroll: true,
     };
     sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
-    toast({ title: 'Opening Chatcut AI…', description: 'Drag your product image onto the timeline to overlay it on the clip.' });
+    toast({ title: 'Opening Chatcut AI…', description: 'Marco will auto-extract B-roll frames if none exist for this clip.' });
     navigate('/chatcut-ai');
   };
 
@@ -1312,6 +1317,20 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             >
               <Scissors className="w-4 h-4" /> Send to Chatcut AI
             </Button>
+            {selectedProject.generated_video_url && (
+              <Button
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setFrameExtractor({
+                  url: selectedProject.generated_video_url!,
+                  projectId: selectedProject.id,
+                  label: selectedProject.custom_name || 'Video',
+                })}
+                title="Save still frames to your B-Roll Library for use in Chatcut AI"
+              >
+                <Sparkles className="w-4 h-4" /> Extract B-Roll Frames
+              </Button>
+            )}
           </div>
         </div>
       </Layout>
@@ -1996,6 +2015,28 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 
           <TabsContent value="history" className="flex-1 px-4 overflow-y-auto mt-4">
             <div className="max-w-4xl mx-auto space-y-4">
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={!historyProjects.find((p) => p.generated_video_url)}
+                  onClick={() => {
+                    const latest = historyProjects.find((p) => p.generated_video_url);
+                    if (latest) setFrameExtractor({
+                      url: latest.generated_video_url!,
+                      projectId: latest.id,
+                      label: latest.custom_name || 'Latest video',
+                    });
+                  }}
+                  title="Extract still frames from your most recent generated video"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Extract B-Roll (latest)
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setHistoryPage(1); fetchHistory(); }} disabled={isLoadingHistory}>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingHistory ? 'animate-spin' : ''}`} /> Sync from database
+                </Button>
+              </div>
               {isLoadingHistory ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
               ) : historyProjects.length === 0 ? (
@@ -2006,7 +2047,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {historyProjects.map((project) => (
+                  {historyProjects.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE).map((project) => (
                     <Card
                       key={project.id}
                       className="overflow-hidden cursor-pointer hover:border-primary/40 transition-colors group"
@@ -2086,6 +2127,24 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              )}
+              {!isLoadingHistory && historyProjects.length > HISTORY_PAGE_SIZE && (
+                <div className="flex items-center justify-center gap-3 pt-2 pb-4">
+                  <Button variant="outline" size="sm" disabled={historyPage === 1} onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}>
+                    Prev
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Page {historyPage} of {Math.ceil(historyProjects.length / HISTORY_PAGE_SIZE)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={historyPage >= Math.ceil(historyProjects.length / HISTORY_PAGE_SIZE)}
+                    onClick={() => setHistoryPage((p) => Math.min(Math.ceil(historyProjects.length / HISTORY_PAGE_SIZE), p + 1))}
+                  >
+                    Next
+                  </Button>
                 </div>
               )}
             </div>

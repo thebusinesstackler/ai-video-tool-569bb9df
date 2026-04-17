@@ -54,6 +54,7 @@ import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
+import { extractBrollFrames } from '@/lib/extractBrollFrames';
 
 const AGENT_NAME = 'Marco';
 
@@ -213,6 +214,7 @@ const ChatcutAI = () => {
 
   // Saved B-roll frames + product images for media panel
   const [savedBrollFrames, setSavedBrollFrames] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
+  const [isAutoExtracting, setIsAutoExtracting] = useState(false);
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; label: string | null; product_name?: string; product_id?: string }[]>([]);
   const [productLibrary, setProductLibrary] = useState<{ id: string; name: string; description: string | null; benefits: string[] | null; brand_name?: string; primary_image?: string }[]>([]);
 
@@ -597,6 +599,51 @@ const ChatcutAI = () => {
                     startAt: 0,
                   }]);
                   setCuts([]);
+                }
+
+                // Auto-extract B-roll if requested and source has none yet for this project
+                if (payload.autoExtractBroll && payload.projectId && user) {
+                  (async () => {
+                    try {
+                      const { data: existing } = await supabase
+                        .from('generated_images')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .eq('source', 'broll-frame')
+                        .eq('project_id', payload.projectId)
+                        .limit(1);
+                      if (existing && existing.length > 0) return;
+                      setIsAutoExtracting(true);
+                      toast({ title: 'Extracting B-roll…', description: 'Marco is grabbing 6 frames from your source.' });
+                      const saved = await extractBrollFrames({
+                        videoUrl: url,
+                        userId: user.id,
+                        projectId: payload.projectId,
+                        label: payload.sourceLabel || payload.title || 'Source',
+                        count: 6,
+                      });
+                      if (saved.length > 0) {
+                        const { data: refreshed } = await supabase
+                          .from('generated_images')
+                          .select('id, image_url, prompt')
+                          .eq('user_id', user.id)
+                          .eq('source', 'broll-frame')
+                          .order('created_at', { ascending: false })
+                          .limit(60);
+                        if (refreshed) setSavedBrollFrames(refreshed as any);
+                        setMessages((prev) => [
+                          ...prev,
+                          { role: 'assistant', content: `I extracted ${saved.length} B-roll frames from your source — they're in the **Saved Frames** panel on the right. Tap any to drop it onto the timeline at the playhead.` },
+                        ]);
+                        toast({ title: `Extracted ${saved.length} frames`, description: 'Open the Media panel → Saved Frames.' });
+                      }
+                    } catch (err: any) {
+                      console.warn('[ChatcutAI] auto-extract failed', err);
+                      toast({ title: 'Auto-extract failed', description: err?.message || 'Could not extract frames', variant: 'destructive' });
+                    } finally {
+                      setIsAutoExtracting(false);
+                    }
+                  })();
                 }
               }
             }, 200);
@@ -2527,6 +2574,45 @@ const ChatcutAI = () => {
                         <ImageIcon className="w-3 h-3 text-muted-foreground" />
                         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Saved Frames</span>
                         <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{savedBrollFrames.length}</Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-1.5 ml-auto text-[9px] gap-1"
+                          disabled={!videoUrl || isAutoExtracting || !user}
+                          onClick={async () => {
+                            if (!videoUrl || !user) return;
+                            try {
+                              setIsAutoExtracting(true);
+                              toast({ title: 'Extracting 6 frames…' });
+                              const saved = await extractBrollFrames({
+                                videoUrl,
+                                userId: user.id,
+                                projectId: null,
+                                label: draftName || 'Source',
+                                count: 6,
+                              });
+                              if (saved.length) {
+                                const { data: refreshed } = await supabase
+                                  .from('generated_images')
+                                  .select('id, image_url, prompt')
+                                  .eq('user_id', user.id)
+                                  .eq('source', 'broll-frame')
+                                  .order('created_at', { ascending: false })
+                                  .limit(60);
+                                if (refreshed) setSavedBrollFrames(refreshed as any);
+                                toast({ title: `Saved ${saved.length} frames` });
+                              }
+                            } catch (e: any) {
+                              toast({ title: 'Extract failed', description: e?.message, variant: 'destructive' });
+                            } finally {
+                              setIsAutoExtracting(false);
+                            }
+                          }}
+                          title="Extract 6 still frames from the current source video"
+                        >
+                          {isAutoExtracting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Scissors className="w-2.5 h-2.5" />}
+                          Extract
+                        </Button>
                       </div>
                       {savedBrollFrames.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
