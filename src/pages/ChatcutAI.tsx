@@ -2622,7 +2622,7 @@ const ChatcutAI = () => {
                   </Button>
                   <button
                     className="text-[10px] text-muted-foreground hover:text-foreground font-mono w-10 text-center transition-colors"
-                    onClick={() => setZoomLevel(50)}
+                    onClick={() => setZoomLevel(100)}
                     title="Fit timeline to screen"
                   >
                     {zoomLevel}%
