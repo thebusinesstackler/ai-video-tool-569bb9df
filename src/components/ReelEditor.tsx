@@ -73,7 +73,7 @@ interface ReelEditorProps {
 
 const DEFAULT_CAPTION_SETTINGS: CaptionSettings = {
   enabled: true,
-  style: 'karaoke',
+  style: 'boldPop',
   background: 'glass',
   position: 'bottom',
   fontFamily: 'Montserrat',

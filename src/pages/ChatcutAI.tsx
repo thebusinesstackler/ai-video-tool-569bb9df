@@ -1071,10 +1071,10 @@ const ChatcutAI = () => {
           break;
         case 'add_captions': {
           const presetMap: Record<string, Partial<CaptionSettings>> = {
-            tiktok: { style: 'wordPop', background: 'solid', fontFamily: 'Montserrat', fontSize: 'large', fontColor: '#ffffff' },
-            minimal: { style: 'karaoke', background: 'glass', fontFamily: 'Inter', fontSize: 'medium', fontColor: '#ffffff' },
-            cinematic: { style: 'spotlight', background: 'gradient', fontFamily: 'Oswald', fontSize: 'xl', fontColor: '#ffffff' },
-            youtube: { style: 'typewriter', background: 'solid', fontFamily: 'Poppins', fontSize: 'medium', fontColor: '#facc15' },
+            tiktok: { style: 'boldPop', background: 'glass', fontFamily: 'Montserrat', fontSize: 'large', fontColor: '#ffffff' },
+            minimal: { style: 'minimal', background: 'glass', fontFamily: 'Inter', fontSize: 'medium', fontColor: '#ffffff' },
+            cinematic: { style: 'cinematic', background: 'gradient', fontFamily: 'Oswald', fontSize: 'xl', fontColor: '#ffffff' },
+            youtube: { style: 'subtitle', background: 'solid', fontFamily: 'Poppins', fontSize: 'medium', fontColor: '#facc15' },
           };
           const presetSettings = presetMap[act.preset || 'tiktok'] || presetMap.tiktok;
           setCaptionSettings(prev => ({ ...prev, ...presetSettings, enabled: true }));
