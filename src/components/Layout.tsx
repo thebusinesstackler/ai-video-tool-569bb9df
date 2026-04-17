@@ -18,6 +18,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
     return saved === 'true';
   });
+  const [hasMounted, setHasMounted] = useState(false);
+
+  // Enable transitions only after first paint to prevent initial flash
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setHasMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // Listen for localStorage changes to sync collapse state
   useEffect(() => {
@@ -66,7 +73,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       )}
       <Navigation />
-      <main className={`${isMobile ? "pt-16 px-3 pb-24" : `${isCollapsed ? 'ml-16' : 'ml-64'} p-6 pb-24`} ${authServiceDown ? 'pt-20' : ''} transition-[margin] duration-300`}>
+      <main className={`${isMobile ? "pt-16 px-3 pb-24" : `${isCollapsed ? 'ml-16' : 'ml-64'} p-6 pb-24`} ${authServiceDown ? 'pt-20' : ''} ${hasMounted ? 'transition-[margin] duration-300' : ''}`}>
         <div className="max-w-7xl mx-auto">
           {children}
         </div>
