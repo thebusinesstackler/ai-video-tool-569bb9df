@@ -638,7 +638,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         const { data, error } = await supabase.functions.invoke('generate-scene-image', {
           body: {
             prompt,
-            referenceImageUrl: twin.reference_images[0],
+            referenceImageUrl: activeReferenceImage,
             characterDescription: twin.face_description || twin.description
           }
         });
