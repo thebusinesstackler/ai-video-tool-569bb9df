@@ -1223,6 +1223,10 @@ const ChatcutAI = () => {
             hasImage: !!p.primary_image,
           })),
           savedFramesCount: savedBrollFrames.length,
+          savedSourceClips: savedBrollClips.slice(0, 12).map((c) => {
+            const meta = parseBrollClipMeta(c);
+            return { id: c.id, label: meta.label, sourceStart: meta.sourceStart, duration: meta.duration };
+          }),
         }),
       });
       if (!resp.ok || !resp.body) {
