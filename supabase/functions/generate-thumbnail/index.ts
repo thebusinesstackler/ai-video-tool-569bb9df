@@ -108,7 +108,11 @@ ${extraPrompt ? `Extra direction from the editor: ${extraPrompt}` : ""}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
+        // Nano Banana 2 is dramatically better at preserving exact product labels/packaging
+        // from a reference image when compositing. Fall back to Nano Banana 1 if no product ref.
+        model: productImageUrl
+          ? "google/gemini-3.1-flash-image-preview"
+          : "google/gemini-2.5-flash-image",
         messages: [{ role: "user", content: productImageUrl ? userContent : prompt }],
         modalities: ["image", "text"],
       }),
