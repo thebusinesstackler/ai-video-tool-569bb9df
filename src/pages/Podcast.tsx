@@ -13,8 +13,17 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { PodcastAIDirector } from '@/components/PodcastAIDirector';
-import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles } from 'lucide-react';
+import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
+
+interface ScriptVariation {
+  id: string;
+  styleLabel: string;   // e.g. "Educational"
+  settingLabel: string; // e.g. "Home office"
+  hook: string;         // 1-line teaser
+  narration: string;    // full script
+  visualDescription: string; // setting/wardrobe/lighting prompt
+}
 
 const DURATION_OPTIONS = [
   { value: '30', label: '30 seconds' },
@@ -39,6 +48,11 @@ const Podcast = () => {
   const [progressStatus, setProgressStatus] = useState('');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+  // 4-variation flow
+  const [variations, setVariations] = useState<ScriptVariation[]>([]);
+  const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
+  const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
 
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
@@ -175,10 +189,84 @@ const Podcast = () => {
     throw new Error('Timed out');
   };
 
-  // Main: Generate Script + Video
-  const generate = async () => {
+  // Generate 4 distinct script variations (different styles + settings)
+  const generateVariations = async () => {
     if (!message.trim()) {
-      toast({ title: 'Message required', description: 'Enter what you want to say.', variant: 'destructive' });
+      toast({ title: 'Topic required', description: 'Enter what you want to talk about.', variant: 'destructive' });
+      return;
+    }
+    setIsGeneratingVariations(true);
+    setVariations([]);
+    setActiveVariationId(null);
+    try {
+      const dur = parseInt(duration);
+      const wordTarget = Math.round(dur * 2.5);
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You write 4 distinct talking-head video scripts for the SAME topic. Each variation must use a DIFFERENT style and a DIFFERENT real-world setting.
+
+Vary across these axes:
+- Style: educational, casual/conversational, punchy/high-energy, storytelling
+- Setting: home office, outdoor (park/street), kitchen, car/passenger seat, coffee shop, bedroom — pick 4 different ones
+- Hook type: question, bold claim, story opener, surprising stat
+
+Rules per script:
+- ~${wordTarget} words (target ${dur}s at ~2.5 words/sec)
+- Natural spoken language, short sentences (8-15 words)
+- Strong hook in first sentence
+- End with a clear call to action
+- NO stage directions, NO speaker labels, NO timestamps
+
+Return ONLY valid JSON:
+{
+  "variations": [
+    {
+      "styleLabel": "Educational",
+      "settingLabel": "Home office, soft window light",
+      "hook": "one-line teaser",
+      "narration": "full spoken script ~${wordTarget} words",
+      "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays."
+    }
+    // ... 4 total, all different
+  ]
+}`
+            },
+            { role: 'user', content: `Topic: ${message}\n\nWrite 4 distinct ~${dur}s talking-head scripts. All 4 must feel meaningfully different in style AND setting.` }
+          ]
+        }
+      });
+      if (error) throw error;
+      const content = data?.response || data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+      const arr: ScriptVariation[] = (parsed.variations || []).slice(0, 4).map((v: any, i: number) => ({
+        id: `var-${Date.now()}-${i}`,
+        styleLabel: v.styleLabel || `Variation ${i + 1}`,
+        settingLabel: v.settingLabel || 'Studio',
+        hook: v.hook || '',
+        narration: v.narration || '',
+        visualDescription: v.visualDescription || '',
+      })).filter((v: ScriptVariation) => v.narration);
+      if (arr.length === 0) throw new Error('No variations returned');
+      setVariations(arr);
+      setActiveVariationId(arr[0].id);
+      toast({ title: '✨ 4 Scripts Ready', description: 'Pick one to render, or generate again.' });
+    } catch (err: any) {
+      console.error('Variations error:', err);
+      toast({ title: 'Failed to generate variations', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingVariations(false);
+    }
+  };
+
+  // Main: Generate Script + Video
+  const generate = async (preset?: ScriptVariation) => {
+    if (!preset && !message.trim()) {
+      toast({ title: 'Message required', description: 'Enter what you want to say or pick a variation.', variant: 'destructive' });
       return;
     }
     if (!selectedTwin) {
@@ -195,14 +283,20 @@ const Podcast = () => {
       const dur = parseInt(duration);
       const wordTarget = Math.round(dur * 2.5);
 
-      // Step 1: Generate script
-      setProgressStatus('Writing script...');
-      const { data: scriptData, error: scriptErr } = await supabase.functions.invoke('ai', {
-        body: {
-          messages: [
-            {
-              role: 'system',
-              content: `You are a scriptwriter for talking-head videos. Write a natural, conversational monologue.
+      // Step 1: Use preset script if provided, else generate one
+      let narration: string;
+      let visualDesc: string;
+      if (preset) {
+        narration = preset.narration;
+        visualDesc = preset.visualDescription;
+      } else {
+        setProgressStatus('Writing script...');
+        const { data: scriptData, error: scriptErr } = await supabase.functions.invoke('ai', {
+          body: {
+            messages: [
+              {
+                role: 'system',
+                content: `You are a scriptwriter for talking-head videos. Write a natural, conversational monologue.
 
 Target: ${dur} seconds (~${wordTarget} words).
 Character: ${selectedTwin.face_description || selectedTwin.name}
@@ -219,24 +313,22 @@ Return ONLY a JSON object:
   "narration": "The full script text...",
   "visualDescription": "Brief visual direction for the character in a professional studio setting"
 }`
-            },
-            { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${message}` }
-          ]
+              },
+              { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${message}` }
+            ]
+          }
+        });
+        if (scriptErr) throw scriptErr;
+        const content = scriptData?.response || scriptData?.choices?.[0]?.message?.content || scriptData?.content || (typeof scriptData === 'string' ? scriptData : '');
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+          narration = parsed.narration;
+          visualDesc = parsed.visualDescription || '';
+        } catch {
+          narration = content.replace(/```[\s\S]*?```/g, '').trim();
+          visualDesc = `Professional studio, ${selectedTwin.face_description || selectedTwin.name} speaking to camera`;
         }
-      });
-      if (scriptErr) throw scriptErr;
-
-      const content = scriptData?.response || scriptData?.choices?.[0]?.message?.content || scriptData?.content || (typeof scriptData === 'string' ? scriptData : '');
-      let narration: string;
-      let visualDesc: string;
-      try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
-        narration = parsed.narration;
-        visualDesc = parsed.visualDescription || '';
-      } catch {
-        narration = content.replace(/```[\s\S]*?```/g, '').trim();
-        visualDesc = `Professional studio, ${selectedTwin.face_description || selectedTwin.name} speaking to camera`;
       }
 
       setProgress(15);
@@ -253,7 +345,7 @@ Return ONLY a JSON object:
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
-SETTING: Casual real environment — home office or living room, natural window light
+SETTING & STYLE: ${visualDesc || 'Casual real environment — home office or living room, natural window light'}
 EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
 QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
       const sceneImg = await generateSceneImage(imgPrompt, selectedTwin);
@@ -317,6 +409,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     setAudioUrl(null);
     setProgress(0);
     setProgressStatus('');
+    setVariations([]);
+    setActiveVariationId(null);
   };
 
   return (
@@ -431,7 +525,73 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                       <p className="text-xs text-muted-foreground">💡 Tip: Use the AI Director to brainstorm content ideas</p>
                     )}
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={generateVariations}
+                    disabled={isGenerating || isGeneratingVariations || !message.trim()}
+                    className="w-full rounded-lg border-dashed"
+                  >
+                    {isGeneratingVariations ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Writing 4 variations...</>
+                    ) : (
+                      <><Wand2 className="w-4 h-4 mr-2" /> Generate 4 Script Variations (different styles & settings)</>
+                    )}
+                  </Button>
                 </div>
+
+                {/* Script Variations */}
+                {variations.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" /> Pick a variation to render
+                    </Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {variations.map((v) => {
+                        const isActive = activeVariationId === v.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setActiveVariationId(v.id)}
+                            disabled={isGenerating}
+                            className={`text-left p-3 rounded-xl border-2 transition-all space-y-2 ${
+                              isActive
+                                ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+                                : 'border-border hover:border-muted-foreground/30 hover:bg-accent/50'
+                            } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex flex-wrap gap-1">
+                                <Badge variant="secondary" className="text-[10px]">{v.styleLabel}</Badge>
+                                <Badge variant="outline" className="text-[10px]">{v.settingLabel}</Badge>
+                              </div>
+                              {isActive && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
+                            </div>
+                            {v.hook && <p className="text-xs font-medium text-foreground line-clamp-2">{v.hook}</p>}
+                            <p className="text-[11px] text-muted-foreground line-clamp-3 leading-relaxed">{v.narration}</p>
+                            <p className="text-[10px] text-muted-foreground/70">~{v.narration.trim().split(/\s+/).length} words</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {activeVariationId && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const v = variations.find(x => x.id === activeVariationId);
+                          if (v) setMessage(v.narration);
+                        }}
+                        className="text-xs"
+                      >
+                        Load selected script into the textarea above
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* Step 3: Duration */}
                 <div className="space-y-3">
@@ -457,24 +617,30 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                 </div>
 
                 {/* Generate Button */}
-                <Button
-                  className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20"
-                  size="lg"
-                  onClick={generate}
-                  disabled={isGenerating || !selectedTwinId || !message.trim()}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      {progressStatus || 'Generating...'}
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Generate Talking Head
-                    </>
-                  )}
-                </Button>
+                {(() => {
+                  const activeVar = variations.find(v => v.id === activeVariationId) || null;
+                  const hasInput = activeVar ? true : !!message.trim();
+                  return (
+                    <Button
+                      className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20"
+                      size="lg"
+                      onClick={() => generate(activeVar || undefined)}
+                      disabled={isGenerating || !selectedTwinId || !hasInput}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          {progressStatus || 'Generating...'}
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-5 h-5 mr-2" />
+                          {activeVar ? `Render "${activeVar.styleLabel}" variation` : 'Generate Talking Head'}
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
 
                 {/* Progress */}
                 {isGenerating && (
