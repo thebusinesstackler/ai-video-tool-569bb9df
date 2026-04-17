@@ -1096,6 +1096,59 @@ const ChatcutAI = () => {
     }
   }, [toast, overlays, brandSettings]);
 
+  // Generate or regenerate the opening TikTok-style cover via Nano Banana
+  const generateThumbnail = useCallback(async (opts: {
+    hookText?: string;
+    style?: string;
+    duration?: number;
+    extraPrompt?: string;
+    silent?: boolean;
+  } = {}) => {
+    setIsGeneratingThumbnail(true);
+    try {
+      // Pull a hook from the transcript if Marco didn't supply one
+      const transcriptText = transcript
+        ? (Array.isArray((transcript as any)?.segments)
+            ? (transcript as any).segments.map((s: any) => s.text).join(' ')
+            : typeof transcript === 'string' ? transcript : JSON.stringify(transcript))
+        : '';
+      const fallbackHook = transcriptText.split(/[.!?]/).find((s: string) => s.trim().length > 6) || 'WATCH THIS';
+      const aspectHint = videoAspect && videoAspect < 1 ? 'vertical'
+        : videoAspect && videoAspect > 1.4 ? 'horizontal' : 'square';
+
+      const { data, error } = await supabase.functions.invoke('generate-thumbnail', {
+        body: {
+          transcript: transcriptText.slice(0, 1200),
+          hookText: opts.hookText || fallbackHook,
+          style: opts.style || 'tiktok-bold',
+          aspectHint,
+          extraPrompt: opts.extraPrompt || '',
+          brandName: '',
+          brandPrimaryColor: brandSettings.primaryColor,
+          brandFont: brandSettings.font,
+        },
+      });
+      if (error || !data?.imageUrl) throw new Error(error?.message || 'No image returned');
+
+      const dur = Math.max(0.8, Math.min(4, opts.duration ?? 1.5));
+      setThumbnail({ url: data.imageUrl, headline: data.headline, duration: dur });
+      // If the user is at 0, snap the player to 0 so the cover shows immediately
+      if (videoRef.current && currentTime < 0.1) {
+        videoRef.current.currentTime = 0;
+      }
+      if (!opts.silent) {
+        toast({ title: '🔥 Thumbnail ready', description: `"${data.headline}" — holds for ${dur}s` });
+      }
+      return data.imageUrl as string;
+    } catch (err: any) {
+      console.error('Thumbnail gen error:', err);
+      toast({ title: 'Thumbnail failed', description: err.message || 'Could not generate cover', variant: 'destructive' });
+      return null;
+    } finally {
+      setIsGeneratingThumbnail(false);
+    }
+  }, [transcript, videoAspect, brandSettings, currentTime, toast]);
+
   const executeActions = useCallback((actions: TimelineAction[]) => {
     for (const act of actions) {
       switch (act.action) {
