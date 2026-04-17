@@ -243,6 +243,19 @@ const ChatcutAI = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const musicAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
+  // Snapshot of timeline state captured RIGHT BEFORE Marco's last action ran.
+  // Lets the user undo whatever Marco just did (B-roll, overlay, music, captions, cuts, thumbnail).
+  const [aiUndoSnapshot, setAiUndoSnapshot] = useState<{
+    timelineClips: TimelineClip[];
+    cuts: CutSuggestion[];
+    musicTracks: MusicTrack[];
+    overlays: OverlayItem[];
+    bRollClips: BRollClip[];
+    captionSettings: CaptionSettings;
+    thumbnail: typeof thumbnail;
+    label: string;
+  } | null>(null);
+
   // Fetch brand guidelines on mount
   useEffect(() => {
     if (!user) return;
