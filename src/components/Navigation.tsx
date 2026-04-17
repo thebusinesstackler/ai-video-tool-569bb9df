@@ -29,6 +29,7 @@ import {
   Package,
   RefreshCw,
   Mic,
+  Mic2,
   Search
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -87,6 +88,7 @@ const navGroups: NavGroup[] = [
       { name: 'Chatcut AI', href: '/chatcut-ai', icon: Scissors, beta: true },
       { name: 'Vizard', href: '/vizard', icon: Film, beta: true },
       { name: 'YouTube Search', href: '/youtube-search', icon: Search, beta: true },
+      { name: 'Voiceover Studio', href: '/voiceover-studio', icon: Mic2, beta: true },
     ],
   },
   {
