@@ -860,6 +860,34 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                       </button>
                     ))}
                   </div>
+                  {/* Custom duration input */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Label htmlFor="custom-duration" className="text-xs text-muted-foreground whitespace-nowrap">
+                      Or enter exact length:
+                    </Label>
+                    <Input
+                      id="custom-duration"
+                      type="number"
+                      min={MIN_DURATION}
+                      max={MAX_DURATION}
+                      step={5}
+                      value={duration}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '') { setDuration(''); return; }
+                        const n = Math.max(MIN_DURATION, Math.min(MAX_DURATION, parseInt(v) || MIN_DURATION));
+                        setDuration(String(n));
+                      }}
+                      disabled={isGenerating}
+                      className="h-8 w-20 text-sm rounded-lg"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      seconds (~{Math.round((parseInt(duration) || 0) * 2.5)} words)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/70">
+                    Range: {MIN_DURATION}–{MAX_DURATION}s. Scripts auto-target ~2.5 words/sec.
+                  </p>
                 </div>
 
                 {/* Custom Audio Upload (overrides TTS) */}
