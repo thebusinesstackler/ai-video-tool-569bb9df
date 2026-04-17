@@ -2779,17 +2779,51 @@ const ChatcutAI = () => {
                       </Button>
                     </>
                   )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title={pipEnabled ? 'Remove PiP background' : 'Upload background video for PiP'}
-                    onClick={() => {
-                      if (pipEnabled) {
-                        setPipEnabled(false);
-                        setBgVideoUrl(null);
-                      } else {
-                        bgFileInputRef.current?.click();
-                      }
-                    }}>
-                    <Layers className={cn("w-3.5 h-3.5", pipEnabled && "text-green-400")} />
-                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Background & cutout layers">
+                        <Layers className={cn("w-3.5 h-3.5", pipEnabled && "text-green-400")} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-3 space-y-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">PiP background</p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <Button variant={!pipEnabled ? 'default' : 'outline'} size="sm" className="h-8 text-[10px] gap-1"
+                            onClick={() => { setPipEnabled(false); setBgVideoUrl(null); }}>
+                            Off
+                          </Button>
+                          <Button variant={pipEnabled && pipBgMode === 'video' ? 'default' : 'outline'} size="sm" className="h-8 text-[10px] gap-1"
+                            onClick={() => { setPipBgMode('video'); if (!bgVideoUrl) bgFileInputRef.current?.click(); else setPipEnabled(true); }}>
+                            <Video className="w-3 h-3" /> Video
+                          </Button>
+                          <Button variant={pipEnabled && pipBgMode === 'product-feed' ? 'default' : 'outline'} size="sm" className="h-8 text-[10px] gap-1"
+                            disabled={productImages.length === 0}
+                            onClick={() => { setPipBgMode('product-feed'); setPipEnabled(true); }}
+                            title={productImages.length === 0 ? 'Add product images first' : 'TikTok-style scrolling product feed behind speaker'}>
+                            <Globe className="w-3 h-3" /> Shop
+                          </Button>
+                        </div>
+                        {pipEnabled && pipBgMode === 'product-feed' && (
+                          <p className="text-[10px] text-muted-foreground mt-1.5">Your products scroll vertically behind the speaker — TikTok shop style.</p>
+                        )}
+                        {pipEnabled && pipBgMode === 'video' && !bgVideoUrl && (
+                          <p className="text-[10px] text-muted-foreground mt-1.5">Click "Video" again to upload a background clip.</p>
+                        )}
+                      </div>
+                      <div className="border-t border-border pt-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
+                          <Eraser className="w-3 h-3" /> Cutout (beta)
+                        </p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <Button variant={cutoutMode === 'off' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setCutoutMode('off')}>Off</Button>
+                          <Button variant={cutoutMode === 'white' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setCutoutMode('white')}>White bg</Button>
+                          <Button variant={cutoutMode === 'dark' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setCutoutMode('dark')}>Dark bg</Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5">Lightweight blend-mode trick — works best when the speaker has a clean white or dark backdrop.</p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
                     onClick={() => {
                       const wrapper = videoWrapperRef.current;
