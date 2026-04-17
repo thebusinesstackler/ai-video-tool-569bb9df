@@ -209,6 +209,10 @@ const ChatcutAI = () => {
   });
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  // Saved B-roll frames + product images for media panel
+  const [savedBrollFrames, setSavedBrollFrames] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
+  const [productImages, setProductImages] = useState<{ id: string; image_url: string; label: string | null }[]>([]);
+
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
