@@ -2734,6 +2734,14 @@ const ChatcutAI = () => {
                     }}>
                     <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
                   </Button>
+                  {brollReview && brollReview.suggestions.length > 0 && (
+                    <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 ml-1"
+                      onClick={() => setStoryboardOpen(true)}
+                      title="Open B-roll storyboard review">
+                      <Film className="w-3 h-3" />
+                      Storyboard ({brollReview.suggestions.length})
+                    </Button>
+                  )}
                   {/* Hidden file input for background video */}
                   <input
                     ref={bgFileInputRef}
