@@ -310,9 +310,19 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
       });
     }
 
-    if (messages && Array.isArray(messages)) {
-      allMessages.push(...messages);
+    const currentThumbnail = (context as any)?.currentThumbnail;
+    if (currentThumbnail && currentThumbnail.url) {
+      allMessages.push({
+        role: "system",
+        content: `OPENING THUMBNAIL/COVER ALREADY SET: "${currentThumbnail.headline || '(no headline)'}" — holds for ${currentThumbnail.duration || 1.5}s at the start. If the user asks to "redo the thumbnail" or "try a different cover", call set_thumbnail again with a different hookText/style/extraPrompt. If they ask to remove it, tell them they can click the ✕ on the Thumbnail card in the Media panel on the right.`,
+      });
+    } else {
+      allMessages.push({
+        role: "system",
+        content: `NO OPENING THUMBNAIL/COVER set yet. If the video would benefit from a punchy first-frame cover (almost always for short-form), feel free to suggest set_thumbnail proactively with a strong hook from the transcript.`,
+      });
     }
+
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
