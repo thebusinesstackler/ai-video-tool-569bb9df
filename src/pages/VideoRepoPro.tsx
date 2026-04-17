@@ -1224,7 +1224,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
     const generatingMsg: ChatMessage = {
       id: `assistant-gen-${Date.now()}`,
       role: 'assistant',
-      content: '🎬 Generating TWO video segments with Sora-2 in parallel... Each segment is up to 20 seconds. They will be stitched into a seamless 30-second video.',
+      content: '🎬 Generating TWO video segments with Sora-2 in parallel... Each segment is up to 20 seconds. They will appear here individually so you can review each one.',
     };
     setMessages((prev) => [...prev, generatingMsg]);
 
