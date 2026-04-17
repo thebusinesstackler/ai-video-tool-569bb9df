@@ -48,6 +48,7 @@ import {
   Image as ImageIcon,
   PanelRightClose,
   PanelRightOpen,
+  Undo2,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
@@ -55,6 +56,7 @@ import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
+import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
 
 const AGENT_NAME = 'Marco';
 
