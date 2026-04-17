@@ -1578,6 +1578,18 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                         <Download className="w-3 h-3 mr-1" /> Download
                       </a>
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full gap-1.5"
+                      onClick={() => setFrameExtractor({
+                        url: selectedProject.generated_video_url!,
+                        projectId: selectedProject.id,
+                        label: selectedProject.custom_name || 'Video',
+                      })}
+                    >
+                      <Scissors className="w-3 h-3" /> Extract B-Roll Frames
+                    </Button>
                   </div>
                 ) : (
                   <div className="h-40 rounded-lg bg-muted flex items-center justify-center">
