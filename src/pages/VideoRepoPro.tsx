@@ -114,6 +114,8 @@ const VideoRepoPro = () => {
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [frameExtractor, setFrameExtractor] = useState<{ url: string; projectId: string; label: string } | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PAGE_SIZE = 9;
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
 
   // AI Script Director chat state
@@ -2099,8 +2101,25 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
           <TabsContent value="history" className="flex-1 px-4 mt-4 pb-24">
             <div className="max-w-4xl mx-auto space-y-4">
-              <div className="flex justify-end">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fetchHistory()} disabled={isLoadingHistory}>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={!historyProjects.find((p) => p.generated_video_url)}
+                  onClick={() => {
+                    const latest = historyProjects.find((p) => p.generated_video_url);
+                    if (latest) setFrameExtractor({
+                      url: latest.generated_video_url!,
+                      projectId: latest.id,
+                      label: latest.custom_name || 'Latest video',
+                    });
+                  }}
+                  title="Extract still frames from your most recent generated video"
+                >
+                  <Scissors className="w-3.5 h-3.5" /> Extract B-Roll (latest)
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setHistoryPage(1); fetchHistory(); }} disabled={isLoadingHistory}>
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingHistory ? 'animate-spin' : ''}`} /> Sync from database
                 </Button>
               </div>
@@ -2117,7 +2136,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {historyProjects.map((project) => (
+                  {historyProjects.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE).map((project) => (
                     <Card
                       key={project.id}
                       className={`overflow-hidden cursor-pointer hover:border-orange-500/40 transition-colors group ${project.is_favorite ? 'ring-1 ring-amber-400/50' : ''}`}
