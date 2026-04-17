@@ -3753,6 +3753,94 @@ const ChatcutAI = () => {
           </ResizablePanelGroup>
         </div>
       </div>
+
+      {/* B-Roll Storyboard Review Dialog */}
+      <Dialog open={storyboardOpen} onOpenChange={setStoryboardOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Film className="w-5 h-5 text-primary" />
+              B-Roll Storyboard Review
+            </DialogTitle>
+            <DialogDescription>
+              Marco analyzed your timeline. Accept any suggestion to swap the B-roll, or dismiss to keep what's there.
+            </DialogDescription>
+          </DialogHeader>
+          {brollReview && brollReview.suggestions.length > 0 ? (
+            <div className="space-y-3">
+              {brollReview.suggestions.map((s, idx) => {
+                const current = s.currentBrollId ? bRollClips.find(b => b.id === s.currentBrollId) : null;
+                return (
+                  <div key={s.id} className="border border-border rounded-lg p-3 bg-card">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs">#{idx + 1} · {s.time.toFixed(1)}s</Badge>
+                        <span className="text-xs text-muted-foreground">{s.issue}</span>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => seekTo(s.time)} className="h-7 text-xs">
+                        Jump
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="space-y-1">
+                        <div className="text-muted-foreground font-semibold">Current</div>
+                        {current?.imageUrl ? (
+                          <img src={current.imageUrl} alt={current.name} className="w-full aspect-video object-cover rounded border border-border" />
+                        ) : (
+                          <div className="w-full aspect-video bg-muted rounded border border-border flex items-center justify-center text-muted-foreground">
+                            {current?.name || 'No B-roll here'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-primary font-semibold">Suggested</div>
+                        <div className="w-full aspect-video bg-primary/5 rounded border border-primary/30 flex items-center justify-center text-foreground p-2 text-center">
+                          {s.suggestionLabel}
+                          {s.productName && <Badge variant="secondary" className="ml-2 text-[10px]">📦 {s.productName}</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-2 italic">{s.suggestionPrompt}</p>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <Button size="sm" variant="ghost" className="h-7 text-xs"
+                        onClick={() => setBrollReview(prev => prev ? { ...prev, suggestions: prev.suggestions.filter(x => x.id !== s.id) } : null)}
+                      >
+                        Dismiss
+                      </Button>
+                      <Button size="sm" className="h-7 text-xs gap-1"
+                        onClick={() => {
+                          const action: any = s.productName || s.productId
+                            ? {
+                                action: 'replace_broll_at_time',
+                                time: s.time,
+                                productName: s.productName,
+                                productId: s.productId,
+                                mode: 'animated',
+                                description: s.suggestionLabel,
+                                prompt: s.suggestionPrompt,
+                              }
+                            : {
+                                action: 'replace_broll_at_time',
+                                time: s.time,
+                                description: s.suggestionLabel,
+                                prompt: s.suggestionPrompt,
+                              };
+                          executeActionsRef.current?.([action]);
+                          setBrollReview(prev => prev ? { ...prev, suggestions: prev.suggestions.filter(x => x.id !== s.id) } : null);
+                        }}
+                      >
+                        <Sparkles className="w-3 h-3" /> Accept
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">No suggestions to review. Ask Marco "review my B-roll" to get fresh ideas.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
