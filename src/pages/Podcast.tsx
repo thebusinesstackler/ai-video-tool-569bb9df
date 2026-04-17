@@ -983,6 +983,14 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                 )}
               </>
             )}
+              </TabsContent>
+
+              <TabsContent value="from-content" className="mt-0">
+                <PodcastFromContent
+                  onUseTranscriptForVideo={(t) => setMessage(t)}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
