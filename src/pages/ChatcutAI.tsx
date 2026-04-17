@@ -266,6 +266,16 @@ const ChatcutAI = () => {
         if (frames) setSavedBrollFrames(frames as any);
       } catch (e) { console.warn('frames load failed', e); }
       try {
+        const { data: clips } = await supabase
+          .from('generated_images')
+          .select('id, image_url, prompt')
+          .eq('user_id', user.id)
+          .eq('source', 'broll-clip')
+          .order('created_at', { ascending: false })
+          .limit(60);
+        if (clips) setSavedBrollClips(clips as any);
+      } catch (e) { console.warn('clips load failed', e); }
+      try {
         const { data: pgal } = await supabase
           .from('product_gallery')
           .select('id, image_url, label, product_id, products(name)')
