@@ -2453,7 +2453,62 @@ const ChatcutAI = () => {
                       )}
                     </div>
 
-                    {/* Audios */}
+                    {/* Saved Frames Library — pick a frame from previous videos and animate as B-Roll */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <ImageIcon className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Saved Frames</span>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{savedBrollFrames.length}</Badge>
+                      </div>
+                      {savedBrollFrames.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {savedBrollFrames.slice(0, 18).map((f) => (
+                            <button
+                              key={f.id}
+                              className="relative group rounded overflow-hidden border border-border hover:border-green-500/70 transition-colors"
+                              onClick={() => addBRollFromImage(f.image_url, f.prompt || 'Saved frame', f.prompt || undefined)}
+                              title={`Add as B-Roll @ ${currentTime.toFixed(1)}s`}
+                            >
+                              <img src={f.image_url} alt={f.prompt || 'frame'} className="w-full aspect-video object-cover" />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/60 text-center py-3">No saved frames yet — extract from any video to build your B-Roll library</p>
+                      )}
+                    </div>
+
+                    {/* Product Gallery — pick a product image and animate as B-Roll */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Product Gallery</span>
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{productImages.length}</Badge>
+                      </div>
+                      {productImages.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {productImages.slice(0, 18).map((p) => (
+                            <button
+                              key={p.id}
+                              className="relative group rounded overflow-hidden border border-border hover:border-amber-500/70 transition-colors bg-muted/20"
+                              onClick={() => addBRollFromImage(p.image_url, p.label || 'Product', `Subtle product showcase: gentle camera move on the product, natural lighting matching the source video's vibe`)}
+                              title={`Add product as B-Roll @ ${currentTime.toFixed(1)}s`}
+                            >
+                              <img src={p.image_url} alt={p.label || 'product'} className="w-full aspect-square object-contain p-1" />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/60 text-center py-3">No products in gallery yet</p>
+                      )}
+                    </div>
+
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <Music className="w-3 h-3 text-muted-foreground" />
