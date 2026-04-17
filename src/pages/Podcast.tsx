@@ -71,6 +71,11 @@ const Podcast = () => {
   const [brandUrl, setBrandUrl] = useState('');
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
 
+  // Custom uploaded audio (overrides TTS)
+  const [customAudioUrl, setCustomAudioUrl] = useState<string | null>(null);
+  const [customAudioName, setCustomAudioName] = useState<string | null>(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
   // Auto-estimate duration from word count
