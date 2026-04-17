@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { PodcastAIDirector } from '@/components/PodcastAIDirector';
 import { Input } from '@/components/ui/input';
-import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe } from 'lucide-react';
+import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
 
 interface BrandContext {
@@ -71,6 +71,11 @@ const Podcast = () => {
   const [brandUrl, setBrandUrl] = useState('');
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
 
+  // Custom uploaded audio (overrides TTS)
+  const [customAudioUrl, setCustomAudioUrl] = useState<string | null>(null);
+  const [customAudioName, setCustomAudioName] = useState<string | null>(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
   // Auto-estimate duration from word count
@@ -84,6 +89,32 @@ const Podcast = () => {
     });
     setDuration(closest.value);
   }, [message]);
+
+  // Upload custom audio for lip-sync
+  const handleAudioUpload = async (file: File) => {
+    if (!file || !user) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 50MB', variant: 'destructive' });
+      return;
+    }
+    setIsUploadingAudio(true);
+    try {
+      const ext = file.name.split('.').pop() || 'mp3';
+      const fileName = `${user.id}/podcast/uploaded-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('reels')
+        .upload(fileName, file, { contentType: file.type || 'audio/mpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('reels').getPublicUrl(fileName);
+      setCustomAudioUrl(pub.publicUrl);
+      setCustomAudioName(file.name);
+      toast({ title: 'Audio uploaded', description: 'Will be used instead of TTS for lip-sync.' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  };
 
   // Load twins
   useEffect(() => {
@@ -438,9 +469,15 @@ Return ONLY a JSON object:
 
       setProgress(15);
 
-      // Step 2: Generate TTS
-      setProgressStatus('Generating voiceover...');
-      const ttsUrl = await generateTTS(narration, selectedTwin, 'podcast');
+      // Step 2: Generate TTS (or use uploaded audio)
+      let ttsUrl: string;
+      if (customAudioUrl) {
+        setProgressStatus('Using uploaded audio...');
+        ttsUrl = customAudioUrl;
+      } else {
+        setProgressStatus('Generating voiceover...');
+        ttsUrl = await generateTTS(narration, selectedTwin, 'podcast');
+      }
       setAudioUrl(ttsUrl);
       setProgress(30);
 
@@ -766,7 +803,52 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                   </div>
                 </div>
 
-                {/* Generate Button */}
+                {/* Custom Audio Upload (overrides TTS) */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Upload className="w-4 h-4 text-primary" /> Custom voiceover (optional)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Upload an MP3/WAV to lip-sync onto the character instead of generating TTS.
+                  </p>
+                  {customAudioUrl ? (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{customAudioName}</p>
+                        <audio src={customAudioUrl} controls className="w-full mt-2 h-8" />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { setCustomAudioUrl(null); setCustomAudioName(null); }}
+                        disabled={isGenerating}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="block border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:bg-accent/30 transition-colors">
+                      <input
+                        type="file"
+                        accept="audio/mpeg,audio/mp3,audio/wav,audio/m4a,audio/x-m4a,.mp3,.wav,.m4a"
+                        className="hidden"
+                        disabled={isUploadingAudio || isGenerating}
+                        onChange={(e) => e.target.files?.[0] && handleAudioUpload(e.target.files[0])}
+                      />
+                      {isUploadingAudio ? (
+                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload MP3, WAV, or M4A (max 50MB)
+                        </p>
+                      )}
+                    </label>
+                  )}
+                </div>
+
                 {(() => {
                   const activeVar = variations.find(v => v.id === activeVariationId) || null;
                   const hasInput = activeVar ? true : !!message.trim();
