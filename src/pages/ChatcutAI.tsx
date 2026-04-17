@@ -2737,12 +2737,45 @@ const ChatcutAI = () => {
                       </div>
                       {savedBrollFrames.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
-                          {savedBrollFrames.slice(0, 18).map((f) => (
+                          {savedBrollFrames.slice(0, 18).map((f) => {
+                            // If the frame embeds source-clip metadata, treat as a virtual clip (no animation).
+                            let meta: ReturnType<typeof parseBrollClipMeta> | null = null;
+                            try {
+                              if (f.prompt && f.prompt.trim().startsWith('{')) {
+                                meta = parseBrollClipMeta(f as any);
+                              }
+                            } catch { /* not a clip */ }
+                            const handleClick = () => {
+                              if (meta && meta.sourceUrl) {
+                                addBRollFromVideoClip({
+                                  videoUrl: meta.sourceUrl,
+                                  label: meta.label,
+                                  durationSec: meta.duration,
+                                  sourceStart: meta.sourceStart,
+                                  sourceUrl: meta.sourceUrl,
+                                });
+                              } else {
+                                // Plain still image — drop as a static B-roll frame WITHOUT animating.
+                                const brollId = crypto.randomUUID();
+                                setBRollClips(prev => [...prev, {
+                                  id: brollId,
+                                  name: f.prompt || 'Saved frame',
+                                  prompt: f.prompt || 'Saved frame',
+                                  start: currentTime,
+                                  duration: 3,
+                                  imageUrl: f.image_url,
+                                  imageStatus: 'ready',
+                                  videoStatus: 'ready',
+                                } as BRollClip]);
+                                toast({ title: 'Frame added', description: `Static B-Roll dropped at ${currentTime.toFixed(1)}s` });
+                              }
+                            };
+                            return (
                             <button
                               key={f.id}
                               className="relative group rounded overflow-hidden border border-border hover:border-green-500/70 transition-colors"
-                              onClick={() => addBRollFromImage(f.image_url, f.prompt || 'Saved frame', f.prompt || undefined)}
-                              title={`Add as B-Roll @ ${currentTime.toFixed(1)}s`}
+                              onClick={handleClick}
+                              title={meta ? `Add source clip @ ${currentTime.toFixed(1)}s` : `Add still frame @ ${currentTime.toFixed(1)}s`}
                             >
                               <img src={f.image_url} alt={f.prompt || 'frame'} className="w-full aspect-video object-cover" />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
