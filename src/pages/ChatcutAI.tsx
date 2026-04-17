@@ -1344,15 +1344,20 @@ const ChatcutAI = () => {
             const meta = parseBrollClipMeta(c);
             return { id: c.id, label: meta.label, sourceStart: meta.sourceStart, duration: meta.duration };
           }),
-          currentBRoll: bRollClips.map((b) => ({
-            id: b.id,
-            name: b.name,
-            start: +b.start.toFixed(2),
-            end: +(b.start + b.duration).toFixed(2),
-            duration: +b.duration.toFixed(2),
-            audioEnabled: !!b.audioEnabled,
-            ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
-          })),
+          context: {
+            currentBRoll: bRollClips.map((b) => ({
+              id: b.id,
+              name: b.name,
+              start: +b.start.toFixed(2),
+              end: +(b.start + b.duration).toFixed(2),
+              duration: +b.duration.toFixed(2),
+              audioEnabled: !!b.audioEnabled,
+              ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
+            })),
+            currentThumbnail: thumbnail
+              ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
+              : null,
+          },
         }),
       });
       if (!resp.ok || !resp.body) {
