@@ -803,7 +803,52 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                   </div>
                 </div>
 
-                {/* Generate Button */}
+                {/* Custom Audio Upload (overrides TTS) */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Upload className="w-4 h-4 text-primary" /> Custom voiceover (optional)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Upload an MP3/WAV to lip-sync onto the character instead of generating TTS.
+                  </p>
+                  {customAudioUrl ? (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{customAudioName}</p>
+                        <audio src={customAudioUrl} controls className="w-full mt-2 h-8" />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { setCustomAudioUrl(null); setCustomAudioName(null); }}
+                        disabled={isGenerating}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="block border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:bg-accent/30 transition-colors">
+                      <input
+                        type="file"
+                        accept="audio/mpeg,audio/mp3,audio/wav,audio/m4a,audio/x-m4a,.mp3,.wav,.m4a"
+                        className="hidden"
+                        disabled={isUploadingAudio || isGenerating}
+                        onChange={(e) => e.target.files?.[0] && handleAudioUpload(e.target.files[0])}
+                      />
+                      {isUploadingAudio ? (
+                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload MP3, WAV, or M4A (max 50MB)
+                        </p>
+                      )}
+                    </label>
+                  )}
+                </div>
+
                 {(() => {
                   const activeVar = variations.find(v => v.id === activeVariationId) || null;
                   const hasInput = activeVar ? true : !!message.trim();
