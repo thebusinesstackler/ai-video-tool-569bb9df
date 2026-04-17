@@ -409,6 +409,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     setAudioUrl(null);
     setProgress(0);
     setProgressStatus('');
+    setVariations([]);
+    setActiveVariationId(null);
   };
 
   return (
