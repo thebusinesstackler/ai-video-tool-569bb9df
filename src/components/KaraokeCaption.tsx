@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 
-export type CaptionStyle = 'karaoke' | 'wordPop' | 'typewriter' | 'spotlight' | 'wave';
+export type CaptionStyle = 'boldPop' | 'hype' | 'cinematic' | 'subtitle' | 'minimal';
 export type CaptionBackground = 'glass' | 'solid' | 'gradient' | 'outline' | 'neon';
 export type CaptionPosition = 'bottom' | 'center' | 'top';
+export type CaptionFontFamily = 'Montserrat' | 'Inter' | 'Poppins' | 'Oswald' | 'Bebas Neue';
+export type CaptionFontSize = 'small' | 'medium' | 'large' | 'xl';
 
 interface KaraokeCaptionProps {
   text: string;
@@ -16,13 +18,31 @@ interface KaraokeCaptionProps {
   fontFamily?: string;
   fontSize?: string;
   fontColor?: string;
+  /**
+   * Aspect ratio of the underlying video (width / height). When provided,
+   * captions automatically scale up for vertical 9:16 reels and down for
+   * landscape — matching TikTok / Reels conventions.
+   */
+  videoAspect?: number;
 }
 
-const FONT_SIZE_MAP: Record<string, string> = {
-  small: '0.75rem',
-  medium: '1rem',
-  large: '1.25rem',
-  xl: '1.5rem',
+const FONT_SIZE_REM: Record<string, number> = {
+  small: 0.95,
+  medium: 1.25,
+  large: 1.6,
+  xl: 2.0,
+};
+
+// Helper — convert hex (#rrggbb) to "r, g, b" for rgba shadows
+const hexToRgb = (hex: string): string => {
+  const cleaned = hex.replace('#', '');
+  const full = cleaned.length === 3
+    ? cleaned.split('').map((c) => c + c).join('')
+    : cleaned.padEnd(6, 'f');
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
 };
 
 export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
@@ -31,192 +51,207 @@ export const KaraokeCaption: React.FC<KaraokeCaptionProps> = ({
   duration,
   isIntro,
   isOutro,
-  style = 'karaoke',
+  style = 'boldPop',
   background = 'glass',
   position = 'bottom',
-  fontFamily,
-  fontSize,
-  fontColor,
+  fontFamily = 'Montserrat',
+  fontSize = 'medium',
+  fontColor = '#ffffff',
+  videoAspect,
 }) => {
-  const words = useMemo(() => (text || '').split(/\s+/).filter(w => w.length > 0), [text]);
-  
-  // If duration is 0 or very small, show all words at once (static mode)
+  const words = useMemo(() => (text || '').split(/\s+/).filter((w) => w.length > 0), [text]);
+
   const isStaticMode = duration <= 0.1;
   const progress = isStaticMode ? 1 : Math.min(currentTime / duration, 1);
-  
-  // Calculate which word should be visible based on progress
   const currentWordIndex = isStaticMode ? words.length : Math.floor(progress * words.length);
-  const wordProgress = (progress * words.length) % 1;
 
-  // For typewriter, calculate how many characters should be visible
   const totalChars = text.length;
   const visibleChars = Math.floor(progress * totalChars);
 
-  // Get background classes based on selected style
-  const getBackgroundClasses = () => {
-    const baseClasses = 'px-4 py-3 rounded-xl';
-    
+  // Auto-scale captions for portrait (reel) videos.
+  // 9:16 → ~1.4x, 1:1 → ~1.15x, 16:9 → 1x.
+  const aspectScale = useMemo(() => {
+    if (!videoAspect || !isFinite(videoAspect)) return 1;
+    if (videoAspect <= 0.75) return 1.4; // 9:16 and taller
+    if (videoAspect <= 1.05) return 1.15; // square-ish
+    return 1;
+  }, [videoAspect]);
+
+  const baseRem = FONT_SIZE_REM[fontSize as string] ?? FONT_SIZE_REM.medium;
+  const finalFontSizeRem = baseRem * aspectScale;
+
+  const rgb = hexToRgb(fontColor);
+  const colorGlow = (intensity: number) => `0 0 ${intensity}px rgba(${rgb}, 0.85)`;
+  const blackStroke = '0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 1px 1px 2px rgba(0,0,0,0.85)';
+
+  // Background container — kept tight to text; never a fixed wide bar that clashes with color.
+  const getContainerStyle = (): React.CSSProperties => {
     switch (background) {
       case 'solid':
-        return `${baseClasses} bg-black/90`;
+        return { backgroundColor: 'rgba(0, 0, 0, 0.85)' };
       case 'gradient':
-        return `${baseClasses} bg-gradient-to-r from-primary/90 via-primary/80 to-secondary/90`;
+        return {
+          background: 'linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.55))',
+          backdropFilter: 'blur(6px)',
+        };
       case 'outline':
-        return `${baseClasses} bg-transparent border-2 border-white/80`;
+        return { backgroundColor: 'transparent' };
       case 'neon':
-        return `${baseClasses} bg-black/80 shadow-[0_0_20px_rgba(139,92,246,0.5),0_0_40px_rgba(139,92,246,0.3)]`;
+        return {
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          boxShadow: `0 0 22px rgba(${rgb}, 0.55), 0 0 44px rgba(${rgb}, 0.3)`,
+        };
       case 'glass':
       default:
-        return `${baseClasses} bg-black/60 backdrop-blur-md`;
+        return {
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+        };
     }
   };
 
-  // Render word with appropriate style
   const renderWord = (word: string, index: number) => {
-    // In static mode, all words are considered "past" (fully visible)
-    const isCurrentWord = !isStaticMode && index === currentWordIndex;
-    const isPastWord = isStaticMode || index < currentWordIndex;
-    const isFutureWord = !isStaticMode && index > currentWordIndex;
+    const isCurrent = !isStaticMode && index === currentWordIndex;
+    const isPast = isStaticMode || index < currentWordIndex;
+
+    const baseColor = fontColor;
+    const dimColor = `rgba(${rgb}, 0.45)`;
+
+    const sharedStyle: React.CSSProperties = {
+      color: isCurrent ? baseColor : isPast ? baseColor : dimColor,
+      textShadow: blackStroke,
+      transition: 'transform 180ms ease-out, color 180ms ease-out, text-shadow 180ms ease-out',
+      display: 'inline-block',
+    };
 
     switch (style) {
-      case 'wordPop':
-        // Word pops in when it's current, scales up and has glow
+      case 'hype': {
+        // Big bouncy current word with a saturated glow + slight rotation
+        const rotate = isCurrent ? (index % 2 === 0 ? -3 : 3) : 0;
         return (
           <span
             key={index}
-            className={`inline-block transition-all duration-200 ${
-              isCurrentWord
-                ? 'text-yellow-300 scale-125 animate-bounce drop-shadow-[0_0_12px_rgba(253,224,71,0.8)]'
-                : isPastWord
-                  ? 'text-white scale-100'
-                  : 'text-white/0 scale-75'
-            }`}
             style={{
-              transform: isCurrentWord ? 'translateY(-4px)' : 'translateY(0)',
+              ...sharedStyle,
+              transform: isCurrent ? `scale(1.22) rotate(${rotate}deg) translateY(-2px)` : 'scale(1)',
+              textShadow: isCurrent ? `${blackStroke}, ${colorGlow(18)}` : blackStroke,
+              fontWeight: 900,
             }}
           >
             {word}
-            {index < words.length - 1 && <span className="inline-block w-2" />}
+            {index < words.length - 1 && <span style={{ display: 'inline-block', width: '0.45em' }} />}
           </span>
         );
+      }
 
-      case 'spotlight':
-        // Only current and nearby words visible, rest faded
-        const distanceFromCurrent = Math.abs(index - currentWordIndex);
-        const opacity = distanceFromCurrent === 0 ? 1 : distanceFromCurrent === 1 ? 0.6 : distanceFromCurrent === 2 ? 0.3 : 0.1;
+      case 'cinematic': {
+        // Letter-spacing reveal — past words are color, future are dim, current scales gently
         return (
           <span
             key={index}
-            className={`inline-block transition-all duration-300 ${
-              isCurrentWord ? 'text-white font-bold scale-110' : 'text-white'
-            }`}
-            style={{ opacity }}
-          >
-            {word}
-            {index < words.length - 1 && <span className="inline-block w-2" />}
-          </span>
-        );
-
-      case 'wave':
-        // Words wave up as they're spoken
-        const waveOffset = isCurrentWord ? -8 : isPastWord ? 0 : 8;
-        return (
-          <span
-            key={index}
-            className={`inline-block transition-all duration-300 ease-out ${
-              isCurrentWord
-                ? 'text-cyan-300 font-bold'
-                : isPastWord
-                  ? 'text-white'
-                  : 'text-white/40'
-            }`}
             style={{
-              transform: `translateY(${waveOffset}px)`,
+              ...sharedStyle,
+              transform: isCurrent ? 'scale(1.06)' : 'scale(1)',
+              letterSpacing: '0.02em',
+              fontWeight: 700,
             }}
           >
             {word}
-            {index < words.length - 1 && <span className="inline-block w-2" />}
+            {index < words.length - 1 && <span style={{ display: 'inline-block', width: '0.45em' }} />}
           </span>
         );
+      }
 
-      case 'typewriter':
-        // Text appears character by character
-        let charCount = 0;
-        for (let i = 0; i < index; i++) {
-          charCount += words[i].length + 1; // +1 for space
-        }
-        const wordStart = charCount;
-        const wordEnd = charCount + word.length;
-        
+      case 'subtitle': {
+        // Clean Netflix-like — no per-word highlight; everything in the chosen color
         return (
           <span
             key={index}
-            className="inline-block text-white"
-          >
-            {word.split('').map((char, charIndex) => {
-              const charPosition = wordStart + charIndex;
-              const isVisible = charPosition < visibleChars;
-              return (
-                <span
-                  key={charIndex}
-                  className={`transition-opacity duration-75 ${
-                    isVisible ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  style={{
-                    textShadow: charPosition === visibleChars - 1 ? '0 0 10px currentColor' : 'none'
-                  }}
-                >
-                  {char}
-                </span>
-              );
-            })}
-            {index < words.length - 1 && <span className="inline-block w-2" />}
-          </span>
-        );
-
-      case 'karaoke':
-      default:
-        // Classic karaoke: highlight current word, past words white, future dimmed
-        return (
-          <span
-            key={index}
-            className={`inline-block transition-all duration-200 ${
-              isCurrentWord
-                ? 'text-yellow-400 scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]'
-                : isPastWord
-                  ? 'text-white'
-                  : 'text-white/50'
-            }`}
+            style={{
+              ...sharedStyle,
+              color: baseColor,
+              fontWeight: 600,
+            }}
           >
             {word}
-            {index < words.length - 1 && <span className="inline-block w-2" />}
+            {index < words.length - 1 && <span style={{ display: 'inline-block', width: '0.35em' }} />}
           </span>
         );
+      }
+
+      case 'minimal': {
+        // Subtle fade-in per word
+        return (
+          <span
+            key={index}
+            style={{
+              ...sharedStyle,
+              opacity: isPast || isCurrent ? 1 : 0.35,
+              transform: isCurrent ? 'translateY(-1px)' : 'translateY(0)',
+              fontWeight: 600,
+            }}
+          >
+            {word}
+            {index < words.length - 1 && <span style={{ display: 'inline-block', width: '0.35em' }} />}
+          </span>
+        );
+      }
+
+      case 'boldPop':
+      default: {
+        // TikTok-default: chunky black stroke, current word pops + glows in user's color
+        return (
+          <span
+            key={index}
+            style={{
+              ...sharedStyle,
+              transform: isCurrent ? 'scale(1.18) translateY(-2px)' : 'scale(1)',
+              textShadow: isCurrent ? `${blackStroke}, ${colorGlow(14)}` : blackStroke,
+              fontWeight: 800,
+            }}
+          >
+            {word}
+            {index < words.length - 1 && <span style={{ display: 'inline-block', width: '0.4em' }} />}
+          </span>
+        );
+      }
     }
   };
 
-  // Special styling for intro/outro
-  const isSpecialScene = isIntro || isOutro;
+  // Typewriter-ish reveal for `subtitle` is intentionally NOT used — subtitle stays static for clarity.
+  // visibleChars kept around in case a future preset wants character-level reveal.
+  void visibleChars;
 
-  const inlineStyle: React.CSSProperties = {};
-  if (fontFamily) inlineStyle.fontFamily = fontFamily;
-  if (fontSize) inlineStyle.fontSize = FONT_SIZE_MAP[fontSize] || fontSize;
-  if (fontColor) inlineStyle.color = fontColor;
+  const isSpecial = isIntro || isOutro;
 
   return (
-    <div className={`text-center ${getBackgroundClasses()}`}>
-      <p className={`font-bold leading-relaxed ${
-        isSpecialScene ? 'text-lg' : 'text-base'
-      }`} style={inlineStyle}>
+    <div
+      className="rounded-2xl mx-auto inline-block"
+      style={{
+        ...getContainerStyle(),
+        padding: `${0.4 * aspectScale}rem ${0.9 * aspectScale}rem`,
+        maxWidth: '92%',
+        // Outline background uses no background fill
+        ...(background === 'outline'
+          ? { border: `2px solid ${fontColor}`, boxShadow: `0 0 0 1px rgba(0,0,0,0.4)` }
+          : {}),
+      }}
+    >
+      <p
+        className="text-center leading-tight"
+        style={{
+          fontFamily: `'${fontFamily}', system-ui, sans-serif`,
+          fontSize: `${finalFontSizeRem * (isSpecial ? 1.1 : 1)}rem`,
+          margin: 0,
+          color: fontColor,
+        }}
+      >
         {words.map((word, index) => renderWord(word, index))}
       </p>
     </div>
   );
 };
-
-// Caption settings component for the UI
-export type CaptionFontFamily = 'Montserrat' | 'Inter' | 'Poppins' | 'Oswald' | 'Bebas Neue';
-export type CaptionFontSize = 'small' | 'medium' | 'large' | 'xl';
 
 export interface CaptionSettings {
   style: CaptionStyle;
@@ -225,11 +260,11 @@ export interface CaptionSettings {
   enabled: boolean;
   fontFamily: CaptionFontFamily;
   fontSize: CaptionFontSize;
-  fontColor: string; // hex color
+  fontColor: string;
 }
 
 export const defaultCaptionSettings: CaptionSettings = {
-  style: 'karaoke',
+  style: 'boldPop',
   background: 'glass',
   position: 'bottom',
   enabled: true,

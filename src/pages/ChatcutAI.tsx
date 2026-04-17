@@ -1071,10 +1071,10 @@ const ChatcutAI = () => {
           break;
         case 'add_captions': {
           const presetMap: Record<string, Partial<CaptionSettings>> = {
-            tiktok: { style: 'wordPop', background: 'solid', fontFamily: 'Montserrat', fontSize: 'large', fontColor: '#ffffff' },
-            minimal: { style: 'karaoke', background: 'glass', fontFamily: 'Inter', fontSize: 'medium', fontColor: '#ffffff' },
-            cinematic: { style: 'spotlight', background: 'gradient', fontFamily: 'Oswald', fontSize: 'xl', fontColor: '#ffffff' },
-            youtube: { style: 'typewriter', background: 'solid', fontFamily: 'Poppins', fontSize: 'medium', fontColor: '#facc15' },
+            tiktok: { style: 'boldPop', background: 'glass', fontFamily: 'Montserrat', fontSize: 'large', fontColor: '#ffffff' },
+            minimal: { style: 'minimal', background: 'glass', fontFamily: 'Inter', fontSize: 'medium', fontColor: '#ffffff' },
+            cinematic: { style: 'cinematic', background: 'gradient', fontFamily: 'Oswald', fontSize: 'xl', fontColor: '#ffffff' },
+            youtube: { style: 'subtitle', background: 'solid', fontFamily: 'Poppins', fontSize: 'medium', fontColor: '#facc15' },
           };
           const presetSettings = presetMap[act.preset || 'tiktok'] || presetMap.tiktok;
           setCaptionSettings(prev => ({ ...prev, ...presetSettings, enabled: true }));
@@ -2047,7 +2047,12 @@ const ChatcutAI = () => {
                         const activeIdx = segs.indexOf(activeSeg);
                         const segDuration = (activeSeg.end ?? (segs[activeIdx + 1]?.start ?? duration)) - activeSeg.start;
                         return (
-                          <div className={cn("absolute left-2 right-2 pointer-events-none z-30", isFullscreen ? "bottom-16" : "bottom-6")}>
+                          <div
+                            className={cn(
+                              'absolute left-0 right-0 flex justify-center pointer-events-none z-30 px-4',
+                              isFullscreen ? 'bottom-[8%]' : 'bottom-[6%]'
+                            )}
+                          >
                             <KaraokeCaption
                               text={activeText}
                               currentTime={currentTime - activeSeg.start}
@@ -2057,6 +2062,7 @@ const ChatcutAI = () => {
                               fontFamily={captionSettings.fontFamily}
                               fontSize={captionSettings.fontSize}
                               fontColor={captionSettings.fontColor}
+                              videoAspect={videoAspect ?? undefined}
                             />
                           </div>
                         );

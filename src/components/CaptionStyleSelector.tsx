@@ -11,7 +11,7 @@ import {
   CaptionFontFamily,
   CaptionFontSize,
 } from './KaraokeCaption';
-import { Type, Sparkles, Zap, Sun, Waves, Square, Palette, Circle, Lightbulb } from 'lucide-react';
+import { Type, Sparkles, Zap, Square, Palette, Circle, Lightbulb, Film, Minus } from 'lucide-react';
 
 interface CaptionStyleSelectorProps {
   settings: CaptionSettings;
@@ -20,11 +20,11 @@ interface CaptionStyleSelectorProps {
 }
 
 const CAPTION_STYLES: { value: CaptionStyle; label: string; icon: React.ReactNode; description: string }[] = [
-  { value: 'karaoke', label: 'Karaoke', icon: <Type className="w-4 h-4" />, description: 'Words highlight as spoken' },
-  { value: 'wordPop', label: 'Word Pop', icon: <Sparkles className="w-4 h-4" />, description: 'Words pop and bounce in' },
-  { value: 'typewriter', label: 'Typewriter', icon: <Zap className="w-4 h-4" />, description: 'Letters appear one by one' },
-  { value: 'spotlight', label: 'Spotlight', icon: <Sun className="w-4 h-4" />, description: 'Focus on current word' },
-  { value: 'wave', label: 'Wave', icon: <Waves className="w-4 h-4" />, description: 'Words wave up when spoken' },
+  { value: 'boldPop', label: 'Bold Pop', icon: <Sparkles className="w-4 h-4" />, description: 'TikTok-style chunky pop on every word' },
+  { value: 'hype', label: 'Hype', icon: <Zap className="w-4 h-4" />, description: 'Bouncy, glowing, high-energy reveal' },
+  { value: 'cinematic', label: 'Cinematic', icon: <Film className="w-4 h-4" />, description: 'Wide-tracked, premium movie subtitles' },
+  { value: 'subtitle', label: 'Subtitle', icon: <Type className="w-4 h-4" />, description: 'Clean Netflix-style — no per-word highlight' },
+  { value: 'minimal', label: 'Minimal', icon: <Minus className="w-4 h-4" />, description: 'Soft fade-in, distraction-free' },
 ];
 
 const CAPTION_BACKGROUNDS: { value: CaptionBackground; label: string; icon: React.ReactNode }[] = [
