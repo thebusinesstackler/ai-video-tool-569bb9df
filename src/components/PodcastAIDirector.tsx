@@ -170,13 +170,14 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
             <div className="space-y-5">
               {/* Welcome */}
               <div className="flex gap-3">
-                <Avatar className="w-8 h-8 flex-shrink-0 bg-gradient-to-br from-primary to-primary/60">
+                <Avatar className="w-9 h-9 flex-shrink-0 ring-2 ring-primary/20">
+                  <AvatarImage src={directorAvatar} alt="Director" />
                   <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xs">
                     <Wand2 className="w-3.5 h-3.5" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="bg-muted rounded-xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed">
-                  <p>Hey! 👋 I'm your <strong>AI Creative Director</strong>. Tell me what you want to talk about and I'll help you craft the perfect talking-head video — from strategy and audience targeting to a ready-to-use script.</p>
+                  <p>Hey, I'm <strong>Marcus</strong> 👋 — your AI Creative Director. Tell me what you want to talk about and I'll help you craft the perfect talking-head video — from strategy and audience targeting to a ready-to-use script.</p>
                 </div>
               </div>
 
