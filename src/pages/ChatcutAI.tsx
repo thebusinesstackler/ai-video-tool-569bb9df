@@ -2052,13 +2052,13 @@ const ChatcutAI = () => {
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
                           <span className="text-[9px] font-semibold text-green-400 truncate">B-Roll</span>
                         </div>
-                        <div className="flex-1 relative h-6 mx-1">
+                        <div className="flex-1 relative h-6 mx-1" data-broll-track>
                           {bRollClips.length > 0 ? (
                             bRollClips.map((br) => (
                               <div
                                 key={br.id}
                                 className={cn(
-                                  "absolute inset-y-0 rounded border flex items-center px-1 cursor-pointer transition-colors group/clip",
+                                  "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
                                   br.imageStatus === 'generating' || br.videoStatus === 'generating'
                                     ? "bg-green-500/10 border-green-500/30 animate-pulse"
                                     : br.videoStatus === 'ready'
@@ -2072,22 +2072,50 @@ const ChatcutAI = () => {
                                   width: `${(br.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
                                 onClick={() => seekTo(br.start)}
+                                onMouseDown={(e) => {
+                                  // Only start drag with primary button on the body (not on handles/buttons)
+                                  if (e.button !== 0) return;
+                                  const target = e.target as HTMLElement;
+                                  if (target.closest('[data-broll-handle]') || target.closest('button')) return;
+                                  handleBRollDrag(e, br.id, 'move');
+                                }}
+                                title={`${br.name} — drag body to move, drag edges to trim (${br.duration.toFixed(1)}s)`}
                               >
-                                {br.imageStatus === 'generating' ? (
-                                  <Loader2 className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-spin" />
-                                ) : br.videoStatus === 'generating' ? (
-                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-pulse" />
-                                ) : br.videoStatus === 'ready' ? (
-                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
-                                ) : br.imageUrl ? (
-                                  <ImageIcon className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
-                                ) : (
-                                  <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
-                                )}
-                                <span className="text-[9px] text-green-300 truncate flex-1">{br.name}</span>
-                                <button className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 ml-0.5" onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}>
+                                {/* Left resize handle */}
+                                <div
+                                  data-broll-handle
+                                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-green-400/0 hover:bg-green-400/70 rounded-l z-10"
+                                  onMouseDown={(e) => handleBRollDrag(e, br.id, 'resize-left')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex items-center px-1.5 flex-1 min-w-0 pointer-events-none">
+                                  {br.imageStatus === 'generating' ? (
+                                    <Loader2 className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-spin" />
+                                  ) : br.videoStatus === 'generating' ? (
+                                    <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-pulse" />
+                                  ) : br.videoStatus === 'ready' ? (
+                                    <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                  ) : br.imageUrl ? (
+                                    <ImageIcon className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                  ) : (
+                                    <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                  )}
+                                  <span className="text-[9px] text-green-300 truncate flex-1">{br.name}</span>
+                                </div>
+                                <button
+                                  className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1.5 z-10 relative"
+                                  onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
                                   <Trash2 className="w-2 h-2 text-white" />
                                 </button>
+                                {/* Right resize handle */}
+                                <div
+                                  data-broll-handle
+                                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-green-400/0 hover:bg-green-400/70 rounded-r z-10"
+                                  onMouseDown={(e) => handleBRollDrag(e, br.id, 'resize-right')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
                               </div>
                             ))
                           ) : (
