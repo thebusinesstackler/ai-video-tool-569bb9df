@@ -26,6 +26,11 @@ interface BrandContext {
   websiteUrl?: string;
 }
 
+interface ProductImage {
+  productName: string;
+  imageUrl: string;
+}
+
 interface ScriptVariation {
   id: string;
   styleLabel: string;
@@ -35,6 +40,7 @@ interface ScriptVariation {
   visualDescription: string;
   featuredProduct?: string;
   audience?: string;
+  showProduct?: boolean; // hint that this script benefits from showing the product on-screen
 }
 
 const DURATION_OPTIONS = [
@@ -43,7 +49,12 @@ const DURATION_OPTIONS = [
   { value: '90', label: '1.5 minutes' },
   { value: '120', label: '2 minutes' },
   { value: '180', label: '3 minutes' },
+  { value: '240', label: '4 minutes' },
+  { value: '300', label: '5 minutes' },
 ];
+
+const MIN_DURATION = 10;
+const MAX_DURATION = 300;
 
 const Podcast = () => {
   const { toast } = useToast();
