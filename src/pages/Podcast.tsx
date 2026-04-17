@@ -64,6 +64,11 @@ const Podcast = () => {
   const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
 
+  // Brand context
+  const [brandContext, setBrandContext] = useState<BrandContext>({});
+  const [brandUrl, setBrandUrl] = useState('');
+  const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
+
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
   // Auto-estimate duration from word count
