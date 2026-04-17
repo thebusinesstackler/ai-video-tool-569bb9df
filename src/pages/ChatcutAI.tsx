@@ -1286,6 +1286,55 @@ const ChatcutAI = () => {
     }
   }, [toast, overlays, brandSettings]);
 
+  // ───────────────────────────────────────────────────────────────────────
+  // ANIMATED motion graphic via VEO 3.1.
+  // Pipeline: Nano Banana 2 generates start + end frames → VEO 3.1 animates
+  // between them with the prompt. Returns a real animated MP4 we drop on the
+  // overlay track. Used by Marco for premium hero reveals (stat drops, product
+  // launches, full-coverage takeovers).
+  // ───────────────────────────────────────────────────────────────────────
+  const generateAnimatedGraphic = useCallback(async (
+    overlayId: string,
+    text: string,
+    type: string,
+    opts: { animationPrompt?: string; aspectRatio?: '16:9' | '9:16'; duration?: number; fullCoverage?: boolean } = {},
+  ) => {
+    setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, videoStatus: 'generating', imageStatus: 'generating' } : o));
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-animated-graphic', {
+        body: {
+          text,
+          type,
+          animationPrompt: opts.animationPrompt,
+          brandPrimaryColor: brandSettings.primaryColor,
+          brandTextColor: brandSettings.textColor,
+          brandFont: brandSettings.font,
+          aspectRatio: opts.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+          duration: opts.duration || 5,
+          fullCoverage: !!opts.fullCoverage,
+        },
+      });
+      if (error || !data?.videoUrl) throw new Error(error?.message || 'Animated graphic failed');
+
+      setOverlays(prev => prev.map(o => o.id === overlayId
+        ? { ...o, videoUrl: data.videoUrl, videoStatus: 'ready', imageStatus: 'ready', startFrameUrl: data.startFrameUrl, endFrameUrl: data.endFrameUrl }
+        : o));
+      toast({ title: '🎬 Animated graphic ready', description: `"${text}" rendered via VEO 3.1` });
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `🎬 Your animated graphic **"${text}"** is on the timeline! Generated start + end frames and animated them with VEO 3.1 for a polished reveal. ✨`,
+      }]);
+    } catch (err: any) {
+      console.error('Animated graphic gen error:', err);
+      setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, videoStatus: 'failed', imageStatus: 'failed' } : o));
+      toast({ title: 'Animated graphic failed', description: err?.message || 'Could not generate', variant: 'destructive' });
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `⚠️ The animated graphic for **"${text}"** didn't render. Want me to retry or fall back to a static brand card? 🔄`,
+      }]);
+    }
+  }, [toast, brandSettings, reelPreview]);
+
   // Generate or regenerate the opening TikTok-style cover via Nano Banana
   const generateThumbnail = useCallback(async (opts: {
     hookText?: string;
