@@ -1402,6 +1402,90 @@ const ChatcutAI = () => {
         case 'review':
           // Review is handled conversationally by the AI
           break;
+        case 'add_product_broll': {
+          // Marco can drop a product image (still or animated) as B-roll at a transcript moment.
+          // Resolves the product by id, by name match, or falls back to the first product image.
+          const startAt = act.start ?? currentTime;
+          let pickedImage: string | null = null;
+          let label = act.description || 'Product';
+          if (act.productId) {
+            const m = productImages.find(p => p.product_id === act.productId);
+            if (m) { pickedImage = m.image_url; label = m.product_name || m.label || label; }
+          }
+          if (!pickedImage && act.productName) {
+            const needle = String(act.productName).toLowerCase();
+            const m = productImages.find(p =>
+              (p.product_name || '').toLowerCase().includes(needle) ||
+              (p.label || '').toLowerCase().includes(needle));
+            if (m) { pickedImage = m.image_url; label = m.product_name || m.label || label; }
+          }
+          if (!pickedImage && productImages.length > 0) {
+            pickedImage = productImages[0].image_url;
+            label = productImages[0].product_name || productImages[0].label || label;
+          }
+          if (!pickedImage) {
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `I don't have any product images saved for you yet — upload one in **Product Library** and I can drop it in as B-roll instantly.`,
+            }]);
+            break;
+          }
+          if (act.mode === 'still') {
+            // Drop as still image B-roll, no Wan animation
+            const brollId = crypto.randomUUID();
+            setBRollClips(prev => [...prev, {
+              id: brollId,
+              name: label,
+              prompt: `Product still: ${label}`,
+              start: startAt,
+              duration: act.duration ?? 3,
+              imageUrl: pickedImage!,
+              imageStatus: 'ready',
+              videoStatus: 'ready',
+              audioEnabled: false,
+            }]);
+            toast({ title: '📦 Product B-Roll added', description: `"${label}" pinned at ${startAt.toFixed(1)}s` });
+          } else {
+            // Animated: send through Wan 2.5 with a clean product prompt
+            const animPrompt = act.prompt || `Slow push-in close-up of ${label} on a clean surface, soft natural daylight, subtle handheld sway, product hero shot`;
+            addBRollFromImage(pickedImage, label, animPrompt, startAt);
+          }
+          break;
+        }
+        case 'replace_broll_at_time': {
+          // Find the B-roll covering the requested time and either swap it or clear+insert a new one.
+          const t = act.time ?? currentTime;
+          const existing = bRollClips.find(b => t >= b.start && t < b.start + b.duration);
+          if (existing) {
+            setBRollClips(prev => prev.filter(b => b.id !== existing.id));
+          }
+          // Re-insert: prefer product image if Marco asked for one, else generate fresh
+          if (act.productId || act.productName) {
+            // Recurse via add_product_broll path
+            executeActionsRef.current?.([{
+              action: 'add_product_broll',
+              productId: act.productId,
+              productName: act.productName,
+              start: existing?.start ?? t,
+              duration: existing?.duration ?? 3,
+              mode: act.mode || 'animated',
+              prompt: act.prompt,
+              description: act.description,
+            }]);
+          } else if (act.prompt) {
+            const brollId = crypto.randomUUID();
+            setBRollClips(prev => [...prev, {
+              id: brollId,
+              name: act.description || 'New B-Roll',
+              prompt: act.prompt,
+              start: existing?.start ?? t,
+              duration: existing?.duration ?? 3,
+            }]);
+            toast({ title: 'Swapping B-Roll', description: `Generating replacement at ${(existing?.start ?? t).toFixed(1)}s…` });
+            generateBRollImage(brollId, act.prompt);
+          }
+          break;
+        }
         case 'set_thumbnail': {
           toast({ title: '🎨 Generating thumbnail…', description: 'Marco is designing your TikTok cover with Nano Banana' });
           generateThumbnail({
@@ -1415,7 +1499,11 @@ const ChatcutAI = () => {
         }
       }
     }
-  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail]);
+  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage]);
+
+  // Self-ref so action cases can recurse (e.g. replace_broll_at_time → add_product_broll)
+  const executeActionsRef = useRef<typeof executeActions | null>(null);
+  useEffect(() => { executeActionsRef.current = executeActions; }, [executeActions]);
 
   // Undo whatever Marco's last action did. Restores the snapshot we captured right before executeActions ran.
   const undoLastAIAction = useCallback(() => {
