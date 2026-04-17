@@ -90,6 +90,32 @@ const Podcast = () => {
     setDuration(closest.value);
   }, [message]);
 
+  // Upload custom audio for lip-sync
+  const handleAudioUpload = async (file: File) => {
+    if (!file || !user) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 50MB', variant: 'destructive' });
+      return;
+    }
+    setIsUploadingAudio(true);
+    try {
+      const ext = file.name.split('.').pop() || 'mp3';
+      const fileName = `${user.id}/podcast/uploaded-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('reels')
+        .upload(fileName, file, { contentType: file.type || 'audio/mpeg', upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('reels').getPublicUrl(fileName);
+      setCustomAudioUrl(pub.publicUrl);
+      setCustomAudioName(file.name);
+      toast({ title: 'Audio uploaded', description: 'Will be used instead of TTS for lip-sync.' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  };
+
   // Load twins
   useEffect(() => {
     if (!user?.id) return;
