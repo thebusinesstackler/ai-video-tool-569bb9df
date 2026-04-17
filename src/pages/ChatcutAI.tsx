@@ -3407,6 +3407,22 @@ const ChatcutAI = () => {
                                 <div className="absolute top-1 right-1 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none shadow-sm">
                                   {meta.duration.toFixed(1)}s
                                 </div>
+                                <button
+                                  type="button"
+                                  className="absolute top-1 left-1 bg-background/90 hover:bg-primary hover:text-primary-foreground rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-border"
+                                  title="Reference this clip for Marco"
+                                  onClick={(e) => {
+                                    e.preventDefault(); e.stopPropagation();
+                                    setSelectedReference({
+                                      kind: 'source-clip', id: c.id, label: meta.label,
+                                      thumbUrl: c.image_url, sourceUrl: meta.sourceUrl,
+                                      sourceStart: meta.sourceStart, durationSec: meta.duration,
+                                    });
+                                    toast({ title: '🎯 Referenced for Marco', description: `"${meta.label}" — now tell him what to do with it.` });
+                                  }}
+                                >
+                                  <Target className="w-3 h-3" />
+                                </button>
                               </div>
                             );
                           })}
