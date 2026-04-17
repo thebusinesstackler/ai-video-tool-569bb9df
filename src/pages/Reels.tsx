@@ -2201,6 +2201,29 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
       const selectedTwinGender = selectedTwin?.gender || undefined;
 
+      // Auto-match a Speechify library voice to the character (only if no cloned voice is in use)
+      let autoMatchedSpeechifyVoiceId: string | undefined;
+      const voiceConfigForMatch = resolveVoiceForGeneration();
+      if (voiceConfigForMatch.voiceEngine !== 'speechify') {
+        try {
+          setProgressStatus('Matching AI voice to character...');
+          const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
+            body: {
+              characterDescription: selectedTwin?.face_description || characterDescription || project.topic,
+              gender: selectedTwinGender,
+              tone: project.topic,
+              scriptSample: activeScenes[0]?.narration || '',
+            },
+          });
+          if (matchData?.voiceId) {
+            autoMatchedSpeechifyVoiceId = matchData.voiceId;
+            console.log(`🎙️ Auto-matched Speechify voice: ${matchData.displayName} (${matchData.voiceId}) — ${matchData.reasoning}`);
+          }
+        } catch (matchErr) {
+          console.warn('Speechify voice auto-match failed, will use default TTS:', matchErr);
+        }
+      }
+
       if (videoModel === 'sora-2') {
         // Sora-2 hybrid: narrator scenes need TTS for InfiniteTalk lip-sync,
         // intro/outro/silent scenes use Sora-2 native audio (no TTS needed)
@@ -2228,6 +2251,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 text: scene.narration,
                 voice: voiceConfig.voice,
                 voiceEngine: voiceConfig.voiceEngine,
+                speechifyVoiceId: autoMatchedSpeechifyVoiceId,
                 gender: selectedTwinGender,
                 pitch: voicePitch,
               }
@@ -2298,6 +2322,7 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
                 text: scene.narration,
                 voice: voiceConfig.voice,
                 voiceEngine: voiceConfig.voiceEngine,
+                speechifyVoiceId: autoMatchedSpeechifyVoiceId,
                 gender: selectedTwinGender,
                 pitch: voicePitch,
               }
