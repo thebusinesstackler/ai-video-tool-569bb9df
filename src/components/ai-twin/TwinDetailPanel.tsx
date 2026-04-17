@@ -43,7 +43,8 @@ import {
   Save,
   XCircle,
   Trash2,
-  Check
+  Check,
+  Star
 } from 'lucide-react';
 import { TwinSpeaker } from './TwinSpeaker';
 import { VoiceCloner } from './VoiceCloner';
