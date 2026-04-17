@@ -97,6 +97,7 @@ const VideoRepo = () => {
   const [productImageName, setProductImageName] = useState('');
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
+  const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -570,7 +571,7 @@ Then provide a final **VIDEO PROMPT** block:
             prompt: videoPrompt,
             model: 'sora-2',
             aspectRatio: '9:16',
-            duration: 10,
+            duration: soraDuration,
             userId: user?.id,
             source: 'video-repo',
             ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
@@ -775,7 +776,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             prompt: newVideoPrompt,
             model: 'sora-2',
             aspectRatio: '9:16',
-            duration: 10,
+            duration: soraDuration,
             userId: user?.id,
             source: 'video-repo',
             ...(newImageUrl ? { imageUrls: [newImageUrl] } : {}),
@@ -1127,14 +1128,19 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 
   const handleRemixProject = (project: VideoRepoProject) => {
     // Pre-populate the Create tab with data from this project
-    if (project.video_prompt) setPrompt(project.video_prompt);
+    if (project.video_prompt || project.prompt) setPrompt(project.video_prompt || project.prompt || '');
     if (project.generated_video_url) {
       setReferenceVideoUrl(project.generated_video_url);
       setReferenceVideoName(project.custom_name || 'Imported video');
     }
+    if (project.product_image_url) {
+      setProductImageUrl(project.product_image_url);
+      setProductImageName('Reference image');
+      setProductImageFile(null);
+    }
     setSelectedProject(null);
     setMainTab('create');
-    toast({ title: 'Remix loaded', description: 'The prompt and reference video have been loaded into the Create tab.' });
+    toast({ title: 'Remix loaded', description: 'Prompt, reference video, and product image have been loaded. Choose a duration and generate.' });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1511,13 +1517,22 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                         </div>
                       </div>
 
-                      {/* Mode + Send */}
+                      {/* Mode + Duration + Send */}
                       <div className="flex items-center gap-2 pt-1">
                         <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
-                          <SelectTrigger className="h-8 text-xs w-[120px] rounded-lg bg-background"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs w-[110px] rounded-lg bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="guided">Guided</SelectItem>
                             <SelectItem value="freeform">Freeform</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={String(soraDuration)} onValueChange={(v) => setSoraDuration(Number(v) as 10 | 20)}>
+                          <SelectTrigger className="h-8 text-xs w-[110px] rounded-lg bg-background" title="Sora-2 video length">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10s (Sora)</SelectItem>
+                            <SelectItem value="20">20s (Sora)</SelectItem>
                           </SelectContent>
                         </Select>
                         <Button
