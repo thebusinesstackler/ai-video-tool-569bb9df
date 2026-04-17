@@ -206,7 +206,24 @@ If the user says "switch the B-roll", "change the music", "different style", etc
     if (brandSettings) {
       allMessages.push({
         role: "system",
-        content: `The user has configured brand settings in the editor. Use these for all overlays, motion graphics, and creative decisions:\n- Primary Brand Color: ${brandSettings.primaryColor}\n- Text Color: ${brandSettings.textColor}\n- Brand Font: ${brandSettings.font}\n- Has Logo: ${brandSettings.hasLogo ? 'Yes (uploaded)' : 'No'}\n\nWhen generating overlays or title cards, mention using these brand colors. When the user asks for an outro, make it scale: 5 (full screen) by default.`,
+        content: `BRAND SETTINGS (use for every overlay, end-frame, and creative decision):\n- Primary Brand Color: ${brandSettings.primaryColor}\n- Text Color: ${brandSettings.textColor}\n- Brand Font: ${brandSettings.font}\n- Has Logo: ${brandSettings.hasLogo ? 'Yes (uploaded)' : 'No'}\n- Brand Website: ${brandSettings.websiteUrl || '(NOT SET — ASK THE USER for it before generating any Shop Now / CTA / end-frame overlay so you can include the real URL on the button)'}\n\nWhen generating any Shop Now button, end-frame, or CTA overlay, ALWAYS embed the website URL beneath/inside the button (e.g. "Shop Now\\nyourbrand.com") and use the brand primary color as the button fill. For outros / end-frames, default scale to 5 (full screen).`,
+      });
+    }
+
+    if (productLibrary && Array.isArray(productLibrary) && productLibrary.length > 0) {
+      const productList = productLibrary.map((p: any, i: number) =>
+        `${i + 1}. ${p.name}${p.brand ? ` (${p.brand})` : ''}${p.description ? ` — ${p.description}` : ''}${p.benefits?.length ? ` | Benefits: ${p.benefits.join(', ')}` : ''}${p.hasImage ? ' [HAS PRODUCT IMAGE in gallery]' : ''}`
+      ).join('\n');
+      allMessages.push({
+        role: "system",
+        content: `USER'S PRODUCT LIBRARY (${productLibrary.length} products available):\n${productList}\n\nWHEN THE TRANSCRIPT MENTIONS OR ALIGNS WITH ANY OF THESE PRODUCTS:\n1. NAME THE PRODUCT EXPLICITLY in your reply ("I'm pulling in your Lion's Mane Extract since you're talking about focus at 0:08 🍄")\n2. Suggest using its product image from the gallery as a B-roll close-up at the relevant timestamp\n3. Use the product's actual name + benefits in any motion graphic / lower-third text — never generic labels\n4. For end-frames, build a branded product card: product hero image + name + 1 benefit + Shop Now button with the brand website URL`,
+      });
+    }
+
+    if (typeof savedFramesCount === 'number' && savedFramesCount > 0) {
+      allMessages.push({
+        role: "system",
+        content: `The user has ${savedFramesCount} saved frames in their B-Roll library from previous videos. When suggesting B-roll, mention they can either generate fresh AI footage OR pick from their saved frames in the right Media panel.`,
       });
     }
 
