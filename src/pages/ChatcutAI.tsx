@@ -2530,6 +2530,12 @@ const ChatcutAI = () => {
                       disabled={isLoading}
                       className="text-sm bg-muted/30"
                     />
+                    <div className="flex flex-wrap gap-1.5">
+                      <button type="button" onClick={() => sendMessage('Direct this scene like a premium commercial — apply commercial-director motion graphics across the whole timeline (hooks, stats, side notes, masked typography, CTA lockup) with paired subject treatments.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">🎬 Direct this scene</button>
+                      <button type="button" onClick={() => sendMessage('Punch up my hook — rewrite the opening 6 seconds to stop the scroll. Give 3 spoken alternatives.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">✨ Punch up hook</button>
+                      <button type="button" onClick={() => sendMessage('Clean my captions — strip every filler word, um, uh, like, you know, basically, actually, literally. Show me what you cut.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">🧹 Clean captions</button>
+                      <button type="button" onClick={() => sendMessage('Add premium b-roll where it makes sense — pick 6-10 visually evocative moments and queue cinematic 3s clips.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">⭐ Premium B-roll</button>
+                    </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
                         <Button type="button" variant="ghost" size="sm" className="text-xs gap-1 h-7 text-muted-foreground">
