@@ -68,6 +68,7 @@ import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
 import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
 import { SmartOverlay } from '@/components/chatcut/SmartOverlay';
+import { ProductPickerDialog } from '@/components/ProductPickerDialog';
 
 const AGENT_NAME = 'Marco';
 
@@ -281,6 +282,9 @@ const ChatcutAI = () => {
   const [isAutoExtracting, setIsAutoExtracting] = useState(false);
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; label: string | null; product_name?: string; product_id?: string }[]>([]);
   const [productLibrary, setProductLibrary] = useState<{ id: string; name: string; description: string | null; benefits: string[] | null; brand_name?: string; primary_image?: string }[]>([]);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [isUploadingRefImage, setIsUploadingRefImage] = useState(false);
+  const refImageInputRef = useRef<HTMLInputElement>(null);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
