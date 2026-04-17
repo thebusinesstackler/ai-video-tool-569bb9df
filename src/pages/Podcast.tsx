@@ -525,7 +525,73 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                       <p className="text-xs text-muted-foreground">💡 Tip: Use the AI Director to brainstorm content ideas</p>
                     )}
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={generateVariations}
+                    disabled={isGenerating || isGeneratingVariations || !message.trim()}
+                    className="w-full rounded-lg border-dashed"
+                  >
+                    {isGeneratingVariations ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Writing 4 variations...</>
+                    ) : (
+                      <><Wand2 className="w-4 h-4 mr-2" /> Generate 4 Script Variations (different styles & settings)</>
+                    )}
+                  </Button>
                 </div>
+
+                {/* Script Variations */}
+                {variations.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" /> Pick a variation to render
+                    </Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {variations.map((v) => {
+                        const isActive = activeVariationId === v.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setActiveVariationId(v.id)}
+                            disabled={isGenerating}
+                            className={`text-left p-3 rounded-xl border-2 transition-all space-y-2 ${
+                              isActive
+                                ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+                                : 'border-border hover:border-muted-foreground/30 hover:bg-accent/50'
+                            } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex flex-wrap gap-1">
+                                <Badge variant="secondary" className="text-[10px]">{v.styleLabel}</Badge>
+                                <Badge variant="outline" className="text-[10px]">{v.settingLabel}</Badge>
+                              </div>
+                              {isActive && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
+                            </div>
+                            {v.hook && <p className="text-xs font-medium text-foreground line-clamp-2">{v.hook}</p>}
+                            <p className="text-[11px] text-muted-foreground line-clamp-3 leading-relaxed">{v.narration}</p>
+                            <p className="text-[10px] text-muted-foreground/70">~{v.narration.trim().split(/\s+/).length} words</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {activeVariationId && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const v = variations.find(x => x.id === activeVariationId);
+                          if (v) setMessage(v.narration);
+                        }}
+                        className="text-xs"
+                      >
+                        Load selected script into the textarea above
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* Step 3: Duration */}
                 <div className="space-y-3">
