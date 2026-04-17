@@ -1516,8 +1516,23 @@ const ChatcutAI = () => {
                 {/* Video preview */}
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
-                    {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div ref={videoWrapperRef} className={cn("relative inline-block max-h-full max-w-full overflow-hidden", isFullscreen && "w-full h-full flex items-center justify-center bg-black")} style={{ lineHeight: 0 }}>
+                    {/* Video wrapper – sized to match the actual video aspect ratio so portrait/reel videos display correctly */}
+                    <div
+                      ref={videoWrapperRef}
+                      className={cn(
+                        "relative overflow-hidden bg-black",
+                        isFullscreen && "w-full h-full flex items-center justify-center"
+                      )}
+                      style={{
+                        lineHeight: 0,
+                        aspectRatio: videoAspect ? `${videoAspect}` : '16 / 9',
+                        // Constrain so the wrapper fits within available space regardless of orientation
+                        maxHeight: '100%',
+                        maxWidth: '100%',
+                        height: videoAspect && videoAspect < 1 ? '100%' : 'auto',
+                        width: videoAspect && videoAspect >= 1 ? '100%' : 'auto',
+                      }}
+                    >
                       {/* Background video (when PiP mode is active) */}
                       {pipEnabled && bgVideoUrl && (
                         <video
