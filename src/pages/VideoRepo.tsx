@@ -1192,9 +1192,12 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       title: project.custom_name || 'Video Repo clip',
       clipTitle: project.custom_name || 'Video Repo clip',
       productImageUrl: project.product_image_url || null,
+      projectId: project.id,
+      sourceLabel: project.custom_name || project.prompt?.slice(0, 40) || 'Video Repo clip',
+      autoExtractBroll: true,
     };
     sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
-    toast({ title: 'Opening Chatcut AI…', description: 'Drag your product image onto the timeline to overlay it on the clip.' });
+    toast({ title: 'Opening Chatcut AI…', description: 'Marco will auto-extract B-roll frames if none exist for this clip.' });
     navigate('/chatcut-ai');
   };
 
@@ -1312,6 +1315,20 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             >
               <Scissors className="w-4 h-4" /> Send to Chatcut AI
             </Button>
+            {selectedProject.generated_video_url && (
+              <Button
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setFrameExtractor({
+                  url: selectedProject.generated_video_url!,
+                  projectId: selectedProject.id,
+                  label: selectedProject.custom_name || 'Video',
+                })}
+                title="Save still frames to your B-Roll Library for use in Chatcut AI"
+              >
+                <Sparkles className="w-4 h-4" /> Extract B-Roll Frames
+              </Button>
+            )}
           </div>
         </div>
       </Layout>
