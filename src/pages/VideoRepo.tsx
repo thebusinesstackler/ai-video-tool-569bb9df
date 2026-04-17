@@ -28,6 +28,8 @@ import {
   RefreshCw,
   ArrowRight,
   Package,
+  Scissors,
+  Lock,
 } from 'lucide-react';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
 import { Input } from '@/components/ui/input';
@@ -87,6 +89,7 @@ const statusColors: Record<string, string> = {
 const VideoRepo = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [mainTab, setMainTab] = useState<'create' | 'history' | 'import'>('create');
   const [activeTab, setActiveTab] = useState<'ad' | 'motion'>('ad');
   const [mode, setMode] = useState<'guided' | 'freeform'>('guided');
@@ -101,6 +104,7 @@ const VideoRepo = () => {
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
+  const [lockProduct, setLockProduct] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
