@@ -1449,7 +1449,8 @@ const ChatcutAI = () => {
         }
         case 'add_overlay':
         case 'add_text_card':
-        case 'add_full_coverage': {
+        case 'add_full_coverage':
+        case 'add_animated_graphic': {
           const overlayId = crypto.randomUUID();
           // Map style to animation preset
           const styleAnimationMap: Record<string, OverlayAnimation> = {
@@ -1462,7 +1463,7 @@ const ChatcutAI = () => {
           const animation = act.animation
             ? { entrance: act.animation, exit: 'fade-out' as const }
             : styleAnimationMap[act.style || 'glass'] || { entrance: 'slide-up' as const, exit: 'fade-out' as const };
-          const overlayType = act.type || (act.action === 'add_full_coverage' ? 'feature_grid' : 'lower_third');
+          const overlayType = act.type || (act.action === 'add_full_coverage' ? 'feature_grid' : act.action === 'add_animated_graphic' ? 'motion_graphic' : 'lower_third');
           const isCTA = overlayType === 'cta_button' || /shop now|buy|order|learn more|get yours|http|\.com|\.co|\.io/i.test(act.text || '');
           // Smart defaults for position + scale by type (safety net if Marco omits them)
           const defaultsByType: Record<string, { pos: { x: number; y: number }; scale: number }> = {
@@ -1485,15 +1486,17 @@ const ChatcutAI = () => {
           const finalPos = act.position || (isCTA ? { x: 50, y: 80 } : def.pos);
 
           // ── RENDER-MODE DECISION ────────────────────────────────────────
-          // Default to crisp DOM rendering for all text/list/CTA cards (looks
-          // sharper, no transparency artifacts, scales perfectly).
-          // Only fall back to AI image when the user explicitly asks for an
-          // illustrative graphic (icon, product chip) via renderMode='image'.
-          const renderMode: 'dom' | 'image' = act.renderMode === 'image' ? 'image' : 'dom';
+          // 'video' → animated VEO 3.1 graphic (premium hero reveals).
+          // 'image' → static Nano Banana 2 PNG (icons, product chips).
+          // 'dom'   → crisp brand-coloured SmartOverlay (default for text cards).
+          let renderMode: 'dom' | 'image' | 'video' = 'dom';
+          if (act.action === 'add_animated_graphic' || act.renderMode === 'video') renderMode = 'video';
+          else if (act.renderMode === 'image') renderMode = 'image';
 
           const newOverlay: OverlayItem = {
             id: overlayId, type: overlayType,
-            text: act.text || '', start: act.start || 0, duration: act.duration || (isFullCoverage ? 4 : 5),
+            text: act.text || '', start: act.start || 0,
+            duration: act.duration || (renderMode === 'video' ? 5 : isFullCoverage ? 4 : 5),
             animation, style: act.style || 'glass',
             scale: finalScale,
             position: finalPos,
@@ -1501,11 +1504,21 @@ const ChatcutAI = () => {
             items: Array.isArray(act.items) ? act.items.slice(0, 8) : undefined,
             subtext: typeof act.subtext === 'string' ? act.subtext : undefined,
             fullCoverage: isFullCoverage,
-            imageStatus: renderMode === 'image' ? 'generating' : 'ready',
+            imageStatus: renderMode === 'dom' ? 'ready' : 'generating',
+            videoStatus: renderMode === 'video' ? 'generating' : undefined,
+            animationPrompt: act.animationPrompt,
           };
           setOverlays(prev => [...prev, newOverlay]);
           if (renderMode === 'dom') {
             toast({ title: '✨ Graphic added', description: `"${act.text}" — rendered with your brand colors` });
+          } else if (renderMode === 'video') {
+            toast({ title: '🎬 Animating graphic', description: `"${act.text}" — VEO 3.1 is rendering (~30-60s)...` });
+            generateAnimatedGraphic(overlayId, act.text || '', overlayType, {
+              animationPrompt: act.animationPrompt,
+              aspectRatio: act.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+              duration: act.duration || 5,
+              fullCoverage: isFullCoverage,
+            });
           } else {
             toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
             generateMotionGraphic(overlayId, act.text || '', overlayType, act.style);
