@@ -2255,8 +2255,8 @@ const ChatcutAI = () => {
                       {timelineClips.length > 0 ? (
                         <div className="space-y-2">
                           {timelineClips.map((clip) => (
-                            <div key={clip.id} className="relative rounded-lg overflow-hidden cursor-pointer group border border-border hover:border-primary/50 transition-colors">
-                              <video src={clip.url} className="w-full aspect-video object-cover" />
+                            <div key={clip.id} className="relative rounded-lg overflow-hidden cursor-pointer group border border-border hover:border-primary/50 transition-colors bg-black">
+                              <video src={clip.url} className="w-full aspect-video object-contain" />
                               <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
                                 {formatTimeShort(clip.duration)}
                               </div>
