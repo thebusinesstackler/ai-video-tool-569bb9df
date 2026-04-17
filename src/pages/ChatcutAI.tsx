@@ -1027,17 +1027,31 @@ const ChatcutAI = () => {
           const animation = act.animation
             ? { entrance: act.animation, exit: 'fade-out' as const }
             : styleAnimationMap[act.style || 'glass'] || { entrance: 'slide-up' as const, exit: 'fade-out' as const };
+          const overlayType = act.type || 'lower_third';
+          const isCTA = /shop now|buy|order|learn more|get yours|http|\.com|\.co|\.io/i.test(act.text || '');
+          // Smart defaults for position + scale by type (safety net if Marco omits them)
+          const defaultsByType: Record<string, { pos: { x: number; y: number }; scale: number }> = {
+            lower_third: { pos: { x: 50, y: 85 }, scale: 2 },
+            motion_graphic: { pos: { x: 50, y: 25 }, scale: 1 },
+            animated_text: { pos: { x: 50, y: 80 }, scale: 2 },
+            title_card: { pos: { x: 50, y: 50 }, scale: 5 },
+          };
+          const def = defaultsByType[overlayType] || { pos: { x: 50, y: 80 }, scale: 2 };
+          // CTA buttons (Shop Now / contains URL) always get button-sized treatment
+          const finalScale = isCTA ? 2 : (act.scale || def.scale);
+          const finalPos = act.position || (isCTA ? { x: 50, y: 80 } : def.pos);
           const newOverlay: OverlayItem = {
-            id: overlayId, type: act.type || 'lower_third',
+            id: overlayId, type: overlayType,
             text: act.text || '', start: act.start || 0, duration: act.duration || 5,
             animation, style: act.style,
-            scale: act.scale || undefined,
+            scale: finalScale,
+            position: finalPos,
           };
           setOverlays(prev => [...prev, newOverlay]);
           toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
           // Generate motion graphic image for motion_graphic and animated_text types
-          if (['motion_graphic', 'animated_text', 'lower_third', 'title_card'].includes(act.type || '')) {
-            generateMotionGraphic(overlayId, act.text || '', act.type || 'motion_graphic', act.style);
+          if (['motion_graphic', 'animated_text', 'lower_third', 'title_card'].includes(overlayType)) {
+            generateMotionGraphic(overlayId, act.text || '', overlayType, act.style);
           }
           break;
         }
