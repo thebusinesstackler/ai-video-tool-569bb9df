@@ -10,41 +10,26 @@ export interface ExtractedFrame {
   sourceUrl?: string;
 }
 
-interface ExtractOptions {
-  videoUrl: string;
-  userId: string;
-  projectId?: string | null;
-  label?: string;
-  count?: number;
-  /**
-   * Seconds per virtual clip. Default 3s.
-   */
-  clipDuration?: number;
-  /**
-   * Optional explicit clip start times. When provided, these are used instead of evenly spaced extraction.
-   */
-  times?: number[];
-  onProgress?: (done: number, total: number) => void;
+export interface PlannedClip {
+  startT: number;
+  endT: number;
+  duration: number;
+  sourceUrl: string;
+  label: string;
+  trimmedUrl: string;
 }
 
-/**
- * Slice a source video into virtual clips — these are NOT re-encoded.
- * We save metadata rows pointing at the original source URL with a {start, duration} window.
- * Chatcut plays the source video and trims to the window via currentTime + a loop guard.
- */
-export async function extractBrollFrames(opts: ExtractOptions): Promise<ExtractedFrame[]> {
-  const {
-    videoUrl,
-    userId,
-    projectId = null,
-    label = 'B-Roll',
-    count = 6,
-    clipDuration = 3,
-    times,
-    onProgress,
-  } = opts;
+interface PlanOptions {
+  videoUrl: string;
+  label?: string;
+  count?: number;
+  clipDuration?: number;
+  /** Optional explicit clip start times. */
+  times?: number[];
+}
 
-  const duration = await new Promise<number>((resolve, reject) => {
+async function probeDuration(videoUrl: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
     const v = document.createElement('video');
     v.preload = 'metadata';
     v.muted = true;
@@ -64,6 +49,15 @@ export async function extractBrollFrames(opts: ExtractOptions): Promise<Extracte
     });
     v.src = videoUrl;
   });
+}
+
+/**
+ * Plan virtual B-Roll clips from a source video without writing to the database.
+ * Returns an array of clip windows the caller can preview before saving.
+ */
+export async function planBrollClips(opts: PlanOptions): Promise<PlannedClip[]> {
+  const { videoUrl, label = 'B-Roll', count = 6, clipDuration = 3, times } = opts;
+  const duration = await probeDuration(videoUrl);
 
   const explicitTimes = (times || [])
     .filter((t) => Number.isFinite(t))
@@ -76,55 +70,78 @@ export async function extractBrollFrames(opts: ExtractOptions): Promise<Extracte
         return +(usable * (index + 1) / (count + 1)).toFixed(2);
       });
 
-  const saved: ExtractedFrame[] = [];
-  const total = clipStarts.length;
-
-  for (const [index, rawStart] of clipStarts.entries()) {
+  return clipStarts.map((rawStart) => {
     const maxStart = Math.max(0, duration - 0.1);
     const startT = +Math.min(rawStart, maxStart).toFixed(2);
     const endT = +Math.min(duration, startT + clipDuration).toFixed(2);
     const dur = +Math.max(0.1, endT - startT).toFixed(2);
+    const clipLabel = `${label} clip @ ${startT.toFixed(1)}s`;
+    const trimmedUrl = `${videoUrl}#t=${startT},${endT}`;
+    return { startT, endT, duration: dur, sourceUrl: videoUrl, label: clipLabel, trimmedUrl };
+  });
+}
 
-    try {
-      const clipLabel = `${label} clip @ ${startT.toFixed(1)}s`;
-      const trimmedUrl = `${videoUrl}#t=${startT},${endT}`;
-      const meta = JSON.stringify({ label: clipLabel, sourceStart: startT, duration: dur, sourceUrl: videoUrl });
-
-      const { error: insErr } = await supabase.from('generated_images').insert({
-        user_id: userId,
-        image_url: trimmedUrl,
-        source: 'broll-clip',
-        project_id: projectId,
-        prompt: meta,
-        reference_image_url: videoUrl,
-      });
-      if (insErr) {
-        console.warn('[extractBrollFrames] insert failed', insErr);
-        continue;
-      }
-
-      saved.push({
-        url: trimmedUrl,
-        time: startT,
-        label: clipLabel,
-        duration: dur,
-        kind: 'clip',
-        sourceStart: startT,
-        sourceUrl: videoUrl,
-      });
-      onProgress?.(index + 1, total);
-    } catch (e) {
-      console.warn('[extractBrollFrames] failed at index', index, e);
+/**
+ * Persist a user-curated subset of planned clips into generated_images
+ * using the same JSON metadata format Chatcut Source Clips reads.
+ */
+export async function saveBrollClips(
+  userId: string,
+  projectId: string | null,
+  clips: PlannedClip[]
+): Promise<ExtractedFrame[]> {
+  const saved: ExtractedFrame[] = [];
+  for (const clip of clips) {
+    const meta = JSON.stringify({
+      label: clip.label,
+      sourceStart: clip.startT,
+      duration: clip.duration,
+      sourceUrl: clip.sourceUrl,
+    });
+    const { error } = await supabase.from('generated_images').insert({
+      user_id: userId,
+      image_url: clip.trimmedUrl,
+      source: 'broll-clip',
+      project_id: projectId,
+      prompt: meta,
+      reference_image_url: clip.sourceUrl,
+    });
+    if (error) {
+      console.warn('[saveBrollClips] insert failed', error);
+      continue;
     }
+    saved.push({
+      url: clip.trimmedUrl,
+      time: clip.startT,
+      label: clip.label,
+      duration: clip.duration,
+      kind: 'clip',
+      sourceStart: clip.startT,
+      sourceUrl: clip.sourceUrl,
+    });
   }
-
   return saved;
 }
 
 /**
- * Parse a saved broll-clip row's `prompt` JSON back into structured metadata.
- * Falls back to plain-text label if the prompt isn't JSON.
+ * @deprecated Use planBrollClips + saveBrollClips. Kept for backwards compatibility.
  */
+export async function extractBrollFrames(opts: PlanOptions & {
+  userId: string;
+  projectId?: string | null;
+  onProgress?: (done: number, total: number) => void;
+}): Promise<ExtractedFrame[]> {
+  const { userId, projectId = null, onProgress, ...planOpts } = opts;
+  const planned = await planBrollClips(planOpts);
+  const saved: ExtractedFrame[] = [];
+  for (const [i, clip] of planned.entries()) {
+    const [row] = await saveBrollClips(userId, projectId, [clip]);
+    if (row) saved.push(row);
+    onProgress?.(i + 1, planned.length);
+  }
+  return saved;
+}
+
 export function parseBrollClipMeta(row: { image_url: string; prompt: string | null }): {
   label: string;
   sourceUrl: string;

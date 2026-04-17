@@ -2,10 +2,13 @@ import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Film, Loader2, Pause, Play, Scissors, SkipBack, SkipForward } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Film, Loader2, Pause, Play, Plus, Save, Scissors, SkipBack, SkipForward, Sparkles, X } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { extractBrollFrames } from '@/lib/extractBrollFrames';
+import { planBrollClips, saveBrollClips, type PlannedClip } from '@/lib/extractBrollFrames';
 
 interface FrameExtractorDialogProps {
   open: boolean;
@@ -16,6 +19,18 @@ interface FrameExtractorDialogProps {
 }
 
 const CLIP_DURATION = 3;
+
+interface PendingClip extends PlannedClip {
+  id: string;
+  selected: boolean;
+}
+
+const formatTime = (t: number) => {
+  if (!isFinite(t)) return '0:00';
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
 
 export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
   open,
@@ -28,16 +43,24 @@ export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const [mode, setMode] = useState<'manual' | 'auto'>('manual');
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [pending, setPending] = useState<PendingClip[]>([]);
+  const [extractProgress, setExtractProgress] = useState<{ done: number; total: number } | null>(null);
+  const [isAutoExtracting, setIsAutoExtracting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setCurrentTime(0);
       setIsPlaying(false);
-      setIsExtracting(false);
+      setPending([]);
+      setExtractProgress(null);
+      setIsAutoExtracting(false);
+      setIsSaving(false);
+      setMode('manual');
     }
   }, [open]);
 
@@ -52,7 +75,6 @@ export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
     if (!videoRef.current) return;
     if (isPlaying) videoRef.current.pause();
     else videoRef.current.play();
-    setIsPlaying(!isPlaying);
   }, [isPlaying]);
 
   const clipStart = useMemo(() => {
@@ -62,53 +84,96 @@ export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
 
   const clipEnd = useMemo(() => Math.min(duration, clipStart + CLIP_DURATION), [clipStart, duration]);
 
-  const saveClips = useCallback(async ({ times, count, closeOnSuccess }: { times?: number[]; count?: number; closeOnSuccess?: boolean }) => {
-    if (!user) return;
-    setIsExtracting(true);
-    videoRef.current?.pause();
-    setIsPlaying(false);
-
+  const addManualClip = useCallback(async () => {
+    if (!duration) return;
     try {
-      const saved = await extractBrollFrames({
+      const [planned] = await planBrollClips({
         videoUrl,
-        userId: user.id,
-        projectId: projectId || null,
         label: projectLabel || 'B-Roll',
-        count: count ?? 6,
         clipDuration: CLIP_DURATION,
-        times,
+        times: [clipStart],
       });
+      if (!planned) return;
+      setPending((prev) => [
+        ...prev,
+        { ...planned, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, selected: true },
+      ]);
+      toast({ title: 'Clip added', description: `${formatTime(planned.startT)} → ${formatTime(planned.endT)} ready to save.` });
+    } catch (e: any) {
+      toast({ title: 'Could not add clip', description: e?.message || 'Failed to plan clip', variant: 'destructive' });
+    }
+  }, [clipStart, duration, projectLabel, toast, videoUrl]);
 
-      if (!saved.length) {
-        throw new Error('No playable clips were saved from this video');
+  const runAutoExtract = useCallback(async () => {
+    setIsAutoExtracting(true);
+    setExtractProgress({ done: 0, total: 6 });
+    videoRef.current?.pause();
+    try {
+      const planned = await planBrollClips({
+        videoUrl,
+        label: projectLabel || 'B-Roll',
+        clipDuration: CLIP_DURATION,
+        count: 6,
+      });
+      // Animate progress so user sees it filling — planning is fast, so simulate per-clip steps.
+      for (let i = 0; i < planned.length; i++) {
+        await new Promise((r) => setTimeout(r, 120));
+        setExtractProgress({ done: i + 1, total: planned.length });
       }
+      const newClips: PendingClip[] = planned.map((p, i) => ({
+        ...p,
+        id: `${Date.now()}-${i}`,
+        selected: true,
+      }));
+      setPending((prev) => [...prev, ...newClips]);
+      toast({
+        title: `Found ${newClips.length} clips`,
+        description: 'Preview them below and pick the ones you want to save.',
+      });
+    } catch (e: any) {
+      toast({ title: 'Auto-extract failed', description: e?.message || 'Could not plan clips', variant: 'destructive' });
+    } finally {
+      setIsAutoExtracting(false);
+      setExtractProgress(null);
+    }
+  }, [projectLabel, toast, videoUrl]);
 
+  const togglePending = useCallback((id: string) => {
+    setPending((prev) => prev.map((c) => (c.id === id ? { ...c, selected: !c.selected } : c)));
+  }, []);
+
+  const removePending = useCallback((id: string) => {
+    setPending((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const selectedCount = pending.filter((c) => c.selected).length;
+
+  const saveSelected = useCallback(async () => {
+    if (!user) return;
+    const toSave = pending.filter((c) => c.selected);
+    if (toSave.length === 0) {
+      toast({ title: 'Nothing selected', description: 'Tick the clips you want to save first.' });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const saved = await saveBrollClips(user.id, projectId || null, toSave);
+      if (!saved.length) throw new Error('No clips were saved');
       toast({
         title: `Saved ${saved.length} B-Roll clip${saved.length !== 1 ? 's' : ''}`,
-        description: 'Open Chatcut → Source Clips to preview and add them without regenerating.',
+        description: 'Open Chatcut → Source Clips to drop them on the timeline.',
       });
-
-      if (closeOnSuccess) onOpenChange(false);
+      onOpenChange(false);
     } catch (e: any) {
-      toast({
-        title: 'Clip extraction failed',
-        description: e?.message || 'Could not save playable B-Roll clips',
-        variant: 'destructive',
-      });
+      toast({ title: 'Save failed', description: e?.message || 'Could not save clips', variant: 'destructive' });
     } finally {
-      setIsExtracting(false);
+      setIsSaving(false);
     }
-  }, [onOpenChange, projectId, projectLabel, toast, user, videoUrl]);
-
-  const formatTime = (t: number) => {
-    const m = Math.floor(t / 60);
-    const s = Math.floor(t % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  }, [onOpenChange, pending, projectId, toast, user]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Extract B-Roll Clips</DialogTitle>
         </DialogHeader>
@@ -118,8 +183,8 @@ export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
             <div className="flex items-start gap-2">
               <Film className="mt-0.5 h-4 w-4 text-primary" />
               <div>
-                <p className="font-medium text-foreground">This saves playable video clips — not static images.</p>
-                <p>Each extract creates a {CLIP_DURATION}s source clip that shows up in Chatcut under <span className="font-medium text-foreground">Source Clips</span> so you can preview it and place it directly on the timeline.</p>
+                <p className="font-medium text-foreground">These are playable video clips, not still frames.</p>
+                <p>Each clip is a {CLIP_DURATION}s window of the source video. Saved clips show up in Chatcut → <span className="font-medium text-foreground">Source Clips</span>.</p>
               </div>
             </div>
           </div>
@@ -129,7 +194,7 @@ export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
               ref={videoRef}
               src={videoUrl}
               crossOrigin="anonymous"
-              className="w-full h-full max-h-[45vh] object-contain"
+              className="w-full h-full max-h-[40vh] object-contain"
               onTimeUpdate={() => videoRef.current && setCurrentTime(videoRef.current.currentTime)}
               onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
               onPlay={() => setIsPlaying(true)}
@@ -154,7 +219,7 @@ export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-center gap-2 flex-wrap">
+          <div className="flex items-center justify-center gap-2">
             <Button variant="outline" size="icon" onClick={() => seekTo(currentTime - 1)}>
               <SkipBack className="w-4 h-4" />
             </Button>
@@ -164,25 +229,101 @@ export const FrameExtractorDialog: React.FC<FrameExtractorDialogProps> = ({
             <Button variant="outline" size="icon" onClick={() => seekTo(currentTime + 1)}>
               <SkipForward className="w-4 h-4" />
             </Button>
-            <div className="w-px h-8 bg-border mx-1" />
-            <Button
-              onClick={() => saveClips({ times: [clipStart], count: 1, closeOnSuccess: false })}
-              disabled={isExtracting || !duration || !user}
-              className="gap-2"
-            >
-              {isExtracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scissors className="w-4 h-4" />}
-              Extract Clip at Playhead
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => saveClips({ count: 6, closeOnSuccess: true })}
-              disabled={isExtracting || !duration || !user}
-              className="gap-2"
-            >
-              {isExtracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Film className="w-4 h-4" />}
-              Auto-extract 6 Clips
-            </Button>
           </div>
+
+          <Tabs value={mode} onValueChange={(v) => setMode(v as 'manual' | 'auto')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manual" className="gap-2"><Scissors className="w-4 h-4" /> Manual: Pick Moments</TabsTrigger>
+              <TabsTrigger value="auto" className="gap-2"><Sparkles className="w-4 h-4" /> Auto: Smart Pick</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="manual" className="mt-3 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Scrub the video to a moment you like, then add it. Each click captures a {CLIP_DURATION}-second window centered on the playhead.
+              </p>
+              <Button onClick={addManualClip} disabled={!duration || !user} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add Clip at {formatTime(clipStart)}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="auto" className="mt-3 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                We'll grab 6 evenly-spaced {CLIP_DURATION}-second clips across the whole video so you can quickly pick favorites.
+              </p>
+              <Button onClick={runAutoExtract} disabled={!duration || !user || isAutoExtracting} className="gap-2">
+                {isAutoExtracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Auto-extract 6 Clips
+              </Button>
+              {extractProgress && (
+                <div className="space-y-1.5">
+                  <Progress value={(extractProgress.done / extractProgress.total) * 100} />
+                  <p className="text-xs text-muted-foreground">
+                    Extracting clip {extractProgress.done} of {extractProgress.total}…
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {pending.length > 0 && (
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Extracted clips ({pending.length}) — {selectedCount} selected
+                </h3>
+                <Button
+                  size="sm"
+                  onClick={saveSelected}
+                  disabled={isSaving || selectedCount === 0}
+                  className="gap-2"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save {selectedCount} to Library
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {pending.map((clip) => (
+                  <div
+                    key={clip.id}
+                    className={`relative rounded-md overflow-hidden border-2 transition-colors ${
+                      clip.selected ? 'border-primary' : 'border-border'
+                    }`}
+                  >
+                    <video
+                      src={clip.trimmedUrl}
+                      className="w-full aspect-video object-cover bg-muted"
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLVideoElement).play().catch(() => {}); }}
+                      onMouseLeave={(e) => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0.1; }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePending(clip.id)}
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-background/90 hover:bg-destructive hover:text-destructive-foreground flex items-center justify-center transition-colors"
+                      aria-label="Remove clip"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/95 to-background/0 p-2 flex items-center gap-2">
+                      <Checkbox
+                        checked={clip.selected}
+                        onCheckedChange={() => togglePending(clip.id)}
+                        id={`pick-${clip.id}`}
+                      />
+                      <label htmlFor={`pick-${clip.id}`} className="text-xs font-medium text-foreground cursor-pointer flex-1 truncate">
+                        {formatTime(clip.startT)} → {formatTime(clip.endT)}
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Hover a clip to preview. Uncheck the ones you don't want, then save.</p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
