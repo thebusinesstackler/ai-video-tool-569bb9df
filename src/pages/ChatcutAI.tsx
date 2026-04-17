@@ -48,6 +48,7 @@ import {
   Image as ImageIcon,
   PanelRightClose,
   PanelRightOpen,
+  Undo2,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
@@ -55,6 +56,7 @@ import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
+import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
 
 const AGENT_NAME = 'Marco';
 
@@ -240,6 +242,19 @@ const ChatcutAI = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const musicAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  // Snapshot of timeline state captured RIGHT BEFORE Marco's last action ran.
+  // Lets the user undo whatever Marco just did (B-roll, overlay, music, captions, cuts, thumbnail).
+  const [aiUndoSnapshot, setAiUndoSnapshot] = useState<{
+    timelineClips: TimelineClip[];
+    cuts: CutSuggestion[];
+    musicTracks: MusicTrack[];
+    overlays: OverlayItem[];
+    bRollClips: BRollClip[];
+    captionSettings: CaptionSettings;
+    thumbnail: typeof thumbnail;
+    label: string;
+  } | null>(null);
 
   // Fetch brand guidelines on mount
   useEffect(() => {
@@ -1150,6 +1165,18 @@ const ChatcutAI = () => {
   }, [transcript, videoAspect, brandSettings, currentTime, toast]);
 
   const executeActions = useCallback((actions: TimelineAction[]) => {
+    if (actions.length === 0) return;
+    // Snapshot timeline state RIGHT NOW so the user can undo whatever Marco is about to do.
+    setAiUndoSnapshot({
+      timelineClips,
+      cuts,
+      musicTracks,
+      overlays,
+      bRollClips,
+      captionSettings,
+      thumbnail,
+      label: actions.map((a) => a.action).join(', '),
+    });
     for (const act of actions) {
       switch (act.action) {
         case 'cut':
@@ -1302,7 +1329,21 @@ const ChatcutAI = () => {
         }
       }
     }
-  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail]);
+  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail]);
+
+  // Undo whatever Marco's last action did. Restores the snapshot we captured right before executeActions ran.
+  const undoLastAIAction = useCallback(() => {
+    if (!aiUndoSnapshot) return;
+    setTimelineClips(aiUndoSnapshot.timelineClips);
+    setCuts(aiUndoSnapshot.cuts);
+    setMusicTracks(aiUndoSnapshot.musicTracks);
+    setOverlays(aiUndoSnapshot.overlays);
+    setBRollClips(aiUndoSnapshot.bRollClips);
+    setCaptionSettings(aiUndoSnapshot.captionSettings);
+    setThumbnail(aiUndoSnapshot.thumbnail);
+    setAiUndoSnapshot(null);
+    toast({ title: 'Reverted Marco\'s last change', description: aiUndoSnapshot.label || 'Timeline restored' });
+  }, [aiUndoSnapshot, toast]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
@@ -1313,6 +1354,24 @@ const ChatcutAI = () => {
     setIsLoading(true);
     let assistantSoFar = '';
     const allMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+
+    // Brand vocabulary so Marco never misspells unusual names (e.g. "Lifecykel" vs "Lifecycle")
+    const brandVocabulary = Array.from(new Set(
+      productLibrary
+        .flatMap((p) => [p.brand_name, p.name])
+        .filter((s): s is string => !!s && s.trim().length > 0)
+        .map((s) => s.trim()),
+    ));
+
+    // Extract 6 keyframes so Marco can SEE the source footage and match vibe / suggest camera moves
+    let videoFrames: Keyframe[] = [];
+    if (videoRef.current && videoUrl && duration > 0.5) {
+      try {
+        videoFrames = await extractKeyframesFromElement(videoRef.current, 6);
+      } catch (e) {
+        console.warn('[ChatcutAI] keyframe extraction failed', e);
+      }
+    }
     try {
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
@@ -1340,6 +1399,8 @@ const ChatcutAI = () => {
             hasImage: !!p.primary_image,
           })),
           savedFramesCount: savedBrollFrames.length,
+          videoFrames,
+          brandVocabulary,
           savedSourceClips: savedBrollClips.slice(0, 12).map((c) => {
             const meta = parseBrollClipMeta(c);
             return { id: c.id, label: meta.label, sourceStart: meta.sourceStart, duration: meta.duration };
@@ -1940,6 +2001,18 @@ const ChatcutAI = () => {
                         <Button type="button" variant="ghost" size="sm" className="text-xs gap-1 h-7 text-muted-foreground">
                           <Sparkles className="w-3 h-3" /> Agent
                         </Button>
+                        {aiUndoSnapshot && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs gap-1 h-7 text-muted-foreground hover:text-foreground"
+                            onClick={undoLastAIAction}
+                            title={`Undo: ${aiUndoSnapshot.label}`}
+                          >
+                            <Undo2 className="w-3 h-3" /> Undo last AI change
+                          </Button>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()}>
