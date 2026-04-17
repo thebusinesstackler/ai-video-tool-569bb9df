@@ -113,6 +113,7 @@ const VideoRepoPro = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [frameExtractor, setFrameExtractor] = useState<{ url: string; projectId: string; label: string } | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
 
   // AI Script Director chat state
@@ -2172,6 +2173,28 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                             </TooltipTrigger>
                             <TooltipContent>Generate new version</TooltipContent>
                           </Tooltip>
+                          {project.generated_video_url && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFrameExtractor({
+                                      url: project.generated_video_url!,
+                                      projectId: project.id,
+                                      label: project.custom_name || project.prompt?.slice(0, 40) || 'Video',
+                                    });
+                                  }}
+                                >
+                                  <Scissors className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Extract B-Roll Frames</TooltipContent>
+                            </Tooltip>
+                          )}
                           {project.generated_video_url && (
                             <Tooltip>
                               <TooltipTrigger asChild>
