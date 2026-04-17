@@ -13,8 +13,17 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { PodcastAIDirector } from '@/components/PodcastAIDirector';
-import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles } from 'lucide-react';
+import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
+
+interface ScriptVariation {
+  id: string;
+  styleLabel: string;   // e.g. "Educational"
+  settingLabel: string; // e.g. "Home office"
+  hook: string;         // 1-line teaser
+  narration: string;    // full script
+  visualDescription: string; // setting/wardrobe/lighting prompt
+}
 
 const DURATION_OPTIONS = [
   { value: '30', label: '30 seconds' },
