@@ -600,6 +600,51 @@ const ChatcutAI = () => {
                   }]);
                   setCuts([]);
                 }
+
+                // Auto-extract B-roll if requested and source has none yet for this project
+                if (payload.autoExtractBroll && payload.projectId && user) {
+                  (async () => {
+                    try {
+                      const { data: existing } = await supabase
+                        .from('generated_images')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .eq('source', 'broll-frame')
+                        .eq('project_id', payload.projectId)
+                        .limit(1);
+                      if (existing && existing.length > 0) return;
+                      setIsAutoExtracting(true);
+                      toast({ title: 'Extracting B-roll…', description: 'Marco is grabbing 6 frames from your source.' });
+                      const saved = await extractBrollFrames({
+                        videoUrl: url,
+                        userId: user.id,
+                        projectId: payload.projectId,
+                        label: payload.sourceLabel || payload.title || 'Source',
+                        count: 6,
+                      });
+                      if (saved.length > 0) {
+                        const { data: refreshed } = await supabase
+                          .from('generated_images')
+                          .select('id, image_url, prompt')
+                          .eq('user_id', user.id)
+                          .eq('source', 'broll-frame')
+                          .order('created_at', { ascending: false })
+                          .limit(60);
+                        if (refreshed) setSavedBrollFrames(refreshed as any);
+                        setMessages((prev) => [
+                          ...prev,
+                          { role: 'assistant', content: `I extracted ${saved.length} B-roll frames from your source — they're in the **Saved Frames** panel on the right. Tap any to drop it onto the timeline at the playhead.` },
+                        ]);
+                        toast({ title: `Extracted ${saved.length} frames`, description: 'Open the Media panel → Saved Frames.' });
+                      }
+                    } catch (err: any) {
+                      console.warn('[ChatcutAI] auto-extract failed', err);
+                      toast({ title: 'Auto-extract failed', description: err?.message || 'Could not extract frames', variant: 'destructive' });
+                    } finally {
+                      setIsAutoExtracting(false);
+                    }
+                  })();
+                }
               }
             }, 200);
             setTimeout(() => clearInterval(waitForMeta), 15000);
