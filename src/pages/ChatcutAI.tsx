@@ -771,6 +771,7 @@ const ChatcutAI = () => {
         overlays,
         bRollClips,
         captionSettings,
+        thumbnail,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -814,6 +815,7 @@ const ChatcutAI = () => {
       setOverlays(ts.overlays || []);
       setBRollClips(ts.bRollClips || []);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
+      if (ts.thumbnail) setThumbnail(ts.thumbnail);
     }
     const ch = data.chat_history as any;
     if (Array.isArray(ch)) setMessages(ch);
