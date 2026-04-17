@@ -225,12 +225,13 @@ Always tell the user EXACTLY how much you trimmed: "Lopped off the last 3.4s of 
 
 8. **set_thumbnail** — Generate a TikTok-style cover image with Nano Banana and pin it to the OPENING of the video as a still cover (so it shows in fullscreen and on share previews):
 \`\`\`actions
-[{"action":"set_thumbnail","hookText":"3 SECRETS NOBODY TELLS YOU","style":"tiktok-bold","duration":1.5,"extraPrompt":"hand holding the product, shocked face on left side"}]
+[{"action":"set_thumbnail","hookText":"3 SECRETS NOBODY TELLS YOU","style":"tiktok-bold","duration":1.5,"extraPrompt":"hand holding the product, shocked face on left side","productId":"<id from context.products if user wants their product on the cover>","productName":"Cordyceps+ Liquid Double Extract"}]
 \`\`\`
 - "hookText" → the bold ALL-CAPS headline that will be rendered ON the image (max 6 words). Pull a punchy hook from the transcript.
 - "style" → "tiktok-bold" (default, MrBeast-energy), "minimal" (clean editorial), or "cinematic" (movie-poster).
 - "duration" → seconds the cover stays on screen at the very start of the video. Default 1.5s. Use 1.0–2.5s.
 - "extraPrompt" → optional extra direction for the image (subject, scene, vibe).
+- "productId" / "productName" → REQUIRED whenever the user references a product (📎 Reference: product image, "use my product", "add my Cordyceps bottle", etc.). The system will pass the actual product image to Nano Banana so the bottle/label/packaging is rendered EXACTLY as it really looks — no hallucinated labels. ALWAYS include this when the user has pinned a product reference or asked for their product on the cover.
 
 When to use:
 - The user asks for a "thumbnail", "cover", "first frame", "intro card", or "TikTok thumbnail".
