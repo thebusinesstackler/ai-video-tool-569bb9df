@@ -26,6 +26,11 @@ interface BrandContext {
   websiteUrl?: string;
 }
 
+interface ProductImage {
+  productName: string;
+  imageUrl: string;
+}
+
 interface ScriptVariation {
   id: string;
   styleLabel: string;
@@ -35,6 +40,7 @@ interface ScriptVariation {
   visualDescription: string;
   featuredProduct?: string;
   audience?: string;
+  showProduct?: boolean; // hint that this script benefits from showing the product on-screen
 }
 
 const DURATION_OPTIONS = [
@@ -43,7 +49,12 @@ const DURATION_OPTIONS = [
   { value: '90', label: '1.5 minutes' },
   { value: '120', label: '2 minutes' },
   { value: '180', label: '3 minutes' },
+  { value: '240', label: '4 minutes' },
+  { value: '300', label: '5 minutes' },
 ];
+
+const MIN_DURATION = 10;
+const MAX_DURATION = 300;
 
 const Podcast = () => {
   const { toast } = useToast();
@@ -75,6 +86,9 @@ const Podcast = () => {
   const [customAudioUrl, setCustomAudioUrl] = useState<string | null>(null);
   const [customAudioName, setCustomAudioName] = useState<string | null>(null);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+
+  // Brand product images (used to feature the product in shot)
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
 
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
@@ -152,7 +166,7 @@ const Podcast = () => {
         const [profileRes, brandsRes, productsRes, reelsRes] = await Promise.all([
           supabase.from('profiles').select('first_name,last_name,company_name,brand_description,content_goal').eq('user_id', user.id).maybeSingle(),
           supabase.from('brands').select('name,description').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(3),
-          supabase.from('products').select('name,description,category,target_audience,benefits').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
+          supabase.from('products').select('id,name,description,category,target_audience,benefits').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
           supabase.from('reels').select('topic').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(5),
         ]);
 
@@ -160,6 +174,25 @@ const Podcast = () => {
         const brands = brandsRes.data || [];
         const products = productsRes.data || [];
         const recentTopics = (reelsRes.data || []).map((r: any) => r.topic).filter(Boolean);
+
+        // Pull primary product image for each product (for in-shot product placement)
+        if (products.length) {
+          const productIds = products.map((p: any) => p.id);
+          const { data: gallery } = await supabase
+            .from('product_gallery')
+            .select('product_id,image_url,is_primary')
+            .in('product_id', productIds)
+            .order('is_primary', { ascending: false });
+          const seen = new Set<string>();
+          const imgs: ProductImage[] = [];
+          (gallery || []).forEach((g: any) => {
+            if (seen.has(g.product_id)) return;
+            seen.add(g.product_id);
+            const prod = products.find((p: any) => p.id === g.product_id);
+            if (prod) imgs.push({ productName: prod.name, imageUrl: g.image_url });
+          });
+          setProductImages(imgs);
+        }
 
         const isLifecykel =
           (user.email || '').toLowerCase().includes('lifecykel') ||
@@ -246,11 +279,28 @@ const Podcast = () => {
     return `data:audio/mp3;base64,${data.audioContent}`;
   };
 
-  // Helper: generate scene image
-  const generateSceneImage = async (prompt: string, twin: AITwin): Promise<string> => {
+  // Helper: generate scene image (optionally with a product reference image to feature in shot)
+  const generateSceneImage = async (prompt: string, twin: AITwin, productImageUrl?: string): Promise<string> => {
     const portrait = twin.reference_images[0];
     const { data: { session } } = await supabase.auth.getSession();
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+    const messageContent: any[] = [
+      { type: 'image_url', image_url: { url: portrait } },
+    ];
+    if (productImageUrl) {
+      messageContent.push({ type: 'image_url', image_url: { url: productImageUrl } });
+      messageContent.push({
+        type: 'text',
+        text: `Image 1 is the reference person. Image 2 is the product. Generate a NEW photo of the EXACT person from image 1 holding or visibly featuring the EXACT product from image 2 (preserve product label, colors, and shape pixel-perfect).\n\n${prompt}`,
+      });
+    } else {
+      messageContent.push({
+        type: 'text',
+        text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${prompt}`,
+      });
+    }
+
     const res = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
       method: 'POST',
       headers: {
@@ -258,13 +308,7 @@ const Podcast = () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: portrait } },
-            { type: 'text', text: `This is the reference photo. Generate a NEW image of this EXACT same person.\n\n${prompt}` }
-          ]
-        }],
+        messages: [{ role: 'user', content: messageContent }],
         model: 'google/gemini-3.1-flash-image-preview',
         modalities: ['image', 'text']
       })
@@ -362,7 +406,8 @@ Return ONLY valid JSON:
       "hook": "one-line teaser",
       "narration": "full spoken script ~${wordTarget} words",
       "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays.",
-      "featuredProduct": "${hasBrand ? 'name of product or angle this script highlights' : 'topic angle'}",
+      "featuredProduct": "${hasBrand ? 'EXACT product name from the brand catalog above (must match one of them verbatim if showProduct is true)' : 'topic angle'}",
+      "showProduct": ${hasBrand ? 'true if the script benefits from physically showing the product on-screen (e.g. unboxing, demo, "this is what I take every morning"), false otherwise' : 'false'},
       "audience": "who this script speaks to"
     }
     // ... 4 total, all different
@@ -386,6 +431,7 @@ Return ONLY valid JSON:
         visualDescription: v.visualDescription || '',
         featuredProduct: v.featuredProduct || v.product || undefined,
         audience: v.audience || v.targetAudience || undefined,
+        showProduct: !!v.showProduct,
       })).filter((v: ScriptVariation) => v.narration);
       if (arr.length === 0) throw new Error('No variations returned');
       setVariations(arr);
@@ -481,16 +527,26 @@ Return ONLY a JSON object:
       setAudioUrl(ttsUrl);
       setProgress(30);
 
-      // Step 3: Generate character image
+      // Step 3: Generate character image (optionally featuring the product on-screen)
       setProgressStatus('Creating character portrait...');
+      // Resolve product image: variation can flag showProduct + featuredProduct, else fallback to brand's primary product
+      let productImgUrl: string | undefined;
+      if (preset?.showProduct && preset.featuredProduct && productImages.length) {
+        const needle = preset.featuredProduct.toLowerCase();
+        const match = productImages.find(p => needle.includes(p.productName.toLowerCase()) || p.productName.toLowerCase().includes(needle));
+        productImgUrl = match?.imageUrl || productImages[0].imageUrl;
+      }
+      const productLine = productImgUrl
+        ? `\nFEATURED PRODUCT: The person should be naturally holding or showing the product visible in the second reference image (preserve product label/colors exactly).`
+        : '';
       const imgPrompt = `Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
 SETTING & STYLE: ${visualDesc || 'Casual real environment — home office or living room, natural window light'}
-EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
+EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera${productLine}
 QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
-      const sceneImg = await generateSceneImage(imgPrompt, selectedTwin);
+      const sceneImg = await generateSceneImage(imgPrompt, selectedTwin, productImgUrl);
       setProgress(45);
 
       // Step 4: Create lip-sync video
@@ -750,6 +806,9 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                                 {v.featuredProduct && (
                                   <Badge className="text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20">{v.featuredProduct}</Badge>
                                 )}
+                                {v.showProduct && productImages.length > 0 && (
+                                  <Badge className="text-[10px] bg-primary/15 text-primary border-primary/40">📦 Show product</Badge>
+                                )}
                               </div>
                               {isActive && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
                             </div>
@@ -801,6 +860,34 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                       </button>
                     ))}
                   </div>
+                  {/* Custom duration input */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Label htmlFor="custom-duration" className="text-xs text-muted-foreground whitespace-nowrap">
+                      Or enter exact length:
+                    </Label>
+                    <Input
+                      id="custom-duration"
+                      type="number"
+                      min={MIN_DURATION}
+                      max={MAX_DURATION}
+                      step={5}
+                      value={duration}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '') { setDuration(''); return; }
+                        const n = Math.max(MIN_DURATION, Math.min(MAX_DURATION, parseInt(v) || MIN_DURATION));
+                        setDuration(String(n));
+                      }}
+                      disabled={isGenerating}
+                      className="h-8 w-20 text-sm rounded-lg"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      seconds (~{Math.round((parseInt(duration) || 0) * 2.5)} words)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/70">
+                    Range: {MIN_DURATION}–{MAX_DURATION}s. Scripts auto-target ~2.5 words/sec.
+                  </p>
                 </div>
 
                 {/* Custom Audio Upload (overrides TTS) */}

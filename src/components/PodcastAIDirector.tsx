@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import directorAvatar from '@/assets/ai-director-avatar.jpg';
 import {
   Sparkles, Send, Target, Video, Users, Lightbulb,
   Copy, ArrowRight, Loader2, Bot, Wand2
@@ -145,13 +146,14 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
-        <Avatar className="w-9 h-9 bg-gradient-to-br from-primary to-primary/60">
+        <Avatar className="w-10 h-10 ring-2 ring-primary/30">
+          <AvatarImage src={directorAvatar} alt="AI Creative Director" />
           <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground">
             <Wand2 className="w-4 h-4" />
           </AvatarFallback>
         </Avatar>
         <div>
-          <h3 className="font-semibold text-sm">AI Creative Director</h3>
+          <h3 className="font-semibold text-sm">Marcus — AI Creative Director</h3>
           <p className="text-[11px] text-muted-foreground">Content • Scripts • Strategy • Direction</p>
         </div>
         {isStreaming && (
@@ -168,13 +170,14 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
             <div className="space-y-5">
               {/* Welcome */}
               <div className="flex gap-3">
-                <Avatar className="w-8 h-8 flex-shrink-0 bg-gradient-to-br from-primary to-primary/60">
+                <Avatar className="w-9 h-9 flex-shrink-0 ring-2 ring-primary/20">
+                  <AvatarImage src={directorAvatar} alt="Director" />
                   <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xs">
                     <Wand2 className="w-3.5 h-3.5" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="bg-muted rounded-xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed">
-                  <p>Hey! 👋 I'm your <strong>AI Creative Director</strong>. Tell me what you want to talk about and I'll help you craft the perfect talking-head video — from strategy and audience targeting to a ready-to-use script.</p>
+                  <p>Hey, I'm <strong>Marcus</strong> 👋 — your AI Creative Director. Tell me what you want to talk about and I'll help you craft the perfect talking-head video — from strategy and audience targeting to a ready-to-use script.</p>
                 </div>
               </div>
 
@@ -206,7 +209,8 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
               {messages.map((msg, i) => (
                 <div key={i} className={cn('flex gap-3', msg.role === 'user' ? 'flex-row-reverse' : '')}>
                   {msg.role === 'assistant' && (
-                    <Avatar className="w-7 h-7 flex-shrink-0 mt-0.5 bg-gradient-to-br from-primary to-primary/60">
+                    <Avatar className="w-8 h-8 flex-shrink-0 mt-0.5 ring-2 ring-primary/20">
+                      <AvatarImage src={directorAvatar} alt="Director" />
                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xs">
                         <Wand2 className="w-3 h-3" />
                       </AvatarFallback>
@@ -257,7 +261,8 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
               ))}
               {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
                 <div className="flex gap-3">
-                  <Avatar className="w-7 h-7 flex-shrink-0 bg-gradient-to-br from-primary to-primary/60">
+                  <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-primary/20">
+                    <AvatarImage src={directorAvatar} alt="Director" />
                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xs">
                       <Wand2 className="w-3 h-3" />
                     </AvatarFallback>
