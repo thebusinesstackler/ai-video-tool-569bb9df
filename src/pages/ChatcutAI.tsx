@@ -2340,9 +2340,9 @@ const ChatcutAI = () => {
           </div>
         </div>
 
-        {/* Main content: resizable 3-panel layout */}
+        {/* Main content: resizable 3-panel layout (vertical stack on mobile) */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <ResizablePanelGroup direction="horizontal" className="flex-1">
+          <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
             {/* Left Panel: AI Chat + Transcript */}
             <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
               <div className="h-full flex flex-col bg-card">
