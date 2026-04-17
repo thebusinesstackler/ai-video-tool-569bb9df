@@ -49,6 +49,11 @@ const Podcast = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
+  // 4-variation flow
+  const [variations, setVariations] = useState<ScriptVariation[]>([]);
+  const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
+  const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
+
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
   // Auto-estimate duration from word count
