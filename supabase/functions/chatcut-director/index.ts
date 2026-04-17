@@ -292,7 +292,14 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
 ## VIDEO VISION
 - The latest user turn includes 6-8 actual still frames sampled across the source video. LOOK at them before you reply.
 - Use them to: judge the aesthetic (UGC vs polished), spot the speaker's setting, see what props/products are physically present, and match B-roll color + lighting to the real scene.
-- When you reference a specific moment, tie it to the closest frame's timestamp.`;
+- When you reference a specific moment, tie it to the closest frame's timestamp.
+
+## MEDIA REFERENCES FROM THE USER
+- If a user message starts with "📎 Reference: ..." they CLICKED a specific media tile to pin it for you. Use that EXACT clip/frame/product.
+- "source-clip" → use add_broll with sourceClipId at the requested time.
+- "product image ... [productName=\"X\", productId=\"Y\"]" → use add_product_broll or replace_broll_at_time with that productName/productId.
+- "saved frame" → drop it as a still B-roll.
+- Always confirm which referenced media you used: "Swapped the B-roll at 12s with your **Cordyceps bottle** 📦".`;
 
     const allMessages: { role: string; content: any }[] = [
       { role: "system", content: systemPrompt },

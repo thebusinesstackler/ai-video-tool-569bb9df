@@ -53,6 +53,10 @@ import {
   Package,
   RefreshCw,
   AlertTriangle,
+  X,
+  Target,
+  Globe,
+  Eraser,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
@@ -196,6 +200,19 @@ const ChatcutAI = () => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  // Media reference: when the user clicks the 🎯 button on a media tile, we pin it as
+  // a reference so the next chat message tells Marco EXACTLY which clip/frame/product to use.
+  type SelectedReference =
+    | { kind: 'source-clip'; id: string; label: string; thumbUrl?: string; sourceUrl: string; sourceStart: number; durationSec: number }
+    | { kind: 'saved-frame'; id: string; label: string; thumbUrl: string }
+    | { kind: 'product'; id: string; label: string; thumbUrl: string; productName?: string; productId?: string };
+  const [selectedReference, setSelectedReference] = useState<SelectedReference | null>(null);
+  // Background mode: 'video' uses the uploaded bg video; 'product-feed' renders a TikTok-style
+  // vertical scroll of the user's product images behind the speaker.
+  const [pipBgMode, setPipBgMode] = useState<'video' | 'product-feed'>('video');
+  // Cutout (beta): uses CSS mix-blend-mode to "remove" a flat backdrop (white or dark).
+  // Real per-frame ML segmentation is not done client-side — this is the lightweight alternative.
+  const [cutoutMode, setCutoutMode] = useState<'off' | 'white' | 'dark'>('off');
   const [isLoading, setIsLoading] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -617,6 +634,7 @@ const ChatcutAI = () => {
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('raw-footage').getPublicUrl(path);
       setBgVideoUrl(urlData.publicUrl);
+      setPipBgMode('video');
       setPipEnabled(true);
       toast({ title: 'Background video added', description: 'Your main video is now a PiP overlay. Drag to reposition, click size to resize.' });
     } catch (err: any) {
@@ -1651,7 +1669,20 @@ const ChatcutAI = () => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
     setInput('');
-    const userMsg: ChatMessage = { role: 'user', content: messageText };
+    // If the user pinned a media reference, prepend it to the message so Marco knows EXACTLY
+    // which clip/frame/product to act on.
+    const ref = selectedReference;
+    let displayContent = messageText;
+    if (ref) {
+      const refLine = ref.kind === 'source-clip'
+        ? `📎 Reference: source-clip "${ref.label}" (${ref.durationSec.toFixed(1)}s, in-point ${ref.sourceStart.toFixed(1)}s)`
+        : ref.kind === 'product'
+        ? `📎 Reference: product image "${ref.label}"${ref.productName ? ` [productName="${ref.productName}", productId="${ref.productId || ''}"]` : ''}`
+        : `📎 Reference: saved frame "${ref.label}"`;
+      displayContent = `${refLine}\n${messageText}`;
+      setSelectedReference(null);
+    }
+    const userMsg: ChatMessage = { role: 'user', content: displayContent };
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
     let assistantSoFar = '';
@@ -2291,10 +2322,30 @@ const ChatcutAI = () => {
                 {/* Chat input — always visible at bottom regardless of tab */}
                 <div className="p-3 border-t border-border mt-auto flex-shrink-0">
                   <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="space-y-2">
+                    {selectedReference && (
+                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
+                        {(selectedReference.kind === 'saved-frame' || selectedReference.kind === 'product' || selectedReference.kind === 'source-clip') && (
+                          ('thumbUrl' in selectedReference && selectedReference.thumbUrl) ? (
+                            <img src={selectedReference.thumbUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              <Film className="w-4 h-4 text-primary" />
+                            </div>
+                          )
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-primary font-semibold uppercase tracking-wider">Referencing for Marco</p>
+                          <p className="text-xs text-foreground truncate">{selectedReference.label}</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedReference(null)} title="Clear reference">
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                     <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder="Tell AI what changes to make..."
+                      placeholder={selectedReference ? "Tell Marco what to do with this clip..." : "Tell AI what changes to make..."}
                       disabled={isLoading}
                       className="text-sm bg-muted/30"
                     />
@@ -2367,8 +2418,9 @@ const ChatcutAI = () => {
                         width: reelPreview ? 'auto' : (videoAspect && videoAspect >= 1 ? '100%' : 'auto'),
                       }}
                     >
-                      {/* Background video (when PiP mode is active) */}
-                      {pipEnabled && bgVideoUrl && (
+                      {/* Background layer (when PiP/Layers mode is active) — either an uploaded
+                          video, OR a TikTok-style vertical scroll of the user's product images. */}
+                      {pipEnabled && pipBgMode === 'video' && bgVideoUrl && (
                         <video
                           ref={bgVideoRef}
                           src={bgVideoUrl}
@@ -2378,6 +2430,22 @@ const ChatcutAI = () => {
                           playsInline
                           onClick={togglePlay}
                         />
+                      )}
+                      {pipEnabled && pipBgMode === 'product-feed' && productImages.length > 0 && (
+                        <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-background to-muted" onClick={togglePlay}>
+                          <div className="absolute inset-x-0 animate-[scroll-up_30s_linear_infinite] flex flex-col gap-4 px-6 py-6"
+                            style={{ animationDuration: `${Math.max(20, productImages.length * 4)}s` }}>
+                            {[...productImages, ...productImages].map((p, i) => (
+                              <div key={`${p.id}-${i}`} className="rounded-2xl bg-card shadow-xl overflow-hidden border border-border flex-shrink-0">
+                                <img src={p.image_url} alt={p.label || 'product'} className="w-full aspect-square object-contain bg-white p-4" />
+                                <div className="px-3 py-2">
+                                  <p className="text-xs font-semibold text-foreground truncate">{p.product_name || p.label || 'Product'}</p>
+                                  <p className="text-[10px] text-primary font-bold mt-0.5">Shop now →</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                       {/* B-Roll overlay when active — prefer video over still */}
                       {activeBRoll && (
@@ -2437,14 +2505,16 @@ const ChatcutAI = () => {
                           </button>
                         </div>
                       )}
-                      {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
+                      {/* Main video - when PiP is enabled with a bg layer, this becomes the PiP overlay */}
                       <video
                         ref={videoRef}
                         src={videoUrl}
                         className={cn(
                           "w-full h-full block object-contain",
                           activeBRoll && "opacity-0",
-                          pipEnabled && bgVideoUrl && "hidden" // Hide original; PiP component shows it
+                          pipEnabled && ((pipBgMode === 'video' && bgVideoUrl) || (pipBgMode === 'product-feed' && productImages.length > 0)) && "hidden",
+                          cutoutMode === 'white' && "mix-blend-multiply",
+                          cutoutMode === 'dark' && "mix-blend-screen",
                         )}
                         onClick={togglePlay}
                       />
@@ -2464,7 +2534,7 @@ const ChatcutAI = () => {
                         </div>
                       )}
 
-                      {pipEnabled && bgVideoUrl && (
+                      {pipEnabled && ((pipBgMode === 'video' && bgVideoUrl) || (pipBgMode === 'product-feed' && productImages.length > 0)) && (
                         <PiPOverlay
                           videoRef={videoRef}
                           containerRef={videoWrapperRef}
@@ -2710,17 +2780,51 @@ const ChatcutAI = () => {
                       </Button>
                     </>
                   )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title={pipEnabled ? 'Remove PiP background' : 'Upload background video for PiP'}
-                    onClick={() => {
-                      if (pipEnabled) {
-                        setPipEnabled(false);
-                        setBgVideoUrl(null);
-                      } else {
-                        bgFileInputRef.current?.click();
-                      }
-                    }}>
-                    <Layers className={cn("w-3.5 h-3.5", pipEnabled && "text-green-400")} />
-                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Background & cutout layers">
+                        <Layers className={cn("w-3.5 h-3.5", pipEnabled && "text-green-400")} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-3 space-y-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">PiP background</p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <Button variant={!pipEnabled ? 'default' : 'outline'} size="sm" className="h-8 text-[10px] gap-1"
+                            onClick={() => { setPipEnabled(false); setBgVideoUrl(null); }}>
+                            Off
+                          </Button>
+                          <Button variant={pipEnabled && pipBgMode === 'video' ? 'default' : 'outline'} size="sm" className="h-8 text-[10px] gap-1"
+                            onClick={() => { setPipBgMode('video'); if (!bgVideoUrl) bgFileInputRef.current?.click(); else setPipEnabled(true); }}>
+                            <Video className="w-3 h-3" /> Video
+                          </Button>
+                          <Button variant={pipEnabled && pipBgMode === 'product-feed' ? 'default' : 'outline'} size="sm" className="h-8 text-[10px] gap-1"
+                            disabled={productImages.length === 0}
+                            onClick={() => { setPipBgMode('product-feed'); setPipEnabled(true); }}
+                            title={productImages.length === 0 ? 'Add product images first' : 'TikTok-style scrolling product feed behind speaker'}>
+                            <Globe className="w-3 h-3" /> Shop
+                          </Button>
+                        </div>
+                        {pipEnabled && pipBgMode === 'product-feed' && (
+                          <p className="text-[10px] text-muted-foreground mt-1.5">Your products scroll vertically behind the speaker — TikTok shop style.</p>
+                        )}
+                        {pipEnabled && pipBgMode === 'video' && !bgVideoUrl && (
+                          <p className="text-[10px] text-muted-foreground mt-1.5">Click "Video" again to upload a background clip.</p>
+                        )}
+                      </div>
+                      <div className="border-t border-border pt-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
+                          <Eraser className="w-3 h-3" /> Cutout (beta)
+                        </p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <Button variant={cutoutMode === 'off' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setCutoutMode('off')}>Off</Button>
+                          <Button variant={cutoutMode === 'white' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setCutoutMode('white')}>White bg</Button>
+                          <Button variant={cutoutMode === 'dark' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setCutoutMode('dark')}>Dark bg</Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5">Lightweight blend-mode trick — works best when the speaker has a clean white or dark backdrop.</p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Fullscreen"
                     onClick={() => {
                       const wrapper = videoWrapperRef.current;
@@ -3370,6 +3474,22 @@ const ChatcutAI = () => {
                                 <div className="absolute top-1 right-1 bg-primary/90 text-primary-foreground text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none shadow-sm">
                                   {meta.duration.toFixed(1)}s
                                 </div>
+                                <button
+                                  type="button"
+                                  className="absolute top-1 left-1 bg-background/90 hover:bg-primary hover:text-primary-foreground rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-border"
+                                  title="Reference this clip for Marco"
+                                  onClick={(e) => {
+                                    e.preventDefault(); e.stopPropagation();
+                                    setSelectedReference({
+                                      kind: 'source-clip', id: c.id, label: meta.label,
+                                      thumbUrl: c.image_url, sourceUrl: meta.sourceUrl,
+                                      sourceStart: meta.sourceStart, durationSec: meta.duration,
+                                    });
+                                    toast({ title: '🎯 Referenced for Marco', description: `"${meta.label}" — now tell him what to do with it.` });
+                                  }}
+                                >
+                                  <Target className="w-3 h-3" />
+                                </button>
                               </div>
                             );
                           })}
@@ -3421,17 +3541,34 @@ const ChatcutAI = () => {
                               }
                             };
                             return (
-                            <button
-                              key={f.id}
-                              className="relative group rounded overflow-hidden border border-border hover:border-green-500/70 transition-colors"
-                              onClick={handleClick}
-                              title={meta ? `Add source clip @ ${currentTime.toFixed(1)}s` : `Add still frame @ ${currentTime.toFixed(1)}s`}
-                            >
-                              <img src={f.image_url} alt={f.prompt || 'frame'} className="w-full aspect-video object-cover" />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
-                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
-                              </div>
-                            </button>
+                            <div key={f.id} className="relative group">
+                              <button
+                                className="relative w-full rounded overflow-hidden border border-border hover:border-green-500/70 transition-colors"
+                                onClick={handleClick}
+                                title={meta ? `Add source clip @ ${currentTime.toFixed(1)}s` : `Add still frame @ ${currentTime.toFixed(1)}s`}
+                              >
+                                <img src={f.image_url} alt={f.prompt || 'frame'} className="w-full aspect-video object-cover" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                className="absolute top-0.5 left-0.5 bg-background/90 hover:bg-primary hover:text-primary-foreground rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-border"
+                                title="Reference this frame for Marco"
+                                onClick={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  setSelectedReference({
+                                    kind: 'saved-frame', id: f.id,
+                                    label: f.prompt || 'Saved frame',
+                                    thumbUrl: f.image_url,
+                                  });
+                                  toast({ title: '🎯 Referenced for Marco', description: 'Tell him what to do with this frame.' });
+                                }}
+                              >
+                                <Target className="w-3 h-3" />
+                              </button>
+                            </div>
                             );
                           })}
                         </div>
@@ -3450,17 +3587,36 @@ const ChatcutAI = () => {
                       {productImages.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
                           {productImages.slice(0, 18).map((p) => (
-                            <button
-                              key={p.id}
-                              className="relative group rounded overflow-hidden border border-border hover:border-amber-500/70 transition-colors bg-muted/20"
-                              onClick={() => addBRollFromImage(p.image_url, p.label || 'Product', `Subtle product showcase: gentle camera move on the product, natural lighting matching the source video's vibe`)}
-                              title={`Add product as B-Roll @ ${currentTime.toFixed(1)}s`}
-                            >
-                              <img src={p.image_url} alt={p.label || 'product'} className="w-full aspect-square object-contain p-1" />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
-                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
-                              </div>
-                            </button>
+                            <div key={p.id} className="relative group">
+                              <button
+                                className="relative w-full rounded overflow-hidden border border-border hover:border-amber-500/70 transition-colors bg-muted/20"
+                                onClick={() => addBRollFromImage(p.image_url, p.label || 'Product', `Subtle product showcase: gentle camera move on the product, natural lighting matching the source video's vibe`)}
+                                title={`Add product as B-Roll @ ${currentTime.toFixed(1)}s`}
+                              >
+                                <img src={p.image_url} alt={p.label || 'product'} className="w-full aspect-square object-contain p-1" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                className="absolute top-0.5 left-0.5 bg-background/90 hover:bg-primary hover:text-primary-foreground rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-border"
+                                title="Reference this product for Marco"
+                                onClick={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  setSelectedReference({
+                                    kind: 'product', id: p.id,
+                                    label: p.product_name || p.label || 'Product',
+                                    thumbUrl: p.image_url,
+                                    productName: p.product_name,
+                                    productId: p.product_id,
+                                  });
+                                  toast({ title: '🎯 Referenced for Marco', description: `Tell him where to use ${p.product_name || p.label || 'this product'}.` });
+                                }}
+                              >
+                                <Target className="w-3 h-3" />
+                              </button>
+                            </div>
                           ))}
                         </div>
                       ) : (
