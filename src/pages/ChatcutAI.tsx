@@ -207,12 +207,14 @@ const ChatcutAI = () => {
     textColor: '#ffffff',
     font: 'Inter',
     logoUrl: null,
+    websiteUrl: '',
   });
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Saved B-roll frames + product images for media panel
   const [savedBrollFrames, setSavedBrollFrames] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
-  const [productImages, setProductImages] = useState<{ id: string; image_url: string; label: string | null }[]>([]);
+  const [productImages, setProductImages] = useState<{ id: string; image_url: string; label: string | null; product_name?: string; product_id?: string }[]>([]);
+  const [productLibrary, setProductLibrary] = useState<{ id: string; name: string; description: string | null; benefits: string[] | null; brand_name?: string; primary_image?: string }[]>([]);
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
