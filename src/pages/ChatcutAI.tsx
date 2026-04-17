@@ -49,11 +49,16 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Undo2,
+  Smartphone,
+  Package,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
 import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
@@ -269,7 +274,15 @@ const ChatcutAI = () => {
     label: string;
   } | null>(null);
 
-  // Fetch brand guidelines on mount
+  // Reel-mode preview state — letterboxes the player to 9:16 with a horizontal crop offset
+  // so the user can see how a vertical export would look. cropX = % of horizontal pan (0=left, 50=center, 100=right).
+  const [reelPreview, setReelPreview] = useState(false);
+  const [reelCropX, setReelCropX] = useState(50);
+  const [isAutoCentering, setIsAutoCentering] = useState(false);
+
+  // Track failed B-roll attempts so we only auto-retry once
+  const brollRetryCount = useRef<Map<string, number>>(new Map());
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -952,7 +965,9 @@ const ChatcutAI = () => {
     setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
   }, [bRollClips]);
 
-  // Generate B-roll image via generate-scene-image, then animate to video
+  // Generate B-roll image via generate-scene-image, then animate to video.
+  // Auto-retries ONCE with a stripped-down prompt if the image step fails,
+  // and surfaces a clear error + Retry button in chat if it still fails.
   const generateBRollImage = useCallback(async (clipId: string, prompt: string) => {
     setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating' } : b));
     try {
@@ -988,9 +1003,43 @@ const ChatcutAI = () => {
       }
     } catch (err: any) {
       console.error('B-roll gen error:', err);
+      const attempts = (brollRetryCount.current.get(clipId) || 0) + 1;
+      brollRetryCount.current.set(clipId, attempts);
+
+      if (attempts === 1) {
+        // AUTO-RETRY ONCE with a simpler, grounded prompt (strip cinematic / brand modifiers)
+        const stripped = prompt
+          .replace(/cinematic|epic|anamorphic|hero shot|golden hour|shallow depth of field|moody|dramatic/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 220);
+        const safePrompt = stripped || `Natural close-up shot, soft daylight, casual handheld phone footage`;
+        toast({ title: 'Retrying B-Roll…', description: 'First attempt failed — trying a simpler prompt' });
+        setTimeout(() => generateBRollImage(clipId, safePrompt), 800);
+        return;
+      }
+
+      // Already retried — surface clear error to chat
       setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'failed' } : b));
+      const errMsg = err?.message || 'Unknown error from image generator';
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `⚠️ I couldn't generate that B-roll after 2 tries — **${errMsg}**\n\nClick the **Retry B-Roll** button on the failed clip in the timeline, or just tell me to try a different prompt.`,
+      }]);
     }
   }, [toast, pollBRollVideo]);
+
+  // Public retry helper — re-runs generation for a B-roll clip with its current prompt
+  const retryBRoll = useCallback((clipId: string) => {
+    const clip = bRollClips.find(b => b.id === clipId);
+    if (!clip) return;
+    brollRetryCount.current.delete(clipId); // reset retry counter
+    setBRollClips(prev => prev.map(b => b.id === clipId
+      ? { ...b, imageStatus: 'generating', videoStatus: undefined, imageUrl: undefined, videoUrl: undefined }
+      : b));
+    generateBRollImage(clipId, clip.prompt);
+  }, [bRollClips, generateBRollImage]);
+
 
   // Add B-roll from an EXISTING image (saved frame, product image, or upload) — skips image gen, animates directly
   const addBRollFromImage = useCallback((imageUrl: string, label: string, prompt?: string, startAt?: number) => {
@@ -1072,6 +1121,75 @@ const ChatcutAI = () => {
       return [...prev, broll];
     });
   }, [currentTime, toast]);
+
+  // Direct helper: add a product image as B-roll at a specific timestamp (used by transcript word click)
+  const addProductImageAtTime = useCallback((opts: {
+    imageUrl: string;
+    label: string;
+    startAt: number;
+    mode: 'still' | 'animated';
+    duration?: number;
+  }) => {
+    const { imageUrl, label, startAt, mode, duration: dur = 3 } = opts;
+    // Remove any existing B-roll covering this exact moment first (true "swap")
+    setBRollClips(prev => prev.filter(b => !(startAt >= b.start && startAt < b.start + b.duration)));
+    if (mode === 'still') {
+      setBRollClips(prev => [...prev, {
+        id: crypto.randomUUID(),
+        name: label,
+        prompt: `Product still: ${label}`,
+        start: startAt,
+        duration: dur,
+        imageUrl,
+        imageStatus: 'ready',
+        videoStatus: 'ready',
+        audioEnabled: false,
+      }]);
+      toast({ title: '📦 Product still added', description: `"${label}" pinned at ${startAt.toFixed(1)}s` });
+    } else {
+      const animPrompt = `Slow push-in close-up of ${label}, soft natural daylight, subtle handheld sway, product hero shot`;
+      addBRollFromImage(imageUrl, label, animPrompt, startAt);
+    }
+  }, [toast, addBRollFromImage]);
+
+  // AI smart-crop: sample current frame, ask Gemini to find the subject's horizontal center,
+  // and update reelCropX so the 9:16 letterbox tracks the subject.
+  const autoCenterSubjectForReel = useCallback(async () => {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) {
+      toast({ title: 'No video loaded', description: 'Open a video first.' });
+      return;
+    }
+    setIsAutoCentering(true);
+    try {
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
+      const ctx = c.getContext('2d');
+      if (!ctx) throw new Error('Canvas unavailable');
+      ctx.drawImage(v, 0, 0);
+      const dataUrl = c.toDataURL('image/jpeg', 0.7);
+      const { data, error } = await supabase.functions.invoke('analyze-reference-image', {
+        body: {
+          imageUrl: dataUrl,
+          mode: 'subject_center',
+          prompt: 'Look at this video frame. Identify the main subject (face, product, hand, focal point). Return ONLY a JSON object like {"x_pct": 50} where x_pct is the horizontal position of that subject from 0 (far left) to 100 (far right). No explanation.',
+        },
+      });
+      if (error) throw error;
+      const txt = (data?.description || data?.result || data?.text || '') as string;
+      const m = txt.match(/"x_pct"\s*:\s*(\d+(?:\.\d+)?)/);
+      const xPct = m ? Math.max(0, Math.min(100, parseFloat(m[1]))) : 50;
+      setReelCropX(xPct);
+      setReelPreview(true);
+      toast({ title: '🎯 Centered on subject', description: `Reel crop set to ${xPct.toFixed(0)}% — drag the slider to fine-tune.` });
+    } catch (e: any) {
+      console.warn('autoCenter failed', e);
+      toast({ title: 'Auto-center failed', description: 'Use the slider to position manually.', variant: 'destructive' });
+    } finally {
+      setIsAutoCentering(false);
+    }
+  }, [toast]);
 
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
@@ -1353,6 +1471,90 @@ const ChatcutAI = () => {
         case 'review':
           // Review is handled conversationally by the AI
           break;
+        case 'add_product_broll': {
+          // Marco can drop a product image (still or animated) as B-roll at a transcript moment.
+          // Resolves the product by id, by name match, or falls back to the first product image.
+          const startAt = act.start ?? currentTime;
+          let pickedImage: string | null = null;
+          let label = act.description || 'Product';
+          if (act.productId) {
+            const m = productImages.find(p => p.product_id === act.productId);
+            if (m) { pickedImage = m.image_url; label = m.product_name || m.label || label; }
+          }
+          if (!pickedImage && act.productName) {
+            const needle = String(act.productName).toLowerCase();
+            const m = productImages.find(p =>
+              (p.product_name || '').toLowerCase().includes(needle) ||
+              (p.label || '').toLowerCase().includes(needle));
+            if (m) { pickedImage = m.image_url; label = m.product_name || m.label || label; }
+          }
+          if (!pickedImage && productImages.length > 0) {
+            pickedImage = productImages[0].image_url;
+            label = productImages[0].product_name || productImages[0].label || label;
+          }
+          if (!pickedImage) {
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: `I don't have any product images saved for you yet — upload one in **Product Library** and I can drop it in as B-roll instantly.`,
+            }]);
+            break;
+          }
+          if (act.mode === 'still') {
+            // Drop as still image B-roll, no Wan animation
+            const brollId = crypto.randomUUID();
+            setBRollClips(prev => [...prev, {
+              id: brollId,
+              name: label,
+              prompt: `Product still: ${label}`,
+              start: startAt,
+              duration: act.duration ?? 3,
+              imageUrl: pickedImage!,
+              imageStatus: 'ready',
+              videoStatus: 'ready',
+              audioEnabled: false,
+            }]);
+            toast({ title: '📦 Product B-Roll added', description: `"${label}" pinned at ${startAt.toFixed(1)}s` });
+          } else {
+            // Animated: send through Wan 2.5 with a clean product prompt
+            const animPrompt = act.prompt || `Slow push-in close-up of ${label} on a clean surface, soft natural daylight, subtle handheld sway, product hero shot`;
+            addBRollFromImage(pickedImage, label, animPrompt, startAt);
+          }
+          break;
+        }
+        case 'replace_broll_at_time': {
+          // Find the B-roll covering the requested time and either swap it or clear+insert a new one.
+          const t = act.time ?? currentTime;
+          const existing = bRollClips.find(b => t >= b.start && t < b.start + b.duration);
+          if (existing) {
+            setBRollClips(prev => prev.filter(b => b.id !== existing.id));
+          }
+          // Re-insert: prefer product image if Marco asked for one, else generate fresh
+          if (act.productId || act.productName) {
+            // Recurse via add_product_broll path
+            executeActionsRef.current?.([{
+              action: 'add_product_broll',
+              productId: act.productId,
+              productName: act.productName,
+              start: existing?.start ?? t,
+              duration: existing?.duration ?? 3,
+              mode: act.mode || 'animated',
+              prompt: act.prompt,
+              description: act.description,
+            }]);
+          } else if (act.prompt) {
+            const brollId = crypto.randomUUID();
+            setBRollClips(prev => [...prev, {
+              id: brollId,
+              name: act.description || 'New B-Roll',
+              prompt: act.prompt,
+              start: existing?.start ?? t,
+              duration: existing?.duration ?? 3,
+            }]);
+            toast({ title: 'Swapping B-Roll', description: `Generating replacement at ${(existing?.start ?? t).toFixed(1)}s…` });
+            generateBRollImage(brollId, act.prompt);
+          }
+          break;
+        }
         case 'set_thumbnail': {
           toast({ title: '🎨 Generating thumbnail…', description: 'Marco is designing your TikTok cover with Nano Banana' });
           generateThumbnail({
@@ -1366,7 +1568,11 @@ const ChatcutAI = () => {
         }
       }
     }
-  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail]);
+  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage]);
+
+  // Self-ref so action cases can recurse (e.g. replace_broll_at_time → add_product_broll)
+  const executeActionsRef = useRef<typeof executeActions | null>(null);
+  useEffect(() => { executeActionsRef.current = executeActions; }, [executeActions]);
 
   // Undo whatever Marco's last action did. Restores the snapshot we captured right before executeActions ran.
   const undoLastAIAction = useCallback(() => {
@@ -2092,12 +2298,14 @@ const ChatcutAI = () => {
                       )}
                       style={{
                         lineHeight: 0,
-                        aspectRatio: videoAspect ? `${videoAspect}` : '16 / 9',
-                        // Constrain so the wrapper fits within available space regardless of orientation
+                        // In reel preview mode we letterbox the wrapper to 9:16 and
+                        // shift the inner video horizontally with reelCropX so the user
+                        // can see how a vertical crop would look (with optional AI-centered offset).
+                        aspectRatio: reelPreview ? '9 / 16' : (videoAspect ? `${videoAspect}` : '16 / 9'),
                         maxHeight: '100%',
                         maxWidth: '100%',
-                        height: videoAspect && videoAspect < 1 ? '100%' : 'auto',
-                        width: videoAspect && videoAspect >= 1 ? '100%' : 'auto',
+                        height: reelPreview ? '100%' : (videoAspect && videoAspect < 1 ? '100%' : 'auto'),
+                        width: reelPreview ? 'auto' : (videoAspect && videoAspect >= 1 ? '100%' : 'auto'),
                       }}
                     >
                       {/* Background video (when PiP mode is active) */}
@@ -2421,7 +2629,23 @@ const ChatcutAI = () => {
                     onClick={() => setCaptionSettings(prev => ({ ...prev, enabled: !prev.enabled }))}>
                     <Captions className={cn("w-3.5 h-3.5", captionSettings.enabled && "text-pink-400")} />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Picture-in-Picture"
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title={reelPreview ? 'Exit reel preview' : 'Preview as 9:16 reel'}
+                    onClick={() => setReelPreview(v => !v)}>
+                    <Smartphone className={cn("w-3.5 h-3.5", reelPreview && "text-pink-400")} />
+                  </Button>
+                  {reelPreview && (
+                    <>
+                      <div className="flex items-center gap-1.5 ml-1">
+                        <span className="text-[10px] text-muted-foreground">Crop</span>
+                        <Slider value={[reelCropX]} onValueChange={(v) => setReelCropX(v[0])} min={0} max={100} step={1} className="w-20" />
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] gap-1" disabled={isAutoCentering} onClick={autoCenterSubjectForReel} title="AI: auto-center on subject">
+                        {isAutoCentering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        AI center
+                      </Button>
+                    </>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title={pipEnabled ? 'Remove PiP background' : 'Upload background video for PiP'}
                     onClick={() => {
                       if (pipEnabled) {
                         setPipEnabled(false);
