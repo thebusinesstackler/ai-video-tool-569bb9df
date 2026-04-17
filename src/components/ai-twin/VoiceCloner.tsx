@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Mic, Upload, Play, Pause, Loader2, Check, Volume2, StopCircle, Trash2, AlertCircle, User, Mail } from 'lucide-react';
+import { Mic, Upload, Play, Pause, Loader2, Check, Volume2, StopCircle, Trash2, User, Mail } from 'lucide-react';
 
 interface VoiceClonerProps {
   voiceSampleUrl: string | null;
