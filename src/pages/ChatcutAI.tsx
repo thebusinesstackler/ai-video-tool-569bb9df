@@ -1191,7 +1191,7 @@ const ChatcutAI = () => {
     }
   }, [toast]);
 
-
+  const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
     try {
       const style = styleHint || 'glass';
