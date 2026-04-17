@@ -166,7 +166,7 @@ const Podcast = () => {
         const [profileRes, brandsRes, productsRes, reelsRes] = await Promise.all([
           supabase.from('profiles').select('first_name,last_name,company_name,brand_description,content_goal').eq('user_id', user.id).maybeSingle(),
           supabase.from('brands').select('name,description').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(3),
-          supabase.from('products').select('name,description,category,target_audience,benefits').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
+          supabase.from('products').select('id,name,description,category,target_audience,benefits').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
           supabase.from('reels').select('topic').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(5),
         ]);
 
@@ -174,6 +174,25 @@ const Podcast = () => {
         const brands = brandsRes.data || [];
         const products = productsRes.data || [];
         const recentTopics = (reelsRes.data || []).map((r: any) => r.topic).filter(Boolean);
+
+        // Pull primary product image for each product (for in-shot product placement)
+        if (products.length) {
+          const productIds = products.map((p: any) => p.id);
+          const { data: gallery } = await supabase
+            .from('product_gallery')
+            .select('product_id,image_url,is_primary')
+            .in('product_id', productIds)
+            .order('is_primary', { ascending: false });
+          const seen = new Set<string>();
+          const imgs: ProductImage[] = [];
+          (gallery || []).forEach((g: any) => {
+            if (seen.has(g.product_id)) return;
+            seen.add(g.product_id);
+            const prod = products.find((p: any) => p.id === g.product_id);
+            if (prod) imgs.push({ productName: prod.name, imageUrl: g.image_url });
+          });
+          setProductImages(imgs);
+        }
 
         const isLifecykel =
           (user.email || '').toLowerCase().includes('lifecykel') ||
