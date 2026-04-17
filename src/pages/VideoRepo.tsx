@@ -596,10 +596,15 @@ Then provide a final **VIDEO PROMPT** block:
         };
         setMessages((prev) => [...prev, generatingMsg]);
 
+        const useProductLock = lockProduct && !!persistentImageUrl;
+        const generationModel = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
+        if (useProductLock) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
+        }
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: videoPrompt,
-            model: 'sora-2',
+            model: generationModel,
             aspectRatio: '9:16',
             duration: soraDuration,
             userId: user?.id,
@@ -801,10 +806,12 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         };
         setMessages(prev => [...prev, generatingMsg]);
 
+        const useProductLockFollow = lockProduct && !!newImageUrl;
+        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : 'sora-2';
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
-            model: 'sora-2',
+            model: followModel,
             aspectRatio: '9:16',
             duration: soraDuration,
             userId: user?.id,
