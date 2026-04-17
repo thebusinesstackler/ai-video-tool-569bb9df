@@ -115,3 +115,6 @@ verify_jwt = true
 
 [functions.generate-product-variations]
 verify_jwt = true
+
+[functions.generate-animated-graphic]
+verify_jwt = true

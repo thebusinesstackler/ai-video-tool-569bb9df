@@ -123,6 +123,14 @@ interface OverlayItem {
   duration: number;
   imageUrl?: string;
   imageStatus?: 'generating' | 'ready' | 'failed';
+  /** When renderMode='video', the animated VEO 3.1 clip URL. */
+  videoUrl?: string;
+  videoStatus?: 'generating' | 'ready' | 'failed';
+  /** Optional start/end frames Marco generated to drive the animation (kept for debug/regeneration). */
+  startFrameUrl?: string;
+  endFrameUrl?: string;
+  /** Optional natural-language animation prompt for VEO. */
+  animationPrompt?: string;
   animation?: OverlayAnimation;
   style?: string;
   position?: { x: number; y: number };
@@ -131,8 +139,9 @@ interface OverlayItem {
    * 'dom'   → rendered crisply by <SmartOverlay/> with brand colors. No PNG, no transparency artifacts.
    *           Default for stat/list/quote/lower-third/CTA cards.
    * 'image' → rendered as a real PNG/JPG (Nano Banana 2 image, product chip, custom illustration).
+   * 'video' → rendered as an animated VEO 3.1 video graphic (premium hero reveals).
    */
-  renderMode?: 'dom' | 'image';
+  renderMode?: 'dom' | 'image' | 'video';
   /** Optional list items for benefit_list, numbered_list, feature_grid, comparison, full_coverage. */
   items?: string[];
   /** Optional second line of copy under the headline (e.g. URL under a CTA, attribution under a quote). */
@@ -1277,6 +1286,55 @@ const ChatcutAI = () => {
     }
   }, [toast, overlays, brandSettings]);
 
+  // ───────────────────────────────────────────────────────────────────────
+  // ANIMATED motion graphic via VEO 3.1.
+  // Pipeline: Nano Banana 2 generates start + end frames → VEO 3.1 animates
+  // between them with the prompt. Returns a real animated MP4 we drop on the
+  // overlay track. Used by Marco for premium hero reveals (stat drops, product
+  // launches, full-coverage takeovers).
+  // ───────────────────────────────────────────────────────────────────────
+  const generateAnimatedGraphic = useCallback(async (
+    overlayId: string,
+    text: string,
+    type: string,
+    opts: { animationPrompt?: string; aspectRatio?: '16:9' | '9:16'; duration?: number; fullCoverage?: boolean } = {},
+  ) => {
+    setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, videoStatus: 'generating', imageStatus: 'generating' } : o));
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-animated-graphic', {
+        body: {
+          text,
+          type,
+          animationPrompt: opts.animationPrompt,
+          brandPrimaryColor: brandSettings.primaryColor,
+          brandTextColor: brandSettings.textColor,
+          brandFont: brandSettings.font,
+          aspectRatio: opts.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+          duration: opts.duration || 5,
+          fullCoverage: !!opts.fullCoverage,
+        },
+      });
+      if (error || !data?.videoUrl) throw new Error(error?.message || 'Animated graphic failed');
+
+      setOverlays(prev => prev.map(o => o.id === overlayId
+        ? { ...o, videoUrl: data.videoUrl, videoStatus: 'ready', imageStatus: 'ready', startFrameUrl: data.startFrameUrl, endFrameUrl: data.endFrameUrl }
+        : o));
+      toast({ title: '🎬 Animated graphic ready', description: `"${text}" rendered via VEO 3.1` });
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `🎬 Your animated graphic **"${text}"** is on the timeline! Generated start + end frames and animated them with VEO 3.1 for a polished reveal. ✨`,
+      }]);
+    } catch (err: any) {
+      console.error('Animated graphic gen error:', err);
+      setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, videoStatus: 'failed', imageStatus: 'failed' } : o));
+      toast({ title: 'Animated graphic failed', description: err?.message || 'Could not generate', variant: 'destructive' });
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `⚠️ The animated graphic for **"${text}"** didn't render. Want me to retry or fall back to a static brand card? 🔄`,
+      }]);
+    }
+  }, [toast, brandSettings, reelPreview]);
+
   // Generate or regenerate the opening TikTok-style cover via Nano Banana
   const generateThumbnail = useCallback(async (opts: {
     hookText?: string;
@@ -1391,7 +1449,8 @@ const ChatcutAI = () => {
         }
         case 'add_overlay':
         case 'add_text_card':
-        case 'add_full_coverage': {
+        case 'add_full_coverage':
+        case 'add_animated_graphic': {
           const overlayId = crypto.randomUUID();
           // Map style to animation preset
           const styleAnimationMap: Record<string, OverlayAnimation> = {
@@ -1404,7 +1463,7 @@ const ChatcutAI = () => {
           const animation = act.animation
             ? { entrance: act.animation, exit: 'fade-out' as const }
             : styleAnimationMap[act.style || 'glass'] || { entrance: 'slide-up' as const, exit: 'fade-out' as const };
-          const overlayType = act.type || (act.action === 'add_full_coverage' ? 'feature_grid' : 'lower_third');
+          const overlayType = act.type || (act.action === 'add_full_coverage' ? 'feature_grid' : act.action === 'add_animated_graphic' ? 'motion_graphic' : 'lower_third');
           const isCTA = overlayType === 'cta_button' || /shop now|buy|order|learn more|get yours|http|\.com|\.co|\.io/i.test(act.text || '');
           // Smart defaults for position + scale by type (safety net if Marco omits them)
           const defaultsByType: Record<string, { pos: { x: number; y: number }; scale: number }> = {
@@ -1427,15 +1486,17 @@ const ChatcutAI = () => {
           const finalPos = act.position || (isCTA ? { x: 50, y: 80 } : def.pos);
 
           // ── RENDER-MODE DECISION ────────────────────────────────────────
-          // Default to crisp DOM rendering for all text/list/CTA cards (looks
-          // sharper, no transparency artifacts, scales perfectly).
-          // Only fall back to AI image when the user explicitly asks for an
-          // illustrative graphic (icon, product chip) via renderMode='image'.
-          const renderMode: 'dom' | 'image' = act.renderMode === 'image' ? 'image' : 'dom';
+          // 'video' → animated VEO 3.1 graphic (premium hero reveals).
+          // 'image' → static Nano Banana 2 PNG (icons, product chips).
+          // 'dom'   → crisp brand-coloured SmartOverlay (default for text cards).
+          let renderMode: 'dom' | 'image' | 'video' = 'dom';
+          if (act.action === 'add_animated_graphic' || act.renderMode === 'video') renderMode = 'video';
+          else if (act.renderMode === 'image') renderMode = 'image';
 
           const newOverlay: OverlayItem = {
             id: overlayId, type: overlayType,
-            text: act.text || '', start: act.start || 0, duration: act.duration || (isFullCoverage ? 4 : 5),
+            text: act.text || '', start: act.start || 0,
+            duration: act.duration || (renderMode === 'video' ? 5 : isFullCoverage ? 4 : 5),
             animation, style: act.style || 'glass',
             scale: finalScale,
             position: finalPos,
@@ -1443,11 +1504,21 @@ const ChatcutAI = () => {
             items: Array.isArray(act.items) ? act.items.slice(0, 8) : undefined,
             subtext: typeof act.subtext === 'string' ? act.subtext : undefined,
             fullCoverage: isFullCoverage,
-            imageStatus: renderMode === 'image' ? 'generating' : 'ready',
+            imageStatus: renderMode === 'dom' ? 'ready' : 'generating',
+            videoStatus: renderMode === 'video' ? 'generating' : undefined,
+            animationPrompt: act.animationPrompt,
           };
           setOverlays(prev => [...prev, newOverlay]);
           if (renderMode === 'dom') {
             toast({ title: '✨ Graphic added', description: `"${act.text}" — rendered with your brand colors` });
+          } else if (renderMode === 'video') {
+            toast({ title: '🎬 Animating graphic', description: `"${act.text}" — VEO 3.1 is rendering (~30-60s)...` });
+            generateAnimatedGraphic(overlayId, act.text || '', overlayType, {
+              animationPrompt: act.animationPrompt,
+              aspectRatio: act.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+              duration: act.duration || 5,
+              fullCoverage: isFullCoverage,
+            });
           } else {
             toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
             generateMotionGraphic(overlayId, act.text || '', overlayType, act.style);
@@ -1645,7 +1716,7 @@ const ChatcutAI = () => {
         }
       }
     }
-  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage]);
+  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, generateAnimatedGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage, reelPreview]);
 
   // Self-ref so action cases can recurse (e.g. replace_broll_at_time → add_product_broll)
   const executeActionsRef = useRef<typeof executeActions | null>(null);
@@ -2564,8 +2635,18 @@ const ChatcutAI = () => {
                           const pos = ov.position || { x: 50, y: 30 };
                           const scale = ov.scale || 1;
                           const isFull = ov.fullCoverage || scale >= 5;
-                          // Render via SmartOverlay (DOM) unless explicit image mode AND a real image is ready
-                          const useDOM = ov.renderMode !== 'image' || !(ov.imageUrl && ov.imageStatus === 'ready');
+                          // Render path:
+                          //  - 'video' + ready  → animated VEO 3.1 <video>
+                          //  - 'video' + generating/failed → loader card
+                          //  - 'image' + ready  → static <img>
+                          //  - 'image' + generating → loader card
+                          //  - 'dom' (default)  → SmartOverlay
+                          const isVideo = ov.renderMode === 'video';
+                          const isImage = ov.renderMode === 'image';
+                          const videoReady = isVideo && ov.videoUrl && ov.videoStatus === 'ready';
+                          const imageReady = isImage && ov.imageUrl && ov.imageStatus === 'ready';
+                          const useDOM = !isVideo && !isImage; // pure DOM SmartOverlay
+                          const showLoader = (isVideo && !videoReady) || (isImage && !imageReady);
 
                           return (
                             <div
@@ -2583,28 +2664,41 @@ const ChatcutAI = () => {
                                 setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
                               }}
                             >
-                              {useDOM ? (
-                                ov.imageStatus === 'generating' && ov.renderMode === 'image' ? (
-                                  <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
-                                    <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
-                                    <span className="text-purple-200 text-sm">Generating graphic...</span>
-                                  </div>
-                                ) : (
-                                  <div className="pointer-events-none">
-                                    <SmartOverlay
-                                      type={ov.type}
-                                      text={ov.text}
-                                      items={ov.items}
-                                      subtext={ov.subtext}
-                                      brandColor={brandSettings.primaryColor}
-                                      brandTextColor={brandSettings.textColor}
-                                      brandFont={brandSettings.font}
-                                      style={(ov.style as any) || 'glass'}
-                                      scale={scale}
-                                      fullCoverage={isFull}
-                                    />
-                                  </div>
-                                )
+                              {showLoader ? (
+                                <div className="bg-black/70 backdrop-blur-sm px-4 py-3 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
+                                  <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                                  <span className="text-purple-200 text-sm">
+                                    {isVideo ? `Animating "${ov.text}" with VEO 3.1...` : `Generating "${ov.text}"...`}
+                                  </span>
+                                </div>
+                              ) : videoReady ? (
+                                <video
+                                  src={ov.videoUrl}
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                  className="object-contain rounded-lg pointer-events-none"
+                                  style={isFull
+                                    ? { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 0 }
+                                    : { maxWidth: `${Math.min(scale * 22, 92)}vw`, maxHeight: `${Math.min(scale * 14, 82)}vh` }
+                                  }
+                                />
+                              ) : useDOM ? (
+                                <div className="pointer-events-none">
+                                  <SmartOverlay
+                                    type={ov.type}
+                                    text={ov.text}
+                                    items={ov.items}
+                                    subtext={ov.subtext}
+                                    brandColor={brandSettings.primaryColor}
+                                    brandTextColor={brandSettings.textColor}
+                                    brandFont={brandSettings.font}
+                                    style={(ov.style as any) || 'glass'}
+                                    scale={scale}
+                                    fullCoverage={isFull}
+                                  />
+                                </div>
                               ) : (
                                 <img
                                   src={ov.imageUrl}
