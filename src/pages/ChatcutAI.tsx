@@ -821,10 +821,10 @@ const ChatcutAI = () => {
       };
       const styleText = styleDesc[style] || styleDesc.glass;
       const stylePrompts: Record<string, string> = {
-        motion_graphic: `Professional broadcast-quality motion graphic overlay with the text "${text}" in bold modern sans-serif font, ${styleText}, clean design, suitable for video overlay, transparent edges, on a clean dark background`,
-        animated_text: `Cinematic animated text graphic showing "${text}" in elegant typography, ${styleText}, film-quality title card, subtle glow effects, on a clean dark background`,
-        lower_third: `Professional lower-third graphic overlay with name "${text}", ${styleText}, sleek bar design, clean typography, on a clean dark background`,
-        title_card: `Professional title card graphic showing "${text}" in bold cinematic typography, ${styleText}, centered composition, film-quality design, on a clean dark background`,
+        motion_graphic: `Compact overlay badge featuring the text "${text}" in bold modern sans-serif typography, ${styleText}. The design itself can have its own colored shape/badge/glow, but the AREA AROUND the badge MUST be 100% transparent (alpha 0). No surrounding rectangular dark frame, no padded box, no background plate.`,
+        animated_text: `Standalone cinematic title text "${text}" in elegant typography with subtle glow, ${styleText}. Render only the text glyphs and any tight decorative elements — everything around the text must be fully transparent (alpha 0). No rectangular background panel.`,
+        lower_third: `Slim lower-third bar graphic with the name "${text}", ${styleText}, sleek thin bar shape. The bar itself is the only visible element — area above/below/around the bar must be completely transparent (alpha 0).`,
+        title_card: `Compact title chip showing "${text}" in bold cinematic typography, ${styleText}, tight contained shape. Only the title chip is visible — surrounding area must be 100% transparent (alpha 0). No outer rectangle or padding box.`,
       };
       const imagePrompt = stylePrompts[type] || stylePrompts.motion_graphic;
 
@@ -1146,6 +1146,53 @@ const ChatcutAI = () => {
   const deleteBRoll = (id: string) => {
     setBRollClips(prev => prev.filter(b => b.id !== id));
     toast({ title: 'B-Roll removed' });
+  };
+
+  // Drag / resize a B-Roll clip on the timeline
+  const handleBRollDrag = (
+    e: React.MouseEvent<HTMLDivElement>,
+    brId: string,
+    mode: 'move' | 'resize-left' | 'resize-right'
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const trackEl = (e.currentTarget.closest('[data-broll-track]') || e.currentTarget.parentElement) as HTMLElement | null;
+    if (!trackEl) return;
+    const trackRect = trackEl.getBoundingClientRect();
+    const startX = e.clientX;
+    const br = bRollClips.find(b => b.id === brId);
+    if (!br) return;
+    const startStart = br.start;
+    const startDuration = br.duration;
+    const total = Math.max(duration, 1);
+    document.body.style.cursor = mode === 'move' ? 'grabbing' : 'ew-resize';
+
+    const onMove = (ev: MouseEvent) => {
+      const deltaPx = ev.clientX - startX;
+      const deltaSec = (deltaPx / trackRect.width) * total;
+      setBRollClips(prev => prev.map(b => {
+        if (b.id !== brId) return b;
+        if (mode === 'move') {
+          const newStart = Math.max(0, Math.min(total - startDuration, startStart + deltaSec));
+          return { ...b, start: newStart };
+        }
+        if (mode === 'resize-left') {
+          const maxShift = startDuration - 0.3;
+          const shift = Math.max(-startStart, Math.min(maxShift, deltaSec));
+          return { ...b, start: startStart + shift, duration: startDuration - shift };
+        }
+        // resize-right
+        const newDuration = Math.max(0.3, Math.min(total - startStart, startDuration + deltaSec));
+        return { ...b, duration: newDuration };
+      }));
+    };
+    const onUp = () => {
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   };
 
   const deleteMusicTrack = (id: string) => {
@@ -2005,13 +2052,13 @@ const ChatcutAI = () => {
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
                           <span className="text-[9px] font-semibold text-green-400 truncate">B-Roll</span>
                         </div>
-                        <div className="flex-1 relative h-6 mx-1">
+                        <div className="flex-1 relative h-6 mx-1" data-broll-track>
                           {bRollClips.length > 0 ? (
                             bRollClips.map((br) => (
                               <div
                                 key={br.id}
                                 className={cn(
-                                  "absolute inset-y-0 rounded border flex items-center px-1 cursor-pointer transition-colors group/clip",
+                                  "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
                                   br.imageStatus === 'generating' || br.videoStatus === 'generating'
                                     ? "bg-green-500/10 border-green-500/30 animate-pulse"
                                     : br.videoStatus === 'ready'
@@ -2025,22 +2072,50 @@ const ChatcutAI = () => {
                                   width: `${(br.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
                                 onClick={() => seekTo(br.start)}
+                                onMouseDown={(e) => {
+                                  // Only start drag with primary button on the body (not on handles/buttons)
+                                  if (e.button !== 0) return;
+                                  const target = e.target as HTMLElement;
+                                  if (target.closest('[data-broll-handle]') || target.closest('button')) return;
+                                  handleBRollDrag(e, br.id, 'move');
+                                }}
+                                title={`${br.name} — drag body to move, drag edges to trim (${br.duration.toFixed(1)}s)`}
                               >
-                                {br.imageStatus === 'generating' ? (
-                                  <Loader2 className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-spin" />
-                                ) : br.videoStatus === 'generating' ? (
-                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-pulse" />
-                                ) : br.videoStatus === 'ready' ? (
-                                  <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
-                                ) : br.imageUrl ? (
-                                  <ImageIcon className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
-                                ) : (
-                                  <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
-                                )}
-                                <span className="text-[9px] text-green-300 truncate flex-1">{br.name}</span>
-                                <button className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 ml-0.5" onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}>
+                                {/* Left resize handle */}
+                                <div
+                                  data-broll-handle
+                                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-green-400/0 hover:bg-green-400/70 rounded-l z-10"
+                                  onMouseDown={(e) => handleBRollDrag(e, br.id, 'resize-left')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex items-center px-1.5 flex-1 min-w-0 pointer-events-none">
+                                  {br.imageStatus === 'generating' ? (
+                                    <Loader2 className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-spin" />
+                                  ) : br.videoStatus === 'generating' ? (
+                                    <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0 animate-pulse" />
+                                  ) : br.videoStatus === 'ready' ? (
+                                    <Video className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                  ) : br.imageUrl ? (
+                                    <ImageIcon className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                  ) : (
+                                    <Film className="w-2.5 h-2.5 text-green-400 mr-1 flex-shrink-0" />
+                                  )}
+                                  <span className="text-[9px] text-green-300 truncate flex-1">{br.name}</span>
+                                </div>
+                                <button
+                                  className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1.5 z-10 relative"
+                                  onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
                                   <Trash2 className="w-2 h-2 text-white" />
                                 </button>
+                                {/* Right resize handle */}
+                                <div
+                                  data-broll-handle
+                                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-green-400/0 hover:bg-green-400/70 rounded-r z-10"
+                                  onMouseDown={(e) => handleBRollDrag(e, br.id, 'resize-right')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
                               </div>
                             ))
                           ) : (
