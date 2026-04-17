@@ -2794,19 +2794,8 @@ const ChatcutAI = () => {
                                   sourceStart: meta.sourceStart,
                                   sourceUrl: meta.sourceUrl,
                                 });
-                              } else if (videoUrl) {
-                                // Legacy still frame — fall back to using the currently loaded source video
-                                // as a 3s clip starting at the current playhead, so it actually plays.
-                                const startT = Math.max(0, currentTime);
-                                addBRollFromVideoClip({
-                                  videoUrl,
-                                  label: f.prompt || `Source clip @ ${startT.toFixed(1)}s`,
-                                  durationSec: 3,
-                                  sourceStart: startT,
-                                  sourceUrl: videoUrl,
-                                });
                               } else {
-                                // No source video loaded — drop as a static still without animating.
+                                // Legacy still frame — drop the actual JPEG onto the timeline as a static B-roll.
                                 const brollId = crypto.randomUUID();
                                 setBRollClips(prev => [...prev, {
                                   id: brollId,
@@ -2816,9 +2805,8 @@ const ChatcutAI = () => {
                                   duration: 3,
                                   imageUrl: f.image_url,
                                   imageStatus: 'ready',
-                                  videoStatus: 'ready',
                                 } as BRollClip]);
-                                toast({ title: 'Frame added', description: 'Load a source video to play it as a clip.' });
+                                toast({ title: 'Frame added', description: `Static image dropped at ${currentTime.toFixed(1)}s` });
                               }
                             };
                             return (
