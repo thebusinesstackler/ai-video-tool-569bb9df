@@ -504,10 +504,19 @@ const VideoRepo = () => {
 
       const systemPrompt = `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
 
+      const productContextBlock = selectedProductCtx
+        ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
+- Name: ${selectedProductCtx.productName}
+${selectedProductCtx.description ? `- Description: ${selectedProductCtx.description}` : ''}
+${selectedProductCtx.benefits && selectedProductCtx.benefits.length ? `- Key benefits: ${selectedProductCtx.benefits.join(', ')}` : ''}
+${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.targetAudience}` : ''}
+- Reference image: provided above (treat as the hero product to feature)`
+        : '';
+
       const analysisInstruction = `User request: "${userMsg.content}"
 
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
-${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
