@@ -135,6 +135,9 @@ interface BRollClip {
   videoUrl?: string;
   videoStatus?: 'generating' | 'ready' | 'failed';
   videoTaskId?: string;
+  /** When this b-roll references a window inside a longer source video, sourceStart marks the in-point. */
+  sourceStart?: number;
+  sourceUrl?: string;
 }
 
 interface OverlayAnimation {
