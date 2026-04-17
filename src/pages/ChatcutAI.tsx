@@ -2691,35 +2691,52 @@ const ChatcutAI = () => {
                             const meta = parseBrollClipMeta(c);
                             const previewUrl = `${meta.sourceUrl}#t=${meta.sourceStart},${(meta.sourceStart + meta.duration).toFixed(2)}`;
                             return (
-                              <button
+                              <div
                                 key={c.id}
-                                className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black"
-                                onClick={() => addBRollFromVideoClip({
-                                  videoUrl: meta.sourceUrl,
-                                  label: meta.label,
-                                  durationSec: meta.duration,
-                                  sourceStart: meta.sourceStart,
-                                  sourceUrl: meta.sourceUrl,
-                                })}
-                                title={`Drop ${meta.duration.toFixed(1)}s clip @ ${currentTime.toFixed(1)}s`}
+                                role="button"
+                                tabIndex={0}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('application/x-source-clip', JSON.stringify({
+                                    videoUrl: meta.sourceUrl,
+                                    label: meta.label,
+                                    durationSec: meta.duration,
+                                    sourceStart: meta.sourceStart,
+                                    sourceUrl: meta.sourceUrl,
+                                  }));
+                                  e.dataTransfer.effectAllowed = 'copy';
+                                }}
+                                className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black cursor-grab active:cursor-grabbing"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  addBRollFromVideoClip({
+                                    videoUrl: meta.sourceUrl,
+                                    label: meta.label,
+                                    durationSec: meta.duration,
+                                    sourceStart: meta.sourceStart,
+                                    sourceUrl: meta.sourceUrl,
+                                  });
+                                }}
+                                title={`Click or drag onto B-Roll track — ${meta.duration.toFixed(1)}s clip`}
                               >
                                 <video
                                   src={previewUrl}
                                   preload="metadata"
                                   muted
                                   playsInline
-                                  className="w-full aspect-video object-cover"
+                                  className="w-full aspect-video object-cover pointer-events-none"
                                 />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors pointer-events-none">
                                   <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
                                 </div>
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate pointer-events-none">
                                   {meta.label}
                                 </div>
-                                <div className="absolute top-0.5 right-0.5 bg-primary/80 text-primary-foreground text-[8px] px-1 rounded">
+                                <div className="absolute top-0.5 right-0.5 bg-primary/80 text-primary-foreground text-[8px] px-1 rounded pointer-events-none">
                                   {meta.duration.toFixed(1)}s
                                 </div>
-                              </button>
+                              </div>
                             );
                           })}
                         </div>
