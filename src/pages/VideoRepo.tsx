@@ -26,7 +26,9 @@ import {
   Sparkles,
   RefreshCw,
   ArrowRight,
+  Package,
 } from 'lucide-react';
+import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -98,6 +100,8 @@ const VideoRepo = () => {
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -272,7 +276,16 @@ const VideoRepo = () => {
     setProductImageUrl(null);
     setProductImageName('');
     setProductImageFile(null);
+    setSelectedProductCtx(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleProductPicked = (ctx: SelectedProductContext) => {
+    setSelectedProductCtx(ctx);
+    setProductImageUrl(ctx.imageUrl);
+    setProductImageName(`${ctx.productName}${ctx.imageLabel ? ` — ${ctx.imageLabel}` : ''}`);
+    setProductImageFile(null); // URL already in storage
+    toast({ title: 'Product added', description: `${ctx.productName} will be featured in the video.` });
   };
 
   const handleUrlImport = async () => {
@@ -491,10 +504,19 @@ const VideoRepo = () => {
 
       const systemPrompt = `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
 
+      const productContextBlock = selectedProductCtx
+        ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
+- Name: ${selectedProductCtx.productName}
+${selectedProductCtx.description ? `- Description: ${selectedProductCtx.description}` : ''}
+${selectedProductCtx.benefits && selectedProductCtx.benefits.length ? `- Key benefits: ${selectedProductCtx.benefits.join(', ')}` : ''}
+${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.targetAudience}` : ''}
+- Reference image: provided above (treat as the hero product to feature)`
+        : '';
+
       const analysisInstruction = `User request: "${userMsg.content}"
 
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
-${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
@@ -1480,6 +1502,9 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
                         <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
                         <div className="flex gap-2 flex-wrap">
+                          <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-lg flex-1 min-w-0" onClick={() => setProductPickerOpen(true)}>
+                            <Package className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Pick Product</span>
+                          </Button>
                           <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-lg flex-1 min-w-0" onClick={() => fileInputRef.current?.click()}>
                             <ImagePlus className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Add Image</span>
                           </Button>
@@ -1974,6 +1999,11 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
           </TabsContent>
         </Tabs>
       </div>
+      <ProductPickerDialog
+        open={productPickerOpen}
+        onOpenChange={setProductPickerOpen}
+        onSelect={handleProductPicked}
+      />
     </Layout>
   );
 };
