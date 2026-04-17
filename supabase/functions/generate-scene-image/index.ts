@@ -90,7 +90,38 @@ Keep under 300 words. Output ONLY the enhanced prompt.`;
   return rawPrompt;
 }
 
-// Generate image with OpenAI gpt-image-1
+// Fallback: generate via Lovable AI Gateway (Nano Banana / Gemini image preview)
+async function generateImageViaLovable(prompt: string): Promise<string | null> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) return null;
+  try {
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'google/gemini-3.1-flash-image-preview',
+        messages: [{ role: 'user', content: prompt }],
+        modalities: ['image', 'text'],
+      }),
+    });
+    if (!resp.ok) {
+      console.warn('Lovable AI image fallback failed:', resp.status, await resp.text());
+      return null;
+    }
+    const data = await resp.json();
+    const url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (url) {
+      console.log('Image generated via Lovable AI fallback');
+      return url;
+    }
+    return null;
+  } catch (e) {
+    console.warn('Lovable AI fallback exception:', e);
+    return null;
+  }
+}
+
+// Generate image with OpenAI gpt-image-1, fallback to Lovable AI on billing/auth errors
 async function generateImage(prompt: string, apiKey: string): Promise<string> {
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
@@ -102,7 +133,7 @@ async function generateImage(prompt: string, apiKey: string): Promise<string> {
       model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1024x1536', // Portrait-ish for 9:16
+      size: '1024x1536',
       quality: 'high',
     }),
   });
@@ -110,8 +141,18 @@ async function generateImage(prompt: string, apiKey: string): Promise<string> {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('OpenAI image error:', response.status, errorText);
+
+    const isBillingErr = errorText.includes('billing') || errorText.includes('quota') || errorText.includes('insufficient');
+    if (response.status === 401 || response.status === 402 || response.status === 429 || isBillingErr) {
+      console.log('Falling back to Lovable AI Gateway...');
+      const fallback = await generateImageViaLovable(prompt);
+      if (fallback) return fallback;
+    }
+
     if (response.status === 429) throw new Error('Rate limit exceeded. Please try again later.');
-    if (response.status === 401 || response.status === 402) throw new Error('OpenAI API key invalid or payment issue.');
+    if (response.status === 401 || response.status === 402 || isBillingErr) {
+      throw new Error('Image generation service at capacity. Please try again later.');
+    }
     throw new Error(`OpenAI error: ${response.status}`);
   }
 
