@@ -678,7 +678,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             image_url: url,
             prompt: `${angle.name} batch generation`,
             source: 'ai-twin-batch',
-            reference_image_url: twin.reference_images[0]
+            reference_image_url: activeReferenceImage
           }));
 
           await supabase.from('generated_images').insert(galleryInserts);
