@@ -177,6 +177,10 @@ interface BRollClip {
   audioEnabled?: boolean;
   /** Insertion order — higher wins when multiple b-rolls cover the same time (defensive tie-break). */
   z?: number;
+  /** Premium = AI-generated cinematic Wan 2.5 broll Marco picked from a transcript phrase. */
+  premium?: boolean;
+  /** When premium, the exact transcript phrase that triggered this broll (e.g. "better sleep"). */
+  triggerPhrase?: string;
 }
 
 interface OverlayAnimation {
