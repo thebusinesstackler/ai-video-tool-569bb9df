@@ -2129,6 +2129,24 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                   ))}
                 </div>
               )}
+              {!isLoadingHistory && historyProjects.length > HISTORY_PAGE_SIZE && (
+                <div className="flex items-center justify-center gap-3 pt-2 pb-4">
+                  <Button variant="outline" size="sm" disabled={historyPage === 1} onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}>
+                    Prev
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Page {historyPage} of {Math.ceil(historyProjects.length / HISTORY_PAGE_SIZE)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={historyPage >= Math.ceil(historyProjects.length / HISTORY_PAGE_SIZE)}
+                    onClick={() => setHistoryPage((p) => Math.min(Math.ceil(historyProjects.length / HISTORY_PAGE_SIZE), p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
