@@ -1216,7 +1216,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             <div className="flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
               Reference Images ({twin.reference_images?.length || 0})
-              <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation, hover for delete</span>
+              <span className="text-xs font-normal text-muted-foreground ml-2">⭐ = locked reference for angle generation. Hover to change or delete.</span>
             </div>
             <div className="flex gap-2">
               <GalleryImagePicker
