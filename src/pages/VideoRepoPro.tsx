@@ -1505,6 +1505,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                 <Film className="w-3.5 h-3.5" /> {showTimeline ? 'Hide Timeline' : 'Timeline'}
               </Button>
             )}
+            {selectedProject.generated_video_url && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setFrameExtractor({
+                  url: selectedProject.generated_video_url!,
+                  projectId: selectedProject.id,
+                  label: selectedProject.custom_name || 'Video',
+                })}
+                title="Save still frames to your B-Roll Library for use in Chatcut AI"
+              >
+                <Scissors className="w-3.5 h-3.5" /> Extract B-Roll
+              </Button>
+            )}
             <Badge variant="outline" className={`${statusColors[selectedProject.status] || ''}`}>
               {selectedProject.status}
             </Badge>
