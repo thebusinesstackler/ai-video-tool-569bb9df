@@ -421,7 +421,7 @@ export const VoiceCloner: React.FC<VoiceClonerProps> = ({
             <CardContent className="p-6 space-y-4">
               <h5 className="font-medium">Step 2: Consent Information</h5>
               <p className="text-sm text-muted-foreground">
-                Speechify requires consent information to clone your voice
+                We require consent information before cloning your voice
               </p>
               
               <div className="space-y-3">
