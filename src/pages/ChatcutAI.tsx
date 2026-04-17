@@ -2653,28 +2653,41 @@ const ChatcutAI = () => {
                       </div>
                       {savedBrollClips.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
-                          {savedBrollClips.slice(0, 18).map((c) => (
-                            <button
-                              key={c.id}
-                              className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black"
-                              onClick={() => addBRollFromVideoClip(c.image_url, c.prompt || 'Source clip', 3)}
-                              title={`Drop as ready B-Roll clip @ ${currentTime.toFixed(1)}s`}
-                            >
-                              <video
-                                src={`${c.image_url}#t=0.3`}
-                                preload="metadata"
-                                muted
-                                playsInline
-                                className="w-full aspect-video object-cover"
-                              />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
-                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
-                                {c.prompt || 'clip'}
-                              </div>
-                            </button>
-                          ))}
+                          {savedBrollClips.slice(0, 18).map((c) => {
+                            const meta = parseBrollClipMeta(c);
+                            const previewUrl = `${meta.sourceUrl}#t=${meta.sourceStart},${(meta.sourceStart + meta.duration).toFixed(2)}`;
+                            return (
+                              <button
+                                key={c.id}
+                                className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black"
+                                onClick={() => addBRollFromVideoClip({
+                                  videoUrl: meta.sourceUrl,
+                                  label: meta.label,
+                                  durationSec: meta.duration,
+                                  sourceStart: meta.sourceStart,
+                                  sourceUrl: meta.sourceUrl,
+                                })}
+                                title={`Drop ${meta.duration.toFixed(1)}s clip @ ${currentTime.toFixed(1)}s`}
+                              >
+                                <video
+                                  src={previewUrl}
+                                  preload="metadata"
+                                  muted
+                                  playsInline
+                                  className="w-full aspect-video object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
+                                  {meta.label}
+                                </div>
+                                <div className="absolute top-0.5 right-0.5 bg-primary/80 text-primary-foreground text-[8px] px-1 rounded">
+                                  {meta.duration.toFixed(1)}s
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-[10px] text-muted-foreground/60 text-center py-3">No source clips yet — hit Extract to slice short clips from the current video</p>
