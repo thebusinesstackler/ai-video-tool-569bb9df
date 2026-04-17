@@ -19,8 +19,11 @@ serve(async (req) => {
       });
     }
 
-    const { prompt: rawPrompt } = await req.json();
-    const sizePrefix = "Generate a small, compact overlay graphic element on a FULLY TRANSPARENT background (alpha channel, NOT dark, NOT white, NOT colored — completely transparent so it can be composited over any video). The graphic must be a self-contained badge / lower-third / button / title chip with NO surrounding rectangular frame, NO solid background fill, NO padding box around it. Only the actual graphic shape (text + minimal decorative element) should be visible — everything outside the design must be transparent pixels. Output format: PNG with alpha. ";
+    const { prompt: rawPrompt, brandPrimaryColor, brandTextColor, brandFont } = await req.json();
+    const brandLine = brandPrimaryColor
+      ? ` BRAND COLORS (use these for the shape's fill/accent): primary fill ${brandPrimaryColor}, text color ${brandTextColor || '#ffffff'}${brandFont ? `, font style similar to ${brandFont}` : ''}.`
+      : '';
+    const sizePrefix = `Generate a single self-contained UI overlay element on a FULLY TRANSPARENT alpha-channel background (true PNG alpha = 0 around the design — NOT a checkerboard pattern, NOT dark, NOT white). The element MUST be a real designed SHAPE with its own filled color and rounded corners. For BUTTONS: render an actual pill / rounded-rectangle button shape filled with the brand color, with the text rendered INSIDE the button shape. For BADGES / LOWER-THIRDS / TITLE CHIPS: render the actual chip/bar shape filled with color, text inside it. DO NOT render bare floating text — the design must always have a visible filled shape behind/around the text. Pixels OUTSIDE the designed shape must be 100% transparent (alpha 0) — no surrounding rectangular padding box, no outer frame, no plate.${brandLine} Output: PNG with alpha channel. `;
     const prompt = sizePrefix + (rawPrompt || "");
     if (!prompt || typeof prompt !== "string") {
       return new Response(JSON.stringify({ error: "Prompt is required" }), {
