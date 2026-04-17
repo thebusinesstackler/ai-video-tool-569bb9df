@@ -87,6 +87,9 @@ const Podcast = () => {
   const [customAudioName, setCustomAudioName] = useState<string | null>(null);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
 
+  // Brand product images (used to feature the product in shot)
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
+
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
   // Auto-estimate duration from word count
