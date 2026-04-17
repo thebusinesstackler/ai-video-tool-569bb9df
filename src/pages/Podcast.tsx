@@ -617,24 +617,30 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                 </div>
 
                 {/* Generate Button */}
-                <Button
-                  className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20"
-                  size="lg"
-                  onClick={generate}
-                  disabled={isGenerating || !selectedTwinId || !message.trim()}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      {progressStatus || 'Generating...'}
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Generate Talking Head
-                    </>
-                  )}
-                </Button>
+                {(() => {
+                  const activeVar = variations.find(v => v.id === activeVariationId) || null;
+                  const hasInput = activeVar ? true : !!message.trim();
+                  return (
+                    <Button
+                      className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20"
+                      size="lg"
+                      onClick={() => generate(activeVar || undefined)}
+                      disabled={isGenerating || !selectedTwinId || !hasInput}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          {progressStatus || 'Generating...'}
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-5 h-5 mr-2" />
+                          {activeVar ? `Render "${activeVar.styleLabel}" variation` : 'Generate Talking Head'}
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
 
                 {/* Progress */}
                 {isGenerating && (
