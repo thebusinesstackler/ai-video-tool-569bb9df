@@ -245,9 +245,32 @@ const ChatcutAI = () => {
     })();
   }, [user]);
 
+  // Load saved B-roll frames + product gallery for media panel
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!user) return;
+    (async () => {
+      try {
+        const { data: frames } = await supabase
+          .from('generated_images')
+          .select('id, image_url, prompt')
+          .eq('user_id', user.id)
+          .eq('source', 'broll-frame')
+          .order('created_at', { ascending: false })
+          .limit(60);
+        if (frames) setSavedBrollFrames(frames as any);
+      } catch (e) { console.warn('frames load failed', e); }
+      try {
+        const { data: pgal } = await supabase
+          .from('product_gallery')
+          .select('id, image_url, label')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(60);
+        if (pgal) setProductImages(pgal as any);
+      } catch (e) { console.warn('product gallery load failed', e); }
+    })();
+  }, [user]);
+
 
   // Track user interaction for autoplay policy
   useEffect(() => {
