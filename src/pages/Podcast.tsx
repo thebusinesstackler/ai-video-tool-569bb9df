@@ -406,7 +406,8 @@ Return ONLY valid JSON:
       "hook": "one-line teaser",
       "narration": "full spoken script ~${wordTarget} words",
       "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays.",
-      "featuredProduct": "${hasBrand ? 'name of product or angle this script highlights' : 'topic angle'}",
+      "featuredProduct": "${hasBrand ? 'EXACT product name from the brand catalog above (must match one of them verbatim if showProduct is true)' : 'topic angle'}",
+      "showProduct": ${hasBrand ? 'true if the script benefits from physically showing the product on-screen (e.g. unboxing, demo, "this is what I take every morning"), false otherwise' : 'false'},
       "audience": "who this script speaks to"
     }
     // ... 4 total, all different
