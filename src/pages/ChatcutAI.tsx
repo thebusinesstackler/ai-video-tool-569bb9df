@@ -2504,14 +2504,16 @@ const ChatcutAI = () => {
                           </button>
                         </div>
                       )}
-                      {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
+                      {/* Main video - when PiP is enabled with a bg layer, this becomes the PiP overlay */}
                       <video
                         ref={videoRef}
                         src={videoUrl}
                         className={cn(
                           "w-full h-full block object-contain",
                           activeBRoll && "opacity-0",
-                          pipEnabled && bgVideoUrl && "hidden" // Hide original; PiP component shows it
+                          pipEnabled && ((pipBgMode === 'video' && bgVideoUrl) || (pipBgMode === 'product-feed' && productImages.length > 0)) && "hidden",
+                          cutoutMode === 'white' && "mix-blend-multiply",
+                          cutoutMode === 'dark' && "mix-blend-screen",
                         )}
                         onClick={togglePlay}
                       />
