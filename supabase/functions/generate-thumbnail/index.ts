@@ -31,6 +31,8 @@ serve(async (req) => {
       style = "tiktok-bold",
       aspectHint = "vertical",
       extraPrompt = "",
+      productImageUrl = null,
+      productName = null,
     } = body || {};
 
     // Build a focused prompt for a high-energy TikTok cover image.
@@ -54,6 +56,12 @@ serve(async (req) => {
       .trim()
       .slice(0, 120) || "WATCH THIS";
 
+    // CRITICAL: when a product reference image is provided, instruct Nano Banana
+    // to render that EXACT product (label, bottle shape, color, branding) — no hallucination.
+    const productLine = productImageUrl
+      ? `\n\nPRODUCT REFERENCE (CRITICAL — MATCH EXACTLY):\nThe attached reference image shows the user's actual product${productName ? ` ("${productName}")` : ""}. You MUST render this product in the cover IDENTICALLY to how it appears in the reference: same bottle/packaging shape, same label text and typography, same colors, same branding. Do NOT invent a new label or alter the product design. Place the product as a HERO element next to the headline so the brand is instantly recognizable. Treat the reference as the source of truth for the product's appearance.`
+      : "";
+
     const prompt = `Create a SCROLL-STOPPING cover image for a short-form video.
 
 ${aspectLine}
@@ -67,7 +75,7 @@ VIDEO TOPIC / TRANSCRIPT EXCERPT for visual inspiration (do NOT render this text
 
 ${brandName ? `Brand: ${brandName}.` : ""}
 Use the brand color ${brandPrimaryColor} as the dominant accent for the headline fill, underline bar, or button shape behind the text.
-Use a typeface in the spirit of "${brandFont}" — bold weight only.
+Use a typeface in the spirit of "${brandFont}" — bold weight only.${productLine}
 
 VISUAL DIRECTION:
 - One clear subject or focal element supporting the headline (product, hand, face, object, dramatic scene).
@@ -78,6 +86,13 @@ VISUAL DIRECTION:
 
 ${extraPrompt ? `Extra direction from the editor: ${extraPrompt}` : ""}`;
 
+    // Multimodal content: include the reference product image inline so Nano Banana
+    // can faithfully reproduce its label/packaging.
+    const userContent: any[] = [{ type: "text", text: prompt }];
+    if (productImageUrl) {
+      userContent.push({ type: "image_url", image_url: { url: productImageUrl } });
+    }
+
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -86,7 +101,7 @@ ${extraPrompt ? `Extra direction from the editor: ${extraPrompt}` : ""}`;
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image",
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: productImageUrl ? userContent : prompt }],
         modalities: ["image", "text"],
       }),
     });

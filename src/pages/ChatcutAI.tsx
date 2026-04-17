@@ -1346,6 +1346,8 @@ const ChatcutAI = () => {
     duration?: number;
     extraPrompt?: string;
     silent?: boolean;
+    productImageUrl?: string;
+    productName?: string;
   } = {}) => {
     setIsGeneratingThumbnail(true);
     try {
@@ -1369,6 +1371,8 @@ const ChatcutAI = () => {
           brandName: '',
           brandPrimaryColor: brandSettings.primaryColor,
           brandFont: brandSettings.font,
+          productImageUrl: opts.productImageUrl || null,
+          productName: opts.productName || null,
         },
       });
       if (error || !data?.imageUrl) throw new Error(error?.message || 'No image returned');
@@ -1708,12 +1712,29 @@ const ChatcutAI = () => {
           break;
         }
         case 'set_thumbnail': {
-          toast({ title: '🎨 Generating thumbnail…', description: 'Marco is designing your TikTok cover with Nano Banana' });
+          // Resolve a product image if Marco asked for one (or user pinned a product reference)
+          let prodImg: string | undefined;
+          let prodName: string | undefined;
+          if (act.productId) {
+            const m = productImages.find(p => p.product_id === act.productId);
+            if (m) { prodImg = m.image_url; prodName = m.product_name || act.productName; }
+          }
+          if (!prodImg && act.productName) {
+            const needle = String(act.productName).toLowerCase();
+            const m = productImages.find(p => (p.product_name || '').toLowerCase().includes(needle));
+            if (m) { prodImg = m.image_url; prodName = m.product_name || act.productName; }
+          }
+          toast({
+            title: '🎨 Generating thumbnail…',
+            description: prodImg ? `Marco is using your ${prodName || 'product'} image as reference` : 'Marco is designing your TikTok cover with Nano Banana',
+          });
           generateThumbnail({
             hookText: act.hookText || act.headline,
             style: act.style || 'tiktok-bold',
             duration: typeof act.duration === 'number' ? act.duration : 1.5,
             extraPrompt: act.extraPrompt || act.prompt,
+            productImageUrl: prodImg,
+            productName: prodName,
             silent: true,
           });
           break;
