@@ -123,6 +123,14 @@ interface OverlayItem {
   duration: number;
   imageUrl?: string;
   imageStatus?: 'generating' | 'ready' | 'failed';
+  /** When renderMode='video', the animated VEO 3.1 clip URL. */
+  videoUrl?: string;
+  videoStatus?: 'generating' | 'ready' | 'failed';
+  /** Optional start/end frames Marco generated to drive the animation (kept for debug/regeneration). */
+  startFrameUrl?: string;
+  endFrameUrl?: string;
+  /** Optional natural-language animation prompt for VEO. */
+  animationPrompt?: string;
   animation?: OverlayAnimation;
   style?: string;
   position?: { x: number; y: number };
@@ -131,8 +139,9 @@ interface OverlayItem {
    * 'dom'   → rendered crisply by <SmartOverlay/> with brand colors. No PNG, no transparency artifacts.
    *           Default for stat/list/quote/lower-third/CTA cards.
    * 'image' → rendered as a real PNG/JPG (Nano Banana 2 image, product chip, custom illustration).
+   * 'video' → rendered as an animated VEO 3.1 video graphic (premium hero reveals).
    */
-  renderMode?: 'dom' | 'image';
+  renderMode?: 'dom' | 'image' | 'video';
   /** Optional list items for benefit_list, numbered_list, feature_grid, comparison, full_coverage. */
   items?: string[];
   /** Optional second line of copy under the headline (e.g. URL under a CTA, attribution under a quote). */
