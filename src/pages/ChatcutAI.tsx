@@ -1572,6 +1572,17 @@ const ChatcutAI = () => {
     return candidates.reduce((winner, c) => ((c.z ?? 0) > (winner.z ?? 0) ? c : winner));
   })();
 
+  // Mute main video while a b-roll with its own audio is active
+  useEffect(() => {
+    if (!videoRef.current) return;
+    const shouldMuteMain = !!(activeBRoll && activeBRoll.audioEnabled);
+    if (shouldMuteMain) {
+      videoRef.current.muted = true;
+    } else {
+      videoRef.current.muted = trackMuted.v1;
+    }
+  }, [activeBRoll, trackMuted.v1]);
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
