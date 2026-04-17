@@ -2298,12 +2298,14 @@ const ChatcutAI = () => {
                       )}
                       style={{
                         lineHeight: 0,
-                        aspectRatio: videoAspect ? `${videoAspect}` : '16 / 9',
-                        // Constrain so the wrapper fits within available space regardless of orientation
+                        // In reel preview mode we letterbox the wrapper to 9:16 and
+                        // shift the inner video horizontally with reelCropX so the user
+                        // can see how a vertical crop would look (with optional AI-centered offset).
+                        aspectRatio: reelPreview ? '9 / 16' : (videoAspect ? `${videoAspect}` : '16 / 9'),
                         maxHeight: '100%',
                         maxWidth: '100%',
-                        height: videoAspect && videoAspect < 1 ? '100%' : 'auto',
-                        width: videoAspect && videoAspect >= 1 ? '100%' : 'auto',
+                        height: reelPreview ? '100%' : (videoAspect && videoAspect < 1 ? '100%' : 'auto'),
+                        width: reelPreview ? 'auto' : (videoAspect && videoAspect >= 1 ? '100%' : 'auto'),
                       }}
                     >
                       {/* Background video (when PiP mode is active) */}
@@ -2627,7 +2629,23 @@ const ChatcutAI = () => {
                     onClick={() => setCaptionSettings(prev => ({ ...prev, enabled: !prev.enabled }))}>
                     <Captions className={cn("w-3.5 h-3.5", captionSettings.enabled && "text-pink-400")} />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Picture-in-Picture"
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title={reelPreview ? 'Exit reel preview' : 'Preview as 9:16 reel'}
+                    onClick={() => setReelPreview(v => !v)}>
+                    <Smartphone className={cn("w-3.5 h-3.5", reelPreview && "text-pink-400")} />
+                  </Button>
+                  {reelPreview && (
+                    <>
+                      <div className="flex items-center gap-1.5 ml-1">
+                        <span className="text-[10px] text-muted-foreground">Crop</span>
+                        <Slider value={[reelCropX]} onValueChange={(v) => setReelCropX(v[0])} min={0} max={100} step={1} className="w-20" />
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] gap-1" disabled={isAutoCentering} onClick={autoCenterSubjectForReel} title="AI: auto-center on subject">
+                        {isAutoCentering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        AI center
+                      </Button>
+                    </>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title={pipEnabled ? 'Remove PiP background' : 'Upload background video for PiP'}
                     onClick={() => {
                       if (pipEnabled) {
                         setPipEnabled(false);
