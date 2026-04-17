@@ -1107,7 +1107,16 @@ const ChatcutAI = () => {
             textColor: brandSettings.textColor,
             font: brandSettings.font,
             hasLogo: !!brandSettings.logoUrl,
+            websiteUrl: brandSettings.websiteUrl || '',
           },
+          productLibrary: productLibrary.map(p => ({
+            name: p.name,
+            description: p.description,
+            benefits: p.benefits,
+            brand: p.brand_name,
+            hasImage: !!p.primary_image,
+          })),
+          savedFramesCount: savedBrollFrames.length,
         }),
       });
       if (!resp.ok || !resp.body) {
