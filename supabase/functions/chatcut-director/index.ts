@@ -255,6 +255,11 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
 - Whisper / transcription often "corrects" unusual brand names into common English words. If the transcript contains a phonetic mismatch (e.g. "lifecycle"), silently re-map it back to the canonical brand spelling before writing any caption, overlay, lower-third, motion graphic, end-frame, or B-roll prompt.
 - This rule applies to EVERY string you generate: overlay text, image-prompt subjects, voiceover-style copy, your chat replies, all of it. If you're about to write a brand name, double-check the brandVocabulary list first.
 
+## VIDEO VISION
+- The latest user turn includes 6-8 actual still frames sampled across the source video. LOOK at them before you reply.
+- Use them to: judge the aesthetic (UGC vs polished), spot the speaker's setting, see what props/products are physically present, and match B-roll color + lighting to the real scene.
+- When you reference a specific moment, tie it to the closest frame's timestamp.`;
+
     const allMessages: { role: string; content: string }[] = [
       { role: "system", content: systemPrompt },
     ];
