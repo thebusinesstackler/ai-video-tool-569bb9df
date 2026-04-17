@@ -1313,14 +1313,18 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
       const resultMsg: ChatMessage = {
         id: `result-${Date.now()}`,
         role: 'assistant',
-        content: '✅ Both segments are ready! Review each one below. Want changes, or to add your product into a scene? Just tell me in the chat.',
+        content: '✅ Both segments are ready! Review each one below. Want changes, or to add your product into a scene? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.',
         videoResults: [
           { url: segment1Url, label: 'Segment 1' },
           { url: segment2Url, label: 'Segment 2' },
         ],
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
-      fetchHistory();
+      await fetchHistory();
+      toast({
+        title: '✅ Saved to History',
+        description: 'Both segments are saved. Click the History tab to view all your projects.',
+      });
     } catch (genErr: any) {
       if (projectId) {
         await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
