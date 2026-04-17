@@ -261,7 +261,8 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
               ))}
               {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
                 <div className="flex gap-3">
-                  <Avatar className="w-7 h-7 flex-shrink-0 bg-gradient-to-br from-primary to-primary/60">
+                  <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-primary/20">
+                    <AvatarImage src={directorAvatar} alt="Director" />
                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground text-xs">
                       <Wand2 className="w-3 h-3" />
                     </AvatarFallback>
