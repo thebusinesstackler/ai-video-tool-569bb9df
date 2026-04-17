@@ -659,6 +659,13 @@ const ChatcutAI = () => {
   }, []);
 
   const getTimelineState = useCallback(() => ({
+    sourceVideo: {
+      hasVideo: !!videoUrl,
+      duration: duration || 0,
+      coverageNote: videoUrl
+        ? `The source video is loaded on track V1 and plays CONTINUOUSLY from 0.0s to ${(duration || 0).toFixed(1)}s. There are NO gaps in the source video footage — every second between 0 and ${(duration || 0).toFixed(1)}s has visual content. NEVER tell the user "there's no visual at Xs" — the source video covers the entire timeline. Only B-Roll, overlays, music, and captions can be missing.`
+        : 'No source video uploaded yet.',
+    },
     clips: timelineClips.map(c => ({ name: c.name, startAt: c.startAt, duration: c.duration })),
     cuts: cuts.filter(c => c.accepted),
     musicTracks: musicTracks.map(t => ({ name: t.name, genre: t.genre, mood: t.mood, volume: t.volume, startAt: t.startAt, duration: t.duration, hasAudio: !!t.audioUrl })),
@@ -672,7 +679,7 @@ const ChatcutAI = () => {
       font: brandSettings.font,
       hasLogo: !!brandSettings.logoUrl,
     },
-  }), [timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
+  }), [videoUrl, duration, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
 
   const saveDraft = useCallback(async () => {
     if (!user) return;
