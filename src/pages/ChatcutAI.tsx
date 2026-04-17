@@ -2782,7 +2782,8 @@ const ChatcutAI = () => {
                                 <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
                               </div>
                             </button>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-[10px] text-muted-foreground/60 text-center py-3">No saved frames yet</p>
