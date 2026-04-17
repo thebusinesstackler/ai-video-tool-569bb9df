@@ -271,8 +271,11 @@ const ChatcutAI = () => {
     })();
   }, [user]);
 
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  // Track user interaction for autoplay policy
+
   useEffect(() => {
     if (hasInteracted) return;
     const markInteracted = () => setHasInteracted(true);
