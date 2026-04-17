@@ -634,6 +634,7 @@ const ChatcutAI = () => {
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('raw-footage').getPublicUrl(path);
       setBgVideoUrl(urlData.publicUrl);
+      setPipBgMode('video');
       setPipEnabled(true);
       toast({ title: 'Background video added', description: 'Your main video is now a PiP overlay. Drag to reposition, click size to resize.' });
     } catch (err: any) {
