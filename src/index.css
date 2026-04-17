@@ -67,43 +67,51 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Enhanced Dark Mode for AI Platform */
-    --background: 222 47% 4%;
-    --foreground: 213 31% 91%;
+    /* Black Chrome Dark Mode — Glossy Glassmorphism */
+    --background: 220 15% 4%;
+    --foreground: 210 20% 94%;
 
-    --card: 222 47% 6%;
-    --card-foreground: 213 31% 91%;
+    --card: 220 15% 8%;
+    --card-foreground: 210 20% 94%;
 
-    --popover: 222 47% 6%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 220 15% 7%;
+    --popover-foreground: 210 20% 94%;
 
     --primary: 261 73% 62%;
-    --primary-foreground: 213 31% 91%;
+    --primary-foreground: 0 0% 100%;
     --primary-glow: 261 73% 72%;
 
-    --secondary: 222 47% 8%;
-    --secondary-foreground: 213 31% 91%;
+    --secondary: 220 15% 10%;
+    --secondary-foreground: 210 20% 94%;
 
-    --muted: 222 47% 8%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 15% 10%;
+    --muted-foreground: 215 15% 62%;
 
     --accent: 261 73% 62%;
-    --accent-foreground: 213 31% 91%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
-    --destructive-foreground: 213 31% 91%;
+    --destructive-foreground: 210 20% 94%;
 
-    --border: 222 47% 12%;
-    --input: 222 47% 8%;
+    --border: 220 15% 18%;
+    --input: 220 15% 10%;
     --ring: 261 73% 62%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+
+    /* Chrome highlights & glass */
+    --chrome-highlight: 0 0% 100%;
+    --chrome-edge: 220 15% 28%;
+    --glass-bg: hsl(220 15% 8% / 0.6);
+    --glass-border: hsl(220 15% 28% / 0.6);
+    --glass-shadow: 0 8px 32px hsl(220 50% 2% / 0.5), inset 0 1px 0 hsl(0 0% 100% / 0.08);
+
+    --sidebar-background: 220 15% 6%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 261 73% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 220 15% 12%;
+    --sidebar-accent-foreground: 210 20% 94%;
+    --sidebar-border: 220 15% 16%;
+    --sidebar-ring: 261 73% 62%;
   }
 }
 
