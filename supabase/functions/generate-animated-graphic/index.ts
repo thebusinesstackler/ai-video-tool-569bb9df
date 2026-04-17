@@ -128,7 +128,7 @@ The animation must feel polished and broadcast-quality: subtle camera push-in, t
       image: startFrameUrl,
       generate_audio: false,
       aspect_ratio: aspectRatio === "16:9" ? "16:9" : "9:16",
-      duration: Math.min(Math.max(duration, 4), 8),
+      duration: [4, 6, 8].includes(duration) ? duration : (duration <= 5 ? 4 : duration <= 7 ? 6 : 8),
       resolution: "720p",
     };
 
