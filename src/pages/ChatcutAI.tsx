@@ -1165,6 +1165,18 @@ const ChatcutAI = () => {
   }, [transcript, videoAspect, brandSettings, currentTime, toast]);
 
   const executeActions = useCallback((actions: TimelineAction[]) => {
+    if (actions.length === 0) return;
+    // Snapshot timeline state RIGHT NOW so the user can undo whatever Marco is about to do.
+    setAiUndoSnapshot({
+      timelineClips,
+      cuts,
+      musicTracks,
+      overlays,
+      bRollClips,
+      captionSettings,
+      thumbnail,
+      label: actions.map((a) => a.action).join(', '),
+    });
     for (const act of actions) {
       switch (act.action) {
         case 'cut':
