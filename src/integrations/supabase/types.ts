@@ -1225,6 +1225,54 @@ export type Database = {
         }
         Relationships: []
       }
+      voiceover_studio_projects: {
+        Row: {
+          created_at: string
+          edited_script: string | null
+          final_video_url: string | null
+          id: string
+          name: string
+          new_voiceover_url: string | null
+          original_audio_url: string | null
+          source_video_url: string | null
+          status: string
+          transcript: string | null
+          updated_at: string
+          user_id: string
+          voice_source: Json | null
+        }
+        Insert: {
+          created_at?: string
+          edited_script?: string | null
+          final_video_url?: string | null
+          id?: string
+          name?: string
+          new_voiceover_url?: string | null
+          original_audio_url?: string | null
+          source_video_url?: string | null
+          status?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id: string
+          voice_source?: Json | null
+        }
+        Update: {
+          created_at?: string
+          edited_script?: string | null
+          final_video_url?: string | null
+          id?: string
+          name?: string
+          new_voiceover_url?: string | null
+          original_audio_url?: string | null
+          source_video_url?: string | null
+          status?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id?: string
+          voice_source?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
