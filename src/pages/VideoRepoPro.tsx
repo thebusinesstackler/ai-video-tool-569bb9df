@@ -1313,14 +1313,18 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
       const resultMsg: ChatMessage = {
         id: `result-${Date.now()}`,
         role: 'assistant',
-        content: '✅ Both segments are ready! Review each one below. Want changes, or to add your product into a scene? Just tell me in the chat.',
+        content: '✅ Both segments are ready! Review each one below. Want changes, or to add your product into a scene? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.',
         videoResults: [
           { url: segment1Url, label: 'Segment 1' },
           { url: segment2Url, label: 'Segment 2' },
         ],
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
-      fetchHistory();
+      await fetchHistory();
+      toast({
+        title: '✅ Saved to History',
+        description: 'Both segments are saved. Click the History tab to view all your projects.',
+      });
     } catch (genErr: any) {
       if (projectId) {
         await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
@@ -1453,7 +1457,11 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
               <Card><CardContent className="p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Generated Video</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase">
+                    {selectedProject.segment_urls && selectedProject.segment_urls.length > 1
+                      ? `Generated Segments (${selectedProject.segment_urls.length})`
+                      : 'Generated Video'}
+                  </p>
                   {selectedProject.generated_video_url && (
                     <Button
                       size="sm"
@@ -1467,7 +1475,33 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     </Button>
                   )}
                 </div>
-                {selectedProject.generated_video_url ? (
+                {selectedProject.segment_urls && selectedProject.segment_urls.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedProject.segment_urls.map((segUrl, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <p className="text-[11px] font-medium text-muted-foreground">Segment {idx + 1}</p>
+                        <video src={segUrl} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" preload="metadata" playsInline />
+                        <Button size="sm" variant="secondary" className="w-full h-8 text-xs" asChild>
+                          <a href={segUrl} download target="_blank" rel="noopener noreferrer">
+                            <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full gap-1.5 h-8 text-xs"
+                          onClick={() => setFrameExtractor({
+                            url: segUrl,
+                            projectId: selectedProject.id,
+                            label: `${selectedProject.custom_name || 'Video'} - Segment ${idx + 1}`,
+                          })}
+                        >
+                          <Scissors className="w-3 h-3" /> Extract B-Roll
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : selectedProject.generated_video_url ? (
                   <div className="space-y-2">
                     <video src={selectedProject.generated_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
                     <Button size="sm" variant="secondary" className="w-full" asChild>
@@ -1496,34 +1530,6 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   </div>
                 )}
               </CardContent></Card>
-
-              {/* Individual Segments */}
-              {selectedProject.segment_urls && selectedProject.segment_urls.length > 0 && (
-                <Card><CardContent className="p-3">
-                  <button
-                    className="flex items-center justify-between w-full text-xs font-medium text-muted-foreground uppercase"
-                    onClick={() => setShowSegments(!showSegments)}
-                  >
-                    <span className="flex items-center gap-1.5"><Film className="w-3.5 h-3.5" /> Individual Segments ({selectedProject.segment_urls.length})</span>
-                    <span className="text-[10px] text-primary">{showSegments ? 'Hide' : 'Show'}</span>
-                  </button>
-                  {showSegments && (
-                    <div className="mt-3 space-y-3">
-                      {selectedProject.segment_urls.map((segUrl, idx) => (
-                        <div key={idx} className="space-y-1.5">
-                          <p className="text-[11px] font-medium text-muted-foreground">Segment {idx + 1}</p>
-                          <video src={`${segUrl}#t=0.5`} controls className="w-full rounded-lg max-h-[200px] object-contain bg-black" preload="metadata" playsInline />
-                          <Button size="sm" variant="ghost" className="w-full h-7 text-xs" asChild>
-                            <a href={segUrl} download target="_blank" rel="noopener noreferrer">
-                              <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
-                            </a>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent></Card>
-              )}
 
               {selectedProject.product_image_url && (
                 <Card><CardContent className="p-3">
