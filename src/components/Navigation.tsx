@@ -118,11 +118,18 @@ export const Navigation = () => {
     const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
     return saved === 'true';
   });
+  const [hasMounted, setHasMounted] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // Enable width transition only after first paint to prevent flash on mount
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setHasMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
