@@ -273,8 +273,14 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
       });
     }
 
-    if (messages && Array.isArray(messages)) {
-      allMessages.push(...messages);
+    if (Array.isArray(savedSourceClips) && savedSourceClips.length > 0) {
+      const list = savedSourceClips
+        .map((c: any) => `- id="${c.id}" | "${c.label}" | in=${c.sourceStart}s | dur=${c.duration}s`)
+        .join('\n');
+      allMessages.push({
+        role: "system",
+        content: `USER'S SAVED SOURCE CLIPS (${savedSourceClips.length} short video segments already cut from prior sources, ready to drop instantly — no generation needed):\n${list}\n\nWHEN ADDING B-ROLL: pick the most semantically relevant one and use action=add_broll with sourceClipId=<id>. Only fall back to generation if NONE match. Mention which saved clip you're using ("dropping in your '${savedSourceClips[0].label}' here").`,
+      });
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
