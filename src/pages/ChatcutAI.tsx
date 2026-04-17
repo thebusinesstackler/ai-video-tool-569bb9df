@@ -1908,7 +1908,7 @@ const ChatcutAI = () => {
                             key={activeBRoll.id}
                             src={activeBRoll.videoUrl}
                             autoPlay
-                            muted
+                            muted={!activeBRoll.audioEnabled}
                             loop={typeof activeBRoll.sourceStart !== 'number'}
                             playsInline
                             className="block absolute inset-0 w-full h-full object-cover z-[5]"
@@ -1933,6 +1933,31 @@ const ChatcutAI = () => {
                             className="block absolute inset-0 w-full h-full object-cover z-[5]"
                           />
                         )
+                      )}
+                      {/* Active B-Roll badge — shows which clip is on screen and lets user toggle its audio */}
+                      {activeBRoll && (
+                        <div className="absolute top-2 left-2 z-[6] flex items-center gap-1.5 bg-background/85 backdrop-blur px-2 py-1 rounded-md border border-border shadow-sm pointer-events-auto">
+                          <span className="text-[10px] font-medium text-foreground truncate max-w-[160px]">B-Roll: {activeBRoll.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBRollClips(prev => prev.map(b => b.id === activeBRoll.id ? { ...b, audioEnabled: !b.audioEnabled } : b));
+                              if (videoRef.current) {
+                                videoRef.current.muted = !activeBRoll.audioEnabled ? true : false;
+                              }
+                            }}
+                            className={cn(
+                              "h-5 w-5 rounded flex items-center justify-center transition-colors",
+                              activeBRoll.audioEnabled
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                            )}
+                            title={activeBRoll.audioEnabled ? 'B-Roll audio ON (main video muted)' : 'B-Roll audio OFF (main video plays)'}
+                          >
+                            {activeBRoll.audioEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                          </button>
+                        </div>
                       )}
                       {/* Main video - when PiP is enabled, this becomes the PiP overlay */}
                       <video
