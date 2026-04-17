@@ -495,12 +495,17 @@ const AITwin = () => {
             <DialogHeader>
               <DialogTitle>{selectedTwin?.name}</DialogTitle>
             </DialogHeader>
-            {selectedTwin && (
-              <TwinDetailPanel 
-                twin={selectedTwin} 
-                onUpdate={loadTwins}
-              />
-            )}
+            {selectedTwin && (() => {
+              // Always render with the freshest copy from the twins array so updates
+              // (image deletes, additions, edits) reflect immediately in the open panel.
+              const liveTwin = twins.find(t => t.id === selectedTwin.id) ?? selectedTwin;
+              return (
+                <TwinDetailPanel 
+                  twin={liveTwin} 
+                  onUpdate={loadTwins}
+                />
+              );
+            })()}
           </DialogContent>
         </Dialog>
       </div>

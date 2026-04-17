@@ -43,7 +43,8 @@ import {
   Save,
   XCircle,
   Trash2,
-  Check
+  Check,
+  Star
 } from 'lucide-react';
 import { TwinSpeaker } from './TwinSpeaker';
 import { VoiceCloner } from './VoiceCloner';
@@ -151,6 +152,26 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   
   // Delete confirmation state
   const [imageToDelete, setImageToDelete] = useState<string | null>(null);
+
+  // Locked primary reference image — used as the "source of truth" for angle generation
+  const [primaryImageUrl, setPrimaryImageUrl] = useState<string | null>(
+    twin.reference_images?.[0] || null
+  );
+
+  // Keep primary in sync when twin prop changes (e.g. after add/delete refresh)
+  React.useEffect(() => {
+    if (!twin.reference_images || twin.reference_images.length === 0) {
+      setPrimaryImageUrl(null);
+      return;
+    }
+    // If current primary still exists in the list, keep it. Otherwise reset to first.
+    if (!primaryImageUrl || !twin.reference_images.includes(primaryImageUrl)) {
+      setPrimaryImageUrl(twin.reference_images[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [twin.reference_images]);
+
+  const activeReferenceImage = primaryImageUrl || twin.reference_images?.[0] || null;
 
   const POSE_PRESETS = [
     { id: 'standing', label: 'Standing', prompt: 'standing upright, full body visible' },
@@ -339,7 +360,7 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   };
 
   const generateTwinImage = async (angle: CameraAngle) => {
-    if (!twin.reference_images?.[0]) {
+    if (!activeReferenceImage) {
       toast({
         title: 'No reference image',
         description: 'This twin needs at least one reference image',
@@ -377,7 +398,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
         body: {
           prompt,
-          referenceImageUrl: twin.reference_images[0],
+          referenceImageUrl: activeReferenceImage,
           characterDescription: twin.face_description || twin.description
         }
       });
@@ -419,7 +440,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
               image_url: data.imageUrl,
               prompt: prompt,
               source: 'ai-twin',
-              reference_image_url: twin.reference_images[0]
+              reference_image_url: activeReferenceImage
             });
 
           if (galleryError) {
@@ -574,7 +595,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
 
   // Batch generate 5 images at once
   const generateBatchImages = async (angle: CameraAngle) => {
-    if (!twin.reference_images?.[0]) {
+    if (!activeReferenceImage) {
       toast({
         title: 'No reference image',
         description: 'This twin needs at least one reference image',
@@ -617,7 +638,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         const { data, error } = await supabase.functions.invoke('generate-scene-image', {
           body: {
             prompt,
-            referenceImageUrl: twin.reference_images[0],
+            referenceImageUrl: activeReferenceImage,
             characterDescription: twin.face_description || twin.description
           }
         });
@@ -657,7 +678,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             image_url: url,
             prompt: `${angle.name} batch generation`,
             source: 'ai-twin-batch',
-            reference_image_url: twin.reference_images[0]
+            reference_image_url: activeReferenceImage
           }));
 
           await supabase.from('generated_images').insert(galleryInserts);
@@ -1195,7 +1216,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
             <div className="flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
               Reference Images ({twin.reference_images?.length || 0})
-              <span className="text-xs font-normal text-muted-foreground ml-2">Click to create variation, hover for delete</span>
+              <span className="text-xs font-normal text-muted-foreground ml-2">⭐ = locked reference for angle generation. Hover to change or delete.</span>
             </div>
             <div className="flex gap-2">
               <GalleryImagePicker
@@ -1229,43 +1250,72 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-4 gap-2">
-            {twin.reference_images?.map((img, idx) => (
-              <div 
-                key={idx}
-                className="relative group cursor-pointer"
-              >
-                <img 
-                  src={img}
-                  alt={`Reference ${idx + 1}`}
-                  className="w-full aspect-square object-cover rounded-lg hover:ring-2 hover:ring-primary transition-all"
-                  onClick={() => setVariationSourceImage(img)}
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="w-8 h-8 bg-white/20 hover:bg-white/40 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVariationSourceImage(img);
-                    }}
-                  >
-                    <Wand2 className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="w-8 h-8 bg-destructive/80 hover:bg-destructive text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImageToDelete(img);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+            {twin.reference_images?.map((img, idx) => {
+              const isPrimary = img === activeReferenceImage;
+              return (
+                <div 
+                  key={`${idx}-${img}`}
+                  className="relative group cursor-pointer"
+                >
+                  <img 
+                    src={img}
+                    alt={`Reference ${idx + 1}`}
+                    className={`w-full aspect-square object-cover rounded-lg transition-all ${
+                      isPrimary 
+                        ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-background' 
+                        : 'hover:ring-2 hover:ring-primary'
+                    }`}
+                    onClick={() => setPrimaryImageUrl(img)}
+                  />
+                  {isPrimary && (
+                    <div className="absolute top-1 left-1 bg-yellow-400 text-black rounded-full p-1 shadow-md pointer-events-none">
+                      <Star className="w-3 h-3 fill-current" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
+                    {!isPrimary && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Set as locked reference"
+                        className="w-8 h-8 bg-yellow-400/80 hover:bg-yellow-400 text-black"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPrimaryImageUrl(img);
+                          toast({ title: 'Reference locked', description: 'This image will be used to generate angles.' });
+                        }}
+                      >
+                        <Star className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Create variation"
+                      className="w-8 h-8 bg-white/20 hover:bg-white/40 text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVariationSourceImage(img);
+                      }}
+                    >
+                      <Wand2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Delete image"
+                      className="w-8 h-8 bg-destructive/80 hover:bg-destructive text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImageToDelete(img);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
