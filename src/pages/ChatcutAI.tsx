@@ -1399,6 +1399,8 @@ const ChatcutAI = () => {
             hasImage: !!p.primary_image,
           })),
           savedFramesCount: savedBrollFrames.length,
+          videoFrames,
+          brandVocabulary,
           savedSourceClips: savedBrollClips.slice(0, 12).map((c) => {
             const meta = parseBrollClipMeta(c);
             return { id: c.id, label: meta.label, sourceStart: meta.sourceStart, duration: meta.duration };
@@ -1999,6 +2001,18 @@ const ChatcutAI = () => {
                         <Button type="button" variant="ghost" size="sm" className="text-xs gap-1 h-7 text-muted-foreground">
                           <Sparkles className="w-3 h-3" /> Agent
                         </Button>
+                        {aiUndoSnapshot && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs gap-1 h-7 text-muted-foreground hover:text-foreground"
+                            onClick={undoLastAIAction}
+                            title={`Undo: ${aiUndoSnapshot.label}`}
+                          >
+                            <Undo2 className="w-3 h-3" /> Undo last AI change
+                          </Button>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()}>
