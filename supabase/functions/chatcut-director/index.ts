@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, transcript, mode, timelineState, brandGuidelines, brandSettings, productLibrary, savedFramesCount, savedSourceClips } = await req.json();
+    const { messages, transcript, mode, timelineState, brandGuidelines, brandSettings, productLibrary, savedFramesCount, savedSourceClips, context } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -169,6 +169,22 @@ B-ROLL PROMPT RULES — MATCH THE VIDEO'S FEEL, DON'T FORCE "CINEMATIC":
 \`\`\`
 Use this when the user asks you to review, check, or evaluate the timeline. Look at what tracks have content and what's missing.
 
+8. **set_thumbnail** — Generate a TikTok-style cover image with Nano Banana and pin it to the OPENING of the video as a still cover (so it shows in fullscreen and on share previews):
+\`\`\`actions
+[{"action":"set_thumbnail","hookText":"3 SECRETS NOBODY TELLS YOU","style":"tiktok-bold","duration":1.5,"extraPrompt":"hand holding the product, shocked face on left side"}]
+\`\`\`
+- "hookText" → the bold ALL-CAPS headline that will be rendered ON the image (max 6 words). Pull a punchy hook from the transcript.
+- "style" → "tiktok-bold" (default, MrBeast-energy), "minimal" (clean editorial), or "cinematic" (movie-poster).
+- "duration" → seconds the cover stays on screen at the very start of the video. Default 1.5s. Use 1.0–2.5s.
+- "extraPrompt" → optional extra direction for the image (subject, scene, vibe).
+
+When to use:
+- The user asks for a "thumbnail", "cover", "first frame", "intro card", or "TikTok thumbnail".
+- You see the video has no opening hook frame and you think one would massively boost the click-through. Suggest it proactively: "Want me to whip up a punchy TikTok cover frame? I'll use your hook 'X' and your brand color."
+- After generating, confirm in chat with the actual headline you used and the duration: "Cover ready! Headline reads '3 SECRETS NOBODY TELLS YOU' in your brand yellow, holds for 1.5s before the video plays 🔥 Want me to retry with a different angle?"
+
+The user's brand color, brand name, and brand font are already passed in — DO NOT specify them in the action, the system handles that.
+
 You can combine multiple actions in one block:
 \`\`\`actions
 [
@@ -291,6 +307,19 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
       allMessages.push({
         role: "system",
         content: `B-ROLL ALREADY ON THE TIMELINE (${currentBRoll.length}):\n${list}\n\nCRITICAL OVERLAP RULES:\n1. Before adding new b-roll, CHECK these windows. Never place new b-roll inside an existing one — always pick a "start" that lands in an empty gap.\n2. If the user asks for a new b-roll at a moment already covered, either replace the existing one (mention you'll do that) or pick the next empty gap and tell the user where you put it ("Your hero shot already runs 5–8s, so I dropped the new ingredient close-up at 8.2s").\n3. When the user asks "is this looking right?" or "review the b-roll", look at this list and the transcript and call out any clip that feels off (wrong moment, too long, audio left on when speaker is talking, etc.). Suggest specific fixes.\n4. If a b-roll has audioEnabled=true while the main speaker is talking at that timestamp, flag it — that usually clashes.`,
+      });
+    }
+
+    const currentThumbnail = (context as any)?.currentThumbnail;
+    if (currentThumbnail && currentThumbnail.url) {
+      allMessages.push({
+        role: "system",
+        content: `OPENING THUMBNAIL/COVER ALREADY SET: "${currentThumbnail.headline || '(no headline)'}" — holds for ${currentThumbnail.duration || 1.5}s at the start. If the user asks to "redo the thumbnail" or "try a different cover", call set_thumbnail again with a different hookText/style/extraPrompt. If they ask to remove it, tell them they can click the ✕ on the Thumbnail card in the Media panel on the right.`,
+      });
+    } else {
+      allMessages.push({
+        role: "system",
+        content: `NO OPENING THUMBNAIL/COVER set yet. If the video would benefit from a punchy first-frame cover (almost always for short-form), feel free to suggest set_thumbnail proactively with a strong hook from the transcript.`,
       });
     }
 
