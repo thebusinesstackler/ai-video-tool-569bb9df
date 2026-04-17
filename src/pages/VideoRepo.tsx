@@ -1180,7 +1180,21 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     toast({ title: 'Remix loaded', description: 'Prompt, reference video, and product image have been loaded. Choose a duration and generate.' });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleSendToChatcut = (project: VideoRepoProject) => {
+    if (!project.generated_video_url) {
+      toast({ title: 'No generated video', description: 'This project has no generated video to send to Chatcut.', variant: 'destructive' });
+      return;
+    }
+    const payload = {
+      videoUrl: project.generated_video_url,
+      title: project.custom_name || 'Video Repo clip',
+      clipTitle: project.custom_name || 'Video Repo clip',
+      productImageUrl: project.product_image_url || null,
+    };
+    sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
+    toast({ title: 'Opening Chatcut AI…', description: 'Drag your product image onto the timeline to overlay it on the clip.' });
+    navigate('/chatcut-ai');
+  };
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       analyzeAndGenerate();
