@@ -527,16 +527,26 @@ Return ONLY a JSON object:
       setAudioUrl(ttsUrl);
       setProgress(30);
 
-      // Step 3: Generate character image
+      // Step 3: Generate character image (optionally featuring the product on-screen)
       setProgressStatus('Creating character portrait...');
+      // Resolve product image: variation can flag showProduct + featuredProduct, else fallback to brand's primary product
+      let productImgUrl: string | undefined;
+      if (preset?.showProduct && preset.featuredProduct && productImages.length) {
+        const needle = preset.featuredProduct.toLowerCase();
+        const match = productImages.find(p => needle.includes(p.productName.toLowerCase()) || p.productName.toLowerCase().includes(needle));
+        productImgUrl = match?.imageUrl || productImages[0].imageUrl;
+      }
+      const productLine = productImgUrl
+        ? `\nFEATURED PRODUCT: The person should be naturally holding or showing the product visible in the second reference image (preserve product label/colors exactly).`
+        : '';
       const imgPrompt = `Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
 SETTING & STYLE: ${visualDesc || 'Casual real environment — home office or living room, natural window light'}
-EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
+EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera${productLine}
 QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
-      const sceneImg = await generateSceneImage(imgPrompt, selectedTwin);
+      const sceneImg = await generateSceneImage(imgPrompt, selectedTwin, productImgUrl);
       setProgress(45);
 
       // Step 4: Create lip-sync video
