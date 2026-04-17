@@ -344,8 +344,32 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
     }
 
     if (messages && Array.isArray(messages)) {
-      allMessages.push(...messages);
+      // If we have video frames, attach them to the latest user turn as multimodal content
+      const framesArr = Array.isArray(videoFrames) ? videoFrames.filter((f: any) => f && typeof f.dataUrl === 'string' && f.dataUrl.startsWith('data:image/')) : [];
+      const cloned = messages.map((m: any) => ({ role: m.role, content: m.content }));
+      if (framesArr.length > 0 && cloned.length > 0) {
+        // Find last user message
+        for (let i = cloned.length - 1; i >= 0; i--) {
+          if (cloned[i].role === 'user') {
+            const textContent = typeof cloned[i].content === 'string' ? cloned[i].content : JSON.stringify(cloned[i].content);
+            const parts: any[] = [
+              { type: 'text', text: `${textContent}\n\n[Below are ${framesArr.length} actual still frames sampled from the source video. Look at them to match B-roll vibe, lighting, and setting. Each frame is labeled with its timestamp.]` },
+            ];
+            for (const f of framesArr) {
+              parts.push({ type: 'text', text: `Frame at ${Number(f.time || 0).toFixed(2)}s:` });
+              parts.push({ type: 'image_url', image_url: { url: f.dataUrl } });
+            }
+            cloned[i] = { role: 'user', content: parts };
+            break;
+          }
+        }
+      }
+      allMessages.push(...cloned);
     }
+
+    // Use a multimodal model when frames are attached so vision actually works
+    const hasFrames = Array.isArray(videoFrames) && videoFrames.length > 0;
+    const modelToUse = hasFrames ? "google/gemini-2.5-pro" : "google/gemini-3-flash-preview";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -354,7 +378,7 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: modelToUse,
         messages: allMessages,
         stream: true,
       }),
