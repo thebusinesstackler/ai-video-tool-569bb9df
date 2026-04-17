@@ -287,22 +287,36 @@ const Podcast = () => {
       const dur = parseInt(duration);
       const wordTarget = Math.round(dur * 2.5);
 
+      const brandBlock = [
+        brandContext.brandName && `Brand: ${brandContext.brandName}`,
+        brandContext.brandDescription && `About: ${brandContext.brandDescription}`,
+        brandContext.productLines && `Products: ${brandContext.productLines}`,
+        brandContext.audience && `Target audience: ${brandContext.audience}`,
+        brandContext.websiteSummary && `Notes: ${brandContext.websiteSummary}`,
+        brandContext.websiteUrl && `Website: ${brandContext.websiteUrl}`,
+      ].filter(Boolean).join('\n');
+
+      const hasBrand = brandBlock.length > 0;
+
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
           messages: [
             {
               role: 'system',
-              content: `You write 4 distinct talking-head video scripts for the SAME topic. Each variation must use a DIFFERENT style and a DIFFERENT real-world setting.
+              content: `You write 4 distinct talking-head video scripts for the SAME brand. Each variation must use a DIFFERENT style, a DIFFERENT real-world setting, and ideally highlight a DIFFERENT product or angle from the brand catalog below.
 
+${hasBrand ? `BRAND CONTEXT (use this — every script must sound like it's from THIS brand, not generic):\n${brandBlock}\n` : 'No brand context available — keep scripts generic but still on-topic.\n'}
 Vary across these axes:
 - Style: educational, casual/conversational, punchy/high-energy, storytelling
 - Setting: home office, outdoor (park/street), kitchen, car/passenger seat, coffee shop, bedroom — pick 4 different ones
-- Hook type: question, bold claim, story opener, surprising stat
+- Hook type: question, bold claim, personal story, surprising stat
+${hasBrand ? '- Product/angle: each script should naturally feature a different product or benefit from the brand catalog above' : ''}
 
 Rules per script:
 - ~${wordTarget} words (target ${dur}s at ~2.5 words/sec)
 - Natural spoken language, short sentences (8-15 words)
 - Strong hook in first sentence
+- ${hasBrand ? `Mention the brand or a specific product naturally (don't be salesy). Speak to the right audience for that product.` : 'Strong narrative arc.'}
 - End with a clear call to action
 - NO stage directions, NO speaker labels, NO timestamps
 
@@ -314,13 +328,15 @@ Return ONLY valid JSON:
       "settingLabel": "Home office, soft window light",
       "hook": "one-line teaser",
       "narration": "full spoken script ~${wordTarget} words",
-      "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays."
+      "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays.",
+      "featuredProduct": "${hasBrand ? 'name of product or angle this script highlights' : 'topic angle'}",
+      "audience": "who this script speaks to"
     }
     // ... 4 total, all different
   ]
 }`
             },
-            { role: 'user', content: `Topic: ${message}\n\nWrite 4 distinct ~${dur}s talking-head scripts. All 4 must feel meaningfully different in style AND setting.` }
+            { role: 'user', content: `Topic / direction: ${message}\n\nWrite 4 distinct ~${dur}s talking-head scripts. All 4 must feel meaningfully different in style, setting${hasBrand ? ', AND featured product/angle from the brand catalog' : ''}.` }
           ]
         }
       });
