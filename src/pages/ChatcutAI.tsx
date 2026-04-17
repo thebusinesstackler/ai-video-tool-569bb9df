@@ -53,6 +53,10 @@ import {
   Package,
   RefreshCw,
   AlertTriangle,
+  X,
+  Target,
+  Globe,
+  Eraser,
 } from 'lucide-react';
 import { ExportToDriveButton } from '@/components/ExportToDriveButton';
 import { PiPOverlay } from '@/components/PiPOverlay';
