@@ -595,7 +595,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
 
   // Batch generate 5 images at once
   const generateBatchImages = async (angle: CameraAngle) => {
-    if (!twin.reference_images?.[0]) {
+    if (!activeReferenceImage) {
       toast({
         title: 'No reference image',
         description: 'This twin needs at least one reference image',
