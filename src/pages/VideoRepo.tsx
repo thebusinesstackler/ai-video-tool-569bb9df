@@ -105,6 +105,8 @@ const VideoRepo = () => {
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
+  const [useSoraPro, setUseSoraPro] = useState(false);
+  const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('720p');
   const [lockProduct, setLockProduct] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
@@ -601,9 +603,11 @@ Then provide a final **VIDEO PROMPT** block:
         setMessages((prev) => [...prev, generatingMsg]);
 
         const useProductLock = lockProduct && !!persistentImageUrl;
-        const generationModel = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
+        const generationModel = useProductLock ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
         if (useProductLock) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
+        } else if (useSoraPro) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `⭐ Generating with Sora 2 PRO (${soraProResolution}, premium tier) — physics-aware, synchronized audio, broadcast quality...` } : m));
         }
         try {
           const taskId = await createWaveSpeedVideo({
@@ -611,6 +615,7 @@ Then provide a final **VIDEO PROMPT** block:
             model: generationModel,
             aspectRatio: '9:16',
             duration: soraDuration,
+            ...(generationModel === 'sora-2-pro' ? { resolution: soraProResolution } : {}),
             userId: user?.id,
             source: 'video-repo',
             ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
@@ -811,13 +816,14 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         setMessages(prev => [...prev, generatingMsg]);
 
         const useProductLockFollow = lockProduct && !!newImageUrl;
-        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : 'sora-2';
+        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
             model: followModel,
             aspectRatio: '9:16',
             duration: soraDuration,
+            ...(followModel === 'sora-2-pro' ? { resolution: soraProResolution } : {}),
             userId: user?.id,
             source: 'video-repo',
             ...(newImageUrl ? { imageUrls: [newImageUrl] } : {}),
