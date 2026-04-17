@@ -1327,30 +1327,30 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
 
           {/* Camera Angles Grid */}
           <ScrollArea className="h-72">
-            <div className="grid grid-cols-2 gap-4 pr-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-3">
               {categoryAngles.map(angle => (
-                <Button
+                <button
                   key={angle.id}
-                  variant="outline"
-                  className="min-h-32 h-auto flex-col items-start justify-start p-4 text-left overflow-hidden hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                  type="button"
                   disabled={generatingAngles.has(angle.id) || isBatchGenerating}
                   onClick={() => generateBatchImages(angle)}
+                  className="group relative text-left rounded-xl border border-border bg-card/50 hover:bg-card hover:border-primary/40 hover:shadow-sm transition-all p-4 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1.5">
                     {generatingAngles.has(angle.id) ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
                     ) : (
-                      <Camera className="w-4 h-4" />
+                      <Camera className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     )}
-                    <span className="font-medium text-sm">{angle.name}</span>
+                    <span className="font-semibold text-sm text-foreground">{angle.name}</span>
                   </div>
-                  <span className="text-xs opacity-70 line-clamp-2">
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2.5">
                     {angle.description}
-                  </span>
-                  <Badge variant="secondary" className="mt-2 text-xs">
+                  </p>
+                  <Badge variant="secondary" className="text-[10px] font-normal">
                     Generates 5 images
                   </Badge>
-                </Button>
+                </button>
               ))}
             </div>
           </ScrollArea>

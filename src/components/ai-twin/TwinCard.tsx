@@ -94,9 +94,6 @@ export const TwinCard: React.FC<TwinCardProps> = ({ twin, onDelete, onSelect }) 
             <Eye className="w-4 h-4 mr-1" />
             View
           </Button>
-          <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="bg-red-600 hover:bg-red-700">
-            <Trash2 className="w-4 h-4" />
-          </Button>
         </div>
       </div>
 

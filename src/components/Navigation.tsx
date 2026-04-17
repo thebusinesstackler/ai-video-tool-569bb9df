@@ -229,15 +229,15 @@ export const Navigation = () => {
       {/* Logo */}
       <div className={cn("flex items-center mb-4", collapsed ? "justify-center" : "justify-between gap-2")}>
         {collapsed ? (
-          <div className="w-12 h-12 flex-shrink-0">
+          <div className="w-14 h-14 flex-shrink-0">
             <img src={logoDark} alt="Video AI Pro" className="w-full h-full object-contain hidden dark:block" />
             <img src={logoLight} alt="Video AI Pro" className="w-full h-full object-contain dark:hidden" />
           </div>
         ) : (
           <>
-            <div className="flex-1 min-w-0 px-1">
-              <img src={logoDark} alt="Video AI Pro" className="w-full max-h-12 object-contain hidden dark:block" />
-              <img src={logoLight} alt="Video AI Pro" className="w-full max-h-12 object-contain dark:hidden" />
+            <div className="flex-1 min-w-0">
+              <img src={logoDark} alt="Video AI Pro" className="w-full max-h-16 object-contain hidden dark:block" />
+              <img src={logoLight} alt="Video AI Pro" className="w-full max-h-16 object-contain dark:hidden" />
             </div>
             <ThemeToggle />
           </>
