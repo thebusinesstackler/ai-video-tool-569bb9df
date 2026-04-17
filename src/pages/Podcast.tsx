@@ -443,9 +443,15 @@ Return ONLY a JSON object:
 
       setProgress(15);
 
-      // Step 2: Generate TTS
-      setProgressStatus('Generating voiceover...');
-      const ttsUrl = await generateTTS(narration, selectedTwin, 'podcast');
+      // Step 2: Generate TTS (or use uploaded audio)
+      let ttsUrl: string;
+      if (customAudioUrl) {
+        setProgressStatus('Using uploaded audio...');
+        ttsUrl = customAudioUrl;
+      } else {
+        setProgressStatus('Generating voiceover...');
+        ttsUrl = await generateTTS(narration, selectedTwin, 'podcast');
+      }
       setAudioUrl(ttsUrl);
       setProgress(30);
 
