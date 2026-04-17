@@ -59,6 +59,7 @@ import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
 import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
@@ -279,6 +280,22 @@ const ChatcutAI = () => {
   const [reelPreview, setReelPreview] = useState(false);
   const [reelCropX, setReelCropX] = useState(50);
   const [isAutoCentering, setIsAutoCentering] = useState(false);
+
+  // B-Roll storyboard review state — populated when Marco runs review_broll
+  type BrollSuggestion = {
+    id: string;
+    time: number;
+    currentBrollId: string | null;
+    issue: string;
+    suggestionLabel: string;
+    suggestionPrompt: string;
+    productName: string | null;
+    productId: string | null;
+    brollType: string;
+  };
+  const [brollReview, setBrollReview] = useState<{ openedAt: number; suggestions: BrollSuggestion[] } | null>(null);
+  const [storyboardOpen, setStoryboardOpen] = useState(false);
+  useEffect(() => { if (brollReview) setStoryboardOpen(true); }, [brollReview]);
 
   // Track failed B-roll attempts so we only auto-retry once
   const brollRetryCount = useRef<Map<string, number>>(new Map());
@@ -1471,6 +1488,48 @@ const ChatcutAI = () => {
         case 'review':
           // Review is handled conversationally by the AI
           break;
+        case 'trim_tail': {
+          // Cut off a long ending. Marco passes how many seconds of tail to remove,
+          // or an explicit start time. We add a "cut" so playback skips the tail.
+          const tailSec = typeof act.tailSeconds === 'number' ? act.tailSeconds : null;
+          const cutStart = typeof act.start === 'number'
+            ? act.start
+            : (tailSec != null && duration > 0 ? Math.max(0, duration - tailSec) : null);
+          if (cutStart == null || duration <= 0 || cutStart >= duration) break;
+          const cutEnd = duration;
+          setCuts(prev => [...prev, {
+            id: crypto.randomUUID(),
+            start: cutStart,
+            end: cutEnd,
+            reason: act.reason || 'Trimmed long ending',
+            type: 'manual',
+            accepted: true,
+          } as any]);
+          toast({ title: '✂️ Ending trimmed', description: `Skipping ${(cutEnd - cutStart).toFixed(1)}s of tail` });
+          break;
+        }
+        case 'review_broll': {
+          // Marco hands us a list of B-roll suggestions per timestamp. We open the Storyboard
+          // panel with one-click Accept / Replace buttons next to each existing B-roll.
+          const items = Array.isArray(act.suggestions) ? act.suggestions : [];
+          if (items.length === 0) break;
+          setBrollReview({
+            openedAt: Date.now(),
+            suggestions: items.map((s: any) => ({
+              id: crypto.randomUUID(),
+              time: typeof s.time === 'number' ? s.time : (typeof s.start === 'number' ? s.start : 0),
+              currentBrollId: s.currentBrollId || null,
+              issue: s.issue || s.reason || 'Could fit better',
+              suggestionLabel: s.label || s.description || 'New B-roll',
+              suggestionPrompt: s.prompt || s.description || '',
+              productName: s.productName || null,
+              productId: s.productId || null,
+              brollType: s.broll_type || s.brollType || 'lifestyle',
+            })),
+          });
+          toast({ title: '🎬 B-Roll review ready', description: `${items.length} suggestion${items.length === 1 ? '' : 's'} — open Storyboard` });
+          break;
+        }
         case 'add_product_broll': {
           // Marco can drop a product image (still or animated) as B-roll at a transcript moment.
           // Resolves the product by id, by name match, or falls back to the first product image.
@@ -2617,11 +2676,17 @@ const ChatcutAI = () => {
                   <span className="text-xs text-muted-foreground mx-1">/</span>
                   <span className="text-xs font-mono text-muted-foreground tabular-nums">{formatTime(duration)}</span>
                   <div className="flex-1" />
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.max(50, z - 25))}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.max(25, z - 25))} title="Zoom out">
                     <ZoomOut className="w-3.5 h-3.5" />
                   </Button>
-                  <span className="text-[10px] text-muted-foreground font-mono w-8 text-center">{zoomLevel}%</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.min(200, z + 25))}>
+                  <button
+                    className="text-[10px] text-muted-foreground hover:text-foreground font-mono w-10 text-center transition-colors"
+                    onClick={() => setZoomLevel(100)}
+                    title="Fit timeline to screen"
+                  >
+                    {zoomLevel}%
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.min(400, z + 25))} title="Zoom in">
                     <ZoomIn className="w-3.5 h-3.5" />
                   </Button>
                   <div className="w-px h-5 bg-border mx-1" />
@@ -2669,6 +2734,14 @@ const ChatcutAI = () => {
                     }}>
                     <Maximize className={cn("w-3.5 h-3.5", isFullscreen && "text-primary")} />
                   </Button>
+                  {brollReview && brollReview.suggestions.length > 0 && (
+                    <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 ml-1"
+                      onClick={() => setStoryboardOpen(true)}
+                      title="Open B-roll storyboard review">
+                      <Film className="w-3 h-3" />
+                      Storyboard ({brollReview.suggestions.length})
+                    </Button>
+                  )}
                   {/* Hidden file input for background video */}
                   <input
                     ref={bgFileInputRef}
@@ -2728,7 +2801,7 @@ const ChatcutAI = () => {
                   </div>
 
                   {timelineClips.length > 0 ? (
-                    <div className="flex flex-col relative overflow-x-auto" style={{ minWidth: `${zoomLevel}%` }}>
+                    <div className="flex flex-col relative overflow-x-auto" style={{ minWidth: `${Math.max(zoomLevel, 100)}%` }}>
                       {/* Graphics Track */}
                       {trackVisibility.v3 && (
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
@@ -3688,6 +3761,94 @@ const ChatcutAI = () => {
           </ResizablePanelGroup>
         </div>
       </div>
+
+      {/* B-Roll Storyboard Review Dialog */}
+      <Dialog open={storyboardOpen} onOpenChange={setStoryboardOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Film className="w-5 h-5 text-primary" />
+              B-Roll Storyboard Review
+            </DialogTitle>
+            <DialogDescription>
+              Marco analyzed your timeline. Accept any suggestion to swap the B-roll, or dismiss to keep what's there.
+            </DialogDescription>
+          </DialogHeader>
+          {brollReview && brollReview.suggestions.length > 0 ? (
+            <div className="space-y-3">
+              {brollReview.suggestions.map((s, idx) => {
+                const current = s.currentBrollId ? bRollClips.find(b => b.id === s.currentBrollId) : null;
+                return (
+                  <div key={s.id} className="border border-border rounded-lg p-3 bg-card">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs">#{idx + 1} · {s.time.toFixed(1)}s</Badge>
+                        <span className="text-xs text-muted-foreground">{s.issue}</span>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => seekTo(s.time)} className="h-7 text-xs">
+                        Jump
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="space-y-1">
+                        <div className="text-muted-foreground font-semibold">Current</div>
+                        {current?.imageUrl ? (
+                          <img src={current.imageUrl} alt={current.name} className="w-full aspect-video object-cover rounded border border-border" />
+                        ) : (
+                          <div className="w-full aspect-video bg-muted rounded border border-border flex items-center justify-center text-muted-foreground">
+                            {current?.name || 'No B-roll here'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-primary font-semibold">Suggested</div>
+                        <div className="w-full aspect-video bg-primary/5 rounded border border-primary/30 flex items-center justify-center text-foreground p-2 text-center">
+                          {s.suggestionLabel}
+                          {s.productName && <Badge variant="secondary" className="ml-2 text-[10px]">📦 {s.productName}</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-2 italic">{s.suggestionPrompt}</p>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <Button size="sm" variant="ghost" className="h-7 text-xs"
+                        onClick={() => setBrollReview(prev => prev ? { ...prev, suggestions: prev.suggestions.filter(x => x.id !== s.id) } : null)}
+                      >
+                        Dismiss
+                      </Button>
+                      <Button size="sm" className="h-7 text-xs gap-1"
+                        onClick={() => {
+                          const action: any = s.productName || s.productId
+                            ? {
+                                action: 'replace_broll_at_time',
+                                time: s.time,
+                                productName: s.productName,
+                                productId: s.productId,
+                                mode: 'animated',
+                                description: s.suggestionLabel,
+                                prompt: s.suggestionPrompt,
+                              }
+                            : {
+                                action: 'replace_broll_at_time',
+                                time: s.time,
+                                description: s.suggestionLabel,
+                                prompt: s.suggestionPrompt,
+                              };
+                          executeActionsRef.current?.([action]);
+                          setBrollReview(prev => prev ? { ...prev, suggestions: prev.suggestions.filter(x => x.id !== s.id) } : null);
+                        }}
+                      >
+                        <Sparkles className="w-3 h-3" /> Accept
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">No suggestions to review. Ask Marco "review my B-roll" to get fresh ideas.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
