@@ -838,7 +838,46 @@ const ChatcutAI = () => {
     }
   }, [toast, pollBRollVideo]);
 
-  // Generate motion graphic image via Lovable AI Gateway
+  // Add B-roll from an EXISTING image (saved frame, product image, or upload) — skips image gen, animates directly
+  const addBRollFromImage = useCallback((imageUrl: string, label: string, prompt?: string, startAt?: number) => {
+    const brollId = crypto.randomUUID();
+    const broll: BRollClip = {
+      id: brollId,
+      name: label,
+      prompt: prompt || `Subtle natural motion that fits this scene: ${label}`,
+      start: startAt ?? currentTime,
+      duration: 3,
+      imageUrl,
+      imageStatus: 'ready',
+      videoStatus: 'generating',
+    };
+    setBRollClips(prev => [...prev, broll]);
+    toast({ title: 'B-Roll added', description: `"${label}" — animating into 3s clip...` });
+    (async () => {
+      try {
+        const { data: vidData, error: vidError } = await supabase.functions.invoke('wavespeed-video', {
+          body: {
+            action: 'create',
+            model: 'wan-2.5-i2v',
+            imageUrls: [imageUrl],
+            prompt: broll.prompt,
+            duration: 3,
+            resolution: '720p',
+            aspectRatio: '16:9',
+          },
+        });
+        if (vidError || !vidData?.taskId) {
+          setBRollClips(prev => prev.map(b => b.id === brollId ? { ...b, videoStatus: 'failed' } : b));
+          return;
+        }
+        setBRollClips(prev => prev.map(b => b.id === brollId ? { ...b, videoTaskId: vidData.taskId } : b));
+        pollBRollVideo(brollId, vidData.taskId);
+      } catch {
+        setBRollClips(prev => prev.map(b => b.id === brollId ? { ...b, videoStatus: 'failed' } : b));
+      }
+    })();
+  }, [currentTime, toast, pollBRollVideo]);
+
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
     try {
