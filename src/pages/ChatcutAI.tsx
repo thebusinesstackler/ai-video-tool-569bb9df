@@ -1289,9 +1289,20 @@ const ChatcutAI = () => {
         case 'review':
           // Review is handled conversationally by the AI
           break;
+        case 'set_thumbnail': {
+          toast({ title: '🎨 Generating thumbnail…', description: 'Marco is designing your TikTok cover with Nano Banana' });
+          generateThumbnail({
+            hookText: act.hookText || act.headline,
+            style: act.style || 'tiktok-bold',
+            duration: typeof act.duration === 'number' ? act.duration : 1.5,
+            extraPrompt: act.extraPrompt || act.prompt,
+            silent: true,
+          });
+          break;
+        }
       }
     }
-  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip]);
+  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
