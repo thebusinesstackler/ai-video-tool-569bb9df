@@ -440,7 +440,7 @@ Style: Professional photography, high quality, sharp focus on the subject.`;
               image_url: data.imageUrl,
               prompt: prompt,
               source: 'ai-twin',
-              reference_image_url: twin.reference_images[0]
+              reference_image_url: activeReferenceImage
             });
 
           if (galleryError) {
