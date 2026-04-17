@@ -120,6 +120,7 @@ interface BrandSettings {
   textColor: string;
   font: string;
   logoUrl: string | null;
+  websiteUrl?: string;
 }
 
 interface BRollClip {
