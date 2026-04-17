@@ -265,12 +265,47 @@ const ChatcutAI = () => {
       try {
         const { data: pgal } = await supabase
           .from('product_gallery')
-          .select('id, image_url, label')
+          .select('id, image_url, label, product_id, products(name)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(60);
-        if (pgal) setProductImages(pgal as any);
+        if (pgal) setProductImages(pgal.map((p: any) => ({
+          id: p.id,
+          image_url: p.image_url,
+          label: p.label,
+          product_id: p.product_id,
+          product_name: p.products?.name,
+        })) as any);
       } catch (e) { console.warn('product gallery load failed', e); }
+      // Load product library for Marco's awareness
+      try {
+        const { data: prods } = await supabase
+          .from('products')
+          .select('id, name, description, benefits, brands(name)')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(20);
+        if (prods) {
+          const enriched = await Promise.all(prods.map(async (p: any) => {
+            const { data: img } = await supabase
+              .from('product_gallery')
+              .select('image_url')
+              .eq('product_id', p.id)
+              .eq('is_primary', true)
+              .limit(1)
+              .maybeSingle();
+            return {
+              id: p.id,
+              name: p.name,
+              description: p.description,
+              benefits: p.benefits,
+              brand_name: p.brands?.name,
+              primary_image: img?.image_url,
+            };
+          }));
+          setProductLibrary(enriched);
+        }
+      } catch (e) { console.warn('product library load failed', e); }
     })();
   }, [user]);
 
