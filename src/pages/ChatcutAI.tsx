@@ -214,6 +214,7 @@ const ChatcutAI = () => {
 
   // Saved B-roll frames + product images for media panel
   const [savedBrollFrames, setSavedBrollFrames] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
+  const [isAutoExtracting, setIsAutoExtracting] = useState(false);
   const [productImages, setProductImages] = useState<{ id: string; image_url: string; label: string | null; product_name?: string; product_id?: string }[]>([]);
   const [productLibrary, setProductLibrary] = useState<{ id: string; name: string; description: string | null; benefits: string[] | null; brand_name?: string; primary_image?: string }[]>([]);
 
