@@ -3474,17 +3474,34 @@ const ChatcutAI = () => {
                               }
                             };
                             return (
-                            <button
-                              key={f.id}
-                              className="relative group rounded overflow-hidden border border-border hover:border-green-500/70 transition-colors"
-                              onClick={handleClick}
-                              title={meta ? `Add source clip @ ${currentTime.toFixed(1)}s` : `Add still frame @ ${currentTime.toFixed(1)}s`}
-                            >
-                              <img src={f.image_url} alt={f.prompt || 'frame'} className="w-full aspect-video object-cover" />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
-                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
-                              </div>
-                            </button>
+                            <div key={f.id} className="relative group">
+                              <button
+                                className="relative w-full rounded overflow-hidden border border-border hover:border-green-500/70 transition-colors"
+                                onClick={handleClick}
+                                title={meta ? `Add source clip @ ${currentTime.toFixed(1)}s` : `Add still frame @ ${currentTime.toFixed(1)}s`}
+                              >
+                                <img src={f.image_url} alt={f.prompt || 'frame'} className="w-full aspect-video object-cover" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                className="absolute top-0.5 left-0.5 bg-background/90 hover:bg-primary hover:text-primary-foreground rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-border"
+                                title="Reference this frame for Marco"
+                                onClick={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  setSelectedReference({
+                                    kind: 'saved-frame', id: f.id,
+                                    label: f.prompt || 'Saved frame',
+                                    thumbUrl: f.image_url,
+                                  });
+                                  toast({ title: '🎯 Referenced for Marco', description: 'Tell him what to do with this frame.' });
+                                }}
+                              >
+                                <Target className="w-3 h-3" />
+                              </button>
+                            </div>
                             );
                           })}
                         </div>
