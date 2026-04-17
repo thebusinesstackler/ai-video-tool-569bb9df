@@ -149,6 +149,15 @@ interface OverlayItem {
   subtext?: string;
   /** Marks a take-over scene that REPLACES the source video for its duration. */
   fullCoverage?: boolean;
+  /** ── Commercial Director extensions (added by add_motion_graphic) ───────── */
+  /** Director intent — drives badge in the timeline + UI affordances. */
+  intent?: 'hook' | 'stat' | 'benefit' | 'proof' | 'cta' | 'educational' | 'emotional' | 'multi_point';
+  /** Director treatment — picks the SmartOverlay rendering path. */
+  treatment?: 'kinetic_headline' | 'masked_typography' | 'stat_card' | 'side_notes' | 'bullet_stack' | 'quote_pop' | 'cta_lockup' | 'lower_third_pro' | 'floating_note';
+  /** Director placement — semantic position the renderer maps to coords. */
+  placement?: 'behind_subject' | 'left_panel' | 'right_panel' | 'lower_third' | 'center_takeover' | 'top_banner' | 'floating_note';
+  /** Paired subject treatment applied to the underlying source video while this overlay is on screen. */
+  subjectAction?: 'none' | 'push_in' | 'shift_left' | 'shift_right' | 'shrink_for_text' | 'cutout_mask';
 }
 
 interface BrandSettings {
