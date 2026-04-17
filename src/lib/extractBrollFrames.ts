@@ -20,21 +20,17 @@ interface ExtractOptions {
    * Seconds per virtual clip. Default 3s.
    */
   clipDuration?: number;
+  /**
+   * Optional explicit clip start times. When provided, these are used instead of evenly spaced extraction.
+   */
+  times?: number[];
   onProgress?: (done: number, total: number) => void;
 }
 
 /**
- * Slice a source video into N evenly-spaced "virtual clips" — these are NOT
- * re-encoded. Instead, we save metadata rows pointing at the original source
- * URL with a {start, duration} window. Chatcut plays the source video and
- * trims to the window via currentTime + a loop guard. This is robust against
- * CORS/MediaRecorder issues and saves storage.
- *
- * Each row is stored in `generated_images` with:
- *   source = 'broll-clip'
- *   image_url = sourceUrl#t=start,end   (so it's directly playable in <video>)
- *   reference_image_url = sourceUrl
- *   prompt = JSON.stringify({ label, sourceStart, duration, sourceUrl })
+ * Slice a source video into virtual clips — these are NOT re-encoded.
+ * We save metadata rows pointing at the original source URL with a {start, duration} window.
+ * Chatcut plays the source video and trims to the window via currentTime + a loop guard.
  */
 export async function extractBrollFrames(opts: ExtractOptions): Promise<ExtractedFrame[]> {
   const {
@@ -44,10 +40,10 @@ export async function extractBrollFrames(opts: ExtractOptions): Promise<Extracte
     label = 'B-Roll',
     count = 6,
     clipDuration = 3,
+    times,
     onProgress,
   } = opts;
 
-  // Determine duration without recording — just probe metadata
   const duration = await new Promise<number>((resolve, reject) => {
     const v = document.createElement('video');
     v.preload = 'metadata';
@@ -69,13 +65,25 @@ export async function extractBrollFrames(opts: ExtractOptions): Promise<Extracte
     v.src = videoUrl;
   });
 
-  const saved: ExtractedFrame[] = [];
+  const explicitTimes = (times || [])
+    .filter((t) => Number.isFinite(t))
+    .map((t) => Math.max(0, Number(t)));
 
-  for (let i = 1; i <= count; i++) {
-    const usable = Math.max(0.1, duration - clipDuration);
-    const startT = +(usable * i / (count + 1)).toFixed(2);
+  const clipStarts = explicitTimes.length > 0
+    ? explicitTimes.map((t) => +Math.min(Math.max(0, duration - 0.1), t).toFixed(2))
+    : Array.from({ length: count }, (_, index) => {
+        const usable = Math.max(0.1, duration - clipDuration);
+        return +(usable * (index + 1) / (count + 1)).toFixed(2);
+      });
+
+  const saved: ExtractedFrame[] = [];
+  const total = clipStarts.length;
+
+  for (const [index, rawStart] of clipStarts.entries()) {
+    const maxStart = Math.max(0, duration - 0.1);
+    const startT = +Math.min(rawStart, maxStart).toFixed(2);
     const endT = +Math.min(duration, startT + clipDuration).toFixed(2);
-    const dur = +(endT - startT).toFixed(2);
+    const dur = +Math.max(0.1, endT - startT).toFixed(2);
 
     try {
       const clipLabel = `${label} clip @ ${startT.toFixed(1)}s`;
@@ -104,9 +112,9 @@ export async function extractBrollFrames(opts: ExtractOptions): Promise<Extracte
         sourceStart: startT,
         sourceUrl: videoUrl,
       });
-      onProgress?.(i, count);
+      onProgress?.(index + 1, total);
     } catch (e) {
-      console.warn('[extractBrollFrames] failed at index', i, e);
+      console.warn('[extractBrollFrames] failed at index', index, e);
     }
   }
 
@@ -139,7 +147,6 @@ export function parseBrollClipMeta(row: { image_url: string; prompt: string | nu
     }
   } catch { /* fall through */ }
 
-  // Try to recover from #t=start,end fragment
   const m = row.image_url.match(/#t=([0-9.]+),([0-9.]+)/);
   if (m) {
     sourceStart = parseFloat(m[1]);
