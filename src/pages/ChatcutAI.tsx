@@ -54,7 +54,7 @@ import { PiPOverlay } from '@/components/PiPOverlay';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
-import { extractBrollFrames } from '@/lib/extractBrollFrames';
+import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
 
 const AGENT_NAME = 'Marco';
 
@@ -135,6 +135,9 @@ interface BRollClip {
   videoUrl?: string;
   videoStatus?: 'generating' | 'ready' | 'failed';
   videoTaskId?: string;
+  /** When this b-roll references a window inside a longer source video, sourceStart marks the in-point. */
+  sourceStart?: number;
+  sourceUrl?: string;
 }
 
 interface OverlayAnimation {
@@ -986,7 +989,8 @@ const ChatcutAI = () => {
   }, [currentTime, toast, pollBRollVideo]);
 
   // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation
-  const addBRollFromVideoClip = useCallback((videoUrl: string, label: string, durationSec: number = 3, startAt?: number) => {
+  const addBRollFromVideoClip = useCallback((opts: { videoUrl: string; label: string; durationSec?: number; startAt?: number; sourceStart?: number; sourceUrl?: string }) => {
+    const { videoUrl: vUrl, label, durationSec = 3, startAt, sourceStart, sourceUrl } = opts;
     const brollId = crypto.randomUUID();
     const broll: BRollClip = {
       id: brollId,
@@ -994,7 +998,9 @@ const ChatcutAI = () => {
       prompt: label,
       start: startAt ?? currentTime,
       duration: durationSec,
-      videoUrl,
+      videoUrl: sourceUrl || vUrl,
+      sourceStart,
+      sourceUrl: sourceUrl || vUrl,
       videoStatus: 'ready',
       imageStatus: 'ready',
     };
@@ -1158,6 +1164,22 @@ const ChatcutAI = () => {
           toast({ title: 'Split', description: `Clip split at ${(act.time ?? currentTime).toFixed(1)}s` });
           break;
         case 'add_broll': {
+          // If Marco picked a saved Source Clip by id, drop it directly without regen.
+          const savedRow = act.sourceClipId
+            ? savedBrollClips.find((c) => c.id === act.sourceClipId)
+            : null;
+          if (savedRow) {
+            const meta = parseBrollClipMeta(savedRow);
+            addBRollFromVideoClip({
+              videoUrl: meta.sourceUrl,
+              label: act.description || meta.label,
+              durationSec: act.duration ?? meta.duration,
+              startAt: act.start ?? currentTime,
+              sourceStart: meta.sourceStart,
+              sourceUrl: meta.sourceUrl,
+            });
+            break;
+          }
           const brollId = crypto.randomUUID();
           const broll: BRollClip = {
             id: brollId,
@@ -1179,7 +1201,7 @@ const ChatcutAI = () => {
           break;
       }
     }
-  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic]);
+  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
@@ -1217,6 +1239,10 @@ const ChatcutAI = () => {
             hasImage: !!p.primary_image,
           })),
           savedFramesCount: savedBrollFrames.length,
+          savedSourceClips: savedBrollClips.slice(0, 12).map((c) => {
+            const meta = parseBrollClipMeta(c);
+            return { id: c.id, label: meta.label, sourceStart: meta.sourceStart, duration: meta.duration };
+          }),
         }),
       });
       if (!resp.ok || !resp.body) {
@@ -1818,12 +1844,26 @@ const ChatcutAI = () => {
                       {activeBRoll && (
                         activeBRoll.videoUrl && activeBRoll.videoStatus === 'ready' ? (
                           <video
+                            key={activeBRoll.id}
                             src={activeBRoll.videoUrl}
                             autoPlay
                             muted
-                            loop
+                            loop={typeof activeBRoll.sourceStart !== 'number'}
                             playsInline
                             className="block absolute inset-0 w-full h-full object-cover z-[5]"
+                            onLoadedMetadata={(e) => {
+                              if (typeof activeBRoll.sourceStart === 'number') {
+                                (e.currentTarget as HTMLVideoElement).currentTime = activeBRoll.sourceStart;
+                              }
+                            }}
+                            onTimeUpdate={(e) => {
+                              if (typeof activeBRoll.sourceStart !== 'number') return;
+                              const v = e.currentTarget as HTMLVideoElement;
+                              const end = activeBRoll.sourceStart + activeBRoll.duration;
+                              if (v.currentTime >= end - 0.05) {
+                                v.currentTime = activeBRoll.sourceStart;
+                              }
+                            }}
                           />
                         ) : (
                           <img
@@ -2647,28 +2687,41 @@ const ChatcutAI = () => {
                       </div>
                       {savedBrollClips.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
-                          {savedBrollClips.slice(0, 18).map((c) => (
-                            <button
-                              key={c.id}
-                              className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black"
-                              onClick={() => addBRollFromVideoClip(c.image_url, c.prompt || 'Source clip', 3)}
-                              title={`Drop as ready B-Roll clip @ ${currentTime.toFixed(1)}s`}
-                            >
-                              <video
-                                src={`${c.image_url}#t=0.3`}
-                                preload="metadata"
-                                muted
-                                playsInline
-                                className="w-full aspect-video object-cover"
-                              />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
-                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
-                                {c.prompt || 'clip'}
-                              </div>
-                            </button>
-                          ))}
+                          {savedBrollClips.slice(0, 18).map((c) => {
+                            const meta = parseBrollClipMeta(c);
+                            const previewUrl = `${meta.sourceUrl}#t=${meta.sourceStart},${(meta.sourceStart + meta.duration).toFixed(2)}`;
+                            return (
+                              <button
+                                key={c.id}
+                                className="relative group rounded overflow-hidden border border-border hover:border-primary/70 transition-colors bg-black"
+                                onClick={() => addBRollFromVideoClip({
+                                  videoUrl: meta.sourceUrl,
+                                  label: meta.label,
+                                  durationSec: meta.duration,
+                                  sourceStart: meta.sourceStart,
+                                  sourceUrl: meta.sourceUrl,
+                                })}
+                                title={`Drop ${meta.duration.toFixed(1)}s clip @ ${currentTime.toFixed(1)}s`}
+                              >
+                                <video
+                                  src={previewUrl}
+                                  preload="metadata"
+                                  muted
+                                  playsInline
+                                  className="w-full aspect-video object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 py-0.5 truncate">
+                                  {meta.label}
+                                </div>
+                                <div className="absolute top-0.5 right-0.5 bg-primary/80 text-primary-foreground text-[8px] px-1 rounded">
+                                  {meta.duration.toFixed(1)}s
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-[10px] text-muted-foreground/60 text-center py-3">No source clips yet — hit Extract to slice short clips from the current video</p>

@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, transcript, mode, timelineState, brandGuidelines, brandSettings, productLibrary, savedFramesCount } = await req.json();
+    const { messages, transcript, mode, timelineState, brandGuidelines, brandSettings, productLibrary, savedFramesCount, savedSourceClips } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -132,17 +132,20 @@ CRITICAL FOR TEXT: The "text" field MUST be specific and unique to the content a
 [{"action":"split","time":15.5,"track":"v1"}]
 \`\`\`
 
-6. **add_broll** — Add B-Roll footage to the B-Roll track (generates a 3-second 720p animated clip via alibaba/wan-2.5/image-to-video):
+6. **add_broll** — Add B-Roll footage to the B-Roll track. There are TWO modes:
+
+  (A) PREFERRED — Drop a saved Source Clip (instant, no generation). If the user has saved Source Clips, ALWAYS prefer them when the label/topic matches:
+\`\`\`actions
+[{"action":"add_broll","sourceClipId":"<id from savedSourceClips>","start":5,"description":"Lion's Mane pour"}]
+\`\`\`
+  The clip's exact in-point and length come from the saved metadata — no regeneration, no wait.
+
+  (B) Fallback — Generate a new 3-second 720p animated clip via alibaba/wan-2.5/image-to-video:
 \`\`\`actions
 [{"action":"add_broll","description":"Product close-up","prompt":"...","start":5,"duration":3,"broll_type":"product"}]
 \`\`\`
 
-The system will:
-1. Generate a still frame from your prompt that MATCHES the video's existing visual feel
-2. Animate it into a 3-second 720p clip via alibaba/wan-2.5/image-to-video (~30-60s)
-3. Notify you when the animated B-roll is ready
-
-IMPORTANT: B-roll duration is ALWAYS 3 seconds. Do not request other durations.
+IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceClipId clips, the saved duration is honored.
 
 B-ROLL TYPE SYSTEM — choose automatically:
 - "product" → Close-up/hero shots of the product. Use when the speaker mentions or holds it.
@@ -267,6 +270,16 @@ The source video on track V1 is CONTINUOUS. It plays from 0.0s through the full 
       allMessages.push({
         role: "system",
         content: `The user has ${savedFramesCount} saved frames in their B-Roll library from previous videos. When suggesting B-roll, mention they can either generate fresh AI footage OR pick from their saved frames in the right Media panel.`,
+      });
+    }
+
+    if (Array.isArray(savedSourceClips) && savedSourceClips.length > 0) {
+      const list = savedSourceClips
+        .map((c: any) => `- id="${c.id}" | "${c.label}" | in=${c.sourceStart}s | dur=${c.duration}s`)
+        .join('\n');
+      allMessages.push({
+        role: "system",
+        content: `USER'S SAVED SOURCE CLIPS (${savedSourceClips.length} short video segments already cut from prior sources, ready to drop instantly — no generation needed):\n${list}\n\nWHEN ADDING B-ROLL: pick the most semantically relevant one and use action=add_broll with sourceClipId=<id>. Only fall back to generation if NONE match. Mention which saved clip you're using ("dropping in your '${savedSourceClips[0].label}' here").`,
       });
     }
 
