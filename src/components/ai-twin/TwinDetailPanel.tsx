@@ -360,7 +360,7 @@ export const TwinDetailPanel: React.FC<TwinDetailPanelProps> = ({ twin, onUpdate
   };
 
   const generateTwinImage = async (angle: CameraAngle) => {
-    if (!twin.reference_images?.[0]) {
+    if (!activeReferenceImage) {
       toast({
         title: 'No reference image',
         description: 'This twin needs at least one reference image',
