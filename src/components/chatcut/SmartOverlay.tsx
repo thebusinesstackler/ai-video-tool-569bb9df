@@ -1,17 +1,29 @@
 /**
  * SmartOverlay
  * ------------
- * DOM-rendered, brand-aware motion graphic for Chatcut AI.
- * Replaces the old "always generate a PNG" pipeline for most overlay types,
- * because a Nano-Banana button often:
- *  - has visible transparent-checkerboard artifacts
- *  - sits awkwardly over the video (random padding around the shape)
- *  - can't render multi-line lists / stats / numbered scenes well
+ * DOM-rendered, brand-aware motion graphic for Chatcut AI's Commercial Director mode.
  *
- * SmartOverlay renders crisp, animated, brand-coloured cards directly in React.
- * It supports multiple "intents" so Marco can pick the perfect graphic for the
- * script beat (stat callout, benefit list, quote pop, numbered list, full-screen
- * "ingredients" card, lower third, CTA button, etc).
+ * Two render paths:
+ *   1. LEGACY (compact cards) — stat_callout, benefit_chip, benefit_list, lower_third,
+ *      cta_button, quote_pop, numbered_list, feature_grid, comparison, title_card.
+ *      Auto-positioned, animated, brand-coloured. Same as before.
+ *
+ *   2. COMMERCIAL DIRECTOR (`treatment` prop) — the new layered system Marco emits via
+ *      `add_motion_graphic`:
+ *        - kinetic_headline   → big word-by-word reveal
+ *        - masked_typography  → oversized brand-coloured word *behind* the speaker
+ *                                (faked depth via blend-mode + radial vignette)
+ *        - stat_card          → glass card with big number + count-up tick
+ *        - side_notes         → right-rail stacked callouts with check icons
+ *        - bullet_stack       → numbered bullets that hold and stack (educational)
+ *        - quote_pop          → polished quote card
+ *        - cta_lockup         → centered CTA button + URL + brand
+ *        - lower_third_pro    → refined animated bar with brand accent
+ *        - floating_note      → sticky-note style with subtle tilt
+ *
+ *   Plus a `placement` engine maps semantic positions
+ *   (behind_subject / left_panel / right_panel / lower_third / center_takeover /
+ *    top_banner / floating_note) to absolute CSS coords with safe-zone padding.
  */
 import React from 'react';
 import { cn } from '@/lib/utils';
@@ -30,11 +42,31 @@ export type SmartOverlayType =
   | 'comparison'
   | 'motion_graphic';
 
+export type CommercialTreatment =
+  | 'kinetic_headline'
+  | 'masked_typography'
+  | 'stat_card'
+  | 'side_notes'
+  | 'bullet_stack'
+  | 'quote_pop'
+  | 'cta_lockup'
+  | 'lower_third_pro'
+  | 'floating_note';
+
+export type CommercialPlacement =
+  | 'behind_subject'
+  | 'left_panel'
+  | 'right_panel'
+  | 'lower_third'
+  | 'center_takeover'
+  | 'top_banner'
+  | 'floating_note';
+
 export interface SmartOverlayProps {
   type: SmartOverlayType | string;
   /** Primary text (single line). For lists this is the "title". */
   text: string;
-  /** Optional list of bullets / steps / features (for benefit_list, numbered_list, feature_grid, comparison). */
+  /** Optional list of bullets / steps / features. */
   items?: string[];
   /** Brand color (hex) used as the dominant fill / accent. */
   brandColor: string;
@@ -42,19 +74,24 @@ export interface SmartOverlayProps {
   brandTextColor: string;
   /** Brand font name (CSS family). */
   brandFont?: string;
-  /** Optional sub / kicker text under the headline (e.g. URL under "Shop Now"). */
+  /** Optional sub / kicker text under the headline. */
   subtext?: string;
   /** Style preset (visual treatment). */
   style?: 'glass' | 'bold' | 'minimal' | 'neon' | 'broadcast';
   /** Scale 1-5; 5 = full screen take-over. */
   scale?: number;
-  /** Whether to render with full-screen take-over layout (used for full_coverage scenes). */
+  /** Whether to render with full-screen take-over layout. */
   fullCoverage?: boolean;
+  /** ── Commercial Director extensions ─────────────────────────── */
+  /** Director-grade treatment (overrides the legacy `type` rendering when set). */
+  treatment?: CommercialTreatment;
+  /** Semantic placement; the engine maps it to absolute CSS coords. */
+  placement?: CommercialPlacement;
 }
 
 /** Subtle helper — convert hex → rgba string. */
 function hexA(hex: string, alpha: number): string {
-  const h = hex.replace('#', '').padEnd(6, '0');
+  const h = (hex || '#000000').replace('#', '').padEnd(6, '0');
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
@@ -63,11 +100,10 @@ function hexA(hex: string, alpha: number): string {
 
 /** Pick reasonable text color given the chosen surface. */
 function readableOn(brandColor: string): string {
-  const h = brandColor.replace('#', '').padEnd(6, '0');
+  const h = (brandColor || '#000000').replace('#', '').padEnd(6, '0');
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
-  // YIQ luminance
   const yiq = (r * 299 + g * 587 + b * 114) / 1000;
   return yiq >= 150 ? '#0a0a0a' : '#ffffff';
 }
@@ -76,6 +112,335 @@ const fontStack = (font?: string) =>
   font
     ? `'${font}', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`
     : `system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`;
+
+/** Map semantic placement → absolute CSS positioning (safe-zone padded). */
+function placementStyle(p?: CommercialPlacement): React.CSSProperties {
+  switch (p) {
+    case 'behind_subject':
+      // Spread across centre-back; renderer uses pointer-events-none + low z within parent
+      return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+    case 'left_panel':
+      return { position: 'absolute', left: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '38%' };
+    case 'right_panel':
+      return { position: 'absolute', right: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '38%' };
+    case 'lower_third':
+      return { position: 'absolute', left: '50%', bottom: '8%', transform: 'translateX(-50%)', maxWidth: '88%' };
+    case 'center_takeover':
+      return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8%' };
+    case 'top_banner':
+      return { position: 'absolute', left: '50%', top: '8%', transform: 'translateX(-50%)', maxWidth: '88%' };
+    case 'floating_note':
+      return { position: 'absolute', right: '6%', top: '14%', transform: 'rotate(-2deg)', maxWidth: '34%' };
+    default:
+      return {};
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// COMMERCIAL DIRECTOR TREATMENTS (new system, used when `treatment` is set)
+// ═══════════════════════════════════════════════════════════════════════
+
+const KineticHeadline: React.FC<{
+  text: string; subtext?: string; brandColor: string; onBrand: string; family: string;
+}> = ({ text, subtext, brandColor, onBrand, family }) => {
+  const words = (text || '').split(/\s+/).filter(Boolean);
+  return (
+    <div className="text-center" style={{ fontFamily: family }}>
+      <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1">
+        {words.map((w, i) => (
+          <span
+            key={i}
+            className="inline-block opacity-0"
+            style={{
+              fontSize: 'clamp(28px, 6vw, 78px)',
+              fontWeight: 900,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.05,
+              color: '#ffffff',
+              textShadow: `0 4px 24px ${hexA(brandColor, 0.5)}, 0 1px 0 rgba(0,0,0,0.4)`,
+              animation: `smartOvKinetic 0.55s cubic-bezier(.2,1,.36,1) ${0.08 * i + 0.05}s forwards`,
+            }}
+          >
+            {w}
+          </span>
+        ))}
+      </div>
+      {subtext && (
+        <div
+          className="mt-3 inline-block px-4 py-1 rounded-full opacity-0"
+          style={{
+            background: brandColor,
+            color: onBrand,
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            fontSize: 13,
+            animation: `smartOvKinetic 0.5s cubic-bezier(.2,1,.36,1) ${0.08 * words.length + 0.15}s forwards`,
+          }}
+        >
+          {subtext}
+        </div>
+      )}
+      <style>{`@keyframes smartOvKinetic { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+    </div>
+  );
+};
+
+const MaskedTypography: React.FC<{
+  text: string; brandColor: string; family: string;
+}> = ({ text, brandColor, family }) => {
+  // Faked depth: oversized word in brand colour, blended behind the subject via mix-blend-mode,
+  // with a soft radial vignette mask to "hug" the centre. True person-segmentation is a future
+  // enhancement (MediaPipe / matting model).
+  return (
+    <>
+      {/* Subtle vignette to push the speaker forward visually */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute', inset: 0,
+          background: `radial-gradient(ellipse at 50% 55%, transparent 28%, ${hexA('#000000', 0.6)} 78%)`,
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          fontFamily: family,
+          fontSize: 'clamp(80px, 22vw, 320px)',
+          fontWeight: 900,
+          letterSpacing: '-0.04em',
+          lineHeight: 0.85,
+          color: brandColor,
+          textTransform: 'uppercase',
+          mixBlendMode: 'screen',
+          opacity: 0.9,
+          textAlign: 'center',
+          textShadow: `0 0 60px ${hexA(brandColor, 0.5)}`,
+          animation: 'smartOvMasked 0.7s cubic-bezier(.2,1,.36,1) forwards',
+        }}
+      >
+        {text}
+      </div>
+      <style>{`@keyframes smartOvMasked { from { opacity: 0; transform: scale(1.08); } to { opacity: 0.9; transform: scale(1); } }`}</style>
+    </>
+  );
+};
+
+const StatCard: React.FC<{
+  text: string; subtext?: string; brandColor: string; onBrand: string; family: string;
+}> = ({ text, subtext, brandColor, onBrand, family }) => {
+  const m = (text || '').match(/^\s*([\d.,]+\s*[%xX+]?|\d+\s*\w+)\s*(.*)$/);
+  const big = m ? m[1] : (text || '').split(' ')[0];
+  const small = m ? m[2] : (text || '').split(' ').slice(1).join(' ');
+  return (
+    <div
+      className="rounded-2xl text-center"
+      style={{
+        fontFamily: family,
+        background: hexA(brandColor, 0.92),
+        color: onBrand,
+        padding: '22px 30px',
+        minWidth: 200,
+        boxShadow: `0 18px 50px ${hexA(brandColor, 0.45)}, 0 1px 0 rgba(255,255,255,0.18) inset`,
+        backdropFilter: 'blur(10px)',
+        animation: 'smartOvStat 0.6s cubic-bezier(.2,1,.36,1)',
+      }}
+    >
+      <div style={{ fontSize: 'clamp(40px, 7vw, 78px)', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.03em' }}>{big}</div>
+      {small && (
+        <div style={{ fontSize: 14, fontWeight: 700, opacity: 0.92, marginTop: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{small}</div>
+      )}
+      {subtext && (
+        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>{subtext}</div>
+      )}
+      <style>{`@keyframes smartOvStat { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }`}</style>
+    </div>
+  );
+};
+
+const SideNotes: React.FC<{
+  text?: string; items: string[]; brandColor: string; onBrand: string; family: string; numbered?: boolean;
+}> = ({ text, items, brandColor, onBrand, family, numbered }) => (
+  <div
+    className="rounded-2xl"
+    style={{
+      fontFamily: family,
+      background: hexA('#0a0a0a', 0.72),
+      backdropFilter: 'blur(10px)',
+      padding: '18px 20px',
+      minWidth: 240,
+      borderLeft: `4px solid ${brandColor}`,
+      boxShadow: `0 12px 40px rgba(0,0,0,0.5)`,
+    }}
+  >
+    {text && (
+      <div style={{ color: '#fff', fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.9, marginBottom: 12 }}>
+        {text}
+      </div>
+    )}
+    <div className="flex flex-col gap-2.5">
+      {items.slice(0, 5).map((it, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 opacity-0"
+          style={{ animation: `smartOvNote 0.45s cubic-bezier(.2,1,.36,1) ${0.12 + i * 0.12}s forwards` }}
+        >
+          <span
+            className="inline-flex items-center justify-center rounded-full flex-shrink-0"
+            style={{
+              width: 24, height: 24,
+              background: brandColor, color: onBrand,
+              fontSize: 12, fontWeight: 900,
+            }}
+          >
+            {numbered ? i + 1 : '✓'}
+          </span>
+          <span style={{ color: '#fff', fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{it}</span>
+        </div>
+      ))}
+    </div>
+    <style>{`@keyframes smartOvNote { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }`}</style>
+  </div>
+);
+
+const QuotePop: React.FC<{
+  text: string; subtext?: string; brandColor: string; family: string;
+}> = ({ text, subtext, brandColor, family }) => (
+  <div
+    className="rounded-2xl text-center"
+    style={{
+      fontFamily: family,
+      background: hexA('#0a0a0a', 0.78),
+      backdropFilter: 'blur(10px)',
+      padding: '22px 30px',
+      maxWidth: 520,
+      borderTop: `3px solid ${brandColor}`,
+      boxShadow: `0 12px 40px rgba(0,0,0,0.5)`,
+      animation: 'smartOvQuote 0.6s cubic-bezier(.2,1,.36,1)',
+    }}
+  >
+    <div style={{ color: brandColor, fontSize: 44, lineHeight: 0.6, marginBottom: 8, fontWeight: 900 }}>"</div>
+    <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, fontStyle: 'italic', lineHeight: 1.35 }}>{text}</div>
+    {subtext && (
+      <div style={{ color: '#fff', fontSize: 12, opacity: 0.75, marginTop: 12, letterSpacing: '0.05em' }}>— {subtext}</div>
+    )}
+    <style>{`@keyframes smartOvQuote { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`}</style>
+  </div>
+);
+
+const CtaLockup: React.FC<{
+  text: string; subtext?: string; brandColor: string; onBrand: string; family: string;
+}> = ({ text, subtext, brandColor, onBrand, family }) => (
+  <div className="flex flex-col items-center gap-3" style={{ fontFamily: family, animation: 'smartOvCta 0.6s cubic-bezier(.2,1,.36,1)' }}>
+    <div
+      className="rounded-full"
+      style={{
+        background: brandColor,
+        color: onBrand,
+        padding: '16px 40px',
+        fontSize: 'clamp(20px, 3vw, 30px)',
+        fontWeight: 900,
+        letterSpacing: '0.02em',
+        boxShadow: `0 16px 50px ${hexA(brandColor, 0.55)}, 0 1px 0 rgba(255,255,255,0.18) inset`,
+      }}
+    >
+      {text}
+    </div>
+    {subtext && (
+      <div style={{ color: '#fff', fontSize: 15, fontWeight: 600, opacity: 0.92, letterSpacing: '0.04em' }}>{subtext}</div>
+    )}
+    <style>{`@keyframes smartOvCta { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
+  </div>
+);
+
+const LowerThirdPro: React.FC<{
+  text: string; subtext?: string; brandColor: string; family: string;
+}> = ({ text, subtext, brandColor, family }) => (
+  <div
+    className="flex items-center gap-4 rounded-xl"
+    style={{
+      fontFamily: family,
+      background: hexA('#0a0a0a', 0.78),
+      backdropFilter: 'blur(10px)',
+      padding: '14px 22px',
+      minWidth: 260,
+      boxShadow: `0 12px 40px rgba(0,0,0,0.5)`,
+      animation: 'smartOvLT 0.5s cubic-bezier(.2,1,.36,1)',
+    }}
+  >
+    <div className="rounded-full" style={{ width: 6, height: 44, background: brandColor }} />
+    <div>
+      <div style={{ color: '#fff', fontSize: 18, fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.01em' }}>{text}</div>
+      {subtext && (
+        <div style={{ color: '#fff', fontSize: 12, opacity: 0.75, marginTop: 2, letterSpacing: '0.04em' }}>{subtext}</div>
+      )}
+    </div>
+    <style>{`@keyframes smartOvLT { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }`}</style>
+  </div>
+);
+
+const FloatingNote: React.FC<{
+  text: string; subtext?: string; brandColor: string; onBrand: string; family: string;
+}> = ({ text, subtext, brandColor, onBrand, family }) => (
+  <div
+    className="rounded-xl"
+    style={{
+      fontFamily: family,
+      background: '#fffbe8',
+      color: '#1a1a1a',
+      padding: '14px 18px',
+      maxWidth: 280,
+      boxShadow: `0 12px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(0,0,0,0.05)`,
+      borderLeft: `4px solid ${brandColor}`,
+      animation: 'smartOvNoteFloat 0.55s cubic-bezier(.2,1,.36,1)',
+    }}
+  >
+    <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.25 }}>{text}</div>
+    {subtext && (
+      <div style={{ fontSize: 12, marginTop: 4, color: brandColor, fontWeight: 700 }}>{subtext}</div>
+    )}
+    <style>{`@keyframes smartOvNoteFloat { from { opacity: 0; transform: translateY(-8px) rotate(-2deg) scale(0.96); } to { opacity: 1; transform: translateY(0) rotate(-2deg) scale(1); } }`}</style>
+  </div>
+);
+
+const BulletStack: React.FC<{
+  text?: string; items: string[]; brandColor: string; onBrand: string; family: string;
+}> = ({ text, items, brandColor, onBrand, family }) => (
+  <div className="text-left" style={{ fontFamily: family, maxWidth: 720 }}>
+    {text && (
+      <div style={{ color: '#fff', fontSize: 'clamp(20px, 3.2vw, 36px)', fontWeight: 900, marginBottom: 18, letterSpacing: '-0.01em', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
+        {text}
+      </div>
+    )}
+    <div className="flex flex-col gap-3">
+      {items.slice(0, 6).map((it, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-4 opacity-0 rounded-2xl px-5 py-3"
+          style={{
+            background: hexA('#000000', 0.55),
+            backdropFilter: 'blur(8px)',
+            border: `1px solid ${hexA(brandColor, 0.4)}`,
+            animation: `smartOvBullet 0.5s cubic-bezier(.2,1,.36,1) ${0.18 + i * 0.18}s forwards`,
+          }}
+        >
+          <span
+            className="flex items-center justify-center rounded-full flex-shrink-0"
+            style={{ width: 38, height: 38, background: brandColor, color: onBrand, fontWeight: 900, fontSize: 18 }}
+          >
+            {i + 1}
+          </span>
+          <span style={{ color: '#fff', fontSize: 'clamp(16px, 2vw, 22px)', fontWeight: 700, lineHeight: 1.25 }}>{it}</span>
+        </div>
+      ))}
+    </div>
+    <style>{`@keyframes smartOvBullet { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }`}</style>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════════════
 
 export const SmartOverlay: React.FC<SmartOverlayProps> = ({
   type,
@@ -88,11 +453,52 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
   style = 'glass',
   scale = 2,
   fullCoverage,
+  treatment,
+  placement,
 }) => {
   const family = fontStack(brandFont);
   const onBrand = brandTextColor || readableOn(brandColor);
 
-  // Surface treatments
+  // ─── COMMERCIAL DIRECTOR PATH ───────────────────────────────────────
+  if (treatment) {
+    const wrapperStyle: React.CSSProperties = placement
+      ? placementStyle(placement)
+      : { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+
+    let body: React.ReactNode = null;
+    switch (treatment) {
+      case 'kinetic_headline':
+        body = <KineticHeadline text={text} subtext={subtext} brandColor={brandColor} onBrand={onBrand} family={family} />;
+        break;
+      case 'masked_typography':
+        body = <MaskedTypography text={text} brandColor={brandColor} family={family} />;
+        break;
+      case 'stat_card':
+        body = <StatCard text={text} subtext={subtext} brandColor={brandColor} onBrand={onBrand} family={family} />;
+        break;
+      case 'side_notes':
+        body = <SideNotes text={text} items={items || []} brandColor={brandColor} onBrand={onBrand} family={family} />;
+        break;
+      case 'bullet_stack':
+        body = <BulletStack text={text} items={items || []} brandColor={brandColor} onBrand={onBrand} family={family} />;
+        break;
+      case 'quote_pop':
+        body = <QuotePop text={text} subtext={subtext} brandColor={brandColor} family={family} />;
+        break;
+      case 'cta_lockup':
+        body = <CtaLockup text={text} subtext={subtext} brandColor={brandColor} onBrand={onBrand} family={family} />;
+        break;
+      case 'lower_third_pro':
+        body = <LowerThirdPro text={text} subtext={subtext} brandColor={brandColor} family={family} />;
+        break;
+      case 'floating_note':
+        body = <FloatingNote text={text} subtext={subtext} brandColor={brandColor} onBrand={onBrand} family={family} />;
+        break;
+    }
+    return <div style={wrapperStyle}>{body}</div>;
+  }
+
+  // ─── LEGACY PATH (unchanged behaviour for back-compat) ──────────────
   const surfaces: Record<string, React.CSSProperties> = {
     glass: {
       background: hexA(brandColor, 0.85),
@@ -127,9 +533,7 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
   };
   const surface = surfaces[style] || surfaces.glass;
 
-  // === FULL-COVERAGE / FULL-SCREEN SCENES ====================================
-  // Used when Marco wants a take-over scene that *replaces* the video for a few
-  // seconds — e.g. "3 Reasons", "Ingredients", numbered bullet list, comparison.
+  // Full-coverage / take-over scenes
   if (fullCoverage || scale >= 5) {
     const list = (items && items.length > 0 ? items : []).slice(0, 6);
     const isNumbered = type === 'numbered_list';
@@ -145,7 +549,6 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
           color: '#ffffff',
         }}
       >
-        {/* Headline */}
         <div className="text-center w-full">
           <div
             className="inline-block px-6 py-2 rounded-full mb-4"
@@ -158,7 +561,6 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
           )}
         </div>
 
-        {/* List body */}
         {list.length > 0 && (
           <div
             className={cn(
@@ -171,9 +573,7 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
               <div
                 key={i}
                 className="opacity-0"
-                style={{
-                  animation: `smartOvSlide 0.55s cubic-bezier(0.22, 1, 0.36, 1) ${0.18 + i * 0.13}s forwards`,
-                }}
+                style={{ animation: `smartOvSlide 0.55s cubic-bezier(0.22, 1, 0.36, 1) ${0.18 + i * 0.13}s forwards` }}
               >
                 <div
                   className="flex items-center gap-4 px-6 py-4 rounded-2xl"
@@ -185,19 +585,11 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
                 >
                   <div
                     className="flex items-center justify-center rounded-full text-lg md:text-2xl font-extrabold flex-shrink-0"
-                    style={{
-                      width: 48,
-                      height: 48,
-                      background: brandColor,
-                      color: onBrand,
-                    }}
+                    style={{ width: 48, height: 48, background: brandColor, color: onBrand }}
                   >
                     {isNumbered ? i + 1 : '✓'}
                   </div>
-                  <div
-                    className="text-white text-base md:text-2xl font-semibold leading-snug"
-                    style={{ fontFamily: family }}
-                  >
+                  <div className="text-white text-base md:text-2xl font-semibold leading-snug" style={{ fontFamily: family }}>
                     {item}
                   </div>
                 </div>
@@ -206,95 +598,55 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
           </div>
         )}
 
-        {/* CTA bottom */}
         {!list.length && type === 'title_card' && (
-          <div className="text-white text-3xl md:text-5xl font-extrabold text-center">
-            {text}
-          </div>
+          <div className="text-white text-3xl md:text-5xl font-extrabold text-center">{text}</div>
         )}
 
-        <style>{`
-          @keyframes smartOvSlide {
-            from { transform: translateY(28px); opacity: 0; }
-            to   { transform: translateY(0);    opacity: 1; }
-          }
-        `}</style>
+        <style>{`@keyframes smartOvSlide { from { transform: translateY(28px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
       </div>
     );
   }
 
-  // === COMPACT OVERLAYS (sit ON TOP of the video) ============================
+  // Compact overlays (legacy)
   const sizeClass =
     scale <= 1 ? 'text-xs md:text-sm px-3 py-1.5' :
     scale === 2 ? 'text-sm md:text-base px-4 py-2.5' :
     scale === 3 ? 'text-base md:text-xl px-6 py-3' :
     'text-lg md:text-2xl px-7 py-4';
 
-  // CTA button — pill with optional URL underneath (multi-line via subtext)
   if (type === 'cta_button' || /shop now|buy|order|get yours|learn more/i.test(text || '')) {
     return (
       <div
         className="rounded-full inline-flex flex-col items-center justify-center text-center"
-        style={{
-          ...surface,
-          fontFamily: family,
-          padding: scale >= 3 ? '14px 32px' : '10px 24px',
-          minWidth: scale >= 3 ? 200 : 160,
-        }}
+        style={{ ...surface, fontFamily: family, padding: scale >= 3 ? '14px 32px' : '10px 24px', minWidth: scale >= 3 ? 200 : 160 }}
       >
-        <div
-          style={{
-            fontSize: scale >= 3 ? 22 : 16,
-            fontWeight: 800,
-            lineHeight: 1.1,
-            letterSpacing: '0.01em',
-          }}
-        >
-          {text}
-        </div>
+        <div style={{ fontSize: scale >= 3 ? 22 : 16, fontWeight: 800, lineHeight: 1.1, letterSpacing: '0.01em' }}>{text}</div>
         {subtext && (
-          <div style={{ fontSize: scale >= 3 ? 13 : 11, opacity: 0.85, marginTop: 2 }}>
-            {subtext}
-          </div>
+          <div style={{ fontSize: scale >= 3 ? 13 : 11, opacity: 0.85, marginTop: 2 }}>{subtext}</div>
         )}
       </div>
     );
   }
 
-  // Stat callout — large number + label underneath
   if (type === 'stat_callout') {
-    // Try to split "97% absorption" → ["97%", "absorption"]
     const m = text.match(/^\s*([\d.,]+\s*[%xX+]?|\d+\s*\w+)\s+(.*)$/);
     const big = m ? m[1] : text.split(' ')[0];
     const small = m ? m[2] : text.split(' ').slice(1).join(' ');
     return (
-      <div
-        className="rounded-2xl text-center"
-        style={{ ...surface, fontFamily: family, padding: '14px 22px', minWidth: 160 }}
-      >
-        <div style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, letterSpacing: '-0.02em' }}>
-          {big}
-        </div>
+      <div className="rounded-2xl text-center" style={{ ...surface, fontFamily: family, padding: '14px 22px', minWidth: 160 }}>
+        <div style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, letterSpacing: '-0.02em' }}>{big}</div>
         {small && (
-          <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.9, marginTop: 4, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            {small}
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.9, marginTop: 4, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{small}</div>
         )}
       </div>
     );
   }
 
-  // Quote pop
   if (type === 'quote_pop') {
     return (
-      <div
-        className="rounded-2xl text-center max-w-md"
-        style={{ ...surface, fontFamily: family, padding: '18px 26px' }}
-      >
+      <div className="rounded-2xl text-center max-w-md" style={{ ...surface, fontFamily: family, padding: '18px 26px' }}>
         <div style={{ fontSize: 32, lineHeight: 0, marginBottom: 8, opacity: 0.7 }}>"</div>
-        <div style={{ fontSize: 18, fontWeight: 700, fontStyle: 'italic', lineHeight: 1.3 }}>
-          {text}
-        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, fontStyle: 'italic', lineHeight: 1.3 }}>{text}</div>
         {subtext && (
           <div style={{ fontSize: 12, opacity: 0.75, marginTop: 8 }}>— {subtext}</div>
         )}
@@ -302,30 +654,20 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
     );
   }
 
-  // Benefit list (compact, sits on right side)
   if (type === 'benefit_list' || type === 'numbered_list') {
     const list = (items || text.split(/[•|·\n,]/).map(s => s.trim()).filter(Boolean)).slice(0, 4);
     const numbered = type === 'numbered_list';
     return (
-      <div
-        className="rounded-2xl"
-        style={{ ...surface, fontFamily: family, padding: '14px 18px', minWidth: 220 }}
-      >
+      <div className="rounded-2xl" style={{ ...surface, fontFamily: family, padding: '14px 18px', minWidth: 220 }}>
         {text && (
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.85, marginBottom: 8 }}>
-            {text}
-          </div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.85, marginBottom: 8 }}>{text}</div>
         )}
         <div className="flex flex-col gap-1.5">
           {list.map((item, i) => (
             <div key={i} className="flex items-center gap-2.5">
               <span
                 className="flex-shrink-0 inline-flex items-center justify-center rounded-full text-[11px] font-extrabold"
-                style={{
-                  width: 20, height: 20,
-                  background: brandColor,
-                  color: onBrand,
-                }}
+                style={{ width: 20, height: 20, background: brandColor, color: onBrand }}
               >
                 {numbered ? i + 1 : '✓'}
               </span>
@@ -337,17 +679,10 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
     );
   }
 
-  // Lower third — slim filled bar bottom
   if (type === 'lower_third') {
     return (
-      <div
-        className="rounded-xl flex items-center gap-3"
-        style={{ ...surface, fontFamily: family, padding: '10px 18px', minWidth: 220 }}
-      >
-        <div
-          className="rounded-full flex-shrink-0"
-          style={{ width: 8, height: 32, background: brandColor }}
-        />
+      <div className="rounded-xl flex items-center gap-3" style={{ ...surface, fontFamily: family, padding: '10px 18px', minWidth: 220 }}>
+        <div className="rounded-full flex-shrink-0" style={{ width: 8, height: 32, background: brandColor }} />
         <div>
           <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.1 }}>{text}</div>
           {subtext && (
@@ -358,15 +693,10 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
     );
   }
 
-  // Default badge / chip / motion_graphic / animated_text (DOM render)
   return (
     <div
       className={cn('rounded-full whitespace-nowrap font-extrabold', sizeClass)}
-      style={{
-        ...surface,
-        fontFamily: family,
-        letterSpacing: '0.01em',
-      }}
+      style={{ ...surface, fontFamily: family, letterSpacing: '0.01em' }}
     >
       {text}
     </div>

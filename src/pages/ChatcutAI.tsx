@@ -149,6 +149,15 @@ interface OverlayItem {
   subtext?: string;
   /** Marks a take-over scene that REPLACES the source video for its duration. */
   fullCoverage?: boolean;
+  /** ── Commercial Director extensions (added by add_motion_graphic) ───────── */
+  /** Director intent — drives badge in the timeline + UI affordances. */
+  intent?: 'hook' | 'stat' | 'benefit' | 'proof' | 'cta' | 'educational' | 'emotional' | 'multi_point';
+  /** Director treatment — picks the SmartOverlay rendering path. */
+  treatment?: 'kinetic_headline' | 'masked_typography' | 'stat_card' | 'side_notes' | 'bullet_stack' | 'quote_pop' | 'cta_lockup' | 'lower_third_pro' | 'floating_note';
+  /** Director placement — semantic position the renderer maps to coords. */
+  placement?: 'behind_subject' | 'left_panel' | 'right_panel' | 'lower_third' | 'center_takeover' | 'top_banner' | 'floating_note';
+  /** Paired subject treatment applied to the underlying source video while this overlay is on screen. */
+  subjectAction?: 'none' | 'push_in' | 'shift_left' | 'shift_right' | 'shrink_for_text' | 'cutout_mask';
 }
 
 interface BrandSettings {
@@ -1462,6 +1471,7 @@ const ChatcutAI = () => {
         case 'add_overlay':
         case 'add_text_card':
         case 'add_full_coverage':
+        case 'add_motion_graphic':
         case 'add_animated_graphic': {
           const overlayId = crypto.randomUUID();
           // Map style to animation preset
@@ -1505,20 +1515,28 @@ const ChatcutAI = () => {
           if (act.action === 'add_animated_graphic' || act.renderMode === 'video') renderMode = 'video';
           else if (act.renderMode === 'image') renderMode = 'image';
 
+          // For Commercial Director (`add_motion_graphic`), the treatment+placement carry the visual
+          // intent — force DOM render so SmartOverlay can apply the new layered treatments.
+          const isMotionGraphic = act.action === 'add_motion_graphic';
+          const finalRenderMode = isMotionGraphic ? 'dom' : renderMode;
           const newOverlay: OverlayItem = {
             id: overlayId, type: overlayType,
             text: act.text || '', start: act.start || 0,
-            duration: act.duration || (renderMode === 'video' ? 5 : isFullCoverage ? 4 : 5),
+            duration: act.duration || (finalRenderMode === 'video' ? 5 : isFullCoverage ? 4 : 5),
             animation, style: act.style || 'glass',
             scale: finalScale,
             position: finalPos,
-            renderMode,
+            renderMode: finalRenderMode,
             items: Array.isArray(act.items) ? act.items.slice(0, 8) : undefined,
             subtext: typeof act.subtext === 'string' ? act.subtext : undefined,
             fullCoverage: isFullCoverage,
-            imageStatus: renderMode === 'dom' ? 'ready' : 'generating',
-            videoStatus: renderMode === 'video' ? 'generating' : undefined,
+            imageStatus: finalRenderMode === 'dom' ? 'ready' : 'generating',
+            videoStatus: finalRenderMode === 'video' ? 'generating' : undefined,
             animationPrompt: act.animationPrompt,
+            intent: act.intent,
+            treatment: act.treatment,
+            placement: act.placement,
+            subjectAction: act.subjectAction,
           };
           setOverlays(prev => [...prev, newOverlay]);
           if (renderMode === 'dom') {
@@ -2512,6 +2530,12 @@ const ChatcutAI = () => {
                       disabled={isLoading}
                       className="text-sm bg-muted/30"
                     />
+                    <div className="flex flex-wrap gap-1.5">
+                      <button type="button" onClick={() => sendMessage('Direct this scene like a premium commercial — apply commercial-director motion graphics across the whole timeline (hooks, stats, side notes, masked typography, CTA lockup) with paired subject treatments.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">🎬 Direct this scene</button>
+                      <button type="button" onClick={() => sendMessage('Punch up my hook — rewrite the opening 6 seconds to stop the scroll. Give 3 spoken alternatives.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">✨ Punch up hook</button>
+                      <button type="button" onClick={() => sendMessage('Clean my captions — strip every filler word, um, uh, like, you know, basically, actually, literally. Show me what you cut.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">🧹 Clean captions</button>
+                      <button type="button" onClick={() => sendMessage('Add premium b-roll where it makes sense — pick 6-10 visually evocative moments and queue cinematic 3s clips.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">⭐ Premium B-roll</button>
+                    </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
                         <Button type="button" variant="ghost" size="sm" className="text-xs gap-1 h-7 text-muted-foreground">
@@ -2856,6 +2880,8 @@ const ChatcutAI = () => {
                                     style={(ov.style as any) || 'glass'}
                                     scale={scale}
                                     fullCoverage={isFull}
+                                    treatment={ov.treatment as any}
+                                    placement={ov.placement as any}
                                   />
                                 </div>
                               ) : (
