@@ -2283,34 +2283,34 @@ const ChatcutAI = () => {
         )}
 
         {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-gradient-accent">
+        <div className="flex items-center justify-between gap-2 px-2 sm:px-4 py-2 border-b border-border bg-card flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-1.5 rounded-lg bg-gradient-accent flex-shrink-0">
               <Scissors className="w-4 h-4 text-primary" />
             </div>
-            <h1 className="text-sm font-semibold text-foreground">Chatcut AI</h1>
-            <div className="w-px h-5 bg-border" />
+            <h1 className="text-sm font-semibold text-foreground hidden sm:block">Chatcut AI</h1>
+            <div className="w-px h-5 bg-border hidden sm:block" />
             <ProjectNameInput
               value={draftName}
               onSave={setDraftName}
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
             {isTranscribing && (
               <Badge variant="outline" className="text-xs">
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Transcribing...
+                <span className="hidden sm:inline">Transcribing...</span>
               </Badge>
             )}
             {transcript && !isTranscribing && (
               <Badge className="text-xs bg-primary/10 text-primary border-primary/20">
-                ✓ Transcribed
+                ✓<span className="hidden sm:inline ml-1">Transcribed</span>
               </Badge>
             )}
             <Button
               size="sm"
               variant="ghost"
-              className="text-xs gap-1 h-7"
+              className="text-xs gap-1 h-7 px-2"
               onClick={() => {
                 if (videoUrl || messages.length > 0) {
                   if (confirm('Start a new project? Unsaved changes will be lost.')) resetProject();
@@ -2319,19 +2319,19 @@ const ChatcutAI = () => {
                 }
               }}
             >
-              <FilePlus className="w-3.5 h-3.5" /> New
+              <FilePlus className="w-3.5 h-3.5" /> <span className="hidden sm:inline">New</span>
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="text-xs gap-1 h-7"
+              className="text-xs gap-1 h-7 px-2"
               disabled={isSaving || (!videoUrl && messages.length === 0)}
               onClick={saveDraft}
             >
               {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Save
+              <span className="hidden sm:inline">Save</span>
             </Button>
-            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4" onClick={handleExport} disabled={!videoUrl}>
+            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-3 sm:px-4 h-7" onClick={handleExport} disabled={!videoUrl}>
               Export
             </Button>
             {videoUrl && (
