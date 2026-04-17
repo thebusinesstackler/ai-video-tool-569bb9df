@@ -1164,6 +1164,22 @@ const ChatcutAI = () => {
           toast({ title: 'Split', description: `Clip split at ${(act.time ?? currentTime).toFixed(1)}s` });
           break;
         case 'add_broll': {
+          // If Marco picked a saved Source Clip by id, drop it directly without regen.
+          const savedRow = act.sourceClipId
+            ? savedBrollClips.find((c) => c.id === act.sourceClipId)
+            : null;
+          if (savedRow) {
+            const meta = parseBrollClipMeta(savedRow);
+            addBRollFromVideoClip({
+              videoUrl: meta.sourceUrl,
+              label: act.description || meta.label,
+              durationSec: act.duration ?? meta.duration,
+              startAt: act.start ?? currentTime,
+              sourceStart: meta.sourceStart,
+              sourceUrl: meta.sourceUrl,
+            });
+            break;
+          }
           const brollId = crypto.randomUUID();
           const broll: BRollClip = {
             id: brollId,
