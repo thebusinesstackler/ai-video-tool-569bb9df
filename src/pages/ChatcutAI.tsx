@@ -116,6 +116,18 @@ interface OverlayItem {
   style?: string;
   position?: { x: number; y: number };
   scale?: number; // 1 = default, up to 5 = full screen
+  /**
+   * 'dom'   → rendered crisply by <SmartOverlay/> with brand colors. No PNG, no transparency artifacts.
+   *           Default for stat/list/quote/lower-third/CTA cards.
+   * 'image' → rendered as a real PNG/JPG (Nano Banana 2 image, product chip, custom illustration).
+   */
+  renderMode?: 'dom' | 'image';
+  /** Optional list items for benefit_list, numbered_list, feature_grid, comparison, full_coverage. */
+  items?: string[];
+  /** Optional second line of copy under the headline (e.g. URL under a CTA, attribution under a quote). */
+  subtext?: string;
+  /** Marks a take-over scene that REPLACES the source video for its duration. */
+  fullCoverage?: boolean;
 }
 
 interface BrandSettings {
