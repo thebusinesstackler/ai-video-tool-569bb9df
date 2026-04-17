@@ -1201,7 +1201,7 @@ const ChatcutAI = () => {
           break;
       }
     }
-  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic]);
+  }, [toast, duration, currentTime, timelineClips, generateBRollImage, generateMotionGraphic, savedBrollClips, addBRollFromVideoClip]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
