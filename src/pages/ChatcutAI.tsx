@@ -985,6 +985,23 @@ const ChatcutAI = () => {
     })();
   }, [currentTime, toast, pollBRollVideo]);
 
+  // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation
+  const addBRollFromVideoClip = useCallback((videoUrl: string, label: string, durationSec: number = 3, startAt?: number) => {
+    const brollId = crypto.randomUUID();
+    const broll: BRollClip = {
+      id: brollId,
+      name: label,
+      prompt: label,
+      start: startAt ?? currentTime,
+      duration: durationSec,
+      videoUrl,
+      videoStatus: 'ready',
+      imageStatus: 'ready',
+    };
+    setBRollClips(prev => [...prev, broll]);
+    toast({ title: 'B-Roll clip added', description: `"${label}" — dropped at ${(startAt ?? currentTime).toFixed(1)}s` });
+  }, [currentTime, toast]);
+
   const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
     try {
