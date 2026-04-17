@@ -989,7 +989,8 @@ const ChatcutAI = () => {
   }, [currentTime, toast, pollBRollVideo]);
 
   // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation
-  const addBRollFromVideoClip = useCallback((videoUrl: string, label: string, durationSec: number = 3, startAt?: number) => {
+  const addBRollFromVideoClip = useCallback((opts: { videoUrl: string; label: string; durationSec?: number; startAt?: number; sourceStart?: number; sourceUrl?: string }) => {
+    const { videoUrl: vUrl, label, durationSec = 3, startAt, sourceStart, sourceUrl } = opts;
     const brollId = crypto.randomUUID();
     const broll: BRollClip = {
       id: brollId,
@@ -997,7 +998,9 @@ const ChatcutAI = () => {
       prompt: label,
       start: startAt ?? currentTime,
       duration: durationSec,
-      videoUrl,
+      videoUrl: sourceUrl || vUrl,
+      sourceStart,
+      sourceUrl: sourceUrl || vUrl,
       videoStatus: 'ready',
       imageStatus: 'ready',
     };
