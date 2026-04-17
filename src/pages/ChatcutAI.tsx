@@ -1268,6 +1268,15 @@ const ChatcutAI = () => {
             const meta = parseBrollClipMeta(c);
             return { id: c.id, label: meta.label, sourceStart: meta.sourceStart, duration: meta.duration };
           }),
+          currentBRoll: bRollClips.map((b) => ({
+            id: b.id,
+            name: b.name,
+            start: +b.start.toFixed(2),
+            end: +(b.start + b.duration).toFixed(2),
+            duration: +b.duration.toFixed(2),
+            audioEnabled: !!b.audioEnabled,
+            ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
+          })),
         }),
       });
       if (!resp.ok || !resp.body) {
@@ -2479,6 +2488,19 @@ const ChatcutAI = () => {
                                   )}
                                   <span className="text-[9px] text-green-300 truncate flex-1">{br.name}</span>
                                 </div>
+                                <button
+                                  className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-background/70 hover:bg-background flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBRollClips(prev => prev.map(b => b.id === br.id ? { ...b, audioEnabled: !b.audioEnabled } : b));
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title={br.audioEnabled ? 'B-Roll audio ON — click to mute' : 'B-Roll audio OFF — click to enable'}
+                                >
+                                  {br.audioEnabled
+                                    ? <Volume2 className="w-2 h-2 text-green-300" />
+                                    : <VolumeX className="w-2 h-2 text-muted-foreground" />}
+                                </button>
                                 <button
                                   className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1.5 z-10 relative"
                                   onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}
