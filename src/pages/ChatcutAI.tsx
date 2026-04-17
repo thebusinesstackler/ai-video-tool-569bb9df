@@ -2304,10 +2304,30 @@ const ChatcutAI = () => {
                 {/* Chat input — always visible at bottom regardless of tab */}
                 <div className="p-3 border-t border-border mt-auto flex-shrink-0">
                   <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="space-y-2">
+                    {selectedReference && (
+                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
+                        {(selectedReference.kind === 'saved-frame' || selectedReference.kind === 'product' || selectedReference.kind === 'source-clip') && (
+                          ('thumbUrl' in selectedReference && selectedReference.thumbUrl) ? (
+                            <img src={selectedReference.thumbUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              <Film className="w-4 h-4 text-primary" />
+                            </div>
+                          )
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-primary font-semibold uppercase tracking-wider">Referencing for Marco</p>
+                          <p className="text-xs text-foreground truncate">{selectedReference.label}</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedReference(null)} title="Clear reference">
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                     <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder="Tell AI what changes to make..."
+                      placeholder={selectedReference ? "Tell Marco what to do with this clip..." : "Tell AI what changes to make..."}
                       disabled={isLoading}
                       className="text-sm bg-muted/30"
                     />
