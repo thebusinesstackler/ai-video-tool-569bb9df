@@ -718,7 +718,10 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                             </div>
                             {v.hook && <p className="text-xs font-medium text-foreground line-clamp-2">{v.hook}</p>}
                             <p className="text-[11px] text-muted-foreground line-clamp-3 leading-relaxed">{v.narration}</p>
-                            <p className="text-[10px] text-muted-foreground/70">~{v.narration.trim().split(/\s+/).length} words</p>
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              <p className="text-[10px] text-muted-foreground/70">~{v.narration.trim().split(/\s+/).length} words</p>
+                              {v.audience && <p className="text-[10px] text-muted-foreground/70 truncate ml-2">→ {v.audience}</p>}
+                            </div>
                           </button>
                         );
                       })}
