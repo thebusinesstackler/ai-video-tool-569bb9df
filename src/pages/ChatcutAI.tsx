@@ -2732,6 +2732,16 @@ const ChatcutAI = () => {
                             />
                           </div>
                         </div>
+                        {/* Website URL */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground shrink-0">Website</span>
+                          <Input
+                            value={brandSettings.websiteUrl || ''}
+                            onChange={(e) => setBrandSettings(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                            placeholder="yourbrand.com"
+                            className="h-6 text-[10px] px-2 flex-1"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
