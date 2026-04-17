@@ -1538,8 +1538,7 @@ const ChatcutAI = () => {
                         <video
                           ref={bgVideoRef}
                           src={bgVideoUrl}
-                          className="max-h-[100%] max-w-[100%] block"
-                          style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          className="w-full h-full block object-contain"
                           muted
                           loop
                           playsInline
@@ -1555,15 +1554,13 @@ const ChatcutAI = () => {
                             muted
                             loop
                             playsInline
-                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
-                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
                           />
                         ) : (
                           <img
                             src={activeBRoll.imageUrl}
                             alt={activeBRoll.name}
-                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
-                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
                           />
                         )
                       )}
@@ -1572,11 +1569,10 @@ const ChatcutAI = () => {
                         ref={videoRef}
                         src={videoUrl}
                         className={cn(
-                          "max-h-[100%] max-w-[100%] block",
+                          "w-full h-full block object-contain",
                           activeBRoll && "opacity-0",
                           pipEnabled && bgVideoUrl && "hidden" // Hide original; PiP component shows it
                         )}
-                        style={{ maxHeight: 'calc(100vh - 300px)' }}
                         onClick={togglePlay}
                       />
 
