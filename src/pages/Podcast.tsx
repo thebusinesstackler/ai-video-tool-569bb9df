@@ -431,6 +431,7 @@ Return ONLY valid JSON:
         visualDescription: v.visualDescription || '',
         featuredProduct: v.featuredProduct || v.product || undefined,
         audience: v.audience || v.targetAudience || undefined,
+        showProduct: !!v.showProduct,
       })).filter((v: ScriptVariation) => v.narration);
       if (arr.length === 0) throw new Error('No variations returned');
       setVariations(arr);
