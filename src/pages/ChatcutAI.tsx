@@ -779,15 +779,16 @@ const ChatcutAI = () => {
       setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready', videoStatus: 'generating' } : b));
       toast({ title: 'B-Roll image ready', description: 'Now animating into video clip...' });
 
-      // Chain: animate the still image into a video via WaveSpeed
+      // Chain: animate the still image into a 3s 720p video via Wan 2.5 i2v
       try {
         const { data: vidData, error: vidError } = await supabase.functions.invoke('wavespeed-video', {
           body: {
             action: 'create',
             model: 'wan-2.5-i2v',
             imageUrls: [data.imageUrl],
-            prompt: `Cinematic slow motion: ${prompt}`,
-            duration: 4,
+            prompt, // use the director's tone-matched prompt verbatim (no forced "cinematic slow motion")
+            duration: 3,
+            resolution: '720p',
             aspectRatio: '16:9',
           },
         });
