@@ -265,8 +265,8 @@ Return ONLY valid JSON:
 
   // Main: Generate Script + Video
   const generate = async (preset?: ScriptVariation) => {
-    if (!message.trim()) {
-      toast({ title: 'Message required', description: 'Enter what you want to say.', variant: 'destructive' });
+    if (!preset && !message.trim()) {
+      toast({ title: 'Message required', description: 'Enter what you want to say or pick a variation.', variant: 'destructive' });
       return;
     }
     if (!selectedTwin) {
