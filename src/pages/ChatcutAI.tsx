@@ -2574,6 +2574,45 @@ const ChatcutAI = () => {
                         <ImageIcon className="w-3 h-3 text-muted-foreground" />
                         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Saved Frames</span>
                         <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-4 justify-center">{savedBrollFrames.length}</Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-1.5 ml-auto text-[9px] gap-1"
+                          disabled={!videoUrl || isAutoExtracting || !user}
+                          onClick={async () => {
+                            if (!videoUrl || !user) return;
+                            try {
+                              setIsAutoExtracting(true);
+                              toast({ title: 'Extracting 6 frames…' });
+                              const saved = await extractBrollFrames({
+                                videoUrl,
+                                userId: user.id,
+                                projectId: null,
+                                label: draftName || 'Source',
+                                count: 6,
+                              });
+                              if (saved.length) {
+                                const { data: refreshed } = await supabase
+                                  .from('generated_images')
+                                  .select('id, image_url, prompt')
+                                  .eq('user_id', user.id)
+                                  .eq('source', 'broll-frame')
+                                  .order('created_at', { ascending: false })
+                                  .limit(60);
+                                if (refreshed) setSavedBrollFrames(refreshed as any);
+                                toast({ title: `Saved ${saved.length} frames` });
+                              }
+                            } catch (e: any) {
+                              toast({ title: 'Extract failed', description: e?.message, variant: 'destructive' });
+                            } finally {
+                              setIsAutoExtracting(false);
+                            }
+                          }}
+                          title="Extract 6 still frames from the current source video"
+                        >
+                          {isAutoExtracting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Scissors className="w-2.5 h-2.5" />}
+                          Extract
+                        </Button>
                       </div>
                       {savedBrollFrames.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
