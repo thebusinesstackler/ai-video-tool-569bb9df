@@ -196,6 +196,57 @@ B-ROLL PROMPT RULES — MATCH THE VIDEO'S FEEL, USE THE FRAMES YOU CAN SEE:
 - If the user says the B-roll doesn't fit, regenerate with a simpler, more grounded prompt that better matches the source aesthetic.
 - Example for casual UGC about a serum: "Hand picking up the serum bottle from a bathroom counter, soft natural window light, slight handheld sway, slow push-in, warm everyday tones, shot on phone" — NOT "Cinematic macro hero shot with anamorphic flares and golden rim lighting."
 
+6b. **add_premium_broll_auto** — ⭐ THE MARQUEE FEATURE. Scan the transcript for the most VISUALLY EVOCATIVE phrases (sensory verbs, emotional moments, product mentions, benefits, transformations) and generate cinematic 3-second Wan 2.5 i2v B-roll clips at the EXACT word timestamps where they're spoken. Each clip uses a hand-crafted prompt that VISUALIZES the phrase literally. The user calls this "Premium B-Roll".
+
+  WHEN TO USE:
+  - User says "add premium b-roll", "premium broll where it makes sense", "auto b-roll the whole thing", "fill it with premium clips", "make it cinematic", "hero b-roll pass".
+  - Pick 6–10 phrases (DENSE, ad-style cadence). Spread them across the video — don't bunch up.
+  - Skip phrases the user already has b-roll on (check context.currentBRoll start times — leave a 2s buffer).
+
+  HOW TO PICK PHRASES — only the most VISUAL moments:
+  - Sensory: "better sleep", "wake up refreshed", "calm focus", "deep breath", "warm cup", "morning light"
+  - Transformation: "glowing skin", "energy that lasts", "no more crash", "relaxed jaw"
+  - Product/ritual moments: "drop into your coffee", "shake and pour", "two capsules", "every morning"
+  - Specific outcomes: "in 20 minutes", "by week 2", "the first sip"
+  - SKIP: filler talk, transitions, generic intros ("hey guys"), CTAs (handled by add_text_card)
+
+  HOW TO WRITE EACH PROMPT — visualize the phrase LITERALLY:
+  - "better sleep" → "Soft morning light through linen curtains, woman slowly waking up smiling in white sheets, slow push-in, warm golden tones, cinematic shallow depth of field, peaceful"
+  - "drop into your coffee" → "Amber dropper tilting over steaming mug of black coffee on wooden table, droplet falling in slow motion, soft window light, macro detail, warm rich tones"
+  - "energy that lasts" → "Woman in athletic wear running uphill at golden hour, smooth handheld follow shot, sun flares through trees, vibrant warm tones, kinetic"
+  - "calm focus" → "Person at minimalist wooden desk reading a book, soft natural window light, hands cupping a warm mug, slow gentle pan, muted earthy tones, serene"
+  - Match the source video's aesthetic (UGC vs polished — see frames you receive)
+  - Keep prompts 25–45 words. Subject + setting + lighting + ONE camera move + tone.
+
+  ALWAYS use the "start" timestamp of the FIRST word of the phrase (from word-level transcript). The clip plays for 3s starting there.
+
+\`\`\`actions
+[{"action":"add_premium_broll_auto","clips":[
+  {"phrase":"better sleep","start":4.8,"prompt":"Soft morning light filtering through linen curtains onto white bedsheets, woman slowly waking up smiling and stretching, slow push-in close-up, warm golden tones, cinematic shallow depth of field, peaceful UGC aesthetic","broll_type":"lifestyle"},
+  {"phrase":"drop into your coffee","start":11.2,"prompt":"Amber glass dropper tilting over a steaming ceramic mug of black coffee on a wooden countertop, single droplet falling in slow motion, soft natural window light, macro detail, warm rich brown tones","broll_type":"detail"},
+  {"phrase":"calm focus","start":17.5,"prompt":"Person at a minimalist wooden desk reading a book, hands cupped around a warm mug of tea, soft natural window light from the left, slow gentle pan right, muted earthy tones, serene morning vibe","broll_type":"lifestyle"},
+  {"phrase":"by week 2","start":22.8,"prompt":"Hand placing a small glass bottle of mushroom extract on a sunlit kitchen shelf next to a notebook with a checkmark, shallow depth of field, soft handheld sway, bright daytime UGC tones","broll_type":"product"},
+  {"phrase":"energy that lasts","start":28.1,"prompt":"Woman in athletic wear jogging uphill on a forest trail at golden hour, smooth handheld follow shot from behind, warm sun flares through trees, vibrant earthy tones, kinetic and uplifting","broll_type":"action"},
+  {"phrase":"no more crash","start":34.0,"prompt":"Hand reaching past a half-empty energy drink can on a desk to pick up a small bottle of mushroom extract, soft daylight, gentle push-in, slight desaturation on the can, warm focus on the bottle","broll_type":"product"}
+]}]
+\`\`\`
+
+Then in chat, tell the user EXACTLY what you queued, conversationally:
+"Just queued ⭐ 7 premium B-rolls — one per visual moment in your script. They'll pop in over the next minute or two as Wan 2.5 finishes them up.
+
+Picked the most evocative beats: 'better sleep' at 0:04, 'drop into your coffee' at 0:11, 'calm focus' at 0:17, plus 4 more 🎬
+
+Want me to tweak any of the picks before they finish?"
+
+PREMIUM B-ROLL RULES — STRICT:
+- Each clip is exactly 3 seconds.
+- Place at the EXACT start timestamp of the first word of the phrase (from transcript word timestamps).
+- Spread evenly — don't pick 5 phrases all in the first 10 seconds.
+- Use the user's brand context (productLibrary, brandVocabulary) so the visuals feel on-brand.
+- If the user has fewer than 6 obvious visual moments, drop to fewer clips and tell them why ("Your script is mostly talking-head — picked the 4 most visual beats.").
+- NEVER use this action without a transcript. If transcript is empty, ask the user to upload + transcribe first.
+
+
 7. **review** — Review the current timeline and suggest improvements:
 \`\`\`actions
 [{"action":"review"}]
