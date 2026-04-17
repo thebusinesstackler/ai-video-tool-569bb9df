@@ -189,8 +189,82 @@ const Podcast = () => {
     throw new Error('Timed out');
   };
 
+  // Generate 4 distinct script variations (different styles + settings)
+  const generateVariations = async () => {
+    if (!message.trim()) {
+      toast({ title: 'Topic required', description: 'Enter what you want to talk about.', variant: 'destructive' });
+      return;
+    }
+    setIsGeneratingVariations(true);
+    setVariations([]);
+    setActiveVariationId(null);
+    try {
+      const dur = parseInt(duration);
+      const wordTarget = Math.round(dur * 2.5);
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            {
+              role: 'system',
+              content: `You write 4 distinct talking-head video scripts for the SAME topic. Each variation must use a DIFFERENT style and a DIFFERENT real-world setting.
+
+Vary across these axes:
+- Style: educational, casual/conversational, punchy/high-energy, storytelling
+- Setting: home office, outdoor (park/street), kitchen, car/passenger seat, coffee shop, bedroom — pick 4 different ones
+- Hook type: question, bold claim, story opener, surprising stat
+
+Rules per script:
+- ~${wordTarget} words (target ${dur}s at ~2.5 words/sec)
+- Natural spoken language, short sentences (8-15 words)
+- Strong hook in first sentence
+- End with a clear call to action
+- NO stage directions, NO speaker labels, NO timestamps
+
+Return ONLY valid JSON:
+{
+  "variations": [
+    {
+      "styleLabel": "Educational",
+      "settingLabel": "Home office, soft window light",
+      "hook": "one-line teaser",
+      "narration": "full spoken script ~${wordTarget} words",
+      "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays."
+    }
+    // ... 4 total, all different
+  ]
+}`
+            },
+            { role: 'user', content: `Topic: ${message}\n\nWrite 4 distinct ~${dur}s talking-head scripts. All 4 must feel meaningfully different in style AND setting.` }
+          ]
+        }
+      });
+      if (error) throw error;
+      const content = data?.response || data?.choices?.[0]?.message?.content || data?.content || (typeof data === 'string' ? data : '');
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+      const arr: ScriptVariation[] = (parsed.variations || []).slice(0, 4).map((v: any, i: number) => ({
+        id: `var-${Date.now()}-${i}`,
+        styleLabel: v.styleLabel || `Variation ${i + 1}`,
+        settingLabel: v.settingLabel || 'Studio',
+        hook: v.hook || '',
+        narration: v.narration || '',
+        visualDescription: v.visualDescription || '',
+      })).filter((v: ScriptVariation) => v.narration);
+      if (arr.length === 0) throw new Error('No variations returned');
+      setVariations(arr);
+      setActiveVariationId(arr[0].id);
+      toast({ title: '✨ 4 Scripts Ready', description: 'Pick one to render, or generate again.' });
+    } catch (err: any) {
+      console.error('Variations error:', err);
+      toast({ title: 'Failed to generate variations', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingVariations(false);
+    }
+  };
+
   // Main: Generate Script + Video
-  const generate = async () => {
+  const generate = async (preset?: ScriptVariation) => {
     if (!message.trim()) {
       toast({ title: 'Message required', description: 'Enter what you want to say.', variant: 'destructive' });
       return;
