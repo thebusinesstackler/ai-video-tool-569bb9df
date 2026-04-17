@@ -2635,8 +2635,18 @@ const ChatcutAI = () => {
                           const pos = ov.position || { x: 50, y: 30 };
                           const scale = ov.scale || 1;
                           const isFull = ov.fullCoverage || scale >= 5;
-                          // Render via SmartOverlay (DOM) unless explicit image mode AND a real image is ready
-                          const useDOM = ov.renderMode !== 'image' || !(ov.imageUrl && ov.imageStatus === 'ready');
+                          // Render path:
+                          //  - 'video' + ready  → animated VEO 3.1 <video>
+                          //  - 'video' + generating/failed → loader card
+                          //  - 'image' + ready  → static <img>
+                          //  - 'image' + generating → loader card
+                          //  - 'dom' (default)  → SmartOverlay
+                          const isVideo = ov.renderMode === 'video';
+                          const isImage = ov.renderMode === 'image';
+                          const videoReady = isVideo && ov.videoUrl && ov.videoStatus === 'ready';
+                          const imageReady = isImage && ov.imageUrl && ov.imageStatus === 'ready';
+                          const useDOM = !isVideo && !isImage; // pure DOM SmartOverlay
+                          const showLoader = (isVideo && !videoReady) || (isImage && !imageReady);
 
                           return (
                             <div
@@ -2654,28 +2664,41 @@ const ChatcutAI = () => {
                                 setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
                               }}
                             >
-                              {useDOM ? (
-                                ov.imageStatus === 'generating' && ov.renderMode === 'image' ? (
-                                  <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
-                                    <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
-                                    <span className="text-purple-200 text-sm">Generating graphic...</span>
-                                  </div>
-                                ) : (
-                                  <div className="pointer-events-none">
-                                    <SmartOverlay
-                                      type={ov.type}
-                                      text={ov.text}
-                                      items={ov.items}
-                                      subtext={ov.subtext}
-                                      brandColor={brandSettings.primaryColor}
-                                      brandTextColor={brandSettings.textColor}
-                                      brandFont={brandSettings.font}
-                                      style={(ov.style as any) || 'glass'}
-                                      scale={scale}
-                                      fullCoverage={isFull}
-                                    />
-                                  </div>
-                                )
+                              {showLoader ? (
+                                <div className="bg-black/70 backdrop-blur-sm px-4 py-3 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
+                                  <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                                  <span className="text-purple-200 text-sm">
+                                    {isVideo ? `Animating "${ov.text}" with VEO 3.1...` : `Generating "${ov.text}"...`}
+                                  </span>
+                                </div>
+                              ) : videoReady ? (
+                                <video
+                                  src={ov.videoUrl}
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                  className="object-contain rounded-lg pointer-events-none"
+                                  style={isFull
+                                    ? { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 0 }
+                                    : { maxWidth: `${Math.min(scale * 22, 92)}vw`, maxHeight: `${Math.min(scale * 14, 82)}vh` }
+                                  }
+                                />
+                              ) : useDOM ? (
+                                <div className="pointer-events-none">
+                                  <SmartOverlay
+                                    type={ov.type}
+                                    text={ov.text}
+                                    items={ov.items}
+                                    subtext={ov.subtext}
+                                    brandColor={brandSettings.primaryColor}
+                                    brandTextColor={brandSettings.textColor}
+                                    brandFont={brandSettings.font}
+                                    style={(ov.style as any) || 'glass'}
+                                    scale={scale}
+                                    fullCoverage={isFull}
+                                  />
+                                </div>
                               ) : (
                                 <img
                                   src={ov.imageUrl}
