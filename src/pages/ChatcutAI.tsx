@@ -2072,7 +2072,21 @@ const ChatcutAI = () => {
                         onClick={togglePlay}
                       />
 
-                      {/* PiP overlay for main video */}
+                      {/* Opening TikTok-style thumbnail cover — shown for first N seconds + fullscreen */}
+                      {thumbnail && currentTime < thumbnail.duration && (
+                        <div
+                          className="absolute inset-0 z-[20] cursor-pointer"
+                          onClick={togglePlay}
+                          title="Opening thumbnail (tap to play)"
+                        >
+                          <img
+                            src={thumbnail.url}
+                            alt={thumbnail.headline || 'Cover'}
+                            className="w-full h-full object-cover block"
+                          />
+                        </div>
+                      )}
+
                       {pipEnabled && bgVideoUrl && (
                         <PiPOverlay
                           videoRef={videoRef}
@@ -3157,6 +3171,97 @@ const ChatcutAI = () => {
                       <CaptionStyleSelector
                         settings={captionSettings}
                         onChange={setCaptionSettings}
+                      />
+                    </div>
+
+                    {/* Opening Thumbnail / TikTok Cover */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <ImageIcon className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Thumbnail / Cover</span>
+                      </div>
+                      {thumbnail ? (
+                        <div className="space-y-2">
+                          <div className="relative rounded-md overflow-hidden border border-border bg-muted">
+                            <img src={thumbnail.url} alt={thumbnail.headline || 'Cover'} className="w-full aspect-[9/16] object-cover" />
+                            <button
+                              onClick={() => setThumbnail(null)}
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-background/80 hover:bg-background border border-border flex items-center justify-center text-destructive"
+                              title="Remove thumbnail"
+                            >✕</button>
+                            {thumbnail.headline && (
+                              <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-background/80 text-[9px] truncate">
+                                {thumbnail.headline}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-muted-foreground">Hold</span>
+                            <Slider
+                              min={0.8} max={4} step={0.1}
+                              value={[thumbnail.duration]}
+                              onValueChange={(v) => setThumbnail(t => t ? { ...t, duration: v[0] } : t)}
+                              className="flex-1"
+                            />
+                            <span className="text-[10px] font-mono w-10 text-right">{thumbnail.duration.toFixed(1)}s</span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-7 text-[10px] flex-1"
+                              disabled={isGeneratingThumbnail}
+                              onClick={() => generateThumbnail({ duration: thumbnail.duration })}
+                            >
+                              {isGeneratingThumbnail ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                              Regenerate
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm" className="h-7 text-[10px] px-2"
+                              onClick={() => thumbnailInputRef.current?.click()}
+                            >Upload</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <Button
+                            variant="outline" size="sm"
+                            className="h-8 text-[10px] w-full"
+                            disabled={isGeneratingThumbnail || !videoUrl}
+                            onClick={() => generateThumbnail({})}
+                          >
+                            {isGeneratingThumbnail ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                            Generate with Marco (Nano Banana)
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm" className="h-7 text-[10px] w-full"
+                            onClick={() => thumbnailInputRef.current?.click()}
+                          >Upload your own</Button>
+                          <p className="text-[9px] text-muted-foreground leading-relaxed">
+                            AI cover from your script + brand color. Shows on the first frame & in fullscreen.
+                          </p>
+                        </div>
+                      )}
+                      <input
+                        ref={thumbnailInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !user) return;
+                          try {
+                            const ext = file.name.split('.').pop();
+                            const path = `${user.id}/thumbnail-${Date.now()}.${ext}`;
+                            const { error } = await supabase.storage.from('raw-footage').upload(path, file);
+                            if (error) throw error;
+                            const { data: urlData } = supabase.storage.from('raw-footage').getPublicUrl(path);
+                            setThumbnail({ url: urlData.publicUrl, headline: file.name.replace(/\.[^.]+$/, ''), duration: 1.5 });
+                            toast({ title: 'Thumbnail uploaded' });
+                          } catch (err: any) {
+                            toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+                          }
+                          if (e.target) e.target.value = '';
+                        }}
                       />
                     </div>
 
