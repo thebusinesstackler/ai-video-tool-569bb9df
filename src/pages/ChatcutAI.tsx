@@ -177,6 +177,7 @@ const ChatcutAI = () => {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [videoAspect, setVideoAspect] = useState<number | null>(null); // width / height
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
   const [activeTab, setActiveTab] = useState<'ai' | 'transcript' | 'clips'>('ai');
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
@@ -396,7 +397,12 @@ const ChatcutAI = () => {
       }
       setCurrentTime(t);
     };
-    const onMeta = () => setDuration(video.duration);
+    const onMeta = () => {
+      setDuration(video.duration);
+      if (video.videoWidth && video.videoHeight) {
+        setVideoAspect(video.videoWidth / video.videoHeight);
+      }
+    };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     video.addEventListener('timeupdate', onTime);
@@ -1510,15 +1516,29 @@ const ChatcutAI = () => {
                 {/* Video preview */}
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
-                    {/* Video wrapper – sized to match the actual video so overlays stay within bounds */}
-                    <div ref={videoWrapperRef} className={cn("relative inline-block max-h-full max-w-full overflow-hidden", isFullscreen && "w-full h-full flex items-center justify-center bg-black")} style={{ lineHeight: 0 }}>
+                    {/* Video wrapper – sized to match the actual video aspect ratio so portrait/reel videos display correctly */}
+                    <div
+                      ref={videoWrapperRef}
+                      className={cn(
+                        "relative overflow-hidden bg-black",
+                        isFullscreen && "w-full h-full flex items-center justify-center"
+                      )}
+                      style={{
+                        lineHeight: 0,
+                        aspectRatio: videoAspect ? `${videoAspect}` : '16 / 9',
+                        // Constrain so the wrapper fits within available space regardless of orientation
+                        maxHeight: '100%',
+                        maxWidth: '100%',
+                        height: videoAspect && videoAspect < 1 ? '100%' : 'auto',
+                        width: videoAspect && videoAspect >= 1 ? '100%' : 'auto',
+                      }}
+                    >
                       {/* Background video (when PiP mode is active) */}
                       {pipEnabled && bgVideoUrl && (
                         <video
                           ref={bgVideoRef}
                           src={bgVideoUrl}
-                          className="max-h-[100%] max-w-[100%] block"
-                          style={{ maxHeight: 'calc(100vh - 300px)' }}
+                          className="w-full h-full block object-contain"
                           muted
                           loop
                           playsInline
@@ -1534,15 +1554,13 @@ const ChatcutAI = () => {
                             muted
                             loop
                             playsInline
-                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
-                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
                           />
                         ) : (
                           <img
                             src={activeBRoll.imageUrl}
                             alt={activeBRoll.name}
-                            className="max-h-[100%] max-w-[100%] block absolute inset-0 w-full h-full object-cover z-[5]"
-                            style={{ maxHeight: 'calc(100vh - 300px)' }}
+                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
                           />
                         )
                       )}
@@ -1551,11 +1569,10 @@ const ChatcutAI = () => {
                         ref={videoRef}
                         src={videoUrl}
                         className={cn(
-                          "max-h-[100%] max-w-[100%] block",
+                          "w-full h-full block object-contain",
                           activeBRoll && "opacity-0",
                           pipEnabled && bgVideoUrl && "hidden" // Hide original; PiP component shows it
                         )}
-                        style={{ maxHeight: 'calc(100vh - 300px)' }}
                         onClick={togglePlay}
                       />
 
@@ -2238,8 +2255,8 @@ const ChatcutAI = () => {
                       {timelineClips.length > 0 ? (
                         <div className="space-y-2">
                           {timelineClips.map((clip) => (
-                            <div key={clip.id} className="relative rounded-lg overflow-hidden cursor-pointer group border border-border hover:border-primary/50 transition-colors">
-                              <video src={clip.url} className="w-full aspect-video object-cover" />
+                            <div key={clip.id} className="relative rounded-lg overflow-hidden cursor-pointer group border border-border hover:border-primary/50 transition-colors bg-black">
+                              <video src={clip.url} className="w-full aspect-video object-contain" />
                               <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
                                 {formatTimeShort(clip.duration)}
                               </div>
