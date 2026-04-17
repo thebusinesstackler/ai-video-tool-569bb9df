@@ -56,10 +56,18 @@ serve(async (req) => {
       .trim()
       .slice(0, 120) || "WATCH THIS";
 
-    // CRITICAL: when a product reference image is provided, instruct Nano Banana
-    // to render that EXACT product (label, bottle shape, color, branding) — no hallucination.
+    // CRITICAL: when a product reference image is provided, treat this as a COMPOSITING task —
+    // lift the product pixels from the reference and place them into the new cover scene.
     const productLine = productImageUrl
-      ? `\n\nPRODUCT REFERENCE (CRITICAL — MATCH EXACTLY):\nThe attached reference image shows the user's actual product${productName ? ` ("${productName}")` : ""}. You MUST render this product in the cover IDENTICALLY to how it appears in the reference: same bottle/packaging shape, same label text and typography, same colors, same branding. Do NOT invent a new label or alter the product design. Place the product as a HERO element next to the headline so the brand is instantly recognizable. Treat the reference as the source of truth for the product's appearance.`
+      ? `\n\nPRODUCT COMPOSITING TASK (CRITICAL — DO NOT REDRAW THE PRODUCT):
+The attached reference image shows the user's ACTUAL product${productName ? ` ("${productName}")` : ""} on a plain background.
+You MUST treat this as a compositing job, NOT a redraw:
+- Cut the product out of the reference and place it as the HERO element of the new cover scene.
+- Preserve the product's label, text, typography, logo, colors, bottle/packaging shape, dropper cap, and proportions PIXEL-FOR-PIXEL exactly as they appear in the reference. Every word on the label must remain readable and identical.
+- You MAY relight the product to match the new scene's lighting, add cast shadows, reflections, motion blur or splash effects AROUND it, rotate or tilt it for dynamism, and scale it.
+- You MUST NOT invent a new label, change the brand name, alter the color of the bottle, swap the cap, or "stylize" the product artwork in any way. If you cannot preserve the label exactly, leave the product unchanged.
+- Build the rest of the scene (background, splashes, FX, supporting elements, headline) AROUND this composited product.
+The reference image is the source of truth for the product's appearance — non-negotiable.`
       : "";
 
     const prompt = `Create a SCROLL-STOPPING cover image for a short-form video.
