@@ -2471,9 +2471,48 @@ const ChatcutAI = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()}>
-                          <Plus className="w-3.5 h-3.5" />
-                        </Button>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={isUploadingRefImage} title="Attach">
+                              {isUploadingRefImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" side="top" className="w-56 p-1">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                            >
+                              <Film className="w-3.5 h-3.5 text-muted-foreground" />
+                              <div className="flex-1">
+                                <div className="font-medium">Upload video</div>
+                                <div className="text-[10px] text-muted-foreground">Replace source footage</div>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => refImageInputRef.current?.click()}
+                              className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                              <div className="flex-1">
+                                <div className="font-medium">Upload product image</div>
+                                <div className="text-[10px] text-muted-foreground">Attach as reference for Marco</div>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setProductPickerOpen(true)}
+                              className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                            >
+                              <Package className="w-3.5 h-3.5 text-muted-foreground" />
+                              <div className="flex-1">
+                                <div className="font-medium">Pick from Product Library</div>
+                                <div className="text-[10px] text-muted-foreground">Use a saved product image</div>
+                              </div>
+                            </button>
+                          </PopoverContent>
+                        </Popover>
                         <Button type="submit" disabled={isLoading || !input.trim()} size="icon" className="h-7 w-7 rounded-full bg-primary">
                           <Send className="w-3 h-3" />
                         </Button>
@@ -2488,6 +2527,34 @@ const ChatcutAI = () => {
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) uploadVideo(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <input
+                    ref={refImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadReferenceImage(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <ProductPickerDialog
+                    open={productPickerOpen}
+                    onOpenChange={setProductPickerOpen}
+                    onSelect={(ctx) => {
+                      setSelectedReference({
+                        kind: 'product',
+                        id: ctx.productId,
+                        label: ctx.productName,
+                        thumbUrl: ctx.imageUrl,
+                        productName: ctx.productName,
+                        productId: ctx.productId,
+                      });
+                      setProductPickerOpen(false);
+                      toast({ title: 'Product attached', description: `Marco will use ${ctx.productName} as reference.` });
                     }}
                   />
                 </div>
