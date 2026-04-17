@@ -726,6 +726,7 @@ const ChatcutAI = () => {
     setBRollClips([]);
     setVizardClips([]);
     setCaptionSettings({ ...defaultCaptionSettings, enabled: false });
+    setThumbnail(null);
     setDraftId(null);
     setDraftName('Untitled Project');
     setCurrentTime(0);
