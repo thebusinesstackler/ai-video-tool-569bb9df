@@ -630,6 +630,45 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                       <p className="text-xs text-muted-foreground">💡 Tip: Use the AI Director to brainstorm content ideas</p>
                     )}
                   </div>
+                  {/* Brand context strip — drives 4 variations */}
+                  <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Globe className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <p className="text-xs font-semibold truncate">
+                          {brandContext.brandName ? `Brand: ${brandContext.brandName}` : 'No brand connected'}
+                        </p>
+                      </div>
+                      {brandContext.productLines && (
+                        <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                          {brandContext.productLines.split(';').length} products
+                        </Badge>
+                      )}
+                    </div>
+                    {brandContext.productLines && (
+                      <p className="text-[10px] text-muted-foreground line-clamp-2">{brandContext.productLines}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Input
+                        value={brandUrl}
+                        onChange={e => setBrandUrl(e.target.value)}
+                        placeholder={brandContext.websiteUrl || 'Optional: paste brand URL to refine context'}
+                        className="h-8 text-xs rounded-lg"
+                        disabled={isAnalyzingBrand}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={analyzeBrandUrl}
+                        disabled={isAnalyzingBrand || !brandUrl.trim()}
+                        className="h-8 text-xs rounded-lg flex-shrink-0"
+                      >
+                        {isAnalyzingBrand ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Analyze'}
+                      </Button>
+                    </div>
+                  </div>
+
                   <Button
                     type="button"
                     variant="outline"
@@ -639,9 +678,9 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                     className="w-full rounded-lg border-dashed"
                   >
                     {isGeneratingVariations ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Writing 4 variations...</>
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Writing 4 brand-aware variations...</>
                     ) : (
-                      <><Wand2 className="w-4 h-4 mr-2" /> Generate 4 Script Variations (different styles & settings)</>
+                      <><Wand2 className="w-4 h-4 mr-2" /> Generate 4 Script Variations {brandContext.brandName ? `(for ${brandContext.brandName})` : '(different styles & settings)'}</>
                     )}
                   </Button>
                 </div>
