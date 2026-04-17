@@ -1471,6 +1471,48 @@ const ChatcutAI = () => {
         case 'review':
           // Review is handled conversationally by the AI
           break;
+        case 'trim_tail': {
+          // Cut off a long ending. Marco passes how many seconds of tail to remove,
+          // or an explicit start time. We add a "cut" so playback skips the tail.
+          const tailSec = typeof act.tailSeconds === 'number' ? act.tailSeconds : null;
+          const cutStart = typeof act.start === 'number'
+            ? act.start
+            : (tailSec != null && duration > 0 ? Math.max(0, duration - tailSec) : null);
+          if (cutStart == null || duration <= 0 || cutStart >= duration) break;
+          const cutEnd = duration;
+          setCuts(prev => [...prev, {
+            id: crypto.randomUUID(),
+            start: cutStart,
+            end: cutEnd,
+            reason: act.reason || 'Trimmed long ending',
+            type: 'manual',
+            accepted: true,
+          } as any]);
+          toast({ title: '✂️ Ending trimmed', description: `Skipping ${(cutEnd - cutStart).toFixed(1)}s of tail` });
+          break;
+        }
+        case 'review_broll': {
+          // Marco hands us a list of B-roll suggestions per timestamp. We open the Storyboard
+          // panel with one-click Accept / Replace buttons next to each existing B-roll.
+          const items = Array.isArray(act.suggestions) ? act.suggestions : [];
+          if (items.length === 0) break;
+          setBrollReview({
+            openedAt: Date.now(),
+            suggestions: items.map((s: any) => ({
+              id: crypto.randomUUID(),
+              time: typeof s.time === 'number' ? s.time : (typeof s.start === 'number' ? s.start : 0),
+              currentBrollId: s.currentBrollId || null,
+              issue: s.issue || s.reason || 'Could fit better',
+              suggestionLabel: s.label || s.description || 'New B-roll',
+              suggestionPrompt: s.prompt || s.description || '',
+              productName: s.productName || null,
+              productId: s.productId || null,
+              brollType: s.broll_type || s.brollType || 'lifestyle',
+            })),
+          });
+          toast({ title: '🎬 B-Roll review ready', description: `${items.length} suggestion${items.length === 1 ? '' : 's'} — open Storyboard` });
+          break;
+        }
         case 'add_product_broll': {
           // Marco can drop a product image (still or animated) as B-roll at a transcript moment.
           // Resolves the product by id, by name match, or falls back to the first product image.
