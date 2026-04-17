@@ -218,6 +218,15 @@ const ChatcutAI = () => {
     websiteUrl: '',
   });
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+
+  // Opening thumbnail / TikTok cover (shows over the first N seconds + as fullscreen first frame)
+  const [thumbnail, setThumbnail] = useState<{
+    url: string;
+    headline?: string;
+    duration: number; // seconds the cover holds at the start of playback
+  } | null>(null);
+  const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
 
   // Saved B-roll frames + product images for media panel
   const [savedBrollFrames, setSavedBrollFrames] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
