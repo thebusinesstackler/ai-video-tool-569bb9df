@@ -2874,6 +2874,8 @@ const ChatcutAI = () => {
                                     style={(ov.style as any) || 'glass'}
                                     scale={scale}
                                     fullCoverage={isFull}
+                                    treatment={ov.treatment as any}
+                                    placement={ov.placement as any}
                                   />
                                 </div>
                               ) : (
