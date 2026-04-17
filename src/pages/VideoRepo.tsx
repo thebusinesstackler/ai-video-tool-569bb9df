@@ -276,7 +276,16 @@ const VideoRepo = () => {
     setProductImageUrl(null);
     setProductImageName('');
     setProductImageFile(null);
+    setSelectedProductCtx(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleProductPicked = (ctx: SelectedProductContext) => {
+    setSelectedProductCtx(ctx);
+    setProductImageUrl(ctx.imageUrl);
+    setProductImageName(`${ctx.productName}${ctx.imageLabel ? ` — ${ctx.imageLabel}` : ''}`);
+    setProductImageFile(null); // URL already in storage
+    toast({ title: 'Product added', description: `${ctx.productName} will be featured in the video.` });
   };
 
   const handleUrlImport = async () => {
