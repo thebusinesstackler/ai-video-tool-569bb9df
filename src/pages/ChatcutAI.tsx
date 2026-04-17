@@ -3520,17 +3520,36 @@ const ChatcutAI = () => {
                       {productImages.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5">
                           {productImages.slice(0, 18).map((p) => (
-                            <button
-                              key={p.id}
-                              className="relative group rounded overflow-hidden border border-border hover:border-amber-500/70 transition-colors bg-muted/20"
-                              onClick={() => addBRollFromImage(p.image_url, p.label || 'Product', `Subtle product showcase: gentle camera move on the product, natural lighting matching the source video's vibe`)}
-                              title={`Add product as B-Roll @ ${currentTime.toFixed(1)}s`}
-                            >
-                              <img src={p.image_url} alt={p.label || 'product'} className="w-full aspect-square object-contain p-1" />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
-                                <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
-                              </div>
-                            </button>
+                            <div key={p.id} className="relative group">
+                              <button
+                                className="relative w-full rounded overflow-hidden border border-border hover:border-amber-500/70 transition-colors bg-muted/20"
+                                onClick={() => addBRollFromImage(p.image_url, p.label || 'Product', `Subtle product showcase: gentle camera move on the product, natural lighting matching the source video's vibe`)}
+                                title={`Add product as B-Roll @ ${currentTime.toFixed(1)}s`}
+                              >
+                                <img src={p.image_url} alt={p.label || 'product'} className="w-full aspect-square object-contain p-1" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-colors">
+                                  <Plus className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                className="absolute top-0.5 left-0.5 bg-background/90 hover:bg-primary hover:text-primary-foreground rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-border"
+                                title="Reference this product for Marco"
+                                onClick={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  setSelectedReference({
+                                    kind: 'product', id: p.id,
+                                    label: p.product_name || p.label || 'Product',
+                                    thumbUrl: p.image_url,
+                                    productName: p.product_name,
+                                    productId: p.product_id,
+                                  });
+                                  toast({ title: '🎯 Referenced for Marco', description: `Tell him where to use ${p.product_name || p.label || 'this product'}.` });
+                                }}
+                              >
+                                <Target className="w-3 h-3" />
+                              </button>
+                            </div>
                           ))}
                         </div>
                       ) : (
