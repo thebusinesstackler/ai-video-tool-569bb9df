@@ -1122,7 +1122,76 @@ const ChatcutAI = () => {
     });
   }, [currentTime, toast]);
 
-  const generateMotionGraphic = useCallback(async (overlayId: string, text: string, type: string, styleHint?: string) => {
+  // Direct helper: add a product image as B-roll at a specific timestamp (used by transcript word click)
+  const addProductImageAtTime = useCallback((opts: {
+    imageUrl: string;
+    label: string;
+    startAt: number;
+    mode: 'still' | 'animated';
+    duration?: number;
+  }) => {
+    const { imageUrl, label, startAt, mode, duration: dur = 3 } = opts;
+    // Remove any existing B-roll covering this exact moment first (true "swap")
+    setBRollClips(prev => prev.filter(b => !(startAt >= b.start && startAt < b.start + b.duration)));
+    if (mode === 'still') {
+      setBRollClips(prev => [...prev, {
+        id: crypto.randomUUID(),
+        name: label,
+        prompt: `Product still: ${label}`,
+        start: startAt,
+        duration: dur,
+        imageUrl,
+        imageStatus: 'ready',
+        videoStatus: 'ready',
+        audioEnabled: false,
+      }]);
+      toast({ title: '📦 Product still added', description: `"${label}" pinned at ${startAt.toFixed(1)}s` });
+    } else {
+      const animPrompt = `Slow push-in close-up of ${label}, soft natural daylight, subtle handheld sway, product hero shot`;
+      addBRollFromImage(imageUrl, label, animPrompt, startAt);
+    }
+  }, [toast, addBRollFromImage]);
+
+  // AI smart-crop: sample current frame, ask Gemini to find the subject's horizontal center,
+  // and update reelCropX so the 9:16 letterbox tracks the subject.
+  const autoCenterSubjectForReel = useCallback(async () => {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) {
+      toast({ title: 'No video loaded', description: 'Open a video first.' });
+      return;
+    }
+    setIsAutoCentering(true);
+    try {
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
+      const ctx = c.getContext('2d');
+      if (!ctx) throw new Error('Canvas unavailable');
+      ctx.drawImage(v, 0, 0);
+      const dataUrl = c.toDataURL('image/jpeg', 0.7);
+      const { data, error } = await supabase.functions.invoke('analyze-reference-image', {
+        body: {
+          imageUrl: dataUrl,
+          mode: 'subject_center',
+          prompt: 'Look at this video frame. Identify the main subject (face, product, hand, focal point). Return ONLY a JSON object like {"x_pct": 50} where x_pct is the horizontal position of that subject from 0 (far left) to 100 (far right). No explanation.',
+        },
+      });
+      if (error) throw error;
+      const txt = (data?.description || data?.result || data?.text || '') as string;
+      const m = txt.match(/"x_pct"\s*:\s*(\d+(?:\.\d+)?)/);
+      const xPct = m ? Math.max(0, Math.min(100, parseFloat(m[1]))) : 50;
+      setReelCropX(xPct);
+      setReelPreview(true);
+      toast({ title: '🎯 Centered on subject', description: `Reel crop set to ${xPct.toFixed(0)}% — drag the slider to fine-tune.` });
+    } catch (e: any) {
+      console.warn('autoCenter failed', e);
+      toast({ title: 'Auto-center failed', description: 'Use the slider to position manually.', variant: 'destructive' });
+    } finally {
+      setIsAutoCentering(false);
+    }
+  }, [toast]);
+
+
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, imageStatus: 'generating' } : o));
     try {
       const style = styleHint || 'glass';
