@@ -1346,6 +1346,8 @@ const ChatcutAI = () => {
     duration?: number;
     extraPrompt?: string;
     silent?: boolean;
+    productImageUrl?: string;
+    productName?: string;
   } = {}) => {
     setIsGeneratingThumbnail(true);
     try {
@@ -1369,6 +1371,8 @@ const ChatcutAI = () => {
           brandName: '',
           brandPrimaryColor: brandSettings.primaryColor,
           brandFont: brandSettings.font,
+          productImageUrl: opts.productImageUrl || null,
+          productName: opts.productName || null,
         },
       });
       if (error || !data?.imageUrl) throw new Error(error?.message || 'No image returned');
