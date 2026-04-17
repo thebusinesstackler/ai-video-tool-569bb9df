@@ -1914,6 +1914,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                               </div>
                             </div>
                           )}
+                          {msg.videoResults && msg.videoResults.length > 0 && (
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {msg.videoResults.map((v, i) => (
+                                <div key={i} className="space-y-2">
+                                  <div className="text-xs font-semibold text-muted-foreground">{v.label}</div>
+                                  <video src={v.url} controls className="w-full rounded-lg max-h-[360px] bg-black" />
+                                  <Button size="sm" variant="secondary" asChild className="w-full">
+                                    <a href={v.url} download target="_blank" rel="noopener noreferrer">
+                                      <Download className="w-3 h-3 mr-1" /> Download {v.label}
+                                    </a>
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {msg.retryable && !isAnalyzing && !isGenerating && !isStitching && (
                             <div className="mt-2">
                               <Button size="sm" variant="outline" onClick={analyzeReference}>
