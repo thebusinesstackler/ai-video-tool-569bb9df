@@ -32,6 +32,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
+import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -143,6 +144,7 @@ const VideoRepo = () => {
   const [historyProjects, setHistoryProjects] = useState<VideoRepoProject[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [selectedProject, setSelectedProject] = useState<VideoRepoProject | null>(null);
+  const [frameExtractor, setFrameExtractor] = useState<{ url: string; projectId: string; label: string } | null>(null);
 
   // Import tab state
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -2042,24 +2044,42 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                         </div>
                         <p className="text-xs text-foreground line-clamp-2">{project.prompt || 'No prompt'}</p>
                         {project.generated_video_url && (
-                          <div className="flex gap-1.5 pt-1">
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] gap-1 flex-1"
+                                onClick={(e) => { e.stopPropagation(); handleSendToChatcut(project); }}
+                                title="Open in Chatcut AI for product overlay/replacement"
+                              >
+                                <Scissors className="w-3 h-3" /> Chatcut
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] gap-1 flex-1"
+                                onClick={(e) => { e.stopPropagation(); handleRemixProject(project); }}
+                                title="Remix this video"
+                              >
+                                <RefreshCw className="w-3 h-3" /> Remix
+                              </Button>
+                            </div>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 text-[11px] gap-1 flex-1"
-                              onClick={(e) => { e.stopPropagation(); handleSendToChatcut(project); }}
-                              title="Open in Chatcut AI for product overlay/replacement"
+                              variant="secondary"
+                              className="h-7 text-[11px] gap-1 w-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFrameExtractor({
+                                  url: project.generated_video_url!,
+                                  projectId: project.id,
+                                  label: project.custom_name || project.prompt?.slice(0, 40) || 'Video',
+                                });
+                              }}
+                              title="Extract still frames to use as B-Roll in Chatcut AI"
                             >
-                              <Scissors className="w-3 h-3" /> Chatcut
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-[11px] gap-1 flex-1"
-                              onClick={(e) => { e.stopPropagation(); handleRemixProject(project); }}
-                              title="Remix this video"
-                            >
-                              <RefreshCw className="w-3 h-3" /> Remix
+                              <Sparkles className="w-3 h-3" /> Extract B-Roll Frames
                             </Button>
                           </div>
                         )}
@@ -2077,6 +2097,15 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         onOpenChange={setProductPickerOpen}
         onSelect={handleProductPicked}
       />
+      {frameExtractor && (
+        <FrameExtractorDialog
+          open={!!frameExtractor}
+          onOpenChange={(o) => !o && setFrameExtractor(null)}
+          videoUrl={frameExtractor.url}
+          projectId={frameExtractor.projectId}
+          projectLabel={frameExtractor.label}
+        />
+      )}
     </Layout>
   );
 };
