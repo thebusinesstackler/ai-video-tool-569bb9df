@@ -2754,8 +2754,19 @@ const ChatcutAI = () => {
                                   sourceStart: meta.sourceStart,
                                   sourceUrl: meta.sourceUrl,
                                 });
+                              } else if (videoUrl) {
+                                // Legacy still frame — fall back to using the currently loaded source video
+                                // as a 3s clip starting at the current playhead, so it actually plays.
+                                const startT = Math.max(0, currentTime);
+                                addBRollFromVideoClip({
+                                  videoUrl,
+                                  label: f.prompt || `Source clip @ ${startT.toFixed(1)}s`,
+                                  durationSec: 3,
+                                  sourceStart: startT,
+                                  sourceUrl: videoUrl,
+                                });
                               } else {
-                                // Plain still image — drop as a static B-roll frame WITHOUT animating.
+                                // No source video loaded — drop as a static still without animating.
                                 const brollId = crypto.randomUUID();
                                 setBRollClips(prev => [...prev, {
                                   id: brollId,
@@ -2767,7 +2778,7 @@ const ChatcutAI = () => {
                                   imageStatus: 'ready',
                                   videoStatus: 'ready',
                                 } as BRollClip]);
-                                toast({ title: 'Frame added', description: `Static B-Roll dropped at ${currentTime.toFixed(1)}s` });
+                                toast({ title: 'Frame added', description: 'Load a source video to play it as a clip.' });
                               }
                             };
                             return (
