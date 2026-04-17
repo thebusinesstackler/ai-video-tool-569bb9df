@@ -13,16 +13,28 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { PodcastAIDirector } from '@/components/PodcastAIDirector';
-import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
+
+interface BrandContext {
+  brandName?: string;
+  brandDescription?: string;
+  productLines?: string;     // e.g. "Lion's Mane (Focus), Reishi (Calm), ..."
+  audience?: string;
+  websiteSummary?: string;
+  websiteUrl?: string;
+}
 
 interface ScriptVariation {
   id: string;
-  styleLabel: string;   // e.g. "Educational"
-  settingLabel: string; // e.g. "Home office"
-  hook: string;         // 1-line teaser
-  narration: string;    // full script
-  visualDescription: string; // setting/wardrobe/lighting prompt
+  styleLabel: string;
+  settingLabel: string;
+  hook: string;
+  narration: string;
+  visualDescription: string;
+  featuredProduct?: string;
+  audience?: string;
 }
 
 const DURATION_OPTIONS = [
@@ -53,6 +65,11 @@ const Podcast = () => {
   const [variations, setVariations] = useState<ScriptVariation[]>([]);
   const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
+
+  // Brand context
+  const [brandContext, setBrandContext] = useState<BrandContext>({});
+  const [brandUrl, setBrandUrl] = useState('');
+  const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
 
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
@@ -94,6 +111,76 @@ const Podcast = () => {
       }
     })();
   }, [user?.id]);
+
+  // Load brand + product context (profile, brands, products, last reels). Auto-bootstrap
+  // a Lifecykel context for known brand owner accounts.
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const [profileRes, brandsRes, productsRes, reelsRes] = await Promise.all([
+          supabase.from('profiles').select('first_name,last_name,company_name,brand_description,content_goal').eq('user_id', user.id).maybeSingle(),
+          supabase.from('brands').select('name,description').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(3),
+          supabase.from('products').select('name,description,category,target_audience,benefits').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
+          supabase.from('reels').select('topic').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(5),
+        ]);
+
+        const profile = profileRes.data;
+        const brands = brandsRes.data || [];
+        const products = productsRes.data || [];
+        const recentTopics = (reelsRes.data || []).map((r: any) => r.topic).filter(Boolean);
+
+        const isLifecykel =
+          (user.email || '').toLowerCase().includes('lifecykel') ||
+          brands.some((b: any) => /lifecykel/i.test(b.name || '')) ||
+          /lifecykel/i.test(profile?.company_name || '');
+
+        const ctx: BrandContext = {
+          brandName: brands[0]?.name || profile?.company_name || (isLifecykel ? 'Lifecykel' : undefined),
+          brandDescription: brands[0]?.description || profile?.brand_description ||
+            (isLifecykel ? "Functional mushroom extracts (Lion's Mane, Reishi, Cordyceps, Chaga, Turkey Tail, Tremella) for focus, calm, energy, immunity, gut, and skin." : undefined),
+          productLines: products.length
+            ? products.map((p: any) => `${p.name}${p.category ? ` (${p.category})` : ''}${p.target_audience ? ` — for ${p.target_audience}` : ''}`).join('; ')
+            : (isLifecykel ? "Lion's Mane (focus), Reishi (calm/sleep), Cordyceps (energy), Chaga (immunity), Turkey Tail (gut), Tremella (skin)" : undefined),
+          audience: products[0]?.target_audience || profile?.content_goal,
+          websiteSummary: recentTopics.length ? `Recent video topics: ${recentTopics.slice(0, 3).join(' | ')}` : undefined,
+        };
+        setBrandContext(ctx);
+      } catch (err) {
+        console.error('Brand context load failed:', err);
+      }
+    })();
+  }, [user?.id, user?.email]);
+
+  // Analyze a brand URL on demand and merge into brandContext
+  const analyzeBrandUrl = async () => {
+    const url = brandUrl.trim();
+    if (!url) {
+      toast({ title: 'Enter a URL', description: 'Paste your brand website URL first.', variant: 'destructive' });
+      return;
+    }
+    setIsAnalyzingBrand(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-brand-website', { body: { url } });
+      if (error) throw error;
+      const a = data?.analysis || data || {};
+      setBrandContext(prev => ({
+        ...prev,
+        brandName: a.brandName || a.name || prev.brandName,
+        brandDescription: a.description || a.brandDescription || prev.brandDescription,
+        productLines: a.products || a.productLines || prev.productLines,
+        audience: a.targetAudience || a.audience || prev.audience,
+        websiteSummary: a.summary || a.tagline || prev.websiteSummary,
+        websiteUrl: url,
+      }));
+      toast({ title: '✨ Brand analyzed', description: 'Variations will now reflect your brand & products.' });
+    } catch (err: any) {
+      console.error('Brand analyze failed:', err);
+      toast({ title: 'Analyze failed', description: err.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setIsAnalyzingBrand(false);
+    }
+  };
 
   // Build TTS body
   const buildTtsBody = (text: string, twin: AITwin) => {
@@ -202,22 +289,36 @@ const Podcast = () => {
       const dur = parseInt(duration);
       const wordTarget = Math.round(dur * 2.5);
 
+      const brandBlock = [
+        brandContext.brandName && `Brand: ${brandContext.brandName}`,
+        brandContext.brandDescription && `About: ${brandContext.brandDescription}`,
+        brandContext.productLines && `Products: ${brandContext.productLines}`,
+        brandContext.audience && `Target audience: ${brandContext.audience}`,
+        brandContext.websiteSummary && `Notes: ${brandContext.websiteSummary}`,
+        brandContext.websiteUrl && `Website: ${brandContext.websiteUrl}`,
+      ].filter(Boolean).join('\n');
+
+      const hasBrand = brandBlock.length > 0;
+
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
           messages: [
             {
               role: 'system',
-              content: `You write 4 distinct talking-head video scripts for the SAME topic. Each variation must use a DIFFERENT style and a DIFFERENT real-world setting.
+              content: `You write 4 distinct talking-head video scripts for the SAME brand. Each variation must use a DIFFERENT style, a DIFFERENT real-world setting, and ideally highlight a DIFFERENT product or angle from the brand catalog below.
 
+${hasBrand ? `BRAND CONTEXT (use this — every script must sound like it's from THIS brand, not generic):\n${brandBlock}\n` : 'No brand context available — keep scripts generic but still on-topic.\n'}
 Vary across these axes:
 - Style: educational, casual/conversational, punchy/high-energy, storytelling
 - Setting: home office, outdoor (park/street), kitchen, car/passenger seat, coffee shop, bedroom — pick 4 different ones
-- Hook type: question, bold claim, story opener, surprising stat
+- Hook type: question, bold claim, personal story, surprising stat
+${hasBrand ? '- Product/angle: each script should naturally feature a different product or benefit from the brand catalog above' : ''}
 
 Rules per script:
 - ~${wordTarget} words (target ${dur}s at ~2.5 words/sec)
 - Natural spoken language, short sentences (8-15 words)
 - Strong hook in first sentence
+- ${hasBrand ? `Mention the brand or a specific product naturally (don't be salesy). Speak to the right audience for that product.` : 'Strong narrative arc.'}
 - End with a clear call to action
 - NO stage directions, NO speaker labels, NO timestamps
 
@@ -229,13 +330,15 @@ Return ONLY valid JSON:
       "settingLabel": "Home office, soft window light",
       "hook": "one-line teaser",
       "narration": "full spoken script ~${wordTarget} words",
-      "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays."
+      "visualDescription": "iPhone selfie of the person in [setting]. [wardrobe]. [lighting]. [mood]. NO text overlays.",
+      "featuredProduct": "${hasBrand ? 'name of product or angle this script highlights' : 'topic angle'}",
+      "audience": "who this script speaks to"
     }
     // ... 4 total, all different
   ]
 }`
             },
-            { role: 'user', content: `Topic: ${message}\n\nWrite 4 distinct ~${dur}s talking-head scripts. All 4 must feel meaningfully different in style AND setting.` }
+            { role: 'user', content: `Topic / direction: ${message}\n\nWrite 4 distinct ~${dur}s talking-head scripts. All 4 must feel meaningfully different in style, setting${hasBrand ? ', AND featured product/angle from the brand catalog' : ''}.` }
           ]
         }
       });
@@ -250,6 +353,8 @@ Return ONLY valid JSON:
         hook: v.hook || '',
         narration: v.narration || '',
         visualDescription: v.visualDescription || '',
+        featuredProduct: v.featuredProduct || v.product || undefined,
+        audience: v.audience || v.targetAudience || undefined,
       })).filter((v: ScriptVariation) => v.narration);
       if (arr.length === 0) throw new Error('No variations returned');
       setVariations(arr);
@@ -525,6 +630,45 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                       <p className="text-xs text-muted-foreground">💡 Tip: Use the AI Director to brainstorm content ideas</p>
                     )}
                   </div>
+                  {/* Brand context strip — drives 4 variations */}
+                  <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Globe className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <p className="text-xs font-semibold truncate">
+                          {brandContext.brandName ? `Brand: ${brandContext.brandName}` : 'No brand connected'}
+                        </p>
+                      </div>
+                      {brandContext.productLines && (
+                        <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                          {brandContext.productLines.split(';').length} products
+                        </Badge>
+                      )}
+                    </div>
+                    {brandContext.productLines && (
+                      <p className="text-[10px] text-muted-foreground line-clamp-2">{brandContext.productLines}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Input
+                        value={brandUrl}
+                        onChange={e => setBrandUrl(e.target.value)}
+                        placeholder={brandContext.websiteUrl || 'Optional: paste brand URL to refine context'}
+                        className="h-8 text-xs rounded-lg"
+                        disabled={isAnalyzingBrand}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={analyzeBrandUrl}
+                        disabled={isAnalyzingBrand || !brandUrl.trim()}
+                        className="h-8 text-xs rounded-lg flex-shrink-0"
+                      >
+                        {isAnalyzingBrand ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Analyze'}
+                      </Button>
+                    </div>
+                  </div>
+
                   <Button
                     type="button"
                     variant="outline"
@@ -534,9 +678,9 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                     className="w-full rounded-lg border-dashed"
                   >
                     {isGeneratingVariations ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Writing 4 variations...</>
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Writing 4 brand-aware variations...</>
                     ) : (
-                      <><Wand2 className="w-4 h-4 mr-2" /> Generate 4 Script Variations (different styles & settings)</>
+                      <><Wand2 className="w-4 h-4 mr-2" /> Generate 4 Script Variations {brandContext.brandName ? `(for ${brandContext.brandName})` : '(different styles & settings)'}</>
                     )}
                   </Button>
                 </div>
@@ -566,12 +710,18 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                               <div className="flex flex-wrap gap-1">
                                 <Badge variant="secondary" className="text-[10px]">{v.styleLabel}</Badge>
                                 <Badge variant="outline" className="text-[10px]">{v.settingLabel}</Badge>
+                                {v.featuredProduct && (
+                                  <Badge className="text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20">{v.featuredProduct}</Badge>
+                                )}
                               </div>
                               {isActive && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
                             </div>
                             {v.hook && <p className="text-xs font-medium text-foreground line-clamp-2">{v.hook}</p>}
                             <p className="text-[11px] text-muted-foreground line-clamp-3 leading-relaxed">{v.narration}</p>
-                            <p className="text-[10px] text-muted-foreground/70">~{v.narration.trim().split(/\s+/).length} words</p>
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              <p className="text-[10px] text-muted-foreground/70">~{v.narration.trim().split(/\s+/).length} words</p>
+                              {v.audience && <p className="text-[10px] text-muted-foreground/70 truncate ml-2">→ {v.audience}</p>}
+                            </div>
                           </button>
                         );
                       })}
