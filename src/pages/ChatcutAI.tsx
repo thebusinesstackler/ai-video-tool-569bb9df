@@ -397,7 +397,12 @@ const ChatcutAI = () => {
       }
       setCurrentTime(t);
     };
-    const onMeta = () => setDuration(video.duration);
+    const onMeta = () => {
+      setDuration(video.duration);
+      if (video.videoWidth && video.videoHeight) {
+        setVideoAspect(video.videoWidth / video.videoHeight);
+      }
+    };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     video.addEventListener('timeupdate', onTime);
