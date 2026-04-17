@@ -1824,12 +1824,26 @@ const ChatcutAI = () => {
                       {activeBRoll && (
                         activeBRoll.videoUrl && activeBRoll.videoStatus === 'ready' ? (
                           <video
+                            key={activeBRoll.id}
                             src={activeBRoll.videoUrl}
                             autoPlay
                             muted
-                            loop
+                            loop={typeof activeBRoll.sourceStart !== 'number'}
                             playsInline
                             className="block absolute inset-0 w-full h-full object-cover z-[5]"
+                            onLoadedMetadata={(e) => {
+                              if (typeof activeBRoll.sourceStart === 'number') {
+                                (e.currentTarget as HTMLVideoElement).currentTime = activeBRoll.sourceStart;
+                              }
+                            }}
+                            onTimeUpdate={(e) => {
+                              if (typeof activeBRoll.sourceStart !== 'number') return;
+                              const v = e.currentTarget as HTMLVideoElement;
+                              const end = activeBRoll.sourceStart + activeBRoll.duration;
+                              if (v.currentTime >= end - 0.05) {
+                                v.currentTime = activeBRoll.sourceStart;
+                              }
+                            }}
                           />
                         ) : (
                           <img
