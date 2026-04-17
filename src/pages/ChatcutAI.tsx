@@ -2417,8 +2417,9 @@ const ChatcutAI = () => {
                         width: reelPreview ? 'auto' : (videoAspect && videoAspect >= 1 ? '100%' : 'auto'),
                       }}
                     >
-                      {/* Background video (when PiP mode is active) */}
-                      {pipEnabled && bgVideoUrl && (
+                      {/* Background layer (when PiP/Layers mode is active) — either an uploaded
+                          video, OR a TikTok-style vertical scroll of the user's product images. */}
+                      {pipEnabled && pipBgMode === 'video' && bgVideoUrl && (
                         <video
                           ref={bgVideoRef}
                           src={bgVideoUrl}
@@ -2428,6 +2429,22 @@ const ChatcutAI = () => {
                           playsInline
                           onClick={togglePlay}
                         />
+                      )}
+                      {pipEnabled && pipBgMode === 'product-feed' && productImages.length > 0 && (
+                        <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-background to-muted" onClick={togglePlay}>
+                          <div className="absolute inset-x-0 animate-[scroll-up_30s_linear_infinite] flex flex-col gap-4 px-6 py-6"
+                            style={{ animationDuration: `${Math.max(20, productImages.length * 4)}s` }}>
+                            {[...productImages, ...productImages].map((p, i) => (
+                              <div key={`${p.id}-${i}`} className="rounded-2xl bg-card shadow-xl overflow-hidden border border-border flex-shrink-0">
+                                <img src={p.image_url} alt={p.label || 'product'} className="w-full aspect-square object-contain bg-white p-4" />
+                                <div className="px-3 py-2">
+                                  <p className="text-xs font-semibold text-foreground truncate">{p.product_name || p.label || 'Product'}</p>
+                                  <p className="text-[10px] text-primary font-bold mt-0.5">Shop now →</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                       {/* B-Roll overlay when active — prefer video over still */}
                       {activeBRoll && (
