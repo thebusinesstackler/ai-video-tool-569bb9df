@@ -814,23 +814,28 @@ const ChatcutAI = () => {
     try {
       const style = styleHint || 'glass';
       const styleDesc: Record<string, string> = {
-        glass: 'modern translucent glass background with subtle blur',
-        bold: 'high-contrast bold background with strong colors',
-        minimal: 'clean minimal design with thin elegant lines',
-        neon: 'glowing neon edges with vibrant color highlights',
-        broadcast: 'professional news broadcast style with accent bar',
+        glass: 'modern translucent glass-look button shape with subtle blur and soft inner highlight',
+        bold: 'high-contrast bold pill button shape with strong color fill and clean edges',
+        minimal: 'clean minimal pill shape with thin border and elegant typography',
+        neon: 'glowing neon-edged pill button with vibrant color highlights',
+        broadcast: 'professional news-style chip with a vertical accent bar on the left',
       };
       const styleText = styleDesc[style] || styleDesc.glass;
       const stylePrompts: Record<string, string> = {
-        motion_graphic: `Compact overlay badge featuring the text "${text}" in bold modern sans-serif typography, ${styleText}. The design itself can have its own colored shape/badge/glow, but the AREA AROUND the badge MUST be 100% transparent (alpha 0). No surrounding rectangular dark frame, no padded box, no background plate.`,
-        animated_text: `Standalone cinematic title text "${text}" in elegant typography with subtle glow, ${styleText}. Render only the text glyphs and any tight decorative elements — everything around the text must be fully transparent (alpha 0). No rectangular background panel.`,
-        lower_third: `Slim lower-third bar graphic with the name "${text}", ${styleText}, sleek thin bar shape. The bar itself is the only visible element — area above/below/around the bar must be completely transparent (alpha 0).`,
-        title_card: `Compact title chip showing "${text}" in bold cinematic typography, ${styleText}, tight contained shape. Only the title chip is visible — surrounding area must be 100% transparent (alpha 0). No outer rectangle or padding box.`,
+        motion_graphic: `A real pill-shaped BUTTON containing the text "${text}" in bold modern sans-serif typography. ${styleText}. The button must be a clearly visible filled rounded-rectangle shape (not bare floating text). Outside the button shape: 100% transparent.`,
+        animated_text: `Standalone cinematic title text "${text}" in elegant typography with subtle glow. ${styleText}. Render only the text glyphs and a tight decorative shape behind/around them — outside that shape is fully transparent.`,
+        lower_third: `A real lower-third bar SHAPE containing the name "${text}" — slim filled rounded bar in ${styleText}. The bar shape itself is filled with color and clearly visible. Outside the bar: 100% transparent.`,
+        title_card: `A real filled title-chip SHAPE containing "${text}" in bold cinematic typography, ${styleText}. Tight rounded-rectangle shape with a colored fill. Outside the chip: 100% transparent.`,
       };
       const imagePrompt = stylePrompts[type] || stylePrompts.motion_graphic;
 
       const { data, error } = await supabase.functions.invoke('generate-motion-graphic', {
-        body: { prompt: imagePrompt },
+        body: {
+          prompt: imagePrompt,
+          brandPrimaryColor: brandSettings.primaryColor,
+          brandTextColor: brandSettings.textColor,
+          brandFont: brandSettings.font,
+        },
       });
 
       if (error || !data?.imageUrl) throw new Error(error?.message || 'Image generation failed');
@@ -853,7 +858,7 @@ const ChatcutAI = () => {
         content: `⚠️ Heads up — the graphic for **"${text}"** didn't generate. Want me to retry with a different style? 🔄`,
       }]);
     }
-  }, [toast, overlays]);
+  }, [toast, overlays, brandSettings]);
 
   const executeActions = useCallback((actions: TimelineAction[]) => {
     for (const act of actions) {
