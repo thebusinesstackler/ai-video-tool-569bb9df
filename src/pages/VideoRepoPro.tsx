@@ -2285,15 +2285,13 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
           </TabsContent>
         </Tabs>
       </div>
-      {frameExtractor && (
-        <FrameExtractorDialog
-          open={!!frameExtractor}
-          onOpenChange={(o) => !o && setFrameExtractor(null)}
-          videoUrl={frameExtractor.url}
-          projectId={frameExtractor.projectId}
-          projectLabel={frameExtractor.label}
-        />
-      )}
+      <FrameExtractorDialog
+        open={!!frameExtractor}
+        onOpenChange={(o) => !o && setFrameExtractor(null)}
+        videoUrl={frameExtractor?.url || ''}
+        projectId={frameExtractor?.projectId}
+        projectLabel={frameExtractor?.label}
+      />
     </Layout>
   );
 };

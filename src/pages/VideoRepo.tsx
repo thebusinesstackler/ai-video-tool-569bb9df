@@ -2156,15 +2156,13 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         onOpenChange={setProductPickerOpen}
         onSelect={handleProductPicked}
       />
-      {frameExtractor && (
-        <FrameExtractorDialog
-          open={!!frameExtractor}
-          onOpenChange={(o) => !o && setFrameExtractor(null)}
-          videoUrl={frameExtractor.url}
-          projectId={frameExtractor.projectId}
-          projectLabel={frameExtractor.label}
-        />
-      )}
+      <FrameExtractorDialog
+        open={!!frameExtractor}
+        onOpenChange={(o) => !o && setFrameExtractor(null)}
+        videoUrl={frameExtractor?.url || ''}
+        projectId={frameExtractor?.projectId}
+        projectLabel={frameExtractor?.label}
+      />
     </Layout>
   );
 };
