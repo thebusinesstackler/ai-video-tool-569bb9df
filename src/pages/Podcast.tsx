@@ -710,6 +710,9 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                               <div className="flex flex-wrap gap-1">
                                 <Badge variant="secondary" className="text-[10px]">{v.styleLabel}</Badge>
                                 <Badge variant="outline" className="text-[10px]">{v.settingLabel}</Badge>
+                                {v.featuredProduct && (
+                                  <Badge className="text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20">{v.featuredProduct}</Badge>
+                                )}
                               </div>
                               {isActive && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
                             </div>
