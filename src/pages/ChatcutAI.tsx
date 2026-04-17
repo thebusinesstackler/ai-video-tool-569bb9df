@@ -1740,6 +1740,34 @@ const ChatcutAI = () => {
     toast({ title: 'Reverted Marco\'s last change', description: aiUndoSnapshot.label || 'Timeline restored' });
   }, [aiUndoSnapshot, toast]);
 
+  const uploadReferenceImage = async (file: File) => {
+    if (!user) return;
+    setIsUploadingRefImage(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${user.id}/chatcut-refs/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('project-files').upload(path, file, {
+        contentType: file.type || 'image/png',
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from('project-files').getPublicUrl(path);
+      setSelectedReference({
+        kind: 'product',
+        id: `upload-${Date.now()}`,
+        label: file.name.replace(/\.[^.]+$/, '') || 'Uploaded image',
+        thumbUrl: data.publicUrl,
+        productName: file.name.replace(/\.[^.]+$/, ''),
+      });
+      toast({ title: 'Image attached', description: 'Marco will use this image as your product reference.' });
+    } catch (e: any) {
+      console.error('[ChatcutAI] reference image upload failed', e);
+      toast({ title: 'Upload failed', description: e?.message || 'Could not upload image', variant: 'destructive' });
+    } finally {
+      setIsUploadingRefImage(false);
+    }
+  };
+
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
