@@ -274,7 +274,15 @@ const ChatcutAI = () => {
     label: string;
   } | null>(null);
 
-  // Fetch brand guidelines on mount
+  // Reel-mode preview state — letterboxes the player to 9:16 with a horizontal crop offset
+  // so the user can see how a vertical export would look. cropX = % of horizontal pan (0=left, 50=center, 100=right).
+  const [reelPreview, setReelPreview] = useState(false);
+  const [reelCropX, setReelCropX] = useState(50);
+  const [isAutoCentering, setIsAutoCentering] = useState(false);
+
+  // Track failed B-roll attempts so we only auto-retry once
+  const brollRetryCount = useRef<Map<string, number>>(new Map());
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -957,7 +965,9 @@ const ChatcutAI = () => {
     setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, videoStatus: 'failed' } : b));
   }, [bRollClips]);
 
-  // Generate B-roll image via generate-scene-image, then animate to video
+  // Generate B-roll image via generate-scene-image, then animate to video.
+  // Auto-retries ONCE with a stripped-down prompt if the image step fails,
+  // and surfaces a clear error + Retry button in chat if it still fails.
   const generateBRollImage = useCallback(async (clipId: string, prompt: string) => {
     setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating' } : b));
     try {
@@ -993,9 +1003,43 @@ const ChatcutAI = () => {
       }
     } catch (err: any) {
       console.error('B-roll gen error:', err);
+      const attempts = (brollRetryCount.current.get(clipId) || 0) + 1;
+      brollRetryCount.current.set(clipId, attempts);
+
+      if (attempts === 1) {
+        // AUTO-RETRY ONCE with a simpler, grounded prompt (strip cinematic / brand modifiers)
+        const stripped = prompt
+          .replace(/cinematic|epic|anamorphic|hero shot|golden hour|shallow depth of field|moody|dramatic/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 220);
+        const safePrompt = stripped || `Natural close-up shot, soft daylight, casual handheld phone footage`;
+        toast({ title: 'Retrying B-Roll…', description: 'First attempt failed — trying a simpler prompt' });
+        setTimeout(() => generateBRollImage(clipId, safePrompt), 800);
+        return;
+      }
+
+      // Already retried — surface clear error to chat
       setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'failed' } : b));
+      const errMsg = err?.message || 'Unknown error from image generator';
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `⚠️ I couldn't generate that B-roll after 2 tries — **${errMsg}**\n\nClick the **Retry B-Roll** button on the failed clip in the timeline, or just tell me to try a different prompt.`,
+      }]);
     }
   }, [toast, pollBRollVideo]);
+
+  // Public retry helper — re-runs generation for a B-roll clip with its current prompt
+  const retryBRoll = useCallback((clipId: string) => {
+    const clip = bRollClips.find(b => b.id === clipId);
+    if (!clip) return;
+    brollRetryCount.current.delete(clipId); // reset retry counter
+    setBRollClips(prev => prev.map(b => b.id === clipId
+      ? { ...b, imageStatus: 'generating', videoStatus: undefined, imageUrl: undefined, videoUrl: undefined }
+      : b));
+    generateBRollImage(clipId, clip.prompt);
+  }, [bRollClips, generateBRollImage]);
+
 
   // Add B-roll from an EXISTING image (saved frame, product image, or upload) — skips image gen, animates directly
   const addBRollFromImage = useCallback((imageUrl: string, label: string, prompt?: string, startAt?: number) => {
