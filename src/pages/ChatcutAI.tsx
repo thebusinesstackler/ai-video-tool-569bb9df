@@ -2283,34 +2283,34 @@ const ChatcutAI = () => {
         )}
 
         {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-gradient-accent">
+        <div className="flex items-center justify-between gap-2 px-2 sm:px-4 py-2 border-b border-border bg-card flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="p-1.5 rounded-lg bg-gradient-accent flex-shrink-0">
               <Scissors className="w-4 h-4 text-primary" />
             </div>
-            <h1 className="text-sm font-semibold text-foreground">Chatcut AI</h1>
-            <div className="w-px h-5 bg-border" />
+            <h1 className="text-sm font-semibold text-foreground hidden sm:block">Chatcut AI</h1>
+            <div className="w-px h-5 bg-border hidden sm:block" />
             <ProjectNameInput
               value={draftName}
               onSave={setDraftName}
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
             {isTranscribing && (
               <Badge variant="outline" className="text-xs">
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Transcribing...
+                <span className="hidden sm:inline">Transcribing...</span>
               </Badge>
             )}
             {transcript && !isTranscribing && (
               <Badge className="text-xs bg-primary/10 text-primary border-primary/20">
-                ✓ Transcribed
+                ✓<span className="hidden sm:inline ml-1">Transcribed</span>
               </Badge>
             )}
             <Button
               size="sm"
               variant="ghost"
-              className="text-xs gap-1 h-7"
+              className="text-xs gap-1 h-7 px-2"
               onClick={() => {
                 if (videoUrl || messages.length > 0) {
                   if (confirm('Start a new project? Unsaved changes will be lost.')) resetProject();
@@ -2319,19 +2319,19 @@ const ChatcutAI = () => {
                 }
               }}
             >
-              <FilePlus className="w-3.5 h-3.5" /> New
+              <FilePlus className="w-3.5 h-3.5" /> <span className="hidden sm:inline">New</span>
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="text-xs gap-1 h-7"
+              className="text-xs gap-1 h-7 px-2"
               disabled={isSaving || (!videoUrl && messages.length === 0)}
               onClick={saveDraft}
             >
               {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Save
+              <span className="hidden sm:inline">Save</span>
             </Button>
-            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-4" onClick={handleExport} disabled={!videoUrl}>
+            <Button size="sm" className="text-xs bg-orange-600 hover:bg-orange-700 text-white border-0 font-semibold px-3 sm:px-4 h-7" onClick={handleExport} disabled={!videoUrl}>
               Export
             </Button>
             {videoUrl && (
@@ -2340,9 +2340,9 @@ const ChatcutAI = () => {
           </div>
         </div>
 
-        {/* Main content: resizable 3-panel layout */}
+        {/* Main content: resizable 3-panel layout (vertical stack on mobile) */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <ResizablePanelGroup direction="horizontal" className="flex-1">
+          <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
             {/* Left Panel: AI Chat + Transcript */}
             <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
               <div className="h-full flex flex-col bg-card">
@@ -4197,6 +4197,32 @@ const ChatcutAI = () => {
               </div>
             )}
           </ResizablePanelGroup>
+
+          {/* Mobile: tabbed single-panel layout (video always on top) */}
+          <div className="flex-1 flex flex-col md:hidden overflow-hidden">
+            <Tabs defaultValue="video" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="mx-2 mt-2 mb-0 bg-muted/50 grid grid-cols-3 w-auto">
+                <TabsTrigger value="video" className="text-xs">Video</TabsTrigger>
+                <TabsTrigger value="ai" className="text-xs">AI Chat</TabsTrigger>
+                <TabsTrigger value="media" className="text-xs">Media</TabsTrigger>
+              </TabsList>
+              <TabsContent value="video" className="flex-1 overflow-hidden m-0 bg-black/95">
+                <p className="text-xs text-muted-foreground text-center p-4">
+                  📱 For full editing on mobile, rotate to landscape or use a tablet/desktop. The video, AI chat, and media panels are tabbed here for navigation.
+                </p>
+              </TabsContent>
+              <TabsContent value="ai" className="flex-1 overflow-hidden m-0">
+                <p className="text-xs text-muted-foreground text-center p-4">
+                  Open Chatcut on a larger screen to access the full AI Director, transcript, and timeline editor.
+                </p>
+              </TabsContent>
+              <TabsContent value="media" className="flex-1 overflow-hidden m-0">
+                <p className="text-xs text-muted-foreground text-center p-4">
+                  Media panel available on tablet/desktop.
+                </p>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
 
