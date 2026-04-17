@@ -57,6 +57,7 @@ import { Slider } from '@/components/ui/slider';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import { extractBrollFrames, parseBrollClipMeta } from '@/lib/extractBrollFrames';
 import { extractKeyframesFromElement, type Keyframe } from '@/lib/extractVideoKeyframes';
+import { SmartOverlay } from '@/components/chatcut/SmartOverlay';
 
 const AGENT_NAME = 'Marco';
 
@@ -116,6 +117,18 @@ interface OverlayItem {
   style?: string;
   position?: { x: number; y: number };
   scale?: number; // 1 = default, up to 5 = full screen
+  /**
+   * 'dom'   → rendered crisply by <SmartOverlay/> with brand colors. No PNG, no transparency artifacts.
+   *           Default for stat/list/quote/lower-third/CTA cards.
+   * 'image' → rendered as a real PNG/JPG (Nano Banana 2 image, product chip, custom illustration).
+   */
+  renderMode?: 'dom' | 'image';
+  /** Optional list items for benefit_list, numbered_list, feature_grid, comparison, full_coverage. */
+  items?: string[];
+  /** Optional second line of copy under the headline (e.g. URL under a CTA, attribution under a quote). */
+  subtext?: string;
+  /** Marks a take-over scene that REPLACES the source video for its duration. */
+  fullCoverage?: boolean;
 }
 
 interface BrandSettings {
@@ -1223,7 +1236,9 @@ const ChatcutAI = () => {
           });
           break;
         }
-        case 'add_overlay': {
+        case 'add_overlay':
+        case 'add_text_card':
+        case 'add_full_coverage': {
           const overlayId = crypto.randomUUID();
           // Map style to animation preset
           const styleAnimationMap: Record<string, OverlayAnimation> = {
@@ -1236,30 +1251,52 @@ const ChatcutAI = () => {
           const animation = act.animation
             ? { entrance: act.animation, exit: 'fade-out' as const }
             : styleAnimationMap[act.style || 'glass'] || { entrance: 'slide-up' as const, exit: 'fade-out' as const };
-          const overlayType = act.type || 'lower_third';
-          const isCTA = /shop now|buy|order|learn more|get yours|http|\.com|\.co|\.io/i.test(act.text || '');
+          const overlayType = act.type || (act.action === 'add_full_coverage' ? 'feature_grid' : 'lower_third');
+          const isCTA = overlayType === 'cta_button' || /shop now|buy|order|learn more|get yours|http|\.com|\.co|\.io/i.test(act.text || '');
           // Smart defaults for position + scale by type (safety net if Marco omits them)
           const defaultsByType: Record<string, { pos: { x: number; y: number }; scale: number }> = {
-            lower_third: { pos: { x: 50, y: 85 }, scale: 2 },
+            lower_third:    { pos: { x: 50, y: 85 }, scale: 2 },
             motion_graphic: { pos: { x: 50, y: 25 }, scale: 1 },
-            animated_text: { pos: { x: 50, y: 80 }, scale: 2 },
-            title_card: { pos: { x: 50, y: 50 }, scale: 5 },
+            animated_text:  { pos: { x: 50, y: 80 }, scale: 2 },
+            title_card:     { pos: { x: 50, y: 50 }, scale: 5 },
+            stat_callout:   { pos: { x: 78, y: 25 }, scale: 2 },
+            benefit_chip:   { pos: { x: 50, y: 22 }, scale: 1 },
+            benefit_list:   { pos: { x: 78, y: 50 }, scale: 2 },
+            numbered_list:  { pos: { x: 50, y: 50 }, scale: 5 },
+            feature_grid:   { pos: { x: 50, y: 50 }, scale: 5 },
+            quote_pop:      { pos: { x: 50, y: 30 }, scale: 2 },
+            comparison:     { pos: { x: 50, y: 50 }, scale: 5 },
+            cta_button:     { pos: { x: 50, y: 80 }, scale: 2 },
           };
           const def = defaultsByType[overlayType] || { pos: { x: 50, y: 80 }, scale: 2 };
-          // CTA buttons (Shop Now / contains URL) always get button-sized treatment
-          const finalScale = isCTA ? 2 : (act.scale || def.scale);
+          const isFullCoverage = act.action === 'add_full_coverage' || act.fullCoverage === true || ['numbered_list', 'feature_grid', 'comparison'].includes(overlayType);
+          const finalScale = isCTA ? 2 : (act.scale || (isFullCoverage ? 5 : def.scale));
           const finalPos = act.position || (isCTA ? { x: 50, y: 80 } : def.pos);
+
+          // ── RENDER-MODE DECISION ────────────────────────────────────────
+          // Default to crisp DOM rendering for all text/list/CTA cards (looks
+          // sharper, no transparency artifacts, scales perfectly).
+          // Only fall back to AI image when the user explicitly asks for an
+          // illustrative graphic (icon, product chip) via renderMode='image'.
+          const renderMode: 'dom' | 'image' = act.renderMode === 'image' ? 'image' : 'dom';
+
           const newOverlay: OverlayItem = {
             id: overlayId, type: overlayType,
-            text: act.text || '', start: act.start || 0, duration: act.duration || 5,
-            animation, style: act.style,
+            text: act.text || '', start: act.start || 0, duration: act.duration || (isFullCoverage ? 4 : 5),
+            animation, style: act.style || 'glass',
             scale: finalScale,
             position: finalPos,
+            renderMode,
+            items: Array.isArray(act.items) ? act.items.slice(0, 8) : undefined,
+            subtext: typeof act.subtext === 'string' ? act.subtext : undefined,
+            fullCoverage: isFullCoverage,
+            imageStatus: renderMode === 'image' ? 'generating' : 'ready',
           };
           setOverlays(prev => [...prev, newOverlay]);
-          toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
-          // Generate motion graphic image for motion_graphic and animated_text types
-          if (['motion_graphic', 'animated_text', 'lower_third', 'title_card'].includes(overlayType)) {
+          if (renderMode === 'dom') {
+            toast({ title: '✨ Graphic added', description: `"${act.text}" — rendered with your brand colors` });
+          } else {
+            toast({ title: 'Overlay added', description: `"${act.text}" — generating graphic...` });
             generateMotionGraphic(overlayId, act.text || '', overlayType, act.style);
           }
           break;
@@ -2168,9 +2205,13 @@ const ChatcutAI = () => {
                         />
                       )}
 
-                      {/* Motion graphics / overlay visuals on video — with entrance animations */}
-                      {trackVisibility.v3 && overlays
-                        .filter(o => (o.type === 'motion_graphic' || o.type === 'animated_text') && currentTime >= o.start && currentTime < o.start + o.duration)
+                      {/* All overlays — V2/V3 unified renderer with SmartOverlay (DOM) or AI image */}
+                      {(trackVisibility.v2 || trackVisibility.v3) && overlays
+                        .filter(o => {
+                          if (currentTime < o.start || currentTime >= o.start + o.duration) return false;
+                          const isV3 = o.type === 'motion_graphic' || o.type === 'animated_text';
+                          return isV3 ? trackVisibility.v3 : trackVisibility.v2;
+                        })
                         .map(ov => {
                           const elapsed = currentTime - ov.start;
                           const remaining = ov.duration - elapsed;
@@ -2185,7 +2226,10 @@ const ChatcutAI = () => {
                             : isExiting ? 'animate-[fadeOut_0.4s_ease-in_forwards]' : '';
                           const pos = ov.position || { x: 50, y: 30 };
                           const scale = ov.scale || 1;
-                          const isFull = scale >= 4;
+                          const isFull = ov.fullCoverage || scale >= 5;
+                          // Render via SmartOverlay (DOM) unless explicit image mode AND a real image is ready
+                          const useDOM = ov.renderMode !== 'image' || !(ov.imageUrl && ov.imageStatus === 'ready');
+
                           return (
                             <div
                               key={ov.id}
@@ -2202,7 +2246,29 @@ const ChatcutAI = () => {
                                 setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
                               }}
                             >
-                              {ov.imageUrl && ov.imageStatus === 'ready' ? (
+                              {useDOM ? (
+                                ov.imageStatus === 'generating' && ov.renderMode === 'image' ? (
+                                  <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
+                                    <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                                    <span className="text-purple-200 text-sm">Generating graphic...</span>
+                                  </div>
+                                ) : (
+                                  <div className="pointer-events-none">
+                                    <SmartOverlay
+                                      type={ov.type}
+                                      text={ov.text}
+                                      items={ov.items}
+                                      subtext={ov.subtext}
+                                      brandColor={brandSettings.primaryColor}
+                                      brandTextColor={brandSettings.textColor}
+                                      brandFont={brandSettings.font}
+                                      style={(ov.style as any) || 'glass'}
+                                      scale={scale}
+                                      fullCoverage={isFull}
+                                    />
+                                  </div>
+                                )
+                              ) : (
                                 <img
                                   src={ov.imageUrl}
                                   alt={ov.text}
@@ -2212,63 +2278,6 @@ const ChatcutAI = () => {
                                     : { maxWidth: `${Math.min(scale * 20, 90)}vw`, maxHeight: `${Math.min(scale * 12, 80)}vh` }
                                   }
                                 />
-                              ) : ov.imageStatus === 'generating' ? (
-                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
-                                  <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
-                                  <span className="text-purple-200 text-sm">Generating graphic...</span>
-                                </div>
-                              ) : (
-                                <div className="bg-black/60 backdrop-blur-sm px-4 py-2 rounded-lg border border-purple-500/40 pointer-events-none">
-                                  <span className="text-purple-200 text-sm font-semibold">{ov.text}</span>
-                                </div>
-                              )}
-                              {/* Resize hint */}
-                              {!isFull && ov.imageUrl && ov.imageStatus === 'ready' && (
-                                <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[9px] text-muted-foreground whitespace-nowrap pointer-events-none">
-                                  Double-click to resize
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      }
-
-                      {/* V2 text overlays on video */}
-                      {trackVisibility.v2 && overlays
-                        .filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text' && currentTime >= o.start && currentTime < o.start + o.duration)
-                        .map(ov => {
-                          const pos = ov.position || { x: 50, y: 80 };
-                          const scale = ov.scale || 1;
-                          const isFull = scale >= 4;
-                          return (
-                            <div
-                              key={ov.id}
-                              className={cn(
-                                "absolute z-10 cursor-grab active:cursor-grabbing",
-                                draggingOverlayId === ov.id && "opacity-80",
-                                isFull && "inset-0 flex items-center justify-center"
-                              )}
-                              style={isFull ? {} : { left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
-                              onMouseDown={(e) => !isFull && handleOverlayMouseDown(e, ov.id)}
-                              onDoubleClick={(e) => {
-                                e.stopPropagation();
-                                setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
-                              }}
-                            >
-                              {ov.imageUrl && ov.imageStatus === 'ready' ? (
-                                <img
-                                  src={ov.imageUrl}
-                                  alt={ov.text}
-                                  className="object-contain pointer-events-none"
-                                  style={isFull
-                                    ? { width: '100%', height: '100%', objectFit: 'cover' }
-                                    : { maxWidth: `${Math.min(scale * 15, 80)}vw`, maxHeight: `${Math.min(scale * 8, 60)}vh` }
-                                  }
-                                />
-                              ) : (
-                                <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-md border border-pink-500/30 pointer-events-none">
-                                  <span className="text-pink-100 text-xs">{ov.text}</span>
-                                </div>
                               )}
                             </div>
                           );
