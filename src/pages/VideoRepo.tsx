@@ -1502,6 +1502,9 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
                         <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
                         <div className="flex gap-2 flex-wrap">
+                          <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-lg flex-1 min-w-0" onClick={() => setProductPickerOpen(true)}>
+                            <Package className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Pick Product</span>
+                          </Button>
                           <Button variant="outline" size="sm" className="text-xs gap-1.5 rounded-lg flex-1 min-w-0" onClick={() => fileInputRef.current?.click()}>
                             <ImagePlus className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Add Image</span>
                           </Button>
