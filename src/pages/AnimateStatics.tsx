@@ -884,7 +884,7 @@ const AnimateStatics = () => {
                                   </div>
                                   <Progress value={job.progress} className="h-1.5" />
                                   {job.error && (
-                                    <p className={cn("text-[10px] mt-1 truncate", job.creditError ? "text-warning" : "text-destructive")}>
+                                    <p className="text-[10px] mt-1 truncate text-destructive">
                                       {job.creditError ? '💳 Insufficient WaveSpeed credits — top up then retry' : job.error}
                                     </p>
                                   )}
