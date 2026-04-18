@@ -3528,23 +3528,36 @@ const ChatcutAI = () => {
 
                   {timelineClips.length > 0 ? (
                     <div className="flex flex-col relative">
-                      {/* Graphics Track */}
-                      {trackVisibility.v3 && (
-                      <div className="flex items-center h-10 border-b border-border/50 group hover:bg-muted/20">
+                      {/* Graphics Track — always visible on the timeline.
+                          The eye toggle only suppresses preview rendering (trackVisibility.v3). */}
+                      {(() => {
+                        const lanes = graphicsLanes.count;
+                        const rowH = Math.max(40, 12 + lanes * 22);
+                        return (
+                      <div className="flex items-stretch border-b border-border/50 group hover:bg-muted/20" style={{ height: `${rowH}px` }}>
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Motion graphics & animated text overlays">
                           <span className="text-[10px] font-semibold text-purple-400 truncate">Graphics</span>
-                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v3')}>
-                            <EyeOff className="w-2.5 h-2.5" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 opacity-60 hover:opacity-100"
+                            onClick={() => toggleTrackVisibility('v3')}
+                            title={trackVisibility.v3 ? 'Hide graphics from video preview (track stays on timeline)' : 'Show graphics in video preview'}
+                          >
+                            {trackVisibility.v3 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5 text-muted-foreground" />}
                           </Button>
                         </div>
-                        <div className="flex-1 relative h-8 mx-1" data-overlay-track>
+                        <div className="flex-1 relative my-1 mx-1" data-overlay-track>
                           {overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text').length > 0 ? (
-                            overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text').map((ov) => (
+                            overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text').map((ov) => {
+                              const laneIdx = graphicsLanes.lane.get(ov.id) ?? 0;
+                              const previewHidden = !trackVisibility.v3 || ov.hidden;
+                              return (
                               <div
                                 key={ov.id}
                                 className={cn(
-                                  "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
-                                  ov.hidden && "opacity-40",
+                                  "absolute rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
+                                  previewHidden && "opacity-40",
                                   overlapIdsByTrack.graphics.has(ov.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background",
                                   ov.imageStatus === 'generating'
                                     ? "bg-purple-500/10 border-purple-500/30 animate-pulse"
@@ -3555,6 +3568,8 @@ const ChatcutAI = () => {
                                 style={{
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
                                   width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
+                                  top: `${laneIdx * 22}px`,
+                                  height: `20px`,
                                 }}
                                 onClick={() => seekTo(ov.start)}
                                 onMouseDown={(e) => {
@@ -3563,7 +3578,7 @@ const ChatcutAI = () => {
                                   if (target.closest('[data-overlay-handle]') || target.closest('button')) return;
                                   handleOverlayClipDrag(e, ov.id, 'move', 'graphics');
                                 }}
-                                title={`${ov.text} — drag body to move, drag edges to trim (start ${ov.start.toFixed(1)}s · ${ov.duration.toFixed(1)}s long)`}
+                                title={`${ov.text} — drag body to move, drag edges to trim (start ${ov.start.toFixed(1)}s · ${ov.duration.toFixed(1)}s long)${previewHidden ? ' · hidden in preview' : ''}`}
                               >
                                 <div
                                   data-overlay-handle
@@ -3583,6 +3598,14 @@ const ChatcutAI = () => {
                                   <span className="text-[9px] text-purple-300/70 ml-1 flex-shrink-0 tabular-nums">{ov.duration.toFixed(1)}s</span>
                                 </div>
                                 <button
+                                  className="hidden group-hover/clip:flex w-4 h-4 items-center justify-center rounded bg-background/70 hover:bg-background flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => { e.stopPropagation(); setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, hidden: !o.hidden } : o)); }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title={ov.hidden ? 'Show this graphic in preview' : 'Hide this graphic from preview (stays on timeline)'}
+                                >
+                                  {ov.hidden ? <EyeOff className="w-2 h-2 text-muted-foreground" /> : <Eye className="w-2 h-2 text-purple-200" />}
+                                </button>
+                                <button
                                   className="hidden group-hover/clip:flex w-4 h-4 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1 z-10 relative"
                                   onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}
                                   onMouseDown={(e) => e.stopPropagation()}
@@ -3597,14 +3620,115 @@ const ChatcutAI = () => {
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               </div>
-                            ))
+                              );
+                            })
                           ) : (
                             <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
                           )}
                         </div>
                         <div className="w-10 flex-shrink-0" />
                       </div>
-                      )}
+                        );
+                      })()}
+
+                      {/* Overlays / Captions Track — always visible on the timeline */}
+                      {(() => {
+                        const lanes = overlayLanes.count;
+                        const rowH = Math.max(40, 12 + lanes * 22);
+                        return (
+                      <div className="flex items-stretch border-b border-border/50 group hover:bg-muted/20" style={{ height: `${rowH}px` }}>
+                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Text overlays, lower thirds & captions">
+                          <span className="text-[10px] font-semibold text-pink-400 truncate">Overlay</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 opacity-60 hover:opacity-100"
+                            onClick={() => toggleTrackVisibility('v2')}
+                            title={trackVisibility.v2 ? 'Hide overlays from video preview (track stays on timeline)' : 'Show overlays in video preview'}
+                          >
+                            {trackVisibility.v2 ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5 text-muted-foreground" />}
+                          </Button>
+                          {captionSettings.enabled && (
+                            <Badge className="text-[7px] px-1 py-0 h-3 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
+                          )}
+                        </div>
+                        <div className="flex-1 relative my-1 mx-1" data-overlay-track>
+                          {overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text').length > 0 ? (
+                            overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text').map((ov) => {
+                              const laneIdx = overlayLanes.lane.get(ov.id) ?? 0;
+                              const previewHidden = !trackVisibility.v2 || ov.hidden;
+                              return (
+                              <div
+                                key={ov.id}
+                                className={cn(
+                                  "absolute rounded bg-pink-500/25 border border-pink-500/50 flex items-center cursor-grab active:cursor-grabbing hover:bg-pink-500/35 transition-colors group/clip select-none",
+                                  previewHidden && "opacity-40",
+                                  overlapIdsByTrack.overlay.has(ov.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background"
+                                )}
+                                style={{
+                                  left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
+                                  width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
+                                  top: `${laneIdx * 22}px`,
+                                  height: `20px`,
+                                }}
+                                onClick={() => seekTo(ov.start)}
+                                onMouseDown={(e) => {
+                                  if (e.button !== 0) return;
+                                  const target = e.target as HTMLElement;
+                                  if (target.closest('[data-overlay-handle]') || target.closest('button')) return;
+                                  handleOverlayClipDrag(e, ov.id, 'move', 'overlay');
+                                }}
+                                title={`${ov.text} — drag body to move, drag edges to trim (start ${ov.start.toFixed(1)}s · ${ov.duration.toFixed(1)}s long)${previewHidden ? ' · hidden in preview' : ''}`}
+                              >
+                                <div
+                                  data-overlay-handle
+                                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-pink-400/0 hover:bg-pink-400/70 rounded-l z-10"
+                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-left', 'overlay')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex items-center px-2 flex-1 min-w-0 pointer-events-none">
+                                  <Sparkles className="w-3 h-3 text-pink-300 mr-1.5 flex-shrink-0" />
+                                  <span className="text-[11px] font-medium text-pink-100 truncate flex-1 leading-tight">{ov.text}</span>
+                                  <span className="text-[9px] text-pink-300/70 ml-1 flex-shrink-0 tabular-nums">{ov.duration.toFixed(1)}s</span>
+                                </div>
+                                <button
+                                  className="hidden group-hover/clip:flex w-4 h-4 items-center justify-center rounded bg-background/70 hover:bg-background flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => { e.stopPropagation(); setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, hidden: !o.hidden } : o)); }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title={ov.hidden ? 'Show this overlay in preview' : 'Hide this overlay from preview (stays on timeline)'}
+                                >
+                                  {ov.hidden ? <EyeOff className="w-2 h-2 text-muted-foreground" /> : <Eye className="w-2 h-2 text-pink-200" />}
+                                </button>
+                                <button
+                                  className="hidden group-hover/clip:flex w-4 h-4 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title="Delete overlay"
+                                >
+                                  <Trash2 className="w-2 h-2 text-white" />
+                                </button>
+                                <div
+                                  data-overlay-handle
+                                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-pink-400/0 hover:bg-pink-400/70 rounded-r z-10"
+                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-right', 'overlay')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                              );
+                            })
+                          ) : captionSettings.enabled ? (
+                            <div className="absolute inset-y-0 left-0 right-0 rounded bg-pink-500/15 border border-pink-500/30 flex items-center px-2">
+                              <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
+                              <span className="text-[10px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
+                          )}
+                        </div>
+                        <div className="w-10 flex-shrink-0" />
+                      </div>
+                        );
+                      })()}
 
                       {/* Overlays / Captions Track */}
                       {trackVisibility.v2 && (
