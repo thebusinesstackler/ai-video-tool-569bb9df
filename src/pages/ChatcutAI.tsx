@@ -1803,9 +1803,46 @@ const ChatcutAI = () => {
           });
           break;
         }
-      }
-    }
-  }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, generateAnimatedGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage, reelPreview]);
+        case 'remove_broll': {
+          const id = act.id || act.brollId;
+          if (id) {
+            const target = bRollClips.find(b => b.id === id);
+            setBRollClips(prev => prev.filter(b => b.id !== id));
+            toast({ title: 'B-Roll removed', description: target ? `Marco removed "${target.name}" at ${target.start.toFixed(1)}s` : undefined });
+          } else if (typeof act.time === 'number') {
+            const t = act.time;
+            const hit = bRollClips.find(b => t >= b.start && t < b.start + b.duration);
+            if (hit) {
+              setBRollClips(prev => prev.filter(b => b.id !== hit.id));
+              toast({ title: 'B-Roll removed', description: `Marco removed "${hit.name}" at ${t.toFixed(1)}s` });
+            }
+          }
+          break;
+        }
+        case 'update_broll': {
+          const id = act.id || act.brollId;
+          if (!id) break;
+          setBRollClips(prev => prev.map(b => {
+            if (b.id !== id) return b;
+            const next = { ...b };
+            if (typeof act.start === 'number') next.start = Math.max(0, act.start);
+            if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
+            if (typeof act.audioEnabled === 'boolean') next.audioEnabled = act.audioEnabled;
+            if (typeof act.name === 'string') next.name = act.name;
+            return next;
+          }));
+          toast({ title: 'B-Roll updated' });
+          break;
+        }
+        case 'remove_overlay': {
+          const id = act.id || act.overlayId;
+          if (id) {
+            const target = overlays.find(o => o.id === id);
+            setOverlays(prev => prev.filter(o => o.id !== id));
+            toast({ title: 'Overlay removed', description: target ? `"${target.text}" at ${target.start.toFixed(1)}s` : undefined });
+          }
+          break;
+        }
 
   // Self-ref so action cases can recurse (e.g. replace_broll_at_time → add_product_broll)
   const executeActionsRef = useRef<typeof executeActions | null>(null);
