@@ -2345,8 +2345,18 @@ const ChatcutAI = () => {
         <div className="flex-1 flex flex-col overflow-hidden">
           <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
             {/* Left Panel: AI Chat + Transcript */}
+            {aiPanelVisible ? (
             <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
-              <div className="h-full flex flex-col bg-card">
+              <div className="h-full flex flex-col bg-card relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 absolute top-2 right-2 z-10"
+                  onClick={() => setAiPanelVisible(false)}
+                  title="Hide AI Director"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </Button>
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ai' | 'transcript' | 'clips')} className="flex flex-col flex-1 overflow-hidden">
                   <TabsList className="mx-3 mt-2 mb-0 bg-muted/50">
                     <TabsTrigger value="ai" className="text-xs">AI</TabsTrigger>
