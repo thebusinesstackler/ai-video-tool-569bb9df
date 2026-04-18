@@ -2655,8 +2655,21 @@ const ChatcutAI = () => {
                 </div>
               </div>
             </ResizablePanel>
+            ) : (
+              <div className="w-8 flex-shrink-0 bg-card border-r border-border flex flex-col items-center pt-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setAiPanelVisible(true)}
+                  title="Show AI Director"
+                >
+                  <PanelLeftOpen className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
 
-            <ResizableHandle withHandle />
+            {aiPanelVisible && <ResizableHandle withHandle />}
 
             {/* Center Panel: Video + Transport + Timeline */}
             <ResizablePanel defaultSize={52} minSize={35}>
