@@ -2057,19 +2057,101 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     <div ref={chatEndRef} />
                   </div>
                 </ScrollArea>
-                {/* Generate Video CTA */}
+                {/* Editable Script + Product Warning + Generate CTA */}
                 {hasAnalysis && !isGenerating && !isStitching && (
-                  <div className="w-full max-w-3xl mb-4">
+                  <div className="w-full max-w-3xl mb-4 space-y-3">
+                    {/* Product warning banner */}
+                    {!productImageUrl && (
+                      <div className="rounded-xl border-2 border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+                        <ImagePlus className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                            No product attached — the AI may invent a generic product
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Pick a product from your library so Marco uses your real product image, name, and benefits.
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full text-xs gap-1.5 border-amber-500/40 text-amber-600 hover:bg-amber-500/20 flex-shrink-0"
+                          onClick={() => setShowProductPicker(true)}
+                        >
+                          <Package className="w-3.5 h-3.5" />
+                          Pick Product
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Editable script card */}
+                    <div className="rounded-xl border border-border/60 bg-background/80 overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-border/60 flex items-center justify-between gap-2 bg-muted/40">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Pencil className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-xs font-semibold truncate">
+                            Editable script — change the hook, swap lines, rewrite anything
+                          </span>
+                        </div>
+                        {isEditingScript ? (
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs"
+                              onClick={() => { setIsEditingScript(false); setScriptDraft(''); }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs gap-1 bg-primary"
+                              onClick={() => {
+                                if (scriptDraft.trim()) {
+                                  setLatestAnalysisText(scriptDraft);
+                                  toast({ title: 'Script updated ✓', description: 'Your edits will be used when you hit Generate.' });
+                                }
+                                setIsEditingScript(false);
+                              }}
+                            >
+                              <Check className="w-3 h-3" /> Save edits
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 rounded-full flex-shrink-0"
+                            onClick={() => { setScriptDraft(latestAnalysisText); setIsEditingScript(true); }}
+                          >
+                            <Pencil className="w-3 h-3" /> Edit Script
+                          </Button>
+                        )}
+                      </div>
+                      {isEditingScript ? (
+                        <Textarea
+                          value={scriptDraft}
+                          onChange={(e) => setScriptDraft(e.target.value)}
+                          className="min-h-[280px] max-h-[420px] rounded-none border-0 text-sm font-mono resize-y focus-visible:ring-0"
+                          placeholder="Edit your script here..."
+                        />
+                      ) : (
+                        <div className="px-4 py-3 max-h-[200px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown>{latestAnalysisText.slice(0, 800) + (latestAnalysisText.length > 800 ? '\n\n_…click Edit Script to see and change the full script._' : '')}</ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+
                     <Button
                       onClick={generateFromScript}
                       className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white gap-2 shadow-lg"
-                      disabled={isAnalyzing || isChatting}
+                      disabled={isAnalyzing || isChatting || isEditingScript}
                     >
                       <Sparkles className="w-5 h-5" />
                       Generate Video from Script
                     </Button>
                     <p className="text-xs text-muted-foreground text-center mt-1.5">
-                      Happy with the script? Hit generate. Want changes? Type feedback above.
+                      Edit the script above, or scroll up to chat with Marco for changes — then hit generate.
                     </p>
                     {latestGeneratedVideoUrl && (
                       <Button
