@@ -458,6 +458,75 @@ export type Database = {
         }
         Relationships: []
       }
+      podcast_projects: {
+        Row: {
+          audience: string | null
+          audio_url: string | null
+          created_at: string
+          duration: number | null
+          error: string | null
+          featured_product: string | null
+          hook: string | null
+          id: string
+          narration: string
+          scene_image_url: string | null
+          setting_label: string | null
+          status: string
+          style_label: string | null
+          topic: string
+          twin_id: string | null
+          twin_name: string | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+          visual_description: string | null
+        }
+        Insert: {
+          audience?: string | null
+          audio_url?: string | null
+          created_at?: string
+          duration?: number | null
+          error?: string | null
+          featured_product?: string | null
+          hook?: string | null
+          id?: string
+          narration: string
+          scene_image_url?: string | null
+          setting_label?: string | null
+          status?: string
+          style_label?: string | null
+          topic: string
+          twin_id?: string | null
+          twin_name?: string | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+          visual_description?: string | null
+        }
+        Update: {
+          audience?: string | null
+          audio_url?: string | null
+          created_at?: string
+          duration?: number | null
+          error?: string | null
+          featured_product?: string | null
+          hook?: string | null
+          id?: string
+          narration?: string
+          scene_image_url?: string | null
+          setting_label?: string | null
+          status?: string
+          style_label?: string | null
+          topic?: string
+          twin_id?: string | null
+          twin_name?: string | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+          visual_description?: string | null
+        }
+        Relationships: []
+      }
       product_gallery: {
         Row: {
           created_at: string
