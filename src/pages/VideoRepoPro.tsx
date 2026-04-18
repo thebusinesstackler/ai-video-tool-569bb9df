@@ -93,6 +93,7 @@ const VideoRepoPro = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isStitching, setIsStitching] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const [generationProgress, setGenerationProgress] = useState('');
   const [referenceVideoUrl, setReferenceVideoUrl] = useState<string | null>(null);
   const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
