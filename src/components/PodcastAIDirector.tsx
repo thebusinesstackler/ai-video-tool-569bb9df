@@ -277,6 +277,36 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                             </Button>
                           </div>
                         )}
+                        {(() => {
+                          const plan = extractPlan(msg.content);
+                          if (!plan || plan.length === 0) return null;
+                          return (
+                            <div className="space-y-2 pt-2 mt-2 border-t border-border/50">
+                              <div className="flex items-center gap-2">
+                                <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">
+                                  <Layers className="w-3 h-3 mr-1" /> {plan.length} videos planned
+                                </Badge>
+                              </div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {plan.map((p, idx) => (
+                                  <div key={idx} className="text-[11px] p-2 rounded-md bg-background/60 border border-border/50">
+                                    <p className="font-medium text-foreground line-clamp-1">{idx + 1}. {p.topic}</p>
+                                    {p.hook && <p className="text-muted-foreground line-clamp-1 mt-0.5">"{p.hook}"</p>}
+                                  </div>
+                                ))}
+                              </div>
+                              {onUseBatchPlan && (
+                                <Button
+                                  size="sm"
+                                  className="w-full text-xs h-8 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                                  onClick={() => onUseBatchPlan(plan)}
+                                >
+                                  <ArrowRight className="w-3 h-3 mr-1" /> Send to Bulk Queue
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <p>{msg.content}</p>
