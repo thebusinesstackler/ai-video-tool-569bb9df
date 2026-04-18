@@ -3603,6 +3603,52 @@ const ChatcutAI = () => {
 
                   {timelineClips.length > 0 ? (
                     <div className="flex flex-col relative">
+                      {/* Hidden input for "Add image to Graphic track" */}
+                      <input
+                        ref={graphicImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) addImageOverlayFromFile(f);
+                          e.target.value = ''; // allow re-uploading the same file
+                        }}
+                      />
+
+                      {/* ── Thumbnail track (yellow) — only shown when an opening cover exists ── */}
+                      {thumbnail && (
+                        <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                          <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Opening thumbnail / TikTok cover that holds at the start of playback">
+                            <span className="text-[10px] font-semibold text-amber-400 truncate">Thumbnail</span>
+                          </div>
+                          <div className="flex-1 relative h-7 mx-1">
+                            <button
+                              type="button"
+                              onClick={() => seekTo(0)}
+                              title={`${thumbnail.headline || 'Opening cover'} — holds for ${thumbnail.duration.toFixed(1)}s. Click to jump to start.`}
+                              className="absolute inset-y-0 rounded border border-amber-500/60 bg-amber-500/20 hover:bg-amber-500/30 transition-colors flex items-center px-1.5 gap-1.5 overflow-hidden"
+                              style={{
+                                left: '0%',
+                                width: `${(thumbnail.duration / Math.max(duration, 1)) * 100}%`,
+                                minWidth: '40px',
+                              }}
+                            >
+                              <img
+                                src={thumbnail.url}
+                                alt={thumbnail.headline || 'Thumbnail'}
+                                className="h-5 w-5 object-cover rounded-sm flex-shrink-0"
+                              />
+                              <span className="text-[10px] font-medium text-amber-100 truncate flex-1 text-left leading-tight">
+                                {thumbnail.headline || 'Opening cover'}
+                              </span>
+                              <span className="text-[9px] text-amber-300/70 flex-shrink-0 tabular-nums">{thumbnail.duration.toFixed(1)}s</span>
+                            </button>
+                          </div>
+                          <div className="w-10 flex-shrink-0" />
+                        </div>
+                      )}
+
                       {/* ── Three overlay tracks (Motion / Image / Overlay) ─────────────────
                           Each track always stays on the timeline so users can see what's there.
                           The eye toggle only suppresses preview rendering.                       */}
