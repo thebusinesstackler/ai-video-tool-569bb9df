@@ -878,7 +878,8 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
         {/* Left Panel — AI Creative Director */}
         <div className="lg:w-[420px] xl:w-[460px] border-r border-border flex flex-col bg-background order-2 lg:order-1 min-h-[300px] lg:min-h-0 lg:h-full">
           <PodcastAIDirector
-            onUseScript={(script) => setMessage(script)}
+            onUseScript={(script) => { setMessage(script); setActiveTab('talking-head'); }}
+            onUseBatchPlan={handleBatchPlan}
             selectedCharacterName={selectedTwin?.name}
           />
         </div>
@@ -886,13 +887,22 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
         {/* Right Panel — Production Controls */}
         <div className="flex-1 overflow-y-auto order-1 lg:order-2">
           <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
-            <Tabs defaultValue="talking-head" className="w-full">
-              <TabsList className="grid grid-cols-2 w-full mb-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid grid-cols-4 w-full mb-4">
                 <TabsTrigger value="talking-head">
-                  <Mic className="w-4 h-4 mr-1" /> Talking Head
+                  <Mic className="w-3.5 h-3.5 mr-1" /> Single
+                </TabsTrigger>
+                <TabsTrigger value="bulk">
+                  <Layers className="w-3.5 h-3.5 mr-1" /> Bulk
+                  {bulkItems.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">{bulkItems.length}</Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="from-content">
-                  <Headphones className="w-4 h-4 mr-1" /> Turn Into Podcast
+                  <Headphones className="w-3.5 h-3.5 mr-1" /> Podcast
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <History className="w-3.5 h-3.5 mr-1" /> History
                 </TabsTrigger>
               </TabsList>
 
