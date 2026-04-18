@@ -48,6 +48,8 @@ import {
   Image as ImageIcon,
   PanelRightClose,
   PanelRightOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
   Undo2,
   Smartphone,
   Package,
