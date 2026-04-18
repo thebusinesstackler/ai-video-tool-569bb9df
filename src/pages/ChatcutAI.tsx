@@ -3165,7 +3165,8 @@ const ChatcutAI = () => {
                 </div>
 
                 {/* Multi-Track Timeline */}
-                <div className={cn("border-t border-border bg-card flex-shrink-0 relative", timelineCollapsed && "h-8 overflow-hidden")}>
+                <div className={cn("border-t border-border bg-card flex-shrink-0 relative overflow-x-auto", timelineCollapsed && "h-8 overflow-hidden")}>
+                 <div style={{ width: `${zoomLevel}%`, minWidth: '100%' }}>
                   {/* Timeline ruler with inline collapse toggle */}
                   <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer flex items-center"
                     onClick={(e) => {
