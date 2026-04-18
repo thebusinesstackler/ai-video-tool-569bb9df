@@ -49,6 +49,8 @@ import { ContentCalendarTab } from '@/components/ContentCalendarTab';
 import { VideoRepoTimeline } from '@/components/VideoRepoTimeline';
 import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
+import { MarcoVoiceChat } from '@/components/MarcoVoiceChat';
+import { StylePicker, AlternativeAngles, STYLE_OPTIONS } from '@/components/StyleAnglePicker';
 
 interface ChatMessage {
   id: string;
@@ -147,6 +149,8 @@ const VideoRepoPro = () => {
   const [isEditingScript, setIsEditingScript] = useState(false);
   const [scriptDraft, setScriptDraft] = useState('');
   const [showProductPicker, setShowProductPicker] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [voiceChatOpen, setVoiceChatOpen] = useState(false);
   const [isDetailChatting, setIsDetailChatting] = useState(false);
   const [showSegments, setShowSegments] = useState(false);
   
@@ -1003,7 +1007,12 @@ And finally, provide the voiceover narration script:
 
 After providing the script, let the user know they can give feedback to refine it, or hit "Generate Video" when they're happy with it.`;
 
-      contentParts.push({ type: 'text', text: analysisInstruction });
+      const styleSuffix = selectedStyle ? STYLE_OPTIONS.find(s => s.id === selectedStyle)?.promptSuffix : null;
+      const fullInstruction = styleSuffix
+        ? `${analysisInstruction}\n\n🎬 STYLE LOCK: ${styleSuffix}\nApply this style consistently across both segments.`
+        : analysisInstruction;
+
+      contentParts.push({ type: 'text', text: fullInstruction });
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
@@ -1411,6 +1420,31 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
       analyzeReference();
     }
   };
+
+  // Voice handler — called when user finishes speaking via MarcoVoiceChat
+  const handleVoiceTranscript = async (transcript: string) => {
+    if (!transcript.trim()) return;
+    setPrompt(transcript);
+    // Wait one tick so prompt state updates before submit reads it
+    await new Promise((r) => setTimeout(r, 50));
+    if (hasAnalysis) {
+      handleFollowUp();
+    } else {
+      analyzeReference();
+    }
+  };
+
+  // Alternative-angle handler — pre-fills feedback and runs the follow-up
+  const applyAlternativeAngle = async (instruction: string, label: string) => {
+    if (isChatting || isAnalyzing) return;
+    setPrompt(instruction);
+    await new Promise((r) => setTimeout(r, 50));
+    toast({ title: `Trying angle: ${label}`, description: 'Marco is rewriting the script…' });
+    handleFollowUp();
+  };
+
+  // Latest Marco assistant text (for voice playback)
+  const latestMarcoReply = [...messages].reverse().find((m) => m.role === 'assistant')?.content || '';
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1880,6 +1914,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   </div>
                 )}
 
+                {/* Style picker — controls Marco's first-pass tone */}
+                {!hasAnalysis && (
+                  <StylePicker value={selectedStyle} onChange={setSelectedStyle} className="pt-1" />
+                )}
+
+                {/* Voice chat panel — full two-way conversation with Marco */}
+                {voiceChatOpen && (
+                  <MarcoVoiceChat
+                    onUserSpoke={handleVoiceTranscript}
+                    latestMarcoReply={latestMarcoReply}
+                    autoSpeak
+                    onClose={() => setVoiceChatOpen(false)}
+                  />
+                )}
+
                 <div className="flex items-center gap-2 flex-wrap">
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
@@ -1943,9 +1992,20 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     )}
                     <Button
                       type="button"
+                      variant={voiceChatOpen ? 'default' : 'outline'}
+                      size="sm"
+                      className={`h-8 text-xs rounded-full gap-1 px-2.5 ml-auto ${voiceChatOpen ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'border-orange-500/40 text-orange-500 hover:bg-orange-500/10'}`}
+                      onClick={() => setVoiceChatOpen((v) => !v)}
+                      title="Talk to Marco with your voice (Speechify)"
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                      Voice
+                    </Button>
+                    <Button
+                      type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs rounded-full gap-1 px-2.5 ml-auto border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                      className="h-8 text-xs rounded-full gap-1 px-2.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
                       onClick={enhancePrompt}
                       disabled={isEnhancing || !prompt.trim()}
                       title="Rewrite your prompt with AI Director cinematic detail"
@@ -2142,6 +2202,12 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                         </div>
                       )}
                     </div>
+
+                    {/* Alternative angles — let user pivot the script direction */}
+                    <AlternativeAngles
+                      onPick={applyAlternativeAngle}
+                      disabled={isChatting || isAnalyzing || isGenerating || isStitching}
+                    />
 
                     <Button
                       onClick={generateFromScript}
