@@ -2393,7 +2393,7 @@ const ChatcutAI = () => {
     e: React.MouseEvent<HTMLDivElement>,
     ovId: string,
     mode: 'move' | 'resize-left' | 'resize-right',
-    trackKind: 'graphics' | 'overlay',
+    trackKind: 'motion' | 'image' | 'overlay',
   ) => {
     e.stopPropagation();
     e.preventDefault();
@@ -2408,9 +2408,8 @@ const ChatcutAI = () => {
     const total = Math.max(duration, 1);
     document.body.style.cursor = mode === 'move' ? 'grabbing' : 'ew-resize';
 
-    // Only check overlap against siblings on the SAME track (graphics vs overlay).
-    const isOnGraphics = (o: OverlayItem) => o.type === 'motion_graphic' || o.type === 'animated_text';
-    const sameTrack = (o: OverlayItem) => trackKind === 'graphics' ? isOnGraphics(o) : !isOnGraphics(o);
+    // Only check overlap against siblings on the SAME track (motion / image / overlay).
+    const sameTrack = (o: OverlayItem) => classifyOverlay(o) === trackKind;
 
     const onMove = (ev: MouseEvent) => {
       const deltaPx = ev.clientX - startX;
