@@ -2181,6 +2181,56 @@ const ChatcutAI = () => {
       broll: detect(bRollClips),
     };
   }, [overlays, bRollClips]);
+
+  // Sub-row stacking: assign each clip to a "lane" so overlapping items render on different rows
+  // instead of physically stacking on top of each other on the timeline. Greedy interval-graph coloring.
+  const assignLanes = <T extends { id: string; start: number; duration: number }>(items: T[]) => {
+    const sorted = [...items].sort((a, b) => a.start - b.start);
+    const lanes: number[] = []; // lanes[i] = end-time of last clip placed on lane i
+    const lane = new Map<string, number>();
+    for (const it of sorted) {
+      let placed = -1;
+      for (let i = 0; i < lanes.length; i++) {
+        if (lanes[i] <= it.start + 0.001) { placed = i; break; }
+      }
+      if (placed === -1) { placed = lanes.length; lanes.push(0); }
+      lanes[placed] = it.start + it.duration;
+      lane.set(it.id, placed);
+    }
+    return { lane, count: Math.max(1, lanes.length) };
+  };
+  const graphicsLanes = useMemo(
+    () => assignLanes(overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text')),
+    [overlays]
+  );
+  const overlayLanes = useMemo(
+    () => assignLanes(overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text')),
+    [overlays]
+  );
+
+  // Snap a proposed [start, start+duration] to the nearest gap on the same track to avoid stacking.
+  // Returns adjusted start. Used when Marco (or drag-drop) adds a new clip.
+  const snapToFreeSlot = (
+    proposedStart: number,
+    dur: number,
+    sameTrackItems: { start: number; duration: number }[],
+    totalDur: number,
+  ) => {
+    const others = [...sameTrackItems].sort((a, b) => a.start - b.start);
+    let s = Math.max(0, Math.min(Math.max(0, totalDur - dur), proposedStart));
+    let guard = 0;
+    while (guard++ < 50) {
+      const collision = others.find(o => s < o.start + o.duration && s + dur > o.start);
+      if (!collision) return s;
+      // Push past the collision; prefer right side first, fall back to left if no room
+      const right = collision.start + collision.duration + 0.05;
+      if (right + dur <= totalDur + 0.001) { s = right; continue; }
+      const left = collision.start - dur - 0.05;
+      if (left >= 0) { s = left; continue; }
+      return s; // give up — caller will get an overlap warning ring
+    }
+    return s;
+  };
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
   const [aiPanelVisible, setAiPanelVisible] = useState(true);
 
