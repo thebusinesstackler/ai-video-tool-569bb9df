@@ -1514,10 +1514,36 @@ const ChatcutAI = () => {
             comparison:     { pos: { x: 50, y: 50 }, scale: 5 },
             cta_button:     { pos: { x: 50, y: 80 }, scale: 2 },
           };
+          // Commercial Director motion graphics: derive default position from intent/placement
+          // so they USE THE FULL CANVAS instead of all stacking at the bottom.
+          const placementToPos: Record<string, { x: number; y: number }> = {
+            top_banner:     { x: 50, y: 14 },
+            lower_third:    { x: 50, y: 82 },
+            left_panel:     { x: 22, y: 50 },
+            right_panel:    { x: 78, y: 50 },
+            center_takeover:{ x: 50, y: 50 },
+            behind_subject: { x: 50, y: 50 },
+            floating_note:  { x: 78, y: 28 },
+          };
+          const intentToPos: Record<string, { x: number; y: number }> = {
+            hook:        { x: 50, y: 16 }, // top-banner
+            stat:        { x: 78, y: 32 }, // right-upper card
+            benefit:     { x: 22, y: 50 }, // left panel
+            proof:       { x: 50, y: 50 }, // center quote
+            cta:         { x: 50, y: 78 }, // bottom-center button
+            educational: { x: 22, y: 50 }, // left side notes
+            emotional:   { x: 78, y: 28 }, // floating note
+            multi_point: { x: 22, y: 50 }, // left bullet stack
+          };
           const def = defaultsByType[overlayType] || { pos: { x: 50, y: 80 }, scale: 2 };
           const isFullCoverage = act.action === 'add_full_coverage' || act.fullCoverage === true || ['numbered_list', 'feature_grid', 'comparison'].includes(overlayType);
           const finalScale = isCTA ? 2 : (act.scale || (isFullCoverage ? 5 : def.scale));
-          const finalPos = act.position || (isCTA ? { x: 50, y: 80 } : def.pos);
+          // Position priority: explicit act.position → placement-mapped → intent-mapped → type default
+          const isMotionGraphicAct = act.action === 'add_motion_graphic';
+          const placementPos = act.placement && placementToPos[act.placement];
+          const intentPos = isMotionGraphicAct && act.intent && intentToPos[act.intent];
+          const finalPos = act.position
+            || (isCTA ? { x: 50, y: 80 } : (placementPos || intentPos || def.pos));
 
           // ── RENDER-MODE DECISION ────────────────────────────────────────
           // 'video' → animated VEO 3.1 graphic (premium hero reveals).
@@ -2464,6 +2490,9 @@ const ChatcutAI = () => {
   //   • Image   → static PNG/JPG graphics (renderMode 'image' or has an imageUrl, but not motion)
   //   • Overlay → DOM-rendered text cards (lower_third, stat_callout, benefit_chip, quote_pop, cta_button, title_card, lower_third_pro, etc.)
   const classifyOverlay = (o: OverlayItem): 'motion' | 'image' | 'overlay' => {
+    // Commercial Director graphics (have a `treatment`) ALWAYS belong on the Motion track,
+    // even when their underlying type is something generic like 'lower_third'.
+    if (o.treatment) return 'motion';
     if (o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video') return 'motion';
     if (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom')) return 'image';
     return 'overlay';

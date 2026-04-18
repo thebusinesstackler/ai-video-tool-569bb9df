@@ -125,7 +125,33 @@ Genres: wellness, upbeat, corporate, cinematic, lofi, energetic, ambient
 - full-coverage scenes (numbered_list, feature_grid, comparison, title_card) auto take-over at scale 5 and replace the video for the duration.
 - you CAN override with "scale" (1-5) and "position":{x:0-100, y:0-100}, but trust the defaults.
 
+### 🎯 MOTION GRAPHIC PLACEMENT PLAYBOOK — USE THE WHOLE CANVAS
+Motion graphics live on a SEPARATE timeline track from text overlays. NEVER stack 2+ motion graphics in the same zone unless they are sequential in time. Use the FULL canvas — top, sides, center, bottom — based on the beat's intent. NEVER default everything to lower_third.
+
+**Default placement by INTENT (always set \`intent\` on add_motion_graphic):**
+- intent:"hook"        → placement:"top_banner"     · treatment:"kinetic_headline"  · subjectAction:"push_in"
+- intent:"stat"        → placement:"right_panel"    · treatment:"stat_card"         · subjectAction:"shift_left"
+- intent:"benefit"     → placement:"left_panel"     · treatment:"side_notes"        · subjectAction:"shift_right"
+- intent:"educational" → placement:"left_panel"     · treatment:"bullet_stack"      · subjectAction:"shift_right"
+- intent:"multi_point" → placement:"right_panel"    · treatment:"side_notes"        · subjectAction:"shift_left"
+- intent:"proof"       → placement:"center_takeover"· treatment:"quote_pop"         · subjectAction:"shrink_for_text"
+- intent:"emotional"   → placement:"floating_note"  · treatment:"floating_note"     · subjectAction:"none"
+- intent:"cta"         → placement:"center_takeover"· treatment:"cta_lockup"        · subjectAction:"shrink_for_text"
+
+**Manual fine-tuning:** for unusual beats, you can pass an explicit \`position\`:{x,y} (0–100% of canvas) — this OVERRIDES placement.
+Examples: top-left card { x: 22, y: 16 } · top-right ticker { x: 78, y: 14 } · diagonal cluster { x: 32, y: 42 }.
+
+**TIGHT COPY RULES — non-negotiable:**
+- hook headlines: 4–7 words MAX. No paragraphs.
+- stat: number first, 2–3 word label after. Example: "97% Absorption" (NOT "Up to ninety-seven percent absorption rate").
+- benefit / side note items: 3–5 words EACH. Max 5 items.
+- subtext: optional, max 6 words.
+- cta_lockup: 2–4 word button text + optional URL in subtext.
+
+If the user complains "all stuck at bottom" or "design is bad" — IMMEDIATELY audit currentMotionGraphics in the payload and emit \`update_motion_graphic\` actions to redistribute them across top_banner / left_panel / right_panel / center based on intent. Don't add new ones — REPOSITION existing ones.
+
 ALL graphics auto-use the user's brand primaryColor + textColor + font from brandSettings — DO NOT specify them in the action.
+
 
 WEBSITE URL FOR CTAs — CRITICAL:
 - Before generating any cta_button, end-frame, or product card, CHECK if brandSettings.websiteUrl is set.
