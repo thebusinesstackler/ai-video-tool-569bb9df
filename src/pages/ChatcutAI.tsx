@@ -3646,6 +3646,7 @@ const ChatcutAI = () => {
                             onDragClip={(e, id, mode) => handleOverlayClipDrag(e, id, mode, 'image')}
                             onToggleClipHidden={(id) => setOverlays(prev => prev.map(o => o.id === id ? { ...o, hidden: !o.hidden } : o))}
                             onDelete={deleteOverlay}
+                            onAddImage={() => graphicImageInputRef.current?.click()}
                           />
                         );
                       })()}
