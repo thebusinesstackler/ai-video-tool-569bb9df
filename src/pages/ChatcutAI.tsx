@@ -1840,6 +1840,7 @@ const ChatcutAI = () => {
         case 'update_broll': {
           const id = act.id || act.brollId;
           if (!id) break;
+          let updatedName = '';
           setBRollClips(prev => prev.map(b => {
             if (b.id !== id) return b;
             const next = { ...b };
@@ -1847,9 +1848,14 @@ const ChatcutAI = () => {
             if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
             if (typeof act.audioEnabled === 'boolean') next.audioEnabled = act.audioEnabled;
             if (typeof act.name === 'string') next.name = act.name;
+            updatedName = next.name;
             return next;
           }));
-          toast({ title: 'B-Roll updated' });
+          const bits: string[] = [];
+          if (typeof act.start === 'number') bits.push(`→ ${(+act.start).toFixed(1)}s`);
+          if (typeof act.duration === 'number') bits.push(`${(+act.duration).toFixed(1)}s long`);
+          if (typeof act.audioEnabled === 'boolean') bits.push(act.audioEnabled ? 'audio on' : 'muted');
+          toast({ title: `Marco moved B-Roll${updatedName ? ` "${updatedName}"` : ''}`, description: bits.join(' · ') || 'Updated' });
           break;
         }
         case 'remove_overlay': {
@@ -1881,19 +1887,61 @@ const ChatcutAI = () => {
           }
           break;
         }
-        case 'update_overlay': {
-          const id = act.id || act.overlayId;
+        case 'update_overlay':
+        case 'update_motion_graphic': {
+          const id = act.id || act.overlayId || act.graphicId;
           if (!id) break;
+          // Map semantic placement → on-video position (x/y in 0–100%) so Marco can say
+          // "lower_third" and have it actually move the overlay on the preview.
+          const placementToPos: Record<string, { x: number; y: number }> = {
+            top_banner: { x: 50, y: 12 },
+            lower_third: { x: 50, y: 82 },
+            left_panel: { x: 22, y: 50 },
+            right_panel: { x: 78, y: 50 },
+            center_takeover: { x: 50, y: 50 },
+            behind_subject: { x: 50, y: 50 },
+            floating_note: { x: 78, y: 30 },
+          };
+          let updatedLabel = '';
+          let appliedPlacement = '';
           setOverlays(prev => prev.map(o => {
             if (o.id !== id) return o;
-            const next = { ...o };
+            const next: any = { ...o };
             if (typeof act.start === 'number') next.start = Math.max(0, act.start);
             if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
             if (typeof act.text === 'string') next.text = act.text;
+            if (typeof act.subtext === 'string') next.subtext = act.subtext;
+            if (Array.isArray(act.items)) next.items = act.items;
             if (typeof act.hidden === 'boolean') next.hidden = act.hidden;
+            if (typeof act.scale === 'number') next.scale = Math.max(0.5, Math.min(5, act.scale));
+            if (typeof act.treatment === 'string') next.treatment = act.treatment;
+            if (typeof act.placement === 'string') {
+              next.placement = act.placement;
+              appliedPlacement = act.placement;
+              const mapped = placementToPos[act.placement];
+              // Only auto-set position from placement if user didn't also pass an explicit position
+              if (mapped && !act.position) next.position = mapped;
+            }
+            if (act.position && typeof act.position.x === 'number' && typeof act.position.y === 'number') {
+              next.position = {
+                x: Math.max(0, Math.min(100, act.position.x)),
+                y: Math.max(0, Math.min(100, act.position.y)),
+              };
+            }
+            updatedLabel = next.text || 'Graphic';
             return next;
           }));
-          toast({ title: 'Graphic updated' });
+          const bits: string[] = [];
+          if (appliedPlacement) bits.push(`→ ${appliedPlacement.replace(/_/g, ' ')}`);
+          if (act.position) bits.push(`${Math.round(act.position.x)}% × ${Math.round(act.position.y)}%`);
+          if (typeof act.start === 'number') bits.push(`@ ${(+act.start).toFixed(1)}s`);
+          if (typeof act.duration === 'number') bits.push(`${(+act.duration).toFixed(1)}s`);
+          if (typeof act.scale === 'number') bits.push(`scale ${act.scale}`);
+          if (typeof act.treatment === 'string') bits.push(act.treatment);
+          toast({
+            title: `Marco moved "${updatedLabel}"`,
+            description: bits.join(' · ') || 'Updated',
+          });
           break;
         }
       }
@@ -2030,6 +2078,7 @@ const ChatcutAI = () => {
               duration: +b.duration.toFixed(2),
               audioEnabled: !!b.audioEnabled,
               ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
+              overlaps: overlapIdsByTrack.broll.has(b.id),
             })),
             currentOverlays: overlays.map((o) => ({
               id: o.id,
@@ -2041,7 +2090,27 @@ const ChatcutAI = () => {
               fullCoverage: !!(o as any).fullCoverage || (o.scale || 0) >= 5,
               renderMode: (o as any).renderMode || 'dom',
               hidden: !!o.hidden,
+              // Director needs to know WHERE each overlay currently sits so it can
+              // intelligently move it (vs. blindly remove + re-add).
+              position: o.position
+                ? { x: +o.position.x.toFixed(1), y: +o.position.y.toFixed(1) }
+                : null,
+              scale: typeof o.scale === 'number' ? +o.scale.toFixed(2) : null,
+              placement: (o as any).placement || null,
+              treatment: (o as any).treatment || null,
+              overlaps:
+                overlapIdsByTrack.motion.has(o.id) ||
+                overlapIdsByTrack.image.has(o.id) ||
+                overlapIdsByTrack.overlay.has(o.id),
             })),
+            // Pre-computed overlap IDs so Marco can fix collisions in one pass without
+            // having to re-derive intersections from start/end values.
+            overlapping: {
+              broll: Array.from(overlapIdsByTrack.broll),
+              motion: Array.from(overlapIdsByTrack.motion),
+              image: Array.from(overlapIdsByTrack.image),
+              overlay: Array.from(overlapIdsByTrack.overlay),
+            },
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
