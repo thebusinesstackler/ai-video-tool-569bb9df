@@ -3385,12 +3385,12 @@ const ChatcutAI = () => {
                                 isFull && "inset-0 flex items-center justify-center"
                               )}
                               style={isFull ? {} : { left: `${pos.x}%`, top: `${adjustedTop}%`, transform: 'translate(-50%, -50%)' }}
-                              onMouseDown={(e) => !isFull && handleOverlayMouseDown(e, ov.id)}
+                              onMouseDown={(e) => handleOverlayMouseDown(e, ov.id)}
                               onDoubleClick={(e) => {
                                 e.stopPropagation();
-                                setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
+                                setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1, fullCoverage: false } : o));
                               }}
-                              title={isFull ? ov.text : `Drag to reposition · double-click to resize`}
+                              title={`Drag to reposition · double-click to resize`}
                             >
                               {!isFull && (
                                 <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/preview-ov:opacity-100 transition-opacity pointer-events-none z-20">
