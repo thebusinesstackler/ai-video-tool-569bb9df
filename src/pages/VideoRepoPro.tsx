@@ -47,6 +47,7 @@ import ReactMarkdown from 'react-markdown';
 import { ContentCalendarTab } from '@/components/ContentCalendarTab';
 import { VideoRepoTimeline } from '@/components/VideoRepoTimeline';
 import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
+import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
 
 interface ChatMessage {
   id: string;
