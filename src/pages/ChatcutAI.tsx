@@ -2311,6 +2311,21 @@ const ChatcutAI = () => {
   const handleOverlayMouseDown = useCallback((e: React.MouseEvent, overlayId: string) => {
     e.preventDefault();
     e.stopPropagation();
+    // If the overlay is currently in full-coverage mode (inset-0), it can't be
+    // freely repositioned. The moment the user starts dragging it, demote it to
+    // a normal positioned overlay (scale capped + fullCoverage off) so the drag
+    // logic can move it via position.x/position.y.
+    setOverlays(prev => prev.map(o => {
+      if (o.id !== overlayId) return o;
+      const wasFull = o.fullCoverage || (o.scale || 1) >= 5;
+      if (!wasFull) return o;
+      return {
+        ...o,
+        fullCoverage: false,
+        scale: Math.min(o.scale || 1, 3),
+        position: o.position || { x: 50, y: 50 },
+      };
+    }));
     setDraggingOverlayId(overlayId);
   }, []);
 
