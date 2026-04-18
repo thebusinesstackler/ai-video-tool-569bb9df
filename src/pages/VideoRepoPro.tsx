@@ -1992,9 +1992,20 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     )}
                     <Button
                       type="button"
+                      variant={voiceChatOpen ? 'default' : 'outline'}
+                      size="sm"
+                      className={`h-8 text-xs rounded-full gap-1 px-2.5 ml-auto ${voiceChatOpen ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'border-orange-500/40 text-orange-500 hover:bg-orange-500/10'}`}
+                      onClick={() => setVoiceChatOpen((v) => !v)}
+                      title="Talk to Marco with your voice (Speechify)"
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                      Voice
+                    </Button>
+                    <Button
+                      type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs rounded-full gap-1 px-2.5 ml-auto border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                      className="h-8 text-xs rounded-full gap-1 px-2.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
                       onClick={enhancePrompt}
                       disabled={isEnhancing || !prompt.trim()}
                       title="Rewrite your prompt with AI Director cinematic detail"
