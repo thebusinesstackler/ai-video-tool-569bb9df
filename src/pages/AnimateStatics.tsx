@@ -13,7 +13,7 @@ import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { ImageDropZone } from '@/components/ImageDropZone';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import {
-  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus, CheckCircle2, XCircle, Layers, Zap
+  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus, CheckCircle2, XCircle, Layers, Zap, Library, Pause, RefreshCw
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +43,16 @@ interface HistoryItem {
   created_at: string;
 }
 
+interface SavedMusic {
+  id: string;
+  label: string;
+  mood: string | null;
+  prompt: string | null;
+  audio_url: string;
+  duration: number | null;
+  created_at: string;
+}
+
 const STEPS = ['Select Image', 'Animate', 'Generate', 'Export'];
 
 const MUSIC_PRESETS = [
@@ -53,6 +63,22 @@ const MUSIC_PRESETS = [
   { label: 'Ambient', prompt: 'Soft ambient pad, dreamy and minimal' },
   { label: 'Dramatic', prompt: 'Dramatic cinematic tension, deep cinematic drums' },
 ];
+
+// 10-pack preset moods used when user clicks "Generate 10 Tracks"
+const MUSIC_LIBRARY_PACK = [
+  { label: 'Cinematic Uplift', prompt: 'Cinematic orchestral build, emotional and uplifting, soaring strings' },
+  { label: 'Upbeat Pop', prompt: 'Upbeat modern pop instrumental, energetic and bright, catchy synths' },
+  { label: 'Lo-fi Chill', prompt: 'Chill lo-fi hip hop beat, mellow and atmospheric, vinyl warmth' },
+  { label: 'Corporate Clean', prompt: 'Clean corporate background music, optimistic and professional, light piano' },
+  { label: 'Ambient Dream', prompt: 'Soft ambient pad, dreamy and minimal, ethereal texture' },
+  { label: 'Dramatic Tension', prompt: 'Dramatic cinematic tension, deep cinematic drums, suspenseful' },
+  { label: 'Hype Trap', prompt: 'Hype trap beat, hard-hitting 808s, modern and aggressive' },
+  { label: 'Acoustic Warm', prompt: 'Warm acoustic guitar, intimate folk, gentle and heartfelt' },
+  { label: 'Tech House', prompt: 'Driving tech house groove, modern electronic, club-ready' },
+  { label: 'Epic Trailer', prompt: 'Epic movie trailer score, heroic brass and percussion, blockbuster energy' },
+];
+
+const isCreditError = (msg?: string) => !!msg && /insufficient|credit|balance|quota|payment/i.test(msg);
 
 const AnimateStatics = () => {
   const { user } = useAuth();
@@ -92,7 +118,113 @@ const AnimateStatics = () => {
     videoUrl?: string;
     musicUrl?: string;
     error?: string;
+    creditError?: boolean;
   }>>([]);
+
+  // Music library state
+  const [savedMusic, setSavedMusic] = useState<SavedMusic[]>([]);
+  const [musicLibLoading, setMusicLibLoading] = useState(false);
+  const [generatingPack, setGeneratingPack] = useState(false);
+  const [packProgress, setPackProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+  const [selectedSavedMusicId, setSelectedSavedMusicId] = useState<string | null>(null);
+  const [bulkSelectedMusicId, setBulkSelectedMusicId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const loadMusicLibrary = useCallback(async () => {
+    if (!user) return;
+    setMusicLibLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('music_library')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setSavedMusic(data || []);
+    } catch (e: any) {
+      console.error('Failed to load music library', e);
+    } finally {
+      setMusicLibLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { loadMusicLibrary(); }, [loadMusicLibrary]);
+
+  const generateOneMusicTrack = async (label: string, prompt: string): Promise<SavedMusic | null> => {
+    if (!user) return null;
+    const { data, error } = await supabase.functions.invoke('generate-music', {
+      body: { mood: prompt, duration: 30 },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    const audioUrl = data?.audioUrl;
+    if (!audioUrl) throw new Error('No music URL returned');
+    const { data: row, error: insErr } = await supabase
+      .from('music_library')
+      .insert({ user_id: user.id, label, mood: label, prompt, audio_url: audioUrl, duration: 30 })
+      .select()
+      .single();
+    if (insErr) throw insErr;
+    return row as SavedMusic;
+  };
+
+  const generateMusicPack = async () => {
+    if (!user || generatingPack) return;
+    setGeneratingPack(true);
+    setPackProgress({ done: 0, total: MUSIC_LIBRARY_PACK.length, current: MUSIC_LIBRARY_PACK[0].label });
+    let added = 0;
+    let creditFail = false;
+    for (let i = 0; i < MUSIC_LIBRARY_PACK.length; i++) {
+      const { label, prompt } = MUSIC_LIBRARY_PACK[i];
+      setPackProgress({ done: i, total: MUSIC_LIBRARY_PACK.length, current: label });
+      try {
+        const row = await generateOneMusicTrack(label, prompt);
+        if (row) { setSavedMusic(prev => [row, ...prev]); added++; }
+      } catch (e: any) {
+        console.error(`Music pack [${label}] failed`, e);
+        if (isCreditError(e.message)) { creditFail = true; break; }
+      }
+    }
+    setPackProgress(null);
+    setGeneratingPack(false);
+    if (creditFail) {
+      toast({ title: 'Music pack stopped — out of credits', description: `Saved ${added} tracks before WaveSpeed credits ran out. Top up and click Generate 10 again.`, variant: 'destructive' });
+    } else {
+      toast({ title: `🎵 ${added} tracks added to your library`, description: 'Reuse them across all future animations.' });
+    }
+  };
+
+  const deleteSavedMusic = async (id: string) => {
+    try {
+      await supabase.from('music_library').delete().eq('id', id);
+      setSavedMusic(prev => prev.filter(m => m.id !== id));
+      if (selectedSavedMusicId === id) setSelectedSavedMusicId(null);
+      if (bulkSelectedMusicId === id) setBulkSelectedMusicId(null);
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const togglePreview = (m: SavedMusic) => {
+    if (previewAudioRef.current) { previewAudioRef.current.pause(); previewAudioRef.current = null; }
+    if (previewingId === m.id) { setPreviewingId(null); return; }
+    const audio = new Audio(m.audio_url);
+    audio.play().catch(() => {});
+    audio.onended = () => setPreviewingId(null);
+    previewAudioRef.current = audio;
+    setPreviewingId(m.id);
+  };
+
+  const attachSavedMusicToCurrent = async (m: SavedMusic) => {
+    if (!projectId) {
+      toast({ title: 'No active project', description: 'Generate an animation first.', variant: 'destructive' });
+      return;
+    }
+    setMusicUrl(m.audio_url);
+    setSelectedSavedMusicId(m.id);
+    await supabase.from('animated_statics').update({ music_url: m.audio_url }).eq('id', projectId);
+    toast({ title: 'Music attached', description: m.label });
+  };
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
@@ -420,20 +552,32 @@ const AnimateStatics = () => {
     await supabase.from('animated_statics').update({ animation_url: videoOut, status: 'completed' }).eq('id', project.id);
     updateBulkJob(imageUrl, { videoUrl: videoOut, progress: 85, status: 'music' });
 
-    // 6. Music
+    // 6. Music — prefer saved library track, otherwise generate (and save) one
     let musicOut: string | undefined;
-    try {
-      const { data: musicData, error: musicErr } = await supabase.functions.invoke('generate-music', {
-        body: { mood: musicMoodPrompt, duration: 30 },
-      });
-      if (musicErr) throw new Error(musicErr.message);
-      if (musicData?.error) throw new Error(musicData.error);
-      musicOut = musicData?.audioUrl;
-      if (musicOut) {
-        await supabase.from('animated_statics').update({ music_url: musicOut }).eq('id', project.id);
+    const presetSaved = bulkSelectedMusicId ? savedMusic.find(m => m.id === bulkSelectedMusicId) : null;
+    if (presetSaved) {
+      musicOut = presetSaved.audio_url;
+      await supabase.from('animated_statics').update({ music_url: musicOut }).eq('id', project.id);
+    } else {
+      try {
+        const { data: musicData, error: musicErr } = await supabase.functions.invoke('generate-music', {
+          body: { mood: musicMoodPrompt, duration: 30 },
+        });
+        if (musicErr) throw new Error(musicErr.message);
+        if (musicData?.error) throw new Error(musicData.error);
+        musicOut = musicData?.audioUrl;
+        if (musicOut) {
+          await supabase.from('animated_statics').update({ music_url: musicOut }).eq('id', project.id);
+          // Auto-save to library for reuse
+          const label = `Bulk · ${new Date().toLocaleDateString()}`;
+          const { data: row } = await supabase.from('music_library').insert({
+            user_id: user.id, label, mood: label, prompt: musicMoodPrompt, audio_url: musicOut, duration: 30,
+          }).select().single();
+          if (row) setSavedMusic(prev => [row as SavedMusic, ...prev]);
+        }
+      } catch (e: any) {
+        console.warn('Music generation failed for bulk job:', e.message);
       }
-    } catch (e: any) {
-      console.warn('Music generation failed for bulk job:', e.message);
     }
 
     updateBulkJob(imageUrl, { musicUrl: musicOut, status: 'done', progress: 100 });
@@ -446,21 +590,46 @@ const AnimateStatics = () => {
     setBulkRunning(true);
     setBulkJobs(urls.map(u => ({ imageUrl: u, status: 'pending', progress: 0 })));
 
-    // Process sequentially to avoid overwhelming WaveSpeed quotas
     for (const url of urls) {
       try {
         await processOneBulkJob(url, moodPreset.prompt);
       } catch (e: any) {
-        updateBulkJob(url, { status: 'failed', error: e.message });
+        updateBulkJob(url, { status: 'failed', error: e.message, creditError: isCreditError(e.message) });
       }
     }
 
     setBulkRunning(false);
-    const successes = bulkJobs.filter(j => j.status === 'done').length;
     toast({
       title: 'Bulk generation complete 🎬',
       description: `Processed ${urls.length} images. Check History for all results.`,
     });
+  };
+
+  const retryBulkJob = async (imageUrl: string) => {
+    if (!user || bulkRunning) return;
+    const moodPreset = MUSIC_PRESETS.find(p => p.label === bulkMusicPreset) || MUSIC_PRESETS[0];
+    setBulkRunning(true);
+    updateBulkJob(imageUrl, { status: 'pending', progress: 0, error: undefined, creditError: false });
+    try {
+      await processOneBulkJob(imageUrl, moodPreset.prompt);
+    } catch (e: any) {
+      updateBulkJob(imageUrl, { status: 'failed', error: e.message, creditError: isCreditError(e.message) });
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
+  const retryAllFailed = async () => {
+    const failed = bulkJobs.filter(j => j.status === 'failed').map(j => j.imageUrl);
+    if (!failed.length) return;
+    const moodPreset = MUSIC_PRESETS.find(p => p.label === bulkMusicPreset) || MUSIC_PRESETS[0];
+    setBulkRunning(true);
+    for (const url of failed) {
+      updateBulkJob(url, { status: 'pending', progress: 0, error: undefined, creditError: false });
+      try { await processOneBulkJob(url, moodPreset.prompt); }
+      catch (e: any) { updateBulkJob(url, { status: 'failed', error: e.message, creditError: isCreditError(e.message) }); }
+    }
+    setBulkRunning(false);
   };
 
   return (
@@ -558,6 +727,66 @@ const AnimateStatics = () => {
               ))}
             </div>
 
+            {/* Music Library — reusable saved tracks */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base"><Library className="w-4 h-4" /> Music Library <Badge variant="secondary" className="text-[10px]">{savedMusic.length}</Badge></CardTitle>
+                    <CardDescription className="text-xs">Save tracks once, reuse across all animations — skips music generation cost.</CardDescription>
+                  </div>
+                  <Button size="sm" onClick={generateMusicPack} disabled={generatingPack} className="gap-1.5">
+                    {generatingPack ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {generatingPack ? `Generating ${packProgress?.done ?? 0}/${packProgress?.total ?? 10}…` : 'Generate 10 Tracks'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {generatingPack && packProgress && (
+                  <div className="mb-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Now generating: <span className="font-medium text-foreground">{packProgress.current}</span></p>
+                    <Progress value={(packProgress.done / packProgress.total) * 100} className="h-1.5" />
+                  </div>
+                )}
+                {musicLibLoading ? (
+                  <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                ) : savedMusic.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No saved tracks yet. Click "Generate 10 Tracks" to build your library.</p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {savedMusic.map(m => {
+                      const isPlaying = previewingId === m.id;
+                      const isAttached = selectedSavedMusicId === m.id || musicUrl === m.audio_url;
+                      return (
+                        <div key={m.id} className={cn(
+                          "rounded-lg border p-2 flex flex-col gap-1.5 transition-colors",
+                          isAttached ? "border-primary bg-primary/5" : "border-border bg-muted/30"
+                        )}>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Music className="w-3 h-3 text-primary flex-shrink-0" />
+                            <span className="text-xs font-medium truncate">{m.label}</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" className="h-6 px-2 flex-1" onClick={() => togglePreview(m)}>
+                              {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                            </Button>
+                            {projectId && (
+                              <Button size="sm" variant={isAttached ? 'default' : 'outline'} className="h-6 px-2 flex-1 text-[10px]" onClick={() => attachSavedMusicToCurrent(m)}>
+                                {isAttached ? '✓' : 'Use'}
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => deleteSavedMusic(m.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {step === 0 && (
               <Card>
                 <CardHeader>
@@ -644,16 +873,35 @@ const AnimateStatics = () => {
                             <p className="text-sm font-medium">Bulk Animate ({bulkSelected.size} images)</p>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Each image will be analyzed by AI Director, animated with the best cinematic prompt, and paired with music. Runs sequentially (~2-4 min per image).
+                            Each image will be analyzed by AI Director, animated, and paired with music. Pick a saved track from your library to skip music generation entirely (faster + free).
                           </p>
                           <div className="flex items-end gap-2 flex-wrap">
-                            <div className="flex-1 min-w-[180px]">
-                              <label className="text-xs font-medium text-muted-foreground mb-1 block">Music vibe (applied to all)</label>
-                              <Select value={bulkMusicPreset} onValueChange={setBulkMusicPreset}>
+                            <div className="flex-1 min-w-[200px]">
+                              <label className="text-xs font-medium text-muted-foreground mb-1 block">Music source</label>
+                              <Select
+                                value={bulkSelectedMusicId || `__preset__${bulkMusicPreset}`}
+                                onValueChange={(v) => {
+                                  if (v.startsWith('__preset__')) {
+                                    setBulkSelectedMusicId(null);
+                                    setBulkMusicPreset(v.replace('__preset__', ''));
+                                  } else {
+                                    setBulkSelectedMusicId(v);
+                                  }
+                                }}
+                              >
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
+                                  {savedMusic.length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1 text-[10px] uppercase text-muted-foreground font-semibold">From your library</div>
+                                      {savedMusic.map(m => (
+                                        <SelectItem key={m.id} value={m.id}>🎵 {m.label}</SelectItem>
+                                      ))}
+                                    </>
+                                  )}
+                                  <div className="px-2 py-1 text-[10px] uppercase text-muted-foreground font-semibold">Generate new (uses credits)</div>
                                   {MUSIC_PRESETS.map(p => (
-                                    <SelectItem key={p.label} value={p.label}>{p.label}</SelectItem>
+                                    <SelectItem key={p.label} value={`__preset__${p.label}`}>✨ {p.label}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -667,14 +915,21 @@ const AnimateStatics = () => {
 
                       {bulkJobs.length > 0 && (
                         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
                             <p className="text-sm font-medium flex items-center gap-2">
                               <Layers className="w-4 h-4 text-primary" />
                               Bulk Progress ({bulkJobs.filter(j => j.status === 'done').length}/{bulkJobs.length} done)
                             </p>
-                            {!bulkRunning && (
-                              <Button size="sm" variant="ghost" onClick={() => { setBulkJobs([]); setBulkSelected(new Set()); }}>Clear</Button>
-                            )}
+                            <div className="flex gap-1.5">
+                              {!bulkRunning && bulkJobs.some(j => j.status === 'failed') && (
+                                <Button size="sm" variant="default" onClick={retryAllFailed} className="gap-1.5 h-7">
+                                  <RefreshCw className="w-3 h-3" /> Retry All Failed ({bulkJobs.filter(j => j.status === 'failed').length})
+                                </Button>
+                              )}
+                              {!bulkRunning && (
+                                <Button size="sm" variant="ghost" onClick={() => { setBulkJobs([]); setBulkSelected(new Set()); }}>Clear</Button>
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-2 max-h-64 overflow-y-auto">
                             {bulkJobs.map((job, i) => (
@@ -688,8 +943,17 @@ const AnimateStatics = () => {
                                     {(job.status === 'analyzing' || job.status === 'generating' || job.status === 'music') && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                                   </div>
                                   <Progress value={job.progress} className="h-1.5" />
-                                  {job.error && <p className="text-[10px] text-destructive mt-1 truncate">{job.error}</p>}
+                                  {job.error && (
+                                    <p className="text-[10px] mt-1 truncate text-destructive">
+                                      {job.creditError ? '💳 Insufficient WaveSpeed credits — top up then retry' : job.error}
+                                    </p>
+                                  )}
                                 </div>
+                                {job.status === 'failed' && !bulkRunning && (
+                                  <Button size="sm" variant="outline" className="h-7 px-2 gap-1" onClick={() => retryBulkJob(job.imageUrl)}>
+                                    <RefreshCw className="w-3 h-3" /> Retry
+                                  </Button>
+                                )}
                                 {job.videoUrl && (
                                   <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => handleDownload(job.videoUrl)}>
                                     <Download className="w-3.5 h-3.5" />
