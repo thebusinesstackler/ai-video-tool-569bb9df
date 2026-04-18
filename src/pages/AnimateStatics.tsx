@@ -562,7 +562,7 @@ const AnimateStatics = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Select an Image</CardTitle>
-                  <CardDescription>Upload a new image or pick one from your gallery</CardDescription>
+                  <CardDescription>Upload, pick one, or bulk-animate multiple gallery images at once</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Tabs defaultValue="upload">
@@ -573,31 +573,142 @@ const AnimateStatics = () => {
                     <TabsContent value="upload" className="mt-4">
                       <ImageDropZone onFilesSelected={(files) => { if (files[0]) handleImageUpload(files[0]); }} />
                     </TabsContent>
-                    <TabsContent value="gallery" className="mt-4">
+                    <TabsContent value="gallery" className="mt-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant={bulkMode ? 'default' : 'outline'}
+                            onClick={() => { setBulkMode(!bulkMode); setBulkSelected(new Set()); setSelectedImage(null); }}
+                            className="gap-1.5"
+                            disabled={bulkRunning}
+                          >
+                            <Layers className="w-3.5 h-3.5" /> {bulkMode ? 'Bulk Mode On' : 'Enable Bulk Mode'}
+                          </Button>
+                          {bulkMode && (
+                            <>
+                              <Button size="sm" variant="ghost" onClick={() => setBulkSelected(new Set(galleryImages.map(i => i.image_url)))} disabled={bulkRunning}>
+                                Select All
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setBulkSelected(new Set())} disabled={bulkRunning}>
+                                Clear
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {bulkMode && (
+                          <Badge variant="secondary">{bulkSelected.size} selected</Badge>
+                        )}
+                      </div>
+
                       {galleryLoading ? (
                         <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
                       ) : galleryImages.length === 0 ? (
                         <p className="text-center text-muted-foreground py-8">No images in your gallery yet. Upload one above.</p>
                       ) : (
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-72 overflow-y-auto">
-                          {galleryImages.map((img) => (
-                            <button
-                              key={img.id}
-                              onClick={() => handleImageSelect(img.image_url)}
-                              className={cn(
-                                "rounded-lg overflow-hidden border-2 transition-all aspect-square",
-                                selectedImage === img.image_url ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-border"
-                              )}
-                            >
-                              <img src={img.image_url} alt="" className="w-full h-full object-cover" />
-                            </button>
-                          ))}
+                          {galleryImages.map((img) => {
+                            const isBulkSelected = bulkSelected.has(img.image_url);
+                            const isSingleSelected = selectedImage === img.image_url;
+                            return (
+                              <button
+                                key={img.id}
+                                onClick={() => bulkMode ? toggleBulkSelect(img.image_url) : handleImageSelect(img.image_url)}
+                                disabled={bulkRunning}
+                                className={cn(
+                                  "relative rounded-lg overflow-hidden border-2 transition-all aspect-square",
+                                  bulkMode
+                                    ? (isBulkSelected ? "border-primary ring-2 ring-primary/40" : "border-transparent hover:border-border")
+                                    : (isSingleSelected ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-border")
+                                )}
+                              >
+                                <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                                {bulkMode && (
+                                  <div className={cn(
+                                    "absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                                    isBulkSelected ? "bg-primary border-primary" : "bg-background/70 border-background/90"
+                                  )}>
+                                    {isBulkSelected && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {bulkMode && bulkSelected.size > 0 && !bulkRunning && bulkJobs.length === 0 && (
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-primary" />
+                            <p className="text-sm font-medium">Bulk Animate ({bulkSelected.size} images)</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Each image will be analyzed by AI Director, animated with the best cinematic prompt, and paired with music. Runs sequentially (~2-4 min per image).
+                          </p>
+                          <div className="flex items-end gap-2 flex-wrap">
+                            <div className="flex-1 min-w-[180px]">
+                              <label className="text-xs font-medium text-muted-foreground mb-1 block">Music vibe (applied to all)</label>
+                              <Select value={bulkMusicPreset} onValueChange={setBulkMusicPreset}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {MUSIC_PRESETS.map(p => (
+                                    <SelectItem key={p.label} value={p.label}>{p.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button onClick={startBulkGeneration} className="gap-2">
+                              <Sparkles className="w-4 h-4" /> Start Bulk Generate
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {bulkJobs.length > 0 && (
+                        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium flex items-center gap-2">
+                              <Layers className="w-4 h-4 text-primary" />
+                              Bulk Progress ({bulkJobs.filter(j => j.status === 'done').length}/{bulkJobs.length} done)
+                            </p>
+                            {!bulkRunning && (
+                              <Button size="sm" variant="ghost" onClick={() => { setBulkJobs([]); setBulkSelected(new Set()); }}>Clear</Button>
+                            )}
+                          </div>
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {bulkJobs.map((job, i) => (
+                              <div key={i} className="flex items-center gap-3 p-2 rounded bg-background border border-border">
+                                <img src={job.imageUrl} alt="" className="w-10 h-10 object-cover rounded flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <span className="text-xs font-medium capitalize">{job.status}</span>
+                                    {job.status === 'done' && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                                    {job.status === 'failed' && <XCircle className="w-4 h-4 text-destructive" />}
+                                    {(job.status === 'analyzing' || job.status === 'generating' || job.status === 'music') && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                                  </div>
+                                  <Progress value={job.progress} className="h-1.5" />
+                                  {job.error && <p className="text-[10px] text-destructive mt-1 truncate">{job.error}</p>}
+                                </div>
+                                {job.videoUrl && (
+                                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => handleDownload(job.videoUrl)}>
+                                    <Download className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {!bulkRunning && bulkJobs.some(j => j.status === 'done') && (
+                            <Button size="sm" variant="outline" onClick={() => setView('history')} className="gap-1.5 w-full">
+                              <History className="w-3.5 h-3.5" /> View All in History
+                            </Button>
+                          )}
                         </div>
                       )}
                     </TabsContent>
                   </Tabs>
 
-                  {selectedImage && (
+                  {!bulkMode && selectedImage && (
                     <div className="flex flex-col items-center gap-4 pt-4 border-t border-border">
                       <img src={selectedImage} alt="Selected" className="max-h-64 rounded-lg border border-border object-contain" />
                       <Button onClick={goToAnalysis} className="gap-2">
@@ -608,6 +719,7 @@ const AnimateStatics = () => {
                 </CardContent>
               </Card>
             )}
+
 
             {step === 1 && (
               <Card>
