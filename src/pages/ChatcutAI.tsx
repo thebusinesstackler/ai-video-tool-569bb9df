@@ -2159,6 +2159,28 @@ const ChatcutAI = () => {
   }, [draggingOverlayId, overlays, toast]);
   const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
   const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
+
+  // Detect timeline overlaps: any clip whose [start, end) intersects another on the same track.
+  // Returns a Set of overlapping ids per track so we can paint a red badge in the UI.
+  const overlapIdsByTrack = useMemo(() => {
+    const detect = <T extends { id: string; start: number; duration: number }>(items: T[]) => {
+      const ids = new Set<string>();
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          const a = items[i]; const b = items[j];
+          if (a.start < b.start + b.duration && b.start < a.start + a.duration) {
+            ids.add(a.id); ids.add(b.id);
+          }
+        }
+      }
+      return ids;
+    };
+    return {
+      graphics: detect(overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text')),
+      overlay: detect(overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text')),
+      broll: detect(bRollClips),
+    };
+  }, [overlays, bRollClips]);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
   const [aiPanelVisible, setAiPanelVisible] = useState(true);
 
