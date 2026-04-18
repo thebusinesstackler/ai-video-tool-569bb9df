@@ -2024,6 +2024,7 @@ const ChatcutAI = () => {
               duration: +(o.duration || 0).toFixed(2),
               fullCoverage: !!(o as any).fullCoverage || (o.scale || 0) >= 5,
               renderMode: (o as any).renderMode || 'dom',
+              hidden: !!o.hidden,
             })),
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
