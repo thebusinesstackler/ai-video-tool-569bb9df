@@ -2920,6 +2920,7 @@ const ChatcutAI = () => {
                       {/* All overlays — V2/V3 unified renderer with SmartOverlay (DOM) or AI image */}
                       {(trackVisibility.v2 || trackVisibility.v3) && overlays
                         .filter(o => {
+                          if (o.hidden) return false;
                           if (currentTime < o.start || currentTime >= o.start + o.duration) return false;
                           const isV3 = o.type === 'motion_graphic' || o.type === 'animated_text';
                           return isV3 ? trackVisibility.v3 : trackVisibility.v2;
