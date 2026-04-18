@@ -2128,22 +2128,35 @@ const ChatcutAI = () => {
 
   useEffect(() => {
     if (!draggingOverlayId) return;
+    let lastPos = { x: 50, y: 30 };
     const handleMouseMove = (e: MouseEvent) => {
       const wrapper = videoWrapperRef.current;
       if (!wrapper) return;
       const rect = wrapper.getBoundingClientRect();
       const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
       const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      lastPos = { x, y };
       setOverlays(prev => prev.map(o => o.id === draggingOverlayId ? { ...o, position: { x, y } } : o));
     };
-    const handleMouseUp = () => setDraggingOverlayId(null);
+    const handleMouseUp = () => {
+      const ov = overlays.find(o => o.id === draggingOverlayId);
+      // Friendly placement label so the user (and Marco) can see WHERE it landed
+      const horiz = lastPos.x < 33 ? 'Left' : lastPos.x > 66 ? 'Right' : 'Center';
+      const vert = lastPos.y < 33 ? 'Top' : lastPos.y > 66 ? 'Bottom' : 'Middle';
+      const placement = vert === 'Middle' && horiz === 'Center' ? 'Center' : `${vert}-${horiz}`;
+      toast({
+        title: `Placed at ${placement}`,
+        description: `${ov?.text || 'Overlay'} → ${lastPos.x.toFixed(0)}% × ${lastPos.y.toFixed(0)}% on the video`,
+      });
+      setDraggingOverlayId(null);
+    };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingOverlayId]);
+  }, [draggingOverlayId, overlays, toast]);
   const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
   const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
