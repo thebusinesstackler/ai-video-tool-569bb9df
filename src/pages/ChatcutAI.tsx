@@ -2116,6 +2116,107 @@ const ChatcutAI = () => {
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
+            // ── PLAYBACK INTEL ──────────────────────────────────────────────
+            playback: {
+              durationSec: +duration.toFixed(2),
+              playheadSec: +currentTime.toFixed(2),
+              progressPct: duration > 0 ? +((currentTime / duration) * 100).toFixed(1) : 0,
+              aspectRatio: reelPreview ? '9:16' : (videoAspect ? (videoAspect > 1.4 ? '16:9' : videoAspect < 0.7 ? '9:16' : '1:1') : 'unknown'),
+              acceptedCuts: cuts.filter(c => c.accepted).map(c => ({ start: +c.start.toFixed(2), end: +c.end.toFixed(2) })),
+              skippedSec: +cuts.filter(c => c.accepted).reduce((s, c) => s + (c.end - c.start), 0).toFixed(2),
+            },
+            // ── AUDIO INTEL ─────────────────────────────────────────────────
+            audio: (() => {
+              const txt = (typeof transcript?.text === 'string' ? transcript.text : transcriptSegments.map((s: any) => s.text || '').join(' ')).trim();
+              const wordCount = txt ? txt.split(/\s+/).length : 0;
+              const avgWPM = duration > 0 && wordCount > 0 ? Math.round((wordCount / duration) * 60) : null;
+              const fillerRegex = /\b(um|uh|like|you know|basically|actually|literally|sort of|kind of)\b/gi;
+              const fillerCount = txt ? (txt.match(fillerRegex)?.length || 0) : 0;
+              return {
+                hasNarration: wordCount > 0,
+                wordCount,
+                avgWPM,
+                wpmTarget: '120-180 (sweet spot 150)',
+                fillerCount,
+                musicTracks: musicTracks.map(t => ({
+                  id: t.id, name: t.name, mood: t.mood, volume: t.volume,
+                  startAt: +t.startAt.toFixed(2), duration: +t.duration.toFixed(2),
+                  hasAudio: !!t.audioUrl,
+                })),
+                trackMutedA1: !!trackMuted.a1,
+              };
+            })(),
+            // ── BRAND INTEL ─────────────────────────────────────────────────
+            brand: {
+              vocabulary: brandVocabulary,
+              colors: {
+                primary: brandSettings.primaryColor,
+                text: brandSettings.textColor,
+              },
+              font: brandSettings.font,
+              hasLogo: !!brandSettings.logoUrl,
+              websiteUrl: brandSettings.websiteUrl || null,
+              vertical: (() => {
+                const names = brandVocabulary.join(' ').toLowerCase();
+                if (names.includes('lifecykel') || names.includes('mushroom')) return 'wellness';
+                if (names.includes('theranovex') || names.includes('therapy') || names.includes('clinic')) return 'healthcare';
+                return 'general';
+              })(),
+            },
+            // ── CAPTIONS STATE ──────────────────────────────────────────────
+            captions: {
+              enabled: captionSettings.enabled,
+              style: captionSettings.style,
+              fontFamily: captionSettings.fontFamily,
+              fontSize: captionSettings.fontSize,
+              fontColor: captionSettings.fontColor,
+              background: captionSettings.background,
+            },
+            // ── SAFE ZONES (avoid placing overlays here) ───────────────────
+            // Coordinates are 0–100% (x, y, width, height) of the preview frame.
+            safeZones: [
+              // Caption strip — only blocked when captions are enabled
+              ...(captionSettings.enabled ? [{ name: 'caption_strip', x: 10, y: 78, width: 80, height: 18, reason: 'Karaoke captions render here' }] : []),
+              // Assumed face zone for talking-head footage (center, slightly upper)
+              { name: 'face_assumed', x: 30, y: 20, width: 40, height: 50, reason: 'Likely speaker face — keep text/graphics off it' },
+            ],
+            // ── KPI / STRATEGIC AUDIT ──────────────────────────────────────
+            kpis: (() => {
+              const hookOverlays = overlays.filter(o => (o.start || 0) < 2);
+              const ctaWindowStart = duration * 0.85;
+              const ctaPresent = overlays.some(o => {
+                const txt = (o.text || '').toLowerCase();
+                const isCta = txt.includes('shop') || txt.includes('buy') || txt.includes('learn more') || txt.includes('try') || (o as any).treatment === 'cta_lockup' || (o as any).intent === 'cta';
+                return isCta && (o.start || 0) >= ctaWindowStart;
+              });
+              const totalEdits = overlays.length + bRollClips.length + cuts.filter(c => c.accepted).length;
+              const editsPer10s = duration > 0 ? +((totalEdits / duration) * 10).toFixed(2) : 0;
+              const hookStrength = (() => {
+                let s = 0;
+                if (hookOverlays.length > 0) s += 4;
+                if (thumbnail) s += 3;
+                if (bRollClips.some(b => b.start < 2)) s += 2;
+                if (hookOverlays.some(o => (o.text || '').length >= 12)) s += 1;
+                return s; // 0–10
+              })();
+              return {
+                hookStrength,
+                hookStrengthScale: '0-10 (target ≥7)',
+                hookOverlayCount: hookOverlays.length,
+                hookHasThumbnail: !!thumbnail,
+                ctaPresent,
+                ctaWindowStartSec: +ctaWindowStart.toFixed(2),
+                editsPer10s,
+                editsPer10sTarget: '2-5 (TikTok=3-5, YouTube=1-3)',
+                totalOverlays: overlays.length,
+                totalBRoll: bRollClips.length,
+              };
+            })(),
+            // ── RECENT MARCO ACTION (1 step undo snapshot) ─────────────────
+            recentAction: aiUndoSnapshot ? { label: aiUndoSnapshot.label } : null,
+            // ── USER INTENT SIGNALS ────────────────────────────────────────
+            creatorMode,
+            targetPlatform: reelPreview ? 'reels-shorts-tiktok' : 'youtube-landscape',
           },
         }),
       });
