@@ -245,9 +245,28 @@ const AnimateStatics = () => {
     }
   }, [user, toast]);
 
-  useEffect(() => {
-    if (view === 'history') loadHistory();
-  }, [view, loadHistory]);
+  // Load history on mount so the gallery picker can flag previously-animated/failed images
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  // Map source_image_url -> latest history entry (for status badges in the gallery picker)
+  const historyByImage = React.useMemo(() => {
+    const map = new Map<string, HistoryItem>();
+    // history is already ordered desc by created_at, so first occurrence wins (latest)
+    for (const h of history) {
+      if (!h.source_image_url) continue;
+      if (!map.has(h.source_image_url)) map.set(h.source_image_url, h);
+    }
+    return map;
+  }, [history]);
+
+  const getImageStatus = (url: string): 'animated' | 'failed' | 'pending' | null => {
+    const h = historyByImage.get(url);
+    if (!h) return null;
+    if (h.animation_url && h.status !== 'failed') return 'animated';
+    if (h.status === 'failed') return 'failed';
+    if (h.status === 'processing' || h.status === 'pending' || h.status === 'draft') return 'pending';
+    return h.animation_url ? 'animated' : 'failed';
+  };
 
   const handleImageSelect = (url: string) => {
     setSelectedImage(url);
@@ -839,30 +858,74 @@ const AnimateStatics = () => {
                           {galleryImages.map((img) => {
                             const isBulkSelected = bulkSelected.has(img.image_url);
                             const isSingleSelected = selectedImage === img.image_url;
+                            const status = getImageStatus(img.image_url);
+                            const histItem = historyByImage.get(img.image_url);
                             return (
                               <button
                                 key={img.id}
                                 onClick={() => bulkMode ? toggleBulkSelect(img.image_url) : handleImageSelect(img.image_url)}
                                 disabled={bulkRunning}
+                                title={
+                                  status === 'animated' ? 'Already animated — click to re-animate, or use the ▶ badge to view the video' :
+                                  status === 'failed' ? 'Previous animation failed — select to retry' :
+                                  status === 'pending' ? 'Animation in progress' : undefined
+                                }
                                 className={cn(
                                   "relative rounded-lg overflow-hidden border-2 transition-all aspect-square",
                                   bulkMode
                                     ? (isBulkSelected ? "border-primary ring-2 ring-primary/40" : "border-transparent hover:border-border")
-                                    : (isSingleSelected ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-border")
+                                    : (isSingleSelected ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-border"),
+                                  status === 'animated' && !isBulkSelected && !isSingleSelected && "border-emerald-500/60",
+                                  status === 'failed' && !isBulkSelected && !isSingleSelected && "border-destructive/70"
                                 )}
                               >
                                 <img src={img.image_url} alt="" className="w-full h-full object-cover" />
                                 {bulkMode && (
                                   <div className={cn(
-                                    "absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                                    "absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors z-10",
                                     isBulkSelected ? "bg-primary border-primary" : "bg-background/70 border-background/90"
                                   )}>
                                     {isBulkSelected && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
                                   </div>
                                 )}
+
+                                {/* Status overlay */}
+                                {status === 'animated' && histItem?.animation_url && (
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => { e.stopPropagation(); window.open(histItem.animation_url!, '_blank'); }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); window.open(histItem.animation_url!, '_blank'); } }}
+                                    className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white px-1.5 py-0.5 text-[10px] font-semibold shadow hover:bg-emerald-600"
+                                  >
+                                    <Play className="w-2.5 h-2.5 fill-current" /> View
+                                  </span>
+                                )}
+                                {status === 'failed' && (
+                                  <span className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-destructive text-destructive-foreground px-1.5 py-0.5 text-[10px] font-semibold shadow">
+                                    <RotateCcw className="w-2.5 h-2.5" /> Retry
+                                  </span>
+                                )}
+                                {status === 'pending' && (
+                                  <span className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-amber-500 text-white px-1.5 py-0.5 text-[10px] font-semibold shadow">
+                                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                  </span>
+                                )}
+                                {status && (
+                                  <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                                )}
                               </button>
                             );
                           })}
+                        </div>
+                      )}
+
+                      {/* Legend */}
+                      {!galleryLoading && galleryImages.length > 0 && historyByImage.size > 0 && (
+                        <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-1">
+                          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Already animated</span>
+                          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-destructive" /> Failed (retry)</span>
+                          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> In progress</span>
                         </div>
                       )}
 
