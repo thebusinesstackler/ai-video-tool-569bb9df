@@ -105,12 +105,12 @@ export const TimelineOverlayTrack: React.FC<TimelineOverlayTrackProps> = ({
       className="flex items-stretch border-b border-border/50 group hover:bg-muted/20"
       style={{ height: `${rowH}px` }}
     >
-      <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title={`${label} — ${kind === 'motion' ? 'animated VEO graphics' : kind === 'image' ? 'static image graphics' : 'text overlays & captions'}`}>
-        <span className={cn('text-[10px] font-semibold truncate', c.label)}>{label}</span>
+      <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title={`${label} — ${kind === 'motion' ? 'animated VEO graphics' : kind === 'image' ? 'static image graphics' : 'text overlays & captions'}`}>
+        <span className={cn('text-[11px] font-semibold whitespace-nowrap', c.label)}>{label}</span>
         <Button
           variant="ghost"
           size="icon"
-          className="h-4 w-4 opacity-60 hover:opacity-100"
+          className="h-4 w-4 opacity-60 hover:opacity-100 flex-shrink-0"
           onClick={onToggleTrack}
           title={trackVisible
             ? `Hide ${label.toLowerCase()} from video preview (track stays on timeline)`
@@ -119,7 +119,7 @@ export const TimelineOverlayTrack: React.FC<TimelineOverlayTrackProps> = ({
           {trackVisible ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5 text-muted-foreground" />}
         </Button>
         {kind === 'overlay' && captionsEnabled && (
-          <Badge className={cn('text-[7px] px-1 py-0 h-3', c.badge)}>CC</Badge>
+          <Badge className={cn('text-[7px] px-1 py-0 h-3 flex-shrink-0', c.badge)}>CC</Badge>
         )}
       </div>
       <div className="flex-1 relative my-1 mx-1" data-overlay-track data-overlay-kind={kind}>
