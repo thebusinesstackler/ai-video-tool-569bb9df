@@ -1840,6 +1840,7 @@ const ChatcutAI = () => {
         case 'update_broll': {
           const id = act.id || act.brollId;
           if (!id) break;
+          let updatedName = '';
           setBRollClips(prev => prev.map(b => {
             if (b.id !== id) return b;
             const next = { ...b };
@@ -1847,9 +1848,14 @@ const ChatcutAI = () => {
             if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
             if (typeof act.audioEnabled === 'boolean') next.audioEnabled = act.audioEnabled;
             if (typeof act.name === 'string') next.name = act.name;
+            updatedName = next.name;
             return next;
           }));
-          toast({ title: 'B-Roll updated' });
+          const bits: string[] = [];
+          if (typeof act.start === 'number') bits.push(`→ ${(+act.start).toFixed(1)}s`);
+          if (typeof act.duration === 'number') bits.push(`${(+act.duration).toFixed(1)}s long`);
+          if (typeof act.audioEnabled === 'boolean') bits.push(act.audioEnabled ? 'audio on' : 'muted');
+          toast({ title: `Marco moved B-Roll${updatedName ? ` "${updatedName}"` : ''}`, description: bits.join(' · ') || 'Updated' });
           break;
         }
         case 'remove_overlay': {
@@ -1881,19 +1887,61 @@ const ChatcutAI = () => {
           }
           break;
         }
-        case 'update_overlay': {
-          const id = act.id || act.overlayId;
+        case 'update_overlay':
+        case 'update_motion_graphic': {
+          const id = act.id || act.overlayId || act.graphicId;
           if (!id) break;
+          // Map semantic placement → on-video position (x/y in 0–100%) so Marco can say
+          // "lower_third" and have it actually move the overlay on the preview.
+          const placementToPos: Record<string, { x: number; y: number }> = {
+            top_banner: { x: 50, y: 12 },
+            lower_third: { x: 50, y: 82 },
+            left_panel: { x: 22, y: 50 },
+            right_panel: { x: 78, y: 50 },
+            center_takeover: { x: 50, y: 50 },
+            behind_subject: { x: 50, y: 50 },
+            floating_note: { x: 78, y: 30 },
+          };
+          let updatedLabel = '';
+          let appliedPlacement = '';
           setOverlays(prev => prev.map(o => {
             if (o.id !== id) return o;
-            const next = { ...o };
+            const next: any = { ...o };
             if (typeof act.start === 'number') next.start = Math.max(0, act.start);
             if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
             if (typeof act.text === 'string') next.text = act.text;
+            if (typeof act.subtext === 'string') next.subtext = act.subtext;
+            if (Array.isArray(act.items)) next.items = act.items;
             if (typeof act.hidden === 'boolean') next.hidden = act.hidden;
+            if (typeof act.scale === 'number') next.scale = Math.max(0.5, Math.min(5, act.scale));
+            if (typeof act.treatment === 'string') next.treatment = act.treatment;
+            if (typeof act.placement === 'string') {
+              next.placement = act.placement;
+              appliedPlacement = act.placement;
+              const mapped = placementToPos[act.placement];
+              // Only auto-set position from placement if user didn't also pass an explicit position
+              if (mapped && !act.position) next.position = mapped;
+            }
+            if (act.position && typeof act.position.x === 'number' && typeof act.position.y === 'number') {
+              next.position = {
+                x: Math.max(0, Math.min(100, act.position.x)),
+                y: Math.max(0, Math.min(100, act.position.y)),
+              };
+            }
+            updatedLabel = next.text || 'Graphic';
             return next;
           }));
-          toast({ title: 'Graphic updated' });
+          const bits: string[] = [];
+          if (appliedPlacement) bits.push(`→ ${appliedPlacement.replace(/_/g, ' ')}`);
+          if (act.position) bits.push(`${Math.round(act.position.x)}% × ${Math.round(act.position.y)}%`);
+          if (typeof act.start === 'number') bits.push(`@ ${(+act.start).toFixed(1)}s`);
+          if (typeof act.duration === 'number') bits.push(`${(+act.duration).toFixed(1)}s`);
+          if (typeof act.scale === 'number') bits.push(`scale ${act.scale}`);
+          if (typeof act.treatment === 'string') bits.push(act.treatment);
+          toast({
+            title: `Marco moved "${updatedLabel}"`,
+            description: bits.join(' · ') || 'Updated',
+          });
           break;
         }
       }
