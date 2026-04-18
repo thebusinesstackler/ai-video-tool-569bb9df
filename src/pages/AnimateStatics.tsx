@@ -80,6 +80,20 @@ const AnimateStatics = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Bulk state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkMusicPreset, setBulkMusicPreset] = useState<string>('Cinematic');
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkJobs, setBulkJobs] = useState<Array<{
+    imageUrl: string;
+    status: 'pending' | 'analyzing' | 'generating' | 'music' | 'done' | 'failed';
+    progress: number;
+    videoUrl?: string;
+    musicUrl?: string;
+    error?: string;
+  }>>([]);
+
   const loadHistory = useCallback(async () => {
     if (!user) return;
     setHistoryLoading(true);
